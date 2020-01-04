@@ -33,7 +33,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/nabbar/golib/njs-certif"
 	"github.com/nabbar/golib/njs-logger"
-	"gopkg.in/ldap.v2"
+	"gopkg.in/ldap.v3"
 )
 
 //HelperLDAP struct use to manage connection to server and request it

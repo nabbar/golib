@@ -1,11 +1,14 @@
-GoDoc | Travis | Snyk
-:-: | :-: | :-: 
-[![Documentation Status](https://godoc.org/github.com/nabbar/gopkg-njs-logger?status.png "Documentation Status")](https://godoc.org/github.com/nabbar/gopkg-njs-logger) | [![Build Status](https://travis-ci.com/nabbar/gopkg-njs-logger.svg?branch=master)](https://travis-ci.com/nabbar/gopkg-njs-logger) | [![Known Vulnerabilities](https://snyk.io/test/github/nabbar/gopkg-njs-logger/badge.svg?style=plastic "Known Vulnerabilities")](https://snyk.io/test/github/nabbar/gopkg-njs-logger)
+# golib : custom lib for go
 
-# gopkg-njs-logger
+## using in source code 
+first get the source dependancies
+```shell script
+go get -u github.com/nabbar/golib/...
+```
 
-This lib is a more an helper than a lib.
+second, import the needed lib in your code
+```go
+import "github.com/nabbar/golib/njs-version"
+```
 
-This lib is use to simplify integration and common use of the lib logrus 
-
-... in construction
+more information in each lib
