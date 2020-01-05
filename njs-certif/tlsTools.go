@@ -31,10 +31,11 @@ import (
 	"os"
 	"strings"
 
-	njs_logger "github.com/nabbar/golib/njs-logger"
+	logger "github.com/nabbar/golib/njs-logger"
 )
 
 var (
+
 	rootCA                = x509.NewCertPool()
 	certificates          = make([]tls.Certificate, 0)
 	caCertificates        = x509.NewCertPool()
@@ -66,12 +67,12 @@ func AddRootCAFile(rootFile string) bool {
 		return false
 	}
 
-	if _, e := os.Stat(rootFile); njs_logger.ErrorLevel.LogErrorCtxf(njs_logger.InfoLevel, "checking certificates file '%s'", e, rootFile) {
+	if _, e := os.Stat(rootFile); logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "checking certificates file '%s'", e, rootFile) {
 		return false
 	}
 
 	c, e := ioutil.ReadFile(rootFile) // #nosec
-	if !njs_logger.ErrorLevel.LogErrorCtxf(njs_logger.InfoLevel, "loading certificates file '%s'", e, rootFile) {
+	if !logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "loading certificates file '%s'", e, rootFile) {
 		return rootCA.AppendCertsFromPEM(c)
 	}
 
@@ -91,12 +92,12 @@ func AddCACertificateFile(caFile string) bool {
 		return false
 	}
 
-	if _, e := os.Stat(caFile); njs_logger.ErrorLevel.LogErrorCtxf(njs_logger.InfoLevel, "checking certificates file '%s'", e, caFile) {
+	if _, e := os.Stat(caFile); logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "checking certificates file '%s'", e, caFile) {
 		return false
 	}
 
 	c, e := ioutil.ReadFile(caFile) // #nosec
-	if !njs_logger.ErrorLevel.LogErrorCtxf(njs_logger.InfoLevel, "loading certificates file '%s'", e, caFile) {
+	if !logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "loading certificates file '%s'", e, caFile) {
 		return caCertificates.AppendCertsFromPEM(c)
 	}
 
@@ -113,7 +114,7 @@ func AddCertificateContents(keyContents, certContents string) bool {
 
 	if keyContents != "" && keyContents != "\n" && certContents != "" && certContents != "\n" {
 		c, err := tls.X509KeyPair([]byte(certContents), []byte(keyContents))
-		if !njs_logger.ErrorLevel.LogErrorCtx(njs_logger.InfoLevel, "loading certificates contents", err) {
+		if !logger.ErrorLevel.LogErrorCtx(logger.InfoLevel, "loading certificates contents", err) {
 			certificates = append(certificates, c)
 			return true
 		}
@@ -127,15 +128,15 @@ func AddCertificateFile(keyFile, certFile string) bool {
 		return false
 	}
 
-	if _, e := os.Stat(keyFile); njs_logger.ErrorLevel.LogErrorCtxf(njs_logger.InfoLevel, "loading certificates file '%s'", e, keyFile) {
+	if _, e := os.Stat(keyFile); logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "loading certificates file '%s'", e, keyFile) {
 		return false
 	}
 
-	if _, e := os.Stat(certFile); njs_logger.ErrorLevel.LogErrorCtxf(njs_logger.InfoLevel, "loading certificates file '%s'", e, certFile) {
+	if _, e := os.Stat(certFile); logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "loading certificates file '%s'", e, certFile) {
 		return false
 	}
 
-	if c, e := tls.LoadX509KeyPair(certFile, keyFile); !njs_logger.ErrorLevel.LogErrorCtx(njs_logger.InfoLevel, "loading X509 Pair file", e) {
+	if c, e := tls.LoadX509KeyPair(certFile, keyFile); !logger.ErrorLevel.LogErrorCtx(logger.InfoLevel, "loading X509 Pair file", e) {
 		certificates = append(certificates, c)
 		return true
 	}
