@@ -305,18 +305,28 @@ func (level Level) logDetails(message string, data interface{}, err error, field
 		return
 	}
 
-	frame := getFrame()
-	tags := map[string]interface{}{
-		tagStack:  getGID(),
-		tagTime:   time.Now().Format(time.RFC3339Nano),
-		tagLevel:  level.String(),
-		tagCaller: frame.Function,
-		tagFile:   frame.File,
-		tagLine:   frame.Line,
-		tagMsg:    message,
-		tagErr:    err,
-		tagData:   data,
+	var tags map[string]interface{}
+
+	if enableGID {
+		tags[tagStack] = getGID()
 	}
+
+	if timestamp {
+		tags[tagTime] = time.Now().Format(time.RFC3339Nano)
+	}
+
+	tags[tagTime] = level.String()
+
+	if filetrace && level != InfoLevel {
+		frame := getFrame()
+		tags[tagCaller] = frame.Function
+		tags[tagFile] = frame.File
+		tags[tagLine] = frame.Line
+	}
+
+	tags[tagMsg] = message
+	tags[tagErr] = err
+	tags[tagData] = data
 
 	var (
 		ent = logrus.NewEntry(logrus.StandardLogger())
@@ -329,43 +339,40 @@ func (level Level) logDetails(message string, data interface{}, err error, field
 
 	switch curFormat {
 	case TextFormat:
-		if tags[tagErr] != nil {
-			tags[tagErr] = fmt.Sprintf(" -- err : %v", err)
+		if _, ok := tags[tagStack]; ok {
+			msg += fmt.Sprintf("[%d] ", tags[tagStack])
 		}
+
+		if _, ok := tags[tagCaller]; ok {
+			msg += fmt.Sprintf("[%s] ", tags[tagCaller])
+		}
+
+		var line string
+		if _, ok := tags[tagLine]; ok {
+			line = fmt.Sprintf("(%d) ", tags[tagLine])
+		}
+
+		if _, ok := tags[tagFile]; ok || len(line) > 0 {
+			msg += fmt.Sprintf("[%s%s] ", line, tags[tagFile])
+		}
+
+		msg += fmt.Sprintf("%s", tags[tagMsg])
+
+		if tags[tagErr] != nil {
+			msg += fmt.Sprintf(" -- err : %v", err)
+		}
+
 		if tags[tagData] != nil {
 			if str, err := json.MarshalIndent(data, "", "  "); err == nil {
-				tags[tagData] = fmt.Sprintf(" -- data : \n%s", string(str))
+				msg += fmt.Sprintf(" -- data : \n%s", string(str))
 			} else {
-				tags[tagData] = fmt.Sprintf(" -- data : %v", err)
+				msg += fmt.Sprintf(" -- data : %v", err)
 			}
 		}
 
-		if modeApi {
-			msg = fmt.Sprintf("[%d] [%s] [(%d) %s] %s%s%s", tags[tagStack], tags[tagCaller], tags[tagLine], tags[tagFile], tags[tagMsg], tags[tagErr], tags[tagData])
-		} else if level == DebugLevel {
-			msg = fmt.Sprintf("[%s] [(%d) %s] %s%s%s", tags[tagCaller], tags[tagLine], tags[tagFile], tags[tagMsg], tags[tagErr], tags[tagData])
-		} else {
-			msg = fmt.Sprintf("%s%s%s", tags[tagMsg], tags[tagErr], tags[tagData])
-		}
-
 	case JsonFormat:
-		if modeApi {
-			ent.WithFields(tags)
-			msg = tags[tagMsg].(string)
-		} else if level == DebugLevel {
-			ent.WithField(tagCaller, tags[tagCaller])
-			ent.WithField(tagLine, tags[tagLine])
-			ent.WithField(tagFile, tags[tagFile])
-			ent.WithField(tagMsg, tags[tagMsg])
-			ent.WithField(tagErr, tags[tagErr])
-			ent.WithField(tagData, tags[tagData])
-			msg = tags[tagMsg].(string)
-		} else {
-			ent.WithField(tagMsg, tags[tagMsg])
-			ent.WithField(tagErr, tags[tagErr])
-			ent.WithField(tagData, tags[tagData])
-			msg = tags[tagMsg].(string)
-		}
+		ent.WithFields(tags)
+		msg = tags[tagMsg].(string)
 	}
 
 	switch level {

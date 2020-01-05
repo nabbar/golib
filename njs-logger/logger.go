@@ -51,8 +51,10 @@ const (
 
 var (
 	currPkgs  = path.Base(reflect.TypeOf(IOWriter{}).PkgPath())
-	modeApi   = true
 	modeColor = true
+	timestamp = true
+	filetrace = false
+	enableGID = false
 )
 
 // GetLogger return a golang log.logger instance linked with this main logger
@@ -62,24 +64,25 @@ var (
 	msgPrefixPattern a pattern prefix to identify or comment all message passed throw this log.logger instance
 	msgPrefixArgs a list of interface to apply on pattern with a fmt function
 */
-func GetLogger(msgPrefixPattern string, msgPrefixArgs ...interface{}) *log.Logger {
-	return log.New(GetIOWriter(ErrorLevel, msgPrefixPattern, msgPrefixArgs...), "", 0)
+func GetLogger(lvl Level, logFlags int, msgPrefixPattern string, msgPrefixArgs ...interface{}) *log.Logger {
+	return log.New(GetIOWriter(lvl, msgPrefixPattern, msgPrefixArgs...), "", logFlags)
 }
 
-// SetModeApi Reconfigure the current logger for an API (webserver) messages format.
-//
-// This mode is more details than the CLI mode. This apply only for next message
-func SetModeApi() {
-	modeApi = true
-	updateFormatter(nilFormat)
+// AddGID Reconfigure the current logger to add or not the thread GID before each message.
+func AddGID(enable bool) {
+	enableGID = enable
 }
 
-// SetModeCli Reconfigure the current logger for an CLI (console) messages format.
+// Timestamp Reconfigure the current logger to add or not the timestamp before each message.
+func Timestamp(enable bool) {
+	timestamp = enable
+}
+
+// FileTrace Reconfigure the current logger to add or not the origin file/line of each message.
 //
-// This mode is less details than the API mode. This apply only for next message
-func SetModeCli() {
-	modeApi = false
-	updateFormatter(nilFormat)
+// This option is apply for all message except info message
+func FileTrace(enable bool) {
+	filetrace = enable
 }
 
 // EnableColor Reconfigure the current logger to use color in messages format.

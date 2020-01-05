@@ -25,10 +25,9 @@ SOFTWARE.
 package njs_logger
 
 import (
-	"strings"
-	"time"
-
 	"github.com/sirupsen/logrus"
+	"io"
+	"strings"
 )
 
 // Format a uint8 type customized with function to manage the result logger format
@@ -46,6 +45,10 @@ var (
 	curFormat = TextFormat
 )
 
+func SetOutput(out io.WriteCloser) {
+	logrus.SetOutput(out)
+}
+
 func updateFormatter(newFormat Format) {
 	if newFormat != nilFormat {
 		curFormat = newFormat
@@ -57,15 +60,12 @@ func updateFormatter(newFormat Format) {
 			ForceColors:            modeColor,
 			DisableColors:          !modeColor,
 			DisableLevelTruncation: !modeColor,
-			FullTimestamp:          true,
-			TimestampFormat:        time.RFC3339Nano,
-			DisableTimestamp:       !modeApi,
+			DisableTimestamp:       true,
 			DisableSorting:         true,
 		})
 	case JsonFormat:
 		logrus.SetFormatter(&logrus.JSONFormatter{
-			TimestampFormat:  time.RFC3339Nano,
-			DisableTimestamp: !modeApi,
+			DisableTimestamp: true,
 		})
 	}
 }
