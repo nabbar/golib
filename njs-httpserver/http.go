@@ -29,6 +29,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -168,7 +169,7 @@ func (srv *modelServer) Listen() {
 
 	srv.srv = &http.Server{
 		Addr:      srv.GetBindable(),
-		ErrorLog:  njs_logger.GetLogger("http server"),
+		ErrorLog:  njs_logger.GetLogger(njs_logger.ErrorLevel, log.LstdFlags | log.LstdFlags | log.Lmicroseconds, "server '%s'", srv.GetBindable()),
 		Handler:   srv.hdl,
 		TLSConfig: srv.ssl,
 	}
