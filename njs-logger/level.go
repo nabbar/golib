@@ -305,7 +305,7 @@ func (level Level) logDetails(message string, data interface{}, err error, field
 		return
 	}
 
-	var tags map[string]interface{}
+	var tags = make(map[string]interface{}, 0)
 
 	if enableGID {
 		tags[tagStack] = getGID()
