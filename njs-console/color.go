@@ -36,6 +36,7 @@ type colorType uint8
 const (
 	ColorPrompt colorType = iota
 	ColorPrint
+	ColorSPrintF
 	ColorFatal
 	ColorError
 	ColorWarn
@@ -49,13 +50,14 @@ var (
 
 func init() {
 	colorList = map[colorType]*color.Color{
-		ColorPrompt: nil,
-		ColorPrint:  nil,
-		ColorFatal:  nil,
-		ColorError:  nil,
-		ColorWarn:   nil,
-		ColorInfo:   nil,
-		ColorDebug:  nil,
+		ColorPrompt:  nil,
+		ColorPrint:   nil,
+		ColorSPrintF: nil,
+		ColorFatal:   nil,
+		ColorError:   nil,
+		ColorWarn:    nil,
+		ColorInfo:    nil,
+		ColorDebug:   nil,
 	}
 }
 
@@ -79,12 +81,30 @@ func (c colorType) print(text string) {
 	}
 }
 
+func (c colorType) sprintf(format string, args ...interface{}) string {
+	return fmt.Sprintf(format, args...)
+}
+
 func (c colorType) printf(format string, args ...interface{}) {
 	c.println(fmt.Sprintf(format, args...))
 }
 
 func (c colorType) printfLn(format string, args ...interface{}) {
 	c.println(fmt.Sprintf(format, args...))
+}
+
+func SPrintf(format string, args ...interface{}) string {
+	return ColorSPrintF.sprintf(format, args...)
+}
+
+func SPrintfCol(col *color.Color, format string, args ...interface{}) string {
+	c := colorList[ColorSPrintF]
+
+	defer func() {
+		colorList[ColorSPrintF] = c
+	}()
+
+	return SPrintf(format, args...)
 }
 
 func Print(format string, args ...interface{}) {
