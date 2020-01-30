@@ -88,11 +88,11 @@ func (c colorType) printfLn(format string, args ...interface{}) {
 }
 
 func Print(format string, args ...interface{}) {
-	ColorPrint.printf(format, args)
+	ColorPrint.printf(format, args...)
 }
 
 func PrintLn(format string, args ...interface{}) {
-	ColorPrint.printfLn(format, args)
+	ColorPrint.printfLn(format, args...)
 }
 
 func Debug(text string) {
