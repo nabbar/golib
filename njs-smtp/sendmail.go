@@ -25,7 +25,10 @@ SOFTWARE.
 package njs_smtp
 
 import (
+	"bytes"
+	"fmt"
 	"net/smtp"
+	"time"
 
 	njs_version "github.com/nabbar/golib/njs-version"
 )
@@ -40,79 +43,92 @@ type sendmail struct {
 	subject    string
 	attachment []Attachment
 
+	messageId string
+	mailer    string
+
+	msgText *bytes.Buffer
+	msgHtml *bytes.Buffer
+	msgRich *bytes.Buffer
+
+	charText string
+	charHtml string
+	charRich string
+
 	testMode bool
-	smtpcli  *smtp.Client
 }
 
-func (s *sendmail) SetTo(mail ...MailAddress) {
-	panic("implement me")
+func (s *sendmail) SetTo(listMail ListMailAddress) {
+	s.to = listMail
 }
 
 func (s *sendmail) AddTo(mail ...MailAddress) {
-	panic("implement me")
+	s.to.Add(mail...)
 }
 
-func (s *sendmail) SetCc(mail ...MailAddress) {
-	panic("implement me")
+func (s *sendmail) SetCc(listMail ListMailAddress) {
+	s.cc = listMail
 }
 
 func (s *sendmail) AddCc(mail ...MailAddress) {
-	panic("implement me")
+	s.cc.Add(mail...)
 }
 
-func (s *sendmail) SetBcc(mail ...MailAddress) {
-	panic("implement me")
+func (s *sendmail) SetBcc(listMail ListMailAddress) {
+	s.bcc = listMail
 }
 
 func (s *sendmail) AddBcc(mail ...MailAddress) {
-	panic("implement me")
+	s.bcc.Add(mail...)
 }
 
 func (s *sendmail) SetFrom(mail MailAddress) {
-	panic("implement me")
+	s.from = mail
 }
 
 func (s *sendmail) SetReplyTo(mail MailAddress) {
-	panic("implement me")
+	s.replyTo = mail
 }
 
 func (s *sendmail) SetSubject(subject string) {
-	panic("implement me")
+	s.subject = subject
 }
 
 func (s *sendmail) SetHtml(p []byte, charset string) {
-	panic("implement me")
+	s.msgHtml = bytes.NewBuffer(p)
+	s.charHtml = charset
 }
 
 func (s *sendmail) SetRich(p []byte, charset string) {
-	panic("implement me")
+	s.msgRich = bytes.NewBuffer(p)
+	s.charRich = charset
 }
 
 func (s *sendmail) SetText(p []byte, charset string) {
-	panic("implement me")
+	s.msgText = bytes.NewBuffer(p)
+	s.charText = charset
 }
 
-func (s *sendmail) AddAttachment(a Attachment) {
-	panic("implement me")
+func (s *sendmail) AddAttachment(a ...Attachment) {
+	s.attachment = append(s.attachment, a...)
 }
 
 func (s *sendmail) SetMessageId(id string) {
-	panic("implement me")
+	s.messageId = id
 }
 
 func (s *sendmail) SetMailer(mailer string) {
-	panic("implement me")
+	s.mailer = mailer
 }
 
 func (s *sendmail) NJSMailer(version njs_version.Version) {
-	panic("implement me")
+	s.mailer = version.GetHeader()
 }
 
 func (s *sendmail) SetTestMode(enable bool) {
-	panic("implement me")
+	s.testMode = enable
 }
 
-func (s sendmail) Clone(cli *smtp.Client) SendMail {
+func (s sendmail) Clone() SendMail {
 	var la = make([]Attachment, 0)
 
 	for _, a := range s.attachment {
@@ -120,26 +136,141 @@ func (s sendmail) Clone(cli *smtp.Client) SendMail {
 	}
 
 	return &sendmail{
-		to:         s.to.Clone(),
-		cc:         s.cc.Clone(),
-		bcc:        s.bcc.Clone(),
-		from:       s.from.Clone(),
-		replyTo:    s.replyTo.Clone(),
+		to:  s.to.Clone(),
+		cc:  s.cc.Clone(),
+		bcc: s.bcc.Clone(),
+
+		from:    s.from.Clone(),
+		replyTo: s.replyTo.Clone(),
+
 		subject:    s.subject,
 		attachment: la,
-		testMode:   s.testMode,
-		smtpcli:    cli,
+
+		messageId: s.messageId,
+		mailer:    s.mailer,
+
+		msgText: bytes.NewBuffer(s.msgText.Bytes()),
+		msgHtml: bytes.NewBuffer(s.msgHtml.Bytes()),
+		msgRich: bytes.NewBuffer(s.msgRich.Bytes()),
+
+		charText: s.charText,
+		charHtml: s.charHtml,
+		charRich: s.charRich,
+
+		testMode: s.testMode,
 	}
 }
 
+func (s sendmail) Send(cli *smtp.Client) (err error) {
+	var (
+		iod IOData
+	)
+
+	defer func() {
+		if r := recover(); r != nil && err != nil {
+			err = fmt.Errorf("%v, %v", err, r)
+		} else if r != nil {
+			err = fmt.Errorf("%v", r)
+		}
+
+		if cli != nil {
+			if e := cli.Close(); err != nil && e != nil {
+				err = fmt.Errorf("%v, %v", err, e)
+			} else if e != nil {
+				err = fmt.Errorf("%v", e)
+			}
+		}
+	}()
+
+	if len(s.from.AddressOnly()) < 7 {
+		return fmt.Errorf("from address is empty")
+	}
+
+	if err = cli.Noop(); err != nil {
+		return
+	}
+
+	if err = cli.Mail(s.from.String()); err != nil {
+		return
+	}
+
+	if s.testMode {
+		cli.Rcpt(s.from.String())
+	} else {
+		for _, a := range s.to.Slice() {
+			cli.Rcpt(a.String())
+		}
+		for _, a := range s.cc.Slice() {
+			cli.Rcpt(a.String())
+		}
+		for _, a := range s.bcc.Slice() {
+			cli.Rcpt(a.String())
+		}
+	}
+
+	if iod, err = NewIOData(cli); err != nil {
+		return
+	}
+
+	iod.Header("From", s.from.String())
+
+	if s.to.IsEmpty() {
+		return fmt.Errorf("to address is empty")
+	} else {
+		iod.Header("To", s.to.String())
+	}
+
+	if !s.cc.IsEmpty() {
+		iod.Header("Cc", s.cc.String())
+	}
+
+	if !s.bcc.IsEmpty() {
+		iod.Header("Reply-To", s.replyTo.String())
+	}
+
+	if len(s.subject) < 1 {
+		return fmt.Errorf("subjetc is empty")
+	} else {
+		iod.Header("Subject", s.subject)
+	}
+
+	if len(s.mailer) < 1 {
+		return fmt.Errorf("mailer is empty")
+	} else {
+		iod.Header("X-Mailer", s.mailer)
+	}
+
+	if len(s.messageId) > 0 {
+		iod.Header("Message-ID", s.messageId)
+	}
+
+	iod.Header("Date", time.Now().Format(time.RFC1123Z))
+	iod.Header("Auto-Submitted", "auto-generated")
+	iod.Header("MIME-Version", "1.0")
+
+	/*
+	 @TODO : send contents
+	 - check html
+	 - check rich
+	 - check text
+	 - check attachment
+	 - if no one => error
+	 - if 2 types => multipart
+	 - if attachment => mixed
+	 - if only one => direct
+	*/
+
+	return nil
+}
+
 type SendMail interface {
-	SetTo(mail ...MailAddress)
+	SetTo(listMail ListMailAddress)
 	AddTo(mail ...MailAddress)
 
-	SetCc(mail ...MailAddress)
+	SetCc(listMail ListMailAddress)
 	AddCc(mail ...MailAddress)
 
-	SetBcc(mail ...MailAddress)
+	SetBcc(listMail ListMailAddress)
 	AddBcc(mail ...MailAddress)
 
 	SetFrom(mail MailAddress)
@@ -151,7 +282,7 @@ type SendMail interface {
 	SetRich(p []byte, charset string)
 	SetText(p []byte, charset string)
 
-	AddAttachment(a Attachment)
+	AddAttachment(a ...Attachment)
 
 	SetMessageId(id string)
 	SetMailer(mailer string)
@@ -159,12 +290,12 @@ type SendMail interface {
 
 	SetTestMode(enable bool)
 
-	Clone(cli *smtp.Client) SendMail
+	Clone() SendMail
+	Send(cli *smtp.Client) error
 }
 
-func NewSendMail(cli *smtp.Client) SendMail {
+func NewSendMail() SendMail {
 	return &sendmail{
 		testMode: false,
-		smtpcli:  cli,
 	}
 }
