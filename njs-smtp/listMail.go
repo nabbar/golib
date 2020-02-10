@@ -36,22 +36,36 @@ func (lst listMailAddress) IsEmpty() bool {
 	return len(lst) < 1
 }
 
-func (lst listMailAddress) Merge(list listMailAddress) {
+func (lst listMailAddress) Merge(list ListMailAddress) {
 	if list == nil {
 		return
 	}
 
-	for _, adr := range list {
+	for _, adr := range list.Slice() {
 		lst[lst.Len()] = adr
 	}
 }
 
-func (lst listMailAddress) Add(adr MailAddress) {
-	lst[lst.Len()] = adr
+func (lst listMailAddress) Slice() []MailAddress {
+	var res = make([]MailAddress, 0)
+
+	for _, adr := range lst {
+		res = append(res, adr)
+	}
+
+	return res
 }
 
-func (lst listMailAddress) AddParseEmail(m string) {
-	lst.Add(MailAddressParser(m))
+func (lst listMailAddress) Add(adr ...MailAddress) {
+	for _, a := range adr {
+		lst[lst.Len()] = a
+	}
+}
+
+func (lst listMailAddress) AddParseEmail(m ...string) {
+	for _, a := range m {
+		lst.Add(MailAddressParser(a))
+	}
 }
 
 func (lst listMailAddress) AddNewEmail(name, addr string) {
@@ -100,11 +114,13 @@ type ListMailAddress interface {
 	String() string
 	Clone() ListMailAddress
 
-	Merge(list listMailAddress)
+	Merge(list ListMailAddress)
+	Slice() []MailAddress
+
 	AddressOnly() string
 
-	Add(adr MailAddress)
-	AddParseEmail(m string)
+	Add(adr ...MailAddress)
+	AddParseEmail(m ...string)
 	AddNewEmail(name, addr string)
 }
 
