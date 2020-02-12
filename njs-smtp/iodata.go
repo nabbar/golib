@@ -25,12 +25,37 @@ SOFTWARE.
 package njs_smtp
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"net/smtp"
 )
+
+type ContentType uint8
+
+const (
+	CONTENTTYPE_MIXED ContentType = iota
+	CONTENTTYPE_ALTERNATIVE
+	CONTENTTYPE_HTML
+	CONTENTTYPE_TEXT
+)
+
+func (c ContentType) String() string {
+	switch c {
+	case CONTENTTYPE_MIXED:
+		return "multipart/mixed"
+	case CONTENTTYPE_ALTERNATIVE:
+		return "multipart/alternative"
+	case CONTENTTYPE_HTML:
+		return "text/html"
+	case CONTENTTYPE_TEXT:
+		return "text/plain"
+	}
+
+	return ""
+}
 
 type ioData struct {
 	w io.WriteCloser
@@ -111,27 +136,27 @@ func (i *ioData) Bytes(value []byte) error {
 	return nil
 }
 
-func (i *ioData) AttachmentStart() error {
+func (i *ioData) AttachmentStart(c ContentType) error {
 	if b, e := i.getBoundary(); e != nil {
 		return e
 	} else if e = i.CRLF(); e != nil {
 		return e
-	} else if e = i.Header("Content-Type", fmt.Sprintf("multipart/mixed; boundary=\"%s\"", b)); e != nil {
+	} else if e = i.Header("Content-Type", fmt.Sprintf("%s; boundary=\"%s\"", c.String(), b)); e != nil {
 		return e
 	} else {
 		return i.CRLF()
 	}
 }
 
-func (i *ioData) AttachmentAdd(contentType, attachmentName string, attachment []byte) error {
+func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachment *bytes.Buffer) error {
 	var (
 		b string
 		e error
-		c = make([]byte, base64.StdEncoding.EncodedLen(len(attachment)))
+		c = make([]byte, base64.StdEncoding.EncodedLen(attachment.Len()))
 	)
 
 	// convert attachment in base64
-	base64.StdEncoding.Encode(c, attachment)
+	base64.StdEncoding.Encode(c, attachment.Bytes())
 
 	if len(c) < 1 {
 		return fmt.Errorf("encoded buffer is empty")
@@ -151,7 +176,48 @@ func (i *ioData) AttachmentAdd(contentType, attachmentName string, attachment []
 		return e
 	} else if e = i.CRLF(); e != nil {
 		return e
-	} else if e = i.Bytes(attachment); e != nil {
+	} else if e = i.Bytes(c); e != nil {
+		return e
+	} else if e = i.CRLF(); e != nil {
+		return e
+	}
+
+	return nil
+}
+
+func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) error {
+	var (
+		b string
+		e error
+		p *bytes.Buffer
+	)
+
+	if m.IsEmpty() {
+		return fmt.Errorf("text/html content is empty")
+	}
+
+	switch ct {
+	case CONTENTTYPE_HTML:
+		if p, e = m.GetBufferHtml(nil); e != nil {
+			return e
+		}
+	case CONTENTTYPE_TEXT:
+		if p, e = m.GetBufferText(nil); e != nil {
+			return e
+		}
+	}
+
+	if b, e = i.getBoundary(); e != nil {
+		return e
+	} else if e = i.String(fmt.Sprintf("--%s", b)); e != nil {
+		return e
+	} else if e = i.CRLF(); e != nil {
+		return e
+	} else if e = i.Header("Content-Type", fmt.Sprintf("%s; charset=%s", ct.String(), m.GetCharset())); e != nil {
+		return e
+	} else if e = i.CRLF(); e != nil {
+		return e
+	} else if e = i.Bytes(p.Bytes()); e != nil {
 		return e
 	} else if e = i.CRLF(); e != nil {
 		return e
@@ -186,8 +252,9 @@ type IOData interface {
 	Bytes(value []byte) error
 	CRLF() error
 
-	AttachmentStart() error
-	AttachmentAdd(contentType, attachmentName string, attachment []byte) error
+	AttachmentStart(c ContentType) error
+	AttachmentAddFile(contentType, attachmentName string, attachment *bytes.Buffer) error
+	AttachmentAddBody(m MailTemplate, ct ContentType) error
 	AttachmentEnd() error
 }
 

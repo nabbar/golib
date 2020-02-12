@@ -1,106 +1,168 @@
-/*
-MIT License
-
-Copyright (c) 2019 Nicolas JUHEL
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
-
 package njs_smtp
 
 import (
-	"net/mail"
-	"strings"
+	"bytes"
+	"html/template"
+	"io/ioutil"
+	"os"
+
+	"github.com/olekukonko/tablewriter"
+
+	"github.com/jaytaylor/html2text"
 )
 
-type mailAddress struct {
-	mail.Address
+type mailTemplate struct {
+	data interface{}
+	char string
+	opt  html2text.Options
+	tpl  *template.Template
 }
 
-func (adr *mailAddress) ForceName(name string) {
-	adr.Address.Name = name
+func (m *mailTemplate) SetCharset(char string) {
+	m.char = char
 }
 
-func (adr *mailAddress) ForceAddress(address string) {
-	adr.Address.Address = address
+func (m mailTemplate) GetCharset() string {
+	return m.char
 }
 
-func (adr mailAddress) String() string {
-	return strings.TrimSpace(adr.Address.String())
+func (m *mailTemplate) SetTextOption(opt html2text.Options) {
+	m.opt = opt
 }
 
-func (adr mailAddress) AddressOnly() string {
-	str := strings.TrimSpace(adr.Address.String())
+func (m mailTemplate) GetTextOption() html2text.Options {
+	return m.opt
+}
 
-	if adr.Address.Name == "" || adr.Address.Address == "" || strings.HasPrefix(str, "<") {
-		str = strings.Replace(str, "\n", "", -1)
-		str = strings.Trim(str, ">")
-		str = strings.Trim(str, "@")
-		str = strings.Trim(str, "<")
-		str = strings.TrimSpace(str)
-		str = strings.Trim(str, "\"")
+func (m mailTemplate) GetBufferHtml(data interface{}) (*bytes.Buffer, error) {
+	var res = bytes.NewBuffer(make([]byte, 0))
+
+	if data == nil {
+		data = m.data
+	}
+
+	if err := m.tpl.Execute(res, data); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m mailTemplate) GetBufferText(data interface{}) (*bytes.Buffer, error) {
+	var (
+		res = bytes.NewBuffer(make([]byte, 0))
+		str string
+	)
+
+	if buf, err := m.GetBufferHtml(data); err != nil {
+		return nil, err
+	} else if str, err = html2text.FromReader(buf, m.opt); err != nil {
+		return nil, err
+	} else if _, err = res.WriteString(str); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m mailTemplate) GetBufferRich(data interface{}) (*bytes.Buffer, error) {
+	panic("implement me")
+}
+
+func (m *mailTemplate) RegisterData(data interface{}) {
+	m.data = data
+}
+
+func (m mailTemplate) IsEmpty() bool {
+	if m.tpl == nil {
+		return true
+	}
+
+	if m.tpl.DefinedTemplates() == "" {
+		return true
+	}
+
+	return false
+}
+
+func (m mailTemplate) Clone() (MailTemplate, error) {
+	res := &mailTemplate{
+		opt: m.opt,
+		tpl: nil,
+	}
+
+	if tpl, err := m.tpl.Clone(); err != nil {
+		return nil, err
 	} else {
-		str = strings.TrimSpace(adr.Address.Address)
-		str = strings.Replace(str, "\n", "", -1)
+		res.tpl = tpl
 	}
 
-	return str
+	return res, nil
 }
 
-func (adr mailAddress) Clone() MailAddress {
-	return &mailAddress{
-		mail.Address{
-			Name:    adr.Address.Name,
-			Address: adr.Address.Address,
-		},
-	}
+type MailTemplate interface {
+	Clone() (MailTemplate, error)
+
+	IsEmpty() bool
+
+	SetCharset(char string)
+	GetCharset() string
+
+	SetTextOption(opt html2text.Options)
+	GetTextOption() html2text.Options
+
+	GetBufferHtml(data interface{}) (*bytes.Buffer, error)
+	GetBufferText(data interface{}) (*bytes.Buffer, error)
+	GetBufferRich(data interface{}) (*bytes.Buffer, error)
+
+	RegisterData(data interface{})
 }
 
-type MailAddress interface {
-	Clone() MailAddress
-
-	ForceName(name string)
-	ForceAddress(address string)
-
-	String() string
-	AddressOnly() string
-}
-
-func MailAddressParser(str string) MailAddress {
-	obj, err := mail.ParseAddress(str)
-
-	if err != nil {
-		obj = &mail.Address{
-			Name: str,
+func NewMailTemplate(name, tpl string, isFile bool) (MailTemplate, error) {
+	var (
+		err error
+		res = &mailTemplate{
+			data: nil,
+			tpl:  template.New(name),
+			opt: html2text.Options{
+				PrettyTables: false,
+				PrettyTablesOptions: &html2text.PrettyTablesOptions{
+					AutoFormatHeader:     false,
+					AutoWrapText:         false,
+					ReflowDuringAutoWrap: false,
+					ColWidth:             0,
+					ColumnSeparator:      "",
+					RowSeparator:         "",
+					CenterSeparator:      "",
+					HeaderAlignment:      0,
+					FooterAlignment:      0,
+					Alignment:            0,
+					ColumnAlignment:      nil,
+					NewLine:              "",
+					HeaderLine:           false,
+					RowLine:              false,
+					AutoMergeCells:       false,
+					Borders:              tablewriter.Border{},
+				},
+				OmitLinks: false,
+			},
 		}
+	)
+
+	if isFile {
+		var fs []byte
+		if _, err = os.Stat(tpl); err != nil {
+			return nil, err
+		} else if fs, err = ioutil.ReadFile(tpl); err != nil {
+			return nil, err
+		}
+
+		tpl = string(fs)
 	}
 
-	return &mailAddress{
-		*obj,
+	if res.tpl, err = res.tpl.Parse(tpl); err != nil {
+		return nil, err
 	}
-}
 
-func NewMailAddress(name, address string) MailAddress {
-	return &mailAddress{
-		mail.Address{
-			Name:    name,
-			Address: address,
-		},
-	}
+	return res, err
 }

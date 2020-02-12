@@ -25,7 +25,6 @@ SOFTWARE.
 package njs_smtp
 
 import (
-	"bytes"
 	"fmt"
 	"net/smtp"
 	"time"
@@ -41,18 +40,12 @@ type sendmail struct {
 	replyTo MailAddress
 
 	subject    string
+	msgHtml    MailTemplate
+	charHtml   string
 	attachment []Attachment
 
 	messageId string
 	mailer    string
-
-	msgText *bytes.Buffer
-	msgHtml *bytes.Buffer
-	msgRich *bytes.Buffer
-
-	charText string
-	charHtml string
-	charRich string
 
 	testMode bool
 }
@@ -93,19 +86,9 @@ func (s *sendmail) SetSubject(subject string) {
 	s.subject = subject
 }
 
-func (s *sendmail) SetHtml(p []byte, charset string) {
-	s.msgHtml = bytes.NewBuffer(p)
+func (s *sendmail) SetHtml(m MailTemplate, charset string) {
+	s.msgHtml = m
 	s.charHtml = charset
-}
-
-func (s *sendmail) SetRich(p []byte, charset string) {
-	s.msgRich = bytes.NewBuffer(p)
-	s.charRich = charset
-}
-
-func (s *sendmail) SetText(p []byte, charset string) {
-	s.msgText = bytes.NewBuffer(p)
-	s.charText = charset
 }
 
 func (s *sendmail) AddAttachment(a ...Attachment) {
@@ -128,11 +111,19 @@ func (s *sendmail) SetTestMode(enable bool) {
 	s.testMode = enable
 }
 
-func (s sendmail) Clone() SendMail {
-	var la = make([]Attachment, 0)
+func (s sendmail) Clone() (SendMail, error) {
+	var (
+		la  = make([]Attachment, 0)
+		tpl MailTemplate
+		err error
+	)
 
 	for _, a := range s.attachment {
 		la = append(la, a.Clone())
+	}
+
+	if tpl, err = s.msgHtml.Clone(); err != nil {
+		return nil, err
 	}
 
 	return &sendmail{
@@ -144,21 +135,15 @@ func (s sendmail) Clone() SendMail {
 		replyTo: s.replyTo.Clone(),
 
 		subject:    s.subject,
+		msgHtml:    tpl,
+		charHtml:   s.charHtml,
 		attachment: la,
 
 		messageId: s.messageId,
 		mailer:    s.mailer,
 
-		msgText: bytes.NewBuffer(s.msgText.Bytes()),
-		msgHtml: bytes.NewBuffer(s.msgHtml.Bytes()),
-		msgRich: bytes.NewBuffer(s.msgRich.Bytes()),
-
-		charText: s.charText,
-		charHtml: s.charHtml,
-		charRich: s.charRich,
-
 		testMode: s.testMode,
-	}
+	}, nil
 }
 
 func (s sendmail) Send(cli *smtp.Client) (err error) {
@@ -181,6 +166,16 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 			}
 		}
 	}()
+
+	var ctBody ContentType
+
+	if len(s.attachment) > 0 {
+		ctBody = CONTENTTYPE_MIXED
+	} else if !s.msgHtml.IsEmpty() {
+		ctBody = CONTENTTYPE_ALTERNATIVE
+	} else {
+		return fmt.Errorf("no attachment & no contents")
+	}
 
 	if len(s.from.AddressOnly()) < 7 {
 		return fmt.Errorf("from address is empty")
@@ -248,17 +243,28 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 	iod.Header("Auto-Submitted", "auto-generated")
 	iod.Header("MIME-Version", "1.0")
 
-	/*
-	 @TODO : send contents
-	 - check html
-	 - check rich
-	 - check text
-	 - check attachment
-	 - if no one => error
-	 - if 2 types => multipart
-	 - if attachment => mixed
-	 - if only one => direct
-	*/
+	if err = iod.AttachmentStart(ctBody); err != nil {
+		return
+	}
+
+	for _, a := range s.attachment {
+		if err = iod.AttachmentAddFile(a.GetContentType(), a.GetName(), a.GetBuffer()); err != nil {
+			return
+		}
+	}
+
+	if !s.msgHtml.IsEmpty() {
+		if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_HTML); err != nil {
+			return
+		}
+		if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_TEXT); err != nil {
+			return
+		}
+	}
+
+	if err = iod.AttachmentEnd(); err != nil {
+		return
+	}
 
 	return nil
 }
@@ -278,10 +284,6 @@ type SendMail interface {
 
 	SetSubject(subject string)
 
-	SetHtml(p []byte, charset string)
-	SetRich(p []byte, charset string)
-	SetText(p []byte, charset string)
-
 	AddAttachment(a ...Attachment)
 
 	SetMessageId(id string)
@@ -290,7 +292,7 @@ type SendMail interface {
 
 	SetTestMode(enable bool)
 
-	Clone() SendMail
+	Clone() (SendMail, error)
 	Send(cli *smtp.Client) error
 }
 
