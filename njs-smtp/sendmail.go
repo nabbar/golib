@@ -153,6 +153,14 @@ func (s sendmail) Clone() (SendMail, error) {
 	}, nil
 }
 
+func (s sendmail) SendSMTP(cli SMTP) error {
+	if c, e := cli.Client(); e != nil {
+		return e
+	} else {
+		return s.Send(c)
+	}
+}
+
 func (s sendmail) Send(cli *smtp.Client) (err error) {
 	var (
 		iod IOData
@@ -272,9 +280,7 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 			}
 		}
 
-		if err = iod.AttachmentEnd(); err != nil {
-			return
-		}
+		return iod.AttachmentEnd()
 	} else {
 		if err = iod.Bytes(s.msgText.Bytes()); err != nil {
 			return
@@ -284,8 +290,6 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 			return iod.CRLF()
 		}
 	}
-
-	return nil
 }
 
 type SendMail interface {
@@ -314,6 +318,7 @@ type SendMail interface {
 
 	Clone() (SendMail, error)
 	Send(cli *smtp.Client) error
+	SendSMTP(cli SMTP) error
 }
 
 func NewSendMail() SendMail {

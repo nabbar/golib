@@ -61,6 +61,7 @@ type SMTP interface {
 	Client() (*smtp.Client, error)
 	Close() error
 	Check() error
+	Clone() SMTP
 
 	ForceHost(host string)
 	ForcePort(port int)
@@ -359,6 +360,16 @@ func (s *smtpClient) Check() error {
 	}
 
 	return s.Close()
+}
+
+// Check Try to initiate SMTP dial and negotiation and try to close connection
+func (s smtpClient) Clone() SMTP {
+	return &smtpClient{
+		con: nil,
+		cli: nil,
+		tls: s.tls,
+		cfg: s.cfg,
+	}
 }
 
 func (s *smtpClient) ForceHost(host string) {
