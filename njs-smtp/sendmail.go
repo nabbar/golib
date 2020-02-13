@@ -25,6 +25,7 @@ SOFTWARE.
 package njs_smtp
 
 import (
+	"bytes"
 	"fmt"
 	"net/smtp"
 	"time"
@@ -41,7 +42,8 @@ type sendmail struct {
 
 	subject    string
 	msgHtml    MailTemplate
-	charHtml   string
+	msgText    *bytes.Buffer
+	charset    string
 	attachment []Attachment
 
 	messageId string
@@ -88,7 +90,12 @@ func (s *sendmail) SetSubject(subject string) {
 
 func (s *sendmail) SetHtml(m MailTemplate, charset string) {
 	s.msgHtml = m
-	s.charHtml = charset
+	s.charset = charset
+}
+
+func (s *sendmail) SetBody(p *bytes.Buffer, charset string) {
+	s.msgText = p
+	s.charset = charset
 }
 
 func (s *sendmail) AddAttachment(a ...Attachment) {
@@ -136,7 +143,7 @@ func (s sendmail) Clone() (SendMail, error) {
 
 		subject:    s.subject,
 		msgHtml:    tpl,
-		charHtml:   s.charHtml,
+		charset:    s.charset,
 		attachment: la,
 
 		messageId: s.messageId,
@@ -173,6 +180,8 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 		ctBody = CONTENTTYPE_MIXED
 	} else if !s.msgHtml.IsEmpty() {
 		ctBody = CONTENTTYPE_ALTERNATIVE
+	} else if s.msgText.Len() > 0 {
+		ctBody = CONTENTTYPE_TEXT
 	} else {
 		return fmt.Errorf("no attachment & no contents")
 	}
@@ -243,27 +252,37 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 	iod.Header("Auto-Submitted", "auto-generated")
 	iod.Header("MIME-Version", "1.0")
 
-	if err = iod.AttachmentStart(ctBody); err != nil {
-		return
-	}
-
-	for _, a := range s.attachment {
-		if err = iod.AttachmentAddFile(a.GetContentType(), a.GetName(), a.GetBuffer()); err != nil {
+	if ctBody != CONTENTTYPE_TEXT {
+		if err = iod.AttachmentStart(ctBody); err != nil {
 			return
 		}
-	}
 
-	if !s.msgHtml.IsEmpty() {
-		if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_HTML); err != nil {
+		for _, a := range s.attachment {
+			if err = iod.AttachmentAddFile(a.GetContentType(), a.GetName(), a.GetBuffer()); err != nil {
+				return
+			}
+		}
+
+		if !s.msgHtml.IsEmpty() {
+			if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_HTML); err != nil {
+				return
+			}
+			if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_TEXT); err != nil {
+				return
+			}
+		}
+
+		if err = iod.AttachmentEnd(); err != nil {
 			return
 		}
-		if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_TEXT); err != nil {
+	} else {
+		if err = iod.Bytes(s.msgText.Bytes()); err != nil {
 			return
+		} else if err = iod.CRLF(); err != nil {
+			return
+		} else {
+			return iod.CRLF()
 		}
-	}
-
-	if err = iod.AttachmentEnd(); err != nil {
-		return
 	}
 
 	return nil
@@ -283,7 +302,8 @@ type SendMail interface {
 	SetReplyTo(mail MailAddress)
 
 	SetSubject(subject string)
-
+	SetHtml(m MailTemplate, charset string)
+	SetBody(p *bytes.Buffer, charset string)
 	AddAttachment(a ...Attachment)
 
 	SetMessageId(id string)
