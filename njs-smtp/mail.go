@@ -87,8 +87,10 @@ func (m mailTemplate) IsEmpty() bool {
 
 func (m mailTemplate) Clone() (MailTemplate, error) {
 	res := &mailTemplate{
-		opt: m.opt,
-		tpl: nil,
+		data: nil,
+		char: m.char,
+		opt:  m.opt,
+		tpl:  nil,
 	}
 
 	if tpl, err := m.tpl.Clone(); err != nil {

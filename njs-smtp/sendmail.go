@@ -43,7 +43,6 @@ type sendmail struct {
 	subject    string
 	msgHtml    MailTemplate
 	msgText    *bytes.Buffer
-	charset    string
 	attachment []Attachment
 
 	messageId string
@@ -88,14 +87,12 @@ func (s *sendmail) SetSubject(subject string) {
 	s.subject = subject
 }
 
-func (s *sendmail) SetHtml(m MailTemplate, charset string) {
+func (s *sendmail) SetHtml(m MailTemplate) {
 	s.msgHtml = m
-	s.charset = charset
 }
 
-func (s *sendmail) SetBody(p *bytes.Buffer, charset string) {
+func (s *sendmail) SetBody(p *bytes.Buffer) {
 	s.msgText = p
-	s.charset = charset
 }
 
 func (s *sendmail) AddAttachment(a ...Attachment) {
@@ -120,17 +117,15 @@ func (s *sendmail) SetTestMode(enable bool) {
 
 func (s sendmail) Clone() (SendMail, error) {
 	var (
-		la  = make([]Attachment, 0)
-		tpl MailTemplate
-		err error
+		la = make([]Attachment, 0)
 	)
 
 	for _, a := range s.attachment {
-		la = append(la, a.Clone())
-	}
+		if a == nil {
+			continue
+		}
 
-	if tpl, err = s.msgHtml.Clone(); err != nil {
-		return nil, err
+		la = append(la, a.Clone())
 	}
 
 	var res = &sendmail{
@@ -140,13 +135,24 @@ func (s sendmail) Clone() (SendMail, error) {
 		from:       nil,
 		replyTo:    nil,
 		subject:    s.subject,
-		msgHtml:    tpl,
-		msgText:    bytes.NewBuffer(s.msgText.Bytes()),
-		charset:    s.charset,
+		msgHtml:    nil,
+		msgText:    nil,
 		attachment: la,
 		messageId:  s.messageId,
 		mailer:     s.mailer,
 		testMode:   s.testMode,
+	}
+
+	if s.msgText != nil {
+		res.msgText = bytes.NewBuffer(s.msgText.Bytes())
+	}
+
+	if s.msgHtml != nil {
+		if tpl, err := s.msgHtml.Clone(); err != nil {
+			return nil, err
+		} else {
+			res.msgHtml = tpl
+		}
 	}
 
 	if s.to != nil {
@@ -172,12 +178,24 @@ func (s sendmail) Clone() (SendMail, error) {
 	return res, nil
 }
 
-func (s sendmail) SendSMTP(cli SMTP) error {
-	if c, e := cli.Client(); e != nil {
-		return e
-	} else {
-		return s.Send(c)
+func (s sendmail) SendSMTP(cli SMTP) (err error) {
+	var c *smtp.Client
+
+	defer func(cli *smtp.Client) {
+		if cli != nil {
+			cli.Quit()
+			cli.Close()
+		}
+	}(c)
+
+	if c, err = cli.Client(); err != nil {
+		return
+	} else if err = s.Send(c); err != nil {
+		c.Reset()
+		return err
 	}
+
+	return nil
 }
 
 func (s sendmail) Send(cli *smtp.Client) (err error) {
@@ -193,11 +211,9 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 		}
 
 		if cli != nil {
-			if e := cli.Close(); err != nil && e != nil {
-				err = fmt.Errorf("%v, %v", err, e)
-			} else if e != nil {
-				err = fmt.Errorf("%v", e)
-			}
+			cli.Reset()
+			cli.Quit()
+			cli.Close()
 		}
 	}()
 
@@ -206,7 +222,8 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 	if len(s.attachment) > 0 {
 		ctBody = CONTENTTYPE_MIXED
 	} else if !s.msgHtml.IsEmpty() {
-		ctBody = CONTENTTYPE_ALTERNATIVE
+		ctBody = CONTENTTYPE_MIXED
+		//ctBody = CONTENTTYPE_ALTERNATIVE
 	} else if s.msgText.Len() > 0 {
 		ctBody = CONTENTTYPE_TEXT
 	} else {
@@ -301,7 +318,9 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 
 		return iod.AttachmentEnd()
 	} else {
-		if err = iod.Bytes(s.msgText.Bytes()); err != nil {
+		if err = iod.ContentType(CONTENTTYPE_TEXT, "utf-8"); err != nil {
+			return
+		} else if err = iod.Bytes(s.msgText.Bytes()); err != nil {
 			return
 		} else if err = iod.CRLF(); err != nil {
 			return
@@ -325,8 +344,8 @@ type SendMail interface {
 	SetReplyTo(mail MailAddress)
 
 	SetSubject(subject string)
-	SetHtml(m MailTemplate, charset string)
-	SetBody(p *bytes.Buffer, charset string)
+	SetHtml(m MailTemplate)
+	SetBody(p *bytes.Buffer)
 	AddAttachment(a ...Attachment)
 
 	SetMessageId(id string)
@@ -336,8 +355,8 @@ type SendMail interface {
 	SetTestMode(enable bool)
 
 	Clone() (SendMail, error)
-	Send(cli *smtp.Client) error
-	SendSMTP(cli SMTP) error
+	Send(cli *smtp.Client) (err error)
+	SendSMTP(cli SMTP) (err error)
 }
 
 func NewSendMail() SendMail {
@@ -350,7 +369,6 @@ func NewSendMail() SendMail {
 		subject:    "",
 		msgHtml:    nil,
 		msgText:    bytes.NewBuffer(make([]byte, 0)),
-		charset:    "",
 		attachment: make([]Attachment, 0),
 		messageId:  "",
 		mailer:     "",

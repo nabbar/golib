@@ -37,7 +37,7 @@ type ContentType uint8
 
 const (
 	CONTENTTYPE_MIXED ContentType = iota
-	CONTENTTYPE_ALTERNATIVE
+	//	CONTENTTYPE_ALTERNATIVE
 	CONTENTTYPE_HTML
 	CONTENTTYPE_TEXT
 )
@@ -46,8 +46,8 @@ func (c ContentType) String() string {
 	switch c {
 	case CONTENTTYPE_MIXED:
 		return "multipart/mixed"
-	case CONTENTTYPE_ALTERNATIVE:
-		return "multipart/alternative"
+		//	case CONTENTTYPE_ALTERNATIVE:
+		//		return "multipart/alternative"
 	case CONTENTTYPE_HTML:
 		return "text/html"
 	case CONTENTTYPE_TEXT:
@@ -82,6 +82,14 @@ func (i *ioData) getBoundary() (string, error) {
 
 func (i *ioData) CRLF() error {
 	return i.String("\r\n")
+}
+
+func (i *ioData) ContentType(ct ContentType, charset string) error {
+	if charset != "" {
+		return i.Header("Content-Type", fmt.Sprintf("%s; charset=%s", ct.String(), charset))
+	} else {
+		return i.Header("Content-Type", ct.String())
+	}
 }
 
 func (i *ioData) Header(key, value string) error {
@@ -198,9 +206,11 @@ func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) error {
 
 	switch ct {
 	case CONTENTTYPE_HTML:
-		if p, e = m.GetBufferHtml(nil); e != nil {
-			return e
-		}
+		return nil
+		/*		if p, e = m.GetBufferHtml(nil); e != nil {
+					return e
+				}
+		*/
 	case CONTENTTYPE_TEXT:
 		if p, e = m.GetBufferText(nil); e != nil {
 			return e
@@ -213,7 +223,7 @@ func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) error {
 		return e
 	} else if e = i.CRLF(); e != nil {
 		return e
-	} else if e = i.Header("Content-Type", fmt.Sprintf("%s; charset=%s", ct.String(), m.GetCharset())); e != nil {
+	} else if e = i.ContentType(ct, m.GetCharset()); e != nil {
 		return e
 	} else if e = i.CRLF(); e != nil {
 		return e
@@ -247,6 +257,7 @@ func (i *ioData) AttachmentEnd() error {
 }
 
 type IOData interface {
+	ContentType(ct ContentType, charset string) error
 	Header(key, value string) error
 	String(value string) error
 	Bytes(value []byte) error

@@ -59,7 +59,7 @@ type smtpClient struct {
 
 type SMTP interface {
 	Client() (*smtp.Client, error)
-	Close() error
+	Close()
 	Check() error
 	Clone() SMTP
 
@@ -335,31 +335,29 @@ func (s *smtpClient) Client() (*smtp.Client, error) {
 }
 
 // Close Terminate SMTP negotiation client and close connection
-func (s *smtpClient) Close() error {
+func (s *smtpClient) Close() {
 	if s.cli != nil {
 		if e := s.cli.Quit(); e != nil {
-			return s.cli.Close()
+			s.cli.Close()
 		}
 	}
 
 	if s.con != nil {
-		return s.con.Close()
+		s.con.Close()
 	}
-
-	return nil
 }
 
 // Check Try to initiate SMTP dial and negotiation and try to close connection
 func (s *smtpClient) Check() error {
-	if _, e := s.Client(); e != nil {
-		if ee := s.Close(); ee != nil {
-			return fmt.Errorf("%v, %v", e, ee)
-		} else {
-			return e
-		}
+	defer s.Close()
+
+	if c, e := s.Client(); e != nil {
+		return e
+	} else if e = c.Noop(); e != nil {
+		return e
 	}
 
-	return s.Close()
+	return nil
 }
 
 // Check Try to initiate SMTP dial and negotiation and try to close connection
