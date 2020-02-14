@@ -133,24 +133,43 @@ func (s sendmail) Clone() (SendMail, error) {
 		return nil, err
 	}
 
-	return &sendmail{
-		to:  s.to.Clone(),
-		cc:  s.cc.Clone(),
-		bcc: s.bcc.Clone(),
-
-		from:    s.from.Clone(),
-		replyTo: s.replyTo.Clone(),
-
+	var res = &sendmail{
+		to:         nil,
+		cc:         nil,
+		bcc:        nil,
+		from:       nil,
+		replyTo:    nil,
 		subject:    s.subject,
 		msgHtml:    tpl,
+		msgText:    bytes.NewBuffer(s.msgText.Bytes()),
 		charset:    s.charset,
 		attachment: la,
+		messageId:  s.messageId,
+		mailer:     s.mailer,
+		testMode:   s.testMode,
+	}
 
-		messageId: s.messageId,
-		mailer:    s.mailer,
+	if s.to != nil {
+		res.to = s.to.Clone()
+	}
 
-		testMode: s.testMode,
-	}, nil
+	if s.cc != nil {
+		res.cc = s.cc.Clone()
+	}
+
+	if s.bcc != nil {
+		res.bcc = s.bcc.Clone()
+	}
+
+	if s.from != nil {
+		res.from = s.from.Clone()
+	}
+
+	if s.replyTo != nil {
+		res.replyTo = s.replyTo.Clone()
+	}
+
+	return res, nil
 }
 
 func (s sendmail) SendSMTP(cli SMTP) error {
@@ -323,6 +342,18 @@ type SendMail interface {
 
 func NewSendMail() SendMail {
 	return &sendmail{
-		testMode: false,
+		to:         NewListMailAddress(),
+		cc:         NewListMailAddress(),
+		bcc:        NewListMailAddress(),
+		from:       nil,
+		replyTo:    nil,
+		subject:    "",
+		msgHtml:    nil,
+		msgText:    bytes.NewBuffer(make([]byte, 0)),
+		charset:    "",
+		attachment: make([]Attachment, 0),
+		messageId:  "",
+		mailer:     "",
+		testMode:   false,
 	}
 }
