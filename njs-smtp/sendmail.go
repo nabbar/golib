@@ -26,6 +26,7 @@ package njs_smtp
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"net/smtp"
 	"time"
@@ -43,6 +44,7 @@ type sendmail struct {
 	subject    string
 	msgHtml    MailTemplate
 	msgText    *bytes.Buffer
+	forceType  ContentType
 	attachment []Attachment
 
 	messageId string
@@ -51,24 +53,39 @@ type sendmail struct {
 	testMode bool
 }
 
-func (s *sendmail) SetTo(listMail ListMailAddress) {
+func (s *sendmail) SetListTo(listMail ListMailAddress) {
 	s.to = listMail
+}
+
+func (s *sendmail) SetTo(mail ...MailAddress) {
+	s.to = NewListMailAddress()
+	s.to.Add(mail...)
 }
 
 func (s *sendmail) AddTo(mail ...MailAddress) {
 	s.to.Add(mail...)
 }
 
-func (s *sendmail) SetCc(listMail ListMailAddress) {
+func (s *sendmail) SetListCc(listMail ListMailAddress) {
 	s.cc = listMail
+}
+
+func (s *sendmail) SetCc(mail ...MailAddress) {
+	s.cc = NewListMailAddress()
+	s.cc.Add(mail...)
 }
 
 func (s *sendmail) AddCc(mail ...MailAddress) {
 	s.cc.Add(mail...)
 }
 
-func (s *sendmail) SetBcc(listMail ListMailAddress) {
+func (s *sendmail) SetListBcc(listMail ListMailAddress) {
 	s.bcc = listMail
+}
+
+func (s *sendmail) SetBcc(mail ...MailAddress) {
+	s.bcc = NewListMailAddress()
+	s.bcc.Add(mail...)
 }
 
 func (s *sendmail) AddBcc(mail ...MailAddress) {
@@ -93,6 +110,10 @@ func (s *sendmail) SetHtml(m MailTemplate) {
 
 func (s *sendmail) SetBody(p *bytes.Buffer) {
 	s.msgText = p
+}
+
+func (s *sendmail) SetForceOnly(ct ContentType) {
+	s.forceType = ct
 }
 
 func (s *sendmail) AddAttachment(a ...Attachment) {
@@ -178,7 +199,7 @@ func (s sendmail) Clone() (SendMail, error) {
 	return res, nil
 }
 
-func (s sendmail) SendSMTP(cli SMTP) (err error) {
+func (s sendmail) SendSMTP(cli SMTP) (err error, buff *bytes.Buffer) {
 	var c *smtp.Client
 
 	defer func(cli *smtp.Client) {
@@ -190,15 +211,15 @@ func (s sendmail) SendSMTP(cli SMTP) (err error) {
 
 	if c, err = cli.Client(); err != nil {
 		return
-	} else if err = s.Send(c); err != nil {
+	} else if err, buff = s.Send(c); err != nil {
 		c.Reset()
-		return err
+		return err, buff
+	} else {
+		return
 	}
-
-	return nil
 }
 
-func (s sendmail) Send(cli *smtp.Client) (err error) {
+func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
 	var (
 		iod IOData
 	)
@@ -221,17 +242,20 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 
 	if len(s.attachment) > 0 {
 		ctBody = CONTENTTYPE_MIXED
+	} else if s.forceType == CONTENTTYPE_TEXT {
+		ctBody = CONTENTTYPE_TEXT
+	} else if s.forceType == CONTENTTYPE_HTML && !s.msgHtml.IsEmpty() {
+		ctBody = CONTENTTYPE_HTML
 	} else if !s.msgHtml.IsEmpty() {
-		ctBody = CONTENTTYPE_MIXED
-		//ctBody = CONTENTTYPE_ALTERNATIVE
+		ctBody = CONTENTTYPE_ALTERNATIVE
 	} else if s.msgText.Len() > 0 {
 		ctBody = CONTENTTYPE_TEXT
 	} else {
-		return fmt.Errorf("no attachment & no contents")
+		return fmt.Errorf("no attachment & no contents"), nil
 	}
 
 	if len(s.from.AddressOnly()) < 7 {
-		return fmt.Errorf("from address is empty")
+		return fmt.Errorf("from address is empty"), nil
 	}
 
 	if err = cli.Noop(); err != nil {
@@ -243,16 +267,24 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 	}
 
 	if s.testMode {
-		cli.Rcpt(s.from.String())
+		if err = cli.Rcpt(s.from.String()); err != nil {
+			return
+		}
 	} else {
 		for _, a := range s.to.Slice() {
-			cli.Rcpt(a.String())
+			if err = cli.Rcpt(a.String()); err != nil {
+				return
+			}
 		}
 		for _, a := range s.cc.Slice() {
-			cli.Rcpt(a.String())
+			if err = cli.Rcpt(a.String()); err != nil {
+				return
+			}
 		}
 		for _, a := range s.bcc.Slice() {
-			cli.Rcpt(a.String())
+			if err = cli.Rcpt(a.String()); err != nil {
+				return
+			}
 		}
 	}
 
@@ -260,51 +292,122 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 		return
 	}
 
-	iod.Header("From", s.from.String())
+	if err = iod.Header("From", s.from.String()); err != nil {
+		return
+	}
 
 	if s.to.IsEmpty() {
-		return fmt.Errorf("to address is empty")
-	} else {
-		iod.Header("To", s.to.String())
+		return fmt.Errorf("to address is empty"), nil
+	} else if err = iod.Header("To", s.to.String()); err != nil {
+		return
 	}
 
 	if !s.cc.IsEmpty() {
-		iod.Header("Cc", s.cc.String())
+		if err = iod.Header("Cc", s.cc.String()); err != nil {
+			return
+		}
 	}
 
-	if !s.bcc.IsEmpty() {
-		iod.Header("Reply-To", s.replyTo.String())
+	if s.replyTo != nil && s.replyTo.AddressOnly() != "" {
+		if err = iod.Header("Reply-To", s.replyTo.String()); err != nil {
+			return
+		}
+		if err = iod.Header("Return-Path", s.replyTo.String()); err != nil {
+			return
+		}
+	} else {
+		if err = iod.Header("Reply-To", s.from.String()); err != nil {
+			return
+		}
+		if err = iod.Header("Return-Path", s.from.String()); err != nil {
+			return
+		}
 	}
 
 	if len(s.subject) < 1 {
-		return fmt.Errorf("subjetc is empty")
+		return fmt.Errorf("subjetc is empty"), nil
 	} else {
-		iod.Header("Subject", s.subject)
+		var (
+			b = []byte(s.subject)
+			c = make([]byte, base64.StdEncoding.EncodedLen(len(b)))
+		)
+
+		// convert subjet in base64 for utf8 char
+		base64.StdEncoding.Encode(c, b)
+		if err = iod.Header("Subject", fmt.Sprintf("=?utf-8?B?%s?=", string(c))); err != nil {
+			return
+		}
 	}
 
 	if len(s.mailer) < 1 {
-		return fmt.Errorf("mailer is empty")
+		return fmt.Errorf("mailer is empty"), nil
 	} else {
-		iod.Header("X-Mailer", s.mailer)
+		if err = iod.Header("X-Mailer", s.mailer); err != nil {
+			return
+		}
 	}
 
 	if len(s.messageId) > 0 {
-		iod.Header("Message-ID", s.messageId)
-	}
-
-	iod.Header("Date", time.Now().Format(time.RFC1123Z))
-	iod.Header("Auto-Submitted", "auto-generated")
-	iod.Header("MIME-Version", "1.0")
-
-	if ctBody != CONTENTTYPE_TEXT {
-		if err = iod.AttachmentStart(ctBody); err != nil {
+		if err = iod.Header("Message-ID", s.messageId); err != nil {
 			return
 		}
+	}
 
-		for _, a := range s.attachment {
-			if err = iod.AttachmentAddFile(a.GetContentType(), a.GetName(), a.GetBuffer()); err != nil {
+	if err = iod.Header("Date", time.Now().Format(time.RFC1123Z)); err != nil {
+		return
+	}
+
+	if err = iod.Header("MIME-Version", "1.0"); err != nil {
+		return
+	}
+
+	if ctBody == CONTENTTYPE_TEXT {
+		if s.msgText.Len() > 0 {
+			if err = iod.String(s.msgText.String()); err != nil {
 				return
 			}
+		} else if s.msgHtml.IsEmpty() {
+			return fmt.Errorf("empty content mail"), nil
+		} else {
+			if p, e := s.msgHtml.GetBufferText(nil); e != nil {
+				return e, nil
+			} else if err = iod.Header("Charset", s.msgHtml.GetCharset()); err != nil {
+				return
+			} else if err = iod.Header("Content-Transfer-Encoding", "8bit"); err != nil {
+				return
+			} else if err = iod.String(p.String()); err != nil {
+				return
+			}
+		}
+
+		if err = iod.CRLF(); err != nil {
+			return
+		} else if err = iod.CRLF(); err != nil {
+			return
+		}
+	} else if ctBody == CONTENTTYPE_HTML {
+		if s.msgHtml.IsEmpty() {
+			return fmt.Errorf("empty content mail"), nil
+		} else {
+			if p, e := s.msgHtml.GetBufferHtml(nil); e != nil {
+				return e, nil
+			} else if err = iod.ContentType(CONTENTTYPE_HTML, s.msgHtml.GetCharset()); err != nil {
+				return
+			} else if err = iod.Header("Content-Transfer-Encoding", "quoted-printable"); err != nil {
+				return
+			} else if err = iod.String(p.String()); err != nil {
+				return
+			}
+		}
+
+		if err = iod.CRLF(); err != nil {
+			return
+		} else if err = iod.CRLF(); err != nil {
+			return
+		}
+	} else {
+		if err = iod.AttachmentStart(ctBody); err != nil {
+			return
 		}
 
 		if !s.msgHtml.IsEmpty() {
@@ -316,28 +419,33 @@ func (s sendmail) Send(cli *smtp.Client) (err error) {
 			}
 		}
 
-		return iod.AttachmentEnd()
-	} else {
-		if err = iod.ContentType(CONTENTTYPE_TEXT, "utf-8"); err != nil {
+		for _, a := range s.attachment {
+			if err = iod.AttachmentAddFile(a.GetContentType(), a.GetName(), a.GetBuffer()); err != nil {
+				return
+			}
+		}
+
+		if err = iod.AttachmentEnd(); err != nil {
 			return
-		} else if err = iod.Bytes(s.msgText.Bytes()); err != nil {
-			return
-		} else if err = iod.CRLF(); err != nil {
-			return
-		} else {
-			return iod.CRLF()
 		}
 	}
+
+	err = iod.Send()
+	buff = iod.GetBuffer()
+	return
 }
 
 type SendMail interface {
-	SetTo(listMail ListMailAddress)
+	SetListTo(listMail ListMailAddress)
+	SetTo(mail ...MailAddress)
 	AddTo(mail ...MailAddress)
 
-	SetCc(listMail ListMailAddress)
+	SetListCc(listMail ListMailAddress)
+	SetCc(mail ...MailAddress)
 	AddCc(mail ...MailAddress)
 
-	SetBcc(listMail ListMailAddress)
+	SetListBcc(listMail ListMailAddress)
+	SetBcc(mail ...MailAddress)
 	AddBcc(mail ...MailAddress)
 
 	SetFrom(mail MailAddress)
@@ -346,6 +454,7 @@ type SendMail interface {
 	SetSubject(subject string)
 	SetHtml(m MailTemplate)
 	SetBody(p *bytes.Buffer)
+	SetForceOnly(ct ContentType)
 	AddAttachment(a ...Attachment)
 
 	SetMessageId(id string)
@@ -355,8 +464,8 @@ type SendMail interface {
 	SetTestMode(enable bool)
 
 	Clone() (SendMail, error)
-	Send(cli *smtp.Client) (err error)
-	SendSMTP(cli SMTP) (err error)
+	Send(cli *smtp.Client) (err error, buff *bytes.Buffer)
+	SendSMTP(cli SMTP) (err error, buff *bytes.Buffer)
 }
 
 func NewSendMail() SendMail {
@@ -369,6 +478,7 @@ func NewSendMail() SendMail {
 		subject:    "",
 		msgHtml:    nil,
 		msgText:    bytes.NewBuffer(make([]byte, 0)),
+		forceType:  CONTENTTYPE_ALTERNATIVE,
 		attachment: make([]Attachment, 0),
 		messageId:  "",
 		mailer:     "",

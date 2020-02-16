@@ -37,7 +37,7 @@ type ContentType uint8
 
 const (
 	CONTENTTYPE_MIXED ContentType = iota
-	//	CONTENTTYPE_ALTERNATIVE
+	CONTENTTYPE_ALTERNATIVE
 	CONTENTTYPE_HTML
 	CONTENTTYPE_TEXT
 )
@@ -46,8 +46,8 @@ func (c ContentType) String() string {
 	switch c {
 	case CONTENTTYPE_MIXED:
 		return "multipart/mixed"
-		//	case CONTENTTYPE_ALTERNATIVE:
-		//		return "multipart/alternative"
+	case CONTENTTYPE_ALTERNATIVE:
+		return "multipart/alternative"
 	case CONTENTTYPE_HTML:
 		return "text/html"
 	case CONTENTTYPE_TEXT:
@@ -58,6 +58,7 @@ func (c ContentType) String() string {
 }
 
 type ioData struct {
+	p *bytes.Buffer
 	w io.WriteCloser
 	b string
 }
@@ -74,10 +75,14 @@ func (i *ioData) getBoundary() (string, error) {
 
 		bnd := fmt.Sprintf("%x", buf[:])
 
-		i.b = bnd[:28]
+		i.b = "-----=" + bnd[:28]
 	}
 
 	return i.b, nil
+}
+
+func (i ioData) GetBuffer() *bytes.Buffer {
+	return i.p
 }
 
 func (i *ioData) CRLF() error {
@@ -86,9 +91,41 @@ func (i *ioData) CRLF() error {
 
 func (i *ioData) ContentType(ct ContentType, charset string) error {
 	if charset != "" {
-		return i.Header("Content-Type", fmt.Sprintf("%s; charset=%s", ct.String(), charset))
+		return i.Header("Content-Type", fmt.Sprintf("\"%s\"; charset=%s", ct.String(), charset))
 	} else {
-		return i.Header("Content-Type", ct.String())
+		return i.Header("Content-Type", fmt.Sprintf("\"%s\"", ct.String()))
+	}
+}
+
+func (i *ioData) BoundaryStart(ct ContentType) error {
+	if b, err := i.getBoundary(); err != nil {
+		return err
+	} else if err = i.Header("Content-Type", fmt.Sprintf("%s; boundary=\"%s\"", ct.String(), b)); err != nil {
+		return err
+	} else {
+		return i.CRLF()
+	}
+}
+
+func (i *ioData) BoundaryPart() error {
+	if b, err := i.getBoundary(); err != nil {
+		return err
+	} else if err = i.String(fmt.Sprintf("--%s", b)); err != nil {
+		return err
+	} else {
+		return i.CRLF()
+	}
+}
+
+func (i *ioData) BoundaryEnd() error {
+	if b, err := i.getBoundary(); err != nil {
+		return err
+	} else if err = i.CRLF(); err != nil {
+		return err
+	} else if err = i.String(fmt.Sprintf("--%s--", b)); err != nil {
+		return err
+	} else {
+		return i.CRLF()
 	}
 }
 
@@ -97,11 +134,11 @@ func (i *ioData) Header(key, value string) error {
 }
 
 func (i *ioData) String(value string) error {
-	if i.w == nil {
-		return fmt.Errorf("empty writer")
+	if i.p == nil {
+		i.p = bytes.NewBuffer(make([]byte, 0))
 	}
 
-	if _, e := i.w.Write([]byte(value)); e != nil {
+	if _, e := i.p.WriteString(value); e != nil {
 		return e
 	}
 
@@ -109,12 +146,8 @@ func (i *ioData) String(value string) error {
 }
 
 func (i *ioData) Bytes(value []byte) error {
-	if i.w == nil {
-		return fmt.Errorf("empty writer")
-	}
-
-	if _, e := i.w.Write([]byte(value)); e != nil {
-		return e
+	if i.p == nil {
+		i.p = bytes.NewBuffer(make([]byte, 0))
 	}
 
 	// write base64 content in lines of up to 76 chars
@@ -123,7 +156,7 @@ func (i *ioData) Bytes(value []byte) error {
 		tmp = append(tmp, value[n])
 
 		if (n+1)%76 == 0 {
-			if _, e := i.w.Write(tmp); e != nil {
+			if _, e := i.p.Write(tmp); e != nil {
 				return e
 			} else if e := i.CRLF(); e != nil {
 				return e
@@ -134,7 +167,7 @@ func (i *ioData) Bytes(value []byte) error {
 	}
 
 	if len(tmp) != 0 {
-		if _, e := i.w.Write(tmp); e != nil {
+		if _, e := i.p.Write(tmp); e != nil {
 			return e
 		} else if e := i.CRLF(); e != nil {
 			return e
@@ -144,21 +177,27 @@ func (i *ioData) Bytes(value []byte) error {
 	return nil
 }
 
-func (i *ioData) AttachmentStart(c ContentType) error {
-	if b, e := i.getBoundary(); e != nil {
-		return e
-	} else if e = i.CRLF(); e != nil {
-		return e
-	} else if e = i.Header("Content-Type", fmt.Sprintf("%s; boundary=\"%s\"", c.String(), b)); e != nil {
-		return e
-	} else {
-		return i.CRLF()
+func (i *ioData) Send() error {
+	if i.w == nil {
+		return fmt.Errorf("empty writer")
 	}
+	if i.p == nil || i.p.Len() < 1 {
+		return fmt.Errorf("empty buffer")
+	}
+
+	if _, e := i.w.Write(i.p.Bytes()); e != nil {
+		return e
+	}
+
+	return nil
+}
+
+func (i *ioData) AttachmentStart(c ContentType) error {
+	return i.BoundaryStart(c)
 }
 
 func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachment *bytes.Buffer) error {
 	var (
-		b string
 		e error
 		c = make([]byte, base64.StdEncoding.EncodedLen(attachment.Len()))
 	)
@@ -170,11 +209,7 @@ func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachmen
 		return fmt.Errorf("encoded buffer is empty")
 	}
 
-	if b, e = i.getBoundary(); e != nil {
-		return e
-	} else if e = i.String(fmt.Sprintf("--%s", b)); e != nil {
-		return e
-	} else if e = i.CRLF(); e != nil {
+	if e = i.BoundaryPart(); e != nil {
 		return e
 	} else if e = i.Header("Content-Type", contentType); e != nil {
 		return e
@@ -188,6 +223,8 @@ func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachmen
 		return e
 	} else if e = i.CRLF(); e != nil {
 		return e
+	} else if e = i.CRLF(); e != nil {
+		return e
 	}
 
 	return nil
@@ -195,9 +232,9 @@ func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachmen
 
 func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) error {
 	var (
-		b string
 		e error
 		p *bytes.Buffer
+		c string
 	)
 
 	if m.IsEmpty() {
@@ -206,28 +243,29 @@ func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) error {
 
 	switch ct {
 	case CONTENTTYPE_HTML:
-		return nil
-		/*		if p, e = m.GetBufferHtml(nil); e != nil {
-					return e
-				}
-		*/
+		if p, e = m.GetBufferHtml(nil); e != nil {
+			return e
+		}
+		c = "quoted-printable"
+
 	case CONTENTTYPE_TEXT:
 		if p, e = m.GetBufferText(nil); e != nil {
 			return e
 		}
+		c = "8bit"
 	}
 
-	if b, e = i.getBoundary(); e != nil {
-		return e
-	} else if e = i.String(fmt.Sprintf("--%s", b)); e != nil {
-		return e
-	} else if e = i.CRLF(); e != nil {
+	if e = i.BoundaryPart(); e != nil {
 		return e
 	} else if e = i.ContentType(ct, m.GetCharset()); e != nil {
 		return e
+	} else if e = i.Header("Content-Transfer-Encoding", c); e != nil {
+		return e
 	} else if e = i.CRLF(); e != nil {
 		return e
-	} else if e = i.Bytes(p.Bytes()); e != nil {
+	} else if e = i.String(p.String()); e != nil {
+		return e
+	} else if e = i.CRLF(); e != nil {
 		return e
 	} else if e = i.CRLF(); e != nil {
 		return e
@@ -237,19 +275,9 @@ func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) error {
 }
 
 func (i *ioData) AttachmentEnd() error {
-	if b, e := i.getBoundary(); e != nil {
+	if e := i.BoundaryEnd(); e != nil {
 		return e
-	} else if e = i.CRLF(); e != nil {
-		return e
-	} else if e = i.String(fmt.Sprintf("--%s--", b)); e != nil {
-		return e
-	} else if e = i.CRLF(); e != nil {
-		return e
-	} else if e = i.CRLF(); e != nil {
-		return e
-	} else if e = i.String(fmt.Sprintf("--%s--", b)); e != nil {
-		return e
-	} else if e = i.CRLF(); e != nil {
+	} else if e = i.BoundaryEnd(); e != nil {
 		return e
 	} else {
 		return i.CRLF()
@@ -263,6 +291,9 @@ type IOData interface {
 	Bytes(value []byte) error
 	CRLF() error
 
+	Send() error
+	GetBuffer() *bytes.Buffer
+
 	AttachmentStart(c ContentType) error
 	AttachmentAddFile(contentType, attachmentName string, attachment *bytes.Buffer) error
 	AttachmentAddBody(m MailTemplate, ct ContentType) error
@@ -275,6 +306,7 @@ func NewIOData(cli *smtp.Client) (IOData, error) {
 	} else {
 		return &ioData{
 			w: w,
+			p: bytes.NewBuffer(make([]byte, 0)),
 		}, nil
 	}
 }

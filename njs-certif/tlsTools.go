@@ -35,7 +35,6 @@ import (
 )
 
 var (
-
 	rootCA                = x509.NewCertPool()
 	certificates          = make([]tls.Certificate, 0)
 	caCertificates        = x509.NewCertPool()
@@ -53,6 +52,18 @@ var (
 	ticketSession = true
 	clientAuth    = tls.NoClientCert
 )
+
+func init() {
+	InitRootCA()
+}
+
+func InitRootCA() {
+	if c, e := x509.SystemCertPool(); e != nil {
+		rootCA = c
+	} else {
+		rootCA = x509.NewCertPool()
+	}
+}
 
 func AddRootCAContents(rootContent string) bool {
 	if rootContent != "" {
