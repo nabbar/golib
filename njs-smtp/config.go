@@ -285,13 +285,12 @@ func (s *smtpClient) Client() (*smtp.Client, error) {
 			tlsc = s.tls.Clone()
 		)
 
-		tlsc.InsecureSkipVerify = s.cfg.SkipVerify
-		tlsc.ServerName = s.cfg.ServerName
+		if s.cfg.ServerName != "" && s.cfg.Net != NET_UNIX {
+			tlsc.ServerName = s.cfg.ServerName
+		}
 
-		if s.cfg.ServerName == "" && s.cfg.Net != NET_UNIX {
-			s.cfg.ServerName = s.cfg.Host
-		} else if s.cfg.Net == NET_UNIX && s.cfg.TLS != TLS_NONE {
-			return nil, fmt.Errorf("cannot use tls or starttls connection with unix socket connection")
+		if s.cfg.SkipVerify && s.cfg.Net != NET_UNIX {
+			tlsc.InsecureSkipVerify = true
 		}
 
 		if s.cfg.Port > 0 {
@@ -300,30 +299,34 @@ func (s *smtpClient) Client() (*smtp.Client, error) {
 
 		if s.cfg.TLS == TLS_TLS {
 			s.con, err = tls.Dial(s.cfg.Net.string(), addr, tlsc)
-			if ErrorLevel.LogErrorCtxf(NilLevel, "trying to intialize SMTP '%s' over tls connection to '%s'", err, s.cfg.Net, addr) {
+			if ErrorLevel.LogErrorCtxf(DebugLevel, "trying to intialize SMTP '%s' over tls connection to '%s'", err, s.cfg.Net.string(), addr) {
 				s.cfg.TLS = TLS_STARTTLS
 				err = nil
 			}
 		}
 
 		if s.cfg.TLS != TLS_TLS {
-			if s.con, err = net.Dial(s.cfg.Net.string(), addr); err != nil {
+			s.con, err = net.Dial(s.cfg.Net.string(), addr)
+			if ErrorLevel.LogErrorCtxf(DebugLevel, "Dial initiated to server '%s' over '%s'", err, addr, s.cfg.Net.string()) {
 				return nil, err
 			}
 		}
 
-		if s.cli, err = smtp.NewClient(s.con, addr); err != nil {
+		s.cli, err = smtp.NewClient(s.con, addr)
+		if ErrorLevel.LogErrorCtxf(DebugLevel, "SMTP Client initiated to server '%s' over '%s'", err, addr, s.cfg.Net.string()) {
 			return nil, err
 		}
 
 		if s.cfg.TLS == TLS_STARTTLS {
-			if err = s.cli.StartTLS(tlsc); err != nil {
+			err = s.cli.StartTLS(tlsc)
+			if ErrorLevel.LogErrorCtxf(DebugLevel, "SMTP Client STARTTLS initiated to server '%s' over '%s'", err, addr, s.cfg.Net.string()) {
 				return nil, err
 			}
 		}
 
 		if s.cfg.User != "" || s.cfg.Pass != "" {
-			if err = s.cli.Auth(smtp.PlainAuth("", s.cfg.User, s.cfg.Pass, addr)); err != nil {
+			err = s.cli.Auth(smtp.PlainAuth("", s.cfg.User, s.cfg.Pass, addr))
+			if ErrorLevel.LogErrorCtxf(DebugLevel, "SMTP Client authentificate user '%s' with server '%s' over '%s'", err, s.cfg.User, addr, s.cfg.Net.string()) {
 				return nil, err
 			}
 		}
@@ -340,10 +343,12 @@ func (s *smtpClient) Close() {
 		if e := s.cli.Quit(); e != nil {
 			s.cli.Close()
 		}
+		s.cli = nil
 	}
 
 	if s.con != nil {
 		s.con.Close()
+		s.con = nil
 	}
 }
 
