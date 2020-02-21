@@ -53,6 +53,10 @@ type sendmail struct {
 	testMode bool
 }
 
+func (s sendmail) GetToString() string {
+	return s.to.String()
+}
+
 func (s *sendmail) SetListTo(listMail ListMailAddress) {
 	s.to = listMail
 }
@@ -102,6 +106,10 @@ func (s *sendmail) SetReplyTo(mail MailAddress) {
 
 func (s *sendmail) SetSubject(subject string) {
 	s.subject = subject
+}
+
+func (s *sendmail) HtmlRegisterData(data interface{}) {
+	s.msgHtml.RegisterData(data)
 }
 
 func (s *sendmail) SetHtml(m MailTemplate) {
@@ -158,6 +166,7 @@ func (s sendmail) Clone() (SendMail, error) {
 		subject:    s.subject,
 		msgHtml:    nil,
 		msgText:    nil,
+		forceType:  s.forceType,
 		attachment: la,
 		messageId:  s.messageId,
 		mailer:     s.mailer,
@@ -368,41 +377,13 @@ func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
 			}
 		} else if s.msgHtml.IsEmpty() {
 			return fmt.Errorf("empty content mail"), nil
-		} else {
-			if p, e := s.msgHtml.GetBufferText(nil); e != nil {
-				return e, nil
-			} else if err = iod.Header("Charset", s.msgHtml.GetCharset()); err != nil {
-				return
-			} else if err = iod.Header("Content-Transfer-Encoding", "8bit"); err != nil {
-				return
-			} else if err = iod.String(p.String()); err != nil {
-				return
-			}
-		}
-
-		if err = iod.CRLF(); err != nil {
-			return
-		} else if err = iod.CRLF(); err != nil {
+		} else if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_TEXT); err != nil {
 			return
 		}
 	} else if ctBody == CONTENTTYPE_HTML {
 		if s.msgHtml.IsEmpty() {
 			return fmt.Errorf("empty content mail"), nil
-		} else {
-			if p, e := s.msgHtml.GetBufferHtml(nil); e != nil {
-				return e, nil
-			} else if err = iod.ContentType(CONTENTTYPE_HTML, s.msgHtml.GetCharset()); err != nil {
-				return
-			} else if err = iod.Header("Content-Transfer-Encoding", "quoted-printable"); err != nil {
-				return
-			} else if err = iod.String(p.String()); err != nil {
-				return
-			}
-		}
-
-		if err = iod.CRLF(); err != nil {
-			return
-		} else if err = iod.CRLF(); err != nil {
+		} else if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_HTML); err != nil {
 			return
 		}
 	} else {
@@ -437,6 +418,7 @@ func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
 
 type SendMail interface {
 	SetListTo(listMail ListMailAddress)
+	GetToString() string
 	SetTo(mail ...MailAddress)
 	AddTo(mail ...MailAddress)
 
@@ -453,6 +435,7 @@ type SendMail interface {
 
 	SetSubject(subject string)
 	SetHtml(m MailTemplate)
+	HtmlRegisterData(data interface{})
 	SetBody(p *bytes.Buffer)
 	SetForceOnly(ct ContentType)
 	AddAttachment(a ...Attachment)
