@@ -46,5 +46,5 @@ func PadRight(str string, len int, pad string) string {
 }
 
 func PrintTab(tablLevel int, format string, args ...interface{}) {
-	Print(strings.Repeat("  ", tablLevel)+format, args...)
+	ColorPrint.Printf(strings.Repeat("  ", tablLevel)+format, args...)
 }

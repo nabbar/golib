@@ -33,39 +33,41 @@ import (
 
 type colorType uint8
 
-const (
-	ColorPrompt colorType = iota
-	ColorPrint
-	ColorSPrintF
-	ColorFatal
-	ColorError
-	ColorWarn
-	ColorInfo
-	ColorDebug
-)
-
 var (
 	colorList map[colorType]*color.Color
 )
 
+const (
+	ColorPrint colorType = iota
+	ColorPrompt
+)
+
 func init() {
 	colorList = map[colorType]*color.Color{
-		ColorPrompt:  nil,
-		ColorPrint:   nil,
-		ColorSPrintF: nil,
-		ColorFatal:   nil,
-		ColorError:   nil,
-		ColorWarn:    nil,
-		ColorInfo:    nil,
-		ColorDebug:   nil,
+		ColorPrint:  nil,
+		ColorPrompt: nil,
 	}
+}
+
+func GetColorType(colId uint8) colorType {
+	return colorType(colId)
+}
+
+func SetColor(col colorType, value ...int) {
+	var cols = make([]color.Attribute, 0)
+
+	for _, v := range value {
+		cols = append(cols, color.Attribute(v))
+	}
+
+	colorList[col] = color.New(cols...)
 }
 
 func (c colorType) SetColor(col *color.Color) {
 	colorList[c] = col
 }
 
-func (c colorType) println(text string) {
+func (c colorType) Println(text string) {
 	if colorList[c] != nil {
 		_, _ = colorList[c].Println(text) // #nosec
 	} else {
@@ -73,7 +75,7 @@ func (c colorType) println(text string) {
 	}
 }
 
-func (c colorType) print(text string) {
+func (c colorType) Print(text string) {
 	if colorList[c] != nil {
 		_, _ = colorList[c].Print(text) // #nosec
 	} else {
@@ -81,56 +83,14 @@ func (c colorType) print(text string) {
 	}
 }
 
-func (c colorType) sprintf(format string, args ...interface{}) string {
+func (c colorType) Sprintf(format string, args ...interface{}) string {
 	return fmt.Sprintf(format, args...)
 }
 
-func (c colorType) printf(format string, args ...interface{}) {
-	c.println(fmt.Sprintf(format, args...))
+func (c colorType) Printf(format string, args ...interface{}) {
+	c.Print(fmt.Sprintf(format, args...))
 }
 
-func (c colorType) printfLn(format string, args ...interface{}) {
-	c.println(fmt.Sprintf(format, args...))
-}
-
-func SPrintf(format string, args ...interface{}) string {
-	return ColorSPrintF.sprintf(format, args...)
-}
-
-func SPrintfCol(col *color.Color, format string, args ...interface{}) string {
-	c := colorList[ColorSPrintF]
-
-	defer func() {
-		colorList[ColorSPrintF] = c
-	}()
-
-	return SPrintf(format, args...)
-}
-
-func Print(format string, args ...interface{}) {
-	ColorPrint.printf(format, args...)
-}
-
-func PrintLn(format string, args ...interface{}) {
-	ColorPrint.printfLn(format, args...)
-}
-
-func Debug(text string) {
-	ColorDebug.print(text)
-}
-
-func Info(text string) {
-	ColorInfo.print(text)
-}
-
-func Warn(text string) {
-	ColorWarn.print(text)
-}
-
-func Error(text string) {
-	ColorError.print(text)
-}
-
-func Fatal(text string) {
-	ColorFatal.print(text)
+func (c colorType) PrintfLn(format string, args ...interface{}) {
+	c.Println(fmt.Sprintf(format, args...))
 }
