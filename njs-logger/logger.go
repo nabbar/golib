@@ -69,6 +69,19 @@ func GetLogger(lvl Level, logFlags int, msgPrefixPattern string, msgPrefixArgs .
 	return log.New(GetIOWriter(lvl, msgPrefixPattern, msgPrefixArgs...), "", logFlags)
 }
 
+// GetLogger force the default golang log.logger instance linked with this main logger
+//
+// This function is useful to keep the format, mode, color, output... same as current config
+/*
+	msgPrefixPattern a pattern prefix to identify or comment all message passed throw this log.logger instance
+	msgPrefixArgs a list of interface to apply on pattern with a fmt function
+*/
+func SetStdLogger(lvl Level, logFlags int, msgPrefixPattern string, msgPrefixArgs ...interface{}) {
+	log.SetOutput(GetIOWriter(lvl, msgPrefixPattern, msgPrefixArgs...))
+	log.SetPrefix("")
+	log.SetFlags(logFlags)
+}
+
 // AddGID Reconfigure the current logger to add or not the thread GID before each message.
 func AddGID(enable bool) {
 	enableGID = enable
