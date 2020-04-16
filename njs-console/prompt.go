@@ -37,7 +37,7 @@ import (
 
 func printPrompt(text string) {
 	if text != "" {
-		ColorPrompt.printf("%s: ", text)
+		ColorPrompt.Printf("%s: ", text)
 	}
 }
 

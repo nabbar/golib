@@ -83,6 +83,7 @@ func Timestamp(enable bool) {
 // This option is apply for all message except info message
 func FileTrace(enable bool) {
 	filetrace = enable
+	SetGinLogTrace(enable)
 }
 
 // EnableColor Reconfigure the current logger to use color in messages format.

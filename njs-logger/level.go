@@ -32,6 +32,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/jwalterweatherman"
 )
 
 //Level a uint8 type customized with function to log message with the current log level
@@ -86,29 +87,62 @@ func SetLevel(level Level) {
 	case PanicLevel:
 		curLevel = PanicLevel
 		logrus.SetLevel(logrus.PanicLevel)
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelCritical)
 
 	case FatalLevel:
 		curLevel = FatalLevel
 		logrus.SetLevel(logrus.FatalLevel)
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelFatal)
 
 	case ErrorLevel:
 		curLevel = ErrorLevel
 		logrus.SetLevel(logrus.ErrorLevel)
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelError)
 
 	case WarnLevel:
 		curLevel = WarnLevel
 		logrus.SetLevel(logrus.WarnLevel)
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelWarn)
 
 	case InfoLevel:
 		curLevel = InfoLevel
 		logrus.SetLevel(logrus.InfoLevel)
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelInfo)
 
 	case DebugLevel:
 		curLevel = DebugLevel
 		logrus.SetLevel(logrus.DebugLevel)
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelDebug)
 	}
 
 	DebugLevel.Logf("Change Log Level to %s", logrus.GetLevel().String())
+}
+
+func SetGinLogTrace(enable bool) {
+	if enable {
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelTrace)
+		return
+	}
+
+	switch curLevel {
+	case PanicLevel:
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelCritical)
+
+	case FatalLevel:
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelFatal)
+
+	case ErrorLevel:
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelError)
+
+	case WarnLevel:
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelWarn)
+
+	case InfoLevel:
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelInfo)
+
+	case DebugLevel:
+		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelDebug)
+	}
 }
 
 // GetLevelString return a valid Level Type matching the given string parameter. If the given parameter don't represent a valid level, the InfoLevel will be return
