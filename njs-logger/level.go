@@ -112,8 +112,8 @@ func SetLevel(level Level) {
 	DebugLevel.Logf("Change Log Level to %s", logrus.GetLevel().String())
 }
 
-func setGinLogTrace() {
-	if !enableGIN {
+func setViperLogTrace() {
+	if !enableVPR {
 		return
 	}
 

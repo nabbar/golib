@@ -55,7 +55,7 @@ var (
 	timestamp = true
 	filetrace = false
 	enableGID = false
-	enableGIN = true
+	enableVPR = true
 )
 
 // GetLogger return a golang log.logger instance linked with this main logger
@@ -97,7 +97,7 @@ func Timestamp(enable bool) {
 // This option is apply for all message except info message
 func FileTrace(enable bool) {
 	filetrace = enable
-	setGinLogTrace()
+	setViperLogTrace()
 }
 
 // EnableColor Reconfigure the current logger to use color in messages format.
@@ -116,9 +116,9 @@ func DisableColor() {
 	updateFormatter(nilFormat)
 }
 
-// EnableGIN  or not the Gin Logger configuration
-func EnableGIN(enable bool) {
-	enableGID = enable
+// EnableViperLog  or not the Gin Logger configuration
+func EnableViperLog(enable bool) {
+	enableVPR = enable
 	SetLevel(curLevel)
 }
 
