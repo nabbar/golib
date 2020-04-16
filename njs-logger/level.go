@@ -87,39 +87,37 @@ func SetLevel(level Level) {
 	case PanicLevel:
 		curLevel = PanicLevel
 		logrus.SetLevel(logrus.PanicLevel)
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelCritical)
 
 	case FatalLevel:
 		curLevel = FatalLevel
 		logrus.SetLevel(logrus.FatalLevel)
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelFatal)
 
 	case ErrorLevel:
 		curLevel = ErrorLevel
 		logrus.SetLevel(logrus.ErrorLevel)
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelError)
 
 	case WarnLevel:
 		curLevel = WarnLevel
 		logrus.SetLevel(logrus.WarnLevel)
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelWarn)
 
 	case InfoLevel:
 		curLevel = InfoLevel
 		logrus.SetLevel(logrus.InfoLevel)
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelInfo)
 
 	case DebugLevel:
 		curLevel = DebugLevel
 		logrus.SetLevel(logrus.DebugLevel)
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelDebug)
 	}
 
 	DebugLevel.Logf("Change Log Level to %s", logrus.GetLevel().String())
 }
 
-func SetGinLogTrace(enable bool) {
-	if enable {
+func setGinLogTrace() {
+	if !enableGIN {
+		return
+	}
+
+	if filetrace {
 		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelTrace)
 		return
 	}
