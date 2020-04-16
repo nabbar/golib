@@ -118,6 +118,9 @@ func setViperLogTrace() {
 		return
 	}
 
+	jwalterweatherman.SetLogOutput(GetIOWriter(curLevel, "[Log Config Viper]"))
+	jwalterweatherman.SetStdoutOutput(GetIOWriter(curLevel, "[Std Config Viper]"))
+
 	if filetrace {
 		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelTrace)
 		return

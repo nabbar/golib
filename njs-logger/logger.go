@@ -119,7 +119,7 @@ func DisableColor() {
 // EnableViperLog  or not the Gin Logger configuration
 func EnableViperLog(enable bool) {
 	enableVPR = enable
-	SetLevel(curLevel)
+	setViperLogTrace()
 }
 
 func getFrame() runtime.Frame {
