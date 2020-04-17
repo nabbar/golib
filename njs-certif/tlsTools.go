@@ -29,6 +29,7 @@ import (
 	"crypto/x509"
 	"io/ioutil"
 	"os"
+	"runtime"
 	"strings"
 
 	logger "github.com/nabbar/golib/njs-logger"
@@ -58,7 +59,9 @@ func init() {
 }
 
 func InitRootCA() {
-	if c, e := x509.SystemCertPool(); e != nil {
+	if runtime.GOOS == "windows" {
+		rootCA = x509.NewCertPool()
+	} else if c, e := x509.SystemCertPool(); e != nil {
 		rootCA = c
 	} else {
 		rootCA = x509.NewCertPool()
@@ -66,7 +69,7 @@ func InitRootCA() {
 }
 
 func AddRootCAContents(rootContent string) bool {
-	if rootContent != "" {
+	if rootContent != "" && rootCA != nil {
 		return rootCA.AppendCertsFromPEM([]byte(rootContent))
 	}
 
