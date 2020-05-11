@@ -70,12 +70,12 @@ func (e errorCode) Trace() runtime.Frame {
 	return e.trace
 }
 
-// ErrorWithCode return a error type of the current code, with error and origin in reference
+// StringFull return a error type of the current code, with error and origin in reference
 func (e errorCode) StringFull() string {
 	return e.ErrorFull().Error()
 }
 
-// ErrorWithCode return a error type of the current code, with error and origin in reference
+// ErrorFull return a error type of the current code, with error and origin in reference
 func (e errorCode) ErrorFull() error {
 
 	if e.trace != getNilFrame() {
