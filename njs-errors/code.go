@@ -25,22 +25,29 @@
 
 package njs_errors
 
-import "fmt"
+import (
+	"fmt"
+	"path"
+	"runtime"
+	"strings"
+)
 
 type ErrorCode interface {
 	Error() error
-	ErrorWithCode() error
+	ErrorFull() error
 
 	String() string
-	StringWithCode() string
+	StringFull() string
 
 	Code() string
+	Trace() runtime.Frame
 }
 
 type errorCode struct {
-	code string
-	err  ErrorType
-	ori  error
+	code  string
+	err   ErrorType
+	ori   error
+	trace runtime.Frame
 }
 
 // Error return an error type of the current error code, with no code in reference
@@ -58,12 +65,38 @@ func (e errorCode) Code() string {
 	return e.code
 }
 
-// ErrorWithCode return a error type of the current code, with error and origin in reference
-func (e errorCode) StringWithCode() string {
-	return e.ErrorWithCode().Error()
+// Trace return a runtime frame of the current error
+func (e errorCode) Trace() runtime.Frame {
+	return e.trace
 }
 
-// ErrorWithCode return a error type of the current code, with error and origin in reference
-func (e errorCode) ErrorWithCode() error {
+// StringFull return a error type of the current code, with error and origin in reference
+func (e errorCode) StringFull() string {
+	return e.ErrorFull().Error()
+}
+
+// ErrorFull return a error type of the current code, with error and origin in reference
+func (e errorCode) ErrorFull() error {
+
+	if e.trace != getNilFrame() {
+		var t = make([]string, 0)
+
+		if e.trace.File != "" {
+			t = append(t, path.Base(e.trace.File))
+		}
+
+		if e.trace.Function != "" {
+			t = append(t, e.trace.Function)
+		}
+
+		if e.trace.Line > 0 {
+			t = append(t, fmt.Sprintf("%v", e.trace.Line))
+		}
+
+		if len(t) > 0 {
+			return fmt.Errorf("(%s) [%s] %v", e.code, strings.Join(t, "|"), e.Error())
+		}
+	}
+
 	return fmt.Errorf("(%s) %v", e.code, e.Error())
 }
