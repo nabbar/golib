@@ -40,6 +40,7 @@ var (
 	certificates          = make([]tls.Certificate, 0)
 	caCertificates        = x509.NewCertPool()
 	tlsMinVersion  uint16 = tls.VersionTLS12
+	tlsMaxVersion  uint16 = tls.VersionTLS12
 	cipherList            = []uint16{
 		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
 		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
@@ -178,29 +179,30 @@ func GetClientCA() *x509.CertPool {
 	return caCertificates
 }
 
-func SetStringTlsVersion(tlsVersStr string) {
+func SetVersionMin(vers uint16) {
+	tlsMinVersion = vers
+}
+
+func SetVersionMax(vers uint16) {
+	tlsMaxVersion = vers
+}
+
+func SetStringTlsVersion(tlsVersStr string) uint16 {
 	tlsVersStr = strings.ToLower(tlsVersStr)
 	tlsVersStr = strings.Replace(tlsVersStr, "TLS", "", -1)
 	tlsVersStr = strings.TrimSpace(tlsVersStr)
 
 	switch tlsVersStr {
 	case "1", "1.0":
-		tlsMinVersion = tls.VersionTLS10
+		return tls.VersionTLS10
 	case "1.1":
-		tlsMinVersion = tls.VersionTLS11
+		return tls.VersionTLS11
+	case "1.2":
+		return tls.VersionTLS12
+	case "1.3":
+		return tls.VersionTLS13
 	default:
-		tlsMinVersion = tls.VersionTLS12
-	}
-}
-
-func SetTlsVersion(tlsVers uint16) {
-	switch tlsVers {
-	case tls.VersionTLS10:
-		tlsMinVersion = tls.VersionTLS10
-	case tls.VersionTLS11:
-		tlsMinVersion = tls.VersionTLS11
-	default:
-		tlsMinVersion = tls.VersionTLS12
+		return tls.VersionTLS12
 	}
 }
 
@@ -287,8 +289,15 @@ func GetTLSConfig(serverName string) *tls.Config {
 	cnf := &tls.Config{
 		RootCAs:            rootCA,
 		ClientCAs:          caCertificates,
-		MinVersion:         tlsMinVersion,
 		InsecureSkipVerify: false,
+	}
+
+	if tlsMinVersion > 0 {
+		cnf.MinVersion = tlsMinVersion
+	}
+
+	if tlsMaxVersion > 0 {
+		cnf.MaxVersion = tlsMaxVersion
 	}
 
 	if serverName != "" {
@@ -326,8 +335,9 @@ func GetTlsConfigCertificates() *tls.Config {
 		cnf.ClientAuth = clientAuth
 	}
 
-	cnf.Certificates = certificates
-	cnf.BuildNameToCertificate()
+	if len(cnf.Certificates) > 0 {
+		cnf.Certificates = certificates
+	}
 
 	return cnf
 }

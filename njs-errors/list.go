@@ -26,6 +26,7 @@
 package njs_errors
 
 import (
+	"fmt"
 	"path"
 	"reflect"
 	"runtime"
@@ -72,19 +73,25 @@ func DelAllErrorCode() {
 // GetErrorCode return an ErrorCode interface mapped to code given in parameters.
 // If the code is not found an 'ERR_UNKNOWN' will be used instead of the awaiting error
 // If an origin error is given in params, this origin error will be used in the reference of generated error or string
-func GetErrorCode(code string, origin error) ErrorCode {
-	return getErrorCode(code, origin, getNilFrame())
+func GetErrorCode(code string, origin error, argPattern ...interface{}) ErrorCode {
+	return getErrorCode(code, origin, getNilFrame(), argPattern...)
 }
 
 // GetTraceErrorCode return an ErrorCode interface mapped to given params code.
-// If the code is not found an 'ERR_UNKNOWN' will be used instead of the awaiting error
-// If an origin error is given in params, this origin error will be used in the reference of generated error or string
-// This function add a trace of error generated
+// Deprecated: this function is replaced by GetErrorCodeTrace
 func GetTraceErrorCode(code string, origin error) ErrorCode {
 	return getErrorCode(code, origin, getFrame())
 }
 
-func getErrorCode(code string, origin error, trace runtime.Frame) ErrorCode {
+// GetErrorCodeTrace return an ErrorCode interface mapped to given params code.
+// If the code is not found an 'ERR_UNKNOWN' will be used instead of the awaiting error
+// If an origin error is given in params, this origin error will be used in the reference of generated error or string
+// This function add a trace of error generated
+func GetErrorCodeTrace(code string, origin error, argPattern ...interface{}) ErrorCode {
+	return getErrorCode(code, origin, getFrame(), argPattern...)
+}
+
+func getErrorCode(code string, origin error, trace runtime.Frame, argList ...interface{}) ErrorCode {
 	var (
 		e  ErrorType
 		ok bool
@@ -92,6 +99,8 @@ func getErrorCode(code string, origin error, trace runtime.Frame) ErrorCode {
 
 	if e, ok = _listCodeErrors[code]; !ok {
 		e = ERR_UNKNOWN
+	} else {
+		e = ErrorType(fmt.Sprintf(e.String(), argList...))
 	}
 
 	return &errorCode{
