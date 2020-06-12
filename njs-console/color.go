@@ -26,6 +26,7 @@
 package njs_console
 
 import (
+	"bufio"
 	"fmt"
 
 	"github.com/fatih/color"
@@ -83,8 +84,22 @@ func (c colorType) Print(text string) {
 	}
 }
 
+func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...interface{}) (n int, err error) {
+	if colorList[c] != nil && buff != nil {
+		return colorList[c].Fprintf(buff, format, args...) // #nosec
+	} else if buff != nil {
+		return buff.Write([]byte(fmt.Sprintf(format, args...)))
+	} else {
+		return 0, fmt.Errorf("buffer is not defined")
+	}
+}
+
 func (c colorType) Sprintf(format string, args ...interface{}) string {
-	return fmt.Sprintf(format, args...)
+	if colorList[c] != nil {
+		return colorList[c].Sprintf(format, args...) // #nosec
+	} else {
+		return fmt.Sprintf(format, args...)
+	}
 }
 
 func (c colorType) Printf(format string, args ...interface{}) {
