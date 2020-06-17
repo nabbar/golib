@@ -55,7 +55,7 @@ func GetMaxSimultaneous() int {
 	return runtime.GOMAXPROCS(0)
 }
 
-func NewSemaphore(maxSimultaneous int, timeout time.Duration, deadline time.Time) Sem {
+func NewSemaphore(maxSimultaneous int, timeout time.Duration, deadline time.Time, parent context.Context) Sem {
 	if maxSimultaneous < 1 {
 		maxSimultaneous = GetMaxSimultaneous()
 	}
@@ -65,12 +65,16 @@ func NewSemaphore(maxSimultaneous int, timeout time.Duration, deadline time.Time
 		x context.Context
 	)
 
+	if parent == nil {
+		parent = context.Background()
+	}
+
 	if timeout > 0 {
-		x, c = context.WithTimeout(context.Background(), timeout)
+		x, c = context.WithTimeout(parent, timeout)
 	} else if deadline.Unix() > 0 {
-		x, c = context.WithDeadline(context.Background(), deadline)
+		x, c = context.WithDeadline(parent, deadline)
 	} else {
-		x, c = context.WithCancel(context.Background())
+		x, c = context.WithCancel(parent)
 	}
 
 	return &sem{
