@@ -49,12 +49,24 @@ func SystemFileDescriptor(newValue int) (current int, max int, err error) {
 		return int(rLimit.Cur), int(rLimit.Max), nil
 	}
 
-	rLimit.Max = uint64(newValue)
-	rLimit.Cur = uint64(newValue)
+	var chg = false
 
-	if err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
-		return
+	if newValue > int(rLimit.Max) {
+		chg = true
+		rLimit.Max = uint64(newValue)
+	}
+	if newValue > int(rLimit.Cur) {
+		chg = true
+		rLimit.Cur = uint64(newValue)
 	}
 
-	return SystemFileDescriptor(0)
+	if chg {
+		if err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
+			return
+		}
+
+		return SystemFileDescriptor(0)
+	}
+
+	return int(rLimit.Cur), int(rLimit.Max), nil
 }
