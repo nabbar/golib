@@ -28,7 +28,8 @@ require (
 	github.com/vjeantet/ldapserver v0.0.0-20170919170217-479fece7c5f1 // indirect
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
-	golang.org/x/sys v0.0.0-20200610111108-226ff32320da // indirect
+	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
+	golang.org/x/sys v0.0.0-20200615200032-f1bc736245b1 // indirect
 	google.golang.org/protobuf v1.24.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0 // indirect
