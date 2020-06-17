@@ -1,3 +1,5 @@
+// +build windows
+
 /*
  * MIT License
  *
@@ -25,11 +27,8 @@
 
 package njs_ioutils
 
-/**
- * SystemFileDescriptor is returning current Limit & max system limit for file descriptor (open file or I/O resource) currently set in the system
- * This function return the current setting (current number of file descriptor and the max value) if the newValue given is zero
- * Otherwise if the newValue is more than the current system limit, try to change the current limit in the system for this process only
- */
-func SystemFileDescriptor(newValue int) (current int, max int, err error) {
-	return systemFileDescriptor(newValue)
+import "fmt"
+
+func systemFileDescriptor(newValue int) (current int, max int, err error) {
+	return 0, 0, fmt.Errorf("rLimit is nor implemented in current system")
 }
