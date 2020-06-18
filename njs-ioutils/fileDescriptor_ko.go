@@ -31,19 +31,6 @@ import (
 	"github.com/nabbar/golib/njs-ioutils/maxstdio"
 )
 
-/*
- * install package gcc-multilib gcc-mingw-w64
- *    - i686-w64-mingw32 for 32-bit Windows;
- *    - x86_64-w64-mingw32 for 64-bit Windows.
- * call go build with env var :
- *   - CC=i686-w64-mingw32-gcc    for win32
- *   - CC=x86_64-w64-mingw32-gcc  for win64
- * build :
- *   all :   cd <repos_dir>/vendor/github/nabbar/golib/njs-ioutils/maxstdio && CC=x86_64-w64-mingw32 gcc -c maxstdio.c
- *   win64 : cd <repos_dir> && CC=/usr/bin/x86_64-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v .
- *   win32 : cd <repos_dir> && CC=/usr/bin/i686-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v .
- */
-
 func systemFileDescriptor(newValue int) (current int, max int, err error) {
 	rLimit := maxstdio.GetMaxStdio()
 
