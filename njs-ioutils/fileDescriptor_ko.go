@@ -27,8 +27,23 @@
 
 package njs_ioutils
 
-import "fmt"
+import (
+	"github.com/nabbar/golib/njs-ioutils/maxstdio"
+)
 
 func systemFileDescriptor(newValue int) (current int, max int, err error) {
-	return 0, 0, fmt.Errorf("rLimit is nor implemented in current system")
+	rLimit := maxstdio.GetMaxStdio()
+
+	if rLimit < 0 {
+		// default windows value
+		rLimit = 512
+	}
+
+	if newValue > rLimit {
+		rLimit = int(maxstdio.SetMaxStdio(newValue))
+		return SystemFileDescriptor(0)
+	}
+
+	return rLimit, rLimit, nil
+	//	return 0, 0, fmt.Errorf("rLimit is nor implemented in current system")
 }
