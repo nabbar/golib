@@ -3,6 +3,7 @@ module github.com/nabbar/golib
 go 1.13
 
 require (
+	github.com/VividCortex/ewma v1.1.1 // indirect
 	github.com/fatih/color v1.9.0
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-playground/validator/v10 v10.3.0 // indirect
@@ -10,7 +11,7 @@ require (
 	github.com/gobuffalo/packd v1.0.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
 	github.com/golang/protobuf v1.4.2 // indirect
-	github.com/hashicorp/go-version v1.2.0
+	github.com/hashicorp/go-version v1.2.1
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/mattn/go-colorable v0.1.6 // indirect
@@ -25,11 +26,13 @@ require (
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
+	github.com/vbauerster/mpb v3.4.0+incompatible // indirect
+	github.com/vbauerster/mpb/v5 v5.2.2
 	github.com/vjeantet/ldapserver v0.0.0-20170919170217-479fece7c5f1 // indirect
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/sys v0.0.0-20200615200032-f1bc736245b1 // indirect
+	golang.org/x/sys v0.0.0-20200620081246-981b61492c35 // indirect
 	google.golang.org/protobuf v1.24.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0 // indirect
