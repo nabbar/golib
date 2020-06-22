@@ -60,22 +60,7 @@ func NewSemaphore(maxSimultaneous int, timeout time.Duration, deadline time.Time
 		maxSimultaneous = GetMaxSimultaneous()
 	}
 
-	var (
-		c context.CancelFunc
-		x context.Context
-	)
-
-	if parent == nil {
-		parent = context.Background()
-	}
-
-	if timeout > 0 {
-		x, c = context.WithTimeout(parent, timeout)
-	} else if deadline.Unix() > 0 {
-		x, c = context.WithDeadline(parent, deadline)
-	} else {
-		x, c = context.WithCancel(parent)
-	}
+	x, c := GetContext(timeout, deadline, parent)
 
 	return &sem{
 		m: int64(maxSimultaneous),
