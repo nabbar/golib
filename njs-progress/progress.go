@@ -64,6 +64,7 @@ type progressBar struct {
 type ProgressBar interface {
 	SetSemaphoreOption(maxSimultaneous int, timeout time.Duration)
 	NewBar(parent context.Context, options ...mpb.BarOption) Bar
+	NewBarSimple(name string) Bar
 }
 
 func NewProgressBar(timeout time.Duration, deadline time.Time, parent context.Context, options ...mpb.ContainerOption) ProgressBar {
