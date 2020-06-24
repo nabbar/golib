@@ -1,8 +1,8 @@
 #include "maxstdio.h"
 #include <stdio.h>
 
-int _getmaxstdio();
-int _setmaxstdio(int new_max);
+//int _getmaxstdio();
+//int _setmaxstdio(int new_max);
 
 int CGetMaxSTDIO() {
 	return _getmaxstdio();
