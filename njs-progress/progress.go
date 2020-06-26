@@ -139,7 +139,7 @@ func (p progressBar) NewBarSimpleCounter(name string, total int64) Bar {
 				// display our name with one space on the right
 				decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}),
 				// use counter (no ETA)
-				decor.CountersNoUnit("%d / %d", decor.WCSyncWidth),
+				decor.CountersNoUnit("[%d / %d] ", decor.WCSyncWidth),
 				// replace ETA decorator with "done" message, OnComplete event
 				decor.OnComplete(
 					decor.AverageETA(decor.ET_STYLE_GO, decor.WC{W: 4}), defaultMessageDone,
