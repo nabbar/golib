@@ -90,10 +90,11 @@ func (b *bar) Refill(amount int64) {
 }
 
 func (b *bar) NewWorker() error {
-	if b.c == 0 {
+	if !b.u {
 		b.t++
 		b.b.SetTotal(b.t, false)
 	}
+
 	return b.s.NewWorker()
 }
 
