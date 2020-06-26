@@ -33,6 +33,7 @@ import (
 )
 
 type bar struct {
+	u bool
 	t int64
 	b *mpb.Bar
 	s njs_semaphore.Sem
@@ -41,6 +42,8 @@ type bar struct {
 type Bar interface {
 	Current() int64
 	Completed() bool
+	Increment(n int)
+	Refill(amount int64)
 
 	NewWorker() error
 	NewWorkerTry() bool
@@ -50,14 +53,21 @@ type Bar interface {
 	WaitAll() error
 	Context() context.Context
 	Cancel()
+
+	GetBarMPB() *mpb.Bar
 }
 
-func newBar(b *mpb.Bar, s njs_semaphore.Sem) Bar {
+func newBar(b *mpb.Bar, s njs_semaphore.Sem, total int64) Bar {
 	return &bar{
-		t: 0,
+		u: total > 0,
+		t: total,
 		b: b,
 		s: s,
 	}
+}
+
+func (b bar) GetBarMPB() *mpb.Bar {
+	return b.b
 }
 
 func (b bar) Current() int64 {
@@ -68,9 +78,23 @@ func (b bar) Completed() bool {
 	return b.b.Completed()
 }
 
+func (b *bar) Increment(n int) {
+	if n == 0 {
+		n = 1
+	}
+	b.b.IncrBy(n)
+}
+
+func (b *bar) Refill(amount int64) {
+	b.b.SetRefill(amount)
+}
+
 func (b *bar) NewWorker() error {
-	b.t++
-	b.b.SetTotal(b.t, false)
+	if !b.u {
+		b.t++
+		b.b.SetTotal(b.t, false)
+	}
+
 	return b.s.NewWorker()
 }
 

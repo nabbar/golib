@@ -53,6 +53,14 @@ func SetDefaultMessageDone(message string) {
 	defaultMessageDone = message
 }
 
+func GetDefaultStyle() string {
+	return defaultStyle
+}
+
+func GetDefaultMessageDone() string {
+	return defaultMessageDone
+}
+
 type progressBar struct {
 	mpb       *mpb.Progress
 	ctx       context.Context
@@ -62,9 +70,13 @@ type progressBar struct {
 }
 
 type ProgressBar interface {
+	GetMPB() *mpb.Progress
+
 	SetSemaphoreOption(maxSimultaneous int, timeout time.Duration)
-	NewBar(parent context.Context, options ...mpb.BarOption) Bar
-	NewBarSimple(name string) Bar
+
+	NewBar(parent context.Context, total int64, options ...mpb.BarOption) Bar
+	NewBarSimpleETA(name string) Bar
+	NewBarSimpleCounter(name string, total int64) Bar
 }
 
 func NewProgressBar(timeout time.Duration, deadline time.Time, parent context.Context, options ...mpb.ContainerOption) ProgressBar {
@@ -79,12 +91,16 @@ func NewProgressBar(timeout time.Duration, deadline time.Time, parent context.Co
 	}
 }
 
+func (p *progressBar) GetMPB() *mpb.Progress {
+	return p.mpb
+}
+
 func (p *progressBar) SetSemaphoreOption(maxSimultaneous int, timeout time.Duration) {
 	p.sMaxSimul = maxSimultaneous
 	p.sTimeOut = timeout
 }
 
-func (p progressBar) NewBar(parent context.Context, options ...mpb.BarOption) Bar {
+func (p progressBar) NewBar(parent context.Context, total int64, options ...mpb.BarOption) Bar {
 	if parent == nil {
 		parent = p.ctx
 	}
@@ -92,10 +108,11 @@ func (p progressBar) NewBar(parent context.Context, options ...mpb.BarOption) Ba
 	return newBar(
 		p.mpb.AddBar(0, options...),
 		njs_semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, njs_semaphore.GetEmptyTime(), parent),
+		total,
 	)
 }
 
-func (p progressBar) NewBarSimple(name string) Bar {
+func (p progressBar) NewBarSimpleETA(name string) Bar {
 	return newBar(
 		p.mpb.AddBar(0,
 			mpb.BarStyle(defaultStyle),
@@ -110,5 +127,27 @@ func (p progressBar) NewBarSimple(name string) Bar {
 			mpb.AppendDecorators(decor.Percentage()),
 		),
 		njs_semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, njs_semaphore.GetEmptyTime(), p.ctx),
+		0,
+	)
+}
+
+func (p progressBar) NewBarSimpleCounter(name string, total int64) Bar {
+	return newBar(
+		p.mpb.AddBar(total,
+			mpb.BarStyle(defaultStyle),
+			mpb.PrependDecorators(
+				// display our name with one space on the right
+				decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}),
+				// use counter (no ETA)
+				decor.CountersNoUnit("%d / %d", decor.WCSyncWidth),
+				// replace ETA decorator with "done" message, OnComplete event
+				decor.OnComplete(
+					decor.AverageETA(decor.ET_STYLE_GO, decor.WC{W: 4}), defaultMessageDone,
+				),
+			),
+			mpb.AppendDecorators(decor.Percentage()),
+		),
+		njs_semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, njs_semaphore.GetEmptyTime(), p.ctx),
+		total,
 	)
 }
