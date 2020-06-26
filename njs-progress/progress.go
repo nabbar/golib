@@ -70,7 +70,10 @@ type progressBar struct {
 }
 
 type ProgressBar interface {
+	GetMPB() *mpb.Progress
+
 	SetSemaphoreOption(maxSimultaneous int, timeout time.Duration)
+
 	NewBar(parent context.Context, total int64, options ...mpb.BarOption) Bar
 	NewBarSimpleETA(name string) Bar
 	NewBarSimpleCounter(name string, total int64) Bar
@@ -86,6 +89,10 @@ func NewProgressBar(timeout time.Duration, deadline time.Time, parent context.Co
 		sTimeOut:  timeout,
 		sMaxSimul: njs_semaphore.GetMaxSimultaneous(),
 	}
+}
+
+func (p *progressBar) GetMPB() *mpb.Progress {
+	return p.mpb
 }
 
 func (p *progressBar) SetSemaphoreOption(maxSimultaneous int, timeout time.Duration) {

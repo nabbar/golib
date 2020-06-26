@@ -53,6 +53,8 @@ type Bar interface {
 	WaitAll() error
 	Context() context.Context
 	Cancel()
+
+	GetBarMPB() *mpb.Bar
 }
 
 func newBar(b *mpb.Bar, s njs_semaphore.Sem, total int64) Bar {
@@ -62,6 +64,10 @@ func newBar(b *mpb.Bar, s njs_semaphore.Sem, total int64) Bar {
 		b: b,
 		s: s,
 	}
+}
+
+func (b bar) GetBarMPB() *mpb.Bar {
+	return b.b
 }
 
 func (b bar) Current() int64 {
@@ -79,7 +85,7 @@ func (b *bar) Increment(n int) {
 	b.b.IncrBy(n)
 }
 
-func (b bar) Refill(amount int64) {
+func (b *bar) Refill(amount int64) {
 	b.b.SetRefill(amount)
 }
 
