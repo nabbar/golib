@@ -29,6 +29,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const _EMPTY_GROUP = "<nil>"
+
 var (
 	defaultRouters = NewRouterList()
 )
@@ -40,40 +42,66 @@ type routerItem struct {
 }
 
 type routerList struct {
-	list []routerItem
+	list map[string][]routerItem
 }
 
 type RegisterRouter func(method string, relativePath string, router ...gin.HandlerFunc)
 
 type RouterList interface {
 	Register(method string, relativePath string, router ...gin.HandlerFunc)
-	Handler(handle func(httpMethod, relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes)
+	RegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc)
+	Handler(engine *gin.Engine)
 }
 
 func RoutersRegister(method string, relativePath string, router ...gin.HandlerFunc) {
 	defaultRouters.Register(method, relativePath, router...)
 }
 
-func RoutersHandler(handle func(httpMethod, relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes) {
-	defaultRouters.Handler(handle)
+func RoutersRegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc) {
+	defaultRouters.RegisterInGroup(group, method, relativePath, router...)
+}
+
+func RoutersHandler(engine *gin.Engine) {
+	defaultRouters.Handler(engine)
 }
 
 func NewRouterList() RouterList {
 	return &routerList{
-		list: make([]routerItem, 0),
+		list: make(map[string][]routerItem, 0),
 	}
 }
 
-func (l routerList) Handler(handle func(httpMethod, relativePath string, handlers ...gin.HandlerFunc) gin.IRoutes) {
-	for _, r := range l.list {
-		handle(r.method, r.relative, r.router...)
+func (l routerList) Handler(engine *gin.Engine) {
+	for grpRoute, grpList := range l.list {
+		if grpRoute == _EMPTY_GROUP {
+			for _, r := range grpList {
+				engine.Handle(r.method, r.relative, r.router...)
+			}
+		} else {
+			var grp = engine.Group(grpRoute)
+			for _, r := range grpList {
+				grp.Handle(r.method, r.relative, r.router...)
+			}
+		}
 	}
 }
 
-func (l *routerList) Register(method string, relativePath string, router ...gin.HandlerFunc) {
-	l.list = append(l.list, routerItem{
+func (l *routerList) RegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc) {
+	if group == "" {
+		group = _EMPTY_GROUP
+	}
+
+	if _, ok := l.list[group]; !ok {
+		l.list[group] = make([]routerItem, 0)
+	}
+
+	l.list[group] = append(l.list[group], routerItem{
 		method:   method,
 		relative: relativePath,
 		router:   router,
 	})
+}
+
+func (l *routerList) Register(method string, relativePath string, router ...gin.HandlerFunc) {
+	l.RegisterInGroup("", method, relativePath, router...)
 }
