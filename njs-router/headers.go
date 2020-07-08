@@ -49,7 +49,9 @@ type Headers interface {
 }
 
 func NewHeaders() Headers {
-	return &headers{}
+	return &headers{
+		head: make(http.Header, 0),
+	}
 }
 
 func (h headers) Clone() Headers {
@@ -69,6 +71,10 @@ func (h headers) Register(router ...gin.HandlerFunc) []gin.HandlerFunc {
 func (h headers) Header() map[string]string {
 	res := make(map[string]string)
 
+	if h.head == nil {
+		return res
+	}
+
 	for k := range h.head {
 		res[k] = h.head.Get(k)
 	}
@@ -77,6 +83,10 @@ func (h headers) Header() map[string]string {
 }
 
 func (h headers) Handler(c *gin.Context) {
+	if h.head == nil {
+		return
+	}
+
 	for k := range h.head {
 		c.Header(k, h.head.Get(k))
 	}
@@ -84,14 +94,22 @@ func (h headers) Handler(c *gin.Context) {
 
 // Add adds the key, value pair to the header.
 // It appends to any existing values associated with key.
-func (h headers) Add(key, value string) {
+func (h *headers) Add(key, value string) {
+	if h.head == nil {
+		h.head = make(http.Header, 0)
+	}
+
 	h.head.Add(key, value)
 }
 
 // Set sets the header entries associated with key to
 // the single element value. It replaces any existing
 // values associated with key.
-func (h headers) Set(key, value string) {
+func (h *headers) Set(key, value string) {
+	if h.head == nil {
+		h.head = make(http.Header, 0)
+	}
+
 	h.head.Set(key, value)
 }
 
@@ -102,10 +120,18 @@ func (h headers) Set(key, value string) {
 // To access multiple values of a key, or to use non-canonical keys,
 // access the map directly.
 func (h headers) Get(key string) string {
+	if h.head == nil {
+		h.head = make(http.Header, 0)
+	}
+
 	return h.head.Get(key)
 }
 
 // Del deletes the values associated with key.
-func (h headers) Del(key string) {
+func (h *headers) Del(key string) {
+	if h.head == nil {
+		h.head = make(http.Header, 0)
+	}
+
 	h.head.Del(key)
 }
