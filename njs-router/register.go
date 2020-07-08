@@ -29,7 +29,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const _EMPTY_GROUP = "<nil>"
+const EMPTY_GROUP = "<nil>"
 
 var (
 	defaultRouters = NewRouterList()
@@ -46,6 +46,7 @@ type routerList struct {
 }
 
 type RegisterRouter func(method string, relativePath string, router ...gin.HandlerFunc)
+type RegisterRouterInGroup func(group, method string, relativePath string, router ...gin.HandlerFunc)
 
 type RouterList interface {
 	Register(method string, relativePath string, router ...gin.HandlerFunc)
@@ -73,7 +74,7 @@ func NewRouterList() RouterList {
 
 func (l routerList) Handler(engine *gin.Engine) {
 	for grpRoute, grpList := range l.list {
-		if grpRoute == _EMPTY_GROUP {
+		if grpRoute == EMPTY_GROUP {
 			for _, r := range grpList {
 				engine.Handle(r.method, r.relative, r.router...)
 			}
@@ -88,7 +89,7 @@ func (l routerList) Handler(engine *gin.Engine) {
 
 func (l *routerList) RegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc) {
 	if group == "" {
-		group = _EMPTY_GROUP
+		group = EMPTY_GROUP
 	}
 
 	if _, ok := l.list[group]; !ok {

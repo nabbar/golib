@@ -59,10 +59,12 @@ type staticHandler struct {
 
 type Static interface {
 	Register(register njs_router.RegisterRouter)
+	RegisterInGroup(group string, register njs_router.RegisterRouterInGroup)
 
 	SetDownloadAll()
 	SetDownload(file string)
 	IsDownload(file string) bool
+	
 	Has(file string) bool
 	Find(file string) ([]byte, error)
 
@@ -70,12 +72,20 @@ type Static interface {
 	Get(c *gin.Context)
 }
 
+func cleanPath(p string) string {
+	return filepath.Clean(filepath.Join("/", strings.TrimLeft(p, "/")))
+}
+
+func cleanJoinPath(p, e string) string {
+	return cleanPath(filepath.Join(strings.TrimLeft(p, "/"), e))
+}
+
 func NewStatic(hasIndex bool, prefix string, box packr.Box, Header func() map[string]string) Static {
 	return &staticHandler{
 		box:      box,
 		debug:    false,
 		index:    hasIndex,
-		prefix:   "/" + strings.Trim(prefix, "/"),
+		prefix:   cleanPath(prefix),
 		head:     Header,
 		download: make([]string, 0),
 	}
@@ -84,11 +94,22 @@ func NewStatic(hasIndex bool, prefix string, box packr.Box, Header func() map[st
 func (s staticHandler) Register(register njs_router.RegisterRouter) {
 	if s.prefix == "/" {
 		for _, f := range s.box.List() {
-			register(http.MethodGet, s.prefix+f, s.Get)
+			register(http.MethodGet, cleanJoinPath(s.prefix, f), s.Get)
 		}
 	} else {
 		register(http.MethodGet, s.prefix, s.Get)
-		register(http.MethodGet, s.prefix+"/*file", s.Get)
+		register(http.MethodGet, cleanJoinPath(s.prefix, "/*file"), s.Get)
+	}
+}
+
+func (s staticHandler) RegisterInGroup(group string, register njs_router.RegisterRouterInGroup) {
+	if s.prefix == "/" {
+		for _, f := range s.box.List() {
+			register(group, http.MethodGet, cleanJoinPath(s.prefix, f), s.Get)
+		}
+	} else {
+		register(group, http.MethodGet, s.prefix, s.Get)
+		register(group, http.MethodGet, cleanJoinPath(s.prefix, "/*file"), s.Get)
 	}
 }
 
