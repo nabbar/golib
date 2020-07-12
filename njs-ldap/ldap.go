@@ -30,10 +30,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-ldap/ldap/v3"
 	"github.com/pkg/errors"
-	"github.com/nabbar/golib/njs-certif"
-	"github.com/nabbar/golib/njs-logger"
-	"gopkg.in/ldap.v3"
+
+	njs_certif "github.com/nabbar/golib/njs-certif"
+	njs_logger "github.com/nabbar/golib/njs-logger"
 )
 
 //HelperLDAP struct use to manage connection to server and request it
