@@ -27,54 +27,41 @@
 package njs_errors
 
 import (
-	"strconv"
+	"path"
+	"reflect"
+	"runtime"
+	"strings"
 )
 
-var msgfct = make([]Message, 0)
+var currPkgs = path.Base(reflect.TypeOf(UNK_ERROR).PkgPath())
 
-type Message func(code CodeError) (message string)
-type CodeError uint16
+func getFrame() runtime.Frame {
+	// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need
+	programCounters := make([]uintptr, 0)
+	n := runtime.Callers(0, programCounters)
 
-const UNK_ERROR CodeError = 0
-const UNK_MESSAGE = "unknown error"
+	if n > 0 {
+		frames := runtime.CallersFrames(programCounters[:n])
+		more := true
 
-func (c CodeError) GetUint16() uint16 {
-	return uint16(c)
-}
+		for more {
+			var (
+				frame runtime.Frame
+			)
 
-func (c CodeError) GetInt() int {
-	return int(c)
-}
+			frame, more = frames.Next()
 
-func (c CodeError) GetString() string {
-	return strconv.Itoa(c.GetInt())
-}
+			if strings.Contains(frame.Function, currPkgs) {
+				continue
+			}
 
-func (c CodeError) GetMessage() string {
-	if c == UNK_ERROR {
-		return UNK_MESSAGE
-	}
-
-	for _, f := range msgfct {
-		m := f(c)
-		if m != "" {
-			return m
+			return frame
 		}
 	}
 
-	return UNK_MESSAGE
+	return getNilFrame()
 }
 
-func (c CodeError) Error(p Error) Error {
-	return NewError(c.GetUint16(), c.GetMessage(), p)
-}
-
-func (c CodeError) ErrorParent(p ...error) Error {
-	e := c.Error(nil)
-	e.AddParent(p...)
-	return e
-}
-
-func RegisterFctMessage(fct Message) {
-	msgfct = append(msgfct, fct)
+func getNilFrame() runtime.Frame {
+	return runtime.Frame{Function: "", File: "", Line: 0}
 }

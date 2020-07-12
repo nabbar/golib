@@ -24,57 +24,23 @@
  *
  */
 
-package njs_errors
+package njs_console
 
-import (
-	"strconv"
+import errors "github.com/nabbar/golib/njs-errors"
+
+const (
+	EMPTY_PARAMS errors.CodeError = iota + 110
 )
 
-var msgfct = make([]Message, 0)
-
-type Message func(code CodeError) (message string)
-type CodeError uint16
-
-const UNK_ERROR CodeError = 0
-const UNK_MESSAGE = "unknown error"
-
-func (c CodeError) GetUint16() uint16 {
-	return uint16(c)
+func init() {
+	errors.RegisterFctMessage(getMessage)
 }
 
-func (c CodeError) GetInt() int {
-	return int(c)
-}
-
-func (c CodeError) GetString() string {
-	return strconv.Itoa(c.GetInt())
-}
-
-func (c CodeError) GetMessage() string {
-	if c == UNK_ERROR {
-		return UNK_MESSAGE
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case EMPTY_PARAMS:
+		return "given parameters is empty"
 	}
 
-	for _, f := range msgfct {
-		m := f(c)
-		if m != "" {
-			return m
-		}
-	}
-
-	return UNK_MESSAGE
-}
-
-func (c CodeError) Error(p Error) Error {
-	return NewError(c.GetUint16(), c.GetMessage(), p)
-}
-
-func (c CodeError) ErrorParent(p ...error) Error {
-	e := c.Error(nil)
-	e.AddParent(p...)
-	return e
-}
-
-func RegisterFctMessage(fct Message) {
-	msgfct = append(msgfct, fct)
+	return ""
 }

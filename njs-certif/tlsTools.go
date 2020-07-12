@@ -32,7 +32,7 @@ import (
 	"runtime"
 	"strings"
 
-	logger "github.com/nabbar/golib/njs-logger"
+	errors "github.com/nabbar/golib/njs-errors"
 )
 
 var (
@@ -77,21 +77,26 @@ func AddRootCAContents(rootContent string) bool {
 	return false
 }
 
-func AddRootCAFile(rootFile string) bool {
+func AddRootCAFile(rootFile string) errors.Error {
 	if rootFile == "" {
-		return false
+		return EMPTY_PARAMS.Error(nil)
 	}
 
-	if _, e := os.Stat(rootFile); logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "checking certificates file '%s'", e, rootFile) {
-		return false
+	if _, e := os.Stat(rootFile); e != nil {
+		return FILE_STAT_ERROR.ErrorParent(e)
 	}
 
 	c, e := ioutil.ReadFile(rootFile) // #nosec
-	if !logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "loading certificates file '%s'", e, rootFile) {
-		return rootCA.AppendCertsFromPEM(c)
+
+	if e == nil {
+		if rootCA.AppendCertsFromPEM(c) {
+			return nil
+		}
+
+		return CERT_APPEND_KO.Error(nil)
 	}
 
-	return false
+	return FILE_READ_ERROR.ErrorParent(e)
 }
 
 func AddCACertificateContents(caContent string) bool {
@@ -102,61 +107,68 @@ func AddCACertificateContents(caContent string) bool {
 	return false
 }
 
-func AddCACertificateFile(caFile string) bool {
+func AddCACertificateFile(caFile string) errors.Error {
 	if caFile == "" {
-		return false
+		return EMPTY_PARAMS.Error(nil)
 	}
 
-	if _, e := os.Stat(caFile); logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "checking certificates file '%s'", e, caFile) {
-		return false
+	if _, e := os.Stat(caFile); e != nil {
+		return FILE_STAT_ERROR.ErrorParent(e)
 	}
 
 	c, e := ioutil.ReadFile(caFile) // #nosec
-	if !logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "loading certificates file '%s'", e, caFile) {
-		return caCertificates.AppendCertsFromPEM(c)
+
+	if e == nil {
+		if caCertificates.AppendCertsFromPEM(c) {
+			return nil
+		}
+
+		return CERT_APPEND_KO.Error(nil)
 	}
 
-	return false
+	return FILE_READ_ERROR.ErrorParent(e)
 }
 
 func CheckCertificates() bool {
 	return len(certificates) > 0
 }
 
-func AddCertificateContents(keyContents, certContents string) bool {
+func AddCertificateContents(keyContents, certContents string) errors.Error {
 	keyContents = strings.TrimSpace(keyContents)
 	certContents = strings.TrimSpace(certContents)
 
 	if keyContents != "" && keyContents != "\n" && certContents != "" && certContents != "\n" {
 		c, err := tls.X509KeyPair([]byte(certContents), []byte(keyContents))
-		if !logger.ErrorLevel.LogErrorCtx(logger.InfoLevel, "loading certificates contents", err) {
+		if err == nil {
 			certificates = append(certificates, c)
-			return true
+			return nil
 		}
+
+		return CERT_PARSE_KEYPAIR.ErrorParent(err)
 	}
 
-	return false
+	return EMPTY_PARAMS.Error(nil)
 }
 
-func AddCertificateFile(keyFile, certFile string) bool {
+func AddCertificateFile(keyFile, certFile string) errors.Error {
 	if keyFile == "" || certFile == "" {
-		return false
+		return EMPTY_PARAMS.Error(nil)
 	}
 
-	if _, e := os.Stat(keyFile); logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "loading certificates file '%s'", e, keyFile) {
-		return false
+	if _, e := os.Stat(keyFile); e != nil {
+		return FILE_STAT_ERROR.ErrorParent(e)
 	}
 
-	if _, e := os.Stat(certFile); logger.ErrorLevel.LogErrorCtxf(logger.InfoLevel, "loading certificates file '%s'", e, certFile) {
-		return false
+	if _, e := os.Stat(certFile); e != nil {
+		return FILE_STAT_ERROR.ErrorParent(e)
 	}
 
-	if c, e := tls.LoadX509KeyPair(certFile, keyFile); !logger.ErrorLevel.LogErrorCtx(logger.InfoLevel, "loading X509 Pair file", e) {
+	if c, e := tls.LoadX509KeyPair(certFile, keyFile); e == nil {
 		certificates = append(certificates, c)
-		return true
+		return nil
+	} else {
+		return CERT_LOAD_KEYPAIR.ErrorParent(e)
 	}
-
-	return false
 }
 
 func GetCertificates() []tls.Certificate {

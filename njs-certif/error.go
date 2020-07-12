@@ -24,57 +24,38 @@
  *
  */
 
-package njs_errors
+package njs_certif
 
-import (
-	"strconv"
+import errors "github.com/nabbar/golib/njs-errors"
+
+const (
+	EMPTY_PARAMS errors.CodeError = iota + 100
+	FILE_STAT_ERROR
+	FILE_READ_ERROR
+	CERT_APPEND_KO
+	CERT_LOAD_KEYPAIR
+	CERT_PARSE_KEYPAIR
 )
 
-var msgfct = make([]Message, 0)
-
-type Message func(code CodeError) (message string)
-type CodeError uint16
-
-const UNK_ERROR CodeError = 0
-const UNK_MESSAGE = "unknown error"
-
-func (c CodeError) GetUint16() uint16 {
-	return uint16(c)
+func init() {
+	errors.RegisterFctMessage(getMessage)
 }
 
-func (c CodeError) GetInt() int {
-	return int(c)
-}
-
-func (c CodeError) GetString() string {
-	return strconv.Itoa(c.GetInt())
-}
-
-func (c CodeError) GetMessage() string {
-	if c == UNK_ERROR {
-		return UNK_MESSAGE
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case EMPTY_PARAMS:
+		return "given parameters is empty"
+	case FILE_STAT_ERROR:
+		return "cannot get file stat"
+	case FILE_READ_ERROR:
+		return "cannot read file"
+	case CERT_APPEND_KO:
+		return "cannot append PEM file"
+	case CERT_LOAD_KEYPAIR:
+		return "cannot X509 parsing certificate string"
+	case CERT_PARSE_KEYPAIR:
+		return "cannot x509 loading certificate file"
 	}
 
-	for _, f := range msgfct {
-		m := f(c)
-		if m != "" {
-			return m
-		}
-	}
-
-	return UNK_MESSAGE
-}
-
-func (c CodeError) Error(p Error) Error {
-	return NewError(c.GetUint16(), c.GetMessage(), p)
-}
-
-func (c CodeError) ErrorParent(p ...error) Error {
-	e := c.Error(nil)
-	e.AddParent(p...)
-	return e
-}
-
-func RegisterFctMessage(fct Message) {
-	msgfct = append(msgfct, fct)
+	return ""
 }
