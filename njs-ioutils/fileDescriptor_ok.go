@@ -1,3 +1,5 @@
+// +build !windows
+
 /*
  * MIT License
  *
@@ -25,49 +27,41 @@
 
 package njs_ioutils
 
-import "io"
+import "syscall"
 
-type IOWrapper struct {
-	iow   interface{}
-	read  func(p []byte) []byte
-	write func(p []byte) []byte
-}
+func systemFileDescriptor(newValue int) (current int, max int, err error) {
+	var rLimit syscall.Rlimit
 
-func NewIOWrapper(ioInput interface{}) *IOWrapper {
-	return &IOWrapper{
-		iow: ioInput,
-	}
-}
-
-func (I *IOWrapper) SetWrapper(read func(p []byte) []byte, write func(p []byte) []byte) {
-	if read != nil {
-		I.read = read
-	}
-	if write != nil {
-		I.write = write
-	}
-}
-
-func (I IOWrapper) Read(p []byte) (n int, err error) {
-	if I.read != nil {
-		return I.iow.(io.Reader).Read(I.read(p))
+	if err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
+		return
 	}
 
-	return I.iow.(io.Reader).Read(p)
-}
-
-func (I IOWrapper) Write(p []byte) (n int, err error) {
-	if I.write != nil {
-		return I.iow.(io.Writer).Write(I.write(p))
+	if newValue < 1 {
+		return int(rLimit.Cur), int(rLimit.Max), nil
 	}
 
-	return I.iow.(io.Writer).Write(p)
-}
+	if newValue < int(rLimit.Cur) {
+		return int(rLimit.Cur), int(rLimit.Max), nil
+	}
 
-func (I IOWrapper) Seek(offset int64, whence int) (int64, error) {
-	return I.iow.(io.Seeker).Seek(offset, whence)
-}
+	var chg = false
 
-func (I IOWrapper) Close() error {
-	return I.iow.(io.Closer).Close()
+	if newValue > int(rLimit.Max) {
+		chg = true
+		rLimit.Max = uint64(newValue)
+	}
+	if newValue > int(rLimit.Cur) {
+		chg = true
+		rLimit.Cur = uint64(newValue)
+	}
+
+	if chg {
+		if err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
+			return
+		}
+
+		return SystemFileDescriptor(0)
+	}
+
+	return int(rLimit.Cur), int(rLimit.Max), nil
 }

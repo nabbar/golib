@@ -1,3 +1,5 @@
+// +build windows
+
 /*
  * MIT License
  *
@@ -25,49 +27,23 @@
 
 package njs_ioutils
 
-import "io"
+import (
+	"github.com/nabbar/golib/njs-ioutils/maxstdio"
+)
 
-type IOWrapper struct {
-	iow   interface{}
-	read  func(p []byte) []byte
-	write func(p []byte) []byte
-}
+func systemFileDescriptor(newValue int) (current int, max int, err error) {
+	rLimit := maxstdio.GetMaxStdio()
 
-func NewIOWrapper(ioInput interface{}) *IOWrapper {
-	return &IOWrapper{
-		iow: ioInput,
-	}
-}
-
-func (I *IOWrapper) SetWrapper(read func(p []byte) []byte, write func(p []byte) []byte) {
-	if read != nil {
-		I.read = read
-	}
-	if write != nil {
-		I.write = write
-	}
-}
-
-func (I IOWrapper) Read(p []byte) (n int, err error) {
-	if I.read != nil {
-		return I.iow.(io.Reader).Read(I.read(p))
+	if rLimit < 0 {
+		// default windows value
+		rLimit = 512
 	}
 
-	return I.iow.(io.Reader).Read(p)
-}
-
-func (I IOWrapper) Write(p []byte) (n int, err error) {
-	if I.write != nil {
-		return I.iow.(io.Writer).Write(I.write(p))
+	if newValue > rLimit {
+		rLimit = int(maxstdio.SetMaxStdio(newValue))
+		return SystemFileDescriptor(0)
 	}
 
-	return I.iow.(io.Writer).Write(p)
-}
-
-func (I IOWrapper) Seek(offset int64, whence int) (int64, error) {
-	return I.iow.(io.Seeker).Seek(offset, whence)
-}
-
-func (I IOWrapper) Close() error {
-	return I.iow.(io.Closer).Close()
+	return rLimit, rLimit, nil
+	//	return 0, 0, fmt.Errorf("rLimit is nor implemented in current system")
 }
