@@ -57,13 +57,17 @@ func main() {
 		panic(err)
 	}
 
-	defer src.Close()
+	defer func() {
+		_ = src.Close()
+	}()
 
 	if tmp, err = iou.NewTempFile(); err != nil {
 		panic(err)
 	}
 
-	defer iou.DelTempFile(tmp, true)
+	defer func() {
+		_ = iou.DelTempFile(tmp)
+	}()
 
 	if _, err = io.Copy(tmp, src); err != nil {
 		panic(err)
@@ -73,7 +77,9 @@ func main() {
 		panic(err)
 	}
 
-	defer rio.Close()
+	defer func() {
+		_ = rio.Close()
+	}()
 
 	if _, err = rio.Seek(0, 0); err != nil {
 		panic(err)

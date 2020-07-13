@@ -33,14 +33,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	njs_router "github.com/nabbar/golib/njs-router"
-
-	"github.com/gin-gonic/gin/render"
-
-	njs_logger "github.com/nabbar/golib/njs-logger"
-
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/render"
 	"github.com/gobuffalo/packr"
+
+	. "github.com/nabbar/golib/njs-errors"
+	. "github.com/nabbar/golib/njs-logger"
+
+	njs_router "github.com/nabbar/golib/njs-router"
 )
 
 const (
@@ -64,11 +64,11 @@ type Static interface {
 	SetDownloadAll()
 	SetDownload(file string)
 	IsDownload(file string) bool
-	
+
 	Has(file string) bool
 	Find(file string) ([]byte, error)
 
-	Health() error
+	Health() Error
 	Get(c *gin.Context)
 }
 
@@ -119,21 +119,21 @@ func (s staticHandler) print() {
 	}
 
 	for _, f := range s.box.List() {
-		njs_logger.DebugLevel.Logf("Embedded file : %s", f)
+		DebugLevel.Logf("Embedded file : %s", f)
 	}
 
 	s.debug = true
 }
 
-func (s staticHandler) Health() error {
+func (s staticHandler) Health() Error {
 	s.print()
 
 	if len(s.box.List()) < 1 {
-		return fmt.Errorf("empty packed file stored")
+		return EMPTY_PACKED.Error(nil)
 	}
 
 	if s.index && !s.box.Has("index.html") && !s.box.Has("index.htm") {
-		return fmt.Errorf("cannot find 'index.html' file")
+		return INDEX_NOT_FOUND.Error(nil)
 	}
 
 	return nil
@@ -160,12 +160,12 @@ func (s staticHandler) Get(c *gin.Context) {
 			calledFile = FileIndex
 			requestPath = FileIndex
 		} else {
-			c.Abort()
+			_ = c.AbortWithError(http.StatusNotFound, INDEX_REQUESTED_NOT_SET.Error(nil))
 			return
 		}
 	}
 
-	if obj, err := s.box.Find(requestPath); !njs_logger.ErrorLevel.LogErrorCtxf(njs_logger.NilLevel, "find file '%s' error for request '%s%s' :", err, calledFile, s.prefix, requestPath) {
+	if obj, err := s.box.Find(requestPath); !ErrorLevel.LogErrorCtxf(DebugLevel, "find file '%s' error for request '%s%s' :", err, calledFile, s.prefix, requestPath) {
 		head := s.head()
 
 		if s.allDwnld || s.IsDownload(requestPath) {
@@ -179,7 +179,7 @@ func (s staticHandler) Get(c *gin.Context) {
 			Reader:        bytes.NewReader(obj),
 		})
 	} else {
-		c.Abort()
+		_ = c.AbortWithError(http.StatusNotFound, FILE_NOT_FOUND.Error(nil))
 	}
 }
 

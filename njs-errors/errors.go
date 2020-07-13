@@ -48,6 +48,22 @@ func GetDefaultGlue() string {
 	return defaultGlue
 }
 
+func SetDefaultPattern(pattern string) {
+	defaultPattern = pattern
+}
+
+func GetDefaultPattern() string {
+	return defaultPattern
+}
+
+func SetDefaultPatternTrace(patternTrace string) {
+	defaultPatternTrace = patternTrace
+}
+
+func GetDefaultPatternTrace() string {
+	return defaultPatternTrace
+}
+
 type errors struct {
 	c uint16
 	e string
@@ -80,8 +96,10 @@ type Error interface {
 	CodeErrorTraceSlice(pattern string) []string
 
 	Error() string
-	ErrorFull(glue string) string
-	ErrorSlice() []string
+
+	StringError() string
+	StringErrorFull(glue string) string
+	StringErrorSlice() []string
 
 	GetError() error
 	GetErrorFull(glue string) error
@@ -247,19 +265,23 @@ func (e *errors) CodeSlice() []string {
 	return r
 }
 
-func (e errors) Error() string {
+func (e *errors) Error() string {
+	return modeError.error(e)
+}
+
+func (e *errors) StringError() string {
 	return e.e
 }
 
-func (e errors) ErrorFull(glue string) string {
+func (e *errors) StringErrorFull(glue string) string {
 	if glue == "" {
 		glue = defaultGlue
 	}
 
-	return strings.Join(e.ErrorSlice(), glue)
+	return strings.Join(e.StringErrorSlice(), glue)
 }
 
-func (e errors) ErrorSlice() []string {
+func (e *errors) StringErrorSlice() []string {
 	var r = []string{e.Error()}
 
 	for _, v := range e.p {
@@ -274,7 +296,7 @@ func (e *errors) GetError() error {
 }
 
 func (e *errors) GetErrorFull(glue string) error {
-	return errs.New(e.ErrorFull(glue))
+	return errs.New(e.StringErrorFull(glue))
 }
 
 func (e *errors) GetErrorSlice() []error {

@@ -30,15 +30,16 @@ import (
 	"io"
 	"os"
 
+	. "github.com/nabbar/golib/njs-errors"
 	//. "github.com/nabbar/golib/njs-logger"
 
 	iou "github.com/nabbar/golib/njs-ioutils"
 )
 
-func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err error) {
+func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err Error) {
 	if _, e := src.Seek(0, 0); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "seeking buffer", e)
-		return nil, e
+		return nil, FILE_SEEK.ErrorParent(e)
 	}
 
 	r := bzip2.NewReader(src)
@@ -46,12 +47,12 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 	if t, e := iou.NewTempFile(); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", e)
 		return nil, e
-	} else if _, e = io.Copy(t, r); e != nil {
+	} else if _, e := io.Copy(t, r); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "copy buffer from archive reader", e)
-		return nil, e
+		return nil, IO_COPY.ErrorParent(e)
 	} else if _, e = t.Seek(0, 0); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "seeking temp file", e)
-		return nil, e
+		return nil, FILE_SEEK.ErrorParent(e)
 	} else {
 		return t, nil
 	}

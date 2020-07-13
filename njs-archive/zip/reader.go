@@ -30,6 +30,7 @@ import (
 	"io"
 	"os"
 
+	. "github.com/nabbar/golib/njs-errors"
 	//. "github.com/nabbar/golib/njs-logger"
 
 	iou "github.com/nabbar/golib/njs-ioutils"
@@ -37,18 +38,18 @@ import (
 	"github.com/nabbar/golib/njs-archive/archive"
 )
 
-func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err error) {
+func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err Error) {
 	location := iou.GetTempFilePath(src)
 
-	if err = src.Close(); err != nil {
+	if e := src.Close(); err != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "trying to close temp file", err)
-		return
+		return dst, FILE_CLOSE.ErrorParent(e)
 	}
 
 	return getFile(location, filenameContain, filenameRegex)
 }
 
-func getFile(src string, filenameContain, filenameRegex string) (dst *os.File, err error) {
+func getFile(src string, filenameContain, filenameRegex string) (dst *os.File, err Error) {
 	var (
 		r *zip.ReadCloser
 		e error
@@ -56,10 +57,12 @@ func getFile(src string, filenameContain, filenameRegex string) (dst *os.File, e
 
 	if r, e = zip.OpenReader(src); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "trying to open zip file", e)
-		return nil, e
+		return nil, ZIP_OPEN.ErrorParent(e)
 	}
 
-	defer r.Close()
+	defer func() {
+		_ = r.Close()
+	}()
 
 	for _, f := range r.File {
 		if f.Mode()&os.ModeType == os.ModeType {
@@ -75,25 +78,30 @@ func getFile(src string, filenameContain, filenameRegex string) (dst *os.File, e
 	return nil, nil
 }
 
-func extratFile(f *zip.File) (dst *os.File, err error) {
-	var r io.ReadCloser
+func extratFile(f *zip.File) (dst *os.File, err Error) {
+	var (
+		r io.ReadCloser
+		e error
+	)
 
-	if r, err = f.Open(); err != nil {
+	if r, e = f.Open(); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "open zipped file reader", err)
-		return
+		return dst, FILE_OPEN.ErrorParent(e)
 	}
 
-	defer r.Close()
+	defer func() {
+		_ = r.Close()
+	}()
 
 	if dst, err = iou.NewTempFile(); err != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", err)
 		return
-	} else if _, err = io.Copy(dst, r); err != nil {
+	} else if _, e = io.Copy(dst, r); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "copy buffer from archive reader", err)
-		return
+		return dst, IO_COPY.ErrorParent(e)
 	}
 
-	_, err = dst.Seek(0, 0)
+	_, e = dst.Seek(0, 0)
 	//ErrorLevel.LogErrorCtx(DebugLevel, "seeking temp file", err)
-	return
+	return dst, FILE_SEEK.ErrorParent(e)
 }

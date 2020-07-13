@@ -33,6 +33,7 @@ import (
 	"github.com/nabbar/golib/njs-archive/tar"
 	"github.com/nabbar/golib/njs-archive/zip"
 
+	. "github.com/nabbar/golib/njs-errors"
 	//. "github.com/nabbar/golib/njs-logger"
 
 	iou "github.com/nabbar/golib/njs-ioutils"
@@ -40,14 +41,12 @@ import (
 
 type ArchiveType uint8
 
-func ExtractFile(src *os.File, fileNameContain, fileNameRegex string) (*os.File, error) {
-	var err error
-
+func ExtractFile(src *os.File, fileNameContain, fileNameRegex string) (*os.File, Error) {
 	loc := src.Name()
 
 	if dst, err := bz2.GetFile(src, fileNameContain, fileNameRegex); err == nil {
 		//DebugLevel.Log("try deleting source archive...")
-		if err = iou.DelTempFile(src, true); err != nil {
+		if err = iou.DelTempFile(src); err != nil {
 			return nil, err
 		}
 		//DebugLevel.Log("try another archive...")
@@ -56,7 +55,7 @@ func ExtractFile(src *os.File, fileNameContain, fileNameRegex string) (*os.File,
 
 	if dst, err := gzip.GetFile(src, fileNameContain, fileNameRegex); err == nil {
 		//DebugLevel.Log("try deleting source archive...")
-		if err = iou.DelTempFile(src, true); err != nil {
+		if err = iou.DelTempFile(src); err != nil {
 			return nil, err
 		}
 		//DebugLevel.Log("try another archive...")
@@ -65,7 +64,7 @@ func ExtractFile(src *os.File, fileNameContain, fileNameRegex string) (*os.File,
 
 	if dst, err := tar.GetFile(src, fileNameContain, fileNameRegex); err == nil {
 		//DebugLevel.Log("try deleting source archive...")
-		if err = iou.DelTempFile(src, true); err != nil {
+		if err = iou.DelTempFile(src); err != nil {
 			return nil, err
 		}
 		//DebugLevel.Log("try another archive...")
@@ -74,17 +73,24 @@ func ExtractFile(src *os.File, fileNameContain, fileNameRegex string) (*os.File,
 
 	if dst, err := zip.GetFile(src, fileNameContain, fileNameRegex); err == nil {
 		//DebugLevel.Log("try deleting source archive...")
-		if err = iou.DelTempFile(src, true); err != nil {
+		if err = iou.DelTempFile(src); err != nil {
 			return nil, err
 		}
 		//DebugLevel.Log("try another archive...")
 		return ExtractFile(dst, fileNameContain, fileNameRegex)
 	}
 
+	var (
+		err error
+	)
+
 	if _, err = src.Seek(0, 0); err != nil {
+		e1 := FILE_SEEK.ErrorParent(err)
 		if src, err = os.Open(loc); err != nil {
 			//ErrorLevel.LogErrorCtx(DebugLevel, "reopening file", err)
-			return nil, err
+			e2 := FILE_OPEN.ErrorParent(err)
+			e2.AddParentError(e1)
+			return nil, e2
 		}
 	}
 

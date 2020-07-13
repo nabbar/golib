@@ -24,28 +24,35 @@
  *
  */
 
-package njs_errors
+package njs_static
+
+import errors "github.com/nabbar/golib/njs-errors"
 
 const (
-	MIN_PKG_Archive = 100
-	//	MIN_PKG_Artifact   = 200 // unused
-	MIN_PKG_Certif     = 300
-	MIN_PKG_Console    = 400
-	MIN_PKG_Crypt      = 500
-	MIN_PKG_Httpcli    = 600
-	MIN_PKG_Httpserver = 700
-	MIN_PKG_IOUtils    = 800
-	MIN_PKG_LDAP       = 900
-	//	MIN_PKG_Logger     = 1000 // unused
-	//	MIN_PKG_Password   = 1100 // unused
-	//	MIN_PKG_Progress   = 1200 // unused
-	MIN_PKG_Router    = 1300
-	MIN_PKG_Semaphore = 1400
-	MIN_PKG_SMTP      = 1500
-	MIN_PKG_Static    = 1600
-	//	MIN_PKG_Status    = 1700 // unused
-	//	MIN_PKG_Update    = 1800 // unused
-	MIN_PKG_Version = 1900
-
-	MIN_AVAILABLE = 2000
+	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Static
+	EMPTY_PACKED
+	INDEX_NOT_FOUND
+	INDEX_REQUESTED_NOT_SET
+	FILE_NOT_FOUND
 )
+
+func init() {
+	errors.RegisterFctMessage(getMessage)
+}
+
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case EMPTY_PARAMS:
+		return "given parameters is empty"
+	case EMPTY_PACKED:
+		return "packed file is empty"
+	case INDEX_NOT_FOUND:
+		return "mode index is defined but index.(html|htm) is not found"
+	case INDEX_REQUESTED_NOT_SET:
+		return "request call index but mode index is false"
+	case FILE_NOT_FOUND:
+		return "requested packed file is not found"
+	}
+
+	return ""
+}

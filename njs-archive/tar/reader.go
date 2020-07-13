@@ -32,15 +32,16 @@ import (
 
 	"github.com/nabbar/golib/njs-archive/archive"
 
+	. "github.com/nabbar/golib/njs-errors"
 	//. "github.com/nabbar/golib/njs-logger"
 
 	iou "github.com/nabbar/golib/njs-ioutils"
 )
 
-func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err error) {
+func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err Error) {
 	if _, e := src.Seek(0, 0); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "seeking buffer", e)
-		return nil, e
+		return nil, FILE_SEEK.ErrorParent(e)
 	}
 
 	r := tar.NewReader(src)
@@ -52,7 +53,7 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 			return nil, nil
 		} else if e != nil {
 			//ErrorLevel.LogErrorCtx(DebugLevel, "trying to read next file", e)
-			return nil, e
+			return nil, TAR_NEXT.ErrorParent(e)
 		}
 
 		if h.FileInfo().Mode()&os.ModeType == os.ModeType {
@@ -64,12 +65,12 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 			if t, e := iou.NewTempFile(); e != nil {
 				//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", e)
 				return nil, e
-			} else if _, e = io.Copy(t, r); e != nil {
+			} else if _, e := io.Copy(t, r); e != nil {
 				//ErrorLevel.LogErrorCtx(DebugLevel, "copy buffer from archive reader", e)
-				return nil, e
-			} else if _, e = t.Seek(0, 0); e != nil {
+				return nil, IO_COPY.ErrorParent(e)
+			} else if _, e := t.Seek(0, 0); e != nil {
 				//ErrorLevel.LogErrorCtx(DebugLevel, "seeking temp file", e)
-				return nil, e
+				return nil, FILE_SEEK.ErrorParent(e)
 			} else {
 				return t, nil
 			}
