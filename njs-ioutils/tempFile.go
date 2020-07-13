@@ -26,18 +26,16 @@
 package njs_ioutils
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+
+	. "github.com/nabbar/golib/njs-errors"
 )
 
-func NewTempFile() (*os.File, error) {
-	if f, e := ioutil.TempFile(os.TempDir(), ""); e != nil {
-		return nil, e
-	} else {
-		return f, nil
-	}
+func NewTempFile() (*os.File, Error) {
+	f, e := ioutil.TempFile(os.TempDir(), "")
+	return f, IO_TEMP_FILE_NEW.Iferror(e)
 }
 
 func GetTempFilePath(f *os.File) string {
@@ -48,24 +46,18 @@ func GetTempFilePath(f *os.File) string {
 	return path.Join(os.TempDir(), path.Base(f.Name()))
 }
 
-func DelTempFile(f *os.File, ignoreErrClose bool) error {
+func DelTempFile(f *os.File) Error {
 	if f == nil {
 		return nil
 	}
 
 	n := GetTempFilePath(f)
+
 	a := f.Close()
+	e1 := IO_TEMP_FILE_CLOSE.Iferror(a)
+
 	b := os.Remove(n)
+	e2 := IO_TEMP_FILE_REMOVE.Iferror(b)
 
-	if ignoreErrClose {
-		return b
-	}
-
-	if a != nil && b != nil {
-		return fmt.Errorf("%v, %v", a, b)
-	} else if a != nil {
-		return a
-	}
-
-	return b
+	return MakeErrorIfError(e2, e1)
 }

@@ -38,16 +38,6 @@ func init() {
 	}
 }
 
-//Compatibility
-// @TODO: clean this func
-
-// deprecated
-// SetGinHnadler func that return given func as ginTonic HandlerFunc interface type
-// use SetGinHandler instead of SetGinHnadler
-func SetGinHnadler(fct func(c *gin.Context)) gin.HandlerFunc {
-	return SetGinHandler(fct)
-}
-
 // SetGinHandler func that return given func as ginTonic HandlerFunc interface type
 func SetGinHandler(fct func(c *gin.Context)) gin.HandlerFunc {
 	return fct

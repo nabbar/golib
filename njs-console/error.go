@@ -29,7 +29,10 @@ package njs_console
 import errors "github.com/nabbar/golib/njs-errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + 110
+	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Console
+	COLOR_IO_FRINTF
+	COLOR_BUFF_WRITE
+	COLOR_BUFF_UNDEFINED
 )
 
 func init() {
@@ -40,6 +43,12 @@ func getMessage(code errors.CodeError) (message string) {
 	switch code {
 	case EMPTY_PARAMS:
 		return "given parameters is empty"
+	case COLOR_IO_FRINTF:
+		return "cannot write on IO"
+	case COLOR_BUFF_WRITE:
+		return "cannot write on buffer"
+	case COLOR_BUFF_UNDEFINED:
+		return "buffer is not defined"
 	}
 
 	return ""

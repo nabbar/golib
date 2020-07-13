@@ -1,9 +1,7 @@
-// +build !windows
-
 /*
  * MIT License
  *
- * Copyright (c) 2019 Nicolas JUHEL
+ * Copyright (c) 2020 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,54 +21,50 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
-package njs_ioutils
+package njs_crypt
 
-import (
-	"syscall"
+import errors "github.com/nabbar/golib/njs-errors"
 
-	. "github.com/nabbar/golib/njs-errors"
+const (
+	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Crypt
+	HEXA_DECODE
+	HEXA_KEY
+	HEXA_NONCE
+	BYTE_KEYGEN
+	BYTE_NONCEGEN
+	AES_BLOCK
+	AES_GCM
+	AES_DECRYPT
 )
 
-func systemFileDescriptor(newValue int) (current int, max int, err Error) {
-	var (
-		rLimit syscall.Rlimit
-		e      error
-	)
+func init() {
+	errors.RegisterFctMessage(getMessage)
+}
 
-	if e = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-		err = SYSCALL_RLIMIT_GET.ErrorParent(e)
-		return
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case EMPTY_PARAMS:
+		return "given parameters is empty"
+	case HEXA_DECODE:
+		return "hexa decode error"
+	case HEXA_KEY:
+		return "converting hexa key error"
+	case HEXA_NONCE:
+		return "converting hexa nonce error"
+	case BYTE_KEYGEN:
+		return "key generate error"
+	case BYTE_NONCEGEN:
+		return "nonce generate error"
+	case AES_BLOCK:
+		return "init AES block error"
+	case AES_GCM:
+		return "init AES GCM error"
+	case AES_DECRYPT:
+		return "decrypt AES GCM error"
 	}
 
-	if newValue < 1 {
-		return int(rLimit.Cur), int(rLimit.Max), nil
-	}
-
-	if newValue < int(rLimit.Cur) {
-		return int(rLimit.Cur), int(rLimit.Max), nil
-	}
-
-	var chg = false
-
-	if newValue > int(rLimit.Max) {
-		chg = true
-		rLimit.Max = uint64(newValue)
-	}
-	if newValue > int(rLimit.Cur) {
-		chg = true
-		rLimit.Cur = uint64(newValue)
-	}
-
-	if chg {
-		if e = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-			err = SYSCALL_RLIMIT_SET.ErrorParent(e)
-			return
-		}
-
-		return SystemFileDescriptor(0)
-	}
-
-	return int(rLimit.Cur), int(rLimit.Max), nil
+	return ""
 }

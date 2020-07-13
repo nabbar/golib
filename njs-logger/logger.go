@@ -38,9 +38,9 @@ import (
 )
 
 const (
-	tagStack  = "stack"
-	tagTime   = "time"
-	tagLevel  = "level"
+	tagStack = "stack"
+	tagTime  = "time"
+	//tagLevel  = "level" //unused
 	tagCaller = "func"
 	tagFile   = "file"
 	tagLine   = "line"

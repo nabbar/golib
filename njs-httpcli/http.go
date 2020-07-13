@@ -27,17 +27,13 @@ package njs_httpcli
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
-	njs_certif "github.com/nabbar/golib/njs-certif"
-
-	njs_logger "github.com/nabbar/golib/njs-logger"
+	. "github.com/nabbar/golib/njs-errors"
+	. "github.com/nabbar/golib/njs-logger"
 )
 
 type httpClient struct {
@@ -46,11 +42,11 @@ type httpClient struct {
 }
 
 type HTTP interface {
-	Check() bool
-	Call(file *bytes.Buffer) (bool, *bytes.Buffer)
+	Check() Error
+	Call(file *bytes.Buffer) (bool, *bytes.Buffer, Error)
 }
 
-func NewClient(uri string) HTTP {
+func NewClient(uri string) (HTTP, Error) {
 	var (
 		pUri *url.URL
 		err  error
@@ -59,85 +55,100 @@ func NewClient(uri string) HTTP {
 
 	if uri != "" {
 		pUri, err = url.Parse(uri)
-		njs_logger.PanicLevel.LogErrorCtx(njs_logger.NilLevel, fmt.Sprintf("parsing url '%s'", uri), err)
+
+		if err != nil {
+			return nil, URL_PARSE.ErrorParent(err)
+		}
+
 		host = pUri.Host
 	} else {
 		pUri = nil
 		host = ""
 	}
 
+	c, e := GetClientError(host)
+
+	if e != nil {
+		return nil, HTTP_CLIENT.Error(e)
+	}
+
 	return &httpClient{
 		url: pUri,
-		cli: GetClient(host),
+		cli: c,
+	}, nil
+}
+
+func (obj *httpClient) Check() Error {
+	req, e := obj.newRequest(http.MethodHead, nil)
+
+	if e != nil {
+		return e
 	}
+
+	_, e = obj.doRequest(req)
+
+	return e
 }
 
-func GetClient(serverName string) *http.Client {
-	return &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   10 * time.Second,
-				KeepAlive: 30 * time.Second,
-				DualStack: true,
-			}).DialContext,
-			MaxIdleConns:          100,
-			IdleConnTimeout:       30 * time.Second,
-			TLSHandshakeTimeout:   5 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			DisableCompression:    true,
-			TLSClientConfig:       njs_certif.GetTLSConfig(serverName),
-		},
+func (obj *httpClient) Call(body *bytes.Buffer) (bool, *bytes.Buffer, Error) {
+	req, e := obj.newRequest(http.MethodPost, body)
+
+	if e != nil {
+		return false, nil, e
 	}
+
+	res, e := obj.doRequest(req)
+
+	if e != nil {
+		return false, nil, e
+	}
+
+	return obj.checkResponse(res)
 }
 
-func (obj *httpClient) Check() bool {
-	obj.doRequest(obj.newRequest(http.MethodHead, nil))
-	return true
-}
-
-func (obj *httpClient) Call(body *bytes.Buffer) (bool, *bytes.Buffer) {
-	return obj.checkResponse(
-		obj.doRequest(
-			obj.newRequest(http.MethodPost, body),
-		),
-	)
-}
-
-func (obj *httpClient) newRequest(method string, body *bytes.Buffer) *http.Request {
+func (obj *httpClient) newRequest(method string, body *bytes.Buffer) (*http.Request, Error) {
 	var reader *bytes.Reader
 
 	if body != nil && body.Len() > 0 {
 		reader = bytes.NewReader(body.Bytes())
 	}
 
-	req, err := http.NewRequest(method, obj.url.String(), reader)
-	njs_logger.PanicLevel.LogErrorCtx(njs_logger.NilLevel, fmt.Sprintf("creating '%s' request to '%s'", method, obj.url.Host), err)
+	req, e := http.NewRequest(method, obj.url.String(), reader)
+	if e != nil {
+		return req, HTTP_REQUEST.ErrorParent(e)
+	}
 
-	return req
+	return req, nil
 }
 
-func (obj *httpClient) doRequest(req *http.Request) *http.Response {
-	res, err := obj.cli.Do(req)
-	njs_logger.PanicLevel.LogErrorCtx(njs_logger.NilLevel, fmt.Sprintf("running request '%s:%s'", req.Method, req.URL.Host), err)
+func (obj *httpClient) doRequest(req *http.Request) (*http.Response, Error) {
+	res, e := obj.cli.Do(req)
 
-	return res
+	if e != nil {
+		return res, HTTP_DO.ErrorParent(e)
+	}
+
+	return res, nil
 }
 
-func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer) {
+func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer, Error) {
 	var buf *bytes.Buffer
 
 	if res.Body != nil {
 		bdy, err := ioutil.ReadAll(res.Body)
 
-		if err == nil {
-			_, err = buf.Write(bdy)
+		if err != nil {
+			return false, nil, IO_READ.ErrorParent(err)
 		}
 
-		njs_logger.DebugLevel.LogError(err)
+		_, err = buf.Write(bdy)
+
+		if err != nil {
+			return false, nil, BUFFER_WRITE.ErrorParent(err)
+		}
+
+		DebugLevel.LogError(err)
 	}
 
-	njs_logger.InfoLevel.Logf("Calling '%s:%s' result %s (Body : %d bytes)", res.Request.Method, res.Request.URL.Host, res.Status, buf.Len())
-
-	return strings.HasPrefix(res.Status, "2"), buf
+	return strings.HasPrefix(res.Status, "2"), buf, nil
 }

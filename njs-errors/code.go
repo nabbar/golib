@@ -75,6 +75,14 @@ func (c CodeError) ErrorParent(p ...error) Error {
 	return e
 }
 
+func (c CodeError) IfError(e Error) Error {
+	return NewErrorIfError(c.GetUint16(), c.GetMessage(), e)
+}
+
+func (c CodeError) Iferror(e error) Error {
+	return NewErrorIferror(c.GetUint16(), c.GetMessage(), e)
+}
+
 func RegisterFctMessage(fct Message) {
 	msgfct = append(msgfct, fct)
 }

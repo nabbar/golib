@@ -1,9 +1,7 @@
-// +build !windows
-
 /*
  * MIT License
  *
- * Copyright (c) 2019 Nicolas JUHEL
+ * Copyright (c) 2020 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,54 +21,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
-package njs_ioutils
+package njs_httpserver
 
-import (
-	"syscall"
+import errors "github.com/nabbar/golib/njs-errors"
 
-	. "github.com/nabbar/golib/njs-errors"
+const (
+	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Httpserver
 )
 
-func systemFileDescriptor(newValue int) (current int, max int, err Error) {
-	var (
-		rLimit syscall.Rlimit
-		e      error
-	)
+func init() {
+	errors.RegisterFctMessage(getMessage)
+}
 
-	if e = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-		err = SYSCALL_RLIMIT_GET.ErrorParent(e)
-		return
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case EMPTY_PARAMS:
+		return "given parameters is empty"
 	}
 
-	if newValue < 1 {
-		return int(rLimit.Cur), int(rLimit.Max), nil
-	}
-
-	if newValue < int(rLimit.Cur) {
-		return int(rLimit.Cur), int(rLimit.Max), nil
-	}
-
-	var chg = false
-
-	if newValue > int(rLimit.Max) {
-		chg = true
-		rLimit.Max = uint64(newValue)
-	}
-	if newValue > int(rLimit.Cur) {
-		chg = true
-		rLimit.Cur = uint64(newValue)
-	}
-
-	if chg {
-		if e = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-			err = SYSCALL_RLIMIT_SET.ErrorParent(e)
-			return
-		}
-
-		return SystemFileDescriptor(0)
-	}
-
-	return int(rLimit.Cur), int(rLimit.Max), nil
+	return ""
 }

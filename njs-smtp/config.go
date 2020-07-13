@@ -35,7 +35,8 @@ import (
 	"strings"
 
 	njs_certif "github.com/nabbar/golib/njs-certif"
-	. "github.com/nabbar/golib/njs-logger"
+
+	. "github.com/nabbar/golib/njs-errors"
 )
 
 type smtpConfig struct {
@@ -58,9 +59,9 @@ type smtpClient struct {
 }
 
 type SMTP interface {
-	Client() (*smtp.Client, error)
+	Client() (*smtp.Client, Error)
 	Close()
-	Check() error
+	Check() Error
 	Clone() SMTP
 
 	ForceHost(host string)
@@ -141,7 +142,7 @@ func (n NETMode) string() string {
 }
 
 // ParseDSN parses the DSN string to a Config
-func newSMTPConfig(dsn string) (*smtpConfig, error) {
+func newSMTPConfig(dsn string) (*smtpConfig, Error) {
 	var (
 		smtpcnf = &smtpConfig{
 			DSN: dsn,
@@ -191,9 +192,9 @@ func newSMTPConfig(dsn string) (*smtpConfig, error) {
 						// dsn[i-1] must be == ')' if an address is specified
 						if dsn[i-1] != ')' {
 							if strings.ContainsRune(dsn[k+1:i], ')') {
-								return nil, fmt.Errorf("invalid DSN: did you forget to escape a param value")
+								return nil, CONFIG_INVALID_DSN.Error(nil)
 							}
-							return nil, fmt.Errorf("invalid DSN: network address not terminated (missing closing brace)")
+							return nil, CONFIG_INVALID_NETWORK.Error(nil)
 						}
 
 						if strings.ContainsRune(dsn[k+1:i-1], ':') {
@@ -225,7 +226,7 @@ func newSMTPConfig(dsn string) (*smtpConfig, error) {
 				if dsn[j] == '?' {
 
 					if val, err := url.ParseQuery(dsn[j+1:]); err != nil {
-						return nil, err
+						return nil, CONFIG_INVALID_PARAMS.ErrorParent(err)
 					} else {
 
 						if val.Get("ServerName") != "" {
@@ -250,7 +251,7 @@ func newSMTPConfig(dsn string) (*smtpConfig, error) {
 	}
 
 	if !foundSlash && len(dsn) > 0 {
-		return nil, fmt.Errorf("invalid DSN: missing the slash ending the host")
+		return nil, CONFIG_INVALID_HOST.Error(nil)
 	}
 
 	return smtpcnf, nil
@@ -261,7 +262,7 @@ func newSMTPConfig(dsn string) (*smtpConfig, error) {
 //   - params available are : ServerName (string), SkipVerify (boolean)
 //   - tls mode acceptable are :  starttls, tls, <any other value to no tls/startls>
 //   - net aceeptable are : tcp4, tcp6, unix
-func NewSMTP(dsn string, tlsConfig *tls.Config) (SMTP, error) {
+func NewSMTP(dsn string, tlsConfig *tls.Config) (SMTP, Error) {
 	if tlsConfig == nil {
 		tlsConfig = njs_certif.GetTLSConfig("")
 	}
@@ -277,7 +278,7 @@ func NewSMTP(dsn string, tlsConfig *tls.Config) (SMTP, error) {
 }
 
 // Client Get SMTP Client interface
-func (s *smtpClient) Client() (*smtp.Client, error) {
+func (s *smtpClient) Client() (*smtp.Client, Error) {
 	if s.cli == nil {
 		var (
 			err  error
@@ -299,35 +300,34 @@ func (s *smtpClient) Client() (*smtp.Client, error) {
 
 		if s.cfg.TLS == TLS_TLS {
 			s.con, err = tls.Dial(s.cfg.Net.string(), addr, tlsc)
-			if ErrorLevel.LogErrorCtxf(DebugLevel, "trying to intialize SMTP '%s' over tls connection to '%s'", err, s.cfg.Net.string(), addr) {
+			if err != nil {
 				s.cfg.TLS = TLS_STARTTLS
-				err = nil
 			}
 		}
 
 		if s.cfg.TLS != TLS_TLS {
 			s.con, err = net.Dial(s.cfg.Net.string(), addr)
-			if ErrorLevel.LogErrorCtxf(DebugLevel, "Dial initiated to server '%s' over '%s'", err, addr, s.cfg.Net.string()) {
-				return nil, err
+			if err != nil {
+				return nil, SMTP_DIAL.ErrorParent(err)
 			}
 		}
 
 		s.cli, err = smtp.NewClient(s.con, addr)
-		if ErrorLevel.LogErrorCtxf(DebugLevel, "SMTP Client initiated to server '%s' over '%s'", err, addr, s.cfg.Net.string()) {
-			return nil, err
+		if err != nil {
+			return nil, SMTP_CLIENT_INIT.ErrorParent(err)
 		}
 
 		if s.cfg.TLS == TLS_STARTTLS {
 			err = s.cli.StartTLS(tlsc)
-			if ErrorLevel.LogErrorCtxf(DebugLevel, "SMTP Client STARTTLS initiated to server '%s' over '%s'", err, addr, s.cfg.Net.string()) {
-				return nil, err
+			if err != nil {
+				return nil, SMTP_CLIENT_STARTTLS.ErrorParent(err)
 			}
 		}
 
 		if s.cfg.User != "" || s.cfg.Pass != "" {
 			err = s.cli.Auth(smtp.PlainAuth("", s.cfg.User, s.cfg.Pass, addr))
-			if ErrorLevel.LogErrorCtxf(DebugLevel, "SMTP Client authentificate user '%s' with server '%s' over '%s'", err, s.cfg.User, addr, s.cfg.Net.string()) {
-				return nil, err
+			if err != nil {
+				return nil, SMTP_CLIENT_AUTH.ErrorParent(err)
 			}
 		}
 
@@ -341,25 +341,25 @@ func (s *smtpClient) Client() (*smtp.Client, error) {
 func (s *smtpClient) Close() {
 	if s.cli != nil {
 		if e := s.cli.Quit(); e != nil {
-			s.cli.Close()
+			_ = s.cli.Close()
 		}
 		s.cli = nil
 	}
 
 	if s.con != nil {
-		s.con.Close()
+		_ = s.con.Close()
 		s.con = nil
 	}
 }
 
 // Check Try to initiate SMTP dial and negotiation and try to close connection
-func (s *smtpClient) Check() error {
+func (s *smtpClient) Check() Error {
 	defer s.Close()
 
 	if c, e := s.Client(); e != nil {
 		return e
-	} else if e = c.Noop(); e != nil {
-		return e
+	} else if e := c.Noop(); e != nil {
+		return SMTP_CLIENT_NOOP.ErrorParent(e)
 	}
 
 	return nil

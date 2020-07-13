@@ -31,6 +31,8 @@ import (
 	"fmt"
 	"io"
 	"net/smtp"
+
+	. "github.com/nabbar/golib/njs-errors"
 )
 
 type ContentType uint8
@@ -63,14 +65,14 @@ type ioData struct {
 	b string
 }
 
-func (i *ioData) getBoundary() (string, error) {
+func (i *ioData) getBoundary() (string, Error) {
 	if i.b == "" {
 		var buf [30]byte
 
 		_, err := io.ReadFull(rand.Reader, buf[:])
 
 		if err != nil {
-			return "", err
+			return "", RAND_READER.ErrorParent(err)
 		}
 
 		bnd := fmt.Sprintf("%x", buf[:])
@@ -85,11 +87,11 @@ func (i ioData) GetBuffer() *bytes.Buffer {
 	return i.p
 }
 
-func (i *ioData) CRLF() error {
+func (i *ioData) CRLF() Error {
 	return i.String("\r\n")
 }
 
-func (i *ioData) ContentType(ct ContentType, charset string) error {
+func (i *ioData) ContentType(ct ContentType, charset string) Error {
 	if charset != "" {
 		return i.Header("Content-Type", fmt.Sprintf("\"%s\"; charset=%s", ct.String(), charset))
 	} else {
@@ -97,7 +99,7 @@ func (i *ioData) ContentType(ct ContentType, charset string) error {
 	}
 }
 
-func (i *ioData) BoundaryStart(ct ContentType) error {
+func (i *ioData) BoundaryStart(ct ContentType) Error {
 	if b, err := i.getBoundary(); err != nil {
 		return err
 	} else if err = i.Header("Content-Type", fmt.Sprintf("%s; boundary=\"%s\"", ct.String(), b)); err != nil {
@@ -107,7 +109,7 @@ func (i *ioData) BoundaryStart(ct ContentType) error {
 	}
 }
 
-func (i *ioData) BoundaryPart() error {
+func (i *ioData) BoundaryPart() Error {
 	if i.b == "" {
 		return nil
 	}
@@ -121,7 +123,7 @@ func (i *ioData) BoundaryPart() error {
 	}
 }
 
-func (i *ioData) BoundaryEnd() error {
+func (i *ioData) BoundaryEnd() Error {
 	if b, err := i.getBoundary(); err != nil {
 		return err
 	} else if err = i.CRLF(); err != nil {
@@ -133,23 +135,23 @@ func (i *ioData) BoundaryEnd() error {
 	}
 }
 
-func (i *ioData) Header(key, value string) error {
+func (i *ioData) Header(key, value string) Error {
 	return i.String(fmt.Sprintf("%s: %s\r\n", key, value))
 }
 
-func (i *ioData) String(value string) error {
+func (i *ioData) String(value string) Error {
 	if i.p == nil {
 		i.p = bytes.NewBuffer(make([]byte, 0))
 	}
 
 	if _, e := i.p.WriteString(value); e != nil {
-		return e
+		return BUFFER_WRITE_STRING.ErrorParent(e)
 	}
 
 	return nil
 }
 
-func (i *ioData) Bytes(value []byte) error {
+func (i *ioData) Bytes(value []byte) Error {
 	if i.p == nil {
 		i.p = bytes.NewBuffer(make([]byte, 0))
 	}
@@ -161,7 +163,7 @@ func (i *ioData) Bytes(value []byte) error {
 
 		if (n+1)%76 == 0 {
 			if _, e := i.p.Write(tmp); e != nil {
-				return e
+				return BUFFER_WRITE_BYTES.ErrorParent(e)
 			} else if e := i.CRLF(); e != nil {
 				return e
 			}
@@ -172,7 +174,7 @@ func (i *ioData) Bytes(value []byte) error {
 
 	if len(tmp) != 0 {
 		if _, e := i.p.Write(tmp); e != nil {
-			return e
+			return BUFFER_WRITE_BYTES.ErrorParent(e)
 		} else if e := i.CRLF(); e != nil {
 			return e
 		}
@@ -181,28 +183,27 @@ func (i *ioData) Bytes(value []byte) error {
 	return nil
 }
 
-func (i *ioData) Send() error {
+func (i *ioData) Send() Error {
 	if i.w == nil {
-		return fmt.Errorf("empty writer")
+		return IO_WRITER_MISSING.Error(nil)
 	}
 	if i.p == nil || i.p.Len() < 1 {
-		return fmt.Errorf("empty buffer")
+		return BUFFER_EMPTY.Error(nil)
 	}
 
 	if _, e := i.w.Write(i.p.Bytes()); e != nil {
-		return e
+		return IO_WRITER_ERROR.ErrorParent(e)
 	}
 
 	return nil
 }
 
-func (i *ioData) AttachmentStart(c ContentType) error {
+func (i *ioData) AttachmentStart(c ContentType) Error {
 	return i.BoundaryStart(c)
 }
 
-func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachment *bytes.Buffer) error {
+func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachment *bytes.Buffer) Error {
 	var (
-		e error
 		c = make([]byte, base64.StdEncoding.EncodedLen(attachment.Len()))
 	)
 
@@ -210,10 +211,10 @@ func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachmen
 	base64.StdEncoding.Encode(c, attachment.Bytes())
 
 	if len(c) < 1 {
-		return fmt.Errorf("encoded buffer is empty")
+		return BUFFER_EMPTY.Error(nil)
 	}
 
-	if e = i.BoundaryPart(); e != nil {
+	if e := i.BoundaryPart(); e != nil {
 		return e
 	} else if e = i.Header("Content-Type", contentType); e != nil {
 		return e
@@ -234,14 +235,14 @@ func (i *ioData) AttachmentAddFile(contentType, attachmentName string, attachmen
 	return nil
 }
 
-func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) error {
+func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) Error {
 	var (
-		e error
+		e Error
 		p *bytes.Buffer
 	)
 
 	if m.IsEmpty() {
-		return fmt.Errorf("text/html content is empty")
+		return EMPTY_HTML.Error(nil)
 	}
 
 	switch ct {
@@ -280,7 +281,7 @@ func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) error {
 	return nil
 }
 
-func (i *ioData) AttachmentEnd() error {
+func (i *ioData) AttachmentEnd() Error {
 	if e := i.BoundaryEnd(); e != nil {
 		return e
 	} else if e = i.BoundaryEnd(); e != nil {
@@ -291,24 +292,24 @@ func (i *ioData) AttachmentEnd() error {
 }
 
 type IOData interface {
-	ContentType(ct ContentType, charset string) error
-	Header(key, value string) error
-	String(value string) error
-	Bytes(value []byte) error
-	CRLF() error
+	ContentType(ct ContentType, charset string) Error
+	Header(key, value string) Error
+	String(value string) Error
+	Bytes(value []byte) Error
+	CRLF() Error
 
-	Send() error
+	Send() Error
 	GetBuffer() *bytes.Buffer
 
-	AttachmentStart(c ContentType) error
-	AttachmentAddFile(contentType, attachmentName string, attachment *bytes.Buffer) error
-	AttachmentAddBody(m MailTemplate, ct ContentType) error
-	AttachmentEnd() error
+	AttachmentStart(c ContentType) Error
+	AttachmentAddFile(contentType, attachmentName string, attachment *bytes.Buffer) Error
+	AttachmentAddBody(m MailTemplate, ct ContentType) Error
+	AttachmentEnd() Error
 }
 
-func NewIOData(cli *smtp.Client) (IOData, error) {
+func NewIOData(cli *smtp.Client) (IOData, Error) {
 	if w, e := cli.Data(); e != nil {
-		return nil, e
+		return nil, SMTP_CLIENT_DATA.ErrorParent(e)
 	} else {
 		return &ioData{
 			w: w,

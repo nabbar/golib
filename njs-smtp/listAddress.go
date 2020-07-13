@@ -99,7 +99,7 @@ func (lst listMailAddress) String() string {
 }
 
 func (lst listMailAddress) Clone() ListMailAddress {
-	var l = make(listMailAddress, 0)
+	var l = make(listMailAddress)
 
 	for _, a := range lst {
 		l.Add(a.Clone())
@@ -125,5 +125,5 @@ type ListMailAddress interface {
 }
 
 func NewListMailAddress() ListMailAddress {
-	return make(listMailAddress, 0)
+	return make(listMailAddress)
 }

@@ -34,7 +34,11 @@ import (
 	"strings"
 )
 
-var defaultGlue = ", "
+var (
+	defaultGlue         = ", "
+	defaultPattern      = "[Error #%s] %s"
+	defaultPatternTrace = "[Error #%s] %s (%s)"
+)
 
 func SetDefaultGlue(glue string) {
 	defaultGlue = glue
@@ -67,6 +71,14 @@ type Error interface {
 	CodeFull(glue string) string
 	CodeSlice() []string
 
+	CodeError(pattern string) string
+	CodeErrorFull(pattern, glue string) string
+	CodeErrorSlice(pattern string) []string
+
+	CodeErrorTrace(pattern string) string
+	CodeErrorTraceFull(pattern, glue string) string
+	CodeErrorTraceSlice(pattern string) []string
+
 	Error() string
 	ErrorFull(glue string) string
 	ErrorSlice() []string
@@ -80,6 +92,23 @@ type Error interface {
 
 	GetTrace() string
 	GetTraceSlice() []string
+}
+
+func MakeErrorIfError(err ...Error) Error {
+	var e Error = nil
+
+	for _, p := range err {
+		if p == nil {
+			continue
+		}
+		if e == nil {
+			e = p
+		} else {
+			e.AddParentError(p)
+		}
+	}
+
+	return e
 }
 
 func NewError(code uint16, message string, parent Error) Error {
@@ -99,8 +128,46 @@ func NewError(code uint16, message string, parent Error) Error {
 	}
 }
 
+func NewErrorIferror(code uint16, message string, parent error) Error {
+	if parent == nil {
+		return nil
+	}
+
+	p := make([]Error, 0)
+	p = append(p, &errors{
+		c: 0,
+		e: parent.Error(),
+		p: nil,
+	})
+
+	return &errors{
+		c: code,
+		e: message,
+		p: p,
+		t: getFrame(),
+	}
+}
+
+func NewErrorIfError(code uint16, message string, parent Error) Error {
+	if parent == nil {
+		return nil
+	}
+
+	return &errors{
+		c: code,
+		e: message,
+		p: parent.GetIErrorSlice(),
+		t: getFrame(),
+	}
+}
+
 func (e *errors) AddParent(parent ...error) {
 	for _, v := range parent {
+
+		if v == nil {
+			continue
+		}
+
 		e.p = append(e.p, &errors{
 			c: 0,
 			e: v.Error(),
@@ -164,10 +231,10 @@ func (e *errors) Code() string {
 
 func (e *errors) CodeFull(glue string) string {
 	if glue == "" {
-		return strings.Join(e.CodeSlice(), glue)
+		glue = defaultGlue
 	}
 
-	return strings.Join(e.CodeSlice(), defaultGlue)
+	return strings.Join(e.CodeSlice(), glue)
 }
 
 func (e *errors) CodeSlice() []string {
@@ -186,10 +253,10 @@ func (e errors) Error() string {
 
 func (e errors) ErrorFull(glue string) string {
 	if glue == "" {
-		return strings.Join(e.ErrorSlice(), glue)
+		glue = defaultGlue
 	}
 
-	return strings.Join(e.ErrorSlice(), defaultGlue)
+	return strings.Join(e.ErrorSlice(), glue)
 }
 
 func (e errors) ErrorSlice() []string {
@@ -251,6 +318,57 @@ func (e *errors) GetTraceSlice() []string {
 		if t := v.GetTrace(); t != "" {
 			r = append(r, v.GetTrace())
 		}
+	}
+
+	return r
+}
+
+func (e *errors) CodeError(pattern string) string {
+	if pattern == "" {
+		pattern = defaultPattern
+	}
+	return fmt.Sprintf(pattern, e.Code(), e.Error())
+}
+
+func (e *errors) CodeErrorFull(pattern, glue string) string {
+	if glue == "" {
+		glue = defaultGlue
+	}
+
+	return strings.Join(e.CodeErrorSlice(pattern), glue)
+}
+
+func (e *errors) CodeErrorSlice(pattern string) []string {
+	var r = []string{e.CodeError(pattern)}
+
+	for _, v := range e.p {
+		r = append(r, v.CodeError(pattern))
+	}
+
+	return r
+}
+
+func (e *errors) CodeErrorTrace(pattern string) string {
+	if pattern == "" {
+		pattern = defaultPatternTrace
+	}
+
+	return fmt.Sprintf(pattern, e.Code(), e.GetTrace(), e.Error())
+}
+
+func (e *errors) CodeErrorTraceFull(pattern, glue string) string {
+	if glue == "" {
+		glue = defaultGlue
+	}
+
+	return strings.Join(e.CodeErrorTraceSlice(pattern), glue)
+}
+
+func (e *errors) CodeErrorTraceSlice(pattern string) []string {
+	var r = []string{e.CodeErrorTrace(pattern)}
+
+	for _, v := range e.p {
+		r = append(r, v.CodeErrorTrace(pattern))
 	}
 
 	return r

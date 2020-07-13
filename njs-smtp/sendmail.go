@@ -31,7 +31,9 @@ import (
 	"net/smtp"
 	"time"
 
-	njs_version "github.com/nabbar/golib/njs-version"
+	vers "github.com/nabbar/golib/njs-version"
+
+	. "github.com/nabbar/golib/njs-errors"
 )
 
 type sendmail struct {
@@ -136,7 +138,7 @@ func (s *sendmail) SetMailer(mailer string) {
 	s.mailer = mailer
 }
 
-func (s *sendmail) NJSMailer(version njs_version.Version) {
+func (s *sendmail) NJSMailer(version vers.Version) {
 	s.mailer = version.GetHeader()
 }
 
@@ -144,7 +146,7 @@ func (s *sendmail) SetTestMode(enable bool) {
 	s.testMode = enable
 }
 
-func (s sendmail) Clone() (SendMail, error) {
+func (s sendmail) Clone() (SendMail, Error) {
 	var (
 		la = make([]Attachment, 0)
 	)
@@ -208,42 +210,43 @@ func (s sendmail) Clone() (SendMail, error) {
 	return res, nil
 }
 
-func (s sendmail) SendSMTP(cli SMTP) (err error, buff *bytes.Buffer) {
-	var c *smtp.Client
+func (s sendmail) SendSMTP(cli SMTP) (err Error, buff *bytes.Buffer) {
+	var (
+		e error
+		c *smtp.Client
+	)
 
 	defer func(cli *smtp.Client) {
 		if cli != nil {
-			cli.Quit()
-			cli.Close()
+			_ = cli.Quit()
+			_ = cli.Close()
 		}
 	}(c)
 
 	if c, err = cli.Client(); err != nil {
 		return
-	} else if err, buff = s.Send(c); err != nil {
-		c.Reset()
-		return err, buff
+	} else if e, buff = s.Send(c); e != nil {
+		_ = c.Reset()
+		return SMTP_SEND.ErrorParent(e), buff
 	} else {
 		return
 	}
 }
 
-func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
+func (s sendmail) Send(cli *smtp.Client) (err Error, buff *bytes.Buffer) {
 	var (
 		iod IOData
 	)
 
 	defer func() {
-		if r := recover(); r != nil && err != nil {
-			err = fmt.Errorf("%v, %v", err, r)
-		} else if r != nil {
-			err = fmt.Errorf("%v", r)
+		if r := recover(); r != nil {
+			err = SMTP_CLIENT_SEND_RECOVERED.ErrorParent(err, fmt.Errorf("%v", r))
 		}
 
 		if cli != nil {
-			cli.Reset()
-			cli.Quit()
-			cli.Close()
+			_ = cli.Reset()
+			_ = cli.Quit()
+			_ = cli.Close()
 		}
 	}()
 
@@ -260,38 +263,44 @@ func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
 	} else if s.msgText.Len() > 0 {
 		ctBody = CONTENTTYPE_TEXT
 	} else {
-		return fmt.Errorf("no attachment & no contents"), nil
+		return SMTP_CLIENT_EMPTY.Error(nil), nil
 	}
 
 	if len(s.from.AddressOnly()) < 7 {
-		return fmt.Errorf("from address is empty"), nil
+		return SMTP_CLIENT_FROM_EMPTY.Error(nil), nil
 	}
 
-	if err = cli.Noop(); err != nil {
+	if e := cli.Noop(); e != nil {
+		err = SMTP_CLIENT_NOOP.ErrorParent(e)
 		return
 	}
 
-	if err = cli.Mail(s.from.String()); err != nil {
+	if e := cli.Mail(s.from.String()); e != nil {
+		err = SMTP_CLIENT_MAIL.ErrorParent(e)
 		return
 	}
 
 	if s.testMode {
-		if err = cli.Rcpt(s.from.String()); err != nil {
+		if e := cli.Rcpt(s.from.String()); e != nil {
+			err = SMTP_CLIENT_RCPT.ErrorParent(e)
 			return
 		}
 	} else {
 		for _, a := range s.to.Slice() {
-			if err = cli.Rcpt(a.String()); err != nil {
+			if e := cli.Rcpt(a.String()); e != nil {
+				err = SMTP_CLIENT_RCPT.ErrorParent(e)
 				return
 			}
 		}
 		for _, a := range s.cc.Slice() {
-			if err = cli.Rcpt(a.String()); err != nil {
+			if e := cli.Rcpt(a.String()); e != nil {
+				err = SMTP_CLIENT_RCPT.ErrorParent(e)
 				return
 			}
 		}
 		for _, a := range s.bcc.Slice() {
-			if err = cli.Rcpt(a.String()); err != nil {
+			if e := cli.Rcpt(a.String()); e != nil {
+				err = SMTP_CLIENT_RCPT.ErrorParent(e)
 				return
 			}
 		}
@@ -306,7 +315,7 @@ func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
 	}
 
 	if s.to.IsEmpty() {
-		return fmt.Errorf("to address is empty"), nil
+		return SMTP_CLIENT_TO_EMPTY.Error(nil), nil
 	} else if err = iod.Header("To", s.to.String()); err != nil {
 		return
 	}
@@ -334,7 +343,7 @@ func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
 	}
 
 	if len(s.subject) < 1 {
-		return fmt.Errorf("subjetc is empty"), nil
+		return SMTP_CLIENT_SUBJECT_EMPTY.Error(nil), nil
 	} else {
 		var (
 			b = []byte(s.subject)
@@ -349,7 +358,7 @@ func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
 	}
 
 	if len(s.mailer) < 1 {
-		return fmt.Errorf("mailer is empty"), nil
+		return SMTP_CLIENT_MAILER_EMPTY.Error(nil), nil
 	} else {
 		if err = iod.Header("X-Mailer", s.mailer); err != nil {
 			return
@@ -376,13 +385,13 @@ func (s sendmail) Send(cli *smtp.Client) (err error, buff *bytes.Buffer) {
 				return
 			}
 		} else if s.msgHtml.IsEmpty() {
-			return fmt.Errorf("empty content mail"), nil
+			return EMPTY_CONTENTS.Error(nil), nil
 		} else if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_TEXT); err != nil {
 			return
 		}
 	} else if ctBody == CONTENTTYPE_HTML {
 		if s.msgHtml.IsEmpty() {
-			return fmt.Errorf("empty content mail"), nil
+			return EMPTY_CONTENTS.Error(nil), nil
 		} else if err = iod.AttachmentAddBody(s.msgHtml, CONTENTTYPE_HTML); err != nil {
 			return
 		}
@@ -442,13 +451,13 @@ type SendMail interface {
 
 	SetMessageId(id string)
 	SetMailer(mailer string)
-	NJSMailer(version njs_version.Version)
+	NJSMailer(version vers.Version)
 
 	SetTestMode(enable bool)
 
-	Clone() (SendMail, error)
-	Send(cli *smtp.Client) (err error, buff *bytes.Buffer)
-	SendSMTP(cli SMTP) (err error, buff *bytes.Buffer)
+	Clone() (SendMail, Error)
+	Send(cli *smtp.Client) (err Error, buff *bytes.Buffer)
+	SendSMTP(cli SMTP) (err Error, buff *bytes.Buffer)
 }
 
 func NewSendMail() SendMail {

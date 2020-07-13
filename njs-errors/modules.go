@@ -1,9 +1,7 @@
-// +build !windows
-
 /*
  * MIT License
  *
- * Copyright (c) 2019 Nicolas JUHEL
+ * Copyright (c) 2020 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,54 +21,31 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
-package njs_ioutils
+package njs_errors
 
-import (
-	"syscall"
+const (
+	MIN_PKG_Archive    = 100
+	MIN_PKG_Artifact   = 200
+	MIN_PKG_Certif     = 300
+	MIN_PKG_Console    = 400
+	MIN_PKG_Crypt      = 500
+	MIN_PKG_Httpcli    = 600
+	MIN_PKG_Httpserver = 700
+	MIN_PKG_IOUtils    = 800
+	MIN_PKG_LDAP       = 900
+	//	MIN_PKG_Logger     = 1000 // unused
+	//	MIN_PKG_Password   = 1100 // unused
+	//	MIN_PKG_Progress   = 1200 // unused
+	MIN_PKG_Router    = 1300
+	MIN_PKG_Semaphore = 1400
+	MIN_PKG_SMTP      = 1500
+	MIN_PKG_Static    = 1600
+	MIN_PKG_Status    = 1700
+	MIN_PKG_Update    = 1800
+	MIN_PKG_Version   = 1900
 
-	. "github.com/nabbar/golib/njs-errors"
+	MIN_AVAILABLE = 2000
 )
-
-func systemFileDescriptor(newValue int) (current int, max int, err Error) {
-	var (
-		rLimit syscall.Rlimit
-		e      error
-	)
-
-	if e = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-		err = SYSCALL_RLIMIT_GET.ErrorParent(e)
-		return
-	}
-
-	if newValue < 1 {
-		return int(rLimit.Cur), int(rLimit.Max), nil
-	}
-
-	if newValue < int(rLimit.Cur) {
-		return int(rLimit.Cur), int(rLimit.Max), nil
-	}
-
-	var chg = false
-
-	if newValue > int(rLimit.Max) {
-		chg = true
-		rLimit.Max = uint64(newValue)
-	}
-	if newValue > int(rLimit.Cur) {
-		chg = true
-		rLimit.Cur = uint64(newValue)
-	}
-
-	if chg {
-		if e = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-			err = SYSCALL_RLIMIT_SET.ErrorParent(e)
-			return
-		}
-
-		return SystemFileDescriptor(0)
-	}
-
-	return int(rLimit.Cur), int(rLimit.Max), nil
-}

@@ -26,12 +26,13 @@
 package njs_router
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	njs_logger "github.com/nabbar/golib/njs-logger"
+
+	. "github.com/nabbar/golib/njs-errors"
+	. "github.com/nabbar/golib/njs-logger"
 )
 
 type AuthCode uint8
@@ -71,7 +72,7 @@ func AuthForbidden(c *gin.Context, err error) {
 }
 
 type authorization struct {
-	check    func(AuthHeader string) (AuthCode, error)
+	check    func(AuthHeader string) (AuthCode, Error)
 	router   []gin.HandlerFunc
 	authType string
 }
@@ -82,7 +83,7 @@ type Authorization interface {
 	Append(router ...gin.HandlerFunc)
 }
 
-func NewAuthorization(HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, error)) Authorization {
+func NewAuthorization(HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, Error)) Authorization {
 	return &authorization{
 		check:    authCheckFunc,
 		authType: HeadAuthType,
@@ -104,7 +105,7 @@ func (a authorization) Handler(c *gin.Context) {
 	auth := c.Request.Header.Get(HEAD_AUTH_SEND)
 
 	if auth == "" {
-		AuthRequire(c, fmt.Errorf("header '%s' is missing", HEAD_AUTH_SEND))
+		AuthRequire(c, HEADER_AUTH_MISSING.Error(nil).GetErrorFull(""))
 		return
 	}
 
@@ -118,7 +119,7 @@ func (a authorization) Handler(c *gin.Context) {
 	}
 
 	if authValue == "" {
-		AuthRequire(c, fmt.Errorf("reading authorization error : auth string is empty"))
+		AuthRequire(c, HEADER_AUTH_EMPTY.Error(nil).GetErrorFull(""))
 		return
 	} else {
 		code, err := a.check(authValue)
@@ -126,17 +127,16 @@ func (a authorization) Handler(c *gin.Context) {
 		switch code {
 		case AUTH_CODE_SUCCESS:
 			for _, r := range a.router {
-				njs_logger.DebugLevel.Logf("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
+				DebugLevel.Logf("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
 				r(c)
 			}
 		case AUTH_CODE_REQUIRE:
-			AuthRequire(c, fmt.Errorf("authorization error : %v", err))
+			AuthRequire(c, HEADER_AUTH_REQUIRE.Error(err).GetErrorFull(""))
 		case AUTH_CODE_FORBIDDEN:
-			AuthForbidden(c, fmt.Errorf("authorization error : %v", err))
+			AuthForbidden(c, HEADER_AUTH_FORBIDDEN.Error(err).GetErrorFull(""))
 		default:
-			err := fmt.Errorf("auth response code is not valid")
 			c.Errors = append(c.Errors, &gin.Error{
-				Err:  err,
+				Err:  HEADER_AUTH_ERROR.Error(err).GetErrorFull(""),
 				Type: gin.ErrorTypePrivate,
 			})
 			c.AbortWithStatus(http.StatusInternalServerError)

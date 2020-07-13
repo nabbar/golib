@@ -38,12 +38,6 @@ import (
 	. "github.com/nabbar/golib/njs-errors"
 )
 
-func init() {
-	SetErrorCodeString("NJS_VERS_ERR_GOVERSION_INIT", "init GoVersion contraint error")
-	SetErrorCodeString("NJS_VERS_ERR_GOVERSION_RUNTIME", "extract GoVersion runtime error")
-	SetErrorCodeString("NJS_VERS_ERR_GOVERSION_CONTRAINT", "%s must be compiled with Go version %s, but this binary is currently built with Go version %s")
-}
-
 type versionModel struct {
 	versionRelease     string
 	versionBuild       string
@@ -57,7 +51,7 @@ type versionModel struct {
 }
 
 type Version interface {
-	CheckGo(RequireGoVersion, RequireGoContraint string) ErrorCode
+	CheckGo(RequireGoVersion, RequireGoContraint string) Error
 
 	GetAppId() string
 	GetAuthor() string
@@ -104,19 +98,19 @@ func NewVersion(License license, Package, Description, Date, Build, Release, Aut
 	}
 }
 
-func (vers versionModel) CheckGo(RequireGoVersion, RequireGoContraint string) ErrorCode {
+func (vers versionModel) CheckGo(RequireGoVersion, RequireGoContraint string) Error {
 	constraint, err := govers.NewConstraint(RequireGoContraint + RequireGoVersion)
 	if err != nil {
-		return GetErrorCodeTrace("NJS_VERS_ERR_GOVERSION_INIT", err)
+		return GOVERSION_INIT.ErrorParent(err)
 	}
 
 	goVersion, err := govers.NewVersion(runtime.Version()[2:])
 	if err != nil {
-		return GetErrorCodeTrace("NJS_VERS_ERR_GOVERSION_RUNTIME", err)
+		return GOVERSION_RUNTIME.ErrorParent(err)
 	}
 
 	if !constraint.Check(goVersion) {
-		return GetErrorCodeTrace("NJS_VERS_ERR_GOVERSION_CONTRAINT", err, vers.versionPackage, RequireGoVersion, goVersion)
+		return GOVERSION_CONTRAINT.ErrorParent(fmt.Errorf("must be compiled with Go version %s (instead of %s)", RequireGoVersion, goVersion))
 	}
 
 	return nil

@@ -30,6 +30,8 @@ import (
 	"fmt"
 
 	"github.com/fatih/color"
+
+	. "github.com/nabbar/golib/njs-errors"
 )
 
 type colorType uint8
@@ -84,13 +86,28 @@ func (c colorType) Print(text string) {
 	}
 }
 
-func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...interface{}) (n int, err error) {
+func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...interface{}) (n int, err Error) {
 	if colorList[c] != nil && buff != nil {
-		return colorList[c].Fprintf(buff, format, args...) // #nosec
+
+		i, e := colorList[c].Fprintf(buff, format, args...) // #nosec
+
+		if e != nil {
+			return i, COLOR_IO_FRINTF.ErrorParent(e)
+		}
+
+		return i, nil
+
 	} else if buff != nil {
-		return buff.Write([]byte(fmt.Sprintf(format, args...)))
+
+		i, e := buff.Write([]byte(fmt.Sprintf(format, args...)))
+
+		if e != nil {
+			return i, COLOR_BUFF_WRITE.ErrorParent(e)
+		}
+
+		return i, nil
 	} else {
-		return 0, fmt.Errorf("buffer is not defined")
+		return 0, COLOR_BUFF_UNDEFINED.Error(nil)
 	}
 }
 

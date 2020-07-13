@@ -29,7 +29,7 @@ package njs_certif
 import errors "github.com/nabbar/golib/njs-errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + 100
+	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Certif
 	FILE_STAT_ERROR
 	FILE_READ_ERROR
 	CERT_APPEND_KO

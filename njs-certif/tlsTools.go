@@ -32,7 +32,7 @@ import (
 	"runtime"
 	"strings"
 
-	errors "github.com/nabbar/golib/njs-errors"
+	. "github.com/nabbar/golib/njs-errors"
 )
 
 var (
@@ -77,7 +77,7 @@ func AddRootCAContents(rootContent string) bool {
 	return false
 }
 
-func AddRootCAFile(rootFile string) errors.Error {
+func AddRootCAFile(rootFile string) Error {
 	if rootFile == "" {
 		return EMPTY_PARAMS.Error(nil)
 	}
@@ -107,7 +107,7 @@ func AddCACertificateContents(caContent string) bool {
 	return false
 }
 
-func AddCACertificateFile(caFile string) errors.Error {
+func AddCACertificateFile(caFile string) Error {
 	if caFile == "" {
 		return EMPTY_PARAMS.Error(nil)
 	}
@@ -133,7 +133,7 @@ func CheckCertificates() bool {
 	return len(certificates) > 0
 }
 
-func AddCertificateContents(keyContents, certContents string) errors.Error {
+func AddCertificateContents(keyContents, certContents string) Error {
 	keyContents = strings.TrimSpace(keyContents)
 	certContents = strings.TrimSpace(certContents)
 
@@ -150,7 +150,7 @@ func AddCertificateContents(keyContents, certContents string) errors.Error {
 	return EMPTY_PARAMS.Error(nil)
 }
 
-func AddCertificateFile(keyFile, certFile string) errors.Error {
+func AddCertificateFile(keyFile, certFile string) Error {
 	if keyFile == "" || certFile == "" {
 		return EMPTY_PARAMS.Error(nil)
 	}

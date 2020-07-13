@@ -68,7 +68,7 @@ func RoutersHandler(engine *gin.Engine) {
 
 func NewRouterList() RouterList {
 	return &routerList{
-		list: make(map[string][]routerItem, 0),
+		list: make(map[string][]routerItem),
 	}
 }
 

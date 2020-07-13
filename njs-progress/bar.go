@@ -28,15 +28,18 @@ package njs_progress
 import (
 	"context"
 
-	njs_semaphore "github.com/nabbar/golib/njs-semaphore"
 	"github.com/vbauerster/mpb/v5"
+
+	. "github.com/nabbar/golib/njs-errors"
+
+	sem "github.com/nabbar/golib/njs-semaphore"
 )
 
 type bar struct {
 	u bool
 	t int64
 	b *mpb.Bar
-	s njs_semaphore.Sem
+	s sem.Sem
 }
 
 type Bar interface {
@@ -45,19 +48,19 @@ type Bar interface {
 	Increment(n int)
 	Refill(amount int64)
 
-	NewWorker() error
+	NewWorker() Error
 	NewWorkerTry() bool
 	DeferWorker()
 	DeferMain(dropBar bool)
 
-	WaitAll() error
+	WaitAll() Error
 	Context() context.Context
 	Cancel()
 
 	GetBarMPB() *mpb.Bar
 }
 
-func newBar(b *mpb.Bar, s njs_semaphore.Sem, total int64) Bar {
+func newBar(b *mpb.Bar, s sem.Sem, total int64) Bar {
 	return &bar{
 		u: total > 0,
 		t: total,
@@ -89,7 +92,7 @@ func (b *bar) Refill(amount int64) {
 	b.b.SetRefill(amount)
 }
 
-func (b *bar) NewWorker() error {
+func (b *bar) NewWorker() Error {
 	if !b.u {
 		b.t++
 		b.b.SetTotal(b.t, false)
@@ -112,7 +115,7 @@ func (b *bar) DeferMain(dropBar bool) {
 	b.s.DeferMain()
 }
 
-func (b *bar) WaitAll() error {
+func (b *bar) WaitAll() Error {
 	return b.s.WaitAll()
 }
 

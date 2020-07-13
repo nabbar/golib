@@ -29,6 +29,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+
+	. "github.com/nabbar/golib/njs-errors"
 )
 
 type attachment struct {
@@ -86,15 +88,15 @@ func NewAttachment(name string) Attachment {
 	}
 }
 
-func NewAttachmentFile(name string, filepath string) (Attachment, error) {
+func NewAttachmentFile(name string, filepath string) (Attachment, Error) {
 	var b = bytes.NewBuffer([]byte{})
 
 	if _, e := os.Stat(filepath); e != nil {
-		return nil, e
+		return nil, FILE_STAT.ErrorParent(e)
 	}
 
 	if bb, e := ioutil.ReadFile(filepath); e != nil {
-		return nil, e
+		return nil, FILE_READ.ErrorParent(e)
 	} else {
 		b.Write(bb)
 	}

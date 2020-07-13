@@ -25,6 +25,8 @@
 
 package njs_ioutils
 
+import . "github.com/nabbar/golib/njs-errors"
+
 /**
  * SystemFileDescriptor is returning current Limit & max system limit for file descriptor (open file or I/O resource) currently set in the system
  * This function return the current setting (current number of file descriptor and the max value) if the newValue given is zero
@@ -49,6 +51,6 @@ package njs_ioutils
  *	Normally no problem will be result in the build
  *
  */
-func SystemFileDescriptor(newValue int) (current int, max int, err error) {
+func SystemFileDescriptor(newValue int) (current int, max int, err Error) {
 	return systemFileDescriptor(newValue)
 }

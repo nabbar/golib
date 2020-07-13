@@ -31,6 +31,8 @@ import (
 	"time"
 
 	"golang.org/x/sync/semaphore"
+
+	. "github.com/nabbar/golib/njs-errors"
 )
 
 type sem struct {
@@ -41,12 +43,12 @@ type sem struct {
 }
 
 type Sem interface {
-	NewWorker() error
+	NewWorker() Error
 	NewWorkerTry() bool
 	DeferWorker()
 	DeferMain()
 
-	WaitAll() error
+	WaitAll() Error
 	Context() context.Context
 	Cancel()
 }
@@ -70,20 +72,18 @@ func NewSemaphore(maxSimultaneous int, timeout time.Duration, deadline time.Time
 	}
 }
 
-func (s *sem) NewWorker() error {
-	if e := s.s.Acquire(s.x, 1); e != nil {
-		return e
-	}
-
-	return nil
+func (s *sem) NewWorker() Error {
+	e := s.s.Acquire(s.x, 1)
+	return NEW_WORKER.Iferror(e)
 }
 
 func (s *sem) NewWorkerTry() bool {
 	return s.s.TryAcquire(1)
 }
 
-func (s *sem) WaitAll() error {
-	return s.s.Acquire(s.Context(), s.m)
+func (s *sem) WaitAll() Error {
+	e := s.s.Acquire(s.Context(), s.m)
+	return WAITALL.Iferror(e)
 }
 
 func (s *sem) DeferWorker() {
@@ -102,6 +102,7 @@ func (s *sem) Cancel() {
 
 func (s *sem) Context() context.Context {
 	if s.x == nil {
+		s.x, s.c = GetContext(0, GetEmptyTime(), nil)
 	}
 
 	return s.x

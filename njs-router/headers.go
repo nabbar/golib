@@ -50,7 +50,7 @@ type Headers interface {
 
 func NewHeaders() Headers {
 	return &headers{
-		head: make(http.Header, 0),
+		head: make(http.Header),
 	}
 }
 
@@ -96,7 +96,7 @@ func (h headers) Handler(c *gin.Context) {
 // It appends to any existing values associated with key.
 func (h *headers) Add(key, value string) {
 	if h.head == nil {
-		h.head = make(http.Header, 0)
+		h.head = make(http.Header)
 	}
 
 	h.head.Add(key, value)
@@ -107,7 +107,7 @@ func (h *headers) Add(key, value string) {
 // values associated with key.
 func (h *headers) Set(key, value string) {
 	if h.head == nil {
-		h.head = make(http.Header, 0)
+		h.head = make(http.Header)
 	}
 
 	h.head.Set(key, value)
@@ -121,7 +121,7 @@ func (h *headers) Set(key, value string) {
 // access the map directly.
 func (h headers) Get(key string) string {
 	if h.head == nil {
-		h.head = make(http.Header, 0)
+		h.head = make(http.Header)
 	}
 
 	return h.head.Get(key)
@@ -130,7 +130,7 @@ func (h headers) Get(key string) string {
 // Del deletes the values associated with key.
 func (h *headers) Del(key string) {
 	if h.head == nil {
-		h.head = make(http.Header, 0)
+		h.head = make(http.Header)
 	}
 
 	h.head.Del(key)

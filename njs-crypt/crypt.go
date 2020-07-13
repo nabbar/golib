@@ -41,18 +41,7 @@ var (
 	cryptNonce = make([]byte, 12)
 )
 
-func init() {
-	SetErrorCodeString("NJS_CRYPT_ERR_HEXA_DECODE", "hexa decode error")
-	SetErrorCodeString("NJS_CRYPT_ERR_HEXA_KEY", "converting hexa key error")
-	SetErrorCodeString("NJS_CRYPT_ERR_HEXA_NONCE", "converting hexa nonce error")
-	SetErrorCodeString("NJS_CRYPT_ERR_BYTE_KEYGEN", "key generate error")
-	SetErrorCodeString("NJS_CRYPT_ERR_BYTE_NONCEGEN", "nonce generate error")
-	SetErrorCodeString("NJS_CRYPT_ERR_AES_BLOCK", "init AES block error")
-	SetErrorCodeString("NJS_CRYPT_ERR_AES_GCM", "init AES GCM error")
-	SetErrorCodeString("NJS_CRYPT_ERR_AES_DECRYPT", "AES decrypt error")
-}
-
-func SetKeyHex(key, nonce string) ErrorCode {
+func SetKeyHex(key, nonce string) Error {
 	var err error
 	// Load your secret key from a safe place and reuse it across multiple
 	// Seal/Open calls. (Obviously don't use this example key for anything
@@ -61,13 +50,13 @@ func SetKeyHex(key, nonce string) ErrorCode {
 	cryptKey, err = hex.DecodeString(key)
 
 	if err != nil {
-		return GetTraceErrorCode("NJS_CRYPT_ERR_HEXA_KEY", err)
+		return HEXA_KEY.ErrorParent(err)
 	}
 
 	cryptNonce, err = hex.DecodeString(nonce)
 
 	if err != nil {
-		return GetTraceErrorCode("NJS_CRYPT_ERR_HEXA_NONCE", err)
+		return HEXA_NONCE.ErrorParent(err)
 	}
 
 	return nil
@@ -78,54 +67,54 @@ func SetKeyByte(key [32]byte, nonce [12]byte) {
 	cryptNonce = nonce[:]
 }
 
-func GenKeyByte() ([]byte, []byte, ErrorCode) {
+func GenKeyByte() ([]byte, []byte, Error) {
 	// Never use more than 2^32 random key with a given key because of the risk of a repeat.
 	if _, err := io.ReadFull(rand.Reader, cryptKey); err != nil {
-		return make([]byte, 32), make([]byte, 12), GetTraceErrorCode("NJS_CRYPT_ERR_BYTE_KEYGEN", err)
+		return make([]byte, 32), make([]byte, 12), BYTE_KEYGEN.ErrorParent(err)
 	}
 
 	// Never use more than 2^32 random nonces with a given key because of the risk of a repeat.
 	if _, err := io.ReadFull(rand.Reader, cryptNonce); err != nil {
-		return make([]byte, 32), make([]byte, 12), GetTraceErrorCode("NJS_CRYPT_ERR_BYTE_NONCEGEN", err)
+		return make([]byte, 32), make([]byte, 12), BYTE_NONCEGEN.ErrorParent(err)
 	}
 
 	return cryptKey, cryptNonce, nil
 }
 
-func Encrypt(clearValue []byte) (string, ErrorCode) {
+func Encrypt(clearValue []byte) (string, Error) {
 	// When decoded the key should be 16 bytes (AES-128) or 32 (AES-256).
 	block, err := aes.NewCipher(cryptKey)
 	if err != nil {
-		return "", GetTraceErrorCode("NJS_CRYPT_ERR_AES_BLOCK", err)
+		return "", AES_BLOCK.ErrorParent(err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", GetTraceErrorCode("NJS_CRYPT_ERR_AES_GCM", err)
+		return "", AES_GCM.ErrorParent(err)
 	}
 
 	return hex.EncodeToString(aesgcm.Seal(nil, cryptNonce, clearValue, nil)), nil
 }
 
-func Decrypt(hexaVal string) ([]byte, ErrorCode) {
+func Decrypt(hexaVal string) ([]byte, Error) {
 	// When decoded the key should be 16 bytes (AES-128) or 32 (AES-256).
 	ciphertext, err := hex.DecodeString(hexaVal)
 	if err != nil {
-		return nil, GetTraceErrorCode("NJS_CRYPT_ERR_HEXA_DECODE", err)
+		return nil, HEXA_DECODE.ErrorParent(err)
 	}
 
 	block, err := aes.NewCipher(cryptKey)
 	if err != nil {
-		return nil, GetTraceErrorCode("NJS_CRYPT_ERR_AES_BLOCK", err)
+		return nil, AES_BLOCK.ErrorParent(err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, GetTraceErrorCode("NJS_CRYPT_ERR_AES_GCM", err)
+		return nil, AES_GCM.ErrorParent(err)
 	}
 
 	if res, err := aesgcm.Open(nil, cryptNonce, ciphertext, nil); err != nil {
-		return res, GetTraceErrorCode("NJS_CRYPT_ERR_AES_DECRYPT", err)
+		return res, AES_DECRYPT.ErrorParent(err)
 	} else {
 		return res, nil
 	}

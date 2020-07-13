@@ -40,8 +40,18 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/net/http2"
+
 	njs_certif "github.com/nabbar/golib/njs-certif"
-	njs_logger "github.com/nabbar/golib/njs-logger"
+
+	. "github.com/nabbar/golib/njs-logger"
+)
+
+const (
+	TIMEOUT_30_SEC = 30 * time.Second
+	TIMEOUT_10_SEC = 10 * time.Second
+	TIMEOUT_5_SEC  = 5 * time.Second
+	TIMEOUT_1_SEC  = 1 * time.Second
 )
 
 type modelServer struct {
@@ -169,22 +179,36 @@ func (srv *modelServer) Listen() {
 
 	srv.srv = &http.Server{
 		Addr:      srv.GetBindable(),
-		ErrorLog:  njs_logger.GetLogger(njs_logger.ErrorLevel, log.LstdFlags | log.LstdFlags | log.Lmicroseconds, "server '%s'", srv.GetBindable()),
+		ErrorLog:  GetLogger(ErrorLevel, log.LstdFlags|log.Lmicroseconds, "[http/http2 server '%s']", srv.GetBindable()),
 		Handler:   srv.hdl,
 		TLSConfig: srv.ssl,
 	}
 
-	njs_logger.InfoLevel.Logf("Server starting with bindable: %s", srv.GetBindable())
+	cnf := &http2.Server{
+		//MaxHandlers:                  0,
+		//MaxConcurrentStreams:         0,
+		//MaxReadFrameSize:             0,
+		//PermitProhibitedCipherSuites: false,
+		IdleTimeout: TIMEOUT_30_SEC,
+		//MaxUploadBufferPerConnection: 0,
+		//MaxUploadBufferPerStream:     0,
+		//NewWriteScheduler:            nil,
+	}
+
+	err := http2.ConfigureServer(srv.srv, cnf)
+	FatalLevel.Logf("Configuring Server '%s' Error: %v", srv.host, err)
 
 	go func() {
 		if srv.ssl == nil || !njs_certif.CheckCertificates() {
+			InfoLevel.Logf("Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
 			if err := srv.srv.ListenAndServe(); err != nil {
-				njs_logger.FatalLevel.Logf("Listen Error: %v", err)
+				FatalLevel.Logf("Listen Server '%s' Error: %v", srv.host, err)
 				return
 			}
 		} else {
+			InfoLevel.Logf("TLS Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
 			if err := srv.srv.ListenAndServeTLS("", ""); err != nil {
-				njs_logger.FatalLevel.Logf("Listen config Error: %v", err)
+				FatalLevel.Logf("Listen TLS Server '%s' Error: %v", srv.host, err)
 				return
 			}
 		}
@@ -213,7 +237,7 @@ func (srv *modelServer) Restart() {
 }
 
 func (srv *modelServer) Shutdown() {
-	njs_logger.InfoLevel.Logf("Shutdown Server ...")
+	InfoLevel.Logf("Shutdown Server '%s'...", srv.addr.Host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -223,7 +247,7 @@ func (srv *modelServer) Shutdown() {
 	}
 
 	if err := srv.srv.Shutdown(ctx); err != nil {
-		njs_logger.FatalLevel.Logf("Server Shutdown Error: %v", err)
+		FatalLevel.Logf("Shutdown Server '%s' Error: %v", srv.host, err)
 	}
 
 	srv.srv = nil

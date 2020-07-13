@@ -28,10 +28,11 @@
 package njs_ioutils
 
 import (
+	. "github.com/nabbar/golib/njs-errors"
 	"github.com/nabbar/golib/njs-ioutils/maxstdio"
 )
 
-func systemFileDescriptor(newValue int) (current int, max int, err error) {
+func systemFileDescriptor(newValue int) (current int, max int, err Error) {
 	rLimit := maxstdio.GetMaxStdio()
 
 	if rLimit < 0 {
