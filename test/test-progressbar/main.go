@@ -29,19 +29,19 @@ import (
 	"math/rand"
 	"time"
 
-	npb "github.com/nabbar/golib/progress"
+	"github.com/nabbar/golib/progress"
 	"github.com/vbauerster/mpb/v5"
 )
 
 var (
-	pb npb.ProgressBar
-	br npb.Bar
+	pb progress.ProgressBar
+	br progress.Bar
 )
 
 func main() {
 	println("Starting...")
 
-	pb = npb.NewProgressBar(0, time.Time{}, nil, mpb.WithWidth(64))
+	pb = progress.NewProgressBar(0, time.Time{}, nil, mpb.WithWidth(64))
 	pb.SetSemaphoreOption(0, 0)
 	br = pb.NewBarSimpleETA("test bar")
 
@@ -54,11 +54,11 @@ func main() {
 			continue
 		}
 
-		go func(id int) {
+		go func() {
 			defer br.DeferWorker()
 			rand.Seed(9999)
 			time.Sleep(time.Duration(rand.Intn(999)) * time.Millisecond)
-		}(i)
+		}()
 	}
 
 	if e := br.WaitAll(); e != nil {

@@ -155,6 +155,7 @@ func NewMailTemplate(name, tpl string, isFile bool) (MailTemplate, Error) {
 
 	if isFile {
 		var fs []byte
+		// #nosec
 		if _, err = os.Stat(tpl); err != nil {
 			return nil, FILE_STAT.ErrorParent(err)
 		} else if fs, err = ioutil.ReadFile(tpl); err != nil {

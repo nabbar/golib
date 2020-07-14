@@ -32,7 +32,7 @@ import (
 
 	"github.com/go-ldap/ldap/v3"
 
-	njs_certif "github.com/nabbar/golib/certificates"
+	certif "github.com/nabbar/golib/certificates"
 	. "github.com/nabbar/golib/errors"
 	. "github.com/nabbar/golib/logger"
 )
@@ -56,7 +56,7 @@ func NewLDAP(cnf *Config, attributes []string) (*HelperLDAP, Error) {
 
 	return &HelperLDAP{
 		Attributes: attributes,
-		tlsConfig:  njs_certif.GetTLSConfig(cnf.Uri),
+		tlsConfig:  certif.GetTLSConfig(cnf.Uri),
 		tlsMode:    tlsmode_init,
 		config:     cnf.Clone(),
 	}, nil

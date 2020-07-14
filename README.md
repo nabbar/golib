@@ -1,3 +1,5 @@
+![Go](https://github.com/nabbar/golib/workflows/Go/badge.svg)
+
 # golib : custom lib for go
 
 snyk project : https://app.snyk.io/org/nabbar/project/2f55a2b8-6015-4db1-b859-c2bc3b7548a7

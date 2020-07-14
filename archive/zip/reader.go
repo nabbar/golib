@@ -93,6 +93,7 @@ func extratFile(f *zip.File) (dst *os.File, err Error) {
 		_ = r.Close()
 	}()
 
+	// #nosec
 	if dst, err = iou.NewTempFile(); err != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", err)
 		return

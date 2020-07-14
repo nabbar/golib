@@ -298,6 +298,7 @@ func SetSessionTicket(enable bool) {
 }
 
 func GetTLSConfig(serverName string) *tls.Config {
+	// #nosec
 	cnf := &tls.Config{
 		RootCAs:            rootCA,
 		ClientCAs:          caCertificates,
