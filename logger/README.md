@@ -1,11 +1,27 @@
-GoDoc | Travis | Snyk
-:-: | :-: | :-: 
-[![Documentation Status](https://godoc.org/github.com/nabbar/gopkg-njs-logger?status.png "Documentation Status")](https://godoc.org/github.com/nabbar/gopkg-njs-logger) | [![Build Status](https://travis-ci.com/nabbar/gopkg-njs-logger.svg?branch=master)](https://travis-ci.com/nabbar/gopkg-njs-logger) | [![Known Vulnerabilities](https://snyk.io/test/github/nabbar/gopkg-njs-logger/badge.svg?style=plastic "Known Vulnerabilities")](https://snyk.io/test/github/nabbar/gopkg-njs-logger)
+# Logger pakcage
+Help manage logger. This package does not implement a logger but user `logrus` as logger behind.
+This package will simplify call of logger and allow more features like `*log.Logger` wrapper.
 
-# gopkg-njs-logger
+## Exmaple of implement
 
-This lib is a more an helper than a lib.
+In your file, first add the import of `golib/logger` :
+```go
+import . "github.com/nabbar/golib/logger"
+```
 
-This lib is use to simplify integration and common use of the lib logrus 
+```go
+// Check if the function call will return an error, and if so, will log a fatal (log and os.exit) message
+FatalLevel.LogError(GetVersion().CheckGo("1.12", ">="))
+```
 
-... in construction
+This call, will disable color, trace, 
+```go
+FileTrace(false)
+DisableColor()
+EnableViperLog(true)
+```
+
+This call, return a go *log.Logger interface. This example can be found in the golib/httpserver package :
+```go
+log := GetLogger(ErrorLevel, log.LstdFlags|log.Lmicroseconds, "[http/http2 server '%s']", host)
+```

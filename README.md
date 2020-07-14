@@ -14,4 +14,12 @@ second, import the needed lib in your code
 import "github.com/nabbar/golib/version"
 ```
 
-more information in each lib
+## Details of packages :
+* [package errors](errors/README.md)
+* [package logger](logger/README.md)
+* [package password](password/README.md)
+* [package router](router/README.md)
+* [package static](static/README.md)
+* [package status](status/README.md)
+* [package version](version/README.md)
+

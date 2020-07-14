@@ -40,7 +40,7 @@ import (
 	. "github.com/nabbar/golib/errors"
 	. "github.com/nabbar/golib/logger"
 
-	njs_router "github.com/nabbar/golib/router"
+	"github.com/nabbar/golib/router"
 )
 
 const (
@@ -54,12 +54,12 @@ type staticHandler struct {
 	prefix   string
 	download []string
 	allDwnld bool
-	head     func() map[string]string
+	head     gin.HandlerFunc
 }
 
 type Static interface {
-	Register(register njs_router.RegisterRouter)
-	RegisterInGroup(group string, register njs_router.RegisterRouterInGroup)
+	Register(register router.RegisterRouter)
+	RegisterInGroup(group string, register router.RegisterRouterInGroup)
 
 	SetDownloadAll()
 	SetDownload(file string)
@@ -80,7 +80,7 @@ func cleanJoinPath(p, e string) string {
 	return cleanPath(filepath.Join(strings.TrimLeft(p, "/"), e))
 }
 
-func NewStatic(hasIndex bool, prefix string, box packr.Box, Header func() map[string]string) Static {
+func NewStatic(hasIndex bool, prefix string, box packr.Box, Header gin.HandlerFunc) Static {
 	return &staticHandler{
 		box:      box,
 		debug:    false,
@@ -91,7 +91,7 @@ func NewStatic(hasIndex bool, prefix string, box packr.Box, Header func() map[st
 	}
 }
 
-func (s staticHandler) Register(register njs_router.RegisterRouter) {
+func (s staticHandler) Register(register router.RegisterRouter) {
 	if s.prefix == "/" {
 		for _, f := range s.box.List() {
 			register(http.MethodGet, cleanJoinPath(s.prefix, f), s.Get)
@@ -102,14 +102,14 @@ func (s staticHandler) Register(register njs_router.RegisterRouter) {
 	}
 }
 
-func (s staticHandler) RegisterInGroup(group string, register njs_router.RegisterRouterInGroup) {
+func (s staticHandler) RegisterInGroup(group string, register router.RegisterRouterInGroup) {
 	if s.prefix == "/" {
 		for _, f := range s.box.List() {
-			register(group, http.MethodGet, cleanJoinPath(s.prefix, f), s.Get)
+			register(group, http.MethodGet, cleanJoinPath(s.prefix, f), s.head, s.Get)
 		}
 	} else {
-		register(group, http.MethodGet, s.prefix, s.Get)
-		register(group, http.MethodGet, cleanJoinPath(s.prefix, "/*file"), s.Get)
+		register(group, http.MethodGet, s.prefix, s.head, s.Get)
+		register(group, http.MethodGet, cleanJoinPath(s.prefix, "/*file"), s.head, s.Get)
 	}
 }
 
@@ -166,16 +166,16 @@ func (s staticHandler) Get(c *gin.Context) {
 	}
 
 	if obj, err := s.box.Find(requestPath); !ErrorLevel.LogErrorCtxf(DebugLevel, "find file '%s' error for request '%s%s' :", err, calledFile, s.prefix, requestPath) {
-		head := s.head()
+		head := router.NewHeaders()
 
 		if s.allDwnld || s.IsDownload(requestPath) {
-			head["Content-Disposition"] = fmt.Sprintf("attachment; filename=\"%s\"", calledFile)
+			head.Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", calledFile))
 		}
 
 		c.Render(http.StatusOK, render.Reader{
 			ContentLength: int64(len(obj)),
 			ContentType:   mime.TypeByExtension(filepath.Ext(calledFile)),
-			Headers:       head,
+			Headers:       head.Header(),
 			Reader:        bytes.NewReader(obj),
 		})
 	} else {
