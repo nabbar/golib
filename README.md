@@ -11,7 +11,7 @@ go get -u github.com/nabbar/golib/...
 
 second, import the needed lib in your code
 ```go
-import "github.com/nabbar/golib/njs-version"
+import "github.com/nabbar/golib/version"
 ```
 
 more information in each lib

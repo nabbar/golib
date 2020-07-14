@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	njs_ioutils "github.com/nabbar/golib/njs-ioutils"
+	njs_ioutils "github.com/nabbar/golib/ioutils"
 )
 
 func main() {
