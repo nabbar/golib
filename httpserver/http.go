@@ -42,7 +42,7 @@ import (
 
 	"golang.org/x/net/http2"
 
-	njs_certif "github.com/nabbar/golib/certificates"
+	certif "github.com/nabbar/golib/certificates"
 
 	. "github.com/nabbar/golib/logger"
 )
@@ -199,7 +199,7 @@ func (srv *modelServer) Listen() {
 	FatalLevel.Logf("Configuring Server '%s' Error: %v", srv.host, err)
 
 	go func() {
-		if srv.ssl == nil || !njs_certif.CheckCertificates() {
+		if srv.ssl == nil || !certif.CheckCertificates() {
 			InfoLevel.Logf("Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
 			if err := srv.srv.ListenAndServe(); err != nil {
 				FatalLevel.Logf("Listen Server '%s' Error: %v", srv.host, err)

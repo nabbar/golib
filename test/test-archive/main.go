@@ -30,9 +30,8 @@ import (
 	"io/ioutil"
 	"os"
 
-	njs_archive "github.com/nabbar/golib/archive"
-
-	iou "github.com/nabbar/golib/ioutils"
+	"github.com/nabbar/golib/archive"
+	"github.com/nabbar/golib/ioutils"
 )
 
 // git archive --format=tar --output=git.tar HEAD
@@ -61,19 +60,19 @@ func main() {
 		_ = src.Close()
 	}()
 
-	if tmp, err = iou.NewTempFile(); err != nil {
+	if tmp, err = ioutils.NewTempFile(); err != nil {
 		panic(err)
 	}
 
 	defer func() {
-		_ = iou.DelTempFile(tmp)
+		_ = ioutils.DelTempFile(tmp)
 	}()
 
 	if _, err = io.Copy(tmp, src); err != nil {
 		panic(err)
 	}
 
-	if rio, err = njs_archive.ExtractFile(tmp, contain, regex); err != nil {
+	if rio, err = archive.ExtractFile(tmp, contain, regex); err != nil {
 		panic(err)
 	}
 

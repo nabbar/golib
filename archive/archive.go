@@ -86,6 +86,7 @@ func ExtractFile(src *os.File, fileNameContain, fileNameRegex string) (*os.File,
 
 	if _, err = src.Seek(0, 0); err != nil {
 		e1 := FILE_SEEK.ErrorParent(err)
+		// #nosec
 		if src, err = os.Open(loc); err != nil {
 			//ErrorLevel.LogErrorCtx(DebugLevel, "reopening file", err)
 			e2 := FILE_OPEN.ErrorParent(err)

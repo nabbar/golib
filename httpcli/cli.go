@@ -36,7 +36,7 @@ import (
 
 	. "github.com/nabbar/golib/errors"
 
-	njs_certif "github.com/nabbar/golib/certificates"
+	certif "github.com/nabbar/golib/certificates"
 )
 
 const (
@@ -47,21 +47,21 @@ const (
 )
 
 func GetClient(serverName string) *http.Client {
-	c, e := getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, njs_certif.GetTLSConfig(serverName))
+	c, e := getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certif.GetTLSConfig(serverName))
 
 	if e != nil {
-		c, _ = getClient(false, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, njs_certif.GetTLSConfig(serverName))
+		c, _ = getClient(false, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certif.GetTLSConfig(serverName))
 	}
 
 	return c
 }
 
 func GetClientError(serverName string) (*http.Client, Error) {
-	return getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, njs_certif.GetTLSConfig(serverName))
+	return getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certif.GetTLSConfig(serverName))
 }
 
 func GetClientTimeout(serverName string, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration) (*http.Client, Error) {
-	return getClient(true, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout, njs_certif.GetTLSConfig(serverName))
+	return getClient(true, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout, certif.GetTLSConfig(serverName))
 }
 
 func getClient(http2Transport bool, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration, tlsConfig *tls.Config) (*http.Client, Error) {

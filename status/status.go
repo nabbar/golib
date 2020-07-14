@@ -31,9 +31,8 @@ import (
 	"path"
 	"strings"
 
-	njs_router "github.com/nabbar/golib/router"
-
-	njs_version "github.com/nabbar/golib/version"
+	"github.com/nabbar/golib/router"
+	"github.com/nabbar/golib/version"
 
 	"github.com/gin-gonic/gin"
 )
@@ -80,20 +79,20 @@ type mainPackage struct {
 }
 
 type initLater struct {
-	version func() njs_version.Version
+	version func() version.Version
 	info    func() (name, release, build string)
 	msg     func() (ok string, ko string)
 	health  func() error
 }
 
 type Status interface {
-	Register(prefix string, register njs_router.RegisterRouter)
+	Register(prefix string, register router.RegisterRouter)
 
 	AddComponent(name, msgOK, msgKO, release, build string, WarnIfError bool, health func() error)
-	AddVersionComponent(vers njs_version.Version, msgOK, msgKO string, WarnIfError bool, health func() error)
+	AddVersionComponent(vers version.Version, msgOK, msgKO string, WarnIfError bool, health func() error)
 
 	LaterAddComponent(info func() (name, release, build string), msg func() (ok string, ko string), health func() error, WarnIfError bool)
-	LaterAddVersionComponent(vers func() njs_version.Version, msg func() (ok string, ko string), health func() error, WarnIfError bool)
+	LaterAddVersionComponent(vers func() version.Version, msg func() (ok string, ko string), health func() error, WarnIfError bool)
 
 	Get(c *gin.Context)
 }
@@ -122,7 +121,7 @@ func NewStatus(name, msgOK, msgKO, release, build string, health func() error, H
 	}
 }
 
-func NewVersionStatusLater(vers func() njs_version.Version, msg func() (ok string, ko string), health func() error, Header gin.HandlerFunc) Status {
+func NewVersionStatusLater(vers func() version.Version, msg func() (ok string, ko string), health func() error, Header gin.HandlerFunc) Status {
 	return &mainPackage{
 		cpt:    make([]statusComponent, 0),
 		header: Header,
@@ -136,7 +135,7 @@ func NewVersionStatusLater(vers func() njs_version.Version, msg func() (ok strin
 	}
 }
 
-func NewVersionStatus(vers njs_version.Version, msgOK, msgKO string, health func() error, Header gin.HandlerFunc) Status {
+func NewVersionStatus(vers version.Version, msgOK, msgKO string, health func() error, Header gin.HandlerFunc) Status {
 	return NewStatus(vers.GetPackage(), msgOK, msgKO, vers.GetRelease(), vers.GetBuild(), health, Header)
 }
 
@@ -171,11 +170,11 @@ func (p *mainPackage) LaterAddComponent(info func() (name, release, build string
 	})
 }
 
-func (p *mainPackage) AddVersionComponent(vers njs_version.Version, msgOK, msgKO string, WarnIfError bool, health func() error) {
+func (p *mainPackage) AddVersionComponent(vers version.Version, msgOK, msgKO string, WarnIfError bool, health func() error) {
 	p.AddComponent(vers.GetPackage(), msgOK, msgKO, vers.GetRelease(), vers.GetBuild(), WarnIfError, health)
 }
 
-func (p *mainPackage) LaterAddVersionComponent(vers func() njs_version.Version, msg func() (ok string, ko string), health func() error, WarnIfError bool) {
+func (p *mainPackage) LaterAddVersionComponent(vers func() version.Version, msg func() (ok string, ko string), health func() error, WarnIfError bool) {
 	p.cpt = append(p.cpt, statusComponent{
 		WarnIfErr: WarnIfError,
 		later: &initLater{
@@ -244,7 +243,7 @@ func (p *mainPackage) cleanPrefix(prefix string) string {
 	return path.Clean(strings.TrimRight(path.Join("/", prefix), "/"))
 }
 
-func (p *mainPackage) Register(prefix string, register njs_router.RegisterRouter) {
+func (p *mainPackage) Register(prefix string, register router.RegisterRouter) {
 	prefix = p.cleanPrefix(prefix)
 
 	register(http.MethodGet, prefix, p.header, p.Get)
@@ -254,7 +253,7 @@ func (p *mainPackage) Register(prefix string, register njs_router.RegisterRouter
 	}
 }
 
-func (p *mainPackage) RegisterGroup(group, prefix string, register njs_router.RegisterRouterInGroup) {
+func (p *mainPackage) RegisterGroup(group, prefix string, register router.RegisterRouterInGroup) {
 	prefix = p.cleanPrefix(prefix)
 
 	register(group, http.MethodGet, prefix, p.header, p.Get)

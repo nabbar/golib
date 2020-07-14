@@ -61,6 +61,8 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 		}
 
 		f := archive.NewFileFullPath(h.Name)
+
+		// #nosec
 		if f.MatchingFullPath(filenameContain) || f.RegexFullPath(filenameRegex) {
 			if t, e := iou.NewTempFile(); e != nil {
 				//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", e)

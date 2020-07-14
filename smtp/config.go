@@ -34,7 +34,7 @@ import (
 	"strconv"
 	"strings"
 
-	njs_certif "github.com/nabbar/golib/certificates"
+	certif "github.com/nabbar/golib/certificates"
 
 	. "github.com/nabbar/golib/errors"
 )
@@ -264,7 +264,7 @@ func newSMTPConfig(dsn string) (*smtpConfig, Error) {
 //   - net aceeptable are : tcp4, tcp6, unix
 func NewSMTP(dsn string, tlsConfig *tls.Config) (SMTP, Error) {
 	if tlsConfig == nil {
-		tlsConfig = njs_certif.GetTLSConfig("")
+		tlsConfig = certif.GetTLSConfig("")
 	}
 
 	if c, e := newSMTPConfig(dsn); e != nil {

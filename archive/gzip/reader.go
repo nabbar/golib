@@ -50,6 +50,7 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 
 	defer r.Close()
 
+	// #nosec
 	if t, e := iou.NewTempFile(); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", e)
 		return nil, e

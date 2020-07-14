@@ -26,7 +26,7 @@
 
 package gzip
 
-import errors "github.com/nabbar/golib/errors"
+import "github.com/nabbar/golib/errors"
 
 const (
 	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Archive + 20

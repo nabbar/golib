@@ -44,6 +44,7 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 
 	r := bzip2.NewReader(src)
 
+	// #nosec
 	if t, e := iou.NewTempFile(); e != nil {
 		//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", e)
 		return nil, e

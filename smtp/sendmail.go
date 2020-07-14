@@ -31,7 +31,7 @@ import (
 	"net/smtp"
 	"time"
 
-	vers "github.com/nabbar/golib/version"
+	"github.com/nabbar/golib/version"
 
 	. "github.com/nabbar/golib/errors"
 )
@@ -138,7 +138,7 @@ func (s *sendmail) SetMailer(mailer string) {
 	s.mailer = mailer
 }
 
-func (s *sendmail) NJSMailer(version vers.Version) {
+func (s *sendmail) NJSMailer(version version.Version) {
 	s.mailer = version.GetHeader()
 }
 
@@ -451,7 +451,7 @@ type SendMail interface {
 
 	SetMessageId(id string)
 	SetMailer(mailer string)
-	NJSMailer(version vers.Version)
+	NJSMailer(version version.Version)
 
 	SetTestMode(enable bool)
 

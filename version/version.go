@@ -30,9 +30,8 @@ import (
 	"path"
 	"reflect"
 	"runtime"
-	"time"
-
 	"strings"
+	"time"
 
 	govers "github.com/hashicorp/go-version"
 	. "github.com/nabbar/golib/errors"
