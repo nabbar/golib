@@ -30,9 +30,9 @@ import (
 	"time"
 )
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyz,;:.!&'(-_)=+/*ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const letterBytes = "abcdefghijklmnopqrstuvwxyz,;:!?./*%^$&\"'(-_)=+~#{[|`\\^@]}ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const (
-	// If we have 77 chars, that means 7 bits code a letter index.
+	// If we have 93 chars, that means 7 bits code a letter index.
 	// So 63 random bits can designate 63/7 = 9 different letter indices.
 	// Let's use all those 10
 	letterIdxBits = 7                    // 6 bits to represent a letter index
