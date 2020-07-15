@@ -23,70 +23,44 @@
  *
  */
 
-package main
+package gzip
 
 import (
+	gz "compress/gzip"
 	"io"
-	"io/ioutil"
 	"os"
 
-	"github.com/nabbar/golib/archive"
-	"github.com/nabbar/golib/ioutils"
+	. "github.com/nabbar/golib/errors"
+	//. "github.com/nabbar/golib/logger"
+
+	iou "github.com/nabbar/golib/ioutils"
 )
 
-// git archive --format=tar --output=git.tar HEAD
-//const fileName = "./git.tar"
-const fileName = "./vendor.zip"
-
-//const contain = "version/license_mit.go"
-const contain = "vendor/github.com/gin-gonic/gin/internal/json/json.go"
-
-//const regex = ""
-const regex = "vendor\\.tar(\\.(?:gz|bz))?"
-
-func main() {
-	var (
-		src *os.File
-		tmp *os.File
-		rio *os.File
-		err error
-	)
-
-	if src, err = os.Open(fileName); err != nil {
-		panic(err)
+func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err Error) {
+	if _, e := src.Seek(0, 0); e != nil {
+		//ErrorLevel.LogErrorCtx(DebugLevel, "seeking buffer", e)
+		return nil, FILE_SEEK.ErrorParent(e)
 	}
 
-	defer func() {
-		_ = src.Close()
-	}()
-
-	if tmp, err = ioutils.NewTempFile(); err != nil {
-		panic(err)
+	r, e := gz.NewReader(src)
+	if e != nil {
+		//ErrorLevel.LogErrorCtx(DebugLevel, "init gzip reader", e)
+		return nil, GZ_READER.ErrorParent(e)
 	}
 
-	defer func() {
-		_ = ioutils.DelTempFile(tmp)
-	}()
+	defer r.Close()
 
-	if _, err = io.Copy(tmp, src); err != nil {
-		panic(err)
-	}
-
-	if rio, err = archive.ExtractFile(tmp, contain, regex); err != nil {
-		panic(err)
-	}
-
-	defer func() {
-		_ = rio.Close()
-	}()
-
-	if _, err = rio.Seek(0, 0); err != nil {
-		panic(err)
-	}
-
-	if b, e := ioutil.ReadAll(rio); e != nil {
-		panic(e)
+	// #nosec
+	if t, e := iou.NewTempFile(); e != nil {
+		//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", e)
+		return nil, e
+	} else if _, e := io.Copy(t, r); e != nil {
+		//ErrorLevel.LogErrorCtx(DebugLevel, "copy buffer from archive reader", e)
+		return nil, IO_COPY.ErrorParent(e)
+	} else if _, e := t.Seek(0, 0); e != nil {
+		//ErrorLevel.LogErrorCtx(DebugLevel, "seeking temp file", e)
+		return nil, FILE_SEEK.ErrorParent(e)
 	} else {
-		println(string(b))
+		return t, nil
 	}
 }

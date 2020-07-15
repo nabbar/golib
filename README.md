@@ -1,3 +1,5 @@
+![Go](https://github.com/nabbar/golib/workflows/Go/badge.svg)
+
 # golib : custom lib for go
 
 snyk project : https://app.snyk.io/org/nabbar/project/2f55a2b8-6015-4db1-b859-c2bc3b7548a7
@@ -11,7 +13,15 @@ go get -u github.com/nabbar/golib/...
 
 second, import the needed lib in your code
 ```go
-import "github.com/nabbar/golib/njs-version"
+import "github.com/nabbar/golib/version"
 ```
 
-more information in each lib
+## Details of packages :
+* [package errors](errors/README.md)
+* [package logger](logger/README.md)
+* [package password](password/README.md)
+* [package router](router/README.md)
+* [package static](static/README.md)
+* [package status](status/README.md)
+* [package version](version/README.md)
+

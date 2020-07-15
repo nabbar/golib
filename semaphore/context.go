@@ -23,70 +23,27 @@
  *
  */
 
-package main
+package semaphore
 
 import (
-	"io"
-	"io/ioutil"
-	"os"
-
-	"github.com/nabbar/golib/archive"
-	"github.com/nabbar/golib/ioutils"
+	"context"
+	"time"
 )
 
-// git archive --format=tar --output=git.tar HEAD
-//const fileName = "./git.tar"
-const fileName = "./vendor.zip"
-
-//const contain = "version/license_mit.go"
-const contain = "vendor/github.com/gin-gonic/gin/internal/json/json.go"
-
-//const regex = ""
-const regex = "vendor\\.tar(\\.(?:gz|bz))?"
-
-func main() {
-	var (
-		src *os.File
-		tmp *os.File
-		rio *os.File
-		err error
-	)
-
-	if src, err = os.Open(fileName); err != nil {
-		panic(err)
+func GetContext(timeout time.Duration, deadline time.Time, parent context.Context) (ctx context.Context, cancel context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
 	}
 
-	defer func() {
-		_ = src.Close()
-	}()
-
-	if tmp, err = ioutils.NewTempFile(); err != nil {
-		panic(err)
+	if timeout > 0 {
+		return context.WithTimeout(parent, timeout)
+	} else if deadline.Unix() > 0 {
+		return context.WithDeadline(parent, deadline)
 	}
 
-	defer func() {
-		_ = ioutils.DelTempFile(tmp)
-	}()
+	return context.WithCancel(parent)
+}
 
-	if _, err = io.Copy(tmp, src); err != nil {
-		panic(err)
-	}
-
-	if rio, err = archive.ExtractFile(tmp, contain, regex); err != nil {
-		panic(err)
-	}
-
-	defer func() {
-		_ = rio.Close()
-	}()
-
-	if _, err = rio.Seek(0, 0); err != nil {
-		panic(err)
-	}
-
-	if b, e := ioutil.ReadAll(rio); e != nil {
-		panic(e)
-	} else {
-		println(string(b))
-	}
+func GetEmptyTime() time.Time {
+	return time.Time{}
 }

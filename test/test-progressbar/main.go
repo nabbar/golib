@@ -29,21 +29,21 @@ import (
 	"math/rand"
 	"time"
 
-	njs_progress "github.com/nabbar/golib/njs-progress"
+	"github.com/nabbar/golib/progress"
 	"github.com/vbauerster/mpb/v5"
 )
 
 var (
-	pb njs_progress.ProgressBar
-	br njs_progress.Bar
+	pb progress.ProgressBar
+	br progress.Bar
 )
 
 func main() {
 	println("Starting...")
 
-	pb = njs_progress.NewProgressBar(0, time.Time{}, nil, mpb.WithWidth(64))
+	pb = progress.NewProgressBar(0, time.Time{}, nil, mpb.WithWidth(64))
 	pb.SetSemaphoreOption(0, 0)
-	br = pb.NewBarSimple("test bar")
+	br = pb.NewBarSimpleETA("test bar")
 
 	defer br.DeferMain(false)
 
@@ -54,11 +54,11 @@ func main() {
 			continue
 		}
 
-		go func(id int) {
+		go func() {
 			defer br.DeferWorker()
 			rand.Seed(9999)
 			time.Sleep(time.Duration(rand.Intn(999)) * time.Millisecond)
-		}(i)
+		}()
 	}
 
 	if e := br.WaitAll(); e != nil {
