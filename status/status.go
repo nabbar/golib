@@ -87,6 +87,7 @@ type initLater struct {
 
 type Status interface {
 	Register(prefix string, register router.RegisterRouter)
+	RegisterGroup(group, prefix string, register router.RegisterRouterInGroup)
 
 	AddComponent(name, msgOK, msgKO, release, build string, WarnIfError bool, health func() error)
 	AddVersionComponent(vers version.Version, msgOK, msgKO string, WarnIfError bool, health func() error)
@@ -208,27 +209,30 @@ func (p *mainPackage) initStatus() {
 	var cpt = make([]statusComponent, 0)
 
 	for _, part := range p.cpt {
+		h := part.health
 		if part.later != nil {
+
+			if part.later.health != nil {
+				h = part.later.health
+			}
+
 			if part.later.info != nil {
 				name, release, build := part.later.info()
 				ok, ko := part.later.msg()
 				part = statusComponent{
-					statusItem: newItem(name, ok, ko, release, build, part.health),
+					statusItem: newItem(name, ok, ko, release, build, h),
 					WarnIfErr:  part.WarnIfErr,
 					later:      nil,
 				}
 			} else if p.later.version != nil {
 				v := p.later.version()
 				ok, ko := p.later.msg()
+
 				part = statusComponent{
-					statusItem: newItem(v.GetPackage(), ok, ko, v.GetRelease(), v.GetBuild(), part.health),
+					statusItem: newItem(v.GetPackage(), ok, ko, v.GetRelease(), v.GetBuild(), h),
 					WarnIfErr:  part.WarnIfErr,
 					later:      nil,
 				}
-			}
-
-			if part.later.health != nil {
-				part.health = part.later.health
 			}
 		}
 
