@@ -65,8 +65,8 @@ type modelServer struct {
 }
 
 type HTTPServer interface {
-	SetTIdleTimeout(idleTimeout time.Duration)
-	GetTIdleTimeout() time.Duration
+	SetIdleTimeout(idleTimeout time.Duration)
+	GetIdleTimeout() time.Duration
 
 	GetBindable() string
 	GetExpose() string
@@ -194,7 +194,7 @@ func (srv *modelServer) Listen() {
 		//MaxConcurrentStreams:         0,
 		//MaxReadFrameSize:             0,
 		//PermitProhibitedCipherSuites: false,
-		IdleTimeout: TIMEOUT_30_SEC,
+		IdleTimeout: srv.tmo,
 		//MaxUploadBufferPerConnection: 0,
 		//MaxUploadBufferPerStream:     0,
 		//NewWriteScheduler:            nil,
@@ -264,10 +264,10 @@ func (srv *modelServer) IsRunning() bool {
 	return srv.srv != nil
 }
 
-func (srv *modelServer) SetTIdleTimeout(idleTimeout time.Duration) {
+func (srv *modelServer) SetIdleTimeout(idleTimeout time.Duration) {
 	srv.tmo = idleTimeout
 }
 
-func (srv modelServer) GetTIdleTimeout() time.Duration {
+func (srv modelServer) GetIdleTimeout() time.Duration {
 	return srv.tmo
 }
