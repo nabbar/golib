@@ -55,6 +55,7 @@ const (
 )
 
 type modelServer struct {
+	tmo  time.Duration
 	ssl  *tls.Config
 	srv  *http.Server
 	hdl  http.Handler
@@ -64,6 +65,9 @@ type modelServer struct {
 }
 
 type HTTPServer interface {
+	SetIdleTimeout(idleTimeout time.Duration)
+	GetIdleTimeout() time.Duration
+
 	GetBindable() string
 	GetExpose() string
 	IsRunning() bool
@@ -77,6 +81,7 @@ type HTTPServer interface {
 
 func NewServer(listen, expose string, handler http.Handler, tlsConfig *tls.Config) HTTPServer {
 	srv := &modelServer{
+		tmo: TIMEOUT_30_SEC,
 		hdl: handler,
 		ssl: tlsConfig,
 	}
@@ -189,28 +194,30 @@ func (srv *modelServer) Listen() {
 		//MaxConcurrentStreams:         0,
 		//MaxReadFrameSize:             0,
 		//PermitProhibitedCipherSuites: false,
-		IdleTimeout: TIMEOUT_30_SEC,
+		IdleTimeout: srv.tmo,
 		//MaxUploadBufferPerConnection: 0,
 		//MaxUploadBufferPerStream:     0,
 		//NewWriteScheduler:            nil,
 	}
 
 	err := http2.ConfigureServer(srv.srv, cnf)
-	FatalLevel.Logf("Configuring Server '%s' Error: %v", srv.host, err)
+	FatalLevel.LogErrorCtxf(DebugLevel, "Configuring Server '%s'", err, srv.host)
 
 	go func() {
 		if srv.ssl == nil || !certif.CheckCertificates() {
 			InfoLevel.Logf("Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
-			if err := srv.srv.ListenAndServe(); err != nil {
-				FatalLevel.Logf("Listen Server '%s' Error: %v", srv.host, err)
-				return
-			}
+
+			err := srv.srv.ListenAndServe()
+
+			FatalLevel.LogErrorCtxf(NilLevel, "Listen Server '%s'", err, srv.host)
+
 		} else {
+
 			InfoLevel.Logf("TLS Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
-			if err := srv.srv.ListenAndServeTLS("", ""); err != nil {
-				FatalLevel.Logf("Listen TLS Server '%s' Error: %v", srv.host, err)
-				return
-			}
+
+			err := srv.srv.ListenAndServeTLS("", "")
+
+			FatalLevel.LogErrorCtxf(NilLevel, "Listen Server '%s'", err, srv.host)
 		}
 	}()
 }
@@ -255,4 +262,12 @@ func (srv *modelServer) Shutdown() {
 
 func (srv *modelServer) IsRunning() bool {
 	return srv.srv != nil
+}
+
+func (srv *modelServer) SetIdleTimeout(idleTimeout time.Duration) {
+	srv.tmo = idleTimeout
+}
+
+func (srv modelServer) GetIdleTimeout() time.Duration {
+	return srv.tmo
 }
