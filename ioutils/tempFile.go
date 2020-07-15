@@ -23,70 +23,41 @@
  *
  */
 
-package main
+package ioutils
 
 import (
-	"io"
 	"io/ioutil"
 	"os"
+	"path"
 
-	"github.com/nabbar/golib/archive"
-	"github.com/nabbar/golib/ioutils"
+	. "github.com/nabbar/golib/errors"
 )
 
-// git archive --format=tar --output=git.tar HEAD
-//const fileName = "./git.tar"
-const fileName = "./vendor.zip"
+func NewTempFile() (*os.File, Error) {
+	f, e := ioutil.TempFile(os.TempDir(), "")
+	return f, IO_TEMP_FILE_NEW.Iferror(e)
+}
 
-//const contain = "version/license_mit.go"
-const contain = "vendor/github.com/gin-gonic/gin/internal/json/json.go"
-
-//const regex = ""
-const regex = "vendor\\.tar(\\.(?:gz|bz))?"
-
-func main() {
-	var (
-		src *os.File
-		tmp *os.File
-		rio *os.File
-		err error
-	)
-
-	if src, err = os.Open(fileName); err != nil {
-		panic(err)
+func GetTempFilePath(f *os.File) string {
+	if f == nil {
+		return ""
 	}
 
-	defer func() {
-		_ = src.Close()
-	}()
+	return path.Join(os.TempDir(), path.Base(f.Name()))
+}
 
-	if tmp, err = ioutils.NewTempFile(); err != nil {
-		panic(err)
+func DelTempFile(f *os.File) Error {
+	if f == nil {
+		return nil
 	}
 
-	defer func() {
-		_ = ioutils.DelTempFile(tmp)
-	}()
+	n := GetTempFilePath(f)
 
-	if _, err = io.Copy(tmp, src); err != nil {
-		panic(err)
-	}
+	a := f.Close()
+	e1 := IO_TEMP_FILE_CLOSE.Iferror(a)
 
-	if rio, err = archive.ExtractFile(tmp, contain, regex); err != nil {
-		panic(err)
-	}
+	b := os.Remove(n)
+	e2 := IO_TEMP_FILE_REMOVE.Iferror(b)
 
-	defer func() {
-		_ = rio.Close()
-	}()
-
-	if _, err = rio.Seek(0, 0); err != nil {
-		panic(err)
-	}
-
-	if b, e := ioutil.ReadAll(rio); e != nil {
-		panic(e)
-	} else {
-		println(string(b))
-	}
+	return MakeErrorIfError(e2, e1)
 }

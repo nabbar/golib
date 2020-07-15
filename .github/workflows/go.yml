@@ -1,0 +1,76 @@
+name: Go
+
+env:
+  GOPATH: "/go"
+  GO111MODULE: "on"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.14
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+      - name: Link workspace with GOPATH
+        run: |
+          sudo mkdir -vp $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo chown -R ${USER}:users $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo chmod ug+rw $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo ln -svf $(pwd) ${GOPATH}/src/github.com/${GITHUB_REPOSITORY}
+
+      - name: Check out tools into the Go module directory
+        run: |
+          git clone https://github.com/nabbar/gotools.git scripts
+          ./scripts/prepare
+
+      - name: Update vendor or dependancies
+        run: ./scripts/ci_depend
+
+      - name: Check goFmt & goImport
+        continue-on-error: true
+        run: ./scripts/ci_format
+
+      - name: Check goLinter
+        continue-on-error: true
+        run: ./scripts/ci_linter
+        env:
+          GOOS: linux
+          CGO_ENABLED: 0
+
+      - name: Check goSecu + snyk.io
+        continue-on-error: true
+        run: ./scripts/ci_secu
+        env:
+          GOOS: linux
+          CGO_ENABLED: 0
+
+      - name: Add ming-w32 (x86 + win64)
+        run: sudo apt-get install gcc-multilib gcc-mingw-w64
+
+      - name: Test Build Linux/amd64 with suffix
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " ./...
+
+      - name: Test Build Linux/386 with suffix
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " ./...
+
+      - name: Test Build Windows/amd64 with CGO
+        run: CC=/usr/bin/x86_64-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v -ldflags "-w -s -extldflags '-static' " ./...
+
+      - name: Test Build Windows/386 with CGO
+        run: CC=/usr/bin/i686-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=386 go build -a -v -ldflags "-w -s -extldflags '-static' " ./...
+
