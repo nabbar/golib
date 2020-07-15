@@ -36,23 +36,24 @@ import (
 	. "github.com/nabbar/golib/errors"
 )
 
-type sendmail struct {
-	to      ListMailAddress
-	cc      ListMailAddress
-	bcc     ListMailAddress
-	from    MailAddress
-	replyTo MailAddress
+const (
+	ADDRESS_MIN_SIZE = 7
+)
 
-	subject    string
+type sendmail struct {
+	attachment []Attachment
+	bcc        ListMailAddress
+	cc         ListMailAddress
+	from       MailAddress
+	messageId  string
+	mailer     string
 	msgHtml    MailTemplate
+	replyTo    MailAddress
+	subject    string
+	to         ListMailAddress
 	msgText    *bytes.Buffer
 	forceType  ContentType
-	attachment []Attachment
-
-	messageId string
-	mailer    string
-
-	testMode bool
+	testMode   bool
 }
 
 func (s sendmail) GetToString() string {
@@ -233,6 +234,7 @@ func (s sendmail) SendSMTP(cli SMTP) (err Error, buff *bytes.Buffer) {
 	}
 }
 
+// nolint: gocognit, gocyclo
 func (s sendmail) Send(cli *smtp.Client) (err Error, buff *bytes.Buffer) {
 	var (
 		iod IOData
@@ -266,7 +268,7 @@ func (s sendmail) Send(cli *smtp.Client) (err Error, buff *bytes.Buffer) {
 		return SMTP_CLIENT_EMPTY.Error(nil), nil
 	}
 
-	if len(s.from.AddressOnly()) < 7 {
+	if len(s.from.AddressOnly()) < ADDRESS_MIN_SIZE {
 		return SMTP_CLIENT_FROM_EMPTY.Error(nil), nil
 	}
 
@@ -359,10 +361,8 @@ func (s sendmail) Send(cli *smtp.Client) (err Error, buff *bytes.Buffer) {
 
 	if len(s.mailer) < 1 {
 		return SMTP_CLIENT_MAILER_EMPTY.Error(nil), nil
-	} else {
-		if err = iod.Header("X-Mailer", s.mailer); err != nil {
-			return
-		}
+	} else if err = iod.Header("X-Mailer", s.mailer); err != nil {
+		return
 	}
 
 	if len(s.messageId) > 0 {
@@ -422,7 +422,8 @@ func (s sendmail) Send(cli *smtp.Client) (err Error, buff *bytes.Buffer) {
 
 	err = iod.Send()
 	buff = iod.GetBuffer()
-	return
+
+	return err, buff
 }
 
 type SendMail interface {

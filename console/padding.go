@@ -45,6 +45,13 @@ func PadRight(str string, len int, pad string) string {
 	return str + padTimes(pad, len-utf8.RuneCountInString(str))
 }
 
-func PrintTab(tablLevel int, format string, args ...interface{}) {
+func PrintTabf(tablLevel int, format string, args ...interface{}) {
 	ColorPrint.Printf(strings.Repeat("  ", tablLevel)+format, args...)
+}
+
+// @TODO : remove function
+// deprecated: replaced by PrintTabf
+// nolint: goprintffuncname
+func PrintTab(tablLevel int, format string, args ...interface{}) {
+	PrintTabf(tablLevel, format, args...)
 }

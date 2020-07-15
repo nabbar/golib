@@ -246,7 +246,7 @@ func (srv *modelServer) Restart() {
 func (srv *modelServer) Shutdown() {
 	InfoLevel.Logf("Shutdown Server '%s'...", srv.addr.Host)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT_10_SEC)
 	defer cancel()
 
 	if srv.srv == nil {

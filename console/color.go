@@ -123,6 +123,13 @@ func (c colorType) Printf(format string, args ...interface{}) {
 	c.Print(fmt.Sprintf(format, args...))
 }
 
-func (c colorType) PrintfLn(format string, args ...interface{}) {
+func (c colorType) PrintLnf(format string, args ...interface{}) {
 	c.Println(fmt.Sprintf(format, args...))
+}
+
+// @TODO; removing function
+// deprecated
+// nolint: goprintffuncname
+func (c colorType) PrintfLn(format string, args ...interface{}) {
+	c.PrintLnf(format, args...)
 }
