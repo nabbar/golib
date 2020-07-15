@@ -121,6 +121,7 @@ func (p progressBar) NewBarSimpleETA(name string) Bar {
 				decor.Name(name, decor.WC{W: len(name) + 1, C: decor.DidentRight}),
 				// replace ETA decorator with "done" message, OnComplete event
 				decor.OnComplete(
+					// nolint: gomnd
 					decor.AverageETA(decor.ET_STYLE_GO, decor.WC{W: 4}), defaultMessageDone,
 				),
 			),
@@ -142,6 +143,7 @@ func (p progressBar) NewBarSimpleCounter(name string, total int64) Bar {
 				decor.CountersNoUnit("[%d / %d] ", decor.WCSyncWidth),
 				// replace ETA decorator with "done" message, OnComplete event
 				decor.OnComplete(
+					// nolint: gomnd
 					decor.AverageETA(decor.ET_STYLE_GO, decor.WC{W: 4}), defaultMessageDone,
 				),
 			),

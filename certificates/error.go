@@ -37,8 +37,15 @@ const (
 	CERT_PARSE_KEYPAIR
 )
 
+var isCodeError = false
+
+func IsCodeError() bool {
+	return isCodeError
+}
+
 func init() {
-	errors.RegisterFctMessage(getMessage)
+	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
+	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {

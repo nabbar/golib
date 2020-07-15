@@ -260,7 +260,7 @@ func (i *ioData) AttachmentAddBody(m MailTemplate, ct ContentType) Error {
 	b := make([]byte, base64.StdEncoding.EncodedLen(p.Len()))
 	base64.StdEncoding.Encode(b, p.Bytes())
 	p.Reset()
-	p.Write(b)
+	_, _ = p.Write(b)
 
 	if e = i.BoundaryPart(); e != nil {
 		return e

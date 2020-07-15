@@ -24,7 +24,7 @@ SOFTWARE.
 
 package version
 
-func licence_lgpl_v3() string {
+func license_lgpl_v3() string {
 	return `
                    GNU LESSER GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007

@@ -24,7 +24,7 @@ SOFTWARE.
 
 package version
 
-func licence_cc0_v1() string {
+func license_cc0_v1() string {
 	return `
 CC0 1.0 Universal
 

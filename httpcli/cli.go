@@ -71,7 +71,6 @@ func getClient(http2Transport bool, GlobalTimeout, DialTimeOut, DialKeepAlive, I
 			Timeout:   DialTimeOut,
 			KeepAlive: DialKeepAlive,
 		}).DialContext,
-		MaxIdleConns:          100,
 		IdleConnTimeout:       IdleConnTimeout,
 		TLSHandshakeTimeout:   TLSHandshakeTimeout,
 		ExpectContinueTimeout: ExpectContinueTimeout,

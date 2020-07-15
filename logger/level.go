@@ -218,7 +218,7 @@ func (level Level) Logf(format string, args ...interface{}) {
 // LogData Simple function to log directly the given message with given data with the attached log Level
 /*
 	message a string message to be logged with the attached log Level
-	data an interface of data to be logged with the message. (In Text format, the data will be json marshalled)
+	data an interface of data to be logged with the message. (In Text format, the data will be json marshaled)
 */
 func (level Level) LogData(message string, data interface{}) {
 	level.logDetails(message, data, nil, nil)

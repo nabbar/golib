@@ -42,6 +42,7 @@ const (
 	License_SIL_Open_Font_1_1
 )
 
+// nolint: gocritic
 func (lic license) GetBoilerPlate(Package, Description, Year, Author string) string {
 	switch lic {
 	case License_Apache_v2:
@@ -74,13 +75,13 @@ func (lic license) GetBoilerPlate(Package, Description, Year, Author string) str
 func (lic license) GetLicense() string {
 	switch lic {
 	case License_Apache_v2:
-		return licence_apache2()
+		return license_apache2()
 	case License_GNU_Affero_GPL_v3:
-		return licence_agpl_v3()
+		return license_agpl_v3()
 	case License_GNU_GPL_v3:
-		return licence_gpl_v3()
+		return license_gpl_v3()
 	case License_GNU_Lesser_GPL_v3:
-		return licence_lgpl_v3()
+		return license_lgpl_v3()
 	case License_MIT:
 		return license_mit()
 	case License_Mozilla_PL_v2:
@@ -88,7 +89,7 @@ func (lic license) GetLicense() string {
 	case License_Unlicense:
 		return boiler_Unlicence()
 	case License_Creative_Common_Zero_v1:
-		return licence_cc0_v1()
+		return license_cc0_v1()
 	case License_Creative_Common_Attribution_v4_int:
 		return license_cc_by_4()
 	case License_Creative_Common_Attribution_Share_Alike_v4_int:
