@@ -49,12 +49,12 @@ const (
 
 type staticHandler struct {
 	box      packr.Box
+	download []string
+	prefix   string
+	head     gin.HandlerFunc
 	debug    bool
 	index    bool
-	prefix   string
-	download []string
 	allDwnld bool
-	head     gin.HandlerFunc
 }
 
 type Static interface {
@@ -91,7 +91,7 @@ func NewStatic(hasIndex bool, prefix string, box packr.Box, Header gin.HandlerFu
 	}
 }
 
-func (s staticHandler) Register(register router.RegisterRouter) {
+func (s *staticHandler) Register(register router.RegisterRouter) {
 	if s.prefix == "/" {
 		for _, f := range s.box.List() {
 			register(http.MethodGet, cleanJoinPath(s.prefix, f), s.Get)
@@ -102,7 +102,7 @@ func (s staticHandler) Register(register router.RegisterRouter) {
 	}
 }
 
-func (s staticHandler) RegisterInGroup(group string, register router.RegisterRouterInGroup) {
+func (s *staticHandler) RegisterInGroup(group string, register router.RegisterRouterInGroup) {
 	if s.prefix == "/" {
 		for _, f := range s.box.List() {
 			register(group, http.MethodGet, cleanJoinPath(s.prefix, f), s.head, s.Get)
@@ -113,7 +113,7 @@ func (s staticHandler) RegisterInGroup(group string, register router.RegisterRou
 	}
 }
 
-func (s staticHandler) print() {
+func (s *staticHandler) print() {
 	if s.debug {
 		return
 	}
@@ -125,7 +125,7 @@ func (s staticHandler) print() {
 	s.debug = true
 }
 
-func (s staticHandler) Health() Error {
+func (s *staticHandler) Health() Error {
 	s.print()
 
 	if len(s.box.List()) < 1 {
@@ -139,15 +139,15 @@ func (s staticHandler) Health() Error {
 	return nil
 }
 
-func (s staticHandler) Has(file string) bool {
+func (s *staticHandler) Has(file string) bool {
 	return s.box.Has(file)
 }
 
-func (s staticHandler) Find(file string) ([]byte, error) {
+func (s *staticHandler) Find(file string) ([]byte, error) {
 	return s.box.Find(file)
 }
 
-func (s staticHandler) Get(c *gin.Context) {
+func (s *staticHandler) Get(c *gin.Context) {
 	partPath := strings.SplitN(c.Request.URL.Path, s.prefix, 2)
 	requestPath := partPath[1]
 
@@ -191,7 +191,7 @@ func (s *staticHandler) SetDownloadAll() {
 	s.allDwnld = true
 }
 
-func (s staticHandler) IsDownload(file string) bool {
+func (s *staticHandler) IsDownload(file string) bool {
 	for _, f := range s.download {
 		if f == file {
 			return true

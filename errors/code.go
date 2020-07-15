@@ -27,10 +27,11 @@
 package errors
 
 import (
+	"sort"
 	"strconv"
 )
 
-var msgfct = make([]Message, 0)
+var idMsgFct = make(map[CodeError]Message)
 
 type Message func(code CodeError) (message string)
 type CodeError uint16
@@ -55,9 +56,8 @@ func (c CodeError) GetMessage() string {
 		return UNK_MESSAGE
 	}
 
-	for _, f := range msgfct {
-		m := f(c)
-		if m != "" {
+	if f, ok := idMsgFct[findCodeErrorInMapMessage(c)]; ok {
+		if m := f(c); m != "" {
 			return m
 		}
 	}
@@ -83,6 +83,62 @@ func (c CodeError) Iferror(e error) Error {
 	return NewErrorIferror(c.GetUint16(), c.GetMessage(), e)
 }
 
-func RegisterFctMessage(fct Message) {
-	msgfct = append(msgfct, fct)
+func RegisterIdFctMessage(minCode CodeError, fct Message) {
+	if idMsgFct == nil {
+		idMsgFct = make(map[CodeError]Message)
+	}
+
+	idMsgFct[minCode] = fct
+	orderMapMessage()
+}
+
+func ExistInMapMessage(code CodeError) bool {
+	if f, ok := idMsgFct[findCodeErrorInMapMessage(code)]; ok {
+		if m := f(code); m != "" {
+			return false
+		}
+	}
+
+	return true
+}
+
+func getMapMessageKey() []CodeError {
+	var (
+		keys = make([]int, 0)
+		res  = make([]CodeError, 0)
+	)
+
+	for k := range idMsgFct {
+		keys = append(keys, int(k.GetUint16()))
+	}
+
+	sort.Ints(keys)
+
+	for _, k := range keys {
+		res = append(res, CodeError(k))
+	}
+
+	return res
+}
+
+func orderMapMessage() {
+	var res = make(map[CodeError]Message)
+
+	for _, k := range getMapMessageKey() {
+		res[k] = idMsgFct[k]
+	}
+
+	idMsgFct = res
+}
+
+func findCodeErrorInMapMessage(code CodeError) CodeError {
+	var res CodeError = 0
+
+	for _, k := range getMapMessageKey() {
+		if k <= code && k > res {
+			res = k
+		}
+	}
+
+	return res
 }

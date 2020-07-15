@@ -24,7 +24,7 @@ SOFTWARE.
 
 package version
 
-func licence_agpl_v3() string {
+func license_agpl_v3() string {
 	return `
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007

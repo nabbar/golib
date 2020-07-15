@@ -39,35 +39,35 @@ func NewIOWrapper(ioInput interface{}) *IOWrapper {
 	}
 }
 
-func (I *IOWrapper) SetWrapper(read func(p []byte) []byte, write func(p []byte) []byte) {
+func (w *IOWrapper) SetWrapper(read func(p []byte) []byte, write func(p []byte) []byte) {
 	if read != nil {
-		I.read = read
+		w.read = read
 	}
 	if write != nil {
-		I.write = write
+		w.write = write
 	}
 }
 
-func (I IOWrapper) Read(p []byte) (n int, err error) {
-	if I.read != nil {
-		return I.iow.(io.Reader).Read(I.read(p))
+func (w IOWrapper) Read(p []byte) (n int, err error) {
+	if w.read != nil {
+		return w.iow.(io.Reader).Read(w.read(p))
 	}
 
-	return I.iow.(io.Reader).Read(p)
+	return w.iow.(io.Reader).Read(p)
 }
 
-func (I IOWrapper) Write(p []byte) (n int, err error) {
-	if I.write != nil {
-		return I.iow.(io.Writer).Write(I.write(p))
+func (w IOWrapper) Write(p []byte) (n int, err error) {
+	if w.write != nil {
+		return w.iow.(io.Writer).Write(w.write(p))
 	}
 
-	return I.iow.(io.Writer).Write(p)
+	return w.iow.(io.Writer).Write(p)
 }
 
-func (I IOWrapper) Seek(offset int64, whence int) (int64, error) {
-	return I.iow.(io.Seeker).Seek(offset, whence)
+func (w IOWrapper) Seek(offset int64, whence int) (int64, error) {
+	return w.iow.(io.Seeker).Seek(offset, whence)
 }
 
-func (I IOWrapper) Close() error {
-	return I.iow.(io.Closer).Close()
+func (w IOWrapper) Close() error {
+	return w.iow.(io.Closer).Close()
 }

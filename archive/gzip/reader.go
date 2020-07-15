@@ -48,7 +48,9 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 		return nil, GZ_READER.ErrorParent(e)
 	}
 
-	defer r.Close()
+	defer func() {
+		_ = r.Close()
+	}()
 
 	// #nosec
 	if t, e := iou.NewTempFile(); e != nil {
