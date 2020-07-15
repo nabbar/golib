@@ -85,7 +85,13 @@ func (obj *httpClient) Check() Error {
 		return e
 	}
 
-	_, e = obj.doRequest(req)
+	var r *http.Response
+
+	r, e = obj.doRequest(req)
+
+	if r != nil && r.Body != nil {
+		_ = r.Body.Close()
+	}
 
 	return e
 }

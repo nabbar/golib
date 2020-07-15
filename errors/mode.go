@@ -26,7 +26,7 @@
 
 package errors
 
-var modeError = ERROR_RETURN_Default
+var modeError = Default
 
 func SetModeReturnError(mode ErrorMode) {
 	modeError = mode
@@ -39,34 +39,34 @@ func GetModeReturnError() ErrorMode {
 type ErrorMode uint8
 
 const (
-	ERROR_RETURN_Default ErrorMode = iota
-	ERROR_RETURN_Code
-	ERROR_RETURN_CodeFull
-	ERROR_RETURN_CodeError
-	ERROR_RETURN_CodeErrorFull
-	ERROR_RETURN_CodeErrorTrace
-	ERROR_RETURN_CodeErrorTraceFull
-	ERROR_RETURN_StringError
-	ERROR_RETURN_StringErrorFull
+	Default ErrorMode = iota
+	ErrorReturnCode
+	ErrorReturnCodeFull
+	ErrorReturnCodeError
+	ErrorReturnCodeErrorFull
+	ErrorReturnCodeErrorTrace
+	ErrorReturnCodeErrorTraceFull
+	ErrorReturnStringError
+	ErrorReturnStringErrorFull
 )
 
 func (m ErrorMode) String() string {
 	switch m {
-	case ERROR_RETURN_Code:
+	case ErrorReturnCode:
 		return "Code"
-	case ERROR_RETURN_CodeFull:
+	case ErrorReturnCodeFull:
 		return "CodeFull"
-	case ERROR_RETURN_CodeError:
+	case ErrorReturnCodeError:
 		return "CodeError"
-	case ERROR_RETURN_CodeErrorFull:
+	case ErrorReturnCodeErrorFull:
 		return "CodeErrorFull"
-	case ERROR_RETURN_CodeErrorTrace:
+	case ErrorReturnCodeErrorTrace:
 		return "CodeErrorTrace"
-	case ERROR_RETURN_CodeErrorTraceFull:
+	case ErrorReturnCodeErrorTraceFull:
 		return "CodeErrorTraceFull"
-	case ERROR_RETURN_StringError:
+	case ErrorReturnStringError:
 		return "StringError"
-	case ERROR_RETURN_StringErrorFull:
+	case ErrorReturnStringErrorFull:
 		return "StringErrorFull"
 
 	default:
@@ -76,21 +76,21 @@ func (m ErrorMode) String() string {
 
 func (m ErrorMode) error(e *errors) string {
 	switch m {
-	case ERROR_RETURN_Code:
+	case ErrorReturnCode:
 		return e.Code()
-	case ERROR_RETURN_CodeFull:
+	case ErrorReturnCodeFull:
 		return e.CodeFull("")
-	case ERROR_RETURN_CodeError:
+	case ErrorReturnCodeError:
 		return e.CodeError("")
-	case ERROR_RETURN_CodeErrorFull:
+	case ErrorReturnCodeErrorFull:
 		return e.CodeErrorFull("", "")
-	case ERROR_RETURN_CodeErrorTrace:
+	case ErrorReturnCodeErrorTrace:
 		return e.CodeErrorTrace("")
-	case ERROR_RETURN_CodeErrorTraceFull:
+	case ErrorReturnCodeErrorTraceFull:
 		return e.CodeErrorTraceFull("", "")
-	case ERROR_RETURN_StringError:
+	case ErrorReturnStringError:
 		return e.StringError()
-	case ERROR_RETURN_StringErrorFull:
+	case ErrorReturnStringErrorFull:
 		return e.StringErrorFull("")
 
 	default:

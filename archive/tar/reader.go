@@ -48,7 +48,6 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 
 	for {
 		h, e := r.Next()
-
 		if e != nil && e == io.EOF {
 			return nil, nil
 		} else if e != nil {

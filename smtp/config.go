@@ -142,6 +142,7 @@ func (n NETMode) string() string {
 }
 
 // ParseDSN parses the DSN string to a Config
+// nolint: gocognit
 func newSMTPConfig(dsn string) (*smtpConfig, Error) {
 	var (
 		smtpcnf = &smtpConfig{
@@ -413,31 +414,31 @@ func (s smtpClient) GetDsn() string {
 
 	// [username[:password]@]
 	if len(s.cfg.User) > 0 {
-		buf.WriteString(s.cfg.User)
+		_, _ = buf.WriteString(s.cfg.User)
 		if len(s.cfg.Pass) > 0 {
-			buf.WriteByte(':')
-			buf.WriteString(s.cfg.Pass)
+			_ = buf.WriteByte(':')
+			_, _ = buf.WriteString(s.cfg.Pass)
 		}
-		buf.WriteByte('@')
+		_ = buf.WriteByte('@')
 	}
 
 	// [protocol[(address)]]
-	buf.WriteString(s.cfg.Net.string())
+	_, _ = buf.WriteString(s.cfg.Net.string())
 
 	// [username[:password]@]
 	if len(s.cfg.Host) > 0 {
-		buf.WriteByte('(')
-		buf.WriteString(s.cfg.Host)
+		_ = buf.WriteByte('(')
+		_, _ = buf.WriteString(s.cfg.Host)
 		if s.cfg.Port > 0 {
-			buf.WriteByte(':')
-			buf.WriteString(fmt.Sprintf("%d", s.cfg.Port))
+			_ = buf.WriteByte(':')
+			_, _ = buf.WriteString(fmt.Sprintf("%d", s.cfg.Port))
 		}
-		buf.WriteByte(')')
+		_ = buf.WriteByte(')')
 	}
 
 	// /tlsmode
-	buf.WriteByte('/')
-	buf.WriteString(s.cfg.TLS.string())
+	_ = buf.WriteByte('/')
+	_, _ = buf.WriteString(s.cfg.TLS.string())
 
 	// [?param1=value1&...&paramN=valueN]
 	var val = &url.Values{}
@@ -452,8 +453,9 @@ func (s smtpClient) GetDsn() string {
 
 	params := val.Encode()
 
+	// nolint: gomnd
 	if len(params) > 2 {
-		buf.WriteString("?" + params)
+		_, _ = buf.WriteString("?" + params)
 	}
 
 	return buf.String()
