@@ -38,6 +38,7 @@ import (
 type bar struct {
 	u bool
 	t int64
+
 	b *mpb.Bar
 	s sem.Sem
 }

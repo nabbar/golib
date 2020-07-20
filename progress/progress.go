@@ -29,11 +29,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/vbauerster/mpb/v5/decor"
-
-	njs_semaphore "github.com/nabbar/golib/semaphore"
-
+	"github.com/nabbar/golib/semaphore"
 	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v5/decor"
 )
 
 /*
@@ -72,6 +70,12 @@ type progressBar struct {
 type ProgressBar interface {
 	GetMPB() *mpb.Progress
 
+	GetContext() context.Context
+	SetContext(ctx context.Context)
+
+	GetCancel() context.CancelFunc
+	SetCancel(cancel context.CancelFunc)
+
 	SetSemaphoreOption(maxSimultaneous int, timeout time.Duration)
 
 	NewBar(parent context.Context, total int64, options ...mpb.BarOption) Bar
@@ -80,14 +84,14 @@ type ProgressBar interface {
 }
 
 func NewProgressBar(timeout time.Duration, deadline time.Time, parent context.Context, options ...mpb.ContainerOption) ProgressBar {
-	x, c := njs_semaphore.GetContext(timeout, deadline, parent)
+	x, c := semaphore.GetContext(timeout, deadline, parent)
 
 	return &progressBar{
 		mpb:       mpb.New(options...),
 		ctx:       x,
 		cnl:       c,
 		sTimeOut:  timeout,
-		sMaxSimul: njs_semaphore.GetMaxSimultaneous(),
+		sMaxSimul: semaphore.GetMaxSimultaneous(),
 	}
 }
 
@@ -100,19 +104,19 @@ func (p *progressBar) SetSemaphoreOption(maxSimultaneous int, timeout time.Durat
 	p.sTimeOut = timeout
 }
 
-func (p progressBar) NewBar(parent context.Context, total int64, options ...mpb.BarOption) Bar {
+func (p *progressBar) NewBar(parent context.Context, total int64, options ...mpb.BarOption) Bar {
 	if parent == nil {
 		parent = p.ctx
 	}
 
 	return newBar(
 		p.mpb.AddBar(0, options...),
-		njs_semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, njs_semaphore.GetEmptyTime(), parent),
+		semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, semaphore.GetEmptyTime(), parent),
 		total,
 	)
 }
 
-func (p progressBar) NewBarSimpleETA(name string) Bar {
+func (p *progressBar) NewBarSimpleETA(name string) Bar {
 	return newBar(
 		p.mpb.AddBar(0,
 			mpb.BarStyle(defaultStyle),
@@ -127,12 +131,12 @@ func (p progressBar) NewBarSimpleETA(name string) Bar {
 			),
 			mpb.AppendDecorators(decor.Percentage()),
 		),
-		njs_semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, njs_semaphore.GetEmptyTime(), p.ctx),
+		semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, semaphore.GetEmptyTime(), p.ctx),
 		0,
 	)
 }
 
-func (p progressBar) NewBarSimpleCounter(name string, total int64) Bar {
+func (p *progressBar) NewBarSimpleCounter(name string, total int64) Bar {
 	return newBar(
 		p.mpb.AddBar(total,
 			mpb.BarStyle(defaultStyle),
@@ -149,7 +153,23 @@ func (p progressBar) NewBarSimpleCounter(name string, total int64) Bar {
 			),
 			mpb.AppendDecorators(decor.Percentage()),
 		),
-		njs_semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, njs_semaphore.GetEmptyTime(), p.ctx),
+		semaphore.NewSemaphore(p.sMaxSimul, p.sTimeOut, semaphore.GetEmptyTime(), p.ctx),
 		total,
 	)
+}
+
+func (p *progressBar) GetContext() context.Context {
+	return p.ctx
+}
+
+func (p *progressBar) SetContext(ctx context.Context) {
+	p.ctx = ctx
+}
+
+func (p *progressBar) GetCancel() context.CancelFunc {
+	return p.cnl
+}
+
+func (p *progressBar) SetCancel(cancel context.CancelFunc) {
+	p.cnl = cancel
 }
