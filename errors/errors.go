@@ -130,18 +130,16 @@ func MakeErrorIfError(err ...Error) Error {
 }
 
 func NewError(code uint16, message string, parent Error) Error {
-	if parent == nil {
-		parent = &errors{
-			c: 0,
-			e: "",
-			p: make([]Error, 0),
-		}
+	var p = make([]Error, 0)
+
+	if parent != nil {
+		p = parent.GetIErrorSlice()
 	}
 
 	return &errors{
 		c: code,
 		e: message,
-		p: parent.GetIErrorSlice(),
+		p: p,
 		t: getFrame(),
 	}
 }
@@ -375,7 +373,7 @@ func (e *errors) CodeErrorTrace(pattern string) string {
 		pattern = defaultPatternTrace
 	}
 
-	return fmt.Sprintf(pattern, e.Code(), e.GetTrace(), e.StringError())
+	return fmt.Sprintf(pattern, e.Code(), e.StringError(), e.GetTrace())
 }
 
 func (e *errors) CodeErrorTraceFull(pattern, glue string) string {
