@@ -282,7 +282,7 @@ func (e *errors) StringErrorFull(glue string) string {
 }
 
 func (e *errors) StringErrorSlice() []string {
-	var r = []string{e.Error()}
+	var r = []string{e.StringError()}
 
 	for _, v := range e.p {
 		r = append(r, v.Error())
@@ -349,7 +349,7 @@ func (e *errors) CodeError(pattern string) string {
 	if pattern == "" {
 		pattern = defaultPattern
 	}
-	return fmt.Sprintf(pattern, e.Code(), e.Error())
+	return fmt.Sprintf(pattern, e.Code(), e.StringError())
 }
 
 func (e *errors) CodeErrorFull(pattern, glue string) string {
@@ -375,7 +375,7 @@ func (e *errors) CodeErrorTrace(pattern string) string {
 		pattern = defaultPatternTrace
 	}
 
-	return fmt.Sprintf(pattern, e.Code(), e.GetTrace(), e.Error())
+	return fmt.Sprintf(pattern, e.Code(), e.GetTrace(), e.StringError())
 }
 
 func (e *errors) CodeErrorTraceFull(pattern, glue string) string {
