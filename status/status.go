@@ -39,6 +39,17 @@ import (
 
 // @TODO : see compliant with https://tools.ietf.org/html/draft-inadarei-api-health-check-02
 
+// Model for function that return 3 string for message :
+// ok : no error found for component and/or main
+// ko : error found for component and/or main
+// cpt : message for main status message only that say some of component are in error and are mandatory
+type FctMessagesAll func() (ok string, ko string, cpt string)
+type FctMessageItem func() (ok string, ko string)
+
+type FctHealth func() error
+type FctInfo func() (name, release, build string)
+type FctVersion func() version.Version
+
 type StatusItemResponse struct {
 	Name      string
 	Status    string
@@ -72,75 +83,87 @@ type statusComponent struct {
 
 type mainPackage struct {
 	statusItem
-	cpt    []statusComponent
-	header gin.HandlerFunc
-	later  *initLater
-	init   bool
+	msgCptErr string
+	cpt       []statusComponent
+	header    gin.HandlerFunc
+	later     *initLater
+	init      bool
 }
 
 type initLater struct {
-	version func() version.Version
-	info    func() (name, release, build string)
-	msg     func() (ok string, ko string)
-	health  func() error
+	version FctVersion
+	info    FctInfo
+	msgAll  FctMessagesAll
+	msgItm  FctMessageItem
+	health  FctHealth
 }
 
 type Status interface {
 	Register(prefix string, register router.RegisterRouter)
 	RegisterGroup(group, prefix string, register router.RegisterRouterInGroup)
 
-	AddComponent(name, msgOK, msgKO, release, build string, WarnIfError bool, health func() error)
-	AddVersionComponent(vers version.Version, msgOK, msgKO string, WarnIfError bool, health func() error)
-
-	LaterAddComponent(info func() (name, release, build string), msg func() (ok string, ko string), health func() error, WarnIfError bool)
-	LaterAddVersionComponent(vers func() version.Version, msg func() (ok string, ko string), health func() error, WarnIfError bool)
+	AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool)
+	AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool)
 
 	Get(c *gin.Context)
 }
 
-func NewStatusLater(info func() (name, release, build string), msg func() (ok string, ko string), health func() error, Header gin.HandlerFunc) Status {
-	return &mainPackage{
-		cpt:    make([]statusComponent, 0),
-		header: Header,
-		later: &initLater{
-			version: nil,
-			info:    info,
-			msg:     msg,
-			health:  health,
-		},
-		init: false,
+func NewStatus(info FctInfo, msg FctMessagesAll, health FctHealth, Header gin.HandlerFunc, later bool) Status {
+	if later {
+		return &mainPackage{
+			cpt:    make([]statusComponent, 0),
+			header: Header,
+			later: &initLater{
+				version: nil,
+				info:    info,
+				msgItm:  nil,
+				msgAll:  msg,
+				health:  health,
+			},
+			init: false,
+		}
+	} else {
+		msgOk, msgKo, msgCpt := msg()
+		name, rel, build := info()
+		return &mainPackage{
+			statusItem: newItem(name, msgOk, msgKo, rel, build, health),
+			msgCptErr:  msgCpt,
+			cpt:        make([]statusComponent, 0),
+			header:     Header,
+			later:      nil,
+			init:       false,
+		}
 	}
 }
 
-func NewStatus(name, msgOK, msgKO, release, build string, health func() error, Header gin.HandlerFunc) Status {
-	return &mainPackage{
-		statusItem: newItem(name, msgOK, msgKO, release, build, health),
-		cpt:        make([]statusComponent, 0),
-		header:     Header,
-		later:      nil,
-		init:       false,
+func NewVersionStatus(vers FctVersion, msg FctMessagesAll, health FctHealth, Header gin.HandlerFunc, later bool) Status {
+	if later {
+		return &mainPackage{
+			cpt:    make([]statusComponent, 0),
+			header: Header,
+			later: &initLater{
+				version: vers,
+				info:    nil,
+				msgItm:  nil,
+				msgAll:  msg,
+				health:  health,
+			},
+			init: false,
+		}
+	} else {
+		msgOk, msgKo, msgCpt := msg()
+		return &mainPackage{
+			statusItem: newItem(vers().GetPackage(), msgOk, msgKo, vers().GetRelease(), vers().GetBuild(), health),
+			msgCptErr:  msgCpt,
+			cpt:        make([]statusComponent, 0),
+			header:     Header,
+			later:      nil,
+			init:       false,
+		}
 	}
 }
 
-func NewVersionStatusLater(vers func() version.Version, msg func() (ok string, ko string), health func() error, Header gin.HandlerFunc) Status {
-	return &mainPackage{
-		cpt:    make([]statusComponent, 0),
-		header: Header,
-		later: &initLater{
-			version: vers,
-			info:    nil,
-			msg:     msg,
-			health:  health,
-		},
-		init: false,
-	}
-}
-
-func NewVersionStatus(vers version.Version, msgOK, msgKO string, health func() error, Header gin.HandlerFunc) Status {
-	return NewStatus(vers.GetPackage(), msgOK, msgKO, vers.GetRelease(), vers.GetBuild(), health, Header)
-}
-
-func newItem(name, msgOK, msgKO, release, build string, health func() error) statusItem {
+func newItem(name, msgOK, msgKO, release, build string, health FctHealth) statusItem {
 	return statusItem{
 		name:    name,
 		build:   build,
@@ -151,51 +174,64 @@ func newItem(name, msgOK, msgKO, release, build string, health func() error) sta
 	}
 }
 
-func (p *mainPackage) AddComponent(name, msgOK, msgKO, release, build string, WarnIfError bool, health func() error) {
-	p.cpt = append(p.cpt, statusComponent{
-		statusItem: newItem(name, msgOK, msgKO, release, build, health),
-		WarnIfErr:  WarnIfError,
-		later:      nil,
-	})
+func (p *mainPackage) AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool) {
+	if later {
+		p.cpt = append(p.cpt, statusComponent{
+			WarnIfErr: WarnIfError,
+			later: &initLater{
+				version: nil,
+				info:    info,
+				msgItm:  msg,
+				health:  health,
+			},
+		})
+	} else {
+		name, release, build := info()
+		msgOK, msgKO := msg()
+		p.cpt = append(p.cpt, statusComponent{
+			statusItem: newItem(name, msgOK, msgKO, release, build, health),
+			WarnIfErr:  WarnIfError,
+			later:      nil,
+		})
+	}
 }
 
-func (p *mainPackage) LaterAddComponent(info func() (name, release, build string), msg func() (ok string, ko string), health func() error, WarnIfError bool) {
-	p.cpt = append(p.cpt, statusComponent{
-		WarnIfErr: WarnIfError,
-		later: &initLater{
-			version: nil,
-			info:    info,
-			msg:     msg,
-			health:  health,
-		},
-	})
-}
-
-func (p *mainPackage) AddVersionComponent(vers version.Version, msgOK, msgKO string, WarnIfError bool, health func() error) {
-	p.AddComponent(vers.GetPackage(), msgOK, msgKO, vers.GetRelease(), vers.GetBuild(), WarnIfError, health)
-}
-
-func (p *mainPackage) LaterAddVersionComponent(vers func() version.Version, msg func() (ok string, ko string), health func() error, WarnIfError bool) {
-	p.cpt = append(p.cpt, statusComponent{
-		WarnIfErr: WarnIfError,
-		later: &initLater{
-			version: vers,
-			info:    nil,
-			msg:     msg,
-			health:  health,
-		},
-	})
+func (p *mainPackage) AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool) {
+	if later {
+		p.cpt = append(p.cpt, statusComponent{
+			WarnIfErr: WarnIfError,
+			later: &initLater{
+				version: vers,
+				info:    nil,
+				msgItm:  msg,
+				health:  health,
+			},
+		})
+	} else {
+		msgOK, msgKO := msg()
+		p.cpt = append(p.cpt, statusComponent{
+			statusItem: newItem(vers().GetPackage(), msgOK, msgKO, vers().GetRelease(), vers().GetBuild(), health),
+			WarnIfErr:  WarnIfError,
+			later:      nil,
+		})
+	}
 }
 
 func (p *mainPackage) initStatus() {
 	if p.later != nil {
+		var ok, ko string
+
+		if p.later.msgAll != nil {
+			ok, ko, p.msgCptErr = p.later.msgAll()
+		} else if p.later.msgItm != nil {
+			ok, ko = p.later.msgItm()
+		}
+
 		if p.later.info != nil {
 			name, release, build := p.later.info()
-			ok, ko := p.later.msg()
 			p.statusItem = newItem(name, ok, ko, release, build, p.health)
 		} else if p.later.version != nil {
 			vers := p.later.version()
-			ok, ko := p.later.msg()
 			p.statusItem = newItem(vers.GetPackage(), ok, ko, vers.GetRelease(), vers.GetBuild(), p.health)
 		}
 
@@ -218,7 +254,7 @@ func (p *mainPackage) initStatus() {
 
 			if part.later.info != nil {
 				name, release, build := part.later.info()
-				ok, ko := part.later.msg()
+				ok, ko := part.later.msgItm()
 				part = statusComponent{
 					statusItem: newItem(name, ok, ko, release, build, h),
 					WarnIfErr:  part.WarnIfErr,
@@ -226,7 +262,7 @@ func (p *mainPackage) initStatus() {
 				}
 			} else if p.later.version != nil {
 				v := p.later.version()
-				ok, ko := p.later.msg()
+				ok, ko := p.later.msgItm()
 
 				part = statusComponent{
 					statusItem: newItem(v.GetPackage(), ok, ko, v.GetRelease(), v.GetBuild(), h),
@@ -309,15 +345,25 @@ func (p *mainPackage) Get(c *gin.Context) {
 
 	for _, pkg := range p.cpt {
 		pres := pkg.GetStatusResponse(c)
-		if res.Status == statusOK && pres.Status == statusKO && !pkg.WarnIfErr {
+
+		if res.Status == statusOK && pres.Status == statusKO && pkg.WarnIfErr {
 			res.Status = statusKO
-		} else if pres.Status == statusKO {
+		}
+
+		if pres.Status == statusKO {
 			hasError = true
 		}
+
 		res.Component = append(res.Component, pres)
 	}
 
 	if res.Status != statusOK {
+		if res.Message == p.msgOK {
+			res.Message = p.msgCptErr
+		} else if res.Message != p.msgKO {
+			res.Message = strings.Join([]string{res.Message, p.msgCptErr}, ", ")
+		}
+
 		c.AbortWithStatusJSON(http.StatusInternalServerError, &res)
 	} else if hasError {
 		c.JSON(http.StatusAccepted, &res)
