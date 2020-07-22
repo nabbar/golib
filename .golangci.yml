@@ -348,7 +348,9 @@ linters:
     - gocritic
     - stylecheck
     - whitespace
-
+    - gofumpt
+    - nestif
+    - nolintlint
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
