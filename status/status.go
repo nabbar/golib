@@ -84,6 +84,9 @@ type statusComponent struct {
 type mainPackage struct {
 	statusItem
 	msgCptErr string
+	codeOK    int
+	codeKO    int
+	codeCpt   int
 	cpt       []statusComponent
 	header    gin.HandlerFunc
 	later     *initLater
@@ -103,9 +106,10 @@ type Status interface {
 	RegisterGroup(group, prefix string, register router.RegisterRouterInGroup)
 
 	AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool)
-	AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool)
+	AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool)
 
 	Get(c *gin.Context)
+	SetErrorCode(codeOk, codeKO, codeCptNoMandatoryKO int)
 }
 
 func NewStatus(info FctInfo, msg FctMessagesAll, health FctHealth, Header gin.HandlerFunc, later bool) Status {
@@ -120,7 +124,10 @@ func NewStatus(info FctInfo, msg FctMessagesAll, health FctHealth, Header gin.Ha
 				msgAll:  msg,
 				health:  health,
 			},
-			init: false,
+			codeOK:  http.StatusOK,
+			codeKO:  http.StatusServiceUnavailable,
+			codeCpt: http.StatusAccepted,
+			init:    false,
 		}
 	} else {
 		msgOk, msgKo, msgCpt := msg()
@@ -132,6 +139,9 @@ func NewStatus(info FctInfo, msg FctMessagesAll, health FctHealth, Header gin.Ha
 			header:     Header,
 			later:      nil,
 			init:       false,
+			codeOK:     http.StatusOK,
+			codeKO:     http.StatusServiceUnavailable,
+			codeCpt:    http.StatusAccepted,
 		}
 	}
 }
@@ -148,7 +158,10 @@ func NewVersionStatus(vers FctVersion, msg FctMessagesAll, health FctHealth, Hea
 				msgAll:  msg,
 				health:  health,
 			},
-			init: false,
+			init:    false,
+			codeOK:  http.StatusOK,
+			codeKO:  http.StatusServiceUnavailable,
+			codeCpt: http.StatusAccepted,
 		}
 	} else {
 		msgOk, msgKo, msgCpt := msg()
@@ -159,6 +172,9 @@ func NewVersionStatus(vers FctVersion, msg FctMessagesAll, health FctHealth, Hea
 			header:     Header,
 			later:      nil,
 			init:       false,
+			codeOK:     http.StatusOK,
+			codeKO:     http.StatusServiceUnavailable,
+			codeCpt:    http.StatusAccepted,
 		}
 	}
 }
@@ -174,10 +190,10 @@ func newItem(name, msgOK, msgKO, release, build string, health FctHealth) status
 	}
 }
 
-func (p *mainPackage) AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool) {
+func (p *mainPackage) AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
 	if later {
 		p.cpt = append(p.cpt, statusComponent{
-			WarnIfErr: WarnIfError,
+			WarnIfErr: mandatoryComponent,
 			later: &initLater{
 				version: nil,
 				info:    info,
@@ -190,16 +206,16 @@ func (p *mainPackage) AddComponent(info FctInfo, msg FctMessageItem, health FctH
 		msgOK, msgKO := msg()
 		p.cpt = append(p.cpt, statusComponent{
 			statusItem: newItem(name, msgOK, msgKO, release, build, health),
-			WarnIfErr:  WarnIfError,
+			WarnIfErr:  mandatoryComponent,
 			later:      nil,
 		})
 	}
 }
 
-func (p *mainPackage) AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool) {
+func (p *mainPackage) AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
 	if later {
 		p.cpt = append(p.cpt, statusComponent{
-			WarnIfErr: WarnIfError,
+			WarnIfErr: mandatoryComponent,
 			later: &initLater{
 				version: vers,
 				info:    nil,
@@ -211,7 +227,7 @@ func (p *mainPackage) AddVersionComponent(vers FctVersion, msg FctMessageItem, h
 		msgOK, msgKO := msg()
 		p.cpt = append(p.cpt, statusComponent{
 			statusItem: newItem(vers().GetPackage(), msgOK, msgKO, vers().GetRelease(), vers().GetBuild(), health),
-			WarnIfErr:  WarnIfError,
+			WarnIfErr:  mandatoryComponent,
 			later:      nil,
 		})
 	}
@@ -364,10 +380,16 @@ func (p *mainPackage) Get(c *gin.Context) {
 			res.Message = strings.Join([]string{res.Message, p.msgCptErr}, ", ")
 		}
 
-		c.AbortWithStatusJSON(http.StatusInternalServerError, &res)
+		c.AbortWithStatusJSON(p.codeKO, &res)
 	} else if hasError {
-		c.JSON(http.StatusAccepted, &res)
+		c.JSON(p.codeCpt, &res)
 	} else {
-		c.JSON(http.StatusOK, &res)
+		c.JSON(p.codeOK, &res)
 	}
+}
+
+func (p *mainPackage) SetErrorCode(codeOk, codeKO, codeCptNoMandatoryKO int) {
+	p.codeOK = codeOk
+	p.codeKO = codeKO
+	p.codeCpt = codeCptNoMandatoryKO
 }
