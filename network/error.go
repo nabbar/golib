@@ -24,28 +24,42 @@
  *
  */
 
-package errors
+package network
+
+import "github.com/nabbar/golib/errors"
 
 const (
-	MIN_PKG_Archive = 100
-	//	MIN_PKG_Artifact   = 200 // unused
-	MIN_PKG_Certif     = 300
-	MIN_PKG_Console    = 400
-	MIN_PKG_Crypt      = 500
-	MIN_PKG_Httpcli    = 600
-	MIN_PKG_Httpserver = 700
-	MIN_PKG_IOUtils    = 800
-	MIN_PKG_LDAP       = 900
-	MIN_PKG_Network    = 1000
-	//	MIN_PKG_Password   = 1100 // unused
-	//	MIN_PKG_Progress   = 1200 // unused
-	MIN_PKG_Router    = 1300
-	MIN_PKG_Semaphore = 1400
-	MIN_PKG_SMTP      = 1500
-	MIN_PKG_Static    = 1600
-	//	MIN_PKG_Status    = 1700 // unused
-	//	MIN_PKG_Update    = 1800 // unused
-	MIN_PKG_Version = 1900
-
-	MIN_AVAILABLE = 2000
+	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Network
+	NET_COUNTER
+	NET_INTERFACE
+	NET_NOTFOUND
+	NET_RELOAD
 )
+
+var isCodeError = false
+
+func IsCodeError() bool {
+	return isCodeError
+}
+
+func init() {
+	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
+	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+}
+
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case EMPTY_PARAMS:
+		return "given parameters is empty"
+	case NET_COUNTER:
+		return "cannot read networks counters"
+	case NET_INTERFACE:
+		return "cannot retrieve interface information"
+	case NET_NOTFOUND:
+		return "interface not found"
+	case NET_RELOAD:
+		return "cannot reload interface"
+	}
+
+	return ""
+}
