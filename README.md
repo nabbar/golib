@@ -19,6 +19,7 @@ import "github.com/nabbar/golib/version"
 ## Details of packages :
 * [package errors](errors/README.md)
 * [package logger](logger/README.md)
+* [package network](network/README.md)
 * [package password](password/README.md)
 * [package router](router/README.md)
 * [package static](static/README.md)
