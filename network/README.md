@@ -67,4 +67,25 @@ Now, we have all information to understand this example who's print all stat of 
 
 ```
 
-You can find an example in test/test-network 
+## Example 
+You can find an example in [`test/test-network`](../test/test-network/main.go)
+
+There result of this example is like this : 
+```shell
+iface 'eth0' [00:15:5d:66:60:dd] :
+        Flags: up broadcast multicast
+        Addrs: {"addr":"172.25.59.95/20"} {"addr":"fe80::215:5dff:fe66:60dd/64"}
+        In:
+                Traffic:   27.33 GB
+                Packets:   20 M
+                Fifo:       0
+                Drop:       0
+                Error:      0
+        Out:
+                Traffic:   28.03 GB
+                Packets: 1118 K
+                Fifo:       0
+                Drop:       0
+                Error:      0
+```
+
