@@ -68,10 +68,11 @@ func (m ErrorMode) String() string {
 		return "StringError"
 	case ErrorReturnStringErrorFull:
 		return "StringErrorFull"
-
-	default:
+	case Default:
 		return "default"
 	}
+
+	return Default.String()
 }
 
 func (m ErrorMode) error(e *errors) string {
@@ -92,8 +93,9 @@ func (m ErrorMode) error(e *errors) string {
 		return e.StringError()
 	case ErrorReturnStringErrorFull:
 		return e.StringErrorFull("")
-
-	default:
+	case Default:
 		return e.StringError()
 	}
+
+	return Default.error(e)
 }
