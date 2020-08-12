@@ -30,6 +30,7 @@ import "github.com/nabbar/golib/errors"
 
 const (
 	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_LDAP
+	LDAP_CONTEXT_ERROR
 	LDAP_SERVER_CONFIG
 	LDAP_SERVER_DIAL
 	LDAP_SERVER_TLS
@@ -55,6 +56,8 @@ func getMessage(code errors.CodeError) (message string) {
 	switch code {
 	case EMPTY_PARAMS:
 		return "given parameters is empty"
+	case LDAP_CONTEXT_ERROR:
+		return "LDAP server connection context occurs an error"
 	case LDAP_SERVER_CONFIG:
 		return "LDAP server config is not well defined"
 	case LDAP_SERVER_DIAL:
