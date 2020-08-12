@@ -124,7 +124,7 @@ func EnableViperLog(enable bool) {
 
 func getFrame() runtime.Frame {
 	// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need
-	programCounters := make([]uintptr, 10)
+	programCounters := make([]uintptr, 10, 255)
 	n := runtime.Callers(1, programCounters)
 
 	if n > 0 {
