@@ -31,8 +31,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	. "github.com/nabbar/golib/errors"
-	. "github.com/nabbar/golib/logger"
+	"github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/logger"
 )
 
 type AuthCode uint8
@@ -72,7 +72,7 @@ func AuthForbidden(c *gin.Context, err error) {
 }
 
 type authorization struct {
-	check    func(AuthHeader string) (AuthCode, Error)
+	check    func(AuthHeader string) (AuthCode, errors.Error)
 	router   []gin.HandlerFunc
 	authType string
 }
@@ -83,7 +83,7 @@ type Authorization interface {
 	Append(router ...gin.HandlerFunc)
 }
 
-func NewAuthorization(HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, Error)) Authorization {
+func NewAuthorization(HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, errors.Error)) Authorization {
 	return &authorization{
 		check:    authCheckFunc,
 		authType: HeadAuthType,
@@ -127,7 +127,7 @@ func (a authorization) Handler(c *gin.Context) {
 		switch code {
 		case AUTH_CODE_SUCCESS:
 			for _, r := range a.router {
-				DebugLevel.Logf("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
+				logger.DebugLevel.Logf("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
 				r(c)
 			}
 		case AUTH_CODE_REQUIRE:

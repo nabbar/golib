@@ -353,10 +353,10 @@ func (level Level) logDetails(message string, data interface{}, err error, field
 
 	tags[tagTime] = level.String()
 
-	if filetrace && level != InfoLevel {
+	if filetrace && curLevel == DebugLevel {
 		frame := getFrame()
 		tags[tagCaller] = frame.Function
-		tags[tagFile] = frame.File
+		tags[tagFile] = strings.Replace(frame.File, filterPkg, "", -1)
 		tags[tagLine] = frame.Line
 	}
 

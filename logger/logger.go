@@ -51,12 +51,19 @@ const (
 
 var (
 	currPkgs  = path.Base(reflect.TypeOf(IOWriter{}).PkgPath())
+	filterPkg = path.Clean(reflect.TypeOf(IOWriter{}).PkgPath())
 	modeColor = true
 	timestamp = true
 	filetrace = false
 	enableGID = false
 	enableVPR = true
 )
+
+func init() {
+	if i := strings.LastIndex(filterPkg, "/vendor/"); i != -1 {
+		filterPkg = filterPkg[:i+1]
+	}
+}
 
 // GetLogger return a golang log.logger instance linked with this main logger
 //
@@ -116,10 +123,15 @@ func DisableColor() {
 	updateFormatter(nilFormat)
 }
 
-// EnableViperLog  or not the Gin Logger configuration
+// EnableViperLog enable or not the Gin Logger configuration
 func EnableViperLog(enable bool) {
 	enableVPR = enable
 	setViperLogTrace()
+}
+
+// SetTracePathFilter customize the filter apply to filepath on trace
+func SetTracePathFilter(path string) {
+	filterPkg = path
 }
 
 func getFrame() runtime.Frame {
