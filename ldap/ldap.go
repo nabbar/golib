@@ -55,11 +55,11 @@ type HelperLDAP struct {
 //NewLDAP build a new LDAP helper based on config struct given
 func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP, errors.Error) {
 	if cnf == nil {
-		return nil, EMPTY_PARAMS.Error(nil)
+		return nil, ErrorEmptyParams.Error(nil)
 	}
 
 	if ctx == nil {
-		return nil, EMPTY_PARAMS.Error(nil)
+		return nil, ErrorEmptyParams.Error(nil)
 	}
 
 	return &HelperLDAP{
@@ -99,14 +99,33 @@ func (lc *HelperLDAP) dialTLS() (*ldap.Conn, errors.Error) {
 
 	if err != nil {
 		if c != nil {
-			c.Close()
+			_ = c.Close()
 		}
-		return nil, LDAP_SERVER_TLS.ErrorParent(err)
+		return nil, ErrorLDAPServerTLS.ErrorParent(err)
 	}
 
 	c = tls.Client(c, lc.tlsConfig)
 
-	return ldap.NewConn(c, true), nil
+	if c == nil {
+		return nil, ErrorLDAPServerTLS.ErrorParent(ErrorLDAPServerConnection.Error(nil))
+	}
+
+	l := ldap.NewConn(c, true)
+	if l == nil {
+		return nil, ErrorLDAPServerTLS.ErrorParent(ErrorLDAPServerConnection.Error(nil))
+	}
+
+	l.Start()
+
+	if l.IsClosing() {
+		return nil, ErrorLDAPServerTLS.ErrorParent(ErrorLDAPServerDialClosing.Error(nil))
+	}
+
+	if _, tlsOk := l.TLSConnectionState(); !tlsOk {
+		return nil, ErrorLDAPServerTLS.ErrorParent(nil)
+	}
+
+	return l, nil
 }
 
 func (lc *HelperLDAP) dial() (*ldap.Conn, errors.Error) {
@@ -119,19 +138,34 @@ func (lc *HelperLDAP) dial() (*ldap.Conn, errors.Error) {
 
 	if err != nil {
 		if c != nil {
-			c.Close()
+			_ = c.Close()
 		}
-		return nil, LDAP_SERVER_DIAL.ErrorParent(err)
+		return nil, ErrorLDAPServerDial.ErrorParent(err)
 	}
 
-	return ldap.NewConn(c, false), nil
+	l := ldap.NewConn(c, false)
+	if l == nil {
+		return nil, ErrorLDAPServerDial.ErrorParent(ErrorLDAPServerConnection.Error(nil))
+	}
+
+	l.Start()
+
+	if l.IsClosing() {
+		return nil, ErrorLDAPServerDial.ErrorParent(ErrorLDAPServerDialClosing.Error(nil))
+	}
+
+	return l, nil
 }
 
 func (lc *HelperLDAP) starttls(l *ldap.Conn) errors.Error {
 	err := l.StartTLS(lc.tlsConfig)
 
 	if err != nil {
-		return LDAP_SERVER_STARTTLS.ErrorParent(err)
+		return ErrorLDAPServerStartTLS.ErrorParent(err)
+	}
+
+	if _, tlsOk := l.TLSConnectionState(); !tlsOk {
+		return ErrorLDAPServerStartTLS.ErrorParent(nil)
 	}
 
 	return nil
@@ -152,37 +186,41 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, errors.Error) {
 	if lc.config.Portldaps != 0 {
 		l, err = lc.dialTLS()
 
+		logger.DebugLevel.LogErrorCtxf(logger.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSMODE_TLS.String())
+
 		if err == nil {
-			logger.DebugLevel.Logf("ldap connected with tls mode '%s'", lc.tlsMode.String())
 			return TLSMODE_TLS, nil
 		}
 	}
 
 	if lc.config.PortLdap == 0 {
-		return tlsmode_init, LDAP_SERVER_CONFIG.Error(nil)
+		return tlsmode_init, ErrorLDAPServerConfig.Error(nil)
 	}
 
 	l, err = lc.dial()
+	logger.DebugLevel.LogErrorCtxf(logger.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSMODE_NONE.String())
+
 	if err != nil {
 		return tlsmode_init, err
 	}
 
-	if err = lc.starttls(l); err == nil {
-		logger.DebugLevel.Logf("ldap connected with tls mode '%s'", lc.tlsMode.String())
+	err = lc.starttls(l)
+	logger.DebugLevel.LogErrorCtxf(logger.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSMODE_STARTTLS.String())
+
+	if err == nil {
 		return TLSMODE_STARTTLS, nil
 	}
 
-	logger.DebugLevel.Logf("ldap connected with tls mode '%s'", lc.tlsMode.String())
 	return TLSMODE_NONE, nil
 }
 
 func (lc *HelperLDAP) connect() errors.Error {
 	if lc.ctx == nil {
-		return LDAP_CONTEXT_ERROR.Error(EMPTY_PARAMS.Error(nil))
+		return ErrorLDAPContext.Error(ErrorEmptyParams.Error(nil))
 	}
 
 	if err := lc.ctx.Err(); err != nil {
-		return LDAP_CONTEXT_ERROR.ErrorParent(err)
+		return ErrorLDAPContext.ErrorParent(err)
 	}
 
 	if lc.conn == nil {
@@ -264,12 +302,12 @@ func (lc *HelperLDAP) AuthUser(username, password string) errors.Error {
 	}
 
 	if username == "" || password == "" {
-		return EMPTY_PARAMS.Error(nil)
+		return ErrorEmptyParams.Error(nil)
 	}
 
 	err := lc.conn.Bind(username, password)
 
-	return LDAP_BIND.Iferror(err)
+	return ErrorLDAPBind.Iferror(err)
 }
 
 //Connect used to connect and bind to server
@@ -305,40 +343,62 @@ func (lc *HelperLDAP) runSearch(filter string, attributes []string) (*ldap.Searc
 	)
 
 	if src, err = lc.conn.Search(searchRequest); err != nil {
-		return nil, LDAP_SEARCH.ErrorParent(err)
+		return nil, ErrorLDAPSearch.ErrorParent(err)
 	}
 
 	logger.DebugLevel.Logf("Search success on server '%s' with tls mode '%s', with filter [%s] and attribute %v", lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), filter, attributes)
 	return src, nil
 }
 
+func (lc *HelperLDAP) getUserName(username string) (string, errors.Error) {
+	username = strings.TrimSpace(username)
+	if username == "" {
+		if usr := lc.ParseEntries(lc.bindDN); usr == nil || len(usr) == 0 {
+			return "", ErrorLDAPInvalidUID.Error(ErrorLDAPInvalidDN.Error(nil))
+		} else if _, ok := usr["uid"]; !ok {
+			return "", ErrorLDAPInvalidUID.Error(ErrorLDAPAttributeNotFound.Error(nil))
+		} else if len(usr["uid"]) < 1 {
+			return "", ErrorLDAPInvalidUID.Error(ErrorLDAPAttributeEmpty.Error(nil))
+		} else {
+			username = usr["uid"][0]
+		}
+
+		username = strings.TrimSpace(username)
+	}
+
+	if username == "" {
+		return "", ErrorLDAPInvalidUID.Error(ErrorLDAPAttributeEmpty.Error(nil))
+	}
+
+	return username, nil
+}
+
 //UserInfo used to retrieve the information of a given username
 func (lc *HelperLDAP) UserInfo(username string) (map[string]string, errors.Error) {
 	var (
-		e       errors.Error
+		err     errors.Error
 		src     *ldap.SearchResult
 		userRes map[string]string
 	)
 
-	if username == "" {
-		usr := lc.ParseEntries(lc.bindDN)
-		username = usr["uid"][0]
+	if username, err = lc.getUserName(username); err != nil {
+		return nil, err
 	}
 
 	userRes = make(map[string]string)
 	attributes := append(lc.Attributes, "cn")
 
-	src, e = lc.runSearch(fmt.Sprintf(lc.config.FilterUser, username), attributes)
+	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterUser, username), attributes)
 
-	if e != nil {
-		return userRes, e
+	if err != nil {
+		return userRes, err
 	}
 
 	if len(src.Entries) != 1 {
 		if len(src.Entries) > 1 {
-			return userRes, LDAP_USER_NOT_UNIQ.Error(nil)
+			return userRes, ErrorLDAPUserNotUniq.Error(nil)
 		} else {
-			return userRes, LDAP_USER_NOT_FOUND.Error(nil)
+			return userRes, ErrorLDAPUserNotFound.Error(nil)
 		}
 	}
 
@@ -362,9 +422,8 @@ func (lc *HelperLDAP) UserMemberOf(username string) ([]string, errors.Error) {
 		grp []string
 	)
 
-	if username == "" {
-		usr := lc.ParseEntries(lc.bindDN)
-		username = usr["uid"][0]
+	if username, err = lc.getUserName(username); err != nil {
+		return nil, err
 	}
 
 	grp = make([]string, 0)
@@ -393,13 +452,9 @@ func (lc *HelperLDAP) UserIsInGroup(username string, groupname []string) (bool, 
 		grpMmbr []string
 	)
 
-	if username == "" {
-		usr := lc.ParseEntries(lc.bindDN)
-		username = usr["uid"][0]
-	}
-
-	grpMmbr, err = lc.UserMemberOf(username)
-	if err != nil {
+	if username, err = lc.getUserName(username); err != nil {
+		return false, err
+	} else if grpMmbr, err = lc.UserMemberOf(username); err != nil {
 		return false, err
 	}
 
