@@ -64,6 +64,11 @@ func GetDefaultPatternTrace() string {
 	return defaultPatternTrace
 }
 
+// SetTracePathFilter customize the filter apply to filepath on trace
+func SetTracePathFilter(path string) {
+	filterPkg = path
+}
+
 type errors struct {
 	c uint16
 	e string
