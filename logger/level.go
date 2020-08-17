@@ -373,7 +373,7 @@ func (level Level) logDetails(message string, data interface{}, err error, field
 	if filetrace && curLevel == DebugLevel {
 		frame := getFrame()
 		tags[tagCaller] = frame.Function
-		tags[tagFile] = strings.Replace(frame.File, filterPkg, "", -1)
+		tags[tagFile] = filterPath(frame.File)
 		tags[tagLine] = frame.Line
 	}
 
