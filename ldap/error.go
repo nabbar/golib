@@ -29,16 +29,22 @@ package ldap
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_LDAP
-	LDAP_CONTEXT_ERROR
-	LDAP_SERVER_CONFIG
-	LDAP_SERVER_DIAL
-	LDAP_SERVER_TLS
-	LDAP_SERVER_STARTTLS
-	LDAP_BIND
-	LDAP_SEARCH
-	LDAP_USER_NOT_UNIQ
-	LDAP_USER_NOT_FOUND
+	ErrorEmptyParams errors.CodeError = iota + errors.MIN_PKG_LDAP
+	ErrorLDAPContext
+	ErrorLDAPServerConfig
+	ErrorLDAPServerConnection
+	ErrorLDAPServerDial
+	ErrorLDAPServerDialClosing
+	ErrorLDAPServerTLS
+	ErrorLDAPServerStartTLS
+	ErrorLDAPBind
+	ErrorLDAPSearch
+	ErrorLDAPUserNotUniq
+	ErrorLDAPUserNotFound
+	ErrorLDAPInvalidDN
+	ErrorLDAPInvalidUID
+	ErrorLDAPAttributeNotFound
+	ErrorLDAPAttributeEmpty
 )
 
 var isCodeError = false
@@ -48,32 +54,46 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorEmptyParams)
+	errors.RegisterIdFctMessage(ErrorEmptyParams, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorEmptyParams:
 		return "given parameters is empty"
-	case LDAP_CONTEXT_ERROR:
+	case ErrorLDAPContext:
 		return "LDAP server connection context occurs an error"
-	case LDAP_SERVER_CONFIG:
+	case ErrorLDAPServerConfig:
 		return "LDAP server config is not well defined"
-	case LDAP_SERVER_DIAL:
+	case ErrorLDAPServerConnection:
+		return "connection server occurs error "
+	case ErrorLDAPServerDial:
 		return "dialing server occurs error "
-	case LDAP_SERVER_TLS:
+	case ErrorLDAPServerDialClosing:
+		return "dialing server is going to be closed"
+	case ErrorLDAPServerTLS:
 		return "cannot start dial to server with TLS Mode"
-	case LDAP_SERVER_STARTTLS:
+	case ErrorLDAPServerStartTLS:
 		return "cannot init starttls mode on opening server connection"
-	case LDAP_BIND:
+	case ErrorLDAPBind:
 		return "error on binding user/pass"
-	case LDAP_SEARCH:
+	case ErrorLDAPSearch:
 		return "error on calling search on connected server"
-	case LDAP_USER_NOT_UNIQ:
+	case ErrorLDAPUserNotUniq:
 		return "user uid is not uniq"
-	case LDAP_USER_NOT_FOUND:
+	case ErrorLDAPUserNotFound:
 		return "user uid is not found"
+	case ErrorLDAPInvalidDN:
+		return "dn given is not valid"
+	case ErrorLDAPInvalidUID:
+		return "uid is not found or empty"
+	case ErrorLDAPAttributeNotFound:
+		return "requested attribute is not found"
+	case ErrorLDAPAttributeEmpty:
+		return "requested attribute is empty"
 	}
 
 	return ""
