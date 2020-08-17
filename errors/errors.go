@@ -340,7 +340,7 @@ func (e *errors) GetIErrorSlice() []Error {
 
 func (e *errors) GetTrace() string {
 	if e.t.File != "" {
-		return fmt.Sprintf("%s#%d", e.t.File, e.t.Line)
+		return fmt.Sprintf("%s#%d", filterPath(e.t.File), e.t.Line)
 	} else if e.t.Function != "" {
 		return fmt.Sprintf("%s#%d", e.t.Function, e.t.Line)
 	}

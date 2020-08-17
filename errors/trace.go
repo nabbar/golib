@@ -74,3 +74,29 @@ func getFrame() runtime.Frame {
 func getNilFrame() runtime.Frame {
 	return runtime.Frame{Function: "", File: "", Line: 0}
 }
+
+func filterPath(pathname string) string {
+	var (
+		filterMod    = "/pkg/mod/"
+		filterVendor = "/vendor/"
+	)
+
+	if i := strings.LastIndex(pathname, filterMod); i != -1 {
+		i = i + len(filterMod)
+		pathname = pathname[i:]
+	}
+
+	if i := strings.LastIndex(pathname, filterPkg); i != -1 {
+		i = i + len(filterPkg)
+		pathname = pathname[i:]
+	}
+
+	if i := strings.LastIndex(pathname, filterVendor); i != -1 {
+		i = i + len(filterVendor)
+		pathname = pathname[i:]
+	}
+
+	pathname = path.Clean(pathname)
+
+	return strings.Trim(pathname, "/")
+}
