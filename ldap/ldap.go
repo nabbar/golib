@@ -34,13 +34,23 @@ import (
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
-
 	"github.com/nabbar/golib/certificates"
 	"github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/httpcli"
 	"github.com/nabbar/golib/logger"
 )
 
-//HelperLDAP struct use to manage connection to server and request it
+var (
+	dialTimeout   = httpcli.TIMEOUT_10_SEC
+	dialKeepAlive = httpcli.TIMEOUT_5_SEC
+)
+
+func SetTimeout(dialerTimeout, dialerKeepAlive time.Duration) {
+	dialTimeout = dialerTimeout
+	dialKeepAlive = dialerKeepAlive
+}
+
+//HelperLDAP struct use to manage connection to server and request it.
 type HelperLDAP struct {
 	Attributes []string
 	conn       *ldap.Conn
@@ -52,7 +62,7 @@ type HelperLDAP struct {
 	ctx        context.Context
 }
 
-//NewLDAP build a new LDAP helper based on config struct given
+//NewLDAP build a new LDAP helper based on config struct given.
 func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP, errors.Error) {
 	if cnf == nil {
 		return nil, ErrorEmptyParams.Error(nil)
@@ -71,28 +81,38 @@ func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP
 	}, nil
 }
 
-//SetCredentials used to defined the BindDN and password for connection
+//SetCredentials used to defined the BindDN and password for connection.
 func (lc *HelperLDAP) SetCredentials(user, pass string) {
 	lc.bindDN = user
 	lc.bindPass = pass
 }
 
-//SetCredentials used to defined the BindDN and password for connection
+//ForceTLSMode used to force tls mode and defined tls condition.
 func (lc *HelperLDAP) ForceTLSMode(tlsMode TLSMode, tlsConfig *tls.Config) {
-	switch tlsMode {
-	case TLSMODE_TLS, TLSMODE_STARTTLS, TLSMODE_NONE:
-		lc.tlsConfig = tlsConfig
-	}
-
 	if tlsConfig != nil {
 		lc.tlsConfig = tlsConfig
+	} else {
+		//nosec nolint gosec
+		lc.tlsConfig = &tls.Config{}
+	}
+
+	switch tlsMode {
+	case TLSMODE_TLS:
+		lc.tlsMode = TLSMODE_TLS
+	case TLSMODE_STARTTLS:
+		lc.tlsMode = TLSMODE_STARTTLS
+	case TLSMODE_NONE:
+		lc.tlsConfig = nil
+		lc.tlsMode = TLSMODE_NONE
+	case tlsmode_init:
+		lc.tlsMode = tlsmode_init
 	}
 }
 
 func (lc *HelperLDAP) dialTLS() (*ldap.Conn, errors.Error) {
 	d := net.Dialer{
-		Timeout:   10 * time.Second,
-		KeepAlive: 5 * time.Second,
+		Timeout:   dialTimeout,
+		KeepAlive: dialKeepAlive,
 	}
 
 	c, err := d.DialContext(lc.ctx, "tcp", lc.config.ServerAddr(true))
@@ -101,6 +121,7 @@ func (lc *HelperLDAP) dialTLS() (*ldap.Conn, errors.Error) {
 		if c != nil {
 			_ = c.Close()
 		}
+
 		return nil, ErrorLDAPServerTLS.ErrorParent(err)
 	}
 
@@ -130,8 +151,8 @@ func (lc *HelperLDAP) dialTLS() (*ldap.Conn, errors.Error) {
 
 func (lc *HelperLDAP) dial() (*ldap.Conn, errors.Error) {
 	d := net.Dialer{
-		Timeout:   10 * time.Second,
-		KeepAlive: 5 * time.Second,
+		Timeout:   dialTimeout,
+		KeepAlive: dialKeepAlive,
 	}
 
 	c, err := d.DialContext(lc.ctx, "tcp", lc.config.ServerAddr(true))
@@ -140,6 +161,7 @@ func (lc *HelperLDAP) dial() (*ldap.Conn, errors.Error) {
 		if c != nil {
 			_ = c.Close()
 		}
+
 		return nil, ErrorLDAPServerDial.ErrorParent(err)
 	}
 
@@ -276,7 +298,7 @@ func (lc *HelperLDAP) connect() errors.Error {
 	return nil
 }
 
-//Check used to check if connection success (without any bind)
+//Check used to check if connection success (without any bind).
 func (lc *HelperLDAP) Check() errors.Error {
 	if err := lc.connect(); err != nil {
 		return err
@@ -286,7 +308,7 @@ func (lc *HelperLDAP) Check() errors.Error {
 	return nil
 }
 
-//Close used to close connection object
+//Close used to close connection object.
 func (lc *HelperLDAP) Close() {
 	if lc.conn != nil {
 		lc.conn.Close()
@@ -294,7 +316,7 @@ func (lc *HelperLDAP) Close() {
 	}
 }
 
-//AuthUser used to test bind given user uid and password
+//AuthUser used to test bind given user uid and password.
 func (lc *HelperLDAP) AuthUser(username, password string) errors.Error {
 
 	if err := lc.connect(); err != nil {
@@ -310,7 +332,7 @@ func (lc *HelperLDAP) AuthUser(username, password string) errors.Error {
 	return ErrorLDAPBind.Iferror(err)
 }
 
-//Connect used to connect and bind to server
+//Connect used to connect and bind to server.
 func (lc *HelperLDAP) Connect() errors.Error {
 	if err := lc.AuthUser(lc.bindDN, lc.bindPass); err != nil {
 		return err
@@ -353,7 +375,7 @@ func (lc *HelperLDAP) runSearch(filter string, attributes []string) (*ldap.Searc
 func (lc *HelperLDAP) getUserName(username string) (string, errors.Error) {
 	username = strings.TrimSpace(username)
 	if username == "" {
-		if usr := lc.ParseEntries(lc.bindDN); usr == nil || len(usr) == 0 {
+		if usr := lc.ParseEntries(lc.bindDN); len(usr) == 0 {
 			return "", ErrorLDAPInvalidUID.Error(ErrorLDAPInvalidDN.Error(nil))
 		} else if _, ok := usr["uid"]; !ok {
 			return "", ErrorLDAPInvalidUID.Error(ErrorLDAPAttributeNotFound.Error(nil))
@@ -373,7 +395,7 @@ func (lc *HelperLDAP) getUserName(username string) (string, errors.Error) {
 	return username, nil
 }
 
-//UserInfo used to retrieve the information of a given username
+//UserInfo used to retrieve the information of a given username.
 func (lc *HelperLDAP) UserInfo(username string) (map[string]string, errors.Error) {
 	var (
 		err     errors.Error
@@ -445,7 +467,7 @@ func (lc *HelperLDAP) UserMemberOf(username string) ([]string, errors.Error) {
 	return grp, nil
 }
 
-//UserIsInGroup used to check if a given username is a group member of a list of reference group name
+//UserIsInGroup used to check if a given username is a group member of a list of reference group name.
 func (lc *HelperLDAP) UserIsInGroup(username string, groupname []string) (bool, errors.Error) {
 	var (
 		err     errors.Error
@@ -469,7 +491,7 @@ func (lc *HelperLDAP) UserIsInGroup(username string, groupname []string) (bool, 
 	return false, nil
 }
 
-//UsersOfGroup used to retrieve the member list of a given group name
+//UsersOfGroup used to retrieve the member list of a given group name.
 func (lc *HelperLDAP) UsersOfGroup(groupname string) ([]string, errors.Error) {
 	var (
 		err errors.Error
@@ -495,7 +517,7 @@ func (lc *HelperLDAP) UsersOfGroup(groupname string) ([]string, errors.Error) {
 	return grp, nil
 }
 
-//ParseEntries used to clean attributes of an object class
+//ParseEntries used to clean attributes of an object class.
 func (lc HelperLDAP) ParseEntries(entry string) map[string][]string {
 	var listEntries = make(map[string][]string)
 
