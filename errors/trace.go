@@ -33,7 +33,16 @@ import (
 	"strings"
 )
 
-var currPkgs = path.Base(reflect.TypeOf(UNK_ERROR).PkgPath())
+var (
+	currPkgs  = path.Base(reflect.TypeOf(UNK_ERROR).PkgPath())
+	filterPkg = path.Clean(reflect.TypeOf(UNK_ERROR).PkgPath())
+)
+
+func init() {
+	if i := strings.LastIndex(filterPkg, "/vendor/"); i != -1 {
+		filterPkg = filterPkg[:i+1]
+	}
+}
 
 func getFrame() runtime.Frame {
 	// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need
