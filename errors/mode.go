@@ -51,7 +51,10 @@ const (
 )
 
 func (m ErrorMode) String() string {
+	//nolint exhaustive
 	switch m {
+	case Default:
+		return "default"
 	case ErrorReturnCode:
 		return "Code"
 	case ErrorReturnCodeFull:
@@ -68,15 +71,16 @@ func (m ErrorMode) String() string {
 		return "StringError"
 	case ErrorReturnStringErrorFull:
 		return "StringErrorFull"
-	case Default:
-		return "default"
 	}
 
 	return Default.String()
 }
 
 func (m ErrorMode) error(e *errors) string {
+	//nolint exhaustive
 	switch m {
+	case Default:
+		return e.StringError()
 	case ErrorReturnCode:
 		return e.Code()
 	case ErrorReturnCodeFull:
@@ -93,8 +97,6 @@ func (m ErrorMode) error(e *errors) string {
 		return e.StringError()
 	case ErrorReturnStringErrorFull:
 		return e.StringErrorFull("")
-	case Default:
-		return e.StringError()
 	}
 
 	return Default.error(e)

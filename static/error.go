@@ -49,16 +49,24 @@ func init() {
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
+
 	case EMPTY_PARAMS:
 		return "given parameters is empty"
+
 	case EMPTY_PACKED:
 		return "packed file is empty"
+
 	case INDEX_NOT_FOUND:
 		return "mode index is defined but index.(html|htm) is not found"
+
 	case INDEX_REQUESTED_NOT_SET:
 		return "request call index but mode index is false"
+
 	case FILE_NOT_FOUND:
 		return "requested packed file is not found"
+
+	case errors.UNK_ERROR:
+		return ""
 	}
 
 	return ""

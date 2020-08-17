@@ -31,32 +31,37 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// Format a uint8 type customized with function to manage the result logger format
+// Format a uint8 type customized with function to manage the result logger format.
 type Format uint8
 
 const (
 	nilFormat Format = iota
-	// TextFormat a text format for logger entry
+	// TextFormat a text format for logger entry.
 	TextFormat
-	// JsonFormat a json format for logger entry
+	// JsonFormat a json format for logger entry.
 	JsonFormat
 )
 
 var (
-	curFormat = TextFormat
+	curFormat = nilFormat
 )
+
+func init() {
+	updateFormatter(TextFormat)
+}
 
 func SetOutput(out io.WriteCloser) {
 	logrus.SetOutput(out)
 }
 
 func updateFormatter(newFormat Format) {
-	if newFormat != nilFormat {
-		curFormat = newFormat
-	}
+	switch newFormat {
 
-	switch curFormat {
+	case curFormat:
+		return
+
 	case TextFormat:
+		curFormat = TextFormat
 		logrus.SetFormatter(&logrus.TextFormatter{
 			ForceColors:            modeColor,
 			DisableColors:          !modeColor,
@@ -64,14 +69,20 @@ func updateFormatter(newFormat Format) {
 			DisableTimestamp:       true,
 			DisableSorting:         true,
 		})
+
 	case JsonFormat:
+		curFormat = JsonFormat
 		logrus.SetFormatter(&logrus.JSONFormatter{
 			DisableTimestamp: true,
 		})
+
+	case nilFormat:
+		return
+
 	}
 }
 
-// GetFormatListString return the full list (slice of string) of all available formats
+// GetFormatListString return the full list (slice of string) of all available formats.
 func GetFormatListString() []string {
 	return []string{
 		strings.ToLower(TextFormat.String()),
@@ -79,8 +90,7 @@ func GetFormatListString() []string {
 	}
 }
 
-// SetFormat Change the format of all log entry with the Format type given in parameter. The change is apply for next entry only
-//
+// SetFormat Change the format of all log entry with the Format type given in parameter. The change is apply for next entry only.
 // If the given Format type is not matching a correct Format type, no change will be apply.
 /*
 	fmt a Format type for the format to use
@@ -89,15 +99,17 @@ func SetFormat(fmt Format) {
 	switch fmt {
 	case TextFormat, JsonFormat:
 		updateFormatter(fmt)
+	case curFormat, nilFormat:
+		return
 	}
 }
 
-// GetCurrentFormat Return the current Format Type used for all log entry
+// GetCurrentFormat Return the current Format Type used for all log entry.
 func GetCurrentFormat() Format {
 	return curFormat
 }
 
-// GetFormatString return a valid Format Type matching the given string parameter
+// GetFormatString return a valid Format Type matching the given string parameter.
 /*
 	format the string representation of a Format type
 */
@@ -108,18 +120,21 @@ func GetFormatString(format string) Format {
 
 	case strings.ToLower(JsonFormat.String()):
 		return JsonFormat
-
-	default:
-		return TextFormat
 	}
+
+	return GetFormatString(TextFormat.String())
 }
 
-// String Return the string name of the Format Type
+// String Return the string name of the Format Type.
 func (f Format) String() string {
 	switch f {
 	case JsonFormat:
 		return "Json"
-	default:
+	case TextFormat:
 		return "Text"
+	case nilFormat, curFormat:
+		return ""
 	}
+
+	return TextFormat.String()
 }

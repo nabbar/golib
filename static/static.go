@@ -36,10 +36,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
 	"github.com/gobuffalo/packr"
-
-	. "github.com/nabbar/golib/errors"
-	. "github.com/nabbar/golib/logger"
-
+	"github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/logger"
 	"github.com/nabbar/golib/router"
 )
 
@@ -68,7 +66,7 @@ type Static interface {
 	Has(file string) bool
 	Find(file string) ([]byte, error)
 
-	Health() Error
+	Health() errors.Error
 	Get(c *gin.Context)
 }
 
@@ -119,13 +117,13 @@ func (s *staticHandler) print() {
 	}
 
 	for _, f := range s.box.List() {
-		DebugLevel.Logf("Embedded file : %s", f)
+		logger.DebugLevel.Logf("Embedded file : %s", f)
 	}
 
 	s.debug = true
 }
 
-func (s *staticHandler) Health() Error {
+func (s *staticHandler) Health() errors.Error {
 	s.print()
 
 	if len(s.box.List()) < 1 {
@@ -165,7 +163,7 @@ func (s *staticHandler) Get(c *gin.Context) {
 		}
 	}
 
-	if obj, err := s.box.Find(requestPath); !ErrorLevel.LogErrorCtxf(DebugLevel, "find file '%s' error for request '%s%s' :", err, calledFile, s.prefix, requestPath) {
+	if obj, err := s.box.Find(requestPath); !logger.ErrorLevel.LogErrorCtxf(logger.DebugLevel, "find file '%s' error for request '%s%s' :", err, calledFile, s.prefix, requestPath) {
 		head := router.NewHeaders()
 
 		if s.allDwnld || s.IsDownload(requestPath) {

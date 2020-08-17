@@ -27,26 +27,29 @@ package httpcli
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 
-	. "github.com/nabbar/golib/errors"
-	. "github.com/nabbar/golib/logger"
+	"github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/logger"
 )
 
 type httpClient struct {
 	url *url.URL
 	cli *http.Client
+	ctx context.Context
 }
 
 type HTTP interface {
-	Check() Error
-	Call(file *bytes.Buffer) (bool, *bytes.Buffer, Error)
+	SetContext(ctx context.Context)
+	Check() errors.Error
+	Call(file *bytes.Buffer) (bool, *bytes.Buffer, errors.Error)
 }
 
-func NewClient(uri string) (HTTP, Error) {
+func NewClient(uri string) (HTTP, errors.Error) {
 	var (
 		pUri *url.URL
 		err  error
@@ -75,10 +78,17 @@ func NewClient(uri string) (HTTP, Error) {
 	return &httpClient{
 		url: pUri,
 		cli: c,
+		ctx: context.Background(),
 	}, nil
 }
 
-func (obj *httpClient) Check() Error {
+func (obj *httpClient) SetContext(ctx context.Context) {
+	if ctx != nil {
+		obj.ctx = ctx
+	}
+}
+
+func (obj *httpClient) Check() errors.Error {
 	req, e := obj.newRequest(http.MethodHead, nil)
 
 	if e != nil {
@@ -96,7 +106,7 @@ func (obj *httpClient) Check() Error {
 	return e
 }
 
-func (obj *httpClient) Call(body *bytes.Buffer) (bool, *bytes.Buffer, Error) {
+func (obj *httpClient) Call(body *bytes.Buffer) (bool, *bytes.Buffer, errors.Error) {
 	req, e := obj.newRequest(http.MethodPost, body)
 
 	if e != nil {
@@ -112,14 +122,14 @@ func (obj *httpClient) Call(body *bytes.Buffer) (bool, *bytes.Buffer, Error) {
 	return obj.checkResponse(res)
 }
 
-func (obj *httpClient) newRequest(method string, body *bytes.Buffer) (*http.Request, Error) {
+func (obj *httpClient) newRequest(method string, body *bytes.Buffer) (*http.Request, errors.Error) {
 	var reader *bytes.Reader
 
 	if body != nil && body.Len() > 0 {
 		reader = bytes.NewReader(body.Bytes())
 	}
 
-	req, e := http.NewRequest(method, obj.url.String(), reader)
+	req, e := http.NewRequestWithContext(obj.ctx, method, obj.url.String(), reader)
 	if e != nil {
 		return req, HTTP_REQUEST.ErrorParent(e)
 	}
@@ -127,7 +137,7 @@ func (obj *httpClient) newRequest(method string, body *bytes.Buffer) (*http.Requ
 	return req, nil
 }
 
-func (obj *httpClient) doRequest(req *http.Request) (*http.Response, Error) {
+func (obj *httpClient) doRequest(req *http.Request) (*http.Response, errors.Error) {
 	res, e := obj.cli.Do(req)
 
 	if e != nil {
@@ -137,7 +147,7 @@ func (obj *httpClient) doRequest(req *http.Request) (*http.Response, Error) {
 	return res, nil
 }
 
-func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer, Error) {
+func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer, errors.Error) {
 	var buf *bytes.Buffer
 
 	if res.Body != nil {
@@ -153,7 +163,7 @@ func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer, E
 			return false, nil, BUFFER_WRITE.ErrorParent(err)
 		}
 
-		DebugLevel.LogError(err)
+		logger.DebugLevel.LogError(err)
 	}
 
 	return strings.HasPrefix(res.Status, "2"), buf, nil
