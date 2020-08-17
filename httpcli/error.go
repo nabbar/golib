@@ -52,6 +52,8 @@ func init() {
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
+	case errors.UNK_ERROR:
+		return ""
 	case EMPTY_PARAMS:
 		return "given parameters is empty"
 	case URL_PARSE:

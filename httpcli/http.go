@@ -27,6 +27,7 @@ package httpcli
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -39,9 +40,11 @@ import (
 type httpClient struct {
 	url *url.URL
 	cli *http.Client
+	ctx context.Context
 }
 
 type HTTP interface {
+	SetContext(ctx context.Context)
 	Check() errors.Error
 	Call(file *bytes.Buffer) (bool, *bytes.Buffer, errors.Error)
 }
@@ -75,7 +78,14 @@ func NewClient(uri string) (HTTP, errors.Error) {
 	return &httpClient{
 		url: pUri,
 		cli: c,
+		ctx: context.Background(),
 	}, nil
+}
+
+func (obj *httpClient) SetContext(ctx context.Context) {
+	if ctx != nil {
+		obj.ctx = ctx
+	}
 }
 
 func (obj *httpClient) Check() errors.Error {
@@ -119,7 +129,7 @@ func (obj *httpClient) newRequest(method string, body *bytes.Buffer) (*http.Requ
 		reader = bytes.NewReader(body.Bytes())
 	}
 
-	req, e := http.NewRequest(method, obj.url.String(), reader)
+	req, e := http.NewRequestWithContext(obj.ctx, method, obj.url.String(), reader)
 	if e != nil {
 		return req, HTTP_REQUEST.ErrorParent(e)
 	}

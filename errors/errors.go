@@ -40,31 +40,41 @@ var (
 	defaultPatternTrace = "[Error #%s] %s (%s)"
 )
 
+// SetTracePathFilter define the glue string to be used to join main error with parents'errors.
 func SetDefaultGlue(glue string) {
 	defaultGlue = glue
 }
 
+// GetDefaultGlue return the current glue used to joins errors with parents.
 func GetDefaultGlue() string {
 	return defaultGlue
 }
 
+// GetDefaultPatternTrace define the pattern to be used for string of error with code.
+// The pattern is fmt pattern with 2 inputs in order : code, message.
 func SetDefaultPattern(pattern string) {
 	defaultPattern = pattern
 }
 
+// GetDefaultPattern return the current pattern used for string of error with code.
+// The pattern is fmt pattern with 2 inputs in order : code, message.
 func GetDefaultPattern() string {
 	return defaultPattern
 }
 
+// SetDefaultPatternTrace define the pattern to be used for string of error with code and trace.
+// The pattern is fmt pattern with 3 inputs in order : code, message, trace.
 func SetDefaultPatternTrace(patternTrace string) {
 	defaultPatternTrace = patternTrace
 }
 
+// GetDefaultPatternTrace return the current pattern used for string of error with code and trace.
+// The pattern is fmt pattern with 3 inputs in order : code, message, trace.
 func GetDefaultPatternTrace() string {
 	return defaultPatternTrace
 }
 
-// SetTracePathFilter customize the filter apply to filepath on trace
+// SetTracePathFilter customize the filter apply to filepath on trace.
 func SetTracePathFilter(path string) {
 	filterPkg = path
 }
@@ -295,10 +305,12 @@ func (e *errors) StringErrorSlice() []string {
 }
 
 func (e *errors) GetError() error {
+	//nolint goerr113
 	return errs.New(e.e)
 }
 
 func (e *errors) GetErrorFull(glue string) error {
+	//nolint goerr113
 	return errs.New(e.StringErrorFull(glue))
 }
 

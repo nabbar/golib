@@ -52,16 +52,24 @@ func getMessage(code errors.CodeError) (message string) {
 	switch code {
 	case EMPTY_PARAMS:
 		return "given parameters is empty"
+
 	case HEADER_AUTH_MISSING:
 		return "missing authorization header"
+
 	case HEADER_AUTH_EMPTY:
 		return "authorization header is empty"
+
 	case HEADER_AUTH_REQUIRE:
 		return "authorization check failed, authorization still require"
+
 	case HEADER_AUTH_FORBIDDEN:
 		return "authorization check success but unauthorized client"
+
 	case HEADER_AUTH_ERROR:
 		return "authorization check return an invalid response code"
+
+	case errors.UNK_ERROR:
+		return ""
 	}
 
 	return ""

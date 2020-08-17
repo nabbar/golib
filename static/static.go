@@ -36,10 +36,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
 	"github.com/gobuffalo/packr"
-
 	"github.com/nabbar/golib/errors"
 	"github.com/nabbar/golib/logger"
-
 	"github.com/nabbar/golib/router"
 )
 

@@ -32,11 +32,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nabbar/golib/certificates"
+	"github.com/nabbar/golib/errors"
 	"golang.org/x/net/http2"
-
-	. "github.com/nabbar/golib/errors"
-
-	certif "github.com/nabbar/golib/certificates"
 )
 
 const (
@@ -47,24 +45,24 @@ const (
 )
 
 func GetClient(serverName string) *http.Client {
-	c, e := getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certif.GetTLSConfig(serverName))
+	c, e := getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certificates.GetTLSConfig(serverName))
 
 	if e != nil {
-		c, _ = getClient(false, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certif.GetTLSConfig(serverName))
+		c, _ = getClient(false, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certificates.GetTLSConfig(serverName))
 	}
 
 	return c
 }
 
-func GetClientError(serverName string) (*http.Client, Error) {
-	return getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certif.GetTLSConfig(serverName))
+func GetClientError(serverName string) (*http.Client, errors.Error) {
+	return getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certificates.GetTLSConfig(serverName))
 }
 
-func GetClientTimeout(serverName string, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration) (*http.Client, Error) {
-	return getClient(true, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout, certif.GetTLSConfig(serverName))
+func GetClientTimeout(serverName string, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration) (*http.Client, errors.Error) {
+	return getClient(true, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout, certificates.GetTLSConfig(serverName))
 }
 
-func getClient(http2Transport bool, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration, tlsConfig *tls.Config) (*http.Client, Error) {
+func getClient(http2Transport bool, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration, tlsConfig *tls.Config) (*http.Client, errors.Error) {
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
