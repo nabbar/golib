@@ -33,11 +33,11 @@ type TLSMode uint8
 
 const (
 	tlsmode_init TLSMode = iota
-	//TLSModeNone no tls connection
+	//TLSModeNone no tls connection.
 	TLSMODE_NONE TLSMode = iota + 1
-	//TLSModeTLS strict tls connection
+	//TLSModeTLS strict tls connection.
 	TLSMODE_TLS
-	//TLSModeStartTLS starttls connection (tls into a no tls connection)
+	//TLSModeStartTLS starttls connection (tls into a no tls connection).
 	TLSMODE_STARTTLS
 )
 
@@ -49,9 +49,11 @@ func (m TLSMode) String() string {
 		return "tls"
 	case TLSMODE_NONE:
 		return "none"
-	default:
-		return "no defined"
+	case tlsmode_init:
+		return "not defined"
 	}
+
+	return tlsmode_init.String()
 }
 
 func GetDefaultAttributes() []string {
