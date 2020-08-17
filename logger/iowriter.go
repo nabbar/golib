@@ -29,13 +29,13 @@ import (
 	"io"
 )
 
-// IOWriter is struct redirected all entry to the current logger
+// IOWriter is struct redirected all entry to the current logger.
 type IOWriter struct {
 	lvl Level
 	prf string
 }
 
-// GetIOWriter return a io.Writer instance to Write on logger with a specified log level
+// GetIOWriter return a io.Writer instance to Write on logger with a specified log level.
 /*
 	level specify the log level to use to redirect all entry to current logger
 	msgPrefixPattern is a string pattern to prefix all entry
@@ -48,9 +48,8 @@ func GetIOWriter(level Level, msgPrefixPattern string, msgPrefixArgs ...interfac
 	}
 }
 
-// Write implement the Write function of the io.Writer interface and redirect all entry to current logger
-//
-// the return n will always return the len on the p parameter and err will always be nil
+// Write implement the Write function of the io.Writer interface and redirect all entry to current logger.
+// The return n will always return the len on the p parameter and err will always be nil.
 /*
 	p the entry to be redirect to current logger
 */

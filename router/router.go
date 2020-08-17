@@ -38,7 +38,7 @@ func init() {
 	}
 }
 
-// SetGinHandler func that return given func as ginTonic HandlerFunc interface type
+// SetGinHandler func that return given func as ginTonic HandlerFunc interface type.
 func SetGinHandler(fct func(c *gin.Context)) gin.HandlerFunc {
 	return fct
 }

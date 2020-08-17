@@ -25,22 +25,20 @@ SOFTWARE.
 package logger
 
 import (
+	"bytes"
 	"log"
 	"path"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-
-	"bytes"
-	"strconv"
 )
 
 const (
-	tagStack = "stack"
-	tagTime  = "time"
-	//tagLevel  = "level" //unused
+	tagStack  = "stack"
+	tagTime   = "time"
 	tagCaller = "func"
 	tagFile   = "file"
 	tagLine   = "line"
@@ -65,9 +63,8 @@ func init() {
 	}
 }
 
-// GetLogger return a golang log.logger instance linked with this main logger
-//
-// This function is useful to keep the format, mode, color, output... same as current config
+// GetLogger return a golang log.logger instance linked with this main logger.
+// This function is useful to keep the format, mode, color, output... same as current config.
 /*
 	msgPrefixPattern a pattern prefix to identify or comment all message passed throw this log.logger instance
 	msgPrefixArgs a list of interface to apply on pattern with a fmt function
@@ -76,9 +73,8 @@ func GetLogger(lvl Level, logFlags int, msgPrefixPattern string, msgPrefixArgs .
 	return log.New(GetIOWriter(lvl, msgPrefixPattern, msgPrefixArgs...), "", logFlags)
 }
 
-// GetLogger force the default golang log.logger instance linked with this main logger
-//
-// This function is useful to keep the format, mode, color, output... same as current config
+// GetLogger force the default golang log.logger instance linked with this main logger.
+// This function is useful to keep the format, mode, color, output... same as current config.
 /*
 	msgPrefixPattern a pattern prefix to identify or comment all message passed throw this log.logger instance
 	msgPrefixArgs a list of interface to apply on pattern with a fmt function
@@ -100,42 +96,39 @@ func Timestamp(enable bool) {
 }
 
 // FileTrace Reconfigure the current logger to add or not the origin file/line of each message.
-//
-// This option is apply for all message except info message
+// This option is apply for all message except info message.
 func FileTrace(enable bool) {
 	filetrace = enable
 	setViperLogTrace()
 }
 
 // EnableColor Reconfigure the current logger to use color in messages format.
-//
-// This apply only for next message and only for TextFormat
+// This apply only for next message and only for TextFormat.
 func EnableColor() {
 	modeColor = true
 	updateFormatter(nilFormat)
 }
 
 // DisableColor Reconfigure the current logger to not use color in messages format.
-//
-// This apply only for next message and only for TextFormat
+// This apply only for next message and only for TextFormat.
 func DisableColor() {
 	modeColor = false
 	updateFormatter(nilFormat)
 }
 
-// EnableViperLog enable or not the Gin Logger configuration
+// EnableViperLog enable or not the Gin Logger configuration.
 func EnableViperLog(enable bool) {
 	enableVPR = enable
 	setViperLogTrace()
 }
 
-// SetTracePathFilter customize the filter apply to filepath on trace
+// SetTracePathFilter customize the filter apply to filepath on trace.
 func SetTracePathFilter(path string) {
 	filterPkg = path
 }
 
 func getFrame() runtime.Frame {
-	// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need
+	// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need.
 	programCounters := make([]uintptr, 10, 255)
 	n := runtime.Callers(1, programCounters)
 
