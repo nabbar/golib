@@ -60,6 +60,8 @@ func init() {
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
+	case errors.UNK_ERROR:
+		return ""
 	case ErrorEmptyParams:
 		return "given parameters is empty"
 	case ErrorLDAPContext:
