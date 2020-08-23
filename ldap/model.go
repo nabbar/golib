@@ -27,6 +27,9 @@ package ldap
 
 import (
 	"fmt"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/nabbar/golib/errors"
 )
 
 type TLSMode uint8
@@ -61,12 +64,12 @@ func GetDefaultAttributes() []string {
 }
 
 type Config struct {
-	Uri         string `cloud:"uri" mapstructure:"uri" json:"uri" yaml:"uri" toml:"uri"`
-	PortLdap    int    `cloud:"port-ldap" mapstructure:"port-ldap" json:"port-ldap" yaml:"port-ldap" toml:"port-ldap"`
-	Portldaps   int    `cloud:"port-ldaps" mapstructure:"port-ldaps" json:"port-ldaps" yaml:"port-ldaps" toml:"port-ldaps"`
-	Basedn      string `cloud:"basedn" mapstructure:"basedn" json:"basedn" yaml:"basedn" toml:"basedn"`
-	FilterGroup string `cloud:"filter-group" mapstructure:"filter-group" json:"filter-group" yaml:"filter-group" toml:"filter-group"`
-	FilterUser  string `cloud:"filter-user" mapstructure:"filter-user" json:"filter-user" yaml:"filter-user" toml:"filter-user"`
+	Uri         string `cloud:"uri" mapstructure:"uri" json:"uri" yaml:"uri" toml:"uri" validate:"url,required"`
+	PortLdap    int    `cloud:"port-ldap" mapstructure:"port-ldap" json:"port-ldap" yaml:"port-ldap" toml:"port-ldap" validate:"int,gte=0,nefield=Portldaps,required"`
+	Portldaps   int    `cloud:"port-ldaps" mapstructure:"port-ldaps" json:"port-ldaps" yaml:"port-ldaps" toml:"port-ldaps" validate:"int,nefield=Portldap,omitempty"`
+	Basedn      string `cloud:"basedn" mapstructure:"basedn" json:"basedn" yaml:"basedn" toml:"basedn" validate:"printascii,omitempty"`
+	FilterGroup string `cloud:"filter-group" mapstructure:"filter-group" json:"filter-group" yaml:"filter-group" toml:"filter-group" validate:"printascii,required"`
+	FilterUser  string `cloud:"filter-user" mapstructure:"filter-user" json:"filter-user" yaml:"filter-user" toml:"filter-user" validate:"printascii,required"`
 }
 
 func NewConfig() *Config {
@@ -102,4 +105,26 @@ func (cnf Config) PatternFilterGroup() string {
 
 func (cnf Config) PatternFilterUser() string {
 	return cnf.FilterUser
+}
+
+func (cnf Config) Validate() errors.Error {
+	val := validator.New()
+	err := val.Struct(cnf)
+
+	if e, ok := err.(*validator.InvalidValidationError); ok {
+		return ErrorLDAPValidatorError.ErrorParent(e)
+	}
+
+	out := ErrorLDAPValidatorError.Error(nil)
+
+	for _, e := range err.(validator.ValidationErrors) {
+		//nolint goerr113
+		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
+	}
+
+	if out.HasParent() {
+		return out
+	}
+
+	return nil
 }
