@@ -92,6 +92,7 @@ type Error interface {
 
 	IsError(e error) bool
 	HasError(err error) bool
+	HasParent() bool
 
 	AddParent(parent ...error)
 	SetParent(parent ...error)
@@ -241,6 +242,10 @@ func (e *errors) HasError(err error) bool {
 	}
 
 	return false
+}
+
+func (e *errors) HasParent() bool {
+	return len(e.p) > 0
 }
 
 func (e *errors) SetParent(parent ...error) {
