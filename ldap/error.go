@@ -45,6 +45,7 @@ const (
 	ErrorLDAPInvalidUID
 	ErrorLDAPAttributeNotFound
 	ErrorLDAPAttributeEmpty
+	ErrorLDAPValidatorError
 )
 
 var isCodeError = false
@@ -94,6 +95,8 @@ func getMessage(code errors.CodeError) (message string) {
 		return "requested attribute is not found"
 	case ErrorLDAPAttributeEmpty:
 		return "requested attribute is empty"
+	case ErrorLDAPValidatorError:
+		return "invalid validation config"
 	}
 
 	return ""
