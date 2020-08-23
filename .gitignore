@@ -15,6 +15,7 @@
 vendor/
 vendor*/
 *.lock
+go.sum
 
 # Jetbrain IDE files
 .idea/
