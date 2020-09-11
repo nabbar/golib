@@ -40,7 +40,7 @@ func systemFileDescriptor(newValue int) (current int, max int, err Error) {
 	)
 
 	if e = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-		err = SYSCALL_RLIMIT_GET.ErrorParent(e)
+		err = ErrorSyscallRLimitGet.ErrorParent(e)
 		return
 	}
 
@@ -65,7 +65,7 @@ func systemFileDescriptor(newValue int) (current int, max int, err Error) {
 
 	if chg {
 		if e = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-			err = SYSCALL_RLIMIT_SET.ErrorParent(e)
+			err = ErrorSyscallRLimitSet.ErrorParent(e)
 			return
 		}
 

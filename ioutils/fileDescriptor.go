@@ -48,8 +48,7 @@ import . "github.com/nabbar/golib/errors"
  *	4) for win64 use this env var in prefix of your go build command (recommend to use -a flag) :
  *		CC=/usr/bin/x86_64-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v ...
  *
- *	Normally no problem will be result in the build
- *
+ *	Normally no problem will be result in the build.
  */
 func SystemFileDescriptor(newValue int) (current int, max int, err Error) {
 	return systemFileDescriptor(newValue)
