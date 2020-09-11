@@ -27,8 +27,8 @@
 package errors
 
 const (
-	MIN_PKG_Archive = 100
-	//	MIN_PKG_Artifact   = 200 // unused
+	MIN_PKG_Archive    = 100
+	MIN_PKG_Artifact   = 200
 	MIN_PKG_Certif     = 300
 	MIN_PKG_Console    = 400
 	MIN_PKG_Crypt      = 500
@@ -37,12 +37,12 @@ const (
 	MIN_PKG_IOUtils    = 800
 	MIN_PKG_LDAP       = 900
 	MIN_PKG_Network    = 1000
-	//	MIN_PKG_Password   = 1100 // unused
-	//	MIN_PKG_Progress   = 1200 // unused
-	MIN_PKG_Router    = 1300
-	MIN_PKG_Semaphore = 1400
-	MIN_PKG_SMTP      = 1500
-	MIN_PKG_Static    = 1600
+	MIN_PKG_OAuth      = 1100
+	MIN_PKG_Aws        = 1200
+	MIN_PKG_Router     = 1300
+	MIN_PKG_Semaphore  = 1400
+	MIN_PKG_SMTP       = 1500
+	MIN_PKG_Static     = 1600
 	//	MIN_PKG_Status    = 1700 // unused
 	//	MIN_PKG_Update    = 1800 // unused
 	MIN_PKG_Version = 1900
