@@ -62,9 +62,16 @@ func getFrame() runtime.Frame {
 
 			if strings.Contains(frame.Function, currPkgs) {
 				continue
+			} else {
+				// next frame to escape files errors
+				frame, _ = frames.Next()
 			}
 
-			return frame
+			return runtime.Frame{
+				Function: frame.Function,
+				File:     frame.File,
+				Line:     frame.Line,
+			}
 		}
 	}
 
