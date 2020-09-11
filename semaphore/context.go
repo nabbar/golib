@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-func GetContext(timeout time.Duration, deadline time.Time, parent context.Context) (ctx context.Context, cancel context.CancelFunc) {
+func NewContext(parent context.Context, timeout time.Duration, deadline time.Time) (ctx context.Context, cancel context.CancelFunc) {
 	if parent == nil {
 		parent = context.Background()
 	}
@@ -44,6 +44,6 @@ func GetContext(timeout time.Duration, deadline time.Time, parent context.Contex
 	return context.WithCancel(parent)
 }
 
-func GetEmptyTime() time.Time {
+func EmptyTime() time.Time {
 	return time.Time{}
 }
