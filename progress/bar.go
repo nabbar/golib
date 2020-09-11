@@ -26,47 +26,49 @@
 package progress
 
 import (
-	"context"
+	"time"
 
+	"github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/semaphore"
 	"github.com/vbauerster/mpb/v5"
-
-	. "github.com/nabbar/golib/errors"
-
-	sem "github.com/nabbar/golib/semaphore"
 )
 
 type bar struct {
-	u bool
+	i time.Time
+	s semaphore.Sem
 	t int64
-
 	b *mpb.Bar
-	s sem.Sem
+	u bool
+	w bool
 }
 
 type Bar interface {
 	Current() int64
 	Completed() bool
-	Increment(n int)
-	Refill(amount int64)
+	Reset(total, current int64)
+	ResetDefined(current int64)
+	Done()
 
-	NewWorker() Error
+	Increment(n int)
+	Increment64(n int64)
+
+	NewWorker() errors.Error
 	NewWorkerTry() bool
 	DeferWorker()
 	DeferMain(dropBar bool)
 
-	WaitAll() Error
-	Context() context.Context
-	Cancel()
+	WaitAll() errors.Error
 
 	GetBarMPB() *mpb.Bar
 }
 
-func newBar(b *mpb.Bar, s sem.Sem, total int64) Bar {
+func newBar(b *mpb.Bar, s semaphore.Sem, total int64, isModeUnic bool) Bar {
 	return &bar{
 		u: total > 0,
 		t: total,
 		b: b,
 		s: s,
+		w: isModeUnic,
 	}
 }
 
@@ -83,47 +85,88 @@ func (b bar) Completed() bool {
 }
 
 func (b *bar) Increment(n int) {
-	if n == 0 {
-		n = 1
+	if n > 0 {
+		b.b.IncrBy(n)
+
+		if b.i != semaphore.EmptyTime() {
+			b.b.DecoratorEwmaUpdate(time.Since(b.i))
+		}
 	}
-	b.b.IncrBy(n)
+
+	b.i = time.Now()
 }
 
-func (b *bar) Refill(amount int64) {
-	b.b.SetRefill(amount)
+func (b *bar) Increment64(n int64) {
+	if n > 0 {
+		b.b.IncrInt64(n)
+
+		if b.i != semaphore.EmptyTime() {
+			b.b.DecoratorEwmaUpdate(time.Since(b.i))
+		}
+	}
+
+	b.i = time.Now()
 }
 
-func (b *bar) NewWorker() Error {
+func (b *bar) ResetDefined(current int64) {
+	if current >= b.t {
+		b.b.SetTotal(b.t, true)
+		b.b.SetRefill(b.t)
+	} else {
+		b.b.SetTotal(b.t, false)
+		b.b.SetRefill(current)
+	}
+}
+
+func (b *bar) Reset(total, current int64) {
+	b.u = total > 0
+	b.t = total
+	b.ResetDefined(current)
+}
+
+func (b *bar) Done() {
+	b.b.SetRefill(b.t)
+	b.b.SetTotal(b.t, true)
+}
+
+func (b *bar) NewWorker() errors.Error {
 	if !b.u {
 		b.t++
 		b.b.SetTotal(b.t, false)
 	}
 
-	return b.s.NewWorker()
+	if !b.w {
+		return b.s.NewWorker()
+	}
+
+	return nil
 }
 
 func (b *bar) NewWorkerTry() bool {
-	return b.s.NewWorkerTry()
+
+	if !b.w {
+		return b.s.NewWorkerTry()
+	}
+
+	return false
 }
 
 func (b *bar) DeferWorker() {
-	b.b.Increment()
+	b.Increment(1)
 	b.s.DeferWorker()
 }
 
 func (b *bar) DeferMain(dropBar bool) {
 	b.b.Abort(dropBar)
-	b.s.DeferMain()
+	if !b.w {
+		b.s.DeferMain()
+	}
 }
 
-func (b *bar) WaitAll() Error {
-	return b.s.WaitAll()
-}
+func (b *bar) WaitAll() errors.Error {
+	if !b.w {
+		return b.s.WaitAll()
+	}
 
-func (b bar) Context() context.Context {
-	return b.s.Context()
-}
-
-func (b bar) Cancel() {
-	b.s.Cancel()
+	return nil
 }
