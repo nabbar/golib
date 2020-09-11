@@ -26,31 +26,26 @@
 package main
 
 import (
-	"io"
+	"fmt"
 	"io/ioutil"
-
-	"github.com/nabbar/golib/errors"
+	"os"
+	"path"
 
 	"github.com/nabbar/golib/archive"
+	"github.com/nabbar/golib/errors"
 	"github.com/nabbar/golib/ioutils"
+	"github.com/nabbar/golib/logger"
 )
 
-// git archive --format=tar --output=git.tar HEAD
-//const fileName = "./git.tar"
-const fileName = "./vendor.zip"
-
-//const contain = "version/license_mit.go"
-const contain = "vendor/github.com/gin-gonic/gin/internal/json/json.go"
-
-//const regex = ""
-const regex = "vendor\\.tar(\\.(?:gz|bz))?"
+// git archive --format=tar --output=git.tar HEAD && gzip git.tar
+const fileName = "./git.tar.gz"
 
 func main() {
 	var (
 		src ioutils.FileProgress
 		tmp ioutils.FileProgress
-		rio ioutils.FileProgress
-		err errors.Error
+		out string
+		err error
 	)
 
 	defer func() {
@@ -60,10 +55,12 @@ func main() {
 		if tmp != nil {
 			_ = tmp.Close()
 		}
-		if rio != nil {
-			_ = rio.Close()
-		}
 	}()
+
+	logger.SetLevel(logger.DebugLevel)
+	logger.EnableColor()
+	logger.FileTrace(true)
+	errors.SetModeReturnError(errors.ErrorReturnCodeErrorTraceFull)
 
 	if src, err = ioutils.NewFileProgressPathOpen(fileName); err != nil {
 		panic(err)
@@ -71,27 +68,28 @@ func main() {
 
 	if tmp, err = ioutils.NewFileProgressTemp(); err != nil {
 		panic(err)
+	} else {
+		out = tmp.FilePath()
+		_ = tmp.Close()
 	}
 
-	if rio, err = ioutils.NewFileProgressTemp(); err != nil {
+	if err = archive.ExtractAll(src, path.Base(src.FilePath()), out, 0775); err != nil {
 		panic(err)
 	}
 
-	if _, e := tmp.ReadFrom(src); e != nil {
-		panic(e)
-	}
-
-	if err = archive.ExtractFile(tmp, rio, contain, regex); err != nil {
-		panic(err)
-	}
-
-	if _, e := rio.Seek(0, io.SeekStart); e != nil {
-		panic(e)
-	}
-
-	if b, e := ioutil.ReadAll(rio); e != nil {
+	if list, e := ioutil.ReadDir(out); e != nil {
 		panic(e)
 	} else {
-		println(string(b))
+		for _, f := range list {
+			var (
+				isDir  bool
+				isLink bool
+				isFile bool
+			)
+			isDir = f.IsDir()
+			isLink = f.Mode()&os.ModeSymlink == os.ModeSymlink
+			isFile = !isLink && !isDir
+			println(fmt.Sprintf("Item '%s' is Dir '%v', is Link '%v', is File '%v'", f.Name(), isDir, isLink, isFile))
+		}
 	}
 }
