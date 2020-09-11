@@ -60,6 +60,13 @@ jobs:
           CGO_ENABLED: 0
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
+      - name: Check tests
+        continue-on-error: true
+        run: ginkgo -cover ./...
+        env:
+          GOOS: linux
+          CGO_ENABLED: 0
+
       - name: Add ming-w32 (x86 + win64)
         run: sudo apt-get install gcc-multilib gcc-mingw-w64
 
