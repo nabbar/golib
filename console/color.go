@@ -30,8 +30,7 @@ import (
 	"fmt"
 
 	"github.com/fatih/color"
-
-	. "github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/errors"
 )
 
 type colorType uint8
@@ -86,13 +85,13 @@ func (c colorType) Print(text string) {
 	}
 }
 
-func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...interface{}) (n int, err Error) {
+func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...interface{}) (n int, err errors.Error) {
 	if colorList[c] != nil && buff != nil {
 
 		i, e := colorList[c].Fprintf(buff, format, args...) // #nosec
 
 		if e != nil {
-			return i, COLOR_IO_FRINTF.ErrorParent(e)
+			return i, ErrorColorIOFprintf.ErrorParent(e)
 		}
 
 		return i, nil
@@ -102,12 +101,12 @@ func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...int
 		i, e := buff.Write([]byte(fmt.Sprintf(format, args...)))
 
 		if e != nil {
-			return i, COLOR_BUFF_WRITE.ErrorParent(e)
+			return i, ErrorColorBufWrite.ErrorParent(e)
 		}
 
 		return i, nil
 	} else {
-		return 0, COLOR_BUFF_UNDEFINED.Error(nil)
+		return 0, ErrorColorBufUndefined.Error(nil)
 	}
 }
 

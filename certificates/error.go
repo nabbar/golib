@@ -29,12 +29,12 @@ package certificates
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Certif
-	FILE_STAT_ERROR
-	FILE_READ_ERROR
-	CERT_APPEND_KO
-	CERT_LOAD_KEYPAIR
-	CERT_PARSE_KEYPAIR
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Certif
+	ErrorFileStat
+	ErrorFileRead
+	ErrorCertAppend
+	ErrorCertKeyPairLoad
+	ErrorCertKeyPairParse
 )
 
 var isCodeError = false
@@ -44,23 +44,25 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case FILE_STAT_ERROR:
+	case ErrorFileStat:
 		return "cannot get file stat"
-	case FILE_READ_ERROR:
+	case ErrorFileRead:
 		return "cannot read file"
-	case CERT_APPEND_KO:
+	case ErrorCertAppend:
 		return "cannot append PEM file"
-	case CERT_LOAD_KEYPAIR:
+	case ErrorCertKeyPairLoad:
 		return "cannot X509 parsing certificate string"
-	case CERT_PARSE_KEYPAIR:
+	case ErrorCertKeyPairParse:
 		return "cannot x509 loading certificate file"
 	}
 

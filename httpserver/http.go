@@ -40,11 +40,9 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/http2"
-
 	certif "github.com/nabbar/golib/certificates"
-
-	. "github.com/nabbar/golib/logger"
+	"github.com/nabbar/golib/logger"
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -184,7 +182,7 @@ func (srv *modelServer) Listen() {
 
 	srv.srv = &http.Server{
 		Addr:      srv.GetBindable(),
-		ErrorLog:  GetLogger(ErrorLevel, log.LstdFlags|log.Lmicroseconds, "[http/http2 server '%s']", srv.GetBindable()),
+		ErrorLog:  logger.GetLogger(logger.ErrorLevel, log.LstdFlags|log.Lmicroseconds, "[http/http2 server '%s']", srv.GetBindable()),
 		Handler:   srv.hdl,
 		TLSConfig: srv.ssl,
 	}
@@ -201,23 +199,23 @@ func (srv *modelServer) Listen() {
 	}
 
 	err := http2.ConfigureServer(srv.srv, cnf)
-	FatalLevel.LogErrorCtxf(DebugLevel, "Configuring Server '%s'", err, srv.host)
+	logger.FatalLevel.LogErrorCtxf(logger.DebugLevel, "Configuring Server '%s'", err, srv.host)
 
 	go func() {
 		if srv.ssl == nil || !certif.CheckCertificates() {
-			InfoLevel.Logf("Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
+			logger.InfoLevel.Logf("Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
 
 			err := srv.srv.ListenAndServe()
 
-			FatalLevel.LogErrorCtxf(NilLevel, "Listen Server '%s'", err, srv.host)
+			logger.FatalLevel.LogErrorCtxf(logger.NilLevel, "Listen Server '%s'", err, srv.host)
 
 		} else {
 
-			InfoLevel.Logf("TLS Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
+			logger.InfoLevel.Logf("TLS Server '%s' is starting with bindable: %s", srv.host, srv.GetBindable())
 
 			err := srv.srv.ListenAndServeTLS("", "")
 
-			FatalLevel.LogErrorCtxf(NilLevel, "Listen Server '%s'", err, srv.host)
+			logger.FatalLevel.LogErrorCtxf(logger.NilLevel, "Listen Server '%s'", err, srv.host)
 		}
 	}()
 }
@@ -244,7 +242,7 @@ func (srv *modelServer) Restart() {
 }
 
 func (srv *modelServer) Shutdown() {
-	InfoLevel.Logf("Shutdown Server '%s'...", srv.addr.Host)
+	logger.InfoLevel.Logf("Shutdown Server '%s'...", srv.addr.Host)
 
 	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT_10_SEC)
 	defer cancel()
@@ -254,7 +252,7 @@ func (srv *modelServer) Shutdown() {
 	}
 
 	if err := srv.srv.Shutdown(ctx); err != nil {
-		FatalLevel.Logf("Shutdown Server '%s' Error: %v", srv.host, err)
+		logger.FatalLevel.Logf("Shutdown Server '%s' Error: %v", srv.host, err)
 	}
 
 	srv.srv = nil

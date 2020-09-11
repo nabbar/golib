@@ -29,15 +29,15 @@ package crypt
 import errors "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Crypt
-	HEXA_DECODE
-	HEXA_KEY
-	HEXA_NONCE
-	BYTE_KEYGEN
-	BYTE_NONCEGEN
-	AES_BLOCK
-	AES_GCM
-	AES_DECRYPT
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Crypt
+	ErrorHexaDecode
+	ErrorHexaKey
+	ErrorHexaNonce
+	ErrorByteKeygen
+	ErrorByteNonceGen
+	ErrorAESBlock
+	ErrorAESGCM
+	ErrorAESDecrypt
 )
 
 var isCodeError = false
@@ -47,29 +47,31 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case HEXA_DECODE:
+	case ErrorHexaDecode:
 		return "hexa decode error"
-	case HEXA_KEY:
+	case ErrorHexaKey:
 		return "converting hexa key error"
-	case HEXA_NONCE:
+	case ErrorHexaNonce:
 		return "converting hexa nonce error"
-	case BYTE_KEYGEN:
+	case ErrorByteKeygen:
 		return "key generate error"
-	case BYTE_NONCEGEN:
+	case ErrorByteNonceGen:
 		return "nonce generate error"
-	case AES_BLOCK:
+	case ErrorAESBlock:
 		return "init AES block error"
-	case AES_GCM:
+	case ErrorAESGCM:
 		return "init AES GCM error"
-	case AES_DECRYPT:
+	case ErrorAESDecrypt:
 		return "decrypt AES GCM error"
 	}
 

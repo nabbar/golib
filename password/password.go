@@ -34,7 +34,7 @@ const letterBytes = "abcdefghijklmnopqrstuvwxyz,;:!?./*%^$&\"'(-_)=+~#{[|`\\^@]}
 const (
 	// If we have 93 chars, that means 7 bits code a letter index.
 	// So 63 random bits can designate 63/7 = 9 different letter indices.
-	// Let's use all those 10
+	// Let's use all those 10.
 	letterIdxBits  = 7                    // 6 bits to represent a letter index
 	letterIdxMask  = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
 	letterIdxMax   = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
@@ -66,7 +66,7 @@ func randStringBytesMaskImprSrc(n int) string {
 }
 
 // Generate Generate a random string could be used as password.
-//The len is defined by given 'n' parameters
+// The len is defined by given 'n' parameters.
 func Generate(n int) string {
 	if n > loopRandMaxLen {
 		var s = ""
