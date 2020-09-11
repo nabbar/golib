@@ -100,16 +100,17 @@ func NewVersion(License license, Package, Description, Date, Build, Release, Aut
 func (vers versionModel) CheckGo(RequireGoVersion, RequireGoContraint string) Error {
 	constraint, err := govers.NewConstraint(RequireGoContraint + RequireGoVersion)
 	if err != nil {
-		return GOVERSION_INIT.ErrorParent(err)
+		return ErrorGoVersionInit.ErrorParent(err)
 	}
 
 	goVersion, err := govers.NewVersion(runtime.Version()[2:])
 	if err != nil {
-		return GOVERSION_RUNTIME.ErrorParent(err)
+		return ErrorGoVersionRuntime.ErrorParent(err)
 	}
 
 	if !constraint.Check(goVersion) {
-		return GOVERSION_CONTRAINT.ErrorParent(fmt.Errorf("must be compiled with Go version %s (instead of %s)", RequireGoVersion, goVersion))
+		//nolint #goerr113
+		return ErrorGoVersionConstraint.ErrorParent(fmt.Errorf("must be compiled with Go version %s (instead of %s)", RequireGoVersion, goVersion))
 	}
 
 	return nil
@@ -125,22 +126,22 @@ func (vers versionModel) getYearOfDate() string {
 	return fmt.Sprintf("%d", dt.Year())
 }
 
-// Info print all information about current build and version
+// Info print all information about current build and version.
 func (vers versionModel) PrintInfo() {
 	println(fmt.Sprintf("Running %s", vers.GetHeader()))
 }
 
-// GetInfo return string about current build and version
+// GetInfo return string about current build and version.
 func (vers versionModel) GetInfo() string {
 	return fmt.Sprintf("Release: %s, Build: %s, Date: %s", vers.versionRelease, vers.versionBuild, vers.versionDate)
 }
 
-// GetAppId return string about package name, release and runtime info
+// GetAppId return string about package name, release and runtime info.
 func (vers versionModel) GetAppId() string {
 	return fmt.Sprintf("%s (OS: %s; Arch: %s; Runtime: %s)", vers.versionRelease, runtime.GOOS, runtime.GOARCH, runtime.Version()[2:])
 }
 
-// GetAuthor return string about author name and repository info
+// GetAuthor return string about author name and repository info.
 func (vers versionModel) GetAuthor() string {
 	return fmt.Sprintf("by %s (source : %s)", vers.versionAuthor, vers.versionSource)
 }
@@ -149,7 +150,7 @@ func (vers versionModel) GetDescription() string {
 	return vers.versionDescription
 }
 
-// GetAuthor return string about author name and repository info
+// GetAuthor return string about author name and repository info.
 func (vers versionModel) GetHeader() string {
 	return fmt.Sprintf("%s (%s)", vers.versionPackage, vers.GetInfo())
 }

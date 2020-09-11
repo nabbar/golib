@@ -92,12 +92,12 @@ func NewAttachmentFile(name string, filepath string) (Attachment, Error) {
 	var b = bytes.NewBuffer([]byte{})
 
 	if _, e := os.Stat(filepath); e != nil {
-		return nil, FILE_STAT.ErrorParent(e)
+		return nil, ErrorFileStat.ErrorParent(e)
 	}
 
 	// #nosec
 	if bb, e := ioutil.ReadFile(filepath); e != nil {
-		return nil, FILE_READ.ErrorParent(e)
+		return nil, ErrorFileRead.ErrorParent(e)
 	} else {
 		b.Write(bb)
 	}

@@ -79,11 +79,11 @@ func AddRootCAContents(rootContent string) bool {
 
 func AddRootCAFile(rootFile string) Error {
 	if rootFile == "" {
-		return EMPTY_PARAMS.Error(nil)
+		return ErrorParamsEmpty.Error(nil)
 	}
 
 	if _, e := os.Stat(rootFile); e != nil {
-		return FILE_STAT_ERROR.ErrorParent(e)
+		return ErrorFileStat.ErrorParent(e)
 	}
 
 	c, e := ioutil.ReadFile(rootFile) // #nosec
@@ -93,10 +93,10 @@ func AddRootCAFile(rootFile string) Error {
 			return nil
 		}
 
-		return CERT_APPEND_KO.Error(nil)
+		return ErrorCertAppend.Error(nil)
 	}
 
-	return FILE_READ_ERROR.ErrorParent(e)
+	return ErrorFileRead.ErrorParent(e)
 }
 
 func AddCACertificateContents(caContent string) bool {
@@ -109,11 +109,11 @@ func AddCACertificateContents(caContent string) bool {
 
 func AddCACertificateFile(caFile string) Error {
 	if caFile == "" {
-		return EMPTY_PARAMS.Error(nil)
+		return ErrorParamsEmpty.Error(nil)
 	}
 
 	if _, e := os.Stat(caFile); e != nil {
-		return FILE_STAT_ERROR.ErrorParent(e)
+		return ErrorFileStat.ErrorParent(e)
 	}
 
 	c, e := ioutil.ReadFile(caFile) // #nosec
@@ -123,10 +123,10 @@ func AddCACertificateFile(caFile string) Error {
 			return nil
 		}
 
-		return CERT_APPEND_KO.Error(nil)
+		return ErrorCertAppend.Error(nil)
 	}
 
-	return FILE_READ_ERROR.ErrorParent(e)
+	return ErrorFileRead.ErrorParent(e)
 }
 
 func CheckCertificates() bool {
@@ -144,30 +144,30 @@ func AddCertificateContents(keyContents, certContents string) Error {
 			return nil
 		}
 
-		return CERT_PARSE_KEYPAIR.ErrorParent(err)
+		return ErrorCertKeyPairParse.ErrorParent(err)
 	}
 
-	return EMPTY_PARAMS.Error(nil)
+	return ErrorParamsEmpty.Error(nil)
 }
 
 func AddCertificateFile(keyFile, certFile string) Error {
 	if keyFile == "" || certFile == "" {
-		return EMPTY_PARAMS.Error(nil)
+		return ErrorParamsEmpty.Error(nil)
 	}
 
 	if _, e := os.Stat(keyFile); e != nil {
-		return FILE_STAT_ERROR.ErrorParent(e)
+		return ErrorFileStat.ErrorParent(e)
 	}
 
 	if _, e := os.Stat(certFile); e != nil {
-		return FILE_STAT_ERROR.ErrorParent(e)
+		return ErrorFileStat.ErrorParent(e)
 	}
 
 	if c, e := tls.LoadX509KeyPair(certFile, keyFile); e == nil {
 		certificates = append(certificates, c)
 		return nil
 	} else {
-		return CERT_LOAD_KEYPAIR.ErrorParent(e)
+		return ErrorCertKeyPairLoad.ErrorParent(e)
 	}
 }
 

@@ -29,11 +29,11 @@ package network
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Network
-	NET_COUNTER
-	NET_INTERFACE
-	NET_NOTFOUND
-	NET_RELOAD
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Network
+	ErrorNetCounter
+	ErrorNetInterface
+	ErrorNetNotFound
+	ErrorNetReload
 )
 
 var isCodeError = false
@@ -43,21 +43,23 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case NET_COUNTER:
+	case ErrorNetCounter:
 		return "cannot read networks counters"
-	case NET_INTERFACE:
+	case ErrorNetInterface:
 		return "cannot retrieve interface information"
-	case NET_NOTFOUND:
+	case ErrorNetNotFound:
 		return "interface not found"
-	case NET_RELOAD:
+	case ErrorNetReload:
 		return "cannot reload interface"
 	}
 
