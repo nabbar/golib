@@ -64,7 +64,7 @@ func GetDefaultAttributes() []string {
 }
 
 type Config struct {
-	Uri         string `cloud:"uri" mapstructure:"uri" json:"uri" yaml:"uri" toml:"uri" validate:"url,required"`
+	Uri         string `cloud:"uri" mapstructure:"uri" json:"uri" yaml:"uri" toml:"uri" validate:"fqdn,required"`
 	PortLdap    int    `cloud:"port-ldap" mapstructure:"port-ldap" json:"port-ldap" yaml:"port-ldap" toml:"port-ldap" validate:"number,gte=0,nefield=Portldaps,required"`
 	Portldaps   int    `cloud:"port-ldaps" mapstructure:"port-ldaps" json:"port-ldaps" yaml:"port-ldaps" toml:"port-ldaps" validate:"number,nefield=Portldap,omitempty"`
 	Basedn      string `cloud:"basedn" mapstructure:"basedn" json:"basedn" yaml:"basedn" toml:"basedn" validate:"printascii,omitempty"`
