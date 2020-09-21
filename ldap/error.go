@@ -46,6 +46,7 @@ const (
 	ErrorLDAPAttributeNotFound
 	ErrorLDAPAttributeEmpty
 	ErrorLDAPValidatorError
+	ErrorLDAPGroupNotFound
 )
 
 var isCodeError = false
@@ -97,6 +98,8 @@ func getMessage(code errors.CodeError) (message string) {
 		return "requested attribute is empty"
 	case ErrorLDAPValidatorError:
 		return "invalid validation config"
+	case ErrorLDAPGroupNotFound:
+		return "group not found"
 	}
 
 	return ""
