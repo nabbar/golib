@@ -28,24 +28,20 @@ package gzip
 import (
 	gz "compress/gzip"
 	"io"
-	"os"
 
-	. "github.com/nabbar/golib/errors"
-	//. "github.com/nabbar/golib/logger"
-
-	iou "github.com/nabbar/golib/ioutils"
+	"github.com/nabbar/golib/errors"
 )
 
-func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err Error) {
-	if _, e := src.Seek(0, 0); e != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "seeking buffer", e)
-		return nil, FILE_SEEK.ErrorParent(e)
+func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
+	if _, e := src.Seek(0, io.SeekStart); e != nil {
+		return ErrorFileSeek.ErrorParent(e)
+	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
+		return ErrorFileSeek.ErrorParent(e)
 	}
 
 	r, e := gz.NewReader(src)
 	if e != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "init gzip reader", e)
-		return nil, GZ_READER.ErrorParent(e)
+		return ErrorGZReader.ErrorParent(e)
 	}
 
 	defer func() {
@@ -53,16 +49,11 @@ func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File,
 	}()
 
 	// #nosec
-	if t, e := iou.NewTempFile(); e != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", e)
-		return nil, e
-	} else if _, e := io.Copy(t, r); e != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "copy buffer from archive reader", e)
-		return nil, IO_COPY.ErrorParent(e)
-	} else if _, e := t.Seek(0, 0); e != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "seeking temp file", e)
-		return nil, FILE_SEEK.ErrorParent(e)
+	if _, e = io.Copy(dst, r); e != nil {
+		return ErrorIOCopy.ErrorParent(e)
+	} else if _, e := dst.Seek(0, io.SeekStart); e != nil {
+		return ErrorFileSeek.ErrorParent(e)
 	} else {
-		return t, nil
+		return nil
 	}
 }

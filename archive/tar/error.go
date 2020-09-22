@@ -29,10 +29,19 @@ package tar
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Archive + 30
-	TAR_NEXT
-	FILE_SEEK
-	IO_COPY
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Archive + 30
+	ErrorTarNext
+	ErrorFileOpen
+	ErrorFileSeek
+	ErrorFileClose
+	ErrorIOCopy
+	ErrorDirCreate
+	ErrorLinkCreate
+	ErrorSymLinkCreate
+	ErrorDestinationStat
+	ErrorDestinationIsDir
+	ErrorDestinationIsNotDir
+	ErrorDestinationRemove
 )
 
 var isCodeError = false
@@ -42,20 +51,40 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case TAR_NEXT:
+	case ErrorTarNext:
 		return "cannot get next tar file"
-	case FILE_SEEK:
+	case ErrorFileSeek:
 		return "cannot seek into file"
-	case IO_COPY:
+	case ErrorFileOpen:
+		return "cannot open file"
+	case ErrorFileClose:
+		return "closing file occurs error"
+	case ErrorIOCopy:
 		return "io copy occurs error"
+	case ErrorDirCreate:
+		return "make directory occurs error"
+	case ErrorLinkCreate:
+		return "creation of symlink occurs error"
+	case ErrorSymLinkCreate:
+		return "creation of symlink occurs error"
+	case ErrorDestinationStat:
+		return "cannot stat destination"
+	case ErrorDestinationIsDir:
+		return "cannot create destination not directory over an existing directory"
+	case ErrorDestinationIsNotDir:
+		return "cannot create destination directory over an existing non directory"
+	case ErrorDestinationRemove:
+		return "cannot remove destination "
 	}
 
 	return ""

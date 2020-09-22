@@ -29,12 +29,16 @@ package ioutils
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_IOUtils
-	SYSCALL_RLIMIT_GET
-	SYSCALL_RLIMIT_SET
-	IO_TEMP_FILE_NEW
-	IO_TEMP_FILE_CLOSE
-	IO_TEMP_FILE_REMOVE
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_IOUtils
+	ErrorSyscallRLimitGet
+	ErrorSyscallRLimitSet
+	ErrorIOFileStat
+	ErrorIOFileSeek
+	ErrorIOFileOpen
+	ErrorIOFileTempNew
+	ErrorIOFileTempClose
+	ErrorIOFileTempRemove
+	ErrorNilPointer
 )
 
 var isCodeError = false
@@ -44,24 +48,34 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case SYSCALL_RLIMIT_GET:
+	case ErrorSyscallRLimitGet:
 		return "error on retrieve value in syscall rlimit"
-	case SYSCALL_RLIMIT_SET:
+	case ErrorSyscallRLimitSet:
 		return "error on changing value in syscall rlimit"
-	case IO_TEMP_FILE_NEW:
+	case ErrorIOFileStat:
+		return "error occur while trying to get stat of file"
+	case ErrorIOFileSeek:
+		return "error occur while trying seek into file"
+	case ErrorIOFileOpen:
+		return "error occur while trying to open file"
+	case ErrorIOFileTempNew:
 		return "error occur while trying to create new temporary file"
-	case IO_TEMP_FILE_CLOSE:
+	case ErrorIOFileTempClose:
 		return "closing temporary file occurs error"
-	case IO_TEMP_FILE_REMOVE:
+	case ErrorIOFileTempRemove:
 		return "error occurs on removing temporary file"
+	case ErrorNilPointer:
+		return "cannot call function for a nil pointer"
 	}
 
 	return ""

@@ -28,7 +28,8 @@ package main
 import (
 	"io"
 	"io/ioutil"
-	"os"
+
+	"github.com/nabbar/golib/errors"
 
 	"github.com/nabbar/golib/archive"
 	"github.com/nabbar/golib/ioutils"
@@ -46,42 +47,46 @@ const regex = "vendor\\.tar(\\.(?:gz|bz))?"
 
 func main() {
 	var (
-		src *os.File
-		tmp *os.File
-		rio *os.File
-		err error
+		src ioutils.FileProgress
+		tmp ioutils.FileProgress
+		rio ioutils.FileProgress
+		err errors.Error
 	)
 
-	if src, err = os.Open(fileName); err != nil {
-		panic(err)
-	}
-
 	defer func() {
-		_ = src.Close()
+		if src != nil {
+			_ = src.Close()
+		}
+		if tmp != nil {
+			_ = tmp.Close()
+		}
+		if rio != nil {
+			_ = rio.Close()
+		}
 	}()
 
-	if tmp, err = ioutils.NewTempFile(); err != nil {
+	if src, err = ioutils.NewFileProgressPathOpen(fileName); err != nil {
 		panic(err)
 	}
 
-	defer func() {
-		_ = ioutils.DelTempFile(tmp)
-	}()
-
-	if _, err = io.Copy(tmp, src); err != nil {
+	if tmp, err = ioutils.NewFileProgressTemp(); err != nil {
 		panic(err)
 	}
 
-	if rio, err = archive.ExtractFile(tmp, contain, regex); err != nil {
+	if rio, err = ioutils.NewFileProgressTemp(); err != nil {
 		panic(err)
 	}
 
-	defer func() {
-		_ = rio.Close()
-	}()
+	if _, e := tmp.ReadFrom(src); e != nil {
+		panic(e)
+	}
 
-	if _, err = rio.Seek(0, 0); err != nil {
+	if err = archive.ExtractFile(tmp, rio, contain, regex); err != nil {
 		panic(err)
+	}
+
+	if _, e := rio.Seek(0, io.SeekStart); e != nil {
+		panic(e)
 	}
 
 	if b, e := ioutil.ReadAll(rio); e != nil {

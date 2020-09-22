@@ -33,37 +33,78 @@ import (
 	"github.com/vbauerster/mpb/v5"
 )
 
-var (
-	pb progress.ProgressBar
-	br progress.Bar
-)
-
 func main() {
-	println("Starting...")
+	max := int64(1000000)
+	inc := int64(100)
 
-	pb = progress.NewProgressBar(0, time.Time{}, nil, mpb.WithWidth(64))
-	pb.SetSemaphoreOption(0, 0)
-	br = pb.NewBarSimpleETA("test bar")
+	println("\n\n\n")
+	println("Starting simple...")
+	pb := progress.NewProgressBar(mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
 
-	defer br.DeferMain(false)
+	brE := pb.NewBarSimpleETA("ETA bar", max)
+	brE.Reset(max, 0)
 
-	for i := 0; i < 1000; i++ {
+	brC := pb.NewBarSimpleCounter("counter bar", max)
+	brC.Reset(max, 0)
 
-		if e := br.NewWorker(); e != nil {
+	brK := pb.NewBarSimpleKBits("KiB bar", max)
+	brK.Reset(max, 0)
+
+	defer func() {
+		brE.DeferMain(false)
+		brC.DeferMain(false)
+		brK.DeferMain(false)
+	}()
+
+	for i := int64(0); i < (max / inc); i++ {
+		time.Sleep(5 * time.Millisecond)
+
+		if e := brE.NewWorker(); e != nil {
 			println("Error : " + e.Error())
 			continue
 		}
-
+		if e := brC.NewWorker(); e != nil {
+			println("Error : " + e.Error())
+			brE.DeferWorker()
+			continue
+		}
+		if e := brK.NewWorker(); e != nil {
+			println("Error : " + e.Error())
+			brE.DeferWorker()
+			brC.DeferWorker()
+			continue
+		}
 		go func() {
-			defer br.DeferWorker()
-			rand.Seed(9999)
-			time.Sleep(time.Duration(rand.Intn(999)) * time.Millisecond)
+			defer func() {
+				brE.DeferWorker()
+				brC.DeferWorker()
+				brK.DeferWorker()
+			}()
+
+			rand.Seed(99)
+			time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
+
+			brE.Increment64(inc - 1)
+			brC.Increment64(inc - 1)
+			brK.Increment64(inc - 1)
 		}()
 	}
 
-	if e := br.WaitAll(); e != nil {
+	if e := brE.WaitAll(); e != nil {
+		panic(e)
+	}
+	if e := brC.WaitAll(); e != nil {
+		panic(e)
+	}
+	if e := brK.WaitAll(); e != nil {
 		panic(e)
 	}
 
-	println("finish...")
+	brE.Done()
+	brC.Done()
+	brK.Done()
+
+	time.Sleep(500 * time.Millisecond)
+
+	println("finish simple...")
 }

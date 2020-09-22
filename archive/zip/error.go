@@ -29,12 +29,20 @@ package zip
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Archive + 40
-	FILE_OPEN
-	FILE_CLOSE
-	FILE_SEEK
-	IO_COPY
-	ZIP_OPEN
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Archive + 40
+	ErrorFileOpen
+	ErrorFileClose
+	ErrorFileSeek
+	ErrorFileStat
+	ErrorIOCopy
+	ErrorZipOpen
+	ErrorZipFileOpen
+	ErrorZipFileClose
+	ErrorDirCreate
+	ErrorDestinationStat
+	ErrorDestinationIsDir
+	ErrorDestinationIsNotDir
+	ErrorDestinationRemove
 )
 
 var isCodeError = false
@@ -44,24 +52,42 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case FILE_OPEN:
+	case ErrorFileOpen:
 		return "cannot open zipped file"
-	case FILE_CLOSE:
+	case ErrorFileClose:
 		return "closing file occurs error"
-	case FILE_SEEK:
+	case ErrorFileStat:
+		return "getting file stat occurs error"
+	case ErrorFileSeek:
 		return "cannot seek into file"
-	case IO_COPY:
+	case ErrorIOCopy:
 		return "io copy occurs error"
-	case ZIP_OPEN:
+	case ErrorZipOpen:
 		return "cannot open zip file"
+	case ErrorZipFileOpen:
+		return "cannot open file into zip file"
+	case ErrorZipFileClose:
+		return "cannot flose file into zip file"
+	case ErrorDirCreate:
+		return "make directory occurs error"
+	case ErrorDestinationStat:
+		return "cannot stat destination"
+	case ErrorDestinationIsDir:
+		return "cannot create destination not directory over an existing directory"
+	case ErrorDestinationIsNotDir:
+		return "cannot create destination directory over an existing non directory"
+	case ErrorDestinationRemove:
+		return "cannot remove destination "
 	}
 
 	return ""

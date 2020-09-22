@@ -31,18 +31,17 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nabbar/golib/router"
 	"github.com/nabbar/golib/version"
-
-	"github.com/gin-gonic/gin"
 )
 
 // @TODO : see compliant with https://tools.ietf.org/html/draft-inadarei-api-health-check-02
 
 // Model for function that return 3 string for message :
-// ok : no error found for component and/or main
-// ko : error found for component and/or main
-// cpt : message for main status message only that say some of component are in error and are mandatory
+// ok : no error found for component and/or main.
+// ko : error found for component and/or main.
+// cpt : message for main status message only that say some of component are in error and are mandatory.
 type FctMessagesAll func() (ok string, ko string, cpt string)
 type FctMessageItem func() (ok string, ko string)
 
@@ -332,6 +331,7 @@ func (p *statusItem) GetStatusResponse(c *gin.Context) StatusItemResponse {
 		if err := p.health(); err != nil {
 			msg := fmt.Sprintf("%s: %v", p.msgKO, err)
 			c.Errors = append(c.Errors, &gin.Error{
+				//nolint #goerr113
 				Err:  fmt.Errorf(msg),
 				Type: gin.ErrorTypePrivate,
 			})

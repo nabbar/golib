@@ -26,74 +26,167 @@
 package archive
 
 import (
+	"io"
 	"os"
+	"path"
 
 	"github.com/nabbar/golib/archive/bz2"
 	"github.com/nabbar/golib/archive/gzip"
 	"github.com/nabbar/golib/archive/tar"
 	"github.com/nabbar/golib/archive/zip"
-
-	. "github.com/nabbar/golib/errors"
-	//. "github.com/nabbar/golib/logger"
-
-	iou "github.com/nabbar/golib/ioutils"
+	"github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/ioutils"
+	"github.com/nabbar/golib/logger"
 )
 
 type ArchiveType uint8
 
-func ExtractFile(src *os.File, fileNameContain, fileNameRegex string) (*os.File, Error) {
-	loc := src.Name()
-
-	if dst, err := bz2.GetFile(src, fileNameContain, fileNameRegex); err == nil {
-		//DebugLevel.Log("try deleting source archive...")
-		if err = iou.DelTempFile(src); err != nil {
-			return nil, err
-		}
-		//DebugLevel.Log("try another archive...")
-		return ExtractFile(dst, fileNameContain, fileNameRegex)
-	}
-
-	if dst, err := gzip.GetFile(src, fileNameContain, fileNameRegex); err == nil {
-		//DebugLevel.Log("try deleting source archive...")
-		if err = iou.DelTempFile(src); err != nil {
-			return nil, err
-		}
-		//DebugLevel.Log("try another archive...")
-		return ExtractFile(dst, fileNameContain, fileNameRegex)
-	}
-
-	if dst, err := tar.GetFile(src, fileNameContain, fileNameRegex); err == nil {
-		//DebugLevel.Log("try deleting source archive...")
-		if err = iou.DelTempFile(src); err != nil {
-			return nil, err
-		}
-		//DebugLevel.Log("try another archive...")
-		return ExtractFile(dst, fileNameContain, fileNameRegex)
-	}
-
-	if dst, err := zip.GetFile(src, fileNameContain, fileNameRegex); err == nil {
-		//DebugLevel.Log("try deleting source archive...")
-		if err = iou.DelTempFile(src); err != nil {
-			return nil, err
-		}
-		//DebugLevel.Log("try another archive...")
-		return ExtractFile(dst, fileNameContain, fileNameRegex)
-	}
-
+func ExtractFile(src, dst ioutils.FileProgress, fileNameContain, fileNameRegex string) errors.Error {
 	var (
-		err error
+		tmp ioutils.FileProgress
+		err errors.Error
 	)
 
-	if _, err = src.Seek(0, 0); err != nil {
-		e1 := FILE_SEEK.ErrorParent(err)
-		// #nosec
-		if src, err = os.Open(loc); err != nil {
-			//ErrorLevel.LogErrorCtx(DebugLevel, "reopening file", err)
-			e2 := FILE_OPEN.ErrorParent(err)
-			e2.AddParentError(e1)
-			return nil, e2
-		}
+	if tmp, err = dst.NewFileTemp(); err != nil {
+		return err
 	}
 
-	return src, nil
+	if _, e := src.Seek(0, io.SeekStart); e != nil {
+		return ErrorFileSeek.ErrorParent(e)
+		// #nosec
+	}
+
+	if err := bz2.GetFile(src, tmp); err == nil {
+		//logger.DebugLevel.Log("try another archive...")
+		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
+	} else if err.IsCodeError(bz2.ErrorIOCopy) {
+		return err
+	}
+
+	if err := gzip.GetFile(src, tmp); err == nil {
+		//logger.DebugLevel.Log("try another archive...")
+		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
+	} else if !err.IsCodeError(gzip.ErrorGZReader) {
+		return err
+	}
+
+	if err := tar.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
+		//logger.DebugLevel.Log("try another archive...")
+		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
+	} else if !err.IsCodeError(tar.ErrorTarNext) {
+		return err
+	}
+
+	if err := zip.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
+		//logger.DebugLevel.Log("try another archive...")
+		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
+	} else if !err.IsCodeError(zip.ErrorZipOpen) {
+		return err
+	}
+
+	_ = tmp.Close()
+
+	if _, e := dst.ReadFrom(src); e != nil {
+		//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "reopening file", err)
+		return ErrorIOCopy.ErrorParent(e)
+	}
+
+	return nil
+}
+
+func ExtractAll(src ioutils.FileProgress, originalName, outputPath string, defaultDirPerm os.FileMode) errors.Error {
+	var (
+		tmp ioutils.FileProgress
+		dst ioutils.FileProgress
+		err errors.Error
+	)
+
+	defer func() {
+		if src != nil {
+			_ = src.Close()
+		}
+		if dst != nil {
+			_ = dst.Close()
+		}
+		if tmp != nil {
+			_ = tmp.Close()
+		}
+	}()
+
+	if tmp, err = src.NewFileTemp(); err != nil {
+		return ErrorFileOpen.Error(err)
+	}
+
+	logger.DebugLevel.Log("try BZ2...")
+	if err = bz2.GetFile(src, tmp); err == nil {
+		logger.DebugLevel.Log("try another archive...")
+		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
+	} else if !err.IsCodeError(bz2.ErrorIOCopy) {
+		logger.DebugLevel.Logf("error found on BZ2 : %v", err)
+		return err
+	} else {
+		logger.DebugLevel.Logf("not a BZ2 : %v", err)
+	}
+
+	logger.DebugLevel.Log("try GZIP...")
+	if err = gzip.GetFile(src, tmp); err == nil {
+		logger.DebugLevel.Log("try another archive...")
+		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
+	} else if !err.IsCodeError(gzip.ErrorGZReader) {
+		logger.DebugLevel.Logf("error found on GZIP : %v", err)
+		return err
+	} else {
+		logger.DebugLevel.Logf("not a GZIP : %v", err)
+	}
+
+	if tmp != nil {
+		_ = tmp.Close()
+	}
+
+	logger.DebugLevel.Log("prepare output...")
+	if i, e := os.Stat(outputPath); e != nil && os.IsNotExist(e) {
+		//nolint #nosec //nosec
+		if e := os.MkdirAll(outputPath, 0775); e != nil {
+			return ErrorDirCreate.ErrorParent(e)
+		}
+	} else if e != nil {
+		return ErrorDirStat.ErrorParent(e)
+	} else if !i.IsDir() {
+		return ErrorDirNotDir.Error(nil)
+	}
+
+	logger.DebugLevel.Log("try tar...")
+	if err = tar.GetAll(src, outputPath, defaultDirPerm); err == nil {
+		logger.DebugLevel.Log("extracting TAR finished...")
+		return nil
+	} else if !err.IsCodeError(tar.ErrorTarNext) {
+		logger.DebugLevel.Logf("error found on TAR : %v", err)
+		return err
+	} else {
+		logger.DebugLevel.Logf("not a TAR : %v", err)
+	}
+
+	logger.DebugLevel.Log("try zip...")
+	if err = zip.GetAll(src, outputPath, defaultDirPerm); err == nil {
+		logger.DebugLevel.Log("extracting ZIP finished...")
+		return nil
+	} else if !err.IsCodeError(zip.ErrorZipOpen) {
+		logger.DebugLevel.Logf("error found on ZIP : %v", err)
+		return err
+	} else {
+		logger.DebugLevel.Logf("not a ZIP : %v", err)
+	}
+
+	logger.DebugLevel.Log("writing original file...")
+	if dst, err = src.NewFilePathWrite(path.Join(outputPath, originalName), true, true, 0664); err != nil {
+		return ErrorFileOpen.Error(err)
+	}
+
+	if _, e := src.Seek(0, io.SeekStart); e != nil {
+		return ErrorFileSeek.ErrorParent(e)
+	} else if _, e := dst.ReadFrom(src); e != nil {
+		return ErrorIOCopy.ErrorParent(e)
+	}
+
+	return nil
 }
