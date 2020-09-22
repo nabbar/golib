@@ -31,6 +31,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"syscall"
 
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -84,21 +85,9 @@ func PromptBool(text string) (bool, error) {
 }
 
 func PromptPassword(text string) (string, error) {
-	var (
-		res string
-		err error
-	)
-
 	printPrompt(text)
-	res, err = getTerminal().ReadPassword("")
+	res, err := terminal.ReadPassword(int(syscall.Stdin))
 	fmt.Printf("\n")
 
-	return res, err
-}
-
-func getTerminal() *terminal.Terminal {
-	r := bufio.NewReader(os.Stdin)
-	w := bufio.NewWriter(os.Stdout)
-	b := bufio.NewReadWriter(r, w)
-	return terminal.NewTerminal(b, "")
+	return string(res), err
 }
