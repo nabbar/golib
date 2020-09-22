@@ -436,6 +436,34 @@ func (lc *HelperLDAP) UserInfo(username string) (map[string]string, errors.Error
 	return userRes, nil
 }
 
+//GroupInfo used to retrieve the information of a given group cn.
+func (lc *HelperLDAP) GroupInfo(groupname string) (map[string]interface{}, errors.Error) {
+	var (
+		err     errors.Error
+		src     *ldap.SearchResult
+		grpInfo map[string]interface{}
+	)
+
+	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterGroup, groupname), []string{})
+	if err != nil {
+		return grpInfo, err
+	}
+
+	if len(src.Entries) == 0 {
+		return nil, ErrorLDAPGroupNotFound.Error(nil)
+	}
+
+	grpInfo = make(map[string]interface{}, len(src.Entries[0].Attributes))
+	for _, entry := range src.Entries {
+		for _, entryAttribute := range entry.Attributes {
+			grpInfo[entryAttribute.Name] = entryAttribute.Values
+		}
+	}
+
+	logger.DebugLevel.Logf("Info for group [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), grpInfo)
+	return grpInfo, nil
+}
+
 //UserMemberOf returns the group list of a given user.
 func (lc *HelperLDAP) UserMemberOf(username string) ([]string, errors.Error) {
 	var (
