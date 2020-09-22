@@ -28,11 +28,9 @@ package semaphore
 import (
 	"context"
 	"runtime"
-	"time"
 
+	"github.com/nabbar/golib/errors"
 	"golang.org/x/sync/semaphore"
-
-	. "github.com/nabbar/golib/errors"
 )
 
 type sem struct {
@@ -43,26 +41,28 @@ type sem struct {
 }
 
 type Sem interface {
-	NewWorker() Error
+	NewWorker() errors.Error
 	NewWorkerTry() bool
 	DeferWorker()
 	DeferMain()
 
-	WaitAll() Error
-	Context() context.Context
-	Cancel()
+	WaitAll() errors.Error
 }
 
 func GetMaxSimultaneous() int {
 	return runtime.GOMAXPROCS(0)
 }
 
-func NewSemaphore(maxSimultaneous int, timeout time.Duration, deadline time.Time, parent context.Context) Sem {
+func NewSemaphore(maxSimultaneous int) Sem {
+	return NewSemaphoreWithContext(context.Background(), maxSimultaneous)
+}
+
+func NewSemaphoreWithContext(ctx context.Context, maxSimultaneous int) Sem {
 	if maxSimultaneous < 1 {
 		maxSimultaneous = GetMaxSimultaneous()
 	}
 
-	x, c := GetContext(timeout, deadline, parent)
+	x, c := NewContext(ctx, 0, EmptyTime())
 
 	return &sem{
 		m: int64(maxSimultaneous),
@@ -72,18 +72,18 @@ func NewSemaphore(maxSimultaneous int, timeout time.Duration, deadline time.Time
 	}
 }
 
-func (s *sem) NewWorker() Error {
-	e := s.s.Acquire(s.x, 1)
-	return NEW_WORKER.Iferror(e)
+func (s *sem) NewWorker() errors.Error {
+	e := s.s.Acquire(s.context(), 1)
+	return ErrorWorkerNew.Iferror(e)
 }
 
 func (s *sem) NewWorkerTry() bool {
 	return s.s.TryAcquire(1)
 }
 
-func (s *sem) WaitAll() Error {
-	e := s.s.Acquire(s.Context(), s.m)
-	return WAITALL.Iferror(e)
+func (s *sem) WaitAll() errors.Error {
+	e := s.s.Acquire(s.context(), s.m)
+	return ErrorWorkerWaitAll.Iferror(e)
 }
 
 func (s *sem) DeferWorker() {
@@ -91,19 +91,17 @@ func (s *sem) DeferWorker() {
 }
 
 func (s *sem) DeferMain() {
-	s.Cancel()
-}
-
-func (s *sem) Cancel() {
 	if s.c != nil {
 		s.c()
 	}
 }
 
-func (s *sem) Context() context.Context {
+func (s *sem) context() context.Context {
 	if s.x == nil {
-		s.x, s.c = GetContext(0, GetEmptyTime(), nil)
+		if s.c != nil {
+			s.c()
+		}
+		s.x, s.c = NewContext(context.Background(), 0, EmptyTime())
 	}
-
 	return s.x
 }

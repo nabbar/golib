@@ -26,14 +26,13 @@
 package crypt
 
 import (
-	"io"
-
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 
-	. "github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/errors"
 )
 
 var (
@@ -41,7 +40,7 @@ var (
 	cryptNonce = make([]byte, 12)
 )
 
-func SetKeyHex(key, nonce string) Error {
+func SetKeyHex(key, nonce string) errors.Error {
 	var err error
 	// Load your secret key from a safe place and reuse it across multiple
 	// Seal/Open calls. (Obviously don't use this example key for anything
@@ -50,13 +49,13 @@ func SetKeyHex(key, nonce string) Error {
 	cryptKey, err = hex.DecodeString(key)
 
 	if err != nil {
-		return HEXA_KEY.ErrorParent(err)
+		return ErrorHexaKey.ErrorParent(err)
 	}
 
 	cryptNonce, err = hex.DecodeString(nonce)
 
 	if err != nil {
-		return HEXA_NONCE.ErrorParent(err)
+		return ErrorHexaNonce.ErrorParent(err)
 	}
 
 	return nil
@@ -67,54 +66,54 @@ func SetKeyByte(key [32]byte, nonce [12]byte) {
 	cryptNonce = nonce[:]
 }
 
-func GenKeyByte() ([]byte, []byte, Error) {
+func GenKeyByte() ([]byte, []byte, errors.Error) {
 	// Never use more than 2^32 random key with a given key because of the risk of a repeat.
 	if _, err := io.ReadFull(rand.Reader, cryptKey); err != nil {
-		return make([]byte, 32), make([]byte, 12), BYTE_KEYGEN.ErrorParent(err)
+		return make([]byte, 32), make([]byte, 12), ErrorByteKeygen.ErrorParent(err)
 	}
 
 	// Never use more than 2^32 random nonces with a given key because of the risk of a repeat.
 	if _, err := io.ReadFull(rand.Reader, cryptNonce); err != nil {
-		return make([]byte, 32), make([]byte, 12), BYTE_NONCEGEN.ErrorParent(err)
+		return make([]byte, 32), make([]byte, 12), ErrorByteNonceGen.ErrorParent(err)
 	}
 
 	return cryptKey, cryptNonce, nil
 }
 
-func Encrypt(clearValue []byte) (string, Error) {
+func Encrypt(clearValue []byte) (string, errors.Error) {
 	// When decoded the key should be 16 bytes (AES-128) or 32 (AES-256).
 	block, err := aes.NewCipher(cryptKey)
 	if err != nil {
-		return "", AES_BLOCK.ErrorParent(err)
+		return "", ErrorAESBlock.ErrorParent(err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", AES_GCM.ErrorParent(err)
+		return "", ErrorAESGCM.ErrorParent(err)
 	}
 
 	return hex.EncodeToString(aesgcm.Seal(nil, cryptNonce, clearValue, nil)), nil
 }
 
-func Decrypt(hexaVal string) ([]byte, Error) {
+func Decrypt(hexaVal string) ([]byte, errors.Error) {
 	// When decoded the key should be 16 bytes (AES-128) or 32 (AES-256).
 	ciphertext, err := hex.DecodeString(hexaVal)
 	if err != nil {
-		return nil, HEXA_DECODE.ErrorParent(err)
+		return nil, ErrorHexaDecode.ErrorParent(err)
 	}
 
 	block, err := aes.NewCipher(cryptKey)
 	if err != nil {
-		return nil, AES_BLOCK.ErrorParent(err)
+		return nil, ErrorAESBlock.ErrorParent(err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, AES_GCM.ErrorParent(err)
+		return nil, ErrorAESGCM.ErrorParent(err)
 	}
 
 	if res, err := aesgcm.Open(nil, cryptNonce, ciphertext, nil); err != nil {
-		return res, AES_DECRYPT.ErrorParent(err)
+		return res, ErrorAESDecrypt.ErrorParent(err)
 	} else {
 		return res, nil
 	}

@@ -7,9 +7,8 @@ import (
 	"os"
 
 	"github.com/jaytaylor/html2text"
+	"github.com/nabbar/golib/errors"
 	"github.com/olekukonko/tablewriter"
-
-	. "github.com/nabbar/golib/errors"
 )
 
 type mailTemplate struct {
@@ -35,7 +34,7 @@ func (m mailTemplate) GetTextOption() html2text.Options {
 	return m.opt
 }
 
-func (m mailTemplate) GetBufferHtml(data interface{}) (*bytes.Buffer, Error) {
+func (m mailTemplate) GetBufferHtml(data interface{}) (*bytes.Buffer, errors.Error) {
 	var res = bytes.NewBuffer(make([]byte, 0))
 
 	if data == nil {
@@ -43,13 +42,13 @@ func (m mailTemplate) GetBufferHtml(data interface{}) (*bytes.Buffer, Error) {
 	}
 
 	if err := m.tpl.Execute(res, data); err != nil {
-		return nil, TEMPLATE_EXECUTE.ErrorParent(err)
+		return nil, ErrorTemplateExecute.ErrorParent(err)
 	}
 
 	return res, nil
 }
 
-func (m mailTemplate) GetBufferText(data interface{}) (*bytes.Buffer, Error) {
+func (m mailTemplate) GetBufferText(data interface{}) (*bytes.Buffer, errors.Error) {
 	var (
 		res = bytes.NewBuffer(make([]byte, 0))
 		str string
@@ -59,15 +58,15 @@ func (m mailTemplate) GetBufferText(data interface{}) (*bytes.Buffer, Error) {
 	if buf, err := m.GetBufferHtml(data); err != nil {
 		return nil, err
 	} else if str, e = html2text.FromReader(buf, m.opt); e != nil {
-		return nil, TEMPLATE_HTML2TEXT.ErrorParent(e)
+		return nil, ErrorTemplateHtml2Text.ErrorParent(e)
 	} else if _, e = res.WriteString(str); e != nil {
-		return nil, BUFFER_WRITE_STRING.ErrorParent(e)
+		return nil, ErrorBufferWriteString.ErrorParent(e)
 	}
 
 	return res, nil
 }
 
-func (m mailTemplate) GetBufferRich(data interface{}) (*bytes.Buffer, Error) {
+func (m mailTemplate) GetBufferRich(data interface{}) (*bytes.Buffer, errors.Error) {
 	panic("implement me")
 }
 
@@ -87,7 +86,7 @@ func (m mailTemplate) IsEmpty() bool {
 	return false
 }
 
-func (m mailTemplate) Clone() (MailTemplate, Error) {
+func (m mailTemplate) Clone() (MailTemplate, errors.Error) {
 	res := &mailTemplate{
 		data: nil,
 		char: m.char,
@@ -96,7 +95,7 @@ func (m mailTemplate) Clone() (MailTemplate, Error) {
 	}
 
 	if tpl, err := m.tpl.Clone(); err != nil {
-		return nil, TEMPLATE_CLONE.ErrorParent(err)
+		return nil, ErrorTemplateClone.ErrorParent(err)
 	} else {
 		res.tpl = tpl
 	}
@@ -105,7 +104,7 @@ func (m mailTemplate) Clone() (MailTemplate, Error) {
 }
 
 type MailTemplate interface {
-	Clone() (MailTemplate, Error)
+	Clone() (MailTemplate, errors.Error)
 
 	IsEmpty() bool
 
@@ -115,14 +114,14 @@ type MailTemplate interface {
 	SetTextOption(opt html2text.Options)
 	GetTextOption() html2text.Options
 
-	GetBufferHtml(data interface{}) (*bytes.Buffer, Error)
-	GetBufferText(data interface{}) (*bytes.Buffer, Error)
-	GetBufferRich(data interface{}) (*bytes.Buffer, Error)
+	GetBufferHtml(data interface{}) (*bytes.Buffer, errors.Error)
+	GetBufferText(data interface{}) (*bytes.Buffer, errors.Error)
+	GetBufferRich(data interface{}) (*bytes.Buffer, errors.Error)
 
 	RegisterData(data interface{})
 }
 
-func NewMailTemplate(name, tpl string, isFile bool) (MailTemplate, Error) {
+func NewMailTemplate(name, tpl string, isFile bool) (MailTemplate, errors.Error) {
 	var (
 		err error
 		res = &mailTemplate{
@@ -157,16 +156,16 @@ func NewMailTemplate(name, tpl string, isFile bool) (MailTemplate, Error) {
 		var fs []byte
 		// #nosec
 		if _, err = os.Stat(tpl); err != nil {
-			return nil, FILE_STAT.ErrorParent(err)
+			return nil, ErrorFileStat.ErrorParent(err)
 		} else if fs, err = ioutil.ReadFile(tpl); err != nil {
-			return nil, FILE_READ.ErrorParent(err)
+			return nil, ErrorFileRead.ErrorParent(err)
 		}
 
 		tpl = string(fs)
 	}
 
 	if res.tpl, err = res.tpl.Parse(tpl); err != nil {
-		return nil, TEMPLATE_PARSING.ErrorParent(err)
+		return nil, ErrorTemplateParsing.ErrorParent(err)
 	}
 
 	return res, nil

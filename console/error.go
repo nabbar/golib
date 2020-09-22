@@ -29,10 +29,10 @@ package console
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Console
-	COLOR_IO_FRINTF
-	COLOR_BUFF_WRITE
-	COLOR_BUFF_UNDEFINED
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Console
+	ErrorColorIOFprintf
+	ErrorColorBufWrite
+	ErrorColorBufUndefined
 )
 
 var isCodeError = false
@@ -42,19 +42,21 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case COLOR_IO_FRINTF:
+	case ErrorColorIOFprintf:
 		return "cannot write on IO"
-	case COLOR_BUFF_WRITE:
+	case ErrorColorBufWrite:
 		return "cannot write on buffer"
-	case COLOR_BUFF_UNDEFINED:
+	case ErrorColorBufUndefined:
 		return "buffer is not defined"
 	}
 

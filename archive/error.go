@@ -29,9 +29,14 @@ package archive
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Archive
-	FILE_SEEK
-	FILE_OPEN
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Archive
+	ErrorFileSeek
+	ErrorFileOpen
+	ErrorFileClose
+	ErrorDirCreate
+	ErrorDirStat
+	ErrorDirNotDir
+	ErrorIOCopy
 )
 
 var isCodeError = false
@@ -41,18 +46,30 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case FILE_SEEK:
+	case ErrorFileSeek:
 		return "cannot seek into file"
-	case FILE_OPEN:
+	case ErrorFileOpen:
 		return "cannot open file"
+	case ErrorFileClose:
+		return "closing file occurs error"
+	case ErrorDirCreate:
+		return "make directory occurs error"
+	case ErrorDirStat:
+		return "checking directory occurs error"
+	case ErrorDirNotDir:
+		return "directory given is not a directory"
+	case ErrorIOCopy:
+		return "error occurs when io copy"
 	}
 
 	return ""

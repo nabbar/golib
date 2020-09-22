@@ -29,40 +29,29 @@ import (
 	"archive/zip"
 	"io"
 	"os"
-
-	. "github.com/nabbar/golib/errors"
-	//. "github.com/nabbar/golib/logger"
-
-	iou "github.com/nabbar/golib/ioutils"
+	"path"
 
 	"github.com/nabbar/golib/archive/archive"
+	"github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/ioutils"
 )
 
-func GetFile(src *os.File, filenameContain, filenameRegex string) (dst *os.File, err Error) {
-	location := iou.GetTempFilePath(src)
-
-	if e := src.Close(); err != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "trying to close temp file", err)
-		return dst, FILE_CLOSE.ErrorParent(e)
-	}
-
-	return getFile(location, filenameContain, filenameRegex)
-}
-
-func getFile(src string, filenameContain, filenameRegex string) (dst *os.File, err Error) {
+func GetFile(src, dst ioutils.FileProgress, filenameContain, filenameRegex string) errors.Error {
 	var (
-		r *zip.ReadCloser
+		r *zip.Reader
+		i os.FileInfo
 		e error
 	)
 
-	if r, e = zip.OpenReader(src); e != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "trying to open zip file", e)
-		return nil, ZIP_OPEN.ErrorParent(e)
+	if _, e = src.Seek(0, io.SeekStart); e != nil {
+		return ErrorFileSeek.ErrorParent(e)
+	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
+		return ErrorFileSeek.ErrorParent(e)
+	} else if i, e = src.FileStat(); e != nil {
+		return ErrorFileStat.ErrorParent(e)
+	} else if r, e = zip.NewReader(src, i.Size()); e != nil {
+		return ErrorZipOpen.ErrorParent(e)
 	}
-
-	defer func() {
-		_ = r.Close()
-	}()
 
 	for _, f := range r.File {
 		if f.Mode()&os.ModeType == os.ModeType {
@@ -71,38 +60,143 @@ func getFile(src string, filenameContain, filenameRegex string) (dst *os.File, e
 
 		z := archive.NewFileFullPath(f.Name)
 		if z.MatchingFullPath(filenameContain) || z.RegexFullPath(filenameRegex) {
-			return extratFile(f)
+			if f == nil {
+				continue
+			}
+
+			var (
+				r io.ReadCloser
+				e error
+			)
+
+			if r, e = f.Open(); e != nil {
+				//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "open zipped file reader", err)
+				return ErrorZipFileOpen.ErrorParent(e)
+			}
+
+			defer func() {
+				_ = r.Close()
+			}()
+
+			// #nosec
+			if _, e = dst.ReadFrom(r); e != nil {
+				//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "copy buffer from archive reader", err)
+				return ErrorIOCopy.ErrorParent(e)
+			}
+
+			if _, e = dst.Seek(0, io.SeekStart); e != nil {
+				//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "seeking temp file", err)
+				return ErrorFileSeek.ErrorParent(e)
+			}
+
+			return nil
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
-func extratFile(f *zip.File) (dst *os.File, err Error) {
+func GetAll(src ioutils.FileProgress, outputFolder string, defaultDirPerm os.FileMode) errors.Error {
 	var (
+		r *zip.Reader
+		i os.FileInfo
+		e error
+	)
+
+	if _, e = src.Seek(0, io.SeekStart); e != nil {
+		return ErrorFileSeek.ErrorParent(e)
+	} else if i, e = src.FileStat(); e != nil {
+		return ErrorFileStat.ErrorParent(e)
+	} else if r, e = zip.NewReader(src, i.Size()); e != nil {
+		return ErrorZipOpen.ErrorParent(e)
+	}
+
+	for _, f := range r.File {
+		if f == nil {
+			continue
+		}
+
+		if err := writeContent(f, path.Join(outputFolder, f.Name), defaultDirPerm); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err errors.Error) {
+	var (
+		dst ioutils.FileProgress
+		inf = f.FileInfo()
+
 		r io.ReadCloser
 		e error
 	)
 
-	if r, e = f.Open(); e != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "open zipped file reader", err)
-		return dst, FILE_OPEN.ErrorParent(e)
+	if err = dirIsExistOrCreate(path.Dir(out), defaultDirPerm); err != nil {
+		return
 	}
 
 	defer func() {
-		_ = r.Close()
+		if dst != nil {
+			if e = dst.Close(); e != nil {
+				err = ErrorFileClose.ErrorParent(e)
+				err.AddParentError(err)
+			}
+		}
+		if r != nil {
+			if e = r.Close(); e != nil {
+				err = ErrorZipFileClose.Error(err)
+			}
+		}
 	}()
 
-	// #nosec
-	if dst, err = iou.NewTempFile(); err != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "init new temporary buffer", err)
+	if inf.IsDir() {
+		err = dirIsExistOrCreate(out, inf.Mode())
 		return
-	} else if _, e = io.Copy(dst, r); e != nil {
-		//ErrorLevel.LogErrorCtx(DebugLevel, "copy buffer from archive reader", err)
-		return dst, IO_COPY.ErrorParent(e)
+	} else if err = notDirExistCannotClean(out); err != nil {
+		return
 	}
 
-	_, e = dst.Seek(0, 0)
-	//ErrorLevel.LogErrorCtx(DebugLevel, "seeking temp file", err)
-	return dst, FILE_SEEK.ErrorParent(e)
+	if dst, err = ioutils.NewFileProgressPathWrite(out, true, true, inf.Mode()); err != nil {
+		return ErrorFileOpen.Error(err)
+	} else if r, e = f.Open(); e != nil {
+		return ErrorZipFileOpen.ErrorParent(e)
+	}
+
+	//#nosec
+	if _, e := io.Copy(dst, r); e != nil {
+		return ErrorIOCopy.ErrorParent(e)
+	} else if e = dst.Close(); e != nil {
+		return ErrorFileClose.ErrorParent(e)
+	}
+
+	return nil
+}
+
+func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) errors.Error {
+	if i, e := os.Stat(path.Dir(dirname)); e != nil && os.IsNotExist(e) {
+		if e = os.MkdirAll(path.Dir(dirname), dirPerm); e != nil {
+			return ErrorDirCreate.ErrorParent(e)
+		}
+	} else if e != nil {
+		return ErrorDestinationStat.ErrorParent(e)
+	} else if !i.IsDir() {
+		return ErrorDestinationIsNotDir.Error(nil)
+	}
+
+	return nil
+}
+
+func notDirExistCannotClean(filename string) errors.Error {
+	if i, e := os.Stat(filename); e != nil && !os.IsNotExist(e) {
+		return ErrorDestinationStat.ErrorParent(e)
+	} else if e == nil && i.IsDir() {
+		return ErrorDestinationIsDir.Error(nil)
+	} else if e == nil {
+		if e = os.Remove(filename); e != nil {
+			return ErrorDestinationRemove.ErrorParent(e)
+		}
+	}
+	return nil
 }

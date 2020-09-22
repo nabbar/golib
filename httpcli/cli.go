@@ -45,17 +45,17 @@ const (
 )
 
 func GetClient(serverName string) *http.Client {
-	c, e := getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certificates.GetTLSConfig(serverName))
+	c, e := getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_5_SEC, certificates.GetTLSConfig(serverName))
 
 	if e != nil {
-		c, _ = getClient(false, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certificates.GetTLSConfig(serverName))
+		c, _ = getClient(false, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_5_SEC, certificates.GetTLSConfig(serverName))
 	}
 
 	return c
 }
 
 func GetClientError(serverName string) (*http.Client, errors.Error) {
-	return getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_1_SEC, certificates.GetTLSConfig(serverName))
+	return getClient(true, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_5_SEC, certificates.GetTLSConfig(serverName))
 }
 
 func GetClientTimeout(serverName string, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration) (*http.Client, errors.Error) {
@@ -63,17 +63,37 @@ func GetClientTimeout(serverName string, GlobalTimeout, DialTimeOut, DialKeepAli
 }
 
 func getClient(http2Transport bool, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration, tlsConfig *tls.Config) (*http.Client, errors.Error) {
+
+	dl := &net.Dialer{}
+
+	if DialTimeOut != 0 {
+		dl.Timeout = DialTimeOut
+	}
+
+	if DialKeepAlive != 0 {
+		dl.KeepAlive = DialKeepAlive
+	}
+
 	tr := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   DialTimeOut,
-			KeepAlive: DialKeepAlive,
-		}).DialContext,
-		IdleConnTimeout:       IdleConnTimeout,
-		TLSHandshakeTimeout:   TLSHandshakeTimeout,
-		ExpectContinueTimeout: ExpectContinueTimeout,
-		DisableCompression:    true,
-		TLSClientConfig:       tlsConfig,
+		Proxy:              http.ProxyFromEnvironment,
+		DialContext:        dl.DialContext,
+		DisableCompression: true,
+	}
+
+	if tlsConfig != nil {
+		tr.TLSClientConfig = tlsConfig
+	}
+
+	if TLSHandshakeTimeout != 0 {
+		tr.TLSHandshakeTimeout = TLSHandshakeTimeout
+	}
+
+	if IdleConnTimeout != 0 {
+		tr.IdleConnTimeout = IdleConnTimeout
+	}
+
+	if ExpectContinueTimeout != 0 {
+		tr.ExpectContinueTimeout = ExpectContinueTimeout
 	}
 
 	if http2Transport {
@@ -82,8 +102,13 @@ func getClient(http2Transport bool, GlobalTimeout, DialTimeOut, DialKeepAlive, I
 		}
 	}
 
-	return &http.Client{
+	c := &http.Client{
 		Transport: tr,
-		Timeout:   GlobalTimeout,
-	}, nil
+	}
+
+	if GlobalTimeout != 0 {
+		c.Timeout = GlobalTimeout
+	}
+
+	return c, nil
 }

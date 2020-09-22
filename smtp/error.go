@@ -29,40 +29,40 @@ package smtp
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_SMTP
-	FILE_STAT
-	FILE_READ
-	CONFIG_INVALID_DSN
-	CONFIG_INVALID_NETWORK
-	CONFIG_INVALID_PARAMS
-	CONFIG_INVALID_HOST
-	SMTP_DIAL
-	SMTP_SEND
-	SMTP_CLIENT_INIT
-	SMTP_CLIENT_STARTTLS
-	SMTP_CLIENT_AUTH
-	SMTP_CLIENT_NOOP
-	SMTP_CLIENT_MAIL
-	SMTP_CLIENT_RCPT
-	SMTP_CLIENT_DATA
-	SMTP_CLIENT_EMPTY
-	SMTP_CLIENT_SEND_RECOVERED
-	SMTP_CLIENT_FROM_EMPTY
-	SMTP_CLIENT_TO_EMPTY
-	SMTP_CLIENT_SUBJECT_EMPTY
-	SMTP_CLIENT_MAILER_EMPTY
-	RAND_READER
-	BUFFER_EMPTY
-	BUFFER_WRITE_STRING
-	BUFFER_WRITE_BYTES
-	IO_WRITER_MISSING
-	IO_WRITER_ERROR
-	EMPTY_HTML
-	EMPTY_CONTENTS
-	TEMPLATE_PARSING
-	TEMPLATE_EXECUTE
-	TEMPLATE_CLONE
-	TEMPLATE_HTML2TEXT
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_SMTP
+	ErrorFileStat
+	ErrorFileRead
+	ErrorConfigInvalidDSN
+	ErrorConfigInvalidNetwork
+	ErrorConfigInvalidParams
+	ErrorConfigInvalidHost
+	ErrorSMTPDial
+	ErrorSMTPSend
+	ErrorSMTPClientInit
+	ErrorSMTPClientStartTLS
+	ErrorSMTPClientAuth
+	ErrorSMTPClientNoop
+	ErrorSMTPClientMail
+	ErrorSMTPClientRcpt
+	ErrorSMTPClientData
+	ErrorSMTPClientEmpty
+	ErrorSMTPClientSendRecovered
+	ErrorSMTPClientEmptyFrom
+	ErrorSMTPClientEmptyTo
+	ErrorSMTPClientEmptySubject
+	ErrorSMTPClientEmptyMailer
+	ErrorRandReader
+	ErrorBufferEmpty
+	ErrorBufferWriteString
+	ErrorBufferWriteBytes
+	ErrorIOWriter
+	ErrorIOWriterMissing
+	ErrorEmptyHtml
+	ErrorEmptyContents
+	ErrorTemplateParsing
+	ErrorTemplateExecute
+	ErrorTemplateClone
+	ErrorTemplateHtml2Text
 )
 
 var isCodeError = false
@@ -72,79 +72,81 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case FILE_STAT:
+	case ErrorFileStat:
 		return "error occurs on getting stat of file"
-	case FILE_READ:
+	case ErrorFileRead:
 		return "error occurs on reading file"
-	case CONFIG_INVALID_DSN:
+	case ErrorConfigInvalidDSN:
 		return "invalid DSN: did you forget to escape a param value"
-	case CONFIG_INVALID_NETWORK:
+	case ErrorConfigInvalidNetwork:
 		return "invalid DSN: network address not terminated (missing closing brace)"
-	case CONFIG_INVALID_PARAMS:
+	case ErrorConfigInvalidParams:
 		return "invalid DSN: parsing uri parameters occurs an error"
-	case CONFIG_INVALID_HOST:
+	case ErrorConfigInvalidHost:
 		return "invalid DSN: missing the slash ending the host"
-	case SMTP_DIAL:
+	case ErrorSMTPDial:
 		return "error while trying to dial with SMTP server"
-	case SMTP_SEND:
+	case ErrorSMTPSend:
 		return "error while sending mail to SMTP server"
-	case SMTP_CLIENT_INIT:
+	case ErrorSMTPClientInit:
 		return "error while trying to initialize new client for dial connection to SMTP Server"
-	case SMTP_CLIENT_STARTTLS:
+	case ErrorSMTPClientStartTLS:
 		return "error while trying to starttls on SMTP server"
-	case SMTP_CLIENT_AUTH:
+	case ErrorSMTPClientAuth:
 		return "error while trying to authenticate to SMTP server"
-	case SMTP_CLIENT_NOOP:
+	case ErrorSMTPClientNoop:
 		return "error on sending noop command to check connection with SMTP server"
-	case SMTP_CLIENT_MAIL:
+	case ErrorSMTPClientMail:
 		return "error on sending mail command to initialize new mail transaction with SMTP server"
-	case SMTP_CLIENT_RCPT:
+	case ErrorSMTPClientRcpt:
 		return "error on sending rcpt command to specify add recipient email for the new mail"
-	case SMTP_CLIENT_DATA:
+	case ErrorSMTPClientData:
 		return "error on opening io writer to send data on client"
-	case SMTP_CLIENT_EMPTY:
+	case ErrorSMTPClientEmpty:
 		return "cannot send email without any attachment and contents"
-	case SMTP_CLIENT_SEND_RECOVERED:
+	case ErrorSMTPClientSendRecovered:
 		return "recovered error while client sending mail"
-	case SMTP_CLIENT_FROM_EMPTY:
+	case ErrorSMTPClientEmptyFrom:
 		return "sender From address cannot be empty"
-	case SMTP_CLIENT_TO_EMPTY:
+	case ErrorSMTPClientEmptyTo:
 		return "list of recipient To address cannot be empty"
-	case SMTP_CLIENT_SUBJECT_EMPTY:
+	case ErrorSMTPClientEmptySubject:
 		return "subject of the new mail cannot be empty"
-	case SMTP_CLIENT_MAILER_EMPTY:
+	case ErrorSMTPClientEmptyMailer:
 		return "mailer of the new mail cannot be empty"
-	case RAND_READER:
+	case ErrorRandReader:
 		return "error on reading on random reader io"
-	case BUFFER_EMPTY:
+	case ErrorBufferEmpty:
 		return "buffer is empty"
-	case BUFFER_WRITE_STRING:
+	case ErrorBufferWriteString:
 		return "error on write string into buffer"
-	case BUFFER_WRITE_BYTES:
+	case ErrorBufferWriteBytes:
 		return "error on write bytes into buffer"
-	case IO_WRITER_MISSING:
+	case ErrorIOWriterMissing:
 		return "io writer is not defined"
-	case IO_WRITER_ERROR:
+	case ErrorIOWriter:
 		return "error occur on write on io writer"
-	case EMPTY_HTML:
+	case ErrorEmptyHtml:
 		return "text/html content is empty"
-	case EMPTY_CONTENTS:
+	case ErrorEmptyContents:
 		return "mail content is empty"
-	case TEMPLATE_PARSING:
+	case ErrorTemplateParsing:
 		return "error occur on parsing template"
-	case TEMPLATE_EXECUTE:
+	case ErrorTemplateExecute:
 		return "error occur on execute template"
-	case TEMPLATE_CLONE:
+	case ErrorTemplateClone:
 		return "error occur while cloning template"
-	case TEMPLATE_HTML2TEXT:
+	case ErrorTemplateHtml2Text:
 		return "error occur on reading io reader html and convert it to text"
 	}
 

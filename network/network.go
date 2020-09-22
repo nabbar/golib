@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/nabbar/golib/errors"
-
 	netlib "github.com/shirou/gopsutil/net"
 )
 
@@ -36,7 +35,7 @@ func GetAllInterfaces(ctx context.Context, onlyPhysical, hasAddr bool, atLeastMT
 	var res = make([]string, 0)
 
 	if l, e := netlib.InterfacesWithContext(ctx); e != nil {
-		return nil, NET_INTERFACE.ErrorParent(e)
+		return nil, ErrorNetInterface.ErrorParent(e)
 	} else {
 		for _, f := range l {
 			if onlyPhysical && f.HardwareAddr == "" {
@@ -79,7 +78,7 @@ func NewInterface(ctx context.Context, name, physical string) (Interface, errors
 	)
 
 	if l, e := netlib.InterfacesWithContext(ctx); e != nil {
-		return nil, NET_INTERFACE.ErrorParent(e)
+		return nil, ErrorNetInterface.ErrorParent(e)
 	} else {
 		for _, f := range l {
 			if (name != "" && f.Name == name) || (physical != "" && physical == f.HardwareAddr) {
@@ -89,12 +88,12 @@ func NewInterface(ctx context.Context, name, physical string) (Interface, errors
 		}
 
 		if ifs.Name == "" {
-			return nil, NET_NOTFOUND.Error(nil)
+			return nil, ErrorNetNotFound.Error(nil)
 		}
 	}
 
 	if l, e := netlib.IOCountersWithContext(ctx, true); e != nil {
-		return nil, NET_COUNTER.ErrorParent(e)
+		return nil, ErrorNetCounter.ErrorParent(e)
 	} else {
 		for _, f := range l {
 			if f.Name == ifs.Name {
@@ -104,7 +103,7 @@ func NewInterface(ctx context.Context, name, physical string) (Interface, errors
 		}
 
 		if ifc.Name == "" {
-			return nil, NET_NOTFOUND.Error(nil)
+			return nil, ErrorNetNotFound.Error(nil)
 		}
 	}
 
@@ -123,7 +122,7 @@ func (i *iface) ReLoad(ctx context.Context) errors.Error {
 		return nil
 	}
 
-	return NET_RELOAD.Error(nil)
+	return ErrorNetReload.Error(nil)
 }
 
 func (i iface) GetIndex() int {
