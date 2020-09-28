@@ -86,6 +86,7 @@ func PromptBool(text string) (bool, error) {
 
 func PromptPassword(text string) (string, error) {
 	printPrompt(text)
+	//nolint #unconvert
 	res, err := terminal.ReadPassword(int(syscall.Stdin))
 	fmt.Printf("\n")
 
