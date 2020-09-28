@@ -14,7 +14,7 @@ import (
 	"github.com/nabbar/golib/logger"
 )
 
-type configModel struct {
+type Model struct {
 	Region    string `mapstructure:"region" json:"region" yaml:"region" toml:"region" validate:"printascii,required"`
 	Endpoint  string `mapstructure:"endpoint" json:"endpoint" yaml:"endpoint" toml:"endpoint" validate:"url,required"`
 	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"printascii,required"`
@@ -23,7 +23,7 @@ type configModel struct {
 }
 
 type awsModel struct {
-	configModel
+	Model
 
 	logLevel  logger.Level
 	awsLevel  aws.LogLevel
