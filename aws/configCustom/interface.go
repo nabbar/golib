@@ -13,27 +13,27 @@ import (
 )
 
 func GetConfigModel() interface{} {
-	return configModel{}
+	return Model{}
 }
 
 func NewConfigJsonUnmashal(p []byte) (aws2.Config, errors.Error) {
-	c := configModel{}
+	c := Model{}
 	if err := json.Unmarshal(p, &c); err != nil {
 		return nil, ErrorConfigJsonUnmarshall.ErrorParent(err)
 	}
 
 	return &awsModel{
-		configModel: c,
-		logLevel:    0,
-		awsLevel:    0,
-		retryer:     nil,
-		mapRegion:   nil,
+		Model:     c,
+		logLevel:  0,
+		awsLevel:  0,
+		retryer:   nil,
+		mapRegion: nil,
 	}, nil
 }
 
 func NewConfig(bucket, accessKey, secretKey string, endpoint *url.URL, region string) aws2.Config {
 	return &awsModel{
-		configModel: configModel{
+		Model: Model{
 			Region:    region,
 			Endpoint:  strings.TrimSuffix(endpoint.String(), "/"),
 			AccessKey: accessKey,
@@ -56,7 +56,7 @@ func (c *awsModel) Clone() aws2.Config {
 	}
 
 	return &awsModel{
-		configModel: configModel{
+		Model: Model{
 			Region:    c.Region,
 			Endpoint:  c.Endpoint,
 			AccessKey: c.AccessKey,
