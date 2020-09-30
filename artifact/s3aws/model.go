@@ -32,6 +32,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+
 	"github.com/hashicorp/go-version"
 	"github.com/nabbar/golib/artifact"
 	"github.com/nabbar/golib/artifact/client"
@@ -196,23 +198,15 @@ func (s *s3awsModel) Download(dst ioutils.FileProgress, containName string, rege
 
 func (s *s3awsModel) downloadObject(dst ioutils.FileProgress, object string) errors.Error {
 	var (
-		r io.ReadCloser
-		c []io.Closer
+		r *s3.GetObjectOutput
 		e errors.Error
 		i os.FileInfo
 		j int64
 	)
 
 	defer func() {
-		if len(c) > 0 {
-			for _, b := range c {
-				if b != nil {
-					_ = b.Close()
-				}
-			}
-		}
-		if r != nil {
-			_ = r.Close()
+		if r != nil && r.Body != nil {
+			_ = r.Body.Close()
 		}
 	}()
 
@@ -226,11 +220,13 @@ func (s *s3awsModel) downloadObject(dst ioutils.FileProgress, object string) err
 
 	dst.ResetMax(j)
 
-	if r, c, e = s.c.Object().Get(object); e != nil {
+	if r, e = s.c.Object().Get(object); e != nil {
 		err := ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object))
 		err.AddParentError(e)
 		return err
-	} else if _, err := io.Copy(dst, r); err != nil {
+	} else if r.Body == nil {
+		return ErrorS3AWSIOReaderError.ErrorParent(getError(errObject, object))
+	} else if _, err := io.Copy(dst, r.Body); err != nil {
 		return ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object), err)
 	} else if i, e = dst.FileStat(); e != nil {
 		err := ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object))

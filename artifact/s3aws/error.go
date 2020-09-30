@@ -41,6 +41,7 @@ const (
 	ErrorS3AWSNewVers
 	ErrorS3AWSNotFound
 	ErrorS3AWSDownloadError
+	ErrorS3AWSIOReaderError
 )
 
 var (
@@ -85,6 +86,8 @@ func getMessage(code errors.CodeError) (message string) {
 		return "requested version is not found"
 	case ErrorS3AWSDownloadError:
 		return "download object requested occurs error"
+	case ErrorS3AWSIOReaderError:
+		return "return io reader is empty"
 	}
 
 	return ""

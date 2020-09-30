@@ -1,11 +1,14 @@
 package aws_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -14,6 +17,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/nabbar/golib/httpcli"
 
 	"github.com/hashicorp/go-uuid"
 	"github.com/nabbar/golib/aws"
@@ -46,6 +51,7 @@ var _ = BeforeSuite(func() {
 	var (
 		err  error
 		name string
+		htp  *http.Client
 	)
 
 	ctx, cnl = context.WithCancel(context.Background())
@@ -61,7 +67,11 @@ var _ = BeforeSuite(func() {
 			secretKey = password.Generate(64)
 		)
 
+		htp = httpcli.GetClient(uri.Hostname())
+		Expect(htp).NotTo(BeNil())
+
 		cfg = configCustom.NewConfig("", accessKey, secretKey, uri, "us-east-1")
+		Expect(cfg).NotTo(BeNil())
 
 		cfg.SetRegion("us-east-1")
 		err = cfg.RegisterRegionAws(nil)
@@ -75,10 +85,11 @@ var _ = BeforeSuite(func() {
 			time.Sleep(10 * time.Second)
 		}
 
+		time.Sleep(10 * time.Second)
 		println("Minio is waiting on : " + uri.Host)
 	}
 
-	cli, err = aws.New(ctx, cfg, nil)
+	cli, err = aws.New(ctx, cfg, htp)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cli).NotTo(BeNil())
 
@@ -200,4 +211,16 @@ func WaitMinio(host string) bool {
 	}()
 
 	return err == nil
+}
+
+func randContent(size int) *bytes.Buffer {
+	p := make([]byte, size)
+
+	_, err := rand.Read(p)
+
+	if err != nil {
+		panic(err)
+	}
+
+	return bytes.NewBuffer(p)
 }

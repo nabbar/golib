@@ -7,10 +7,7 @@ import (
 )
 
 func (cli *client) List() (map[string]string, errors.Error) {
-	req := cli.iam.ListGroupsRequest(&iam.ListGroupsInput{})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	if out, err := req.Send(cli.GetContext()); err != nil {
+	if out, err := cli.iam.ListGroups(cli.GetContext(), &iam.ListGroupsInput{}); err != nil {
 		return nil, cli.GetError(err)
 	} else {
 		var res = make(map[string]string)
@@ -24,23 +21,17 @@ func (cli *client) List() (map[string]string, errors.Error) {
 }
 
 func (cli *client) Add(groupName string) errors.Error {
-	req := cli.iam.CreateGroupRequest(&iam.CreateGroupInput{
+	_, err := cli.iam.CreateGroup(cli.GetContext(), &iam.CreateGroupInput{
 		GroupName: aws.String(groupName),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	_, err := req.Send(cli.GetContext())
 
 	return cli.GetError(err)
 }
 
 func (cli *client) Remove(groupName string) errors.Error {
-	req := cli.iam.DeleteGroupRequest(&iam.DeleteGroupInput{
+	_, err := cli.iam.DeleteGroup(cli.GetContext(), &iam.DeleteGroupInput{
 		GroupName: aws.String(groupName),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	_, err := req.Send(cli.GetContext())
 
 	return cli.GetError(err)
 }

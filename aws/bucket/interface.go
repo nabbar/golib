@@ -3,37 +3,38 @@ package bucket
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	libhlp "github.com/nabbar/golib/aws/helper"
+	ligerr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
-	helper.Helper
-	iam *iam.Client
-	s3  *s3.Client
+	libhlp.Helper
+	iam *sdkiam.Client
+	s3  *sdksss.Client
 }
 
 type Bucket interface {
-	Check() errors.Error
+	Check() ligerr.Error
 
-	List() ([]s3.Bucket, errors.Error)
-	Create() errors.Error
-	Delete() errors.Error
+	List() ([]*sdkstp.Bucket, ligerr.Error)
+	Create() ligerr.Error
+	Delete() ligerr.Error
 
 	//FindObject(pattern string) ([]string, errors.Error)
 
-	SetVersioning(state bool) errors.Error
-	GetVersioning() (string, errors.Error)
+	SetVersioning(state bool) ligerr.Error
+	GetVersioning() (string, ligerr.Error)
 
-	EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) errors.Error
-	DeleteReplication() errors.Error
+	EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) ligerr.Error
+	DeleteReplication() ligerr.Error
 }
 
-func New(ctx context.Context, bucket string, iam *iam.Client, s3 *s3.Client) Bucket {
+func New(ctx context.Context, bucket string, iam *sdkiam.Client, s3 *sdksss.Client) Bucket {
 	return &client{
-		Helper: helper.New(ctx, bucket),
+		Helper: libhlp.New(ctx, bucket),
 		iam:    iam,
 		s3:     s3,
 	}

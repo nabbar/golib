@@ -4,7 +4,7 @@ import "github.com/nabbar/golib/errors"
 
 const (
 	// minmal are errors.MIN_AVAILABLE + get a hope free range 1000 + 10 for aws-config errors.
-	ErrorResponse errors.CodeError = iota + errors.MIN_AVAILABLE + 1000 + 10
+	ErrorResponse errors.CodeError = iota + errors.MIN_PKG_Aws + 60
 	ErrorConfigEmpty
 	ErrorAwsEmpty
 	ErrorAws

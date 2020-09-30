@@ -7,12 +7,11 @@ import (
 )
 
 func (cli *client) PolicyList(groupName string) (map[string]string, errors.Error) {
-	req := cli.iam.ListAttachedGroupPoliciesRequest(&iam.ListAttachedGroupPoliciesInput{
+	out, err := cli.iam.ListAttachedGroupPolicies(cli.GetContext(), &iam.ListAttachedGroupPoliciesInput{
 		GroupName: aws.String(groupName),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
-	if out, err := req.Send(cli.GetContext()); err != nil {
+	if err != nil {
 		return nil, cli.GetError(err)
 	} else {
 		var res = make(map[string]string)
@@ -26,25 +25,19 @@ func (cli *client) PolicyList(groupName string) (map[string]string, errors.Error
 }
 
 func (cli *client) PolicyAttach(groupName, polArn string) errors.Error {
-	req := cli.iam.AttachGroupPolicyRequest(&iam.AttachGroupPolicyInput{
+	_, err := cli.iam.AttachGroupPolicy(cli.GetContext(), &iam.AttachGroupPolicyInput{
 		GroupName: aws.String(groupName),
 		PolicyArn: aws.String(polArn),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	_, err := req.Send(cli.GetContext())
 
 	return cli.GetError(err)
 }
 
 func (cli *client) PolicyDetach(groupName, polArn string) errors.Error {
-	req := cli.iam.DetachGroupPolicyRequest(&iam.DetachGroupPolicyInput{
+	_, err := cli.iam.DetachGroupPolicy(cli.GetContext(), &iam.DetachGroupPolicyInput{
 		GroupName: aws.String(groupName),
 		PolicyArn: aws.String(polArn),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	_, err := req.Send(cli.GetContext())
 
 	return cli.GetError(err)
 }

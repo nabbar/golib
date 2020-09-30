@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	ErrorAwsError errors.CodeError = iota + errors.MIN_PKG_Aws + 30
+	ErrorAwsError errors.CodeError = iota + errors.MIN_PKG_Aws + 20
 	ErrorConfigValidator
 	ErrorConfigJsonUnmarshall
 	ErrorEndpointInvalid

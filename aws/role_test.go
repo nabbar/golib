@@ -2,7 +2,7 @@ package aws_test
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -68,11 +68,11 @@ var _ = Describe("Role", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Must return 1 policy", func() {
-			var policies []iam.AttachedPolicy
+			var policies []*types.AttachedPolicy
 
 			if minioMode {
 				err = nil
-				policies = []iam.AttachedPolicy{
+				policies = []*types.AttachedPolicy{
 					{
 						PolicyArn:  aws.String(policyArn),
 						PolicyName: aws.String(name),
@@ -137,11 +137,11 @@ var _ = Describe("Role", func() {
 	})
 	Context("List", func() {
 		It("Must return 1 role", func() {
-			var roles []iam.Role
+			var roles []*types.Role
 
 			if minioMode {
 				err = nil
-				roles = []iam.Role{
+				roles = []*types.Role{
 					{
 						Arn:      aws.String(arn),
 						RoleName: aws.String(name),
