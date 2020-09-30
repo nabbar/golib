@@ -3,14 +3,12 @@ package role
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/nabbar/golib/errors"
 )
 
-func (cli *client) List() ([]iam.Role, errors.Error) {
-	req := cli.iam.ListRolesRequest(&iam.ListRolesInput{})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
+func (cli *client) List() ([]*types.Role, errors.Error) {
+	out, err := cli.iam.ListRoles(cli.GetContext(), &iam.ListRolesInput{})
 
 	if err != nil {
 		return nil, cli.GetError(err)
@@ -20,12 +18,9 @@ func (cli *client) List() ([]iam.Role, errors.Error) {
 }
 
 func (cli *client) Check(name string) (string, errors.Error) {
-	req := cli.iam.GetRoleRequest(&iam.GetRoleInput{
+	out, err := cli.iam.GetRole(cli.GetContext(), &iam.GetRoleInput{
 		RoleName: aws.String(name),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return "", cli.GetError(err)
@@ -35,13 +30,10 @@ func (cli *client) Check(name string) (string, errors.Error) {
 }
 
 func (cli *client) Add(name, role string) (string, errors.Error) {
-	req := cli.iam.CreateRoleRequest(&iam.CreateRoleInput{
+	out, err := cli.iam.CreateRole(cli.GetContext(), &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: aws.String(role),
 		RoleName:                 aws.String(name),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return "", cli.GetError(err)
@@ -51,12 +43,9 @@ func (cli *client) Add(name, role string) (string, errors.Error) {
 }
 
 func (cli *client) Delete(roleName string) errors.Error {
-	req := cli.iam.DeleteRoleRequest(&iam.DeleteRoleInput{
+	_, err := cli.iam.DeleteRole(cli.GetContext(), &iam.DeleteRoleInput{
 		RoleName: aws.String(roleName),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }

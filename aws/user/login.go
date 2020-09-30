@@ -8,25 +8,19 @@ import (
 )
 
 func (cli *client) LoginCheck(username string) errors.Error {
-	req := cli.iam.GetLoginProfileRequest(&iam.GetLoginProfileInput{
+	_, err := cli.iam.GetLoginProfile(cli.GetContext(), &iam.GetLoginProfileInput{
 		UserName: aws.String(username),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }
 
 func (cli *client) LoginCreate(username, password string) errors.Error {
-	req := cli.iam.CreateLoginProfileRequest(&iam.CreateLoginProfileInput{
+	out, err := cli.iam.CreateLoginProfile(cli.GetContext(), &iam.CreateLoginProfileInput{
 		UserName:              aws.String(username),
 		Password:              aws.String(password),
 		PasswordResetRequired: aws.Bool(false),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return cli.GetError(err)
@@ -38,12 +32,9 @@ func (cli *client) LoginCreate(username, password string) errors.Error {
 }
 
 func (cli *client) LoginDelete(username string) errors.Error {
-	req := cli.iam.DeleteLoginProfileRequest(&iam.DeleteLoginProfileInput{
+	_, err := cli.iam.DeleteLoginProfile(cli.GetContext(), &iam.DeleteLoginProfileInput{
 		UserName: aws.String(username),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }

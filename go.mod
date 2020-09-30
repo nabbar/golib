@@ -4,12 +4,17 @@ go 1.15
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
-	github.com/aws/aws-sdk-go-v2 v0.24.0
+	github.com/aws/aws-sdk-go-v2 v0.26.0
+	github.com/aws/aws-sdk-go-v2/config v0.1.1
+	github.com/aws/aws-sdk-go-v2/credentials v0.1.1
+	github.com/aws/aws-sdk-go-v2/service/iam v0.26.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v0.26.0
 	github.com/fatih/color v1.9.0
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-ldap/ldap/v3 v3.2.3
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/go-playground/validator/v10 v10.4.0
+	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/gobuffalo/envy v1.9.0 // indirect
 	github.com/gobuffalo/packd v1.0.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
@@ -28,7 +33,7 @@ require (
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/rogpeppe/go-internal v1.6.2 // indirect
-	github.com/shirou/gopsutil v2.20.8+incompatible
+	github.com/shirou/gopsutil v2.20.9+incompatible
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
@@ -36,11 +41,11 @@ require (
 	github.com/ugorji/go v1.1.9 // indirect
 	github.com/vbauerster/mpb/v5 v5.3.0
 	github.com/xanzy/go-gitlab v0.38.1
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20200927032502-5d4f70055728
+	golang.org/x/crypto v0.0.0-20201001193750-eb9a90e9f9cb
+	golang.org/x/net v0.0.0-20200930145003-4acb6c075d10
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20200926100807-9d91bd62050c // indirect
+	golang.org/x/sync v0.0.0-20200930132711-30421366ff76
+	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )

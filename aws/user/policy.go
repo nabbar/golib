@@ -7,26 +7,20 @@ import (
 )
 
 func (cli *client) PolicyPut(policyDocument, policyName, username string) errors.Error {
-	req := cli.iam.PutUserPolicyRequest(&iam.PutUserPolicyInput{
+	_, err := cli.iam.PutUserPolicy(cli.GetContext(), &iam.PutUserPolicyInput{
 		PolicyDocument: aws.String(policyDocument),
 		PolicyName:     aws.String(policyName),
 		UserName:       aws.String(username),
 	})
 
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
 	return cli.GetError(err)
 }
 
 func (cli *client) PolicyAttach(policyARN, username string) errors.Error {
-	req := cli.iam.AttachUserPolicyRequest(&iam.AttachUserPolicyInput{
+	_, err := cli.iam.AttachUserPolicy(cli.GetContext(), &iam.AttachUserPolicyInput{
 		PolicyArn: aws.String(policyARN),
 		UserName:  aws.String(username),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }

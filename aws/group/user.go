@@ -7,12 +7,11 @@ import (
 )
 
 func (cli *client) UserCheck(username, groupName string) (errors.Error, bool) {
-	req := cli.iam.ListGroupsForUserRequest(&iam.ListGroupsForUserInput{
+	out, err := cli.iam.ListGroupsForUser(cli.GetContext(), &iam.ListGroupsForUserInput{
 		UserName: aws.String(username),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
-	if out, err := req.Send(cli.GetContext()); err != nil {
+	if err != nil {
 		return cli.GetError(err), false
 	} else {
 		for _, g := range out.Groups {
@@ -26,12 +25,11 @@ func (cli *client) UserCheck(username, groupName string) (errors.Error, bool) {
 }
 
 func (cli *client) UserList(username string) ([]string, errors.Error) {
-	req := cli.iam.ListGroupsForUserRequest(&iam.ListGroupsForUserInput{
+	out, err := cli.iam.ListGroupsForUser(cli.GetContext(), &iam.ListGroupsForUserInput{
 		UserName: aws.String(username),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
-	if out, err := req.Send(cli.GetContext()); err != nil {
+	if err != nil {
 		return nil, cli.GetError(err)
 	} else {
 		var res = make([]string, 0)
@@ -45,25 +43,19 @@ func (cli *client) UserList(username string) ([]string, errors.Error) {
 }
 
 func (cli *client) UserAdd(username, groupName string) errors.Error {
-	req := cli.iam.AddUserToGroupRequest(&iam.AddUserToGroupInput{
+	_, err := cli.iam.AddUserToGroup(cli.GetContext(), &iam.AddUserToGroupInput{
 		UserName:  aws.String(username),
 		GroupName: aws.String(groupName),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	_, err := req.Send(cli.GetContext())
 
 	return cli.GetError(err)
 }
 
 func (cli *client) UserRemove(username, groupName string) errors.Error {
-	req := cli.iam.RemoveUserFromGroupRequest(&iam.RemoveUserFromGroupInput{
+	_, err := cli.iam.RemoveUserFromGroup(cli.GetContext(), &iam.RemoveUserFromGroupInput{
 		UserName:  aws.String(username),
 		GroupName: aws.String(groupName),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	_, err := req.Send(cli.GetContext())
 
 	return cli.GetError(err)
 }

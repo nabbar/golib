@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/defaults"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
-	aws2 "github.com/nabbar/golib/aws"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkcfg "github.com/aws/aws-sdk-go-v2/config"
+	sdkcrd "github.com/aws/aws-sdk-go-v2/credentials"
+	libaws "github.com/nabbar/golib/aws"
 	"github.com/nabbar/golib/errors"
 )
 
@@ -15,7 +15,7 @@ func GetConfigModel() interface{} {
 	return configModel{}
 }
 
-func NewConfigJsonUnmashal(p []byte) (aws2.Config, errors.Error) {
+func NewConfigJsonUnmashal(p []byte) (libaws.Config, errors.Error) {
 	c := configModel{}
 	if err := json.Unmarshal(p, &c); err != nil {
 		return nil, ErrorConfigJsonUnmarshall.ErrorParent(err)
@@ -23,13 +23,11 @@ func NewConfigJsonUnmashal(p []byte) (aws2.Config, errors.Error) {
 
 	return &awsModel{
 		configModel: c,
-		logLevel:    0,
-		awsLevel:    0,
 		retryer:     nil,
 	}, nil
 }
 
-func NewConfig(bucket, accessKey, secretKey, region string) aws2.Config {
+func NewConfig(bucket, accessKey, secretKey, region string) libaws.Config {
 	return &awsModel{
 		configModel: configModel{
 			Region:    region,
@@ -37,13 +35,11 @@ func NewConfig(bucket, accessKey, secretKey, region string) aws2.Config {
 			SecretKey: secretKey,
 			Bucket:    bucket,
 		},
-		logLevel: 0,
-		awsLevel: 0,
-		retryer:  nil,
+		retryer: nil,
 	}
 }
 
-func (c *awsModel) Clone() aws2.Config {
+func (c *awsModel) Clone() libaws.Config {
 	return &awsModel{
 		configModel: configModel{
 			Region:    c.Region,
@@ -51,36 +47,32 @@ func (c *awsModel) Clone() aws2.Config {
 			SecretKey: c.SecretKey,
 			Bucket:    c.Bucket,
 		},
-		logLevel: c.logLevel,
-		awsLevel: c.awsLevel,
-		retryer:  c.retryer,
+		retryer: c.retryer,
 	}
 }
 
-func (c *awsModel) GetConfig(cli *http.Client) (aws.Config, errors.Error) {
+func (c *awsModel) GetConfig(cli *http.Client) (*sdkaws.Config, errors.Error) {
 	var (
-		cfg aws.Config
+		cfg sdkaws.Config
 		err error
 	)
 
-	if c.AccessKey != "" && c.SecretKey != "" {
-		cfg = defaults.Config()
-		cfg.Credentials = aws.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, "")
-	} else if cfg, err = external.LoadDefaultAWSConfig(); err != nil {
-		return cfg, ErrorConfigLoader.ErrorParent(err)
+	if cfg, err = sdkcfg.LoadDefaultConfig(); err != nil {
+		return nil, ErrorConfigLoader.ErrorParent(err)
 	}
 
-	cfg.Logger = &awsLogger{c.logLevel}
-	cfg.LogLevel = c.awsLevel
+	if c.AccessKey != "" && c.SecretKey != "" {
+		cfg.Credentials = sdkcrd.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, "")
+	}
+
 	cfg.Retryer = c.retryer
-	cfg.EnableEndpointDiscovery = true
 	cfg.Region = c.Region
 
 	if cli != nil {
 		cfg.HTTPClient = cli
 	}
 
-	return cfg, nil
+	return &cfg, nil
 }
 
 func (c *awsModel) GetBucketName() string {

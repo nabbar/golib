@@ -2,7 +2,7 @@ package aws_test
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/nabbar/golib/password"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -34,11 +34,11 @@ var _ = Describe("User", func() {
 	})
 	Context("Get", func() {
 		It("Must succeed", func() {
-			var user *iam.User
+			var user *types.User
 
 			if minioMode {
 				err = nil
-				user = &iam.User{
+				user = &types.User{
 					UserName: aws.String(username),
 				}
 			} else {

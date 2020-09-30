@@ -2,13 +2,11 @@ package helper
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
-	"github.com/nabbar/golib/errors"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
@@ -28,32 +26,25 @@ func New(ctx context.Context, bucket string) Helper {
 	}
 }
 
-func (cli Helper) GetError(err error) errors.Error {
-	if err == nil {
-		return nil
+func (cli Helper) GetError(err ...error) liberr.Error {
+	var er = ErrorAws.Error(nil)
+
+	for _, e := range err {
+		if e == nil {
+			continue
+		}
+		if n, ok := e.(liberr.Error); ok {
+			er.AddParentError(n)
+		} else {
+			er.AddParent(e)
+		}
 	}
 
-	if aerr, ok := err.(awserr.Error); ok {
-		return ErrorAws.Error(errors.NewError(0, fmt.Sprintf("(%s) %s", aerr.Code(), aerr.Message()), nil))
+	if er.HasParent() {
+		return er
 	}
 
-	if aerr, ok := err.(errors.Error); ok {
-		return ErrorAws.Error(aerr)
-	}
-
-	return ErrorAws.ErrorParent(err)
-}
-
-func (cli Helper) ErrorCode(err error) string {
-	if aerr, ok := err.(awserr.Error); ok {
-		return aerr.Code()
-	}
-
-	if aerr, ok := err.(errors.Error); ok {
-		return aerr.CodeError("")
-	}
-
-	return ""
+	return nil
 }
 
 func (cli *Helper) GetContext() context.Context {

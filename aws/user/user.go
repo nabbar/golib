@@ -3,15 +3,13 @@ package user
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/nabbar/golib/aws/helper"
 	"github.com/nabbar/golib/errors"
 )
 
 func (cli *client) List() (map[string]string, errors.Error) {
-	req := cli.iam.ListUsersRequest(&iam.ListUsersInput{})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
+	out, err := cli.iam.ListUsers(cli.GetContext(), &iam.ListUsersInput{})
 
 	if err != nil {
 		return nil, cli.GetError(err)
@@ -28,13 +26,10 @@ func (cli *client) List() (map[string]string, errors.Error) {
 	}
 }
 
-func (cli *client) Get(username string) (*iam.User, errors.Error) {
-	req := cli.iam.GetUserRequest(&iam.GetUserInput{
+func (cli *client) Get(username string) (*types.User, errors.Error) {
+	out, err := cli.iam.GetUser(cli.GetContext(), &iam.GetUserInput{
 		UserName: aws.String(username),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return nil, cli.GetError(err)
@@ -44,12 +39,9 @@ func (cli *client) Get(username string) (*iam.User, errors.Error) {
 }
 
 func (cli *client) Create(username string) errors.Error {
-	req := cli.iam.CreateUserRequest(&iam.CreateUserInput{
+	out, err := cli.iam.CreateUser(cli.GetContext(), &iam.CreateUserInput{
 		UserName: aws.String(username),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return cli.GetError(err)
@@ -61,12 +53,9 @@ func (cli *client) Create(username string) errors.Error {
 }
 
 func (cli *client) Delete(username string) errors.Error {
-	req := cli.iam.DeleteUserRequest(&iam.DeleteUserInput{
+	_, err := cli.iam.DeleteUser(cli.GetContext(), &iam.DeleteUserInput{
 		UserName: aws.String(username),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }

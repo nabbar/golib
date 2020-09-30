@@ -3,146 +3,119 @@ package bucket
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	libhlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) Check() errors.Error {
-	req := cli.s3.HeadBucketRequest(&s3.HeadBucketInput{
+func (cli *client) Check() liberr.Error {
+	out, err := cli.s3.HeadBucket(cli.GetContext(), &sdksss.HeadBucketInput{
 		Bucket: cli.GetBucketAws(),
 	})
 
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
 	if err != nil {
 		return cli.GetError(err)
-	}
-
-	if out == nil || out.HeadBucketOutput == nil {
+	} else if out == nil {
 		//nolint #goerr113
-		return helper.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
+		return libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
 	}
 
 	return nil
 }
 
-func (cli *client) Create() errors.Error {
-	req := cli.s3.CreateBucketRequest(&s3.CreateBucketInput{
+func (cli *client) Create() liberr.Error {
+	out, err := cli.s3.CreateBucket(cli.GetContext(), &sdksss.CreateBucketInput{
 		Bucket: cli.GetBucketAws(),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	return cli.GetError(err)
-}
-
-func (cli *client) Delete() errors.Error {
-	req := cli.s3.DeleteBucketRequest(&s3.DeleteBucketInput{
-		Bucket: cli.GetBucketAws(),
-	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	return cli.GetError(err)
-}
-
-func (cli *client) List() ([]s3.Bucket, errors.Error) {
-	req := cli.s3.ListBucketsRequest(nil)
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
-		return make([]s3.Bucket, 0), cli.GetError(err)
+		return cli.GetError(err)
+	} else if out == nil || len(*out.Location) == 0 {
+		return libhlp.ErrorResponse.Error(nil)
 	}
 
-	if out == nil || out.Buckets == nil {
-		return make([]s3.Bucket, 0), helper.ErrorAwsEmpty.Error(nil)
+	return cli.GetError(err)
+}
+
+func (cli *client) Delete() liberr.Error {
+	_, err := cli.s3.DeleteBucket(cli.GetContext(), &sdksss.DeleteBucketInput{
+		Bucket: cli.GetBucketAws(),
+	})
+
+	return cli.GetError(err)
+}
+
+func (cli *client) List() ([]*sdkstp.Bucket, liberr.Error) {
+	out, err := cli.s3.ListBuckets(cli.GetContext(), nil)
+
+	if err != nil {
+		return make([]*sdkstp.Bucket, 0), cli.GetError(err)
+	} else if out == nil || out.Buckets == nil {
+		return make([]*sdkstp.Bucket, 0), libhlp.ErrorAwsEmpty.Error(nil)
 	}
 
 	return out.Buckets, nil
 }
 
-func (cli *client) SetVersioning(state bool) errors.Error {
-	var status s3.BucketVersioningStatus = helper.STATE_ENABLED
+func (cli *client) SetVersioning(state bool) liberr.Error {
+	var status sdkstp.BucketVersioningStatus = libhlp.STATE_ENABLED
 	if !state {
-		status = helper.STATE_SUSPENDED
+		status = libhlp.STATE_SUSPENDED
 	}
 
-	vConf := s3.VersioningConfiguration{
-		Status: status,
-	}
-	input := s3.PutBucketVersioningInput{
-		Bucket:                  cli.GetBucketAws(),
-		VersioningConfiguration: &vConf,
-	}
-
-	req := cli.s3.PutBucketVersioningRequest(&input)
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
+	_, err := cli.s3.PutBucketVersioning(cli.GetContext(), &sdksss.PutBucketVersioningInput{
+		Bucket: cli.GetBucketAws(),
+		VersioningConfiguration: &sdkstp.VersioningConfiguration{
+			Status: status,
+		},
+	})
 
 	return cli.GetError(err)
 }
 
-func (cli *client) GetVersioning() (string, errors.Error) {
-	input := s3.GetBucketVersioningInput{
+func (cli *client) GetVersioning() (string, liberr.Error) {
+	out, err := cli.s3.GetBucketVersioning(cli.GetContext(), &sdksss.GetBucketVersioningInput{
 		Bucket: cli.GetBucketAws(),
-	}
-
-	req := cli.s3.GetBucketVersioningRequest(&input)
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	out, err := req.Send(cli.GetContext())
+	})
 
 	if err != nil {
 		return "", cli.GetError(err)
+	} else if out == nil {
+		return "", libhlp.ErrorResponse.Error(nil)
 	}
 
 	// MarshalValue always return error as nil
-	v, _ := out.Status.MarshalValue()
-
-	return v, nil
+	return string(out.Status), nil
 }
 
-func (cli *client) EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) errors.Error {
-	var status s3.ReplicationRuleStatus = helper.STATE_ENABLED
+func (cli *client) EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) liberr.Error {
+	var status sdkstp.ReplicationRuleStatus = libhlp.STATE_ENABLED
 
-	replicationConf := s3.ReplicationConfiguration{
-		Role: aws.String(srcRoleARN + "," + dstRoleARN),
-		Rules: []s3.ReplicationRule{
-			{
-				Destination: &s3.Destination{
-					Bucket: aws.String("arn:aws:s3:::" + dstBucketName),
+	_, err := cli.s3.PutBucketReplication(cli.GetContext(), &sdksss.PutBucketReplicationInput{
+		Bucket: cli.GetBucketAws(),
+		ReplicationConfiguration: &sdkstp.ReplicationConfiguration{
+			Role: sdkaws.String(srcRoleARN + "," + dstRoleARN),
+			Rules: []*sdkstp.ReplicationRule{
+				{
+					Destination: &sdkstp.Destination{
+						Bucket: sdkaws.String("arn:aws:s3:::" + dstBucketName),
+					},
+					Status: status,
+					Prefix: sdkaws.String(""),
 				},
-				Status: status,
-				Prefix: aws.String(""),
 			},
 		},
-	}
-
-	req := cli.s3.PutBucketReplicationRequest(&s3.PutBucketReplicationInput{
-		Bucket:                   cli.GetBucketAws(),
-		ReplicationConfiguration: &replicationConf,
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	_, err := req.Send(cli.GetContext())
 
 	return cli.GetError(err)
 }
 
-func (cli *client) DeleteReplication() errors.Error {
-	req := cli.s3.DeleteBucketReplicationRequest(&s3.DeleteBucketReplicationInput{
+func (cli *client) DeleteReplication() liberr.Error {
+	_, err := cli.s3.DeleteBucketReplication(cli.GetContext(), &sdksss.DeleteBucketReplicationInput{
 		Bucket: cli.GetBucketAws(),
 	})
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
-
-	_, err := req.Send(cli.GetContext())
 
 	return cli.GetError(err)
 }

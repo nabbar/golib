@@ -3,16 +3,14 @@ package role
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/nabbar/golib/errors"
 )
 
-func (cli *client) PolicyListAttached(roleName string) ([]iam.AttachedPolicy, errors.Error) {
-	req := cli.iam.ListAttachedRolePoliciesRequest(&iam.ListAttachedRolePoliciesInput{
+func (cli *client) PolicyListAttached(roleName string) ([]*types.AttachedPolicy, errors.Error) {
+	out, err := cli.iam.ListAttachedRolePolicies(cli.GetContext(), &iam.ListAttachedRolePoliciesInput{
 		RoleName: aws.String(roleName),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return nil, cli.GetError(err)
@@ -22,25 +20,19 @@ func (cli *client) PolicyListAttached(roleName string) ([]iam.AttachedPolicy, er
 }
 
 func (cli *client) PolicyAttach(policyARN, roleName string) errors.Error {
-	req := cli.iam.AttachRolePolicyRequest(&iam.AttachRolePolicyInput{
+	_, err := cli.iam.AttachRolePolicy(cli.GetContext(), &iam.AttachRolePolicyInput{
 		PolicyArn: aws.String(policyARN),
 		RoleName:  aws.String(roleName),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }
 
 func (cli *client) PolicyDetach(policyARN, roleName string) errors.Error {
-	req := cli.iam.DetachRolePolicyRequest(&iam.DetachRolePolicyInput{
+	_, err := cli.iam.DetachRolePolicy(cli.GetContext(), &iam.DetachRolePolicyInput{
 		PolicyArn: aws.String(policyARN),
 		RoleName:  aws.String(roleName),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }

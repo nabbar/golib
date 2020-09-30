@@ -1,8 +1,6 @@
 package aws_test
 
 import (
-	"bytes"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -27,9 +25,12 @@ var _ = Describe("Bucket", func() {
 		})
 		Context("With the object", func() {
 			It("Must succeed", func() {
-				var err error
+				var (
+					err error
+					rnd = randContent(64 * 1024)
+				)
 
-				err = cli.Object().MultipartPut("object", bytes.NewReader([]byte("Hello")))
+				err = cli.Object().MultipartPut("object", rnd)
 				Expect(err).ToNot(HaveOccurred())
 
 				objects, err := cli.Object().Find("object")
@@ -50,7 +51,7 @@ var _ = Describe("Bucket", func() {
 	})
 
 	/*
-		 * Not Implemented whit minio
+		 * Not Implemented with minio
 		 *
 		Context("Versioning", func() {
 			It("Must be possible to enable versioning", func() {

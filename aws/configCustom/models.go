@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/go-playground/validator/v10"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	libval "github.com/go-playground/validator/v10"
 	"github.com/nabbar/golib/errors"
 	"github.com/nabbar/golib/httpcli"
 	"github.com/nabbar/golib/logger"
@@ -25,25 +25,23 @@ type Model struct {
 type awsModel struct {
 	Model
 
-	logLevel  logger.Level
-	awsLevel  aws.LogLevel
-	retryer   aws.Retryer
+	retryer   sdkaws.Retryer
 	endpoint  *url.URL
 	mapRegion map[string]*url.URL
 }
 
 func (c *awsModel) Validate() errors.Error {
-	val := validator.New()
+	val := libval.New()
 	err := val.Struct(c)
 
 	if err != nil {
-		if e, ok := err.(*validator.InvalidValidationError); ok {
+		if e, ok := err.(*libval.InvalidValidationError); ok {
 			return ErrorConfigValidator.ErrorParent(e)
 		}
 
 		out := ErrorConfigValidator.Error(nil)
 
-		for _, e := range err.(validator.ValidationErrors) {
+		for _, e := range err.(libval.ValidationErrors) {
 			//nolint goerr113
 			out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
 		}
@@ -96,7 +94,7 @@ func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) erro
 		region = c.Region
 	}
 
-	val := validator.New()
+	val := libval.New()
 
 	if err := val.Var(endpoint, "url,required"); err != nil {
 		return ErrorEndpointInvalid.ErrorParent(err)
@@ -127,7 +125,7 @@ func (c *awsModel) RegisterRegionAws(endpoint *url.URL) errors.Error {
 		return ErrorEndpointInvalid.Error(nil)
 	}
 
-	val := validator.New()
+	val := libval.New()
 	if err := val.Var(endpoint, "url,required"); err != nil {
 		return ErrorEndpointInvalid.ErrorParent(err)
 	}
@@ -190,38 +188,34 @@ func (c awsModel) GetEndpoint() *url.URL {
 	return c.endpoint
 }
 
-func (c *awsModel) ResolveEndpoint(service, region string) (aws.Endpoint, error) {
+func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, error) {
 	if e, ok := c.mapRegion[region]; ok {
-		return aws.Endpoint{
+		return sdkaws.Endpoint{
 			URL: strings.TrimSuffix(e.String(), "/"),
 		}, nil
 	}
 
 	if c.Endpoint != "" {
-		return aws.Endpoint{
+		return sdkaws.Endpoint{
 			URL: strings.TrimSuffix(c.Endpoint, "/"),
 		}, nil
 	}
 
 	logger.DebugLevel.Logf("Called ResolveEndpoint for service '%s' / region '%s' with nil endpoint", service, region)
-	return aws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
+	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
 }
 
-func (c *awsModel) SetLogLevel(lvl logger.Level) {
-	c.logLevel = lvl
+func (c *awsModel) IsHTTPs() bool {
+	return c.endpoint.Scheme == "https"
 }
 
-func (c *awsModel) SetAWSLogLevel(lvl aws.LogLevel) {
-	c.awsLevel = lvl
-}
-
-func (c *awsModel) SetRetryer(retryer aws.Retryer) {
+func (c *awsModel) SetRetryer(retryer sdkaws.Retryer) {
 	c.retryer = retryer
 }
 
 func (c awsModel) Check(ctx context.Context) errors.Error {
 	var (
-		cfg aws.Config
+		cfg *sdkaws.Config
 		con net.Conn
 		err error
 		e   errors.Error
