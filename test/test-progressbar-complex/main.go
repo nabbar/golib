@@ -69,6 +69,8 @@ func main() {
 				pb.UnicProcessDeferWorker()
 			}()
 
+			//nolint #nosec
+			/* #nosec */
 			rand.Seed(999)
 
 			for done1 {
@@ -77,10 +79,14 @@ func main() {
 					brK0.Done()
 					brK1.Reset(max, 0)
 				} else if !done1 {
+					//nolint #nosec
+					/* #nosec */
 					time.Sleep(time.Duration(rand.Intn(9)+1) * time.Millisecond)
 				}
 			}
 
+			//nolint #nosec
+			/* #nosec */
 			time.Sleep(time.Duration((rand.Intn(99)/3)+1) * time.Millisecond)
 			brK1.Increment64(inc)
 		}()
@@ -96,6 +102,8 @@ func main() {
 				pb.UnicProcessDeferWorker()
 			}()
 
+			//nolint #nosec
+			/* #nosec */
 			rand.Seed(999)
 
 			for done2 {
@@ -104,10 +112,14 @@ func main() {
 					brK1.Done()
 					brK2.Reset(max, 0)
 				} else if !done2 {
+					//nolint #nosec
+					/* #nosec */
 					time.Sleep(time.Duration(rand.Intn(9)+1) * time.Millisecond)
 				}
 			}
 
+			//nolint #nosec
+			/* #nosec */
 			time.Sleep(time.Duration(rand.Intn(99)+1) * time.Millisecond)
 			brK2.Increment64(inc)
 		}()

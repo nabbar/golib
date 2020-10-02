@@ -95,7 +95,8 @@ func NewAttachmentFile(name string, filepath string) (Attachment, Error) {
 		return nil, ErrorFileStat.ErrorParent(e)
 	}
 
-	// #nosec
+	//nolint #nosec
+	/* #nosec */
 	if bb, e := ioutil.ReadFile(filepath); e != nil {
 		return nil, ErrorFileRead.ErrorParent(e)
 	} else {

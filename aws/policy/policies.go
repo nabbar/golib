@@ -1,3 +1,28 @@
+/*
+ *  MIT License
+ *
+ *  Copyright (c) 2020 Nicolas JUHEL
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ *
+ */
+
 package policy
 
 import (
@@ -7,10 +32,7 @@ import (
 )
 
 func (cli *client) List() (map[string]string, errors.Error) {
-	req := cli.iam.ListPoliciesRequest(&iam.ListPoliciesInput{})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
+	out, err := cli.iam.ListPolicies(cli.GetContext(), &iam.ListPoliciesInput{})
 
 	if err != nil {
 		return nil, cli.GetError(err)
@@ -26,14 +48,11 @@ func (cli *client) List() (map[string]string, errors.Error) {
 }
 
 func (cli *client) Add(name, desc, policy string) (string, errors.Error) {
-	req := cli.iam.CreatePolicyRequest(&iam.CreatePolicyInput{
+	out, err := cli.iam.CreatePolicy(cli.GetContext(), &iam.CreatePolicyInput{
 		PolicyName:     aws.String(name),
 		Description:    aws.String(desc),
 		PolicyDocument: aws.String(policy),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return "", cli.GetError(err)
@@ -43,12 +62,9 @@ func (cli *client) Add(name, desc, policy string) (string, errors.Error) {
 }
 
 func (cli *client) Update(polArn, polContents string) errors.Error {
-	req := cli.iam.ListPolicyVersionsRequest(&iam.ListPolicyVersionsInput{
+	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
 		PolicyArn: aws.String(polArn),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return cli.GetError(err)
@@ -59,43 +75,31 @@ func (cli *client) Update(polArn, polContents string) errors.Error {
 			}
 
 			if !*v.IsDefaultVersion {
-				reqD := cli.iam.DeletePolicyVersionRequest(&iam.DeletePolicyVersionInput{
+				_, _ = cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
 					PolicyArn: aws.String(polArn),
 					VersionId: v.VersionId,
 				})
-
-				if o, e := reqD.Send(cli.GetContext()); e != nil {
-					continue
-				} else if o == nil {
-					continue
-				}
 			}
 		}
 	}
 
-	reqG := cli.iam.CreatePolicyVersionRequest(&iam.CreatePolicyVersionInput{
+	if cli.GetContext().Err() != nil {
+		return nil
+	}
+
+	_, err = cli.iam.CreatePolicyVersion(cli.GetContext(), &iam.CreatePolicyVersionInput{
 		PolicyArn:      aws.String(polArn),
 		PolicyDocument: aws.String(polContents),
 		SetAsDefault:   aws.Bool(true),
 	})
 
-	if cli.GetContext().Err() != nil {
-		return nil
-	}
-
-	_, err = reqG.Send(cli.GetContext())
-	defer cli.Close(reqG.HTTPRequest, reqG.HTTPResponse)
-
 	return cli.GetError(err)
 }
 
 func (cli *client) Delete(polArn string) errors.Error {
-	req := cli.iam.ListPolicyVersionsRequest(&iam.ListPolicyVersionsInput{
+	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
 		PolicyArn: aws.String(polArn),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return cli.GetError(err)
@@ -106,16 +110,10 @@ func (cli *client) Delete(polArn string) errors.Error {
 			}
 
 			if !*v.IsDefaultVersion {
-				reqD := cli.iam.DeletePolicyVersionRequest(&iam.DeletePolicyVersionInput{
+				_, _ = cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
 					PolicyArn: aws.String(polArn),
 					VersionId: v.VersionId,
 				})
-
-				if o, e := reqD.Send(cli.GetContext()); e != nil {
-					continue
-				} else if o == nil {
-					continue
-				}
 			}
 		}
 	}
@@ -124,12 +122,9 @@ func (cli *client) Delete(polArn string) errors.Error {
 		return nil
 	}
 
-	reqG := cli.iam.DeletePolicyRequest(&iam.DeletePolicyInput{
+	_, err = cli.iam.DeletePolicy(cli.GetContext(), &iam.DeletePolicyInput{
 		PolicyArn: aws.String(polArn),
 	})
-
-	_, err = reqG.Send(cli.GetContext())
-	defer cli.Close(reqG.HTTPRequest, reqG.HTTPResponse)
 
 	return cli.GetError(err)
 }
