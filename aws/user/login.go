@@ -1,3 +1,28 @@
+/*
+ *  MIT License
+ *
+ *  Copyright (c) 2020 Nicolas JUHEL
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ *
+ */
+
 package user
 
 import (
@@ -8,25 +33,19 @@ import (
 )
 
 func (cli *client) LoginCheck(username string) errors.Error {
-	req := cli.iam.GetLoginProfileRequest(&iam.GetLoginProfileInput{
+	_, err := cli.iam.GetLoginProfile(cli.GetContext(), &iam.GetLoginProfileInput{
 		UserName: aws.String(username),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }
 
 func (cli *client) LoginCreate(username, password string) errors.Error {
-	req := cli.iam.CreateLoginProfileRequest(&iam.CreateLoginProfileInput{
+	out, err := cli.iam.CreateLoginProfile(cli.GetContext(), &iam.CreateLoginProfileInput{
 		UserName:              aws.String(username),
 		Password:              aws.String(password),
 		PasswordResetRequired: aws.Bool(false),
 	})
-
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	if err != nil {
 		return cli.GetError(err)
@@ -38,12 +57,9 @@ func (cli *client) LoginCreate(username, password string) errors.Error {
 }
 
 func (cli *client) LoginDelete(username string) errors.Error {
-	req := cli.iam.DeleteLoginProfileRequest(&iam.DeleteLoginProfileInput{
+	_, err := cli.iam.DeleteLoginProfile(cli.GetContext(), &iam.DeleteLoginProfileInput{
 		UserName: aws.String(username),
 	})
-
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
 
 	return cli.GetError(err)
 }

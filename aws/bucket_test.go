@@ -1,8 +1,31 @@
+/*
+ *  MIT License
+ *
+ *  Copyright (c) 2020 Nicolas JUHEL
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ *
+ */
+
 package aws_test
 
 import (
-	"bytes"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -27,9 +50,12 @@ var _ = Describe("Bucket", func() {
 		})
 		Context("With the object", func() {
 			It("Must succeed", func() {
-				var err error
+				var (
+					err error
+					rnd = randContent(64 * 1024)
+				)
 
-				err = cli.Object().MultipartPut("object", bytes.NewReader([]byte("Hello")))
+				err = cli.Object().MultipartPut("object", rnd)
 				Expect(err).ToNot(HaveOccurred())
 
 				objects, err := cli.Object().Find("object")
@@ -50,7 +76,7 @@ var _ = Describe("Bucket", func() {
 	})
 
 	/*
-		 * Not Implemented whit minio
+		 * Not Implemented with minio
 		 *
 		Context("Versioning", func() {
 			It("Must be possible to enable versioning", func() {

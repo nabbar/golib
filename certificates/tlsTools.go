@@ -86,7 +86,9 @@ func AddRootCAFile(rootFile string) Error {
 		return ErrorFileStat.ErrorParent(e)
 	}
 
-	c, e := ioutil.ReadFile(rootFile) // #nosec
+	//nolint #nosec
+	/* #nosec */
+	c, e := ioutil.ReadFile(rootFile)
 
 	if e == nil {
 		if rootCA.AppendCertsFromPEM(c) {
@@ -116,7 +118,9 @@ func AddCACertificateFile(caFile string) Error {
 		return ErrorFileStat.ErrorParent(e)
 	}
 
-	c, e := ioutil.ReadFile(caFile) // #nosec
+	//nolint #nosec
+	/* #nosec */
+	c, e := ioutil.ReadFile(caFile)
 
 	if e == nil {
 		if caCertificates.AppendCertsFromPEM(c) {
@@ -298,7 +302,8 @@ func SetSessionTicket(enable bool) {
 }
 
 func GetTLSConfig(serverName string) *tls.Config {
-	// #nosec
+	//nolint #nosec
+	/* #nosec */
 	cnf := &tls.Config{
 		RootCAs:            rootCA,
 		ClientCAs:          caCertificates,

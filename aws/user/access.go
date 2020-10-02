@@ -1,25 +1,48 @@
+/*
+ *  MIT License
+ *
+ *  Copyright (c) 2020 Nicolas JUHEL
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ *
+ */
+
 package user
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/nabbar/golib/aws/helper"
 	"github.com/nabbar/golib/errors"
 )
 
 func (cli *client) AccessList(username string) (map[string]bool, errors.Error) {
-	var req iam.ListAccessKeysRequest
+	var req = &iam.ListAccessKeysInput{}
 
 	if username != "" {
-		req = cli.iam.ListAccessKeysRequest(&iam.ListAccessKeysInput{
+		req = &iam.ListAccessKeysInput{
 			UserName: aws.String(username),
-		})
-	} else {
-		req = cli.iam.ListAccessKeysRequest(&iam.ListAccessKeysInput{})
+		}
 	}
 
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
+	out, err := cli.iam.ListAccessKeys(cli.GetContext(), req)
 
 	if err != nil {
 		return nil, cli.GetError(err)
@@ -30,9 +53,9 @@ func (cli *client) AccessList(username string) (map[string]bool, errors.Error) {
 
 		for _, a := range out.AccessKeyMetadata {
 			switch a.Status {
-			case iam.StatusTypeActive:
+			case types.StatusTypeActive:
 				res[*a.AccessKeyId] = true
-			case iam.StatusTypeInactive:
+			case types.StatusTypeInactive:
 				res[*a.AccessKeyId] = false
 			}
 		}
@@ -42,18 +65,15 @@ func (cli *client) AccessList(username string) (map[string]bool, errors.Error) {
 }
 
 func (cli *client) AccessCreate(username string) (string, string, errors.Error) {
-	var req iam.CreateAccessKeyRequest
+	var req = &iam.CreateAccessKeyInput{}
 
 	if username != "" {
-		req = cli.iam.CreateAccessKeyRequest(&iam.CreateAccessKeyInput{
+		req = &iam.CreateAccessKeyInput{
 			UserName: aws.String(username),
-		})
-	} else {
-		req = cli.iam.CreateAccessKeyRequest(&iam.CreateAccessKeyInput{})
+		}
 	}
 
-	out, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
+	out, err := cli.iam.CreateAccessKey(cli.GetContext(), req)
 
 	if err != nil {
 		return "", "", cli.GetError(err)
@@ -65,21 +85,18 @@ func (cli *client) AccessCreate(username string) (string, string, errors.Error) 
 }
 
 func (cli *client) AccessDelete(username, accessKey string) errors.Error {
-	var req iam.DeleteAccessKeyRequest
-
-	if username != "" {
-		req = cli.iam.DeleteAccessKeyRequest(&iam.DeleteAccessKeyInput{
-			AccessKeyId: aws.String(accessKey),
-			UserName:    aws.String(username),
-		})
-	} else {
-		req = cli.iam.DeleteAccessKeyRequest(&iam.DeleteAccessKeyInput{
-			AccessKeyId: aws.String(accessKey),
-		})
+	var req = &iam.DeleteAccessKeyInput{
+		AccessKeyId: aws.String(accessKey),
 	}
 
-	_, err := req.Send(cli.GetContext())
-	defer cli.Close(req.HTTPRequest, req.HTTPResponse)
+	if username != "" {
+		req = &iam.DeleteAccessKeyInput{
+			AccessKeyId: aws.String(accessKey),
+			UserName:    aws.String(username),
+		}
+	}
+
+	_, err := cli.iam.DeleteAccessKey(cli.GetContext(), req)
 
 	return cli.GetError(err)
 }

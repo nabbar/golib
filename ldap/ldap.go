@@ -92,7 +92,8 @@ func (lc *HelperLDAP) ForceTLSMode(tlsMode TLSMode, tlsConfig *tls.Config) {
 	if tlsConfig != nil {
 		lc.tlsConfig = tlsConfig
 	} else {
-		//nolint gosec /* #nosec */
+		//nolint #nosec
+		/* #nosec */
 		lc.tlsConfig = &tls.Config{}
 	}
 

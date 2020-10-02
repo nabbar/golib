@@ -1,3 +1,28 @@
+/*
+ *  MIT License
+ *
+ *  Copyright (c) 2020 Nicolas JUHEL
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ *
+ */
+
 package aws
 
 import (
@@ -5,9 +30,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdksv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/nabbar/golib/aws/bucket"
 	"github.com/nabbar/golib/aws/group"
 	"github.com/nabbar/golib/aws/helper"
@@ -16,7 +42,6 @@ import (
 	"github.com/nabbar/golib/aws/role"
 	"github.com/nabbar/golib/aws/user"
 	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/logger"
 )
 
 type Config interface {
@@ -31,13 +56,11 @@ type Config interface {
 	SetEndpoint(endpoint *url.URL)
 	GetEndpoint() *url.URL
 
-	ResolveEndpoint(service, region string) (aws.Endpoint, error)
+	IsHTTPs() bool
+	ResolveEndpoint(service, region string) (sdkaws.Endpoint, error)
+	SetRetryer(retryer sdkaws.Retryer)
 
-	SetLogLevel(lvl logger.Level)
-	SetAWSLogLevel(lvl aws.LogLevel)
-	SetRetryer(retryer aws.Retryer)
-
-	GetConfig(cli *http.Client) (aws.Config, errors.Error)
+	GetConfig(cli *http.Client) (*sdkaws.Config, errors.Error)
 	JSON() ([]byte, error)
 	Clone() Config
 
@@ -53,9 +76,9 @@ type AWS interface {
 	Role() role.Role
 	User() user.User
 
-	Clone() AWS
+	Clone() (AWS, errors.Error)
 	Config() Config
-	ForcePathStyle(enabled bool)
+	ForcePathStyle(enabled bool) errors.Error
 
 	GetBucketName() string
 	SetBucketName(bucket string)
@@ -65,8 +88,9 @@ type client struct {
 	p bool
 	x context.Context
 	c Config
-	i *iam.Client
-	s *s3.Client
+	i *sdkiam.Client
+	s *sdksss.Client
+	h *http.Client
 }
 
 func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, errors.Error) {
@@ -74,57 +98,118 @@ func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, errors.
 		return nil, helper.ErrorConfigEmpty.Error(nil)
 	}
 
-	var (
-		c aws.Config
-		i *iam.Client
-		s *s3.Client
-		e errors.Error
-	)
-
-	if c, e = cfg.GetConfig(httpClient); e != nil {
-		return nil, e
-	}
-
-	i = iam.New(c)
-	s = s3.New(c)
-
-	if httpClient != nil {
-		i.HTTPClient = httpClient
-		s.HTTPClient = httpClient
-	}
-
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	return &client{
+	cli := &client{
 		p: false,
 		x: ctx,
 		c: cfg,
-		i: i,
-		s: s,
-	}, nil
-}
-
-func (c *client) getCliIAM() *iam.Client {
-	i := iam.New(c.i.Config)
-	i.HTTPClient = c.i.HTTPClient
-	return i
-}
-
-func (c *client) getCliS3() *s3.Client {
-	s := s3.New(c.s.Config)
-	s.HTTPClient = c.s.HTTPClient
-	s.ForcePathStyle = c.p
-	return s
-}
-
-func (c *client) Clone() AWS {
-	return &client{
-		p: c.p,
-		x: c.x,
-		c: c.c.Clone(),
-		i: c.getCliIAM(),
-		s: c.getCliS3(),
+		i: nil,
+		s: nil,
+		h: httpClient,
 	}
+
+	if i, e := cli.newClientIAM(httpClient); e != nil {
+		return nil, e
+	} else {
+		cli.i = i
+	}
+
+	if s, e := cli.newClientS3(httpClient); e != nil {
+		return nil, e
+	} else {
+		cli.s = s
+	}
+
+	return cli, nil
+}
+
+func (cli *client) newClientIAM(httpClient *http.Client) (*sdkiam.Client, errors.Error) {
+	var (
+		c *sdkaws.Config
+		i *sdkiam.Client
+		e errors.Error
+	)
+
+	if httpClient == nil {
+		httpClient = cli.h
+	}
+
+	if c, e = cli.c.GetConfig(httpClient); e != nil {
+		return nil, e
+	}
+
+	i = sdkiam.New(sdkiam.Options{
+		APIOptions:  c.APIOptions,
+		Credentials: c.Credentials,
+		EndpointOptions: sdkiam.ResolverOptions{
+			DisableHTTPS: cli.c.IsHTTPs(),
+		},
+		EndpointResolver: sdkiam.WithEndpointResolver(c.EndpointResolver, nil),
+		HTTPSignerV4:     sdksv4.NewSigner(),
+		Region:           c.Region,
+		Retryer:          c.Retryer,
+		HTTPClient:       httpClient,
+	})
+
+	return i, nil
+}
+
+func (cli *client) newClientS3(httpClient *http.Client) (*sdksss.Client, errors.Error) {
+	var (
+		c *sdkaws.Config
+		s *sdksss.Client
+		e errors.Error
+	)
+
+	if httpClient == nil {
+		httpClient = cli.h
+	}
+
+	if c, e = cli.c.GetConfig(httpClient); e != nil {
+		return nil, e
+	}
+
+	s = sdksss.New(sdksss.Options{
+		APIOptions:  c.APIOptions,
+		Credentials: c.Credentials,
+		EndpointOptions: sdksss.ResolverOptions{
+			DisableHTTPS: cli.c.IsHTTPs(),
+		},
+		EndpointResolver: sdksss.WithEndpointResolver(c.EndpointResolver, nil),
+		HTTPSignerV4:     sdksv4.NewSigner(),
+		Region:           c.Region,
+		Retryer:          c.Retryer,
+		HTTPClient:       httpClient,
+		UsePathStyle:     cli.p,
+	})
+
+	return s, nil
+}
+
+func (c *client) Clone() (AWS, errors.Error) {
+	cli := &client{
+		p: false,
+		x: c.x,
+		c: c.c,
+		i: nil,
+		s: nil,
+		h: c.h,
+	}
+
+	if i, e := cli.newClientIAM(c.h); e != nil {
+		return nil, e
+	} else {
+		cli.i = i
+	}
+
+	if s, e := cli.newClientS3(c.h); e != nil {
+		return nil, e
+	} else {
+		cli.s = s
+	}
+
+	return cli, nil
 }

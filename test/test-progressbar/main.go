@@ -81,7 +81,11 @@ func main() {
 				brK.DeferWorker()
 			}()
 
+			//nolint #nosec
+			/* #nosec */
 			rand.Seed(99)
+			//nolint #nosec
+			/* #nosec */
 			time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
 
 			brE.Increment64(inc - 1)

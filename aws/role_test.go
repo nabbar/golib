@@ -1,8 +1,33 @@
+/*
+ *  MIT License
+ *
+ *  Copyright (c) 2020 Nicolas JUHEL
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ *
+ */
+
 package aws_test
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -68,11 +93,11 @@ var _ = Describe("Role", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Must return 1 policy", func() {
-			var policies []iam.AttachedPolicy
+			var policies []*types.AttachedPolicy
 
 			if minioMode {
 				err = nil
-				policies = []iam.AttachedPolicy{
+				policies = []*types.AttachedPolicy{
 					{
 						PolicyArn:  aws.String(policyArn),
 						PolicyName: aws.String(name),
@@ -137,11 +162,11 @@ var _ = Describe("Role", func() {
 	})
 	Context("List", func() {
 		It("Must return 1 role", func() {
-			var roles []iam.Role
+			var roles []*types.Role
 
 			if minioMode {
 				err = nil
-				roles = []iam.Role{
+				roles = []*types.Role{
 					{
 						Arn:      aws.String(arn),
 						RoleName: aws.String(name),

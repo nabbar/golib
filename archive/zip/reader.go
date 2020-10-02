@@ -78,7 +78,8 @@ func GetFile(src, dst ioutils.FileProgress, filenameContain, filenameRegex strin
 				_ = r.Close()
 			}()
 
-			// #nosec
+			//nolint #nosec
+			/* #nosec */
 			if _, e = dst.ReadFrom(r); e != nil {
 				//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "copy buffer from archive reader", err)
 				return ErrorIOCopy.ErrorParent(e)
@@ -116,6 +117,8 @@ func GetAll(src ioutils.FileProgress, outputFolder string, defaultDirPerm os.Fil
 			continue
 		}
 
+		//nolint #nosec
+		/* #nosec */
 		if err := writeContent(f, path.Join(outputFolder, f.Name), defaultDirPerm); err != nil {
 			return err
 		}
@@ -164,7 +167,8 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err erro
 		return ErrorZipFileOpen.ErrorParent(e)
 	}
 
-	//#nosec
+	//nolint #nosec
+	/* #nosec */
 	if _, e := io.Copy(dst, r); e != nil {
 		return ErrorIOCopy.ErrorParent(e)
 	} else if e = dst.Close(); e != nil {

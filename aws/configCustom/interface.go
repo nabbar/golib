@@ -1,3 +1,28 @@
+/*
+ *  MIT License
+ *
+ *  Copyright (c) 2020 Nicolas JUHEL
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ *
+ */
+
 package configCustom
 
 import (
@@ -6,9 +31,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/defaults"
-	aws2 "github.com/nabbar/golib/aws"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkcrd "github.com/aws/aws-sdk-go-v2/credentials"
+	libaws "github.com/nabbar/golib/aws"
 	"github.com/nabbar/golib/errors"
 )
 
@@ -16,7 +41,7 @@ func GetConfigModel() interface{} {
 	return Model{}
 }
 
-func NewConfigJsonUnmashal(p []byte) (aws2.Config, errors.Error) {
+func NewConfigJsonUnmashal(p []byte) (libaws.Config, errors.Error) {
 	c := Model{}
 	if err := json.Unmarshal(p, &c); err != nil {
 		return nil, ErrorConfigJsonUnmarshall.ErrorParent(err)
@@ -24,14 +49,12 @@ func NewConfigJsonUnmashal(p []byte) (aws2.Config, errors.Error) {
 
 	return &awsModel{
 		Model:     c,
-		logLevel:  0,
-		awsLevel:  0,
 		retryer:   nil,
 		mapRegion: nil,
 	}, nil
 }
 
-func NewConfig(bucket, accessKey, secretKey string, endpoint *url.URL, region string) aws2.Config {
+func NewConfig(bucket, accessKey, secretKey string, endpoint *url.URL, region string) libaws.Config {
 	return &awsModel{
 		Model: Model{
 			Region:    region,
@@ -41,14 +64,12 @@ func NewConfig(bucket, accessKey, secretKey string, endpoint *url.URL, region st
 			Bucket:    bucket,
 		},
 		endpoint:  endpoint,
-		logLevel:  0,
-		awsLevel:  0,
 		retryer:   nil,
 		mapRegion: make(map[string]*url.URL),
 	}
 }
 
-func (c *awsModel) Clone() aws2.Config {
+func (c *awsModel) Clone() libaws.Config {
 	m := make(map[string]*url.URL)
 
 	for r, e := range c.mapRegion {
@@ -63,23 +84,19 @@ func (c *awsModel) Clone() aws2.Config {
 			SecretKey: c.SecretKey,
 			Bucket:    c.Bucket,
 		},
-		logLevel:  c.logLevel,
-		awsLevel:  c.awsLevel,
 		retryer:   c.retryer,
 		endpoint:  c.endpoint,
 		mapRegion: m,
 	}
 }
 
-func (c *awsModel) GetConfig(cli *http.Client) (aws.Config, errors.Error) {
-	cfg := defaults.Config()
-	cfg.Credentials = aws.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, "")
-	cfg.Logger = &awsLogger{c.logLevel}
-	cfg.LogLevel = c.awsLevel
+func (c *awsModel) GetConfig(cli *http.Client) (*sdkaws.Config, errors.Error) {
+
+	cfg := sdkaws.NewConfig()
+
+	cfg.Credentials = sdkcrd.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, "")
 	cfg.Retryer = c.retryer
-	cfg.EnableEndpointDiscovery = false
-	cfg.DisableEndpointHostPrefix = true
-	cfg.EndpointResolver = aws.EndpointResolverFunc(c.ResolveEndpoint)
+	cfg.EndpointResolver = sdkaws.EndpointResolverFunc(c.ResolveEndpoint)
 	cfg.Region = c.Region
 
 	if cli != nil {
