@@ -60,7 +60,8 @@ func GetFile(src, dst ioutils.FileProgress, filenameContain, filenameRegex strin
 
 		f := archive.NewFileFullPath(h.Name)
 
-		// #nosec
+		//nolint #nosec
+		/* #nosec */
 		if f.MatchingFullPath(filenameContain) || f.RegexFullPath(filenameRegex) {
 			if _, e := dst.ReadFrom(r); e != nil {
 				return ErrorIOCopy.ErrorParent(e)
@@ -89,6 +90,8 @@ func GetAll(src io.ReadSeeker, outputFolder string, defaultDirPerm os.FileMode) 
 			return ErrorTarNext.ErrorParent(e)
 		}
 
+		//nolint #nosec
+		/* #nosec */
 		if err := writeContent(r, h, path.Join(outputFolder, h.Name), defaultDirPerm); err != nil {
 			return err
 		}

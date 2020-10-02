@@ -33,7 +33,6 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-
 	"github.com/hashicorp/go-version"
 	"github.com/nabbar/golib/artifact"
 	"github.com/nabbar/golib/artifact/client"
