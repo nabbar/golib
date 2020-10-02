@@ -145,7 +145,8 @@ func ExtractAll(src ioutils.FileProgress, originalName, outputPath string, defau
 
 	logger.DebugLevel.Log("prepare output...")
 	if i, e := os.Stat(outputPath); e != nil && os.IsNotExist(e) {
-		//nolint #nosec //nosec
+		//nolint #nosec
+		/* #nosec */
 		if e := os.MkdirAll(outputPath, 0775); e != nil {
 			return ErrorDirCreate.ErrorParent(e)
 		}

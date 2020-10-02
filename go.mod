@@ -41,7 +41,7 @@ require (
 	github.com/ugorji/go v1.1.9 // indirect
 	github.com/vbauerster/mpb/v5 v5.3.0
 	github.com/xanzy/go-gitlab v0.38.1
-	golang.org/x/crypto v0.0.0-20201001193750-eb9a90e9f9cb
+	golang.org/x/crypto v0.0.0-20201002094018-c90954cbb977
 	golang.org/x/net v0.0.0-20200930145003-4acb6c075d10
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
 	golang.org/x/sync v0.0.0-20200930132711-30421366ff76

@@ -46,9 +46,13 @@ func NewS3AWS(ctx context.Context, cfg aws.Config, httpcli *http.Client, forceMo
 	}
 
 	if forceModePath {
-		c.ForcePathStyle(true)
+		e = c.ForcePathStyle(true)
 	} else {
-		c.ForcePathStyle(false)
+		e = c.ForcePathStyle(false)
+	}
+
+	if e != nil {
+		return nil, e
 	}
 
 	o := &s3awsModel{

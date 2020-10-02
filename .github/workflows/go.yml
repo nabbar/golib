@@ -45,6 +45,17 @@ jobs:
         continue-on-error: true
         run: ./scripts/ci_format
 
+      - name: Check Missing License
+        continue-on-error: true
+        run: |
+          for PKG in $(find . -type f -name "*.go" | grep -v 'vendor/' | grep -v 'version/license_.*.go');
+          do
+            if [ "$(head -n 25 $PKG | grep -c -P '[*\s]*MIT License')" != 1 ];
+            then
+              echo "Missing Licence: $PKG";
+            fi;
+          done;
+
       - name: Check goLinter
         continue-on-error: true
         run: ./scripts/ci_linter
@@ -62,7 +73,13 @@ jobs:
 
       - name: Check tests
         continue-on-error: true
-        run: ginkgo -cover ./...
+        run: |
+          for PKG in $(find $(pwd) -type f -name "*_suite_test.go" | sort -u );
+          do
+            cd $(dirname $PKG);
+            echo "testing >>> $(basename $(dirname $PKG))";
+            ginkgo -cover .
+          done
         env:
           GOOS: linux
           CGO_ENABLED: 0

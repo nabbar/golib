@@ -71,7 +71,9 @@ func (c colorType) SetColor(col *color.Color) {
 
 func (c colorType) Println(text string) {
 	if colorList[c] != nil {
-		_, _ = colorList[c].Println(text) // #nosec
+		//nolint #nosec
+		/* #nosec */
+		_, _ = colorList[c].Println(text)
 	} else {
 		println(text)
 	}
@@ -79,7 +81,9 @@ func (c colorType) Println(text string) {
 
 func (c colorType) Print(text string) {
 	if colorList[c] != nil {
-		_, _ = colorList[c].Print(text) // #nosec
+		//nolint #nosec
+		/* #nosec */
+		_, _ = colorList[c].Print(text)
 	} else {
 		print(text)
 	}
@@ -88,7 +92,9 @@ func (c colorType) Print(text string) {
 func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...interface{}) (n int, err errors.Error) {
 	if colorList[c] != nil && buff != nil {
 
-		i, e := colorList[c].Fprintf(buff, format, args...) // #nosec
+		//nolint #nosec
+		/* #nosec */
+		i, e := colorList[c].Fprintf(buff, format, args...)
 
 		if e != nil {
 			return i, ErrorColorIOFprintf.ErrorParent(e)
@@ -112,7 +118,9 @@ func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...int
 
 func (c colorType) Sprintf(format string, args ...interface{}) string {
 	if colorList[c] != nil {
-		return colorList[c].Sprintf(format, args...) // #nosec
+		//nolint #nosec
+		/* #nosec */
+		return colorList[c].Sprintf(format, args...)
 	} else {
 		return fmt.Sprintf(format, args...)
 	}
