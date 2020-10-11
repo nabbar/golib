@@ -121,10 +121,10 @@ func NewFileProgressPathMode(filepath string, mode int, perm os.FileMode) (FileP
 }
 
 func NewFileProgressPathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, errors.Error) {
-	mode := os.O_RDWR | os.O_EXCL | os.O_TRUNC
+	mode := os.O_RDWR | os.O_TRUNC
 
 	if _, err := os.Stat(filepath); err != nil && os.IsNotExist(err) && create {
-		mode = os.O_RDWR | os.O_EXCL | os.O_CREATE
+		mode = os.O_RDWR | os.O_CREATE | os.O_TRUNC
 	} else if err != nil {
 		return nil, ErrorIOFileStat.ErrorParent(err)
 	}
