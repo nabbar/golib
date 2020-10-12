@@ -188,7 +188,7 @@ func (g *ClientHelper) GetLatestMinor(major, minor int) (release *version.Versio
 		return
 	}
 
-	for i := 1; i < len(vers); i++ {
+	for i := 0; i < len(vers); i++ {
 		if vers[i] == nil {
 			continue
 		}

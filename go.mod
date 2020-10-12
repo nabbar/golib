@@ -38,7 +38,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
-	github.com/ugorji/go v1.1.10 // indirect
+	github.com/ugorji/go v1.1.11 // indirect
 	github.com/vbauerster/mpb/v5 v5.3.0
 	github.com/xanzy/go-gitlab v0.38.1
 	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
