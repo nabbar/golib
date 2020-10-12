@@ -74,6 +74,8 @@ jobs:
       - name: Check tests
         continue-on-error: true
         run: |
+          go version
+          ginkgo version
           for PKG in $(find $(pwd) -type f -name "*_suite_test.go" | sort -u );
           do
             cd $(dirname $PKG);
