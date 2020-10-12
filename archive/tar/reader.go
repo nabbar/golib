@@ -148,8 +148,8 @@ func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.File
 }
 
 func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) errors.Error {
-	if i, e := os.Stat(path.Dir(dirname)); e != nil && os.IsNotExist(e) {
-		if e = os.MkdirAll(path.Dir(dirname), dirPerm); e != nil {
+	if i, e := os.Stat(dirname); e != nil && os.IsNotExist(e) {
+		if e = os.MkdirAll(dirname, dirPerm); e != nil {
 			return ErrorDirCreate.ErrorParent(e)
 		}
 	} else if e != nil {
@@ -162,14 +162,15 @@ func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) errors.Error {
 }
 
 func notDirExistCannotClean(filename string) errors.Error {
-	if i, e := os.Stat(filename); e != nil && !os.IsNotExist(e) {
+	if i, e := os.Stat(filename); e != nil && os.IsNotExist(e) {
+		return nil
+	} else if e != nil {
 		return ErrorDestinationStat.ErrorParent(e)
-	} else if e == nil && i.IsDir() {
+	} else if i.IsDir() {
 		return ErrorDestinationIsDir.Error(nil)
-	} else if e == nil {
-		if e = os.Remove(filename); e != nil {
-			return ErrorDestinationRemove.ErrorParent(e)
-		}
+	} else if e = os.Remove(filename); e != nil {
+		return ErrorDestinationRemove.ErrorParent(e)
 	}
+
 	return nil
 }
