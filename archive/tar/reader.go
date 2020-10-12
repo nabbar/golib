@@ -123,13 +123,13 @@ func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.File
 	} else if err = notDirExistCannotClean(out); err != nil {
 		return
 	} else if h.Typeflag&tar.TypeLink == tar.TypeLink {
-		e := os.Link(out, h.Linkname)
+		e := os.Link(h.Linkname, out)
 		if e != nil {
 			err = ErrorLinkCreate.ErrorParent(e)
 		}
 		return
 	} else if h.Typeflag&tar.TypeSymlink == tar.TypeSymlink {
-		e := os.Symlink(out, h.Linkname)
+		e := os.Symlink(h.Linkname, out)
 		if e != nil {
 			err = ErrorSymLinkCreate.ErrorParent(e)
 		}
