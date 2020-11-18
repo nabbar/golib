@@ -27,7 +27,6 @@
 package httpcli
 
 import (
-	"crypto/tls"
 	"net"
 	"net/http"
 	"time"
@@ -45,58 +44,38 @@ const (
 )
 
 func GetClient(serverName string) *http.Client {
-	c, e := getClient(true, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_5_SEC, certificates.GetTLSConfig(serverName))
+	c, e := GetClientTimeout(serverName, true, 0)
 
 	if e != nil {
-		c, _ = getClient(false, TIMEOUT_30_SEC, TIMEOUT_10_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_5_SEC, certificates.GetTLSConfig(serverName))
+		c, _ = GetClientTimeout(serverName, false, 0)
 	}
 
 	return c
 }
 
 func GetClientError(serverName string) (*http.Client, errors.Error) {
-	return getClient(true, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_30_SEC, TIMEOUT_5_SEC, TIMEOUT_5_SEC, certificates.GetTLSConfig(serverName))
+	return GetClientTimeout(serverName, true, 0)
 }
 
-func GetClientTimeout(serverName string, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration) (*http.Client, errors.Error) {
-	return getClient(true, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout, certificates.GetTLSConfig(serverName))
-}
-
-func getClient(http2Transport bool, GlobalTimeout, DialTimeOut, DialKeepAlive, IdleConnTimeout, TLSHandshakeTimeout, ExpectContinueTimeout time.Duration, tlsConfig *tls.Config) (*http.Client, errors.Error) {
-
+func GetClientTimeout(serverName string, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, errors.Error) {
 	dl := &net.Dialer{}
-
-	if DialTimeOut != 0 {
-		dl.Timeout = DialTimeOut
-	}
-
-	if DialKeepAlive != 0 {
-		dl.KeepAlive = DialKeepAlive
-	}
 
 	tr := &http.Transport{
 		Proxy:              http.ProxyFromEnvironment,
 		DialContext:        dl.DialContext,
 		DisableCompression: true,
+		TLSClientConfig:    certificates.GetTLSConfig(serverName),
 	}
 
-	if tlsConfig != nil {
-		tr.TLSClientConfig = tlsConfig
-	}
+	return getclient(tr, http2Tr, GlobalTimeout)
+}
 
-	if TLSHandshakeTimeout != 0 {
-		tr.TLSHandshakeTimeout = TLSHandshakeTimeout
-	}
+func GetClientCustom(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, errors.Error) {
+	return getclient(tr, http2Tr, GlobalTimeout)
+}
 
-	if IdleConnTimeout != 0 {
-		tr.IdleConnTimeout = IdleConnTimeout
-	}
-
-	if ExpectContinueTimeout != 0 {
-		tr.ExpectContinueTimeout = ExpectContinueTimeout
-	}
-
-	if http2Transport {
+func getclient(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, errors.Error) {
+	if http2Tr {
 		if e := http2.ConfigureTransport(tr); e != nil {
 			return nil, HTTP2_CONFIGURE.ErrorParent(e)
 		}
