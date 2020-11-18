@@ -20,7 +20,7 @@ require (
 	github.com/gobuffalo/packr v1.30.1
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-github/v32 v32.1.0
-	github.com/hashicorp/go-retryablehttp v0.6.7
+	github.com/hashicorp/go-retryablehttp v0.6.8
 	github.com/hashicorp/go-uuid v1.0.2
 	github.com/hashicorp/go-version v1.2.1
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
@@ -39,14 +39,14 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
-	github.com/ugorji/go v1.1.13 // indirect
+	github.com/ugorji/go v1.2.0 // indirect
 	github.com/vbauerster/mpb/v5 v5.3.0
 	github.com/xanzy/go-gitlab v0.39.0
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
-	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102
-	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
+	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/oauth2 v0.0.0-20201109201403-9fd604954f58
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20201101102859-da207088b7d1 // indirect
+	golang.org/x/sys v0.0.0-20201117222635-ba5294a509c7 // indirect
 	golang.org/x/text v0.3.4 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/appengine v1.6.7 // indirect
