@@ -145,7 +145,7 @@ func (cli *client) newClientIAM(httpClient *http.Client) (*sdkiam.Client, errors
 		APIOptions:  c.APIOptions,
 		Credentials: c.Credentials,
 		EndpointOptions: sdkiam.EndpointResolverOptions{
-			DisableHTTPS: cli.c.IsHTTPs(),
+			DisableHTTPS: !cli.c.IsHTTPs(),
 		},
 		EndpointResolver: sdkiam.WithEndpointResolver(c.EndpointResolver, nil),
 		HTTPSignerV4:     sdksv4.NewSigner(),
@@ -176,7 +176,7 @@ func (cli *client) newClientS3(httpClient *http.Client) (*sdksss.Client, errors.
 		APIOptions:  c.APIOptions,
 		Credentials: c.Credentials,
 		EndpointOptions: sdksss.EndpointResolverOptions{
-			DisableHTTPS: cli.c.IsHTTPs(),
+			DisableHTTPS: !cli.c.IsHTTPs(),
 		},
 		EndpointResolver: sdksss.WithEndpointResolver(c.EndpointResolver, nil),
 		HTTPSignerV4:     sdksv4.NewSigner(),

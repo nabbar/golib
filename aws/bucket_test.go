@@ -36,7 +36,7 @@ var _ = Describe("Bucket", func() {
 			Expect(cli.Bucket().Check()).ToNot(Succeed())
 		})
 		It("Must be possible to create a bucket", func() {
-			Expect(cli.Bucket().Create()).To(Succeed())
+			Expect(cli.Bucket().Create("")).To(Succeed())
 			Expect(cli.Bucket().Check()).To(Succeed())
 		})
 	})

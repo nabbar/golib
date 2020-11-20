@@ -216,13 +216,17 @@ func (c awsModel) GetEndpoint() *url.URL {
 func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, error) {
 	if e, ok := c.mapRegion[region]; ok {
 		return sdkaws.Endpoint{
-			URL: strings.TrimSuffix(e.String(), "/"),
+			URL:           strings.TrimSuffix(e.String(), "/"),
+			SigningRegion: region,
+			SigningName:   service,
 		}, nil
 	}
 
 	if c.Endpoint != "" {
 		return sdkaws.Endpoint{
-			URL: strings.TrimSuffix(c.Endpoint, "/"),
+			URL:           strings.TrimSuffix(c.Endpoint, "/"),
+			SigningRegion: region,
+			SigningName:   service,
 		}, nil
 	}
 
@@ -231,7 +235,7 @@ func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, err
 }
 
 func (c *awsModel) IsHTTPs() bool {
-	return c.endpoint.Scheme == "https"
+	return strings.HasSuffix(strings.ToLower(c.endpoint.Scheme), "s")
 }
 
 func (c *awsModel) SetRetryer(retryer sdkaws.Retryer) {
