@@ -45,7 +45,7 @@ type Bucket interface {
 	Check() ligerr.Error
 
 	List() ([]*sdkstp.Bucket, ligerr.Error)
-	Create() ligerr.Error
+	Create(RegionConstraint string) ligerr.Error
 	Delete() ligerr.Error
 
 	//FindObject(pattern string) ([]string, errors.Error)
