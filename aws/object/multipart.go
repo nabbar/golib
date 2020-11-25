@@ -26,11 +26,14 @@
 package object
 
 import (
+	"crypto/md5"
+	"encoding/base64"
 	"io"
 	"os"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	sdktyp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
 	liberr "github.com/nabbar/golib/errors"
 	libiou "github.com/nabbar/golib/ioutils"
@@ -95,6 +98,16 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 			return cli.multipartCancel(err, upl.UploadId, object)
 		}
 
+		h := md5.New()
+		if _, err := tmp.WriteTo(h); err != nil {
+			return cli.multipartCancel(err, upl.UploadId, object)
+		}
+
+		_, err = tmp.Seek(0, io.SeekStart)
+		if err != nil {
+			return cli.multipartCancel(err, upl.UploadId, object)
+		}
+
 		prt, err = cli.s3.UploadPart(cli.GetContext(), &sdksss.UploadPartInput{
 			Bucket:        sdkaws.String(cli.GetBucketName()),
 			Body:          tmp,
@@ -102,6 +115,8 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 			UploadId:      upl.UploadId,
 			Key:           sdkaws.String(object),
 			ContentLength: sdkaws.Int64(inf.Size()),
+			RequestPayer:  sdktyp.RequestPayerRequester,
+			ContentMD5:    sdkaws.String(base64.StdEncoding.EncodeToString(h.Sum(nil))),
 		})
 
 		_ = tmp.Close()
@@ -118,10 +133,11 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 
 	var prt *sdksss.CompleteMultipartUploadOutput
 	prt, err = cli.s3.CompleteMultipartUpload(cli.GetContext(), &sdksss.CompleteMultipartUploadInput{
-		UploadId:        upl.UploadId,
-		MultipartUpload: rio.CompPart(),
 		Bucket:          sdkaws.String(cli.GetBucketName()),
 		Key:             sdkaws.String(object),
+		UploadId:        upl.UploadId,
+		MultipartUpload: rio.CompPart(),
+		RequestPayer:    sdktyp.RequestPayerRequester,
 	})
 
 	if err != nil {
