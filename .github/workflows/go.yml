@@ -42,19 +42,12 @@ jobs:
         run: ./scripts/ci_depend
 
       - name: Check goFmt & goImport
-        continue-on-error: true
+        continue-on-error: false
         run: ./scripts/ci_format
 
       - name: Check Missing License
-        continue-on-error: true
-        run: |
-          for PKG in $(find . -type f -name "*.go" | grep -v 'vendor/' | grep -v 'version/license_.*.go');
-          do
-            if [ "$(head -n 25 $PKG | grep -c -P '[*\s]*MIT License')" != 1 ];
-            then
-              echo "Missing Licence: $PKG";
-            fi;
-          done;
+        continue-on-error: false
+        run: ./scripts/ci_license
 
       - name: Check goLinter
         continue-on-error: true
@@ -64,7 +57,7 @@ jobs:
           CGO_ENABLED: 0
 
       - name: Check goSecu + snyk.io
-        continue-on-error: true
+        continue-on-error: false
         run: ./scripts/ci_secu $SNYK_TOKEN
         env:
           GOOS: linux
@@ -72,7 +65,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
       - name: Check tests
-        continue-on-error: true
+        continue-on-error: false
         run: |
           go version
           ginkgo version
@@ -87,17 +80,22 @@ jobs:
           CGO_ENABLED: 0
 
       - name: Add ming-w32 (x86 + win64)
+        continue-on-error: false
         run: sudo apt-get install gcc-multilib gcc-mingw-w64
 
       - name: Test Build Linux/amd64 with suffix
+        continue-on-error: false
         run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " ./...
 
       - name: Test Build Linux/386 with suffix
+        continue-on-error: false
         run: CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " ./...
 
       - name: Test Build Windows/amd64 with CGO
+        continue-on-error: false
         run: CC=/usr/bin/x86_64-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v -ldflags "-w -s -extldflags '-static' " ./...
 
       - name: Test Build Windows/386 with CGO
+        continue-on-error: false
         run: CC=/usr/bin/i686-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=386 go build -a -v -ldflags "-w -s -extldflags '-static' " ./...
 

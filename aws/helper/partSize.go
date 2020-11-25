@@ -28,6 +28,7 @@ package helper
 import (
 	"errors"
 	"io"
+	"strings"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -91,7 +92,7 @@ func NewReaderPartSize(rd io.Reader, p PartSize) ReaderPartSize {
 	return &readerPartSize{
 		b: rd,
 		p: p.Int64(),
-		i: 0,
+		i: 1,
 		j: 0,
 		e: false,
 		c: nil,
@@ -125,7 +126,7 @@ func (r *readerPartSize) NextPart(eTag *string) {
 	}
 
 	r.c.Parts = append(r.c.Parts, &sdktps.CompletedPart{
-		ETag:       eTag,
+		ETag:       sdkaws.String(strings.Replace(*eTag, "\"", "", -1)),
 		PartNumber: sdkaws.Int32(int32(r.i)),
 	})
 
