@@ -35,7 +35,7 @@ import (
 	"github.com/nabbar/golib/errors"
 )
 
-func (cli *client) List(continuationToken string) ([]*sdktps.Object, string, int64, errors.Error) {
+func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int64, errors.Error) {
 	in := sdksss.ListObjectsV2Input{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -48,10 +48,10 @@ func (cli *client) List(continuationToken string) ([]*sdktps.Object, string, int
 
 	if err != nil {
 		return nil, "", 0, cli.GetError(err)
-	} else if *out.IsTruncated {
-		return out.Contents, *out.NextContinuationToken, int64(*out.KeyCount), nil
+	} else if out.IsTruncated {
+		return out.Contents, *out.NextContinuationToken, int64(out.KeyCount), nil
 	} else {
-		return out.Contents, "", int64(*out.KeyCount), nil
+		return out.Contents, "", int64(out.KeyCount), nil
 	}
 }
 
@@ -98,7 +98,7 @@ func (cli *client) Size(object string) (size int64, err errors.Error) {
 	if h, err = cli.Head(object); err != nil {
 		return
 	} else {
-		return *h.ContentLength, nil
+		return h.ContentLength, nil
 	}
 }
 

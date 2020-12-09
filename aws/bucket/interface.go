@@ -44,7 +44,7 @@ type client struct {
 type Bucket interface {
 	Check() ligerr.Error
 
-	List() ([]*sdkstp.Bucket, ligerr.Error)
+	List() ([]sdkstp.Bucket, ligerr.Error)
 	Create(RegionConstraint string) ligerr.Error
 	Delete() ligerr.Error
 

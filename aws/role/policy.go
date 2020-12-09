@@ -32,7 +32,7 @@ import (
 	"github.com/nabbar/golib/errors"
 )
 
-func (cli *client) PolicyListAttached(roleName string) ([]*types.AttachedPolicy, errors.Error) {
+func (cli *client) PolicyListAttached(roleName string) ([]types.AttachedPolicy, errors.Error) {
 	out, err := cli.iam.ListAttachedRolePolicies(cli.GetContext(), &iam.ListAttachedRolePoliciesInput{
 		RoleName: aws.String(roleName),
 	})

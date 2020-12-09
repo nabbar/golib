@@ -47,7 +47,7 @@ type Object interface {
 	Find(pattern string) ([]string, errors.Error)
 	Size(object string) (size int64, err errors.Error)
 
-	List(continuationToken string) ([]*sdktps.Object, string, int64, errors.Error)
+	List(continuationToken string) ([]sdktps.Object, string, int64, errors.Error)
 	Head(object string) (*sdksss.HeadObjectOutput, errors.Error)
 	Get(object string) (*sdksss.GetObjectOutput, errors.Error)
 	Put(object string, body *bytes.Reader) errors.Error
