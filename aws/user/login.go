@@ -44,7 +44,7 @@ func (cli *client) LoginCreate(username, password string) errors.Error {
 	out, err := cli.iam.CreateLoginProfile(cli.GetContext(), &iam.CreateLoginProfileInput{
 		UserName:              aws.String(username),
 		Password:              aws.String(password),
-		PasswordResetRequired: aws.Bool(false),
+		PasswordResetRequired: false,
 	})
 
 	if err != nil {

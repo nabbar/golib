@@ -122,12 +122,12 @@ func (r *readerPartSize) NextPart(eTag *string) {
 	}
 
 	if r.c.Parts == nil {
-		r.c.Parts = make([]*sdktps.CompletedPart, 0)
+		r.c.Parts = make([]sdktps.CompletedPart, 0)
 	}
 
-	r.c.Parts = append(r.c.Parts, &sdktps.CompletedPart{
+	r.c.Parts = append(r.c.Parts, sdktps.CompletedPart{
 		ETag:       sdkaws.String(strings.Replace(*eTag, "\"", "", -1)),
-		PartNumber: sdkaws.Int32(int32(r.i)),
+		PartNumber: int32(r.i),
 	})
 
 	r.i++
