@@ -4,11 +4,11 @@ go 1.15
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
-	github.com/aws/aws-sdk-go-v2 v0.29.0
-	github.com/aws/aws-sdk-go-v2/config v0.2.2
-	github.com/aws/aws-sdk-go-v2/credentials v0.1.4
-	github.com/aws/aws-sdk-go-v2/service/iam v0.29.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v0.29.0
+	github.com/aws/aws-sdk-go-v2 v0.30.0
+	github.com/aws/aws-sdk-go-v2/config v0.3.0
+	github.com/aws/aws-sdk-go-v2/credentials v0.1.5
+	github.com/aws/aws-sdk-go-v2/service/iam v0.30.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v0.30.0
 	github.com/fatih/color v1.10.0
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-ldap/ldap/v3 v3.2.4
@@ -34,21 +34,22 @@ require (
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/rogpeppe/go-internal v1.6.2 // indirect
-	github.com/shirou/gopsutil v3.20.10+incompatible
+	github.com/shirou/gopsutil v3.20.11+incompatible
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/stretchr/testify v1.5.1 // indirect
-	github.com/ugorji/go v1.2.0 // indirect
+	github.com/ugorji/go v1.2.1 // indirect
 	github.com/vbauerster/mpb/v5 v5.3.0
-	github.com/xanzy/go-gitlab v0.39.0
-	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
-	golang.org/x/oauth2 v0.0.0-20201109201403-9fd604954f58
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
-	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68 // indirect
+	github.com/xanzy/go-gitlab v0.40.1
+	golang.org/x/crypto v0.0.0-20201208171446-5f87f3452ae9
+	golang.org/x/net v0.0.0-20201207224615-747e23833adb
+	golang.org/x/oauth2 v0.0.0-20201208152858-08078c50e5b5
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
+	golang.org/x/sys v0.0.0-20201207223542-d4d67f95c62d // indirect
+	golang.org/x/term v0.0.0-20201207232118-ee85cb95a76b // indirect
 	golang.org/x/text v0.3.4 // indirect
-	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
+	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	gopkg.in/yaml.v2 v2.3.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

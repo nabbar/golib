@@ -93,11 +93,11 @@ var _ = Describe("Role", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("Must return 1 policy", func() {
-			var policies []*types.AttachedPolicy
+			var policies []types.AttachedPolicy
 
 			if minioMode {
 				err = nil
-				policies = []*types.AttachedPolicy{
+				policies = []types.AttachedPolicy{
 					{
 						PolicyArn:  aws.String(policyArn),
 						PolicyName: aws.String(name),
@@ -162,11 +162,11 @@ var _ = Describe("Role", func() {
 	})
 	Context("List", func() {
 		It("Must return 1 role", func() {
-			var roles []*types.Role
+			var roles []types.Role
 
 			if minioMode {
 				err = nil
-				roles = []*types.Role{
+				roles = []types.Role{
 					{
 						Arn:      aws.String(arn),
 						RoleName: aws.String(name),

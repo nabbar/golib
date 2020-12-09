@@ -74,7 +74,7 @@ func (cli *client) Update(polArn, polContents string) errors.Error {
 				return nil
 			}
 
-			if !*v.IsDefaultVersion {
+			if !v.IsDefaultVersion {
 				_, _ = cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
 					PolicyArn: aws.String(polArn),
 					VersionId: v.VersionId,
@@ -90,7 +90,7 @@ func (cli *client) Update(polArn, polContents string) errors.Error {
 	_, err = cli.iam.CreatePolicyVersion(cli.GetContext(), &iam.CreatePolicyVersionInput{
 		PolicyArn:      aws.String(polArn),
 		PolicyDocument: aws.String(polContents),
-		SetAsDefault:   aws.Bool(true),
+		SetAsDefault:   true,
 	})
 
 	return cli.GetError(err)
@@ -109,7 +109,7 @@ func (cli *client) Delete(polArn string) errors.Error {
 				return nil
 			}
 
-			if !*v.IsDefaultVersion {
+			if !v.IsDefaultVersion {
 				_, _ = cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
 					PolicyArn: aws.String(polArn),
 					VersionId: v.VersionId,
