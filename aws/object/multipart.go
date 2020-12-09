@@ -111,10 +111,10 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 		prt, err = cli.s3.UploadPart(cli.GetContext(), &sdksss.UploadPartInput{
 			Bucket:        sdkaws.String(cli.GetBucketName()),
 			Body:          tmp,
-			PartNumber:    sdkaws.Int32(rio.CurrPart()),
+			PartNumber:    rio.CurrPart(),
 			UploadId:      upl.UploadId,
 			Key:           sdkaws.String(object),
-			ContentLength: sdkaws.Int64(inf.Size()),
+			ContentLength: inf.Size(),
 			RequestPayer:  sdktyp.RequestPayerRequester,
 			ContentMD5:    sdkaws.String(base64.StdEncoding.EncodeToString(h.Sum(nil))),
 		})

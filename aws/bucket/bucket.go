@@ -79,13 +79,13 @@ func (cli *client) Delete() liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) List() ([]*sdkstp.Bucket, liberr.Error) {
+func (cli *client) List() ([]sdkstp.Bucket, liberr.Error) {
 	out, err := cli.s3.ListBuckets(cli.GetContext(), nil)
 
 	if err != nil {
-		return make([]*sdkstp.Bucket, 0), cli.GetError(err)
+		return make([]sdkstp.Bucket, 0), cli.GetError(err)
 	} else if out == nil || out.Buckets == nil {
-		return make([]*sdkstp.Bucket, 0), libhlp.ErrorAwsEmpty.Error(nil)
+		return make([]sdkstp.Bucket, 0), libhlp.ErrorAwsEmpty.Error(nil)
 	}
 
 	return out.Buckets, nil
@@ -129,7 +129,7 @@ func (cli *client) EnableReplication(srcRoleARN, dstRoleARN, dstBucketName strin
 		Bucket: cli.GetBucketAws(),
 		ReplicationConfiguration: &sdkstp.ReplicationConfiguration{
 			Role: sdkaws.String(srcRoleARN + "," + dstRoleARN),
-			Rules: []*sdkstp.ReplicationRule{
+			Rules: []sdkstp.ReplicationRule{
 				{
 					Destination: &sdkstp.Destination{
 						Bucket: sdkaws.String("arn:aws:s3:::" + dstBucketName),

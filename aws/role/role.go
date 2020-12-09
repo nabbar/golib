@@ -32,7 +32,7 @@ import (
 	"github.com/nabbar/golib/errors"
 )
 
-func (cli *client) List() ([]*types.Role, errors.Error) {
+func (cli *client) List() ([]types.Role, errors.Error) {
 	out, err := cli.iam.ListRoles(cli.GetContext(), &iam.ListRolesInput{})
 
 	if err != nil {
