@@ -26,6 +26,8 @@ package context
 
 import (
 	"context"
+	"os"
+	"os/signal"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +38,7 @@ type GinTonic interface {
 
 	//generic
 	GinContext() *gin.Context
+	CancelOnSignal(s ...os.Signal)
 
 	//gin context metadata
 	Set(key string, value interface{})
@@ -56,24 +59,64 @@ type GinTonic interface {
 
 type ctxGinTonic struct {
 	gin.Context
+	x context.Context
+	c context.CancelFunc
 }
 
 func NewGinTonic(c *gin.Context) GinTonic {
+	if c == nil {
+		c = &gin.Context{
+			Request:  nil,
+			Writer:   nil,
+			Params:   make(gin.Params, 0),
+			Keys:     make(map[string]interface{}),
+			Errors:   make([]*gin.Error, 0),
+			Accepted: make([]string, 0),
+		}
+	}
+
+	var (
+		x context.Context
+		l context.CancelFunc
+	)
+
+	if c.Request != nil && c.Request.Context() != nil {
+		x, l = context.WithCancel(c.Request.Context())
+	} else {
+		x, l = context.WithCancel(c)
+	}
+
 	return &ctxGinTonic{
 		*c.Copy(),
+		x,
+		l,
 	}
 }
 
+func (c *ctxGinTonic) CancelOnSignal(s ...os.Signal) {
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, s...)
+
+	go func() {
+		select {
+		case <-sc:
+			c.c()
+		case <-c.Done():
+
+		}
+	}()
+}
+
 func (c *ctxGinTonic) Deadline() (deadline time.Time, ok bool) {
-	return c.Request.Context().Deadline()
+	return c.x.Deadline()
 }
 
 func (c *ctxGinTonic) Done() <-chan struct{} {
-	return c.Request.Context().Done()
+	return c.x.Done()
 }
 
 func (c *ctxGinTonic) Err() error {
-	return c.Request.Context().Err()
+	return c.x.Err()
 }
 
 func (c *ctxGinTonic) Value(key interface{}) interface{} {
