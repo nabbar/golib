@@ -26,7 +26,6 @@
 package object
 
 import (
-	"bytes"
 	"context"
 	"io"
 
@@ -50,7 +49,7 @@ type Object interface {
 	List(continuationToken string) ([]sdktps.Object, string, int64, errors.Error)
 	Head(object string) (*sdksss.HeadObjectOutput, errors.Error)
 	Get(object string) (*sdksss.GetObjectOutput, errors.Error)
-	Put(object string, body *bytes.Reader) errors.Error
+	Put(object string, body io.Reader) errors.Error
 	Delete(object string) errors.Error
 
 	MultipartPut(object string, body io.Reader) errors.Error
