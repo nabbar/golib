@@ -26,7 +26,7 @@
 package object
 
 import (
-	"bytes"
+	"io"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
@@ -102,7 +102,7 @@ func (cli *client) Size(object string) (size int64, err errors.Error) {
 	}
 }
 
-func (cli *client) Put(object string, body *bytes.Reader) errors.Error {
+func (cli *client) Put(object string, body io.Reader) errors.Error {
 	out, err := cli.s3.PutObject(cli.GetContext(), &sdksss.PutObjectInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
