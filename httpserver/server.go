@@ -1,3 +1,29 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2020 Nicolas JUHEL
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ *
+ */
+
 package httpserver
 
 import (
@@ -27,6 +53,7 @@ type server struct {
 	run atomic.Value
 	cfg *ServerConfig
 	srv *http.Server
+	cnl context.CancelFunc
 }
 
 type Server interface {
@@ -51,6 +78,7 @@ func NewServer(cfg *ServerConfig) Server {
 	return &server{
 		cfg: cfg,
 		srv: nil,
+		cnl: nil,
 	}
 }
 
@@ -79,7 +107,13 @@ func (s *server) GetExpose() string {
 }
 
 func (s *server) IsRunning() bool {
-	return s.run.Load().(bool)
+	if i := s.run.Load(); i == nil {
+		return false
+	} else if b, ok := i.(bool); !ok {
+		return false
+	} else {
+		return b
+	}
 }
 
 func (s *server) IsTLS() bool {
@@ -169,10 +203,19 @@ func (s *server) Listen(handler http.Handler) liberr.Error {
 		s.Shutdown()
 	}
 
+	for i := 0; i < 5; i++ {
+		if e := s.PortInUse(); e != nil {
+			s.Shutdown()
+		} else {
+			break
+		}
+	}
+
 	s.srv = srv
 
 	go func() {
 		ctx, cnl := context.WithCancel(s.cfg.getContext())
+		s.cnl = cnl
 
 		defer func() {
 			cnl()
@@ -197,13 +240,16 @@ func (s *server) Listen(handler http.Handler) liberr.Error {
 			err = s.srv.ListenAndServe()
 		}
 
-		if !errors.Is(err, ctx.Err()) {
+		if err != nil && ctx.Err() != nil && ctx.Err().Error() == err.Error() {
+			return
+		} else if err != nil && errors.Is(err, http.ErrServerClosed) {
+			return
+		} else if err != nil {
 			liblog.ErrorLevel.LogErrorCtxf(liblog.NilLevel, "Listen Server '%s'", err, s.GetName())
 		}
 	}()
 
 	return nil
-
 }
 
 func (s *server) WaitNotify() {
@@ -230,21 +276,61 @@ func (s *server) Shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutShutdown)
 	defer func() {
 		cancel()
+
+		if s.srv != nil {
+			_ = s.srv.Close()
+		}
+
 		s.setNotRunning()
 	}()
 
 	liblog.InfoLevel.Logf("Shutdown Server '%s'...", s.GetName())
 
-	if err := s.srv.Shutdown(ctx); err != nil {
-		liblog.ErrorLevel.Logf("Shutdown Server '%s' Error: %v", s.GetName(), err)
+	if s.cnl != nil {
+		s.cnl()
+	}
+
+	if s.srv != nil {
+		err := s.srv.Shutdown(ctx)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			liblog.ErrorLevel.Logf("Shutdown Server '%s' Error: %v", s.GetName(), err)
+		}
 	}
 }
 
 func (s *server) Merge(srv Server) bool {
 	if x, ok := srv.(*server); ok {
-		s.srv = x.srv
+		s.cfg = x.cfg
 		return true
 	}
 
 	return false
+}
+
+func (s *server) PortInUse() liberr.Error {
+	var (
+		dia = net.Dialer{}
+		con net.Conn
+		err error
+		ctx context.Context
+		cnl context.CancelFunc
+	)
+
+	defer func() {
+		if cnl != nil {
+			cnl()
+		}
+		if con != nil {
+			_ = con.Close()
+		}
+	}()
+
+	ctx, cnl = context.WithTimeout(context.TODO(), 2*time.Second)
+	con, err = dia.DialContext(ctx, "tcp", s.cfg.Listen)
+
+	if err != nil {
+		return nil
+	}
+
+	return ErrorPortUse.Error(nil)
 }

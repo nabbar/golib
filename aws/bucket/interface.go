@@ -57,9 +57,9 @@ type Bucket interface {
 	DeleteReplication() ligerr.Error
 }
 
-func New(ctx context.Context, bucket string, iam *sdkiam.Client, s3 *sdksss.Client) Bucket {
+func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Bucket {
 	return &client{
-		Helper: libhlp.New(ctx, bucket),
+		Helper: libhlp.New(ctx, bucket, region),
 		iam:    iam,
 		s3:     s3,
 	}

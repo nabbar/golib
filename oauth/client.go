@@ -38,9 +38,8 @@ func NewConfigOAuth(clientID, clientSecret, endpointToken, endpointAuth, redirec
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:   endpointAuth,
-			TokenURL:  endpointToken,
-			AuthStyle: 0, // autodetect
+			AuthURL:  endpointAuth,
+			TokenURL: endpointToken,
 		},
 		RedirectURL: redirectUrl,
 		Scopes:      scopes,

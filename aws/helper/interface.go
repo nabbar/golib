@@ -42,12 +42,14 @@ const (
 type Helper struct {
 	ctx context.Context
 	bkt string
+	reg string
 }
 
-func New(ctx context.Context, bucket string) Helper {
+func New(ctx context.Context, bucket, region string) Helper {
 	return Helper{
 		ctx: ctx,
 		bkt: bucket,
+		reg: region,
 	}
 }
 
@@ -101,6 +103,14 @@ func (c *Helper) Close(req *http.Request, rsp *http.Response) {
 	if rsp != nil && rsp.Body != nil {
 		_ = rsp.Body.Close()
 	}
+}
+
+func (c *Helper) GetRegion() string {
+	return c.reg
+}
+
+func (c *Helper) GetRegionAws() *string {
+	return aws.String(c.reg)
 }
 
 func (c *Helper) GetBucketName() string {

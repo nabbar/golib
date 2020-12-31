@@ -59,9 +59,12 @@ func (c *config) checkFile(pemFiles ...string) liberr.Error {
 		if f == "" {
 			return ErrorParamsEmpty.Error(nil)
 		}
+
 		if _, e := os.Stat(f); e != nil {
 			return ErrorFileStat.ErrorParent(e)
 		}
+
+		/* #nosec */
 		b, e := ioutil.ReadFile(f)
 		if e != nil {
 			return ErrorFileRead.ErrorParent(e)
@@ -188,6 +191,7 @@ func (c *config) AddCertificatePairFile(keyFile, crtFile string) liberr.Error {
 }
 
 func (c *config) TlsConfig(serverName string) *tls.Config {
+	/* #nosec */
 	cnf := &tls.Config{
 		InsecureSkipVerify: false,
 	}

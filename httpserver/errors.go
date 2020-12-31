@@ -35,6 +35,7 @@ const (
 	ErrorPoolValidate
 	ErrorPoolListen
 	ErrorServerValidate
+	ErrorPortUse
 )
 
 var isCodeError = false
@@ -64,6 +65,8 @@ func getMessage(code errors.CodeError) (message string) {
 		return "at least one server has listen error"
 	case ErrorServerValidate:
 		return "config server seems to be not valid"
+	case ErrorPortUse:
+		return "server port is still used"
 	}
 
 	return ""

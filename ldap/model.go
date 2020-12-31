@@ -44,6 +44,11 @@ const (
 	TLSMODE_STARTTLS
 )
 
+const (
+	groupFieldCN = "cn"
+	userFieldUid = "uid"
+)
+
 func (m TLSMode) String() string {
 	switch m {
 	case TLSMODE_STARTTLS:
@@ -64,12 +69,14 @@ func GetDefaultAttributes() []string {
 }
 
 type Config struct {
-	Uri         string `cloud:"uri" mapstructure:"uri" json:"uri" yaml:"uri" toml:"uri" validate:"fqdn,required"`
-	PortLdap    int    `cloud:"port-ldap" mapstructure:"port-ldap" json:"port-ldap" yaml:"port-ldap" toml:"port-ldap" validate:"number,gte=0,nefield=Portldaps,required"`
-	Portldaps   int    `cloud:"port-ldaps" mapstructure:"port-ldaps" json:"port-ldaps" yaml:"port-ldaps" toml:"port-ldaps" validate:"number,nefield=Portldap,omitempty"`
-	Basedn      string `cloud:"basedn" mapstructure:"basedn" json:"basedn" yaml:"basedn" toml:"basedn" validate:"printascii,omitempty"`
+	Uri       string `cloud:"uri" mapstructure:"uri" json:"uri" yaml:"uri" toml:"uri" validate:"fqdn,required"`
+	PortLdap  int    `cloud:"port-ldap" mapstructure:"port-ldap" json:"port-ldap" yaml:"port-ldap" toml:"port-ldap" validate:"number,gte=0,nefield=Portldaps,required"`
+	Portldaps int    `cloud:"port-ldaps" mapstructure:"port-ldaps" json:"port-ldaps" yaml:"port-ldaps" toml:"port-ldaps" validate:"number,nefield=Portldap,omitempty"`
+	Basedn    string `cloud:"basedn" mapstructure:"basedn" json:"basedn" yaml:"basedn" toml:"basedn" validate:"printascii,omitempty"`
+	//FilterGroup is fmt pattern like '(&(objectClass=groupOfNames)(%s=%s))' to make search of group object class
 	FilterGroup string `cloud:"filter-group" mapstructure:"filter-group" json:"filter-group" yaml:"filter-group" toml:"filter-group" validate:"printascii,required"`
-	FilterUser  string `cloud:"filter-user" mapstructure:"filter-user" json:"filter-user" yaml:"filter-user" toml:"filter-user" validate:"printascii,required"`
+	//FilterUser is a fmt pattern like '(%s=%s)' to make search of user. By default, uid field is 'uid'
+	FilterUser string `cloud:"filter-user" mapstructure:"filter-user" json:"filter-user" yaml:"filter-user" toml:"filter-user" validate:"printascii,required"`
 }
 
 func NewConfig() *Config {

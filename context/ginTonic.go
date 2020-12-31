@@ -30,6 +30,8 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/nabbar/golib/logger"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -58,7 +60,7 @@ type GinTonic interface {
 }
 
 type ctxGinTonic struct {
-	gin.Context
+	g *gin.Context
 	x context.Context
 	c context.CancelFunc
 }
@@ -87,22 +89,24 @@ func NewGinTonic(c *gin.Context) GinTonic {
 	}
 
 	return &ctxGinTonic{
-		*c.Copy(),
+		c,
 		x,
 		l,
 	}
 }
 
 func (c *ctxGinTonic) CancelOnSignal(s ...os.Signal) {
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, s...)
-
 	go func() {
+		sc := make(chan os.Signal, 1)
+		signal.Notify(sc, s...)
+
 		select {
 		case <-sc:
+			logger.InfoLevel.Logf("Os Signal recieved, calling context cancel !")
 			c.c()
 			return
 		case <-c.Done():
+			logger.InfoLevel.Logf("Context has been closed...")
 			return
 		}
 	}()
@@ -121,9 +125,65 @@ func (c *ctxGinTonic) Err() error {
 }
 
 func (c *ctxGinTonic) Value(key interface{}) interface{} {
-	return c.Context.Value(key)
+	return c.g.Value(key)
 }
 
 func (c *ctxGinTonic) GinContext() *gin.Context {
-	return &c.Context
+	return c.g
+}
+
+func (c *ctxGinTonic) Set(key string, value interface{}) {
+	c.g.Set(key, value)
+}
+
+func (c *ctxGinTonic) Get(key string) (value interface{}, exists bool) {
+	return c.g.Get(key)
+}
+
+func (c *ctxGinTonic) MustGet(key string) interface{} {
+	return c.g.MustGet(key)
+}
+
+func (c *ctxGinTonic) GetString(key string) (s string) {
+	return c.g.GetString(key)
+}
+
+func (c *ctxGinTonic) GetBool(key string) (b bool) {
+	return c.g.GetBool(key)
+}
+
+func (c *ctxGinTonic) GetInt(key string) (i int) {
+	return c.g.GetInt(key)
+}
+
+func (c *ctxGinTonic) GetInt64(key string) (i64 int64) {
+	return c.g.GetInt64(key)
+}
+
+func (c *ctxGinTonic) GetFloat64(key string) (f64 float64) {
+	return c.g.GetFloat64(key)
+}
+
+func (c *ctxGinTonic) GetTime(key string) (t time.Time) {
+	return c.g.GetTime(key)
+}
+
+func (c *ctxGinTonic) GetDuration(key string) (d time.Duration) {
+	return c.g.GetDuration(key)
+}
+
+func (c *ctxGinTonic) GetStringSlice(key string) (ss []string) {
+	return c.g.GetStringSlice(key)
+}
+
+func (c *ctxGinTonic) GetStringMap(key string) (sm map[string]interface{}) {
+	return c.g.GetStringMap(key)
+}
+
+func (c *ctxGinTonic) GetStringMapString(key string) (sms map[string]string) {
+	return c.g.GetStringMapString(key)
+}
+
+func (c *ctxGinTonic) GetStringMapStringSlice(key string) (smss map[string][]string) {
+	return c.g.GetStringMapStringSlice(key)
 }

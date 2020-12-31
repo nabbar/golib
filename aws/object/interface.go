@@ -56,9 +56,9 @@ type Object interface {
 	MultipartPutCustom(partSize helper.PartSize, object string, body io.Reader) errors.Error
 }
 
-func New(ctx context.Context, bucket string, iam *sdkiam.Client, s3 *sdksss.Client) Object {
+func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Object {
 	return &client{
-		Helper: helper.New(ctx, bucket),
+		Helper: helper.New(ctx, bucket, region),
 		iam:    iam,
 		s3:     s3,
 	}
