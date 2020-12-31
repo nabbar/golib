@@ -87,45 +87,82 @@ type errors struct {
 }
 
 type Error interface {
+	//IsCodeError check if the given error code is matching with the current Error
 	IsCodeError(code CodeError) bool
+	//HasCodeError check if current error or parent has the given error code
 	HasCodeError(code CodeError) bool
 
+	//IsError check if the given error params is a valid error and not a nil pointer
 	IsError(e error) bool
+	//HasError check if the given error in params is still in parent error
 	HasError(err error) bool
+	//HasParent check if the current Error has any valid parent
 	HasParent() bool
 
+	//AddParent will add all no empty given error into parent of the current Error pointer
 	AddParent(parent ...error)
+	//SetParent will replace all parent with the given error list
 	SetParent(parent ...error)
+	//AddParentError will add all no empty given Error into parent of the current Error pointer
 	AddParentError(parent ...Error)
+	//SetParentError will replace all parent with the given Error list
 	SetParentError(parent ...Error)
 
+	//Code is used to return the code of current Error, as string
 	Code() string
+	//CodeFull is used to return a joint string of code of current Error and code of all parent Error
 	CodeFull(glue string) string
+	//CodeSlice is used to return a slice string of all code of current Error (main and parent)
 	CodeSlice() []string
 
+	//CodeError is used to return a composed string of current Error code with message, for current Error and no parent
 	CodeError(pattern string) string
+	//CodeErrorFull is used to return a composed string of couple error code with message, for current Error and all parent
 	CodeErrorFull(pattern, glue string) string
+	//CodeErrorSlice is used to return a composed string slice of couple error code with message, for current Error and all parent
 	CodeErrorSlice(pattern string) []string
 
+	//CodeErrorTrace is used to return a composed string of current Error code with message and trace information, for current Error and no parent
 	CodeErrorTrace(pattern string) string
+	//CodeErrorTraceFull is used to return a composed string of couple error code with message and trace information, for current Error and all parent
 	CodeErrorTraceFull(pattern, glue string) string
+	//CodeErrorTraceSlice is used to return a composed string slice of couple error code with message and trace information, for current Error and all parent
 	CodeErrorTraceSlice(pattern string) []string
 
+	//Error is used to match with error interface
+	//this function will return a mixed result depends of the configuration defined by calling SetModeReturnError
 	Error() string
 
+	//StringError is used to return the error message, for current Error and no parent
 	StringError() string
+	//StringErrorFull is used to return the error message, for current Error and all parent
 	StringErrorFull(glue string) string
+	//StringErrorSlice is used to return the error message, for current Error and all parent, as a slice of string
 	StringErrorSlice() []string
 
+	//GetError is used to return a new error interface based of the current error (and no parent)
 	GetError() error
+	//GetErrorFull is used to return a new error interface based of the current error with all parent
 	GetErrorFull(glue string) error
+	//GetErrorSlice is used to return a slice of new error interface, based of the current error and all parent
 	GetErrorSlice() []error
 
+	//GetIError is used to return a Error interface pointer based of current Error
 	GetIError() Error
+	//GetIErrorSlice is used to return a slice of Error interface pointer, based of current Error and all parents
 	GetIErrorSlice() []Error
 
+	//GetTrace will return a comped string for the trace of the current Error
 	GetTrace() string
+	//GetTrace will return a slice of comped string fpr the trace of the current Error and all parent
 	GetTraceSlice() []string
+
+	//Return will transform the current Error into a given pointer that implement the Return interface
+	Return(r Return)
+	//ReturnError will send the current Error value to the given function ReturnError
+	ReturnError(f ReturnError)
+	//ReturnParent will send all parent information of the current Error value to the given function ReturnError
+	ReturnParent(f ReturnError)
 }
 
 func MakeErrorIfError(err ...Error) Error {
@@ -195,16 +232,13 @@ func NewErrorIfError(code uint16, message string, parent Error) Error {
 
 func (e *errors) AddParent(parent ...error) {
 	for _, v := range parent {
-
-		if v == nil {
-			continue
+		if v != nil {
+			e.p = append(e.p, &errors{
+				c: 0,
+				e: v.Error(),
+				p: nil,
+			})
 		}
-
-		e.p = append(e.p, &errors{
-			c: 0,
-			e: v.Error(),
-			p: nil,
-		})
 	}
 }
 
@@ -254,7 +288,11 @@ func (e *errors) SetParent(parent ...error) {
 }
 
 func (e *errors) AddParentError(parent ...Error) {
-	e.p = append(e.p, parent...)
+	for _, p := range parent {
+		if p != nil {
+			e.p = append(e.p, p)
+		}
+	}
 }
 
 func (e *errors) SetParentError(parent ...Error) {
@@ -414,4 +452,24 @@ func (e *errors) CodeErrorTraceSlice(pattern string) []string {
 	}
 
 	return r
+}
+
+func (e *errors) Return(r Return) {
+	e.ReturnError(r.SetError)
+	e.ReturnParent(r.AddParent)
+}
+
+func (e errors) ReturnError(f ReturnError) {
+	if e.t.File != "" {
+		f(int(e.c), e.e, e.t.File, e.t.Line)
+	} else {
+		f(int(e.c), e.e, e.t.Function, e.t.Line)
+	}
+}
+
+func (e errors) ReturnParent(f ReturnError) {
+	for _, p := range e.p {
+		p.ReturnError(f)
+		p.ReturnParent(f)
+	}
 }
