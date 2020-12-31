@@ -31,6 +31,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type HeadersConfig map[string]string
+
+func (h HeadersConfig) New() Headers {
+	var res = NewHeaders()
+
+	for k, v := range h {
+		res.Add(k, v)
+	}
+
+	return res
+}
+
 type headers struct {
 	head http.Header
 }
