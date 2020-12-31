@@ -108,23 +108,21 @@ func (cnf Config) PatternFilterUser() string {
 }
 
 func (cnf Config) Validate() errors.Error {
-	val := validator.New()
-	err := val.Struct(cnf)
+	var e = ErrorLDAPValidatorError.Error(nil)
 
-	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorLDAPValidatorError.ErrorParent(e)
+	if err := validator.New().Struct(cnf); err != nil {
+		if er, ok := err.(*validator.InvalidValidationError); ok {
+			e.AddParent(er)
+		}
+
+		for _, err := range err.(validator.ValidationErrors) {
+			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", err.StructNamespace(), err.ActualTag()))
+		}
 	}
 
-	out := ErrorLDAPValidatorError.Error(nil)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
+	if !e.HasParent() {
+		e = nil
 	}
 
-	if out.HasParent() {
-		return out
-	}
-
-	return nil
+	return e
 }
