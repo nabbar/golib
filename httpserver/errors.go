@@ -24,17 +24,13 @@
  *
  */
 
-package certificates
+package httpserver
 
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Certif
-	ErrorFileStat
-	ErrorFileRead
-	ErrorCertAppend
-	ErrorCertKeyPairLoad
-	ErrorCertKeyPairParse
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Httpserver
+	ErrorHTTP2Configure
 )
 
 var isCodeError = false
@@ -54,16 +50,8 @@ func getMessage(code errors.CodeError) (message string) {
 		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case ErrorFileStat:
-		return "cannot get file stat"
-	case ErrorFileRead:
-		return "cannot read file"
-	case ErrorCertAppend:
-		return "cannot append PEM file"
-	case ErrorCertKeyPairLoad:
-		return "cannot X509 parsing certificate string"
-	case ErrorCertKeyPairParse:
-		return "cannot x509 loading certificate file"
+	case ErrorHTTP2Configure:
+		return "cannot initialize http2 over http server"
 	}
 
 	return ""
