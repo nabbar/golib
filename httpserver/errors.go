@@ -31,6 +31,10 @@ import "github.com/nabbar/golib/errors"
 const (
 	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Httpserver
 	ErrorHTTP2Configure
+	ErrorPoolAdd
+	ErrorPoolValidate
+	ErrorPoolListen
+	ErrorServerValidate
 )
 
 var isCodeError = false
@@ -52,6 +56,14 @@ func getMessage(code errors.CodeError) (message string) {
 		return "given parameters is empty"
 	case ErrorHTTP2Configure:
 		return "cannot initialize http2 over http server"
+	case ErrorPoolAdd:
+		return "cannot add server on pool"
+	case ErrorPoolValidate:
+		return "at least one config server seems to be not valid"
+	case ErrorPoolListen:
+		return "at least one server has listen error"
+	case ErrorServerValidate:
+		return "config server seems to be not valid"
 	}
 
 	return ""
