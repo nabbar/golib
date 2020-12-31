@@ -76,6 +76,7 @@ type statusItem struct {
 
 type statusComponent struct {
 	statusItem
+	reference string
 	WarnIfErr bool
 	later     *initLater
 }
@@ -104,8 +105,9 @@ type Status interface {
 	Register(prefix string, register router.RegisterRouter)
 	RegisterGroup(group, prefix string, register router.RegisterRouterInGroup)
 
-	AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool)
-	AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool)
+	AddComponent(componentRef string, info FctInfo, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool)
+	AddVersionComponent(componentRef string, vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool)
+	DelComponent(componentRef string)
 
 	Get(c *gin.Context)
 	SetErrorCode(codeOk, codeKO, codeCptNoMandatoryKO int)
@@ -189,9 +191,10 @@ func newItem(name, msgOK, msgKO, release, build string, health FctHealth) status
 	}
 }
 
-func (p *mainPackage) AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
+func (p *mainPackage) AddComponent(componentRef string, info FctInfo, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
 	if later {
 		p.cpt = append(p.cpt, statusComponent{
+			reference: componentRef,
 			WarnIfErr: mandatoryComponent,
 			later: &initLater{
 				version: nil,
@@ -205,15 +208,17 @@ func (p *mainPackage) AddComponent(info FctInfo, msg FctMessageItem, health FctH
 		msgOK, msgKO := msg()
 		p.cpt = append(p.cpt, statusComponent{
 			statusItem: newItem(name, msgOK, msgKO, release, build, health),
+			reference:  componentRef,
 			WarnIfErr:  mandatoryComponent,
 			later:      nil,
 		})
 	}
 }
 
-func (p *mainPackage) AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
+func (p *mainPackage) AddVersionComponent(componentRef string, vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
 	if later {
 		p.cpt = append(p.cpt, statusComponent{
+			reference: componentRef,
 			WarnIfErr: mandatoryComponent,
 			later: &initLater{
 				version: vers,
@@ -226,10 +231,23 @@ func (p *mainPackage) AddVersionComponent(vers FctVersion, msg FctMessageItem, h
 		msgOK, msgKO := msg()
 		p.cpt = append(p.cpt, statusComponent{
 			statusItem: newItem(vers().GetPackage(), msgOK, msgKO, vers().GetRelease(), vers().GetBuild(), health),
+			reference:  componentRef,
 			WarnIfErr:  mandatoryComponent,
 			later:      nil,
 		})
 	}
+}
+
+func (p *mainPackage) DelComponent(componentRef string) {
+	var new = make([]statusComponent, 0)
+
+	for _, c := range p.cpt {
+		if c.reference != componentRef {
+			new = append(new, c)
+		}
+	}
+
+	p.cpt = new
 }
 
 func (p *mainPackage) initStatus() {
@@ -272,6 +290,7 @@ func (p *mainPackage) initStatus() {
 				ok, ko := part.later.msgItm()
 				part = statusComponent{
 					statusItem: newItem(name, ok, ko, release, build, h),
+					reference:  part.reference,
 					WarnIfErr:  part.WarnIfErr,
 					later:      nil,
 				}
@@ -281,6 +300,7 @@ func (p *mainPackage) initStatus() {
 
 				part = statusComponent{
 					statusItem: newItem(v.GetPackage(), ok, ko, v.GetRelease(), v.GetBuild(), h),
+					reference:  part.reference,
 					WarnIfErr:  part.WarnIfErr,
 					later:      nil,
 				}
