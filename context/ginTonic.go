@@ -101,8 +101,9 @@ func (c *ctxGinTonic) CancelOnSignal(s ...os.Signal) {
 		select {
 		case <-sc:
 			c.c()
+			return
 		case <-c.Done():
-
+			return
 		}
 	}()
 }
