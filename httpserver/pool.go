@@ -35,6 +35,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/nabbar/golib/logger"
+
 	"github.com/nabbar/golib/semaphore"
 
 	liberr "github.com/nabbar/golib/errors"
@@ -109,24 +111,21 @@ func (p pool) Add(srv ...Server) (PoolServer, liberr.Error) {
 	for _, s := range srv {
 		if !r.Has(s.GetBindable()) {
 			r = append(r, s)
+			continue
 		}
 
-		if x := r.Get(s.GetBindable()); x != nil {
-			s.Merge(x)
-
-			if x.IsRunning() {
-				x.Shutdown()
-				if e := s.Listen(nil); e != nil {
-					return r, e
-				}
+		for _, x := range r {
+			if x.GetBindable() != s.GetBindable() {
+				continue
+			} else if !x.Merge(s) {
+				r = r.Del(s.GetBindable()).(pool)
+				r = append(r, s)
+				break
 			}
 		}
-
-		r = r.Del(s.GetBindable()).(pool)
-		r = append(r, s)
 	}
 
-	return append(p, srv...), nil
+	return r, nil
 }
 
 func (p pool) Get(bindAddress string) Server {
@@ -149,10 +148,6 @@ func (p pool) Del(bindAddress string) PoolServer {
 	}
 
 	var r = make(pool, 0)
-
-	if p != nil {
-		r = p
-	}
 
 	for _, s := range p {
 		if s.GetBindable() != bindAddress {
@@ -336,31 +331,14 @@ func (p pool) Listen(handler http.Handler) liberr.Error {
 		return nil
 	}
 
-	var (
-		e liberr.Error
-		s semaphore.Sem
-		x context.Context
-		c context.CancelFunc
-	)
-
-	defer func() {
-		c()
-		s.DeferMain()
-	}()
+	var e liberr.Error
 
 	e = ErrorPoolListen.Error(nil)
-	x, c = context.WithTimeout(context.Background(), timeoutRestart)
-	s = semaphore.NewSemaphoreWithContext(x, 0)
-
+	logger.InfoLevel.Log("Calling listen for All Servers")
 	p.MapRun(func(srv Server) {
-		_ = s.NewWorker()
-		go func() {
-			defer s.DeferWorker()
-			e.AddParentError(srv.Listen(handler))
-		}()
+		e.AddParentError(srv.Listen(handler))
 	})
-
-	_ = s.WaitAll()
+	logger.InfoLevel.Log("End of Calling listen for All Servers")
 
 	if !e.HasParent() {
 		e = nil

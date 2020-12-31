@@ -30,7 +30,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v33/github"
 	"github.com/nabbar/golib/artifact"
 	"github.com/nabbar/golib/artifact/client"
 	"github.com/nabbar/golib/errors"

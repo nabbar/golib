@@ -26,6 +26,8 @@
 package aws
 
 import (
+	"context"
+
 	"github.com/nabbar/golib/aws/bucket"
 	"github.com/nabbar/golib/aws/group"
 	"github.com/nabbar/golib/aws/object"
@@ -35,10 +37,10 @@ import (
 	"github.com/nabbar/golib/errors"
 )
 
-func (c *client) ForcePathStyle(enabled bool) errors.Error {
+func (c *client) ForcePathStyle(ctx context.Context, enabled bool) errors.Error {
 	c.p = enabled
 
-	if s, e := c.newClientS3(nil); e != nil {
+	if s, e := c.newClientS3(ctx, nil); e != nil {
 		return e
 	} else {
 		c.s = s
@@ -52,27 +54,27 @@ func (c *client) Config() Config {
 }
 
 func (c *client) Bucket() bucket.Bucket {
-	return bucket.New(c.x, c.c.GetBucketName(), c.i, c.s)
+	return bucket.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) Group() group.Group {
-	return group.New(c.x, c.c.GetBucketName(), c.i, c.s)
+	return group.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) Object() object.Object {
-	return object.New(c.x, c.c.GetBucketName(), c.i, c.s)
+	return object.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) Policy() policy.Policy {
-	return policy.New(c.x, c.c.GetBucketName(), c.i, c.s)
+	return policy.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) Role() role.Role {
-	return role.New(c.x, c.c.GetBucketName(), c.i, c.s)
+	return role.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) User() user.User {
-	return user.New(c.x, c.c.GetBucketName(), c.i, c.s)
+	return user.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) GetBucketName() string {

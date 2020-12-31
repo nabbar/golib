@@ -55,9 +55,9 @@ type Group interface {
 	PolicyDetach(groupName, polArn string) errors.Error
 }
 
-func New(ctx context.Context, bucket string, iam *iam.Client, s3 *s3.Client) Group {
+func New(ctx context.Context, bucket, region string, iam *iam.Client, s3 *s3.Client) Group {
 	return &client{
-		Helper: helper.New(ctx, bucket),
+		Helper: helper.New(ctx, bucket, region),
 		iam:    iam,
 		s3:     s3,
 	}

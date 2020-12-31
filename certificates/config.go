@@ -117,24 +117,36 @@ func (c *Config) NewFrom(cfg TLSConfig) (TLSConfig, liberr.Error) {
 
 	if len(c.CipherList) > 0 {
 		for _, a := range c.CipherList {
+			if len(a) < 1 {
+				continue
+			}
 			t.cipherList = append(t.cipherList, StringToCipherKey(a))
 		}
 	}
 
 	if len(c.CurveList) > 0 {
 		for _, a := range c.CurveList {
+			if len(a) < 1 {
+				continue
+			}
 			t.curveList = append(t.curveList, StringToCurveID(a))
 		}
 	}
 
 	if len(c.RootCAString) > 0 {
 		for _, s := range c.RootCAString {
+			if len(s) < 1 {
+				continue
+			}
 			t.AddRootCAString(s)
 		}
 	}
 
 	if len(c.RootCAFile) > 0 {
 		for _, f := range c.RootCAFile {
+			if len(f) < 1 {
+				continue
+			}
 			if e := t.AddRootCAFile(f); e != nil {
 				return nil, e
 			}
@@ -143,12 +155,18 @@ func (c *Config) NewFrom(cfg TLSConfig) (TLSConfig, liberr.Error) {
 
 	if len(c.ClientCAString) > 0 {
 		for _, s := range c.ClientCAString {
+			if len(s) < 1 {
+				continue
+			}
 			t.AddClientCAString(s)
 		}
 	}
 
 	if len(c.ClientCAFiles) > 0 {
 		for _, f := range c.ClientCAFiles {
+			if len(f) < 1 {
+				continue
+			}
 			if e := t.AddClientCAFile(f); e != nil {
 				return nil, e
 			}
@@ -157,6 +175,9 @@ func (c *Config) NewFrom(cfg TLSConfig) (TLSConfig, liberr.Error) {
 
 	if len(c.CertPairString) > 0 {
 		for _, s := range c.CertPairString {
+			if len(s.Key) < 1 || len(s.Pem) < 1 {
+				continue
+			}
 			if e := t.AddCertificatePairString(s.Key, s.Pem); e != nil {
 				return nil, e
 			}
@@ -165,6 +186,9 @@ func (c *Config) NewFrom(cfg TLSConfig) (TLSConfig, liberr.Error) {
 
 	if len(c.CertPairFile) > 0 {
 		for _, f := range c.CertPairFile {
+			if len(f.Key) < 1 || len(f.Pem) < 1 {
+				continue
+			}
 			if e := t.AddCertificatePairFile(f.Key, f.Pem); e != nil {
 				return nil, e
 			}

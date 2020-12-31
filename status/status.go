@@ -33,6 +33,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nabbar/golib/router"
+	"github.com/nabbar/golib/semaphore"
 	"github.com/nabbar/golib/version"
 )
 
@@ -379,18 +380,38 @@ func (p *mainPackage) Get(c *gin.Context) {
 		make([]StatusItemResponse, 0),
 	}
 
-	for _, pkg := range p.cpt {
-		pres := pkg.GetStatusResponse(c)
+	sem := semaphore.NewSemaphore(0)
+	defer func() {
+		if sem != nil {
+			sem.DeferMain()
+		}
+	}()
 
-		if res.Status == statusOK && pres.Status == statusKO && pkg.WarnIfErr {
-			res.Status = statusKO
+	for _, pkg := range p.cpt {
+		_ = sem.NewWorker()
+
+		go func() {
+			defer sem.DeferWorker()
+
+			pres := pkg.GetStatusResponse(c)
+			res.Component = append(res.Component, pres)
+		}()
+	}
+
+	_ = sem.WaitAll()
+
+	for _, pres := range res.Component {
+		if res.Status == statusOK && pres.Status == statusKO {
+			for _, pkg := range p.cpt {
+				if pkg.name == pres.Name && pkg.WarnIfErr {
+					res.Status = statusKO
+				}
+			}
 		}
 
-		if pres.Status == statusKO {
+		if !hasError && pres.Status == statusKO {
 			hasError = true
 		}
-
-		res.Component = append(res.Component, pres)
 	}
 
 	if res.Status != statusOK {
