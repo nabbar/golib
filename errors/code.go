@@ -38,6 +38,7 @@ type CodeError uint16
 
 const UNK_ERROR CodeError = 0
 const UNK_MESSAGE = "unknown error"
+const NUL_MESSAGE = ""
 
 func (c CodeError) GetUint16() uint16 {
 	return uint16(c)
@@ -94,12 +95,12 @@ func RegisterIdFctMessage(minCode CodeError, fct Message) {
 
 func ExistInMapMessage(code CodeError) bool {
 	if f, ok := idMsgFct[findCodeErrorInMapMessage(code)]; ok {
-		if m := f(code); m != "" {
-			return false
+		if m := f(code); m != NUL_MESSAGE {
+			return true
 		}
 	}
 
-	return true
+	return false
 }
 
 func getMapMessageKey() []CodeError {

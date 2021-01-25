@@ -174,6 +174,10 @@ func (lc *HelperLDAP) starttls(l *ldap.Conn) liberr.Error {
 }
 
 func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
+	if lc == nil {
+		return TLSMODE_NONE, ErrorEmptyParams.Error(nil)
+	}
+
 	var (
 		l   *ldap.Conn
 		err liberr.Error
@@ -217,7 +221,7 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 }
 
 func (lc *HelperLDAP) connect() liberr.Error {
-	if lc.ctx == nil {
+	if lc == nil || lc.ctx == nil {
 		return ErrorLDAPContext.Error(ErrorEmptyParams.Error(nil))
 	}
 
@@ -280,6 +284,10 @@ func (lc *HelperLDAP) connect() liberr.Error {
 
 //Check used to check if connection success (without any bind).
 func (lc *HelperLDAP) Check() liberr.Error {
+	if lc == nil {
+		return ErrorEmptyParams.Error(nil)
+	}
+
 	if lc.conn == nil {
 		defer func() {
 			if lc.conn != nil {
@@ -299,6 +307,10 @@ func (lc *HelperLDAP) Check() liberr.Error {
 
 //Close used to close connection object.
 func (lc *HelperLDAP) Close() {
+	if lc == nil {
+		return
+	}
+
 	if lc.conn != nil {
 		lc.conn.Close()
 		lc.conn = nil
@@ -307,6 +319,9 @@ func (lc *HelperLDAP) Close() {
 
 //AuthUser used to test bind given user uid and password.
 func (lc *HelperLDAP) AuthUser(username, password string) liberr.Error {
+	if lc == nil {
+		return ErrorEmptyParams.Error(nil)
+	}
 
 	if err := lc.connect(); err != nil {
 		return err
@@ -323,6 +338,10 @@ func (lc *HelperLDAP) AuthUser(username, password string) liberr.Error {
 
 //Connect used to connect and bind to server.
 func (lc *HelperLDAP) Connect() liberr.Error {
+	if lc == nil {
+		return ErrorEmptyParams.Error(nil)
+	}
+
 	if err := lc.AuthUser(lc.bindDN, lc.bindPass); err != nil {
 		return err
 	}
@@ -399,7 +418,48 @@ func (lc *HelperLDAP) UserInfo(username string) (map[string]string, liberr.Error
 	userRes = make(map[string]string)
 	attributes := append(lc.Attributes, "cn")
 
-	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterUser, username), attributes)
+	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterUser, userFieldUid, username), attributes)
+
+	if err != nil {
+		return userRes, err
+	}
+
+	if len(src.Entries) != 1 {
+		if len(src.Entries) > 1 {
+			return userRes, ErrorLDAPUserNotUniq.Error(nil)
+		} else {
+			return userRes, ErrorLDAPUserNotFound.Error(nil)
+		}
+	}
+
+	for _, attr := range attributes {
+		userRes[attr] = src.Entries[0].GetAttributeValue(attr)
+	}
+
+	if _, ok := userRes["DN"]; !ok {
+		userRes["DN"] = src.Entries[0].DN
+	}
+
+	liblog.DebugLevel.Logf("Map info retrieve in ldap server '%s' with tls mode '%s' about user [%s] : %v", lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), username, userRes)
+	return userRes, nil
+}
+
+//UserInfo used to retrieve the information of a given username.
+func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) (map[string]string, liberr.Error) {
+	var (
+		err     liberr.Error
+		src     *ldap.SearchResult
+		userRes map[string]string
+	)
+
+	if username, err = lc.getUserName(username); err != nil {
+		return nil, err
+	}
+
+	userRes = make(map[string]string)
+	attributes := append(lc.Attributes, "cn")
+
+	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterUser, fieldOfUnicValue, username), attributes)
 
 	if err != nil {
 		return userRes, err
@@ -433,7 +493,35 @@ func (lc *HelperLDAP) GroupInfo(groupname string) (map[string]interface{}, liber
 		grpInfo map[string]interface{}
 	)
 
-	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterGroup, groupname), []string{})
+	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterGroup, groupFieldCN, groupname), []string{})
+	if err != nil {
+		return grpInfo, err
+	}
+
+	if len(src.Entries) == 0 {
+		return nil, ErrorLDAPGroupNotFound.Error(nil)
+	}
+
+	grpInfo = make(map[string]interface{}, len(src.Entries[0].Attributes))
+	for _, entry := range src.Entries {
+		for _, entryAttribute := range entry.Attributes {
+			grpInfo[entryAttribute.Name] = entryAttribute.Values
+		}
+	}
+
+	liblog.DebugLevel.Logf("Info for group [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), grpInfo)
+	return grpInfo, nil
+}
+
+//GroupInfo used to retrieve the information of a given group cn.
+func (lc *HelperLDAP) GroupInfoByField(groupname string, fieldForUnicValue string) (map[string]interface{}, liberr.Error) {
+	var (
+		err     liberr.Error
+		src     *ldap.SearchResult
+		grpInfo map[string]interface{}
+	)
+
+	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterGroup, fieldForUnicValue, groupname), []string{})
 	if err != nil {
 		return grpInfo, err
 	}
@@ -467,7 +555,7 @@ func (lc *HelperLDAP) UserMemberOf(username string) ([]string, liberr.Error) {
 
 	grp = make([]string, 0)
 
-	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterUser, username), []string{"memberOf"})
+	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterUser, userFieldUid, username), []string{"memberOf"})
 	if err != nil {
 		return grp, err
 	}
@@ -518,7 +606,7 @@ func (lc *HelperLDAP) UsersOfGroup(groupname string) ([]string, liberr.Error) {
 
 	grp = make([]string, 0)
 
-	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterGroup, groupname), []string{"member"})
+	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterGroup, groupFieldCN, groupname), []string{"member"})
 	if err != nil {
 		return grp, err
 	}

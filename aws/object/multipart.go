@@ -26,6 +26,7 @@
 package object
 
 import (
+	/* #nosec */
 	"crypto/md5"
 	"encoding/base64"
 	"io"
@@ -98,6 +99,7 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 			return cli.multipartCancel(err, upl.UploadId, object)
 		}
 
+		/* #nosec */
 		h := md5.New()
 		if _, err := tmp.WriteTo(h); err != nil {
 			return cli.multipartCancel(err, upl.UploadId, object)

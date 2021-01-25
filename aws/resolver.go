@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2021 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -23,34 +23,38 @@
  *
  */
 
-package policy
+package aws
 
 import (
-	"context"
-
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-type client struct {
-	helper.Helper
-	iam *iam.Client
-	s3  *s3.Client
+type resolverIam struct {
+	r func(service, region string) (sdkaws.Endpoint, error)
 }
 
-type Policy interface {
-	List() (map[string]string, errors.Error)
-	Add(name, desc, policy string) (string, errors.Error)
-	Update(polArn, polContents string) errors.Error
-	Delete(polArn string) errors.Error
+func (r *resolverIam) ResolveEndpoint(region string, options sdkiam.EndpointResolverOptions) (sdkaws.Endpoint, error) {
+	return r.r("iam", region)
 }
 
-func New(ctx context.Context, bucket, region string, iam *iam.Client, s3 *s3.Client) Policy {
-	return &client{
-		Helper: helper.New(ctx, bucket, region),
-		iam:    iam,
-		s3:     s3,
+type resolverS3 struct {
+	r func(service, region string) (sdkaws.Endpoint, error)
+}
+
+func (r *resolverS3) ResolveEndpoint(region string, options sdksss.EndpointResolverOptions) (sdkaws.Endpoint, error) {
+	return r.r("s3", region)
+}
+
+func (cli *client) newIAMResolver(c *sdkaws.Config) sdkiam.EndpointResolver {
+	return &resolverIam{
+		r: c.EndpointResolver.ResolveEndpoint,
+	}
+}
+
+func (cli *client) newS3Resolver(c *sdkaws.Config) sdksss.EndpointResolver {
+	return &resolverS3{
+		r: c.EndpointResolver.ResolveEndpoint,
 	}
 }

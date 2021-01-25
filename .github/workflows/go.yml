@@ -38,12 +38,12 @@ jobs:
           git clone https://github.com/nabbar/gotools.git scripts
           ./scripts/prepare
 
-      - name: Update vendor or dependancies
-        run: ./scripts/ci_depend
-
       - name: Check goFmt & goImport
         continue-on-error: false
         run: ./scripts/ci_format
+
+      - name: Update vendor or dependancies
+        run: ./scripts/ci_depend
 
       - name: Check Missing License
         continue-on-error: false
@@ -57,7 +57,7 @@ jobs:
           CGO_ENABLED: 0
 
       - name: Check goSecu + snyk.io
-        continue-on-error: false
+        continue-on-error: true
         run: ./scripts/ci_secu $SNYK_TOKEN
         env:
           GOOS: linux

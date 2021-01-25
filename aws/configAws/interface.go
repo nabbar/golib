@@ -26,6 +26,7 @@
 package configAws
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -76,13 +77,13 @@ func (c *awsModel) Clone() libaws.Config {
 	}
 }
 
-func (c *awsModel) GetConfig(cli *http.Client) (*sdkaws.Config, errors.Error) {
+func (c *awsModel) GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, errors.Error) {
 	var (
 		cfg sdkaws.Config
 		err error
 	)
 
-	if cfg, err = sdkcfg.LoadDefaultConfig(); err != nil {
+	if cfg, err = sdkcfg.LoadDefaultConfig(ctx); err != nil {
 		return nil, ErrorConfigLoader.ErrorParent(err)
 	}
 

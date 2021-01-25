@@ -58,9 +58,9 @@ type Config interface {
 
 	IsHTTPs() bool
 	ResolveEndpoint(service, region string) (sdkaws.Endpoint, error)
-	SetRetryer(retryer sdkaws.Retryer)
+	SetRetryer(retryer func() sdkaws.Retryer)
 
-	GetConfig(cli *http.Client) (*sdkaws.Config, errors.Error)
+	GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, errors.Error)
 	JSON() ([]byte, error)
 	Clone() Config
 
@@ -76,9 +76,9 @@ type AWS interface {
 	Role() role.Role
 	User() user.User
 
-	Clone() (AWS, errors.Error)
+	Clone(ctx context.Context) (AWS, errors.Error)
 	Config() Config
-	ForcePathStyle(enabled bool) errors.Error
+	ForcePathStyle(ctx context.Context, enabled bool) errors.Error
 
 	GetBucketName() string
 	SetBucketName(bucket string)
@@ -111,13 +111,13 @@ func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, errors.
 		h: httpClient,
 	}
 
-	if i, e := cli.newClientIAM(httpClient); e != nil {
+	if i, e := cli.newClientIAM(ctx, httpClient); e != nil {
 		return nil, e
 	} else {
 		cli.i = i
 	}
 
-	if s, e := cli.newClientS3(httpClient); e != nil {
+	if s, e := cli.newClientS3(ctx, httpClient); e != nil {
 		return nil, e
 	} else {
 		cli.s = s
@@ -126,19 +126,24 @@ func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, errors.
 	return cli, nil
 }
 
-func (cli *client) newClientIAM(httpClient *http.Client) (*sdkiam.Client, errors.Error) {
+func (cli *client) newClientIAM(ctx context.Context, httpClient *http.Client) (*sdkiam.Client, errors.Error) {
 	var (
 		c *sdkaws.Config
 		i *sdkiam.Client
 		e errors.Error
+		r sdkaws.Retryer
 	)
 
 	if httpClient == nil {
 		httpClient = cli.h
 	}
 
-	if c, e = cli.c.GetConfig(httpClient); e != nil {
+	if c, e = cli.c.GetConfig(ctx, httpClient); e != nil {
 		return nil, e
+	}
+
+	if c.Retryer != nil {
+		r = c.Retryer()
 	}
 
 	i = sdkiam.New(sdkiam.Options{
@@ -147,29 +152,34 @@ func (cli *client) newClientIAM(httpClient *http.Client) (*sdkiam.Client, errors
 		EndpointOptions: sdkiam.EndpointResolverOptions{
 			DisableHTTPS: !cli.c.IsHTTPs(),
 		},
-		EndpointResolver: sdkiam.WithEndpointResolver(c.EndpointResolver, nil),
+		EndpointResolver: cli.newIAMResolver(c),
 		HTTPSignerV4:     sdksv4.NewSigner(),
 		Region:           c.Region,
-		Retryer:          c.Retryer,
+		Retryer:          r,
 		HTTPClient:       httpClient,
 	})
 
 	return i, nil
 }
 
-func (cli *client) newClientS3(httpClient *http.Client) (*sdksss.Client, errors.Error) {
+func (cli *client) newClientS3(ctx context.Context, httpClient *http.Client) (*sdksss.Client, errors.Error) {
 	var (
 		c *sdkaws.Config
 		s *sdksss.Client
 		e errors.Error
+		r sdkaws.Retryer
 	)
 
 	if httpClient == nil {
 		httpClient = cli.h
 	}
 
-	if c, e = cli.c.GetConfig(httpClient); e != nil {
+	if c, e = cli.c.GetConfig(ctx, httpClient); e != nil {
 		return nil, e
+	}
+
+	if c.Retryer != nil {
+		r = c.Retryer()
 	}
 
 	s = sdksss.New(sdksss.Options{
@@ -178,10 +188,10 @@ func (cli *client) newClientS3(httpClient *http.Client) (*sdksss.Client, errors.
 		EndpointOptions: sdksss.EndpointResolverOptions{
 			DisableHTTPS: !cli.c.IsHTTPs(),
 		},
-		EndpointResolver: sdksss.WithEndpointResolver(c.EndpointResolver, nil),
+		EndpointResolver: cli.newS3Resolver(c),
 		HTTPSignerV4:     sdksv4.NewSigner(),
 		Region:           c.Region,
-		Retryer:          c.Retryer,
+		Retryer:          r,
 		HTTPClient:       httpClient,
 		UsePathStyle:     cli.p,
 	})
@@ -189,7 +199,7 @@ func (cli *client) newClientS3(httpClient *http.Client) (*sdksss.Client, errors.
 	return s, nil
 }
 
-func (c *client) Clone() (AWS, errors.Error) {
+func (c *client) Clone(ctx context.Context) (AWS, errors.Error) {
 	cli := &client{
 		p: false,
 		x: c.x,
@@ -199,13 +209,13 @@ func (c *client) Clone() (AWS, errors.Error) {
 		h: c.h,
 	}
 
-	if i, e := cli.newClientIAM(c.h); e != nil {
+	if i, e := cli.newClientIAM(ctx, c.h); e != nil {
 		return nil, e
 	} else {
 		cli.i = i
 	}
 
-	if s, e := cli.newClientS3(c.h); e != nil {
+	if s, e := cli.newClientS3(ctx, c.h); e != nil {
 		return nil, e
 	} else {
 		cli.s = s
