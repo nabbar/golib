@@ -43,9 +43,8 @@ const (
 	MIN_PKG_Semaphore  = 1400
 	MIN_PKG_SMTP       = 1500
 	MIN_PKG_Static     = 1600
-	//	MIN_PKG_Status    = 1700 // unused
-	//	MIN_PKG_Update    = 1800 // unused
-	MIN_PKG_Version = 1900
+	MIN_PKG_TlS        = 1700
+	MIN_PKG_Version    = 1800
 
-	MIN_AVAILABLE = 2000
+	MIN_AVAILABLE = 4000
 )

@@ -33,6 +33,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nabbar/golib/router"
+	"github.com/nabbar/golib/semaphore"
 	"github.com/nabbar/golib/version"
 )
 
@@ -76,6 +77,7 @@ type statusItem struct {
 
 type statusComponent struct {
 	statusItem
+	reference string
 	WarnIfErr bool
 	later     *initLater
 }
@@ -104,8 +106,9 @@ type Status interface {
 	Register(prefix string, register router.RegisterRouter)
 	RegisterGroup(group, prefix string, register router.RegisterRouterInGroup)
 
-	AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool)
-	AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool)
+	AddComponent(componentRef string, info FctInfo, msg FctMessageItem, health FctHealth, WarnIfError bool, later bool)
+	AddVersionComponent(componentRef string, vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool)
+	DelComponent(componentRef string)
 
 	Get(c *gin.Context)
 	SetErrorCode(codeOk, codeKO, codeCptNoMandatoryKO int)
@@ -189,9 +192,10 @@ func newItem(name, msgOK, msgKO, release, build string, health FctHealth) status
 	}
 }
 
-func (p *mainPackage) AddComponent(info FctInfo, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
+func (p *mainPackage) AddComponent(componentRef string, info FctInfo, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
 	if later {
 		p.cpt = append(p.cpt, statusComponent{
+			reference: componentRef,
 			WarnIfErr: mandatoryComponent,
 			later: &initLater{
 				version: nil,
@@ -205,15 +209,17 @@ func (p *mainPackage) AddComponent(info FctInfo, msg FctMessageItem, health FctH
 		msgOK, msgKO := msg()
 		p.cpt = append(p.cpt, statusComponent{
 			statusItem: newItem(name, msgOK, msgKO, release, build, health),
+			reference:  componentRef,
 			WarnIfErr:  mandatoryComponent,
 			later:      nil,
 		})
 	}
 }
 
-func (p *mainPackage) AddVersionComponent(vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
+func (p *mainPackage) AddVersionComponent(componentRef string, vers FctVersion, msg FctMessageItem, health FctHealth, mandatoryComponent bool, later bool) {
 	if later {
 		p.cpt = append(p.cpt, statusComponent{
+			reference: componentRef,
 			WarnIfErr: mandatoryComponent,
 			later: &initLater{
 				version: vers,
@@ -226,10 +232,23 @@ func (p *mainPackage) AddVersionComponent(vers FctVersion, msg FctMessageItem, h
 		msgOK, msgKO := msg()
 		p.cpt = append(p.cpt, statusComponent{
 			statusItem: newItem(vers().GetPackage(), msgOK, msgKO, vers().GetRelease(), vers().GetBuild(), health),
+			reference:  componentRef,
 			WarnIfErr:  mandatoryComponent,
 			later:      nil,
 		})
 	}
+}
+
+func (p *mainPackage) DelComponent(componentRef string) {
+	var new = make([]statusComponent, 0)
+
+	for _, c := range p.cpt {
+		if c.reference != componentRef {
+			new = append(new, c)
+		}
+	}
+
+	p.cpt = new
 }
 
 func (p *mainPackage) initStatus() {
@@ -272,6 +291,7 @@ func (p *mainPackage) initStatus() {
 				ok, ko := part.later.msgItm()
 				part = statusComponent{
 					statusItem: newItem(name, ok, ko, release, build, h),
+					reference:  part.reference,
 					WarnIfErr:  part.WarnIfErr,
 					later:      nil,
 				}
@@ -281,6 +301,7 @@ func (p *mainPackage) initStatus() {
 
 				part = statusComponent{
 					statusItem: newItem(v.GetPackage(), ok, ko, v.GetRelease(), v.GetBuild(), h),
+					reference:  part.reference,
 					WarnIfErr:  part.WarnIfErr,
 					later:      nil,
 				}
@@ -359,18 +380,38 @@ func (p *mainPackage) Get(c *gin.Context) {
 		make([]StatusItemResponse, 0),
 	}
 
-	for _, pkg := range p.cpt {
-		pres := pkg.GetStatusResponse(c)
+	sem := semaphore.NewSemaphore(0)
+	defer func() {
+		if sem != nil {
+			sem.DeferMain()
+		}
+	}()
 
-		if res.Status == statusOK && pres.Status == statusKO && pkg.WarnIfErr {
-			res.Status = statusKO
+	for _, pkg := range p.cpt {
+		_ = sem.NewWorker()
+
+		go func() {
+			defer sem.DeferWorker()
+
+			pres := pkg.GetStatusResponse(c)
+			res.Component = append(res.Component, pres)
+		}()
+	}
+
+	_ = sem.WaitAll()
+
+	for _, pres := range res.Component {
+		if res.Status == statusOK && pres.Status == statusKO {
+			for _, pkg := range p.cpt {
+				if pkg.name == pres.Name && pkg.WarnIfErr {
+					res.Status = statusKO
+				}
+			}
 		}
 
-		if pres.Status == statusKO {
+		if !hasError && pres.Status == statusKO {
 			hasError = true
 		}
-
-		res.Component = append(res.Component, pres)
 	}
 
 	if res.Status != statusOK {

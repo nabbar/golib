@@ -75,36 +75,52 @@ var _ = Describe("Bucket", func() {
 		})
 	})
 
-	/*
-		 * Not Implemented with minio
-		 *
-		Context("Versioning", func() {
-			It("Must be possible to enable versioning", func() {
-				Expect(cli.Bucket().SetVersioning(true)).To(Succeed())
-			})
-			It("Must be enabled", func() {
-				status, err := cli.Bucket().GetVersioning()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(status).To(Equal("Enabled"))
-			})
-			It("Must be possible to suspend versioning", func() {
-				Expect(cli.Bucket().SetVersioning(false)).To(Succeed())
+	Context("Versioning", func() {
+		It("Must be possible to enable versioning", func() {
+			var err error
+			if !minioMode {
+				err = cli.Bucket().SetVersioning(true)
+			}
+			Expect(err).To(Succeed())
+		})
+		It("Must be enabled", func() {
+			var (
+				err error
+				sts string
+			)
+			if !minioMode {
+				sts, err = cli.Bucket().GetVersioning()
+			} else {
+				sts = "Enabled"
+			}
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sts).To(Equal("Enabled"))
+		})
+		It("Must be possible to suspend versioning", func() {
+			var err error
+			if !minioMode {
+				err = cli.Bucket().SetVersioning(false)
+			}
+			Expect(err).To(Succeed())
+		})
+	})
+	Context("Replication", func() {
+		Context("Enable with invalid params", func() {
+			It("Must fail", func() {
+				Expect(cli.Bucket().EnableReplication("fake-src-role-arn", "fake-dst-role-arn", "fake-dst-bucket")).ToNot(Succeed())
 			})
 		})
-		Context("Replication", func() {
-			Context("Enable with invalid params", func() {
-				It("Must fail", func() {
-					Expect(cli.Bucket().EnableReplication("fake-src-role-arn", "fake-dst-role-arn", "fake-dst-bucket")).ToNot(Succeed())
-				})
-			})
-			Context("Disable", func() {
-				It("Must not return error", func() {
-					Expect(cli.Bucket().DeleteReplication()).To(Succeed())
-				})
+		Context("Disable", func() {
+			It("Must not return error", func() {
+				var err error
+				if !minioMode {
+					err = cli.Bucket().DeleteReplication()
+				}
+				Expect(err).To(Succeed())
 			})
 		})
-		 *
-	*/
+	})
 
 	It("Must be possible to delete a bucket", func() {
 		Expect(cli.Bucket().Delete()).To(Succeed())

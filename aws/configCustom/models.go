@@ -40,61 +40,57 @@ import (
 )
 
 type Model struct {
-	Region    string `mapstructure:"region" json:"region" yaml:"region" toml:"region" validate:"printascii,required"`
-	Endpoint  string `mapstructure:"endpoint" json:"endpoint" yaml:"endpoint" toml:"endpoint" validate:"url,required"`
-	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"printascii,required"`
-	SecretKey string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey" toml:"secretkey" validate:"printascii,required"`
-	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket" toml:"bucket" validate:"printascii,omitempty"`
+	Region    string `mapstructure:"region" json:"region" yaml:"region" toml:"region" validate:"required,hostname"`
+	Endpoint  string `mapstructure:"endpoint" json:"endpoint" yaml:"endpoint" toml:"endpoint" validate:"required,url"`
+	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"required,printascii"`
+	SecretKey string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey" toml:"secretkey" validate:"required,printascii"`
+	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket" toml:"bucket" validate:"omitempty,hostname"`
 }
 
 type awsModel struct {
 	Model
 
-	retryer   sdkaws.Retryer
+	retryer   func() sdkaws.Retryer
 	endpoint  *url.URL
 	mapRegion map[string]*url.URL
 }
 
 func (c *awsModel) Validate() errors.Error {
-	val := libval.New()
-	err := val.Struct(c)
+	err := ErrorConfigValidator.Error(nil)
 
-	if err != nil {
-		if e, ok := err.(*libval.InvalidValidationError); ok {
-			return ErrorConfigValidator.ErrorParent(e)
+	if er := libval.New().Struct(c.Model); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
 		}
 
-		out := ErrorConfigValidator.Error(nil)
-
-		for _, e := range err.(libval.ValidationErrors) {
+		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-		}
-
-		if out.HasParent() {
-			return out
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
 		}
 	}
 
 	if c.Endpoint != "" && c.endpoint == nil {
-		if c.endpoint, err = url.Parse(c.Endpoint); err != nil {
-			return ErrorEndpointInvalid.ErrorParent(err)
+		var e error
+		if c.endpoint, e = url.Parse(c.Endpoint); e != nil {
+			err.AddParent(e)
+		} else if e := c.RegisterRegionAws(c.endpoint); e != nil {
+			err.AddParentError(e)
 		}
-
-		if e := c.RegisterRegionAws(c.endpoint); e != nil {
-			return e
-		}
-	} else if c.endpoint != nil && c.Endpoint == "" {
+	} else if !err.HasParent() && c.endpoint != nil && c.Endpoint == "" {
 		c.Endpoint = c.endpoint.String()
 	}
 
-	if c.endpoint != nil && c.Region != "" {
+	if !err.HasParent() && c.endpoint != nil && c.Region != "" {
 		if e := c.RegisterRegionEndpoint("", c.endpoint); e != nil {
-			return e
+			err.AddParentError(e)
 		}
 	}
 
-	return nil
+	if !err.HasParent() {
+		err = nil
+	}
+
+	return err
 }
 
 func (c *awsModel) ResetRegionEndpoint() {
@@ -230,7 +226,7 @@ func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, err
 		}, nil
 	}
 
-	logger.DebugLevel.Logf("Called ResolveEndpoint for service '%s' / region '%s' with nil endpoint", service, region)
+	logger.DebugLevel.Logf("Called ResolveEndpoint for service / region '%s' with nil endpoint", service, region)
 	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
 }
 
@@ -238,7 +234,7 @@ func (c *awsModel) IsHTTPs() bool {
 	return strings.HasSuffix(strings.ToLower(c.endpoint.Scheme), "s")
 }
 
-func (c *awsModel) SetRetryer(retryer sdkaws.Retryer) {
+func (c *awsModel) SetRetryer(retryer func() sdkaws.Retryer) {
 	c.retryer = retryer
 }
 
@@ -250,7 +246,7 @@ func (c awsModel) Check(ctx context.Context) errors.Error {
 		e   errors.Error
 	)
 
-	if cfg, e = c.GetConfig(nil); e != nil {
+	if cfg, e = c.GetConfig(ctx, nil); e != nil {
 		return e
 	}
 

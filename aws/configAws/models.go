@@ -46,7 +46,7 @@ type configModel struct {
 
 type awsModel struct {
 	configModel
-	retryer sdkaws.Retryer
+	retryer func() sdkaws.Retryer
 }
 
 func (c *awsModel) Validate() errors.Error {
@@ -105,7 +105,7 @@ func (c *awsModel) IsHTTPs() bool {
 	return true
 }
 
-func (c *awsModel) SetRetryer(retryer sdkaws.Retryer) {
+func (c *awsModel) SetRetryer(retryer func() sdkaws.Retryer) {
 	c.retryer = retryer
 }
 
@@ -119,7 +119,7 @@ func (c awsModel) Check(ctx context.Context) errors.Error {
 		e   errors.Error
 	)
 
-	if cfg, e = c.GetConfig(nil); e != nil {
+	if cfg, e = c.GetConfig(ctx, nil); e != nil {
 		return e
 	}
 

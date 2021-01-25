@@ -26,6 +26,7 @@
 package configCustom
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -90,7 +91,7 @@ func (c *awsModel) Clone() libaws.Config {
 	}
 }
 
-func (c *awsModel) GetConfig(cli *http.Client) (*sdkaws.Config, errors.Error) {
+func (c *awsModel) GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, errors.Error) {
 
 	cfg := sdkaws.NewConfig()
 

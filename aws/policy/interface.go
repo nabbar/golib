@@ -47,9 +47,9 @@ type Policy interface {
 	Delete(polArn string) errors.Error
 }
 
-func New(ctx context.Context, bucket string, iam *iam.Client, s3 *s3.Client) Policy {
+func New(ctx context.Context, bucket, region string, iam *iam.Client, s3 *s3.Client) Policy {
 	return &client{
-		Helper: helper.New(ctx, bucket),
+		Helper: helper.New(ctx, bucket, region),
 		iam:    iam,
 		s3:     s3,
 	}
