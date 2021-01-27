@@ -24,28 +24,47 @@
  *
  */
 
-package errors
+package mail
+
+import "github.com/nabbar/golib/errors"
 
 const (
-	MIN_PKG_Archive    = 100
-	MIN_PKG_Artifact   = 200
-	MIN_PKG_Certif     = 300
-	MIN_PKG_Console    = 400
-	MIN_PKG_Crypt      = 500
-	MIN_PKG_Httpcli    = 600
-	MIN_PKG_Httpserver = 700
-	MIN_PKG_IOUtils    = 800
-	MIN_PKG_LDAP       = 900
-	MIN_PKG_Mail       = 1000
-	MIN_PKG_Mailer     = 1100
-	MIN_PKG_Network    = 1200
-	MIN_PKG_OAuth      = 1300
-	MIN_PKG_Aws        = 1400
-	MIN_PKG_Router     = 1500
-	MIN_PKG_Semaphore  = 1600
-	MIN_PKG_SMTP       = 1700
-	MIN_PKG_Static     = 1800
-	MIN_PKG_Version    = 1900
-
-	MIN_AVAILABLE = 4000
+	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Mail
+	ErrorIORead
+	ErrorIOWrite
+	ErrorDateParsing
+	ErrorSmtpClient
+	ErrorSenderInit
 )
+
+var isCodeError = false
+
+func IsCodeError() bool {
+	return isCodeError
+}
+
+func init() {
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+}
+
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
+		return "given parameters is empty"
+	case ErrorIORead:
+		return "cannot read bytes from io source"
+	case ErrorIOWrite:
+		return "cannot write given string to IO resource"
+	case ErrorDateParsing:
+		return "error occurs while trying to parse a date string"
+	case ErrorSmtpClient:
+		return "error occurs while to checking connection with SMTP server"
+	case ErrorSenderInit:
+		return "error occurs while to preparing SMTP Email sender"
+	}
+
+	return ""
+}
