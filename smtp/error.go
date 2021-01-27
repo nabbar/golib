@@ -30,14 +30,11 @@ import "github.com/nabbar/golib/errors"
 
 const (
 	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_SMTP
-	ErrorFileStat
-	ErrorFileRead
 	ErrorConfigInvalidDSN
 	ErrorConfigInvalidNetwork
 	ErrorConfigInvalidParams
 	ErrorConfigInvalidHost
 	ErrorSMTPDial
-	ErrorSMTPSend
 	ErrorSMTPClientInit
 	ErrorSMTPClientStartTLS
 	ErrorSMTPClientAuth
@@ -45,24 +42,8 @@ const (
 	ErrorSMTPClientMail
 	ErrorSMTPClientRcpt
 	ErrorSMTPClientData
-	ErrorSMTPClientEmpty
-	ErrorSMTPClientSendRecovered
-	ErrorSMTPClientEmptyFrom
-	ErrorSMTPClientEmptyTo
-	ErrorSMTPClientEmptySubject
-	ErrorSMTPClientEmptyMailer
-	ErrorRandReader
-	ErrorBufferEmpty
-	ErrorBufferWriteString
-	ErrorBufferWriteBytes
-	ErrorIOWriter
-	ErrorIOWriterMissing
-	ErrorEmptyHtml
-	ErrorEmptyContents
-	ErrorTemplateParsing
-	ErrorTemplateExecute
-	ErrorTemplateClone
-	ErrorTemplateHtml2Text
+	ErrorSMTPClientWrite
+	ErrorSMTPLineCRLF
 )
 
 var isCodeError = false
@@ -82,10 +63,6 @@ func getMessage(code errors.CodeError) (message string) {
 		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case ErrorFileStat:
-		return "error occurs on getting stat of file"
-	case ErrorFileRead:
-		return "error occurs on reading file"
 	case ErrorConfigInvalidDSN:
 		return "invalid DSN: did you forget to escape a param value"
 	case ErrorConfigInvalidNetwork:
@@ -96,8 +73,6 @@ func getMessage(code errors.CodeError) (message string) {
 		return "invalid DSN: missing the slash ending the host"
 	case ErrorSMTPDial:
 		return "error while trying to dial with SMTP server"
-	case ErrorSMTPSend:
-		return "error while sending mail to SMTP server"
 	case ErrorSMTPClientInit:
 		return "error while trying to initialize new client for dial connection to SMTP Server"
 	case ErrorSMTPClientStartTLS:
@@ -107,47 +82,15 @@ func getMessage(code errors.CodeError) (message string) {
 	case ErrorSMTPClientNoop:
 		return "error on sending noop command to check connection with SMTP server"
 	case ErrorSMTPClientMail:
-		return "error on sending mail command to initialize new mail transaction with SMTP server"
+		return "cannot initialize new mail command with server"
 	case ErrorSMTPClientRcpt:
-		return "error on sending rcpt command to specify add recipient email for the new mail"
+		return "cannot add recipient to current mail"
 	case ErrorSMTPClientData:
-		return "error on opening io writer to send data on client"
-	case ErrorSMTPClientEmpty:
-		return "cannot send email without any attachment and contents"
-	case ErrorSMTPClientSendRecovered:
-		return "recovered error while client sending mail"
-	case ErrorSMTPClientEmptyFrom:
-		return "sender From address cannot be empty"
-	case ErrorSMTPClientEmptyTo:
-		return "list of recipient To address cannot be empty"
-	case ErrorSMTPClientEmptySubject:
-		return "subject of the new mail cannot be empty"
-	case ErrorSMTPClientEmptyMailer:
-		return "mailer of the new mail cannot be empty"
-	case ErrorRandReader:
-		return "error on reading on random reader io"
-	case ErrorBufferEmpty:
-		return "buffer is empty"
-	case ErrorBufferWriteString:
-		return "error on write string into buffer"
-	case ErrorBufferWriteBytes:
-		return "error on write bytes into buffer"
-	case ErrorIOWriterMissing:
-		return "io writer is not defined"
-	case ErrorIOWriter:
-		return "error occur on write on io writer"
-	case ErrorEmptyHtml:
-		return "text/html content is empty"
-	case ErrorEmptyContents:
-		return "mail content is empty"
-	case ErrorTemplateParsing:
-		return "error occur on parsing template"
-	case ErrorTemplateExecute:
-		return "error occur on execute template"
-	case ErrorTemplateClone:
-		return "error occur while cloning template"
-	case ErrorTemplateHtml2Text:
-		return "error occur on reading io reader html and convert it to text"
+		return "cannot call data command to send contents of mail"
+	case ErrorSMTPClientWrite:
+		return "cannot write data to send contents of mail"
+	case ErrorSMTPLineCRLF:
+		return "smtp: A line must not contain CR or LF"
 	}
 
 	return ""
