@@ -27,8 +27,11 @@
 package errors
 
 import (
+	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 var idMsgFct = make(map[CodeError]Message)
@@ -82,6 +85,33 @@ func (c CodeError) IfError(e Error) Error {
 
 func (c CodeError) Iferror(e error) Error {
 	return NewErrorIferror(c.GetUint16(), c.GetMessage(), e)
+}
+
+func GetCodePackages(rootPackage string) map[CodeError]string {
+	var res = make(map[CodeError]string)
+
+	for i, f := range idMsgFct {
+		p := reflect.ValueOf(f).Pointer()
+		n, _ := runtime.FuncForPC(p).FileLine(p)
+
+		if strings.Contains(n, "/vendor/") {
+			a := strings.SplitN(n, "/vendor/", 2)
+			n = a[1]
+		}
+
+		if strings.Contains(n, rootPackage) {
+			a := strings.SplitN(n, rootPackage, 2)
+			n = a[1]
+		}
+
+		if !strings.HasPrefix(n, "/") {
+			n = "/" + n
+		}
+
+		res[i] = n
+	}
+
+	return res
 }
 
 func RegisterIdFctMessage(minCode CodeError, fct Message) {
@@ -143,3 +173,26 @@ func findCodeErrorInMapMessage(code CodeError) CodeError {
 
 	return res
 }
+
+func isCodeInSlice(code CodeError, slice []CodeError) bool {
+	for _, c := range slice {
+		if c == code {
+			return true
+		}
+	}
+
+	return false
+}
+
+func unicCodeSlice(slice []CodeError) []CodeError {
+	var res = make([]CodeError, 0)
+
+	for _, c := range slice {
+		if !isCodeInSlice(c, res) {
+			res = append(res, c)
+		}
+	}
+
+	return res
+}
+
