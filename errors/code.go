@@ -195,4 +195,3 @@ func unicCodeSlice(slice []CodeError) []CodeError {
 
 	return res
 }
-
