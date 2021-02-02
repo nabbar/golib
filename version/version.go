@@ -59,6 +59,7 @@ type Version interface {
 	GetHeader() string
 	GetInfo() string
 	GetPackage() string
+	GetRootPackagePath() string
 	GetPrefix() string
 	GetRelease() string
 
@@ -161,6 +162,10 @@ func (vers versionModel) GetBuild() string {
 
 func (vers versionModel) GetPackage() string {
 	return vers.versionPackage
+}
+
+func (vers versionModel) GetRootPackagePath() string {
+	return vers.versionSource
 }
 
 func (vers versionModel) GetPrefix() string {
