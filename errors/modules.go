@@ -36,15 +36,16 @@ const (
 	MIN_PKG_Httpserver = 700
 	MIN_PKG_IOUtils    = 800
 	MIN_PKG_LDAP       = 900
-	MIN_PKG_Network    = 1000
-	MIN_PKG_OAuth      = 1100
-	MIN_PKG_Aws        = 1200
-	MIN_PKG_Router     = 1300
-	MIN_PKG_Semaphore  = 1400
-	MIN_PKG_SMTP       = 1500
-	MIN_PKG_Static     = 1600
-	MIN_PKG_TlS        = 1700
-	MIN_PKG_Version    = 1800
+	MIN_PKG_Mail       = 1000
+	MIN_PKG_Mailer     = 1100
+	MIN_PKG_Network    = 1200
+	MIN_PKG_OAuth      = 1300
+	MIN_PKG_Aws        = 1400
+	MIN_PKG_Router     = 1500
+	MIN_PKG_Semaphore  = 1600
+	MIN_PKG_SMTP       = 1700
+	MIN_PKG_Static     = 1800
+	MIN_PKG_Version    = 1900
 
 	MIN_AVAILABLE = 4000
 )
