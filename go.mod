@@ -35,7 +35,7 @@ require (
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
-	github.com/matcornic/hermes/v2 v2.1.0
+	github.com/matcornic/hermes/v2 v2.1.0 // indirect
 	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
@@ -55,7 +55,7 @@ require (
 	github.com/vanng822/go-premailer v1.9.0 // indirect
 	github.com/vbauerster/mpb/v5 v5.4.0
 	github.com/xanzy/go-gitlab v0.42.0
-	github.com/xhit/go-simple-mail/v2 v2.7.0
+	github.com/xhit/go-simple-mail/v2 v2.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 	golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3
