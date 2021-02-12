@@ -27,174 +27,293 @@ package jfrog
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
-
-	jauth "github.com/jfrog/jfrog-client-go/auth"
+	"time"
 
 	"github.com/hashicorp/go-version"
-	"github.com/jfrog/jfrog-client-go/artifactory"
-	"github.com/jfrog/jfrog-client-go/artifactory/services"
-	"github.com/jfrog/jfrog-client-go/artifactory/services/utils"
-	"github.com/jfrog/jfrog-client-go/utils/io/content"
-	"github.com/nabbar/golib/artifact"
+	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
 	liberr "github.com/nabbar/golib/errors"
 	libiot "github.com/nabbar/golib/ioutils"
 )
 
-const (
-	gitlabPageSize = 100
-)
-
 type artifactoryModel struct {
 	artcli.ClientHelper
-
-	c artifactory.ArtifactoryServicesManager
-	a jauth.ServiceDetails
-	o Options
-	x context.Context
-	r string
+	Do       func(req *http.Request) (*http.Response, error)
+	ctx      context.Context
+	endpoint *url.URL
+	path     []string
+	name     string
+	regex    string
 }
 
-func (g *artifactoryModel) ListReleases() (releases version.Collection, err liberr.Error) {
+type ResponseChecksum struct {
+	Md5    string
+	Sha1   string
+	Sha256 string
+}
+
+type ResponseStorage struct {
+	Uri               string
+	DownloadUri       string
+	Repo              string
+	Path              string
+	RemoteUrl         string
+	Created           time.Time
+	CreatedBy         string
+	LastModified      time.Time
+	ModifiedBy        string
+	LastUpdated       time.Time
+	Size              string
+	size              int64
+	MimeType          string
+	Checksums         ResponseChecksum
+	OriginalChecksums ResponseChecksum
+}
+
+type ResponseReposChildrenStorage struct {
+	Uri    string
+	Folder bool
+}
+
+type ResponseReposStorage struct {
+	Uri          string
+	Repo         string
+	Path         string
+	Created      time.Time
+	CreatedBy    string
+	LastModified time.Time
+	ModifiedBy   string
+	LastUpdated  time.Time
+	Children     []ResponseReposChildrenStorage
+}
+
+func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.Error {
 	var (
-		search = services.NewSearchParams()
-		reader *content.ContentReader
-		e      error
+		ctx context.Context
+		cnl context.CancelFunc
+		req *http.Request
+		rsp *http.Response
+
+		e error
+		u *url.URL
 	)
 
-	if g.o.GetRecursive() {
-		search.Recursive = true
-	} else {
-		search.Recursive = false
-	}
-
-	if g.o.GetPattern() != "" {
-		search.Pattern = path.Join(g.r, g.o.GetPattern())
-	}
-
-	if g.o.GetExcludePattern() != "" {
-		search.Exclusions = []string{g.o.GetExcludePattern()}
-	}
-
-	if g.o.LenProps() > 0 {
-		search.Props = g.o.EncProps()
-	}
-
-	if g.o.LenExcludeProps() > 0 {
-		search.ExcludeProps = g.o.EncExcludeProps()
-	}
-
-	if reader, e = g.c.SearchFiles(search); e != nil {
-		return nil, ErrorArtifactoryList.ErrorParent(e)
-	} else if reader == nil {
-		return nil, ErrorArtifactoryList.ErrorParent(e)
-	}
-
 	defer func() {
-		if reader != nil {
-			_ = reader.Close()
+		if cnl != nil {
+			cnl()
+		}
+
+		if rsp != nil && rsp.Body != nil {
+			_ = rsp.Body.Close()
+		}
+
+		if req != nil && req.Body != nil {
+			_ = req.Body.Close()
 		}
 	}()
 
-	for {
-		if v, _, e := g.getContentSearch(reader); errors.Is(e, io.EOF) {
-			break
-		} else if v != nil {
-			var found bool
-			for _, k := range releases {
-				if k.Equal(v) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				releases = append(releases, v)
-			}
+	//ctx, cnl = context.WithTimeout(a.ctx, libhtc.TIMEOUT_5_SEC)
+	ctx, cnl = context.WithCancel(a.ctx)
+
+	u = &url.URL{
+		Scheme:      a.endpoint.Scheme,
+		Opaque:      a.endpoint.Opaque,
+		User:        a.endpoint.User,
+		Host:        a.endpoint.Host,
+		Path:        a.endpoint.Path,
+		RawPath:     a.endpoint.RawPath,
+		ForceQuery:  a.endpoint.ForceQuery,
+		RawQuery:    a.endpoint.RawQuery,
+		Fragment:    a.endpoint.Fragment,
+		RawFragment: a.endpoint.RawFragment,
+	}
+
+	u.Path += path.Join("api", "storage", path.Join(a.path...))
+
+	if uri != "" {
+		u.Path += path.Join(uri)
+	}
+
+	u.Path = path.Clean(u.Path)
+
+	if req, e = http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil); e != nil {
+		return ErrorRequestInit.ErrorParent(e)
+	}
+
+	if rsp, e = a.Do(req); e != nil {
+		return ErrorRequestDo.ErrorParent(e)
+	}
+
+	if rsp.StatusCode >= 400 {
+		return ErrorRequestResponse.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
+	}
+
+	if rsp.Body == nil {
+		return ErrorRequestResponseBodyEmpty.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
+	}
+
+	if buf, e := ioutil.ReadAll(rsp.Body); e != nil {
+		return ErrorRequestResponseBodyDecode.ErrorParent(e)
+	} else if e = json.Unmarshal(buf, bodyResponse); e != nil {
+		return ErrorRequestResponseBodyDecode.ErrorParent(e)
+	}
+
+	cnl()
+	cnl = nil
+
+	return nil
+
+}
+
+func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.Error) {
+	var (
+		lst = ResponseReposStorage{}
+	)
+
+	if err = a.request("", &lst); err != nil {
+		return nil, err
+	} else if len(lst.Children) < 1 {
+		return make([]ResponseStorage, 0), nil
+	}
+
+	sto = make([]ResponseStorage, 0)
+
+	for _, c := range lst.Children {
+		var (
+			e   error
+			res = ResponseStorage{}
+		)
+
+		if err = a.request(c.Uri, &res); err != nil {
+			return nil, err
+		}
+
+		if res.size, e = strconv.ParseInt(res.Size, 10, 64); e != nil {
+			return nil, ErrorRequestResponseBodyDecode.ErrorParent(e)
+		}
+
+		sto = append(sto, res)
+	}
+
+	return sto, nil
+}
+
+func (a *artifactoryModel) releasesAppendNotExist(releases version.Collection, vers *version.Version) version.Collection {
+	for _, k := range releases {
+		if k.Equal(vers) {
+			return releases
+		}
+	}
+
+	return append(releases, vers)
+}
+
+func (a *artifactoryModel) ListReleases() (releases version.Collection, err liberr.Error) {
+	var (
+		r   *regexp.Regexp
+		sto []ResponseStorage
+	)
+
+	if a.regex != "" {
+		r = regexp.MustCompile(a.regex)
+	}
+
+	if sto, err = a.getStorageList(); err != nil {
+		return nil, err
+	}
+
+	for _, f := range sto {
+		if a.name != "" && !strings.Contains(f.Path, a.name) {
+			continue
+		}
+
+		if r != nil && !r.MatchString(f.Path) {
+			continue
+		}
+
+		if v, e := version.NewVersion(f.Path); e != nil {
+			continue
+		} else if !libart.ValidatePreRelease(v) {
+			continue
+		} else {
+			releases = a.releasesAppendNotExist(releases, v)
 		}
 	}
 
 	return releases, nil
 }
 
-func (g *artifactoryModel) getContentSearch(reader *content.ContentReader) (*version.Version, *utils.ResultItem, error) {
-	var res = utils.ResultItem{}
-
-	if err := reader.NextRecord(&res); err != nil {
-		return nil, nil, err
-	}
-
-	if reader.IsEmpty() {
-		return nil, nil, nil
-	}
-
-	if v, e := version.NewVersion(res.Name); e != nil {
-		return nil, nil, ErrorArtifactoryVersion.ErrorParent(e)
-	} else if !artifact.ValidatePreRelease(v) {
-		return nil, &res, nil
-	} else {
-		return v, &res, nil
-	}
-}
-
-func (g *artifactoryModel) GetArtifact(containName string, regexName string, release *version.Version) (link string, err liberr.Error) {
+func (a *artifactoryModel) getArtifact(containName string, regexName string, release *version.Version) (art *ResponseStorage, err liberr.Error) {
 	var (
-		res *utils.ResultItem
-		uri *url.URL
+		r1 *regexp.Regexp
+		r2 *regexp.Regexp
+
+		sto []ResponseStorage
 	)
 
-	if u, e := url.Parse(g.a.GetUrl()); e != nil {
-		return "", ErrorURLParse.ErrorParent(e)
-	} else {
-		uri = u
+	if a.regex != "" {
+		r1 = regexp.MustCompile(a.regex)
 	}
 
-	if res, err = g.getArtifact(containName, regexName, release); err != nil {
+	if regexName != "" {
+		r2 = regexp.MustCompile(regexName)
+	}
+
+	if sto, err = a.getStorageList(); err != nil {
+		return nil, err
+	}
+
+	for _, f := range sto {
+		if a.name != "" && !strings.Contains(f.Path, a.name) {
+			continue
+		}
+
+		if r1 != nil && !r1.MatchString(f.Path) {
+			continue
+		}
+
+		if v, e := version.NewVersion(f.Path); e != nil {
+			continue
+		} else if !libart.ValidatePreRelease(v) {
+			continue
+		} else if release != nil && !v.Equal(release) {
+			continue
+		} else if containName != "" && !strings.Contains(f.Path, containName) {
+			continue
+		} else if r2 != nil && !r2.MatchString(f.Path) {
+			continue
+		} else {
+			return &f, nil
+		}
+	}
+
+	return nil, ErrorArtifactoryNotFound.Error(nil)
+}
+
+func (a *artifactoryModel) GetArtifact(containName string, regexName string, release *version.Version) (link string, err liberr.Error) {
+	if art, err := a.getArtifact(containName, regexName, release); err != nil {
 		return "", err
-	}
-
-	uri.Path += "/" + res.GetItemRelativeLocation()
-	uri.Path = strings.Replace(uri.Path, "//", "/", -1)
-
-	return uri.String(), nil
-}
-
-func (g *artifactoryModel) Download(dst libiot.FileProgress, containName string, regexName string, release *version.Version) liberr.Error {
-	var (
-		uri *url.URL
-		err liberr.Error
-		res *utils.ResultItem
-	)
-
-	if u, e := url.Parse(g.a.GetUrl()); e != nil {
-		return ErrorURLParse.ErrorParent(e)
 	} else {
-		uri = u
+		return art.DownloadUri, nil
 	}
-
-	if res, err = g.getArtifact(containName, regexName, release); err != nil {
-		return err
-	}
-
-	uri.Path += "/" + res.GetItemRelativeLocation()
-	uri.Path = strings.Replace(uri.Path, "//", "/", -1)
-
-	dst.ResetMax(res.Size)
-
-	return g.dwdArtifact(dst, res)
 }
 
-func (g *artifactoryModel) dwdArtifact(dst libiot.FileProgress, art *utils.ResultItem) liberr.Error {
+func (a *artifactoryModel) Download(dst libiot.FileProgress, containName string, regexName string, release *version.Version) liberr.Error {
 	var (
-		e   error
-		lnk string
+		e error
+
+		art *ResponseStorage
+		err liberr.Error
+		req *http.Request
 		rsp *http.Response
 	)
 
@@ -202,86 +321,29 @@ func (g *artifactoryModel) dwdArtifact(dst libiot.FileProgress, art *utils.Resul
 		if rsp != nil && rsp.Body != nil {
 			_ = rsp.Body.Close()
 		}
+
+		if req != nil && req.Body != nil {
+			_ = req.Body.Close()
+		}
 	}()
 
-	dst.ResetMax(art.Size)
+	if art, err = a.getArtifact(containName, regexName, release); err != nil {
+		return err
+	}
 
-	if rsp, e = http.Get(lnk); e != nil {
-		return ErrorArtifactoryReleaseRequest.ErrorParent(e)
+	dst.ResetMax(art.size)
+
+	if req, e = http.NewRequestWithContext(a.ctx, http.MethodGet, art.DownloadUri, nil); e != nil {
+		return ErrorRequestInit.ErrorParent(e)
+	} else if rsp, e = a.Do(req); e != nil {
+		return ErrorRequestDo.ErrorParent(e)
 	} else if rsp.StatusCode >= 400 {
-		return ErrorArtifactoryReleaseRequest.ErrorParent(fmt.Errorf("status code: %s", rsp.Status))
+		return ErrorRequestResponse.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
 	} else if rsp.Body == nil {
-		return ErrorArtifactoryReleaseRequest.ErrorParent(fmt.Errorf("status code: %s, body is empty", rsp.Status))
+		return ErrorRequestResponseBodyEmpty.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
 	} else if _, e := dst.ReadFrom(rsp.Body); e != nil {
 		return ErrorArtifactoryDownload.ErrorParent(e)
 	}
 
 	return nil
-}
-
-func (g *artifactoryModel) getArtifact(containName string, regexName string, release *version.Version) (*utils.ResultItem, liberr.Error) {
-	var (
-		search = services.NewSearchParams()
-		reader *content.ContentReader
-		regex  *regexp.Regexp
-		e      error
-	)
-
-	if regexName != "" {
-		regex = regexp.MustCompile(regexName)
-	}
-
-	if g.o.GetRecursive() {
-		search.Recursive = true
-	} else {
-		search.Recursive = false
-	}
-
-	if g.o.GetPattern() != "" {
-		search.Pattern = g.o.GetPattern()
-	}
-
-	if g.o.GetExcludePattern() != "" {
-		search.Exclusions = []string{g.o.GetExcludePattern()}
-	}
-
-	if g.o.LenProps() > 0 {
-		search.Props = g.o.EncProps()
-	}
-
-	if g.o.LenExcludeProps() > 0 {
-		search.ExcludeProps = g.o.EncExcludeProps()
-	}
-
-	if reader, e = g.c.SearchFiles(search); e != nil {
-		return nil, ErrorArtifactoryList.ErrorParent(e)
-	} else if reader == nil {
-		return nil, ErrorArtifactoryList.ErrorParent(e)
-	}
-
-	defer func() {
-		if reader != nil {
-			_ = reader.Close()
-		}
-	}()
-
-	for {
-		if v, r, e := g.getContentSearch(reader); errors.Is(e, io.EOF) {
-			break
-		} else if v != nil && r != nil && v.Equal(release) {
-			if containName != "" && strings.Contains(r.Name, containName) {
-				return r, nil
-			}
-
-			if regex != nil && regex.MatchString(r.Name) {
-				return r, nil
-			}
-
-			if containName == "" && regexName == "" {
-				return r, nil
-			}
-		}
-	}
-
-	return nil, ErrorArtifactoryReleaseNotFound.Error(nil)
 }
