@@ -35,7 +35,7 @@ import (
 	"github.com/nabbar/golib/errors"
 )
 
-func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Response, error), uri, containName, regexName string, reposPath ...string) (artifact.Client, errors.Error) {
+func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Response, error), uri, releaseRegex string, releaseGroup int, reposPath ...string) (artifact.Client, errors.Error) {
 	if u, e := url.Parse(uri); e != nil {
 		return nil, ErrorURLParse.ErrorParent(e)
 	} else {
@@ -45,8 +45,8 @@ func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Respo
 			ctx:          ctx,
 			endpoint:     u,
 			path:         reposPath,
-			name:         containName,
-			regex:        regexName,
+			group:        releaseGroup,
+			regex:        releaseRegex,
 		}
 
 		a.ClientHelper.F = a.ListReleases
