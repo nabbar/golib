@@ -34,14 +34,12 @@ import (
 const (
 	ErrorParamsEmpty errors.CodeError = iota + artifact.MIN_ARTIFACT_JFORG
 	ErrorURLParse
-	ErrorClientInit
-	ErrorArtifactoryList
-	ErrorArtifactoryGetRelease
+	ErrorRequestInit
+	ErrorRequestDo
+	ErrorRequestResponse
+	ErrorRequestResponseBodyEmpty
+	ErrorRequestResponseBodyDecode
 	ErrorArtifactoryNotFound
-	ErrorArtifactoryPatternRegex
-	ErrorArtifactoryVersion
-	ErrorArtifactoryReleaseNotFound
-	ErrorArtifactoryReleaseRequest
 	ErrorArtifactoryDownload
 )
 
@@ -64,22 +62,18 @@ func getMessage(code errors.CodeError) (message string) {
 		return "given parameters is empty"
 	case ErrorURLParse:
 		return "endpoint of JFrog Artifactory seems to be not valid"
-	case ErrorClientInit:
-		return "initialization of JFrog Artifactory client failed"
-	case ErrorArtifactoryList:
-		return "request the release list to JFrog Artifactory occurs an error"
-	case ErrorArtifactoryGetRelease:
-		return "request the release data to JFrog Artifactory occurs an error"
+	case ErrorRequestInit:
+		return "cannot create new request to JFrog Artifactory"
+	case ErrorRequestDo:
+		return "cannot send request to JFrog Artifactory"
+	case ErrorRequestResponse:
+		return "error on sending request to JFrog Artifactory"
+	case ErrorRequestResponseBodyEmpty:
+		return "empty response while requesting JFrog Artifactory"
+	case ErrorRequestResponseBodyDecode:
+		return "cannot decode response from JFrog Artifactory"
 	case ErrorArtifactoryNotFound:
 		return "the requested constrains to the release are not matching"
-	case ErrorArtifactoryPatternRegex:
-		return "regex parsing artifact name has not enough matched group to use given group number"
-	case ErrorArtifactoryVersion:
-		return "cannot create new version item based on regex group extraction"
-	case ErrorArtifactoryReleaseNotFound:
-		return "cannot find the requested release"
-	case ErrorArtifactoryReleaseRequest:
-		return "error on sending request to download artifact"
 	case ErrorArtifactoryDownload:
 		return "error on downloading artifact"
 	}
