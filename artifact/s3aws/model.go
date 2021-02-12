@@ -58,7 +58,7 @@ func (s *s3awsModel) ListReleases() (releases version.Collection, err errors.Err
 	)
 
 	if s.regex == "" {
-		return nil, ErrorParamsEmpty.Error(e)
+		return nil, ErrorParamsEmpty.Error(nil)
 	}
 
 	if l, e = s.c.Object().Find(s.regex); e != nil {
