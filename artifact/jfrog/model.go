@@ -51,7 +51,7 @@ type artifactoryModel struct {
 	ctx      context.Context
 	endpoint *url.URL
 	path     []string
-	name     string
+	group    int
 	regex    string
 }
 
@@ -177,7 +177,16 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.
 func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.Error) {
 	var (
 		lst = ResponseReposStorage{}
+		reg = regexp.MustCompile(a.regex)
 	)
+
+	if a.regex == "" {
+		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("regex is empty: %s", a.regex))
+	}
+
+	if a.group < 1 {
+		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("group extracted from regex is empty: %s - %v", a.regex, a.group))
+	}
 
 	if err = a.request("", &lst); err != nil {
 		return nil, err
@@ -192,6 +201,14 @@ func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.E
 			e   error
 			res = ResponseStorage{}
 		)
+
+		if c.Folder {
+			continue
+		}
+
+		if !reg.MatchString(c.Uri) {
+			continue
+		}
 
 		if err = a.request(c.Uri, &res); err != nil {
 			return nil, err
@@ -219,28 +236,22 @@ func (a *artifactoryModel) releasesAppendNotExist(releases version.Collection, v
 
 func (a *artifactoryModel) ListReleases() (releases version.Collection, err liberr.Error) {
 	var (
-		r   *regexp.Regexp
+		reg = regexp.MustCompile(a.regex)
 		sto []ResponseStorage
 	)
-
-	if a.regex != "" {
-		r = regexp.MustCompile(a.regex)
-	}
 
 	if sto, err = a.getStorageList(); err != nil {
 		return nil, err
 	}
 
 	for _, f := range sto {
-		if a.name != "" && !strings.Contains(f.Path, a.name) {
+		grp := reg.FindStringSubmatch(f.Path)
+
+		if len(grp) < a.group {
 			continue
 		}
 
-		if r != nil && !r.MatchString(f.Path) {
-			continue
-		}
-
-		if v, e := version.NewVersion(f.Path); e != nil {
+		if v, e := version.NewVersion(grp[a.group]); e != nil {
 			continue
 		} else if !libart.ValidatePreRelease(v) {
 			continue
@@ -254,18 +265,14 @@ func (a *artifactoryModel) ListReleases() (releases version.Collection, err libe
 
 func (a *artifactoryModel) getArtifact(containName string, regexName string, release *version.Version) (art *ResponseStorage, err liberr.Error) {
 	var (
-		r1 *regexp.Regexp
-		r2 *regexp.Regexp
+		reg = regexp.MustCompile(a.regex)
+		rg2 *regexp.Regexp
 
 		sto []ResponseStorage
 	)
 
-	if a.regex != "" {
-		r1 = regexp.MustCompile(a.regex)
-	}
-
 	if regexName != "" {
-		r2 = regexp.MustCompile(regexName)
+		rg2 = regexp.MustCompile(regexName)
 	}
 
 	if sto, err = a.getStorageList(); err != nil {
@@ -273,15 +280,13 @@ func (a *artifactoryModel) getArtifact(containName string, regexName string, rel
 	}
 
 	for _, f := range sto {
-		if a.name != "" && !strings.Contains(f.Path, a.name) {
+		grp := reg.FindStringSubmatch(f.Path)
+
+		if len(grp) < a.group {
 			continue
 		}
 
-		if r1 != nil && !r1.MatchString(f.Path) {
-			continue
-		}
-
-		if v, e := version.NewVersion(f.Path); e != nil {
+		if v, e := version.NewVersion(grp[a.group]); e != nil {
 			continue
 		} else if !libart.ValidatePreRelease(v) {
 			continue
@@ -289,7 +294,7 @@ func (a *artifactoryModel) getArtifact(containName string, regexName string, rel
 			continue
 		} else if containName != "" && !strings.Contains(f.Path, containName) {
 			continue
-		} else if r2 != nil && !r2.MatchString(f.Path) {
+		} else if rg2 != nil && !rg2.MatchString(f.Path) {
 			continue
 		} else {
 			return &f, nil
