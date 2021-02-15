@@ -91,6 +91,10 @@ type Error interface {
 	IsCodeError(code CodeError) bool
 	//HasCodeError check if current error or parent has the given error code
 	HasCodeError(code CodeError) bool
+	//GetCodeError return the CodeError value of the curent error
+	GetCodeError() CodeError
+	//GetCodeErrorParent return a slice of CodeError value of all parent Error and the code of the current Error
+	GetCodeErrorParent() []CodeError
 
 	//IsError check if the given error params is a valid error and not a nil pointer
 	IsError(e error) bool
@@ -262,6 +266,21 @@ func (e *errors) HasCodeError(code CodeError) bool {
 	}
 
 	return false
+}
+
+func (e *errors) GetCodeError() CodeError {
+	return CodeError(e.c)
+}
+
+func (e *errors) GetCodeErrorParent() []CodeError {
+	var res = make([]CodeError, 0)
+
+	res = append(res, e.GetCodeError())
+	for _, p := range e.p {
+		res = append(res, p.GetCodeErrorParent()...)
+	}
+
+	return unicCodeSlice(res)
 }
 
 func (e *errors) HasError(err error) bool {
