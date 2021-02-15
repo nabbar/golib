@@ -123,6 +123,8 @@ func getSmtp() libsmtp.SMTP {
 	cfg, err := libsmtp.NewConfig(CONFIG_SMTP_DSN)
 	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "smtp config parsing", err)
 
+	/* #nosec */
+	//nolint #nosec
 	s, err := libsmtp.NewSMTP(cfg, &tls.Config{})
 	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "smtp create client", err)
 	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "smtp checking working", s.Check(ctx))
