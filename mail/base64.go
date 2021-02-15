@@ -1,3 +1,28 @@
+/*
+ *  MIT License
+ *
+ *  Copyright (c) 2020 Nicolas JUHEL
+ *
+ *  Permission is hereby granted, free of charge, to any person obtaining a copy
+ *  of this software and associated documentation files (the "Software"), to deal
+ *  in the Software without restriction, including without limitation the rights
+ *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *  copies of the Software, and to permit persons to whom the Software is
+ *  furnished to do so, subject to the following conditions:
+ *
+ *  The above copyright notice and this permission notice shall be included in all
+ *  copies or substantial portions of the Software.
+ *
+ *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *  SOFTWARE.
+ *
+ */
+
 package mail
 
 import "io"
@@ -15,9 +40,13 @@ func (e *base64LineWrap) Write(p []byte) (n int, err error) {
 	for len(p)+e.numLineChars > maxLineChars {
 		numCharsToWrite := maxLineChars - e.numLineChars
 		// write the chars we can
-		e.writer.Write(p[:numCharsToWrite])
+		/* #nosec */
+		//nolint #nosec
+		_, _ = e.writer.Write(p[:numCharsToWrite])
 		// write a line break
-		e.writer.Write([]byte("\r\n"))
+		/* #nosec */
+		//nolint #nosec
+		_, _ = e.writer.Write([]byte("\r\n"))
 		// reset the line count
 		e.numLineChars = 0
 		// remove the chars that have been written
@@ -27,7 +56,9 @@ func (e *base64LineWrap) Write(p []byte) (n int, err error) {
 	}
 
 	// write what is left
-	e.writer.Write(p)
+	/* #nosec */
+	//nolint #nosec
+	_, _ = e.writer.Write(p)
 	e.numLineChars += len(p)
 	n += len(p)
 
