@@ -173,3 +173,25 @@ func findCodeErrorInMapMessage(code CodeError) CodeError {
 
 	return res
 }
+
+func isCodeInSlice(code CodeError, slice []CodeError) bool {
+	for _, c := range slice {
+		if c == code {
+			return true
+		}
+	}
+
+	return false
+}
+
+func unicCodeSlice(slice []CodeError) []CodeError {
+	var res = make([]CodeError, 0)
+
+	for _, c := range slice {
+		if !isCodeInSlice(c, res) {
+			res = append(res, c)
+		}
+	}
+
+	return res
+}
