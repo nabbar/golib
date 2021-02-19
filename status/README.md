@@ -27,7 +27,8 @@ import (
 
 const (
 	msgOk = "API is working"
-	msgKO = "something is not well working"
+	msgKO = "API is not working"
+	msgWarn = "something is not well working"
 )
 
 type EmptyStruct struct{}
@@ -39,22 +40,45 @@ func init() {
     vers = version.NewVersion(version.License_MIT, "Package", "Description", "2017-10-21T00:00:00+0200", "0123456789abcdef", "v0.0-dev", "Author Name", "pfx", EmptyStruct{}, 1)
 
     // to create new status, you will need some small function to give data, this is type func : 
-    // FctMessagesAll   func() (ok string, ko string, cpt string)
-    // FctMessageItem   func() (ok string, ko string)
     // FctHealth        func() error
     // FctInfo          func() (name, release, build string)
-    // FctVersion       func() version.Version
 
     // create new status not as later
-	sts := status.NewVersionStatus(getVersion, getMessageAll, GetHealth, GetHeader, false)
-    // add a new component  
-	sts.AddComponent(infoAws, getMessageItem, GetAWSHealth, true, false)
-    // add a new component 
-	sts.AddComponent(infoLDAP, getMessageItem, GetLDAPHealth, true, false) 
-	
+    sts := status.NewVersion(vers, msgOk, msgKO, msgWarn)
+
+	// add some middleware before router
+	sts.MiddlewareAdd(func(context *gin.Context) {
+	    // add here your middleware need to be run before the status route
+	})
+
     // register to the router list
 	sts.Register("/status", routers.RouterList.Register)
-    
+
+    // register to the router list with a group
+	sts.Register("/v1", "/status", routers.RouterList.Register)
+
+    // add a new component mandatory
+	sts.ComponentNew(
+	    "myComponentMandatory",
+	    NewComponent(true, infoMandatory, healthMandatory,
+	        func() (msgOk string, msgKo string) {
+                return msgOk, msgKO
+	        },
+	        24 * time.Hour, 5 * time.second,
+        ),
+    )
+
+    // add a new component mandatory
+	sts.ComponentNew(
+	    "myComponentNotMandatory",
+	    NewComponent(true, infoNotMandatory, healthNotMandatory,
+	        func() (msgOk string, msgKo string) {
+                return msgOk, msgKO
+	        },
+	        24 * time.Hour, 5 * time.second,
+        ),
+    )
+
     // use this func to customize return code for each status
     sts.SetErrorCode(http.StatusOK, http.StatusInternalServerError, http.StatusAccepted)
 }
@@ -78,26 +102,22 @@ func GetLDAPHealth() error {
     return nil
 }
 
-func infoAws() (name, release, build string) {
-	return "AWS S3 Helper", "v0.1.2.3.4", ""
+func infoMandatory() (name, release, build string) {
+	return "Name of my component mandatory", "v0.1.2.3.4", "abcd1234abcd1234"
 }
 
-func infoLDAP() (name, release, build string) {
-	return "OpenLDAP Lib", "v0.1.2.3.4", ""
+func healthMandatory() error {
+	return nil
 }
 
-func getVersion() version.Version {
-    return vers
+func infoNotMandatory() (name, release, build string) {
+	return "Name of my component not mandatory", "v0.1.2.3.4", "abcd1234abcd1234"
 }
 
-func getMessageItem() (ok string, ko string) {
-  return "all is ok", "there is a mistake somewhere"
+func healthNotMandatory() error {
+	return nil
 }
 
-func getMessageAll() (ok string, ko string, cptErr string) {
-  ok, ko = getMessageItem()
-  return ok, ko, "at least one component is in failed"
-}
 ```
 
 In some case, using init function could make mistake (specially if you need to read flag or config file).
