@@ -69,7 +69,7 @@ type PoolServer interface {
 	Filter(field FieldType, pattern, regex string) PoolServer
 
 	IsRunning(asLeast bool) bool
-	WaitNotify(ctx context.Context)
+	WaitNotify(ctx context.Context, cancel context.CancelFunc)
 
 	Listen(handler http.Handler) liberr.Error
 	Restart()
@@ -310,7 +310,7 @@ func (p pool) IsRunning(atLeast bool) bool {
 	return r
 }
 
-func (p pool) WaitNotify(ctx context.Context) {
+func (p pool) WaitNotify(ctx context.Context, cancel context.CancelFunc) {
 	// Wait for interrupt signal to gracefully shutdown the server with
 	// a timeout of 5 seconds.
 	quit := make(chan os.Signal, 1)
@@ -321,8 +321,14 @@ func (p pool) WaitNotify(ctx context.Context) {
 	select {
 	case <-quit:
 		p.Shutdown()
+		if cancel != nil {
+			cancel()
+		}
 	case <-ctx.Done():
 		p.Shutdown()
+		if cancel != nil {
+			cancel()
+		}
 	}
 }
 
