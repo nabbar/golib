@@ -28,15 +28,55 @@
 package cluster
 
 import (
-	dgbstm "github.com/lni/dragonboat/v3/statemachine"
+	dgbclt "github.com/lni/dragonboat/v3"
+	dgbcli "github.com/lni/dragonboat/v3/client"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-type ClusterBackend interface {
-	dgbstm.IOnDiskStateMachine
+func (c *cRaft) AsyncPropose(session *dgbcli.Session, cmd []byte) (*dgbclt.RequestState, liberr.Error) {
+	r, e := c.nodeHost.Propose(session, cmd, c.timeoutCmdASync)
 
-	GetClusterID() uint64
-	GetNodeID() uint64
+	if e != nil {
+		return r, ErrorCommandASync.ErrorParent(c.getErrorCommand("Propose"), e)
+	}
 
-	Close() error
-	IsClosed() bool
+	return r, nil
+}
+
+func (c *cRaft) AsyncProposeSession(session *dgbcli.Session) (*dgbclt.RequestState, liberr.Error) {
+	r, e := c.nodeHost.ProposeSession(session, c.timeoutCmdASync)
+
+	if e != nil {
+		return r, ErrorCommandASync.ErrorParent(c.getErrorCommand("ProposeSession"), e)
+	}
+
+	return r, nil
+}
+
+func (c *cRaft) AsyncReadIndex() (*dgbclt.RequestState, liberr.Error) {
+	r, e := c.nodeHost.ReadIndex(c.config.ClusterID, c.timeoutCmdASync)
+
+	if e != nil {
+		return r, ErrorCommandASync.ErrorParent(c.getErrorCluster(), c.getErrorCommand("ReadIndex"), e)
+	}
+
+	return r, nil
+}
+
+func (c *cRaft) AsyncRequestCompaction(nodeID uint64) (*dgbclt.SysOpState, liberr.Error) {
+	var er error
+	if nodeID == 0 {
+		nodeID = c.config.NodeID
+		er = c.getErrorNode()
+	} else {
+		er = c.getErrorNodeTarget(nodeID)
+	}
+
+	r, e := c.nodeHost.RequestCompaction(c.config.ClusterID, nodeID)
+
+	if e != nil {
+		return r, ErrorCommandASync.ErrorParent(c.getErrorCluster(), er, c.getErrorCommand("RequestCompaction"), e)
+	}
+
+	return r, nil
 }
