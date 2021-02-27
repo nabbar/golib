@@ -29,7 +29,7 @@ package tar
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Archive + 30
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive + 30
 	ErrorTarNext
 	ErrorFileOpen
 	ErrorFileSeek

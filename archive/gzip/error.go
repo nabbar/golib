@@ -29,7 +29,7 @@ package gzip
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Archive + 20
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive + 20
 	ErrorGZReader
 	ErrorFileSeek
 	ErrorIOCopy

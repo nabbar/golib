@@ -29,7 +29,7 @@ package crypt
 import errors "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Crypt
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgCrypt
 	ErrorHexaDecode
 	ErrorHexaKey
 	ErrorHexaNonce

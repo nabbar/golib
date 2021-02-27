@@ -29,7 +29,7 @@ package archive
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Archive
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive
 	ErrorFileSeek
 	ErrorFileOpen
 	ErrorFileClose
