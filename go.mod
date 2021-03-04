@@ -48,19 +48,19 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rogpeppe/go-internal v1.7.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/shirou/gopsutil v3.21.1+incompatible
+	github.com/shirou/gopsutil v3.21.2+incompatible
 	github.com/sirupsen/logrus v1.8.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/ugorji/go v1.2.4 // indirect
-	github.com/vanng822/go-premailer v1.9.0 // indirect
+	github.com/vanng822/go-premailer v1.20.0 // indirect
 	github.com/vbauerster/mpb/v5 v5.4.0
-	github.com/xanzy/go-gitlab v0.44.0
+	github.com/xanzy/go-gitlab v0.45.0
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20210224082022-3d97a244fca7
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/oauth2 v0.0.0-20210220000619-9bb904979d93
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210225080010-8e9945a5478f // indirect
+	golang.org/x/sys v0.0.0-20210303074136-134d130e1a04 // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	golang.org/x/text v0.3.5 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
