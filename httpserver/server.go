@@ -27,10 +27,14 @@
 package httpserver
 
 import (
-	"context"
+	"fmt"
 	"net/http"
+	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/nabbar/golib/status"
 
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -42,8 +46,7 @@ const (
 
 type server struct {
 	run *atomic.Value
-	cfg *ServerConfig
-	cnl context.CancelFunc
+	cfg ServerConfig
 }
 
 type Server interface {
@@ -53,6 +56,7 @@ type Server interface {
 	GetName() string
 	GetBindable() string
 	GetExpose() string
+	GetHandlerKey() string
 
 	IsRunning() bool
 	IsTLS() bool
@@ -62,13 +66,16 @@ type Server interface {
 	Listen(handler http.Handler) liberr.Error
 	Restart()
 	Shutdown()
+
+	StatusInfo() (name string, release string, hash string)
+	StatusHealth() error
+	StatusComponent(message status.FctMessage) status.Component
 }
 
 func NewServer(cfg *ServerConfig) Server {
 	return &server{
-		cfg: cfg,
+		cfg: cfg.Clone(),
 		run: new(atomic.Value),
-		cnl: nil,
 	}
 }
 
@@ -88,12 +95,20 @@ func (s *server) setRun(r run) {
 	s.run.Store(r)
 }
 
+func (s *server) getErr() error {
+	if r := s.getRun(); r == nil {
+		return nil
+	} else {
+		return r.GetError()
+	}
+}
+
 func (s *server) GetConfig() *ServerConfig {
-	return s.cfg
+	return &s.cfg
 }
 
 func (s *server) SetConfig(cfg *ServerConfig) {
-	s.cfg = cfg
+	s.cfg = cfg.Clone()
 }
 
 func (s server) GetName() string {
@@ -112,6 +127,10 @@ func (s *server) GetExpose() string {
 	return s.cfg.GetExpose().String()
 }
 
+func (s *server) GetHandlerKey() string {
+	return s.cfg.GetHandlerKey()
+}
+
 func (s *server) IsRunning() bool {
 	return s.getRun().IsRunning()
 }
@@ -122,8 +141,9 @@ func (s *server) IsTLS() bool {
 
 func (s *server) Listen(handler http.Handler) liberr.Error {
 	r := s.getRun()
-	e := r.Listen(s.cfg, handler)
+	e := r.Listen(&s.cfg, handler)
 	s.setRun(r)
+
 	return e
 }
 
@@ -149,4 +169,28 @@ func (s *server) Merge(srv Server) bool {
 	}
 
 	return false
+}
+
+func (s *server) StatusInfo() (name string, release string, hash string) {
+	vers := strings.TrimLeft(runtime.Version(), "go")
+	vers = strings.TrimLeft(vers, "Go")
+	vers = strings.TrimLeft(vers, "GO")
+
+	return fmt.Sprintf("%s [%s]", s.GetName(), s.GetBindable()), vers, ""
+}
+
+func (s *server) StatusHealth() error {
+	if !s.cfg.Disabled && s.IsRunning() {
+		return nil
+	} else if s.cfg.Disabled {
+		return fmt.Errorf("server disabled")
+	} else if e := s.getErr(); e != nil {
+		return e
+	} else {
+		return fmt.Errorf("server is offline -- missing error")
+	}
+}
+
+func (s *server) StatusComponent(message status.FctMessage) status.Component {
+	return status.NewComponent(s.cfg.Mandatory, s.StatusInfo, s.StatusHealth, message, s.cfg.TimeoutCacheInfo, s.cfg.TimeoutCacheHealth)
 }
