@@ -46,17 +46,27 @@ var tlsConfigSrv = libtls.Config{
 }
 
 var cfgSrv01 = libsrv.ServerConfig{
-	Name:   "test-01",
-	Listen: "0.0.0.0:61001",
-	Expose: "0.0.0.0:61000",
-	TLS:    tlsConfigSrv,
+	Name:         "test-01",
+	Listen:       "0.0.0.0:61001",
+	Expose:       "0.0.0.0:61000",
+	TLSMandatory: false,
+	TLS:          tlsConfigSrv,
 }
 
 var cfgSrv02 = libsrv.ServerConfig{
-	Name:   "test-02",
-	Listen: "0.0.0.0:61002",
-	Expose: "0.0.0.0:61000",
-	TLS:    tlsConfigSrv,
+	Name:         "test-02",
+	Listen:       "0.0.0.0:61002",
+	Expose:       "0.0.0.0:61000",
+	TLSMandatory: false,
+	TLS:          tlsConfigSrv,
+}
+
+var cfgSrv03 = libsrv.ServerConfig{
+	Name:         "test-03",
+	Listen:       "0.0.0.0:61003",
+	Expose:       "0.0.0.0:61000",
+	TLSMandatory: true,
+	TLS:          tlsConfigSrv,
 }
 
 var (
@@ -77,7 +87,7 @@ func init() {
 
 	ctx, cnl = context.WithCancel(context.Background())
 
-	cfgPool = libsrv.PoolServerConfig{cfgSrv01, cfgSrv02}
+	cfgPool = libsrv.PoolServerConfig{cfgSrv01, cfgSrv02, cfgSrv03}
 	cfgPool.MapUpdate(func(cfg libsrv.ServerConfig) libsrv.ServerConfig {
 		cfg.SetParentContext(func() context.Context {
 			return ctx
@@ -111,6 +121,24 @@ func main() {
 	}()
 
 	go pool.WaitNotify(ctx, cnl)
+
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			if ctx.Err() != nil {
+				return
+			}
+			pool.MapRun(func(srv libsrv.Server) {
+				n, v, _ := srv.StatusInfo()
+				if e := srv.StatusHealth(); e != nil {
+					fmt.Printf("%s - %s : %v\n", n, v, e)
+				} else {
+					fmt.Printf("%s - %s : OK\n", n, v)
+				}
+
+			})
+		}
+	}()
 
 	var i = 0
 	for {

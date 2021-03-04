@@ -28,12 +28,15 @@ package httpserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"regexp"
 	"strings"
 	"syscall"
+
+	"github.com/nabbar/golib/status"
 
 	"github.com/nabbar/golib/logger"
 
@@ -45,7 +48,8 @@ import (
 type FieldType uint8
 
 const (
-	FieldName FieldType = iota
+	HandlerDefault           = "default"
+	FieldName      FieldType = iota
 	FieldBind
 	FieldExpose
 )
@@ -72,8 +76,13 @@ type PoolServer interface {
 	WaitNotify(ctx context.Context, cancel context.CancelFunc)
 
 	Listen(handler http.Handler) liberr.Error
+	ListenMultiHandler(handler map[string]http.Handler) liberr.Error
 	Restart()
 	Shutdown()
+
+	StatusInfo(bindAddress string) (name string, release string, hash string)
+	StatusHealth(bindAddress string) error
+	StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
 }
 
 func NewPool(srv ...Server) PoolServer {
@@ -333,6 +342,10 @@ func (p pool) WaitNotify(ctx context.Context, cancel context.CancelFunc) {
 }
 
 func (p pool) Listen(handler http.Handler) liberr.Error {
+	return p.ListenMultiHandler(map[string]http.Handler{HandlerDefault: handler})
+}
+
+func (p pool) ListenMultiHandler(handler map[string]http.Handler) liberr.Error {
 	if p.Len() < 1 {
 		return nil
 	}
@@ -341,9 +354,23 @@ func (p pool) Listen(handler http.Handler) liberr.Error {
 
 	e = ErrorPoolListen.Error(nil)
 	logger.InfoLevel.Log("Calling listen for All Servers")
+
 	p.MapRun(func(srv Server) {
-		e.AddParentError(srv.Listen(handler))
+		if len(handler) < 1 {
+			e.AddParentError(srv.Listen(nil))
+		} else {
+			for k := range handler {
+				if len(handler) == 1 {
+					e.AddParentError(srv.Listen(handler[k]))
+					break
+				} else if strings.ToLower(k) == srv.GetHandlerKey() {
+					e.AddParentError(srv.Listen(handler[k]))
+					break
+				}
+			}
+		}
 	})
+
 	logger.InfoLevel.Log("End of Calling listen for All Servers")
 
 	if !e.HasParent() {
@@ -411,4 +438,27 @@ func (p pool) Shutdown() {
 	})
 
 	_ = s.WaitAll()
+}
+
+func (p pool) StatusInfo(bindAddress string) (name string, release string, hash string) {
+	if s := p.Get(bindAddress); s != nil {
+		return s.StatusInfo()
+	}
+
+	return fmt.Sprintf("missing server '%s'", bindAddress), "", ""
+}
+
+func (p pool) StatusHealth(bindAddress string) error {
+	if s := p.Get(bindAddress); s != nil {
+		return s.StatusHealth()
+	}
+
+	return fmt.Errorf("missing server '%s'", bindAddress)
+}
+
+func (p pool) StatusRoute(keyPrefix string, fctMessage status.FctMessage, sts status.RouteStatus) {
+	p.MapRun(func(srv Server) {
+		bind := srv.GetBindable()
+		sts.ComponentNew(fmt.Sprintf("%s-%s", keyPrefix, bind), srv.StatusComponent(fctMessage))
+	})
 }

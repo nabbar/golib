@@ -30,6 +30,7 @@ package httpserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -45,6 +46,7 @@ import (
 )
 
 type srvRun struct {
+	err *atomic.Value
 	run *atomic.Value
 	snm string
 	srv *http.Server
@@ -54,6 +56,7 @@ type srvRun struct {
 
 type run interface {
 	IsRunning() bool
+	GetError() error
 	WaitNotify()
 	Listen(cfg *ServerConfig, handler http.Handler) liberr.Error
 	Restart(cfg *ServerConfig)
@@ -62,6 +65,7 @@ type run interface {
 
 func newRun() run {
 	return &srvRun{
+		err: new(atomic.Value),
 		run: new(atomic.Value),
 		srv: nil,
 	}
@@ -87,7 +91,37 @@ func (s *srvRun) IsRunning() bool {
 	return s.getRunning()
 }
 
+func (s *srvRun) getErr() error {
+	if s.err == nil {
+		return nil
+	} else if i := s.err.Load(); i == nil {
+		return nil
+	} else if e, ok := i.(error); !ok {
+		return nil
+	} else if e.Error() == "" {
+		return nil
+	} else {
+		return e
+	}
+}
+
+func (s *srvRun) setErr(e error) {
+	if e != nil {
+		s.err.Store(e)
+	} else {
+		s.err.Store(errors.New(""))
+	}
+}
+
+func (s *srvRun) GetError() error {
+	return s.getErr()
+}
+
 func (s *srvRun) WaitNotify() {
+	if !s.IsRunning() {
+		return
+	}
+
 	// Wait for interrupt signal to gracefully shutdown the server with
 	// a timeout of 5 seconds.
 	quit := make(chan os.Signal, 1)
@@ -113,6 +147,7 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 		return err
 	}
 
+	sTls := cfg.TLSMandatory
 	bind := cfg.GetListen().Host
 	name := cfg.Name
 	if name == "" {
@@ -181,6 +216,7 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	}
 
 	if e := http2.ConfigureServer(srv, s2); e != nil {
+		s.setErr(e)
 		return ErrorHTTP2Configure.ErrorParent(e)
 	}
 
@@ -206,7 +242,7 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	s.snm = name
 	s.srv = srv
 
-	go func(name, host string) {
+	go func(name, host string, tlsMandatory bool) {
 
 		defer func() {
 			if s.ctx != nil && s.cnl != nil && s.ctx.Err() == nil {
@@ -226,6 +262,8 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 
 			s.setRunning(true)
 			err = s.srv.ListenAndServeTLS("", "")
+		} else if tlsMandatory {
+			err = fmt.Errorf("missing valid server certificates")
 		} else {
 			liblog.InfoLevel.Logf("Server '%s' is starting with bindable: %s", name, host)
 
@@ -238,9 +276,10 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 		} else if err != nil && errors.Is(err, http.ErrServerClosed) {
 			return
 		} else if err != nil {
+			s.setErr(err)
 			liblog.ErrorLevel.LogErrorCtxf(liblog.NilLevel, "Listen Server '%s'", err, name)
 		}
-	}(name, bind)
+	}(name, bind, sTls)
 
 	return nil
 }
