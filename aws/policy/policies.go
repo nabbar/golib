@@ -78,38 +78,31 @@ func (cli *client) Add(name, desc, policy string) (string, liberr.Error) {
 }
 
 func (cli *client) Update(polArn, polContents string) liberr.Error {
-	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
-		PolicyArn: aws.String(polArn),
-	})
+	var (
+		pol *types.Policy
+		lst map[string]string
+		err liberr.Error
+	)
 
-	if err != nil {
-		return cli.GetError(err)
-	} else {
-		for _, v := range out.Versions {
+	if pol, err = cli.Get(polArn); err != nil {
+		return err
+	} else if lst, err = cli.VersionList(polArn, 0); err != nil {
+		return err
+	} else if len(lst) > 0 {
+		for v := range lst {
 			if cli.GetContext().Err() != nil {
 				return nil
 			}
 
-			if !v.IsDefaultVersion {
-				_, _ = cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
-					PolicyArn: aws.String(polArn),
-					VersionId: v.VersionId,
-				})
+			if *pol.DefaultVersionId != v {
+				if err = cli.VersionDel(polArn, v); err != nil {
+					return err
+				}
 			}
 		}
 	}
 
-	if cli.GetContext().Err() != nil {
-		return nil
-	}
-
-	_, err = cli.iam.CreatePolicyVersion(cli.GetContext(), &iam.CreatePolicyVersionInput{
-		PolicyArn:      aws.String(polArn),
-		PolicyDocument: aws.String(polContents),
-		SetAsDefault:   true,
-	})
-
-	return cli.GetError(err)
+	return cli.VersionAdd(polArn, polContents)
 }
 
 func (cli *client) Delete(polArn string) liberr.Error {
