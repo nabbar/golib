@@ -28,6 +28,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
@@ -35,7 +37,74 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) GetVersion(arn string, vers string) (*types.PolicyVersion, liberr.Error) {
+const maxItemList int32 = 1000
+
+func (cli *client) VersionList(arn string, maxItem int32) (map[string]string, liberr.Error) {
+	if arn == "" {
+		return nil, libhlp.ErrorParamsEmpty.ErrorParent(fmt.Errorf("arn is empty"))
+	}
+
+	if maxItem < 1 {
+		maxItem = maxItemList
+	}
+
+	var (
+		marker = ""
+		res    = make(map[string]string, 0)
+	)
+
+	for {
+		out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
+			PolicyArn: aws.String(arn),
+			Marker:    aws.String(marker),
+			MaxItems:  aws.Int32(maxItem),
+		})
+
+		if err != nil {
+			return nil, cli.GetError(err)
+		} else if out == nil || out.Versions == nil {
+			return nil, libhlp.ErrorResponse.Error(nil)
+		} else if len(out.Versions) < 1 {
+			return res, nil
+		}
+
+		for _, v := range out.Versions {
+			if cli.GetContext().Err() != nil {
+				return nil, nil
+			}
+			if v.VersionId == nil || len(*v.VersionId) < 1 {
+				continue
+			}
+			res[*v.VersionId] = *v.Document
+		}
+
+		if out.IsTruncated && out.Marker != nil && len(*out.Marker) > 0 {
+			marker = *out.Marker
+		} else {
+			break
+		}
+	}
+
+	return res, nil
+}
+
+func (cli *client) VersionAdd(arn string, doc string) liberr.Error {
+	out, err := cli.iam.CreatePolicyVersion(cli.GetContext(), &iam.CreatePolicyVersionInput{
+		PolicyArn:      aws.String(arn),
+		PolicyDocument: aws.String(doc),
+		SetAsDefault:   true,
+	})
+
+	if err != nil {
+		return cli.GetError(err)
+	} else if out == nil {
+		return libhlp.ErrorResponse.Error(nil)
+	}
+
+	return nil
+}
+
+func (cli *client) VersionGet(arn string, vers string) (*types.PolicyVersion, liberr.Error) {
 	out, err := cli.iam.GetPolicyVersion(cli.GetContext(), &iam.GetPolicyVersionInput{
 		PolicyArn: aws.String(arn),
 		VersionId: aws.String(vers),
@@ -48,6 +117,21 @@ func (cli *client) GetVersion(arn string, vers string) (*types.PolicyVersion, li
 	} else {
 		return out.PolicyVersion, nil
 	}
+}
+
+func (cli *client) VersionDel(arn string, vers string) liberr.Error {
+	out, err := cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
+		PolicyArn: aws.String(arn),
+		VersionId: aws.String(vers),
+	})
+
+	if err != nil {
+		return cli.GetError(err)
+	} else if out == nil {
+		return libhlp.ErrorResponse.Error(nil)
+	}
+
+	return nil
 }
 
 func (cli *client) CompareUpdate(arn string, doc string) (upd bool, err liberr.Error) {
@@ -65,7 +149,7 @@ func (cli *client) CompareUpdate(arn string, doc string) (upd bool, err liberr.E
 		vrs = *pol.DefaultVersionId
 	}
 
-	if pvs, err = cli.GetVersion(arn, vrs); err != nil {
+	if pvs, err = cli.VersionGet(arn, vrs); err != nil {
 		return false, err
 	} else if pvs == nil {
 		return false, libhlp.ErrorResponse.Error(nil)
