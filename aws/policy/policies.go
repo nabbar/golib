@@ -28,10 +28,12 @@ package policy
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/nabbar/golib/errors"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	libhlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) List() (map[string]string, errors.Error) {
+func (cli *client) List() (map[string]string, liberr.Error) {
 	out, err := cli.iam.ListPolicies(cli.GetContext(), &iam.ListPoliciesInput{})
 
 	if err != nil {
@@ -47,7 +49,21 @@ func (cli *client) List() (map[string]string, errors.Error) {
 	}
 }
 
-func (cli *client) Add(name, desc, policy string) (string, errors.Error) {
+func (cli *client) Get(arn string) (*types.Policy, liberr.Error) {
+	out, err := cli.iam.GetPolicy(cli.GetContext(), &iam.GetPolicyInput{
+		PolicyArn: aws.String(arn),
+	})
+
+	if err != nil {
+		return nil, cli.GetError(err)
+	} else if out == nil || out.Policy == nil {
+		return nil, libhlp.ErrorResponse.Error(nil)
+	} else {
+		return out.Policy, nil
+	}
+}
+
+func (cli *client) Add(name, desc, policy string) (string, liberr.Error) {
 	out, err := cli.iam.CreatePolicy(cli.GetContext(), &iam.CreatePolicyInput{
 		PolicyName:     aws.String(name),
 		Description:    aws.String(desc),
@@ -61,7 +77,7 @@ func (cli *client) Add(name, desc, policy string) (string, errors.Error) {
 	}
 }
 
-func (cli *client) Update(polArn, polContents string) errors.Error {
+func (cli *client) Update(polArn, polContents string) liberr.Error {
 	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
 		PolicyArn: aws.String(polArn),
 	})
@@ -96,7 +112,7 @@ func (cli *client) Update(polArn, polContents string) errors.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) Delete(polArn string) errors.Error {
+func (cli *client) Delete(polArn string) liberr.Error {
 	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
 		PolicyArn: aws.String(polArn),
 	})
