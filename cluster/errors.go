@@ -27,10 +27,10 @@
 
 package cluster
 
-import "github.com/nabbar/golib/errors"
+import liberr "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgCluster
+	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgCluster
 	ErrorParamsMissing
 	ErrorParamsMismatching
 	ErrorLeader
@@ -44,6 +44,12 @@ const (
 	ErrorCommandSync
 	ErrorCommandASync
 	ErrorCommandLocal
+	ErrorValidateConfig
+	ErrorValidateCluster
+	ErrorValidateNode
+	ErrorValidateGossip
+	ErrorValidateExpert
+	ErrorValidateEngine
 )
 
 var isCodeError = false
@@ -53,13 +59,13 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
+	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
+	case liberr.UNK_ERROR:
 		return ""
 	case ErrorParamsEmpty:
 		return "at least on given parameters is empty"
@@ -89,6 +95,18 @@ func getMessage(code errors.CodeError) (message string) {
 		return "enable to call asynchronous command"
 	case ErrorCommandLocal:
 		return "enable to call local command"
+	case ErrorValidateConfig:
+		return "config seems to be not valid"
+	case ErrorValidateCluster:
+		return "cluster config seems to be not valid"
+	case ErrorValidateNode:
+		return "node config seems to be not valid"
+	case ErrorValidateGossip:
+		return "gossip config seems to be not valid"
+	case ErrorValidateExpert:
+		return "expert config seems to be not valid"
+	case ErrorValidateEngine:
+		return "engine config seems to be not valid"
 	}
 
 	return ""

@@ -96,17 +96,17 @@ type Cluster interface {
 	LocalNAReadNode(rs *dgbclt.RequestState, query []byte) ([]byte, liberr.Error)
 }
 
-func NewCluster(nodeCfg *dgbcfg.NodeHostConfig, clusterCfg dgbcfg.Config, fctCreate interface{}, initMember map[uint64]dgbclt.Target) (Cluster, liberr.Error) {
+func NewCluster(cfg Config, fctCreate interface{}) (Cluster, liberr.Error) {
 	c := &cRaft{
-		memberInit:      initMember,
+		memberInit:      cfg.GetInitMember(),
 		fctCreate:       fctCreate,
-		config:          clusterCfg,
+		config:          cfg.GetDGBConfigCluster(),
 		nodeHost:        nil,
 		timeoutCmdSync:  100 * time.Millisecond,
 		timeoutCmdASync: 1 * time.Second,
 	}
 
-	if n, e := dgbclt.NewNodeHost(*nodeCfg); e != nil {
+	if n, e := dgbclt.NewNodeHost(cfg.GetDGBConfigNode()); e != nil {
 		return nil, ErrorNodeHostNew.ErrorParent(e)
 	} else {
 		c.nodeHost = n
