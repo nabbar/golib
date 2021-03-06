@@ -40,13 +40,14 @@ const (
 	MinPkgMail        = 1100
 	MinPkgMailer      = 1200
 	MinPkgNetwork     = 1300
-	MinPkgOAuth       = 1400
-	MinPkgAws         = 1500
-	MinPkgRouter      = 1600
-	MinPkgSemaphore   = 1700
-	MinPkgSMTP        = 1800
-	MinPkgStatic      = 1900
-	MinPkgVersion     = 2000
+	MinPkgNutsDB      = 1400
+	MinPkgOAuth       = 1500
+	MinPkgAws         = 1600
+	MinPkgRouter      = 1700
+	MinPkgSemaphore   = 1800
+	MinPkgSMTP        = 1900
+	MinPkgStatic      = 2000
+	MinPkgVersion     = 2100
 
 	MIN_AVAILABLE = 4000
 )
