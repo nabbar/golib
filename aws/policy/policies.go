@@ -28,10 +28,12 @@ package policy
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/nabbar/golib/errors"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	libhlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) List() (map[string]string, errors.Error) {
+func (cli *client) List() (map[string]string, liberr.Error) {
 	out, err := cli.iam.ListPolicies(cli.GetContext(), &iam.ListPoliciesInput{})
 
 	if err != nil {
@@ -47,7 +49,21 @@ func (cli *client) List() (map[string]string, errors.Error) {
 	}
 }
 
-func (cli *client) Add(name, desc, policy string) (string, errors.Error) {
+func (cli *client) Get(arn string) (*types.Policy, liberr.Error) {
+	out, err := cli.iam.GetPolicy(cli.GetContext(), &iam.GetPolicyInput{
+		PolicyArn: aws.String(arn),
+	})
+
+	if err != nil {
+		return nil, cli.GetError(err)
+	} else if out == nil || out.Policy == nil {
+		return nil, libhlp.ErrorResponse.Error(nil)
+	} else {
+		return out.Policy, nil
+	}
+}
+
+func (cli *client) Add(name, desc, policy string) (string, liberr.Error) {
 	out, err := cli.iam.CreatePolicy(cli.GetContext(), &iam.CreatePolicyInput{
 		PolicyName:     aws.String(name),
 		Description:    aws.String(desc),
@@ -61,42 +77,35 @@ func (cli *client) Add(name, desc, policy string) (string, errors.Error) {
 	}
 }
 
-func (cli *client) Update(polArn, polContents string) errors.Error {
-	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
-		PolicyArn: aws.String(polArn),
-	})
+func (cli *client) Update(polArn, polContents string) liberr.Error {
+	var (
+		pol *types.Policy
+		lst map[string]string
+		err liberr.Error
+	)
 
-	if err != nil {
-		return cli.GetError(err)
-	} else {
-		for _, v := range out.Versions {
+	if pol, err = cli.Get(polArn); err != nil {
+		return err
+	} else if lst, err = cli.VersionList(polArn, 0); err != nil {
+		return err
+	} else if len(lst) > 0 {
+		for v := range lst {
 			if cli.GetContext().Err() != nil {
 				return nil
 			}
 
-			if !v.IsDefaultVersion {
-				_, _ = cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
-					PolicyArn: aws.String(polArn),
-					VersionId: v.VersionId,
-				})
+			if *pol.DefaultVersionId != v {
+				if err = cli.VersionDel(polArn, v); err != nil {
+					return err
+				}
 			}
 		}
 	}
 
-	if cli.GetContext().Err() != nil {
-		return nil
-	}
-
-	_, err = cli.iam.CreatePolicyVersion(cli.GetContext(), &iam.CreatePolicyVersionInput{
-		PolicyArn:      aws.String(polArn),
-		PolicyDocument: aws.String(polContents),
-		SetAsDefault:   true,
-	})
-
-	return cli.GetError(err)
+	return cli.VersionAdd(polArn, polContents)
 }
 
-func (cli *client) Delete(polArn string) errors.Error {
+func (cli *client) Delete(polArn string) liberr.Error {
 	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
 		PolicyArn: aws.String(polArn),
 	})

@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -132,6 +133,18 @@ type ServerConfig struct {
 	getTLSDefault    func() libtls.TLSConfig
 	getParentContext func() context.Context
 
+	// Enabled allow to disable a server without clean his configuration
+	Disabled bool `mapstructure:"disabled" json:"disabled" yaml:"disabled" toml:"disabled" validate:"required"`
+
+	// Mandatory defined if the component for status is mandatory or not
+	Mandatory bool `mapstructure:"mandatory" json:"mandatory" yaml:"mandatory" toml:"mandatory" validate:"required"`
+
+	// TimeoutCacheInfo defined the validity time of cache for info (name, version, hash)
+	TimeoutCacheInfo time.Duration `mapstructure:"timeout_cache_info" json:"timeout_cache_info" yaml:"timeout_cache_info" toml:"timeout_cache_info"`
+
+	// TimeoutCacheHealth defined the validity time of cache for healthcheck of this server
+	TimeoutCacheHealth time.Duration `mapstructure:"timeout_cache_health" json:"timeout_cache_health" yaml:"timeout_cache_health" toml:"timeout_cache_health"`
+
 	/*** http options ***/
 
 	// ReadTimeout is the maximum duration for reading the entire
@@ -219,10 +232,42 @@ type ServerConfig struct {
 	// Expose is the address use to call this server. This can be allow to use a single fqdn to multiple server"
 	Expose string `mapstructure:"expose" json:"expose" yaml:"expose" toml:"expose" validate:"required,url"`
 
+	// HandlerKeys is an options to associate current server with a specifc handler defined by the key
+	// This allow to defined multiple server in only one config for different handler to start multiple api
+	HandlerKeys string `mapstructure:"handler_keys" json:"handler_keys" yaml:"handler_keys" toml:"handler_keys"`
+
+	// TLSMandatory is a flag to defined that TLS must be valid to start current server.
+	TLSMandatory bool `mapstructure:"tls_mandatory" json:"tls_mandatory" yaml:"tls_mandatory" toml:"tls_mandatory" validate:"required"`
+
 	// TLS is the tls configuration for this server.
 	// To allow tls on this server, at least the TLS Config option InheritDefault must be at true and the default TLS config must be set.
 	// If you don't want any tls config, just omit or set an empty struct.
 	TLS libtls.Config `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
+}
+
+func (c *ServerConfig) Clone() ServerConfig {
+	return ServerConfig{
+		Disabled:                     c.Disabled,
+		getTLSDefault:                c.getTLSDefault,
+		getParentContext:             c.getParentContext,
+		ReadTimeout:                  c.ReadTimeout,
+		ReadHeaderTimeout:            c.ReadHeaderTimeout,
+		WriteTimeout:                 c.WriteTimeout,
+		MaxHeaderBytes:               c.MaxHeaderBytes,
+		MaxHandlers:                  c.MaxHandlers,
+		MaxConcurrentStreams:         c.MaxConcurrentStreams,
+		MaxReadFrameSize:             c.MaxReadFrameSize,
+		PermitProhibitedCipherSuites: c.PermitProhibitedCipherSuites,
+		IdleTimeout:                  c.IdleTimeout,
+		MaxUploadBufferPerConnection: c.MaxUploadBufferPerConnection,
+		MaxUploadBufferPerStream:     c.MaxUploadBufferPerStream,
+		Name:                         c.Name,
+		Listen:                       c.Listen,
+		Expose:                       c.Expose,
+		HandlerKeys:                  strings.ToLower(c.HandlerKeys),
+		TLSMandatory:                 c.TLSMandatory,
+		TLS:                          c.TLS,
+	}
 }
 
 func (c *ServerConfig) SetDefaultTLS(f func() libtls.TLSConfig) {
@@ -315,6 +360,10 @@ func (c ServerConfig) GetExpose() *url.URL {
 	}
 
 	return add
+}
+
+func (c ServerConfig) GetHandlerKey() string {
+	return c.HandlerKeys
 }
 
 func (c ServerConfig) Validate() liberr.Error {

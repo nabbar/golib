@@ -34,6 +34,7 @@ const (
 	ErrorAwsEmpty
 	ErrorAws
 	ErrorBucketNotFound
+	ErrorParamsEmpty
 )
 
 var isErrInit = false
@@ -61,6 +62,8 @@ func getMessage(code errors.CodeError) string {
 		return "the aws request sent to aws API occurred an empty result"
 	case ErrorBucketNotFound:
 		return "the specified bucket is not found"
+	case ErrorParamsEmpty:
+		return "at least one parameters needed is empty"
 	}
 
 	return ""
