@@ -28,25 +28,29 @@
 package nutsdb
 
 import (
-	"github.com/nabbar/golib/cluster"
+	"sync/atomic"
+
 	liberr "github.com/nabbar/golib/errors"
 )
 
 type NutsDB interface {
+	Listen() liberr.Error
+	Restart() liberr.Error
+	Shutdown() liberr.Error
+
+	ForceRestart()
+	ForceShutdown()
+
+	IsRunning() bool
+
+	//StatusInfo() (name string, release string, hash string)
+	//StatusHealth() error
+	//StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
 }
 
-func New(c Config) (NutsDB, liberr.Error) {
-	var (
-		clu cluster.Cluster
-		err liberr.Error
-	)
-
-	if clu, err = cluster.NewCluster(c.GetConfigCluster(), nil); err != nil {
-		return nil, err
-	}
-
+func New(c Config) NutsDB {
 	return &ndb{
-		o: c.GetConfigDB(),
-		c: clu,
-	}, nil
+		c: c,
+		t: new(atomic.Value),
+	}
 }
