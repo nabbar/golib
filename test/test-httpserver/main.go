@@ -40,7 +40,8 @@ import (
 	libsrv "github.com/nabbar/golib/httpserver"
 )
 
-var tls = false
+const tlsMandatoryTrue = true
+const tlsMandatoryFalse = false
 
 var tlsConfigSrv = libtls.Config{
 	InheritDefault: true,
@@ -51,7 +52,7 @@ var cfgSrv01 = libsrv.ServerConfig{
 	Name:         "test-01",
 	Listen:       "0.0.0.0:61001",
 	Expose:       "0.0.0.0:61000",
-	TLSMandatory: &tls,
+	TLSMandatory: &tlsMandatoryFalse,
 	TLS:          tlsConfigSrv,
 }
 
@@ -59,16 +60,15 @@ var cfgSrv02 = libsrv.ServerConfig{
 	Name:         "test-02",
 	Listen:       "0.0.0.0:61002",
 	Expose:       "0.0.0.0:61000",
-	TLSMandatory: &tls,
+	TLSMandatory: &tlsMandatoryFalse,
 	TLS:          tlsConfigSrv,
 }
 
-tls = true
 var cfgSrv03 = libsrv.ServerConfig{
 	Name:         "test-03",
 	Listen:       "0.0.0.0:61003",
 	Expose:       "0.0.0.0:61000",
-	TLSMandatory: &tls,
+	TLSMandatory: &tlsMandatoryTrue,
 	TLS:          tlsConfigSrv,
 }
 
