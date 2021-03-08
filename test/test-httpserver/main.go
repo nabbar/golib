@@ -65,7 +65,7 @@ var cfgSrv03 = libsrv.ServerConfig{
 	Name:         "test-03",
 	Listen:       "0.0.0.0:61003",
 	Expose:       "0.0.0.0:61000",
-	TLSMandatory: false,
+	TLSMandatory: true,
 	TLS:          tlsConfigSrv,
 }
 
