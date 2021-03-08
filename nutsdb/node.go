@@ -33,6 +33,8 @@ import (
 	"io"
 	"sync/atomic"
 
+	liberr "github.com/nabbar/golib/errors"
+
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
 	"github.com/xujiajun/nutsdb"
 )
@@ -40,11 +42,7 @@ import (
 const (
 	_BucketRaftAdmin           = "_raft"
 	_AdminKey_RaftAppliedIndex = "_raft_applied_index"
-)
-
-var (
-	ErrClosed     = errors.New("database node is closed")
-	ErrKeyInvalid = errors.New("given key is invalid")
+	_BucketData                = "_data"
 )
 
 func newNode(node uint64, cluster uint64, opt nutsdb.Options, fct func(state bool)) dgbstm.IOnDiskStateMachine {
@@ -75,16 +73,18 @@ func (n *nutsNode) setRunning(state bool) {
 	}
 }
 
-func (n *nutsNode) newTx(writable bool) (*nutsdb.Tx, error) {
+func (n *nutsNode) newTx(writable bool) (*nutsdb.Tx, liberr.Error) {
 	if n == nil || n.d == nil {
-		return nil, ErrClosed
+		return nil, ErrorDatabaseClosed.Error(nil)
 	}
 	if i := n.d.Load(); i == nil {
-		return nil, ErrClosed
+		return nil, ErrorDatabaseClosed.Error(nil)
 	} else if db, ok := i.(*nutsdb.DB); !ok {
-		return nil, ErrClosed
+		return nil, ErrorDatabaseClosed.Error(nil)
+	} else if tx, e := db.Begin(writable); e != nil {
+		return nil, ErrorTransactionInit.ErrorParent(e)
 	} else {
-		return db.Begin(writable)
+		return tx, nil
 	}
 }
 
@@ -112,6 +112,33 @@ func (n *nutsNode) getRaftLogIndexLastApplied() (idxRaftlog uint64, err error) {
 		return 0, nil
 	} else {
 		return binary.LittleEndian.Uint64(en.Value), nil
+	}
+}
+
+func (n *nutsNode) applyRaftLogIndexLastApplied(idx uint64) error {
+	var (
+		b   []byte
+		e   error
+		tx  *nutsdb.Tx
+		err liberr.Error
+	)
+
+	binary.LittleEndian.PutUint64(b, idx)
+
+	if tx, err = n.newTx(true); err != nil {
+		return err
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	if e = tx.Put(_BucketRaftAdmin, []byte(_AdminKey_RaftAppliedIndex), b, 0); e != nil {
+		return ErrorTransactionPutKey.ErrorParent(e)
+	} else if e = tx.Commit(); e != nil {
+		return ErrorTransactionCommit.ErrorParent(e)
+	} else {
+		return nil
 	}
 }
 
@@ -147,9 +174,52 @@ func (n *nutsNode) Close() error {
 	}
 }
 
-func (n *nutsNode) Update([]dgbstm.Entry) ([]dgbstm.Entry, error) {
-	// utiliser cbor marshal
-	panic("implement me")
+func (n *nutsNode) Update(logEntry []dgbstm.Entry) ([]dgbstm.Entry, error) {
+	var (
+		e error
+
+		tx *nutsdb.Tx
+		kv *DataKV
+
+		err liberr.Error
+		idx int
+		ent dgbstm.Entry
+	)
+
+	if tx, err = n.newTx(true); err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	for idx, ent = range logEntry {
+		if kv, err = DataKVFromJson(ent.Cmd); err != nil {
+			logEntry[idx].Result = dgbstm.Result{
+				Value: 0,
+				Data:  nil,
+			}
+			return logEntry, err
+		} else if err = kv.SetToTx(tx, _BucketData); err != nil {
+			logEntry[idx].Result = dgbstm.Result{
+				Value: 0,
+				Data:  nil,
+			}
+			return logEntry, err
+		} else {
+			logEntry[idx].Result = dgbstm.Result{
+				Value: uint64(idx),
+				Data:  nil,
+			}
+		}
+	}
+
+	if e = tx.Commit(); e != nil {
+		return logEntry, ErrorTransactionCommit.ErrorParent(e)
+	}
+
+	return logEntry, n.applyRaftLogIndexLastApplied(logEntry[len(logEntry)-1].Index)
 }
 
 func (n *nutsNode) Lookup(key interface{}) (value interface{}, err error) {
@@ -162,7 +232,7 @@ func (n *nutsNode) Lookup(key interface{}) (value interface{}, err error) {
 	if sk, ok := key.(string); ok {
 		bk = []byte(sk)
 	} else if bk, ok = key.([]byte); !ok {
-		return nil, ErrKeyInvalid
+		return nil, ErrorDatabaseKeyInvalid.Error(nil)
 	}
 
 	if tx, err = n.newTx(false); err != nil {
@@ -185,7 +255,7 @@ func (n *nutsNode) Lookup(key interface{}) (value interface{}, err error) {
 }
 
 func (n *nutsNode) Sync() error {
-	panic("implement me")
+	return nil
 }
 
 func (n *nutsNode) PrepareSnapshot() (interface{}, error) {

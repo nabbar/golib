@@ -35,6 +35,14 @@ const (
 	ErrorParamsMismatching
 	ErrorValidateConfig
 	ErrorValidateNutsDB
+	ErrorDatabaseClosed
+	ErrorDatabaseKeyInvalid
+	ErrorTransactionInit
+	ErrorTransactionClosed
+	ErrorTransactionCommit
+	ErrorTransactionPutKey
+	ErrorLogEntryUnmarshal
+	ErrorLogEntryAdd
 )
 
 var isCodeError = false
@@ -62,6 +70,22 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "config seems to be invalid"
 	case ErrorValidateNutsDB:
 		return "database config seems to be invalid"
+	case ErrorDatabaseClosed:
+		return "database is closed"
+	case ErrorDatabaseKeyInvalid:
+		return "database key seems to be invalid"
+	case ErrorTransactionInit:
+		return "cannot initialize new transaction from database"
+	case ErrorTransactionClosed:
+		return "transaction is closed"
+	case ErrorTransactionCommit:
+		return "cannot commit transaction writable into database"
+	case ErrorTransactionPutKey:
+		return "cannot send Put command into database transaction"
+	case ErrorLogEntryUnmarshal:
+		return "cannot unmarshall log entry KV to update database"
+	case ErrorLogEntryAdd:
+		return "cannot add key/value to database"
 	}
 
 	return ""
