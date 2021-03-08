@@ -180,9 +180,9 @@ func (s *server) StatusInfo() (name string, release string, hash string) {
 }
 
 func (s *server) StatusHealth() error {
-	if !s.cfg.Disabled && s.IsRunning() {
+	if !*s.cfg.Disabled && s.IsRunning() {
 		return nil
-	} else if s.cfg.Disabled {
+	} else if *s.cfg.Disabled {
 		return fmt.Errorf("server disabled")
 	} else if e := s.getErr(); e != nil {
 		return e
@@ -192,5 +192,5 @@ func (s *server) StatusHealth() error {
 }
 
 func (s *server) StatusComponent(message status.FctMessage) status.Component {
-	return status.NewComponent(s.cfg.Mandatory, s.StatusInfo, s.StatusHealth, message, s.cfg.TimeoutCacheInfo, s.cfg.TimeoutCacheHealth)
+	return status.NewComponent(*s.cfg.Mandatory, s.StatusInfo, s.StatusHealth, message, s.cfg.TimeoutCacheInfo, s.cfg.TimeoutCacheHealth)
 }

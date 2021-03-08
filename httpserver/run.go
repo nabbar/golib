@@ -279,7 +279,7 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 			s.setErr(err)
 			liblog.ErrorLevel.LogErrorCtxf(liblog.NilLevel, "Listen Server '%s'", err, name)
 		}
-	}(name, bind, sTls)
+	}(name, bind, *sTls)
 
 	return nil
 }

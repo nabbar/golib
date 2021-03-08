@@ -134,10 +134,11 @@ type ServerConfig struct {
 	getParentContext func() context.Context
 
 	// Enabled allow to disable a server without clean his configuration
-	Disabled bool `mapstructure:"disabled" json:"disabled" yaml:"disabled" toml:"disabled" validate:"required"`
+	Disabled *bool `mapstructure:"disabled" json:"disabled" yaml:"disabled" toml:"disabled" validate:"required"`
 
-	// Mandatory defined if the component for status is mandatory or not
-	Mandatory bool `mapstructure:"mandatory" json:"mandatory" yaml:"mandatory" toml:"mandatory" validate:"required"`
+	// Mandator
+	// y defined if the component for status is mandatory or not
+	Mandatory *bool `mapstructure:"mandatory" json:"mandatory" yaml:"mandatory" toml:"mandatory" validate:"required"`
 
 	// TimeoutCacheInfo defined the validity time of cache for info (name, version, hash)
 	TimeoutCacheInfo time.Duration `mapstructure:"timeout_cache_info" json:"timeout_cache_info" yaml:"timeout_cache_info" toml:"timeout_cache_info"`
@@ -237,7 +238,7 @@ type ServerConfig struct {
 	HandlerKeys string `mapstructure:"handler_keys" json:"handler_keys" yaml:"handler_keys" toml:"handler_keys"`
 
 	// TLSMandatory is a flag to defined that TLS must be valid to start current server.
-	TLSMandatory bool `mapstructure:"tls_mandatory" json:"tls_mandatory" yaml:"tls_mandatory" toml:"tls_mandatory" validate:"required"`
+	TLSMandatory *bool `mapstructure:"tls_mandatory" json:"tls_mandatory" yaml:"tls_mandatory" toml:"tls_mandatory" validate:"required"`
 
 	// TLS is the tls configuration for this server.
 	// To allow tls on this server, at least the TLS Config option InheritDefault must be at true and the default TLS config must be set.
