@@ -29,6 +29,7 @@ package policy
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
@@ -147,9 +148,11 @@ func (cli *client) VersionDel(arn string, vers string) liberr.Error {
 
 func (cli *client) CompareUpdate(arn string, doc string) (upd bool, err liberr.Error) {
 	var (
+		e   error
 		pol *types.Policy
 		pvs *types.PolicyVersion
 		vrs string
+		dec string
 	)
 
 	if pol, err = cli.Get(arn); err != nil {
@@ -166,7 +169,13 @@ func (cli *client) CompareUpdate(arn string, doc string) (upd bool, err liberr.E
 		return false, libhlp.ErrorResponse.Error(nil)
 	} else if *pvs.Document == doc {
 		return false, nil
-	} else if err = cli.Update(*pol.PolicyId, doc); err != nil {
+	} else if dec, e = url.QueryUnescape(*pvs.Document); e != nil {
+		dec = *pvs.Document
+	}
+
+	if dec == doc {
+		return false, nil
+	} else if err = cli.Update(*pol.Arn, doc); err != nil {
 		return true, err
 	} else {
 		return true, nil
