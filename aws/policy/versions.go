@@ -54,11 +54,16 @@ func (cli *client) VersionList(arn string, maxItem int32) (map[string]string, li
 	)
 
 	for {
-		out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
+		in := iam.ListPolicyVersionsInput{
 			PolicyArn: aws.String(arn),
-			Marker:    aws.String(marker),
 			MaxItems:  aws.Int32(maxItem),
-		})
+		}
+
+		if marker != "" {
+			in.Marker = aws.String(marker)
+		}
+
+		out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &in)
 
 		if err != nil {
 			return nil, cli.GetError(err)
@@ -72,10 +77,16 @@ func (cli *client) VersionList(arn string, maxItem int32) (map[string]string, li
 			if cli.GetContext().Err() != nil {
 				return nil, nil
 			}
+
 			if v.VersionId == nil || len(*v.VersionId) < 1 {
 				continue
 			}
-			res[*v.VersionId] = *v.Document
+
+			if v.Document == nil || len(*v.Document) < 1 {
+				res[*v.VersionId] = ""
+			} else {
+				res[*v.VersionId] = *v.Document
+			}
 		}
 
 		if out.IsTruncated && out.Marker != nil && len(*out.Marker) > 0 {
