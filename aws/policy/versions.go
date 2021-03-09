@@ -166,7 +166,7 @@ func (cli *client) CompareUpdate(arn string, doc string) (upd bool, err liberr.E
 		return false, libhlp.ErrorResponse.Error(nil)
 	} else if *pvs.Document == doc {
 		return false, nil
-	} else if err = cli.Update(*pol.PolicyName, doc); err != nil {
+	} else if err = cli.Update(*pol.PolicyId, doc); err != nil {
 		return true, err
 	} else {
 		return true, nil
