@@ -28,36 +28,105 @@
 package nutsdb
 
 import (
-	"encoding/json"
+	"fmt"
+	"reflect"
 
-	"github.com/xujiajun/nutsdb"
-
+	"github.com/fxamacker/cbor/v2"
 	liberr "github.com/nabbar/golib/errors"
+	"github.com/xujiajun/nutsdb"
 )
 
-type DataKV struct {
-	Key []byte `mapstructure:"key" json:"key" yaml:"key" toml:"key" cbor:"key"`
-	Val []byte `mapstructure:"val" json:"val" yaml:"val" toml:"val" cbor:"val"`
+type CommandRequest struct {
+	Cmd    CmdCode       `mapstructure:"cmd" json:"cmd" yaml:"cmd" toml:"cmd" cbor:"cmd"`
+	Params []interface{} `mapstructure:"params" json:"params" yaml:"params" toml:"params" cbor:"params"`
 }
 
-func DataKVFromJson(p []byte) (*DataKV, liberr.Error) {
-	d := DataKV{}
+type CommandResponse struct {
+	Error error         `mapstructure:"error" json:"error" yaml:"error" toml:"error" cbor:"error"`
+	Value []interface{} `mapstructure:"value" json:"value" yaml:"value" toml:"value" cbor:"value"`
+}
 
-	if e := json.Unmarshal(p, &d); e != nil {
-		return nil, ErrorLogEntryUnmarshal.ErrorParent(e)
+func NewCommand() *CommandRequest {
+	return &CommandRequest{}
+}
+
+func NewCommandByDecode(p []byte) (*CommandRequest, liberr.Error) {
+	d := CommandRequest{}
+
+	if e := cbor.Unmarshal(p, &d); e != nil {
+		return nil, ErrorCommandUnmarshal.ErrorParent(e)
 	}
 
 	return &d, nil
 }
 
-func (d *DataKV) SetToTx(Tx *nutsdb.Tx, bucket string) liberr.Error {
-	if Tx == nil {
-		return ErrorTransactionClosed.Error(nil)
+func (c *CommandRequest) EncodeRequest() ([]byte, liberr.Error) {
+	if p, e := cbor.Marshal(c); e != nil {
+		return nil, ErrorCommandMarshal.ErrorParent(e)
+	} else {
+		return p, nil
+	}
+}
+
+func (c *CommandRequest) DecodeResult(p []byte) (*CommandResponse, liberr.Error) {
+	res := CommandResponse{}
+
+	if e := cbor.Unmarshal(p, &res); e != nil {
+		return nil, ErrorCommandResultUnmarshal.ErrorParent(e)
+	} else {
+		return &res, nil
+	}
+}
+
+func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error) {
+	if tx == nil {
+		return nil, ErrorTransactionClosed.Error(nil)
 	}
 
-	if e := Tx.SAdd(bucket, d.Key, d.Val); e != nil {
-		return ErrorLogEntryAdd.ErrorParent(e)
+	if c.Cmd == CmdUnknown {
+		return nil, ErrorClientCommandInvalid.Error(nil)
 	}
 
-	return nil
+	method := reflect.ValueOf(tx).MethodByName(c.Cmd.Name())
+	nbPrm := method.Type().NumIn()
+
+	if len(c.Params) != nbPrm {
+		return nil, ErrorClientCommandParamsBadNumber.ErrorParent(fmt.Errorf("%s need %d parameters", c.Cmd.Name(), nbPrm))
+	}
+
+	params := make([]reflect.Value, nbPrm)
+	for i := 0; i < nbPrm; i++ {
+		params[i] = reflect.ValueOf(c.Params[i])
+	}
+
+	resp := method.Call(params)
+	ret := CommandResponse{
+		Error: nil,
+		Value: make([]interface{}, 0),
+	}
+
+	for i := 0; i < len(resp); i++ {
+		v := resp[i].Interface()
+		if e, ok := v.(error); ok {
+			ret.Error = e
+		} else {
+			ret.Value = append(ret.Value, v)
+		}
+	}
+
+	if ret.Error == nil && len(ret.Value) < 1 {
+		return nil, nil
+	}
+
+	return &ret, nil
+}
+
+func (c *CommandRequest) Run(tx *nutsdb.Tx) ([]byte, liberr.Error) {
+	if r, err := c.RunLocal(tx); err != nil {
+		return nil, err
+	} else if p, e := cbor.Marshal(r); e != nil {
+		return nil, ErrorCommandResultMarshal.ErrorParent(e)
+	} else {
+		return p, nil
+	}
 }

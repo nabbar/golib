@@ -35,14 +35,33 @@ const (
 	ErrorParamsMismatching
 	ErrorValidateConfig
 	ErrorValidateNutsDB
+	ErrorFolderCheck
+	ErrorFolderCreate
+	ErrorFolderCopy
+	ErrorFolderDelete
+	ErrorFolderExtract
+	ErrorFolderArchive
+	ErrorFolderCompress
 	ErrorDatabaseClosed
 	ErrorDatabaseKeyInvalid
+	ErrorDatabaseBackup
+	ErrorDatabaseSnapshot
 	ErrorTransactionInit
 	ErrorTransactionClosed
 	ErrorTransactionCommit
 	ErrorTransactionPutKey
-	ErrorLogEntryUnmarshal
+	ErrorCommandInvalid
+	ErrorCommandUnmarshal
+	ErrorCommandMarshal
+	ErrorCommandResultUnmarshal
+	ErrorCommandResultMarshal
 	ErrorLogEntryAdd
+	ErrorClientCommandInvalid
+	ErrorClientCommandParamsBadNumber
+	ErrorClientCommandParamsMismatching
+	ErrorClientCommandCall
+	ErrorClientCommandCommit
+	ErrorClientCommandResponseInvalid
 )
 
 var isCodeError = false
@@ -70,10 +89,26 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "config seems to be invalid"
 	case ErrorValidateNutsDB:
 		return "database config seems to be invalid"
+	case ErrorFolderCheck:
+		return "error while trying to check or stat folder"
+	case ErrorFolderCreate:
+		return "error while trying to create folder"
+	case ErrorFolderCopy:
+		return "error while trying to copy folder"
+	case ErrorFolderArchive:
+		return "error while trying to archive folder"
+	case ErrorFolderCompress:
+		return "error while trying to compress folder"
+	case ErrorFolderExtract:
+		return "error while trying to extract snapshot archive"
 	case ErrorDatabaseClosed:
 		return "database is closed"
 	case ErrorDatabaseKeyInvalid:
 		return "database key seems to be invalid"
+	case ErrorDatabaseBackup:
+		return "error occurs while trying to backup database folder"
+	case ErrorDatabaseSnapshot:
+		return "error occurs while trying to backup database to cluster members"
 	case ErrorTransactionInit:
 		return "cannot initialize new transaction from database"
 	case ErrorTransactionClosed:
@@ -82,10 +117,30 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "cannot commit transaction writable into database"
 	case ErrorTransactionPutKey:
 		return "cannot send Put command into database transaction"
-	case ErrorLogEntryUnmarshal:
-		return "cannot unmarshall log entry KV to update database"
+	case ErrorCommandInvalid:
+		return "given query is not a valid DB command"
+	case ErrorCommandUnmarshal:
+		return "cannot unmarshall DB command"
+	case ErrorCommandMarshal:
+		return "cannot marshall DB command"
+	case ErrorCommandResultUnmarshal:
+		return "cannot unmarshall DB command result"
+	case ErrorCommandResultMarshal:
+		return "cannot marshall DB command result"
 	case ErrorLogEntryAdd:
 		return "cannot add key/value to database"
+	case ErrorClientCommandInvalid:
+		return "invalid command"
+	case ErrorClientCommandParamsBadNumber:
+		return "invalid number of parameters for client command"
+	case ErrorClientCommandParamsMismatching:
+		return "invalid type of parameter for client command"
+	case ErrorClientCommandCall:
+		return "error occurs while running client command"
+	case ErrorClientCommandCommit:
+		return "error occurs while commit client command"
+	case ErrorClientCommandResponseInvalid:
+		return "response of requested client command seems to be invalid"
 	}
 
 	return ""

@@ -64,6 +64,8 @@ func (n *ndb) Listen() liberr.Error {
 	var (
 		clu libclu.Cluster
 		err liberr.Error
+		opt Options
+		cfg libclu.Config
 	)
 
 	if i := n.t.Load(); i != nil {
@@ -72,8 +74,16 @@ func (n *ndb) Listen() liberr.Error {
 		}
 	}
 
-	clu, err = libclu.NewCluster(n.c.GetConfigCluster(), func(node uint64, cluster uint64) dgbstm.IOnDiskStateMachine {
-		return newNode(node, cluster, n.c.GetConfigDB(), n.setRunning)
+	if cfg, err = n.c.GetConfigCluster(); err != nil {
+		return err
+	}
+
+	if opt, err = n.c.GetOptions(); err != nil {
+		return err
+	}
+
+	clu, err = libclu.NewCluster(cfg, func(node uint64, cluster uint64) dgbstm.IOnDiskStateMachine {
+		return newNode(node, cluster, opt, n.setRunning)
 	})
 
 	if err != nil {
@@ -119,4 +129,9 @@ func (n *ndb) ForceShutdown() {
 	} else {
 		_ = c.ClusterStop(true)
 	}
+}
+
+func (n *ndb) Client() Client {
+	//@TODO : implement me !!
+	panic("implement me")
 }

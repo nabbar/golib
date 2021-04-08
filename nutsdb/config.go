@@ -37,16 +37,43 @@ import (
 )
 
 type Config struct {
-	DB      NutsDBOptions  `mapstructure:"db" json:"db" yaml:"db" toml:"db"`
-	Cluster cluster.Config `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster"`
+	DB        NutsDBOptions  `mapstructure:"db" json:"db" yaml:"db" toml:"db"`
+	Cluster   cluster.Config `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster"`
+	Directory NutsDBFolder   `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" `
 }
 
-func (c Config) GetConfigDB() nutsdb.Options {
-	return c.DB.GetNutsDBOptions()
+func (c Config) GetConfigFolder() NutsDBFolder {
+	return c.Directory
 }
 
-func (c Config) GetConfigCluster() cluster.Config {
-	return c.Cluster
+func (c Config) GetConfigDB() (nutsdb.Options, liberr.Error) {
+	if dir, err := c.Directory.GetDirectoryData(); err != nil {
+		return nutsdb.Options{}, err
+	} else {
+		return c.DB.GetNutsDBOptions(dir), nil
+	}
+}
+
+func (c Config) GetConfigCluster() (cluster.Config, liberr.Error) {
+	cfg := c.Cluster
+
+	if dir, err := c.Directory.GetDirectoryWal(); err != nil {
+		return cfg, err
+	} else {
+		cfg.Node.WALDir = dir
+	}
+
+	if dir, err := c.Directory.GetDirectoryHost(); err != nil {
+		return cfg, err
+	} else {
+		cfg.Node.NodeHostDir = dir
+	}
+
+	return cfg, nil
+}
+
+func (c Config) GetOptions() (Options, liberr.Error) {
+	return NewOptions(c.DB, c.Directory)
 }
 
 func (c Config) Validate() liberr.Error {

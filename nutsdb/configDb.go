@@ -36,9 +36,6 @@ import (
 )
 
 type NutsDBOptions struct {
-	// Dir represents Open the database located in which dir.
-	Dir string `mapstructure:"data_dir" json:"data_dir" yaml:"data_dir" toml:"data_dir"`
-
 	// EntryIdxMode represents using which mode to index the entries.
 	EntryIdxMode nutsdb.EntryIdxMode `mapstructure:"entry_idx_mode" json:"entry_idx_mode" yaml:"entry_idx_mode" toml:"entry_idx_mode"`
 
@@ -60,14 +57,14 @@ type NutsDBOptions struct {
 	StartFileLoadingMode nutsdb.RWMode `mapstructure:"start_file_loading_mode" json:"start_file_loading_mode" yaml:"start_file_loading_mode" toml:"start_file_loading_mode"`
 }
 
-func (o NutsDBOptions) GetNutsDBOptions() nutsdb.Options {
+func (o NutsDBOptions) GetNutsDBOptions(dataDir string) nutsdb.Options {
 	d := nutsdb.DefaultOptions
 
-	if len(o.Dir) < 1 {
+	if len(dataDir) < 1 {
 		d.RWMode = nutsdb.MMap
 		d.StartFileLoadingMode = nutsdb.MMap
 	} else {
-		d.Dir = o.Dir
+		d.Dir = dataDir
 
 		switch o.RWMode {
 		case nutsdb.MMap:

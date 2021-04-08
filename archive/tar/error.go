@@ -42,6 +42,9 @@ const (
 	ErrorDestinationIsDir
 	ErrorDestinationIsNotDir
 	ErrorDestinationRemove
+	ErrorTarCreate
+	ErrorGzipCreate
+	ErrorTarCreateAddFile
 )
 
 var isCodeError = false
@@ -85,6 +88,12 @@ func getMessage(code errors.CodeError) (message string) {
 		return "cannot create destination directory over an existing non directory"
 	case ErrorDestinationRemove:
 		return "cannot remove destination "
+	case ErrorTarCreate:
+		return "cannot create Tar archive"
+	case ErrorGzipCreate:
+		return "cannot create Gzip compression for the Tar archive"
+	case ErrorTarCreateAddFile:
+		return "cannot add file content to tar archive"
 	}
 
 	return ""

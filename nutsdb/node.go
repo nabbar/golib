@@ -33,9 +33,8 @@ import (
 	"io"
 	"sync/atomic"
 
-	liberr "github.com/nabbar/golib/errors"
-
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
+	liberr "github.com/nabbar/golib/errors"
 	"github.com/xujiajun/nutsdb"
 )
 
@@ -45,7 +44,7 @@ const (
 	_BucketData                = "_data"
 )
 
-func newNode(node uint64, cluster uint64, opt nutsdb.Options, fct func(state bool)) dgbstm.IOnDiskStateMachine {
+func newNode(node uint64, cluster uint64, opt Options, fct func(state bool)) dgbstm.IOnDiskStateMachine {
 	if fct == nil {
 		fct = func(state bool) {}
 	}
@@ -60,11 +59,11 @@ func newNode(node uint64, cluster uint64, opt nutsdb.Options, fct func(state boo
 }
 
 type nutsNode struct {
-	n uint64 // nodeId
-	c uint64 // clusterId
-	o nutsdb.Options
-	r func(state bool)
-	d *atomic.Value
+	n uint64           // nodeId
+	c uint64           // clusterId
+	o Options          // options nutsDB
+	r func(state bool) // is running
+	d *atomic.Value    // nutsDB database pointer
 }
 
 func (n *nutsNode) setRunning(state bool) {
@@ -142,10 +141,11 @@ func (n *nutsNode) applyRaftLogIndexLastApplied(idx uint64) error {
 	}
 }
 
+// @TODO : analyse channel role !!
 func (n *nutsNode) Open(stopc <-chan struct{}) (idxRaftlog uint64, err error) {
 	var db *nutsdb.DB
 
-	if db, err = nutsdb.Open(n.o); err != nil {
+	if db, err = nutsdb.Open(n.o.NutsDBOptions()); err != nil {
 		return 0, err
 	} else {
 		n.d.Store(db)
@@ -179,9 +179,10 @@ func (n *nutsNode) Update(logEntry []dgbstm.Entry) ([]dgbstm.Entry, error) {
 		e error
 
 		tx *nutsdb.Tx
-		kv *DataKV
+		kv *CommandRequest
 
 		err liberr.Error
+		res []byte
 		idx int
 		ent dgbstm.Entry
 	)
@@ -190,67 +191,65 @@ func (n *nutsNode) Update(logEntry []dgbstm.Entry) ([]dgbstm.Entry, error) {
 		return nil, err
 	}
 
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
 	for idx, ent = range logEntry {
-		if kv, err = DataKVFromJson(ent.Cmd); err != nil {
+		if kv, err = NewCommandByDecode(ent.Cmd); err != nil {
 			logEntry[idx].Result = dgbstm.Result{
 				Value: 0,
 				Data:  nil,
 			}
+
+			_ = tx.Rollback()
 			return logEntry, err
-		} else if err = kv.SetToTx(tx, _BucketData); err != nil {
+		} else if res, err = kv.Run(tx); err != nil {
 			logEntry[idx].Result = dgbstm.Result{
 				Value: 0,
 				Data:  nil,
 			}
+
+			_ = tx.Rollback()
 			return logEntry, err
 		} else {
 			logEntry[idx].Result = dgbstm.Result{
 				Value: uint64(idx),
-				Data:  nil,
+				Data:  res,
 			}
 		}
 	}
 
 	if e = tx.Commit(); e != nil {
+		_ = tx.Rollback()
 		return logEntry, ErrorTransactionCommit.ErrorParent(e)
 	}
 
 	return logEntry, n.applyRaftLogIndexLastApplied(logEntry[len(logEntry)-1].Index)
 }
 
-func (n *nutsNode) Lookup(key interface{}) (value interface{}, err error) {
+func (n *nutsNode) Lookup(query interface{}) (value interface{}, err error) {
 	var (
-		tx *nutsdb.Tx
-		en *nutsdb.Entry
-		bk []byte
+		t *nutsdb.Tx
+		r *CommandResponse
+		c *CommandRequest
+		e liberr.Error
+
+		ok bool
 	)
 
-	if sk, ok := key.(string); ok {
-		bk = []byte(sk)
-	} else if bk, ok = key.([]byte); !ok {
-		return nil, ErrorDatabaseKeyInvalid.Error(nil)
-	}
-
-	if tx, err = n.newTx(false); err != nil {
-		return nil, err
+	if t, e = n.newTx(true); e != nil {
+		return nil, e
 	}
 
 	defer func() {
-		_ = tx.Rollback()
+		if t != nil {
+			_ = t.Rollback()
+		}
 	}()
 
-	if en, err = tx.Get(_AdminKey_RaftAppliedIndex, bk); err != nil && errors.Is(err, nutsdb.ErrNotFoundKey) {
-		return nil, nil
-	} else if err != nil && errors.Is(err, nutsdb.ErrBucketEmpty) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
+	if c, ok = query.(*CommandRequest); !ok {
+		return nil, ErrorCommandInvalid.Error(nil)
+	} else if r, e = c.RunLocal(t); e != nil {
+		return nil, e
 	} else {
-		return en.Value, nil
+		return r, nil
 	}
 }
 
@@ -259,13 +258,72 @@ func (n *nutsNode) Sync() error {
 }
 
 func (n *nutsNode) PrepareSnapshot() (interface{}, error) {
-	panic("implement me")
+	if n == nil || n.d == nil {
+		return nil, ErrorDatabaseClosed.Error(nil)
+	}
+
+	var sh = newSnap()
+
+	if i := n.d.Load(); i == nil {
+		return nil, ErrorDatabaseClosed.Error(nil)
+	} else if db, ok := i.(*nutsdb.DB); !ok {
+		return nil, ErrorDatabaseClosed.Error(nil)
+	} else if err := sh.Prepare(n.o, db); err != nil {
+		return nil, ErrorDatabaseBackup.ErrorParent(err)
+	} else {
+		return sh, nil
+	}
 }
 
-func (n *nutsNode) SaveSnapshot(i interface{}, writer io.Writer, i2 <-chan struct{}) error {
-	panic("implement me")
+func (n *nutsNode) SaveSnapshot(i interface{}, writer io.Writer, c <-chan struct{}) error {
+	if n == nil || n.d == nil {
+		return ErrorDatabaseClosed.Error(nil)
+	}
+
+	if i == nil {
+		return ErrorParamsEmpty.Error(nil)
+	} else if sh, ok := snapCast(i); !ok {
+		return ErrorParamsMismatching.Error(nil)
+	} else if err := sh.Save(n.o, writer); err != nil {
+		return err
+	} else {
+		sh.Finish()
+	}
+
+	return nil
 }
 
-func (n *nutsNode) RecoverFromSnapshot(reader io.Reader, i <-chan struct{}) error {
-	panic("implement me")
+func (n *nutsNode) RecoverFromSnapshot(reader io.Reader, c <-chan struct{}) error {
+	if n == nil || n.d == nil {
+		return ErrorDatabaseClosed.Error(nil)
+	}
+
+	s := newSnap()
+	defer s.Finish()
+
+	if err := s.Load(n.o, reader); err != nil {
+		return err
+	}
+
+	if i := n.d.Load(); i == nil {
+		if err := s.Apply(n.o); err != nil {
+			return err
+		}
+	} else if db, ok := i.(*nutsdb.DB); !ok {
+		if err := s.Apply(n.o); err != nil {
+			return err
+		}
+	} else {
+		_ = db.Close()
+		if err := s.Apply(n.o); err != nil {
+			return err
+		}
+	}
+
+	//@TODO : check channel is ok....
+	if _, err := n.Open(nil); err != nil {
+		return err
+	}
+
+	return nil
 }

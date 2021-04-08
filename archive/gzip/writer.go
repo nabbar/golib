@@ -25,35 +25,67 @@
  *
  **********************************************************************************************************************/
 
-package nutsdb
+package gzip
 
 import (
-	"sync/atomic"
+	"compress/gzip"
+	"fmt"
+	"io"
+	"os"
 
 	liberr "github.com/nabbar/golib/errors"
+	libiot "github.com/nabbar/golib/ioutils"
 )
 
-type NutsDB interface {
-	Listen() liberr.Error
-	Restart() liberr.Error
-	Shutdown() liberr.Error
+func Create(archive libiot.FileProgress, content ...string) (bool, liberr.Error) {
+	var (
+		w *gzip.Writer
+		f *os.File
 
-	ForceRestart()
-	ForceShutdown()
+		err error
+	)
 
-	IsRunning() bool
-
-	//StatusInfo() (name string, release string, hash string)
-	//StatusHealth() error
-	//StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
-
-	Client() Client
-}
-
-func New(c Config) NutsDB {
-	return &ndb{
-		c: c,
-		t: new(atomic.Value),
-		r: new(atomic.Value),
+	if len(content) != 1 {
+		return false, ErrorParamsMismatching.ErrorParent(fmt.Errorf("content path must be limited to strictly one contents"))
 	}
+
+	if _, err = archive.Seek(0, io.SeekStart); err != nil {
+		return false, ErrorFileSeek.ErrorParent(err)
+	}
+
+	if _, err = os.Stat(content[0]); err != nil {
+		return false, ErrorParamsEmpty.ErrorParent(err)
+	}
+
+	w = gzip.NewWriter(archive)
+
+	defer func() {
+		if w != nil {
+			_ = w.Close()
+		}
+	}()
+
+	if f, err = os.Open(content[0]); err != nil {
+		return false, ErrorFileOpen.ErrorParent(err)
+	}
+
+	defer func() {
+		if f != nil {
+			_ = f.Close()
+		}
+	}()
+
+	if _, err = io.Copy(w, f); err != nil {
+		return false, ErrorIOCopy.ErrorParent(err)
+	}
+
+	if err = w.Close(); err != nil {
+		return false, ErrorGZCreate.ErrorParent(err)
+	}
+
+	if _, err = archive.Seek(0, io.SeekStart); err != nil {
+		return false, ErrorFileSeek.ErrorParent(err)
+	}
+
+	return true, nil
 }
