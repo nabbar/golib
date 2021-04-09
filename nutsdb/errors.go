@@ -35,6 +35,7 @@ const (
 	ErrorParamsMismatching
 	ErrorValidateConfig
 	ErrorValidateNutsDB
+	ErrorClusterInit
 	ErrorFolderCheck
 	ErrorFolderCreate
 	ErrorFolderCopy
@@ -89,6 +90,8 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "config seems to be invalid"
 	case ErrorValidateNutsDB:
 		return "database config seems to be invalid"
+	case ErrorClusterInit:
+		return "cannot start or join cluster"
 	case ErrorFolderCheck:
 		return "error while trying to check or stat folder"
 	case ErrorFolderCreate:

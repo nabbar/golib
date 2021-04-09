@@ -28,9 +28,9 @@
 package nutsdb
 
 import (
-	"encoding/binary"
 	"errors"
 	"io"
+	"strings"
 	"sync/atomic"
 
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
@@ -39,9 +39,8 @@ import (
 )
 
 const (
-	_BucketRaftAdmin           = "_raft"
-	_AdminKey_RaftAppliedIndex = "_raft_applied_index"
-	_BucketData                = "_data"
+	_RaftBucket          = "_raft"
+	_RaftKeyAppliedIndex = "_raft_applied_index"
 )
 
 func newNode(node uint64, cluster uint64, opt Options, fct func(state bool)) dgbstm.IOnDiskStateMachine {
@@ -101,28 +100,49 @@ func (n *nutsNode) getRaftLogIndexLastApplied() (idxRaftlog uint64, err error) {
 		_ = tx.Rollback()
 	}()
 
-	if en, err = tx.Get(_BucketRaftAdmin, []byte(_AdminKey_RaftAppliedIndex)); err != nil && errors.Is(err, nutsdb.ErrBucketEmpty) {
+	if en, err = tx.Get(_RaftBucket, []byte(_RaftKeyAppliedIndex)); err != nil && errors.Is(err, nutsdb.ErrBucketNotFound) {
+		return 0, nil
+	} else if err != nil && errors.Is(err, nutsdb.ErrBucketEmpty) {
 		return 0, nil
 	} else if err != nil && errors.Is(err, nutsdb.ErrNotFoundKey) {
+		return 0, nil
+	} else if err != nil && errors.Is(err, nutsdb.ErrKeyNotFound) {
+		return 0, nil
+	} else if err != nil && errors.Is(err, nutsdb.ErrKeyEmpty) {
+		return 0, nil
+	} else if err != nil && strings.HasPrefix(err.Error(), "not found bucket") {
 		return 0, nil
 	} else if err != nil {
 		return 0, err
 	} else if en.IsZero() {
 		return 0, nil
 	} else {
-		return binary.LittleEndian.Uint64(en.Value), nil
+		return n.btoi64(en.Value), nil
 	}
+}
+
+func (n *nutsNode) i64tob(val uint64) []byte {
+	r := make([]byte, 8)
+	for i := uint64(0); i < 8; i++ {
+		r[i] = byte((val >> (i * 8)) & 0xff)
+	}
+	return r
+}
+
+func (n *nutsNode) btoi64(val []byte) uint64 {
+	r := uint64(0)
+	for i := uint64(0); i < 8; i++ {
+		r |= uint64(val[i]) << (8 * i)
+	}
+	return r
 }
 
 func (n *nutsNode) applyRaftLogIndexLastApplied(idx uint64) error {
 	var (
-		b   []byte
 		e   error
 		tx  *nutsdb.Tx
 		err liberr.Error
 	)
-
-	binary.LittleEndian.PutUint64(b, idx)
 
 	if tx, err = n.newTx(true); err != nil {
 		return err
@@ -132,7 +152,7 @@ func (n *nutsNode) applyRaftLogIndexLastApplied(idx uint64) error {
 		_ = tx.Rollback()
 	}()
 
-	if e = tx.Put(_BucketRaftAdmin, []byte(_AdminKey_RaftAppliedIndex), b, 0); e != nil {
+	if e = tx.Put(_RaftBucket, []byte(_RaftKeyAppliedIndex), n.i64tob(idx), 0); e != nil {
 		return ErrorTransactionPutKey.ErrorParent(e)
 	} else if e = tx.Commit(); e != nil {
 		return ErrorTransactionCommit.ErrorParent(e)
@@ -265,10 +285,13 @@ func (n *nutsNode) PrepareSnapshot() (interface{}, error) {
 	var sh = newSnap()
 
 	if i := n.d.Load(); i == nil {
+		sh.Finish()
 		return nil, ErrorDatabaseClosed.Error(nil)
 	} else if db, ok := i.(*nutsdb.DB); !ok {
+		sh.Finish()
 		return nil, ErrorDatabaseClosed.Error(nil)
 	} else if err := sh.Prepare(n.o, db); err != nil {
+		sh.Finish()
 		return nil, ErrorDatabaseBackup.ErrorParent(err)
 	} else {
 		return sh, nil
@@ -285,6 +308,7 @@ func (n *nutsNode) SaveSnapshot(i interface{}, writer io.Writer, c <-chan struct
 	} else if sh, ok := snapCast(i); !ok {
 		return ErrorParamsMismatching.Error(nil)
 	} else if err := sh.Save(n.o, writer); err != nil {
+		sh.Finish()
 		return err
 	} else {
 		sh.Finish()

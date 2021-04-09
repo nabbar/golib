@@ -102,8 +102,8 @@ func NewCluster(cfg Config, fctCreate interface{}) (Cluster, liberr.Error) {
 		fctCreate:       fctCreate,
 		config:          cfg.GetDGBConfigCluster(),
 		nodeHost:        nil,
-		timeoutCmdSync:  100 * time.Millisecond,
-		timeoutCmdASync: 1 * time.Second,
+		timeoutCmdSync:  10 * time.Second,
+		timeoutCmdASync: 100 * time.Second,
 	}
 
 	if n, e := dgbclt.NewNodeHost(cfg.GetDGBConfigNode()); e != nil {

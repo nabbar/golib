@@ -31,7 +31,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"runtime"
 
 	"github.com/nabbar/golib/archive"
 	liberr "github.com/nabbar/golib/errors"
@@ -51,10 +50,7 @@ type Snapshot interface {
 }
 
 func newSnap() Snapshot {
-	s := &snap{}
-	runtime.SetFinalizer(s, s.Finish)
-
-	return s
+	return &snap{}
 }
 
 func snapCast(i interface{}) (Snapshot, bool) {

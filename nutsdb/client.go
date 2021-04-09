@@ -29,13 +29,11 @@ package nutsdb
 
 import (
 	"context"
+	"time"
 
 	"github.com/lni/dragonboat/v3/statemachine"
-
+	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
-
-	"github.com/lni/dragonboat/v3/client"
-	"github.com/nabbar/golib/cluster"
 	"github.com/xujiajun/nutsdb"
 	"github.com/xujiajun/nutsdb/ds/zset"
 )
@@ -46,9 +44,9 @@ type Client interface {
 
 type clientNutDB struct {
 	x context.Context
-	s *client.Session
-	c cluster.Cluster
-	r bool
+	t time.Duration
+	c func() libclu.Cluster
+	w func(ctx context.Context, tick time.Duration)
 }
 
 func (c *clientNutDB) call(cmd *CommandRequest, read bool) (*CommandResponse, liberr.Error) {
@@ -62,27 +60,26 @@ func (c *clientNutDB) call(cmd *CommandRequest, read bool) (*CommandResponse, li
 		ok bool
 	)
 
-	if p, e = cmd.EncodeRequest(); e != nil {
-		return nil, e
-	}
-
 	if read {
-		if i, e = c.c.SyncRead(c.x, p); e != nil {
+		c.w(c.x, c.t)
+		if i, e = c.c().SyncRead(c.x, cmd); e != nil {
 			return nil, e
 		} else if r, ok = i.(*CommandResponse); !ok {
 			return nil, ErrorClientCommandResponseInvalid.Error(nil)
 		} else {
 			return r, nil
 		}
+	} else if p, e = cmd.EncodeRequest(); e != nil {
+		return nil, e
 	} else {
-		if d, e = c.c.SyncPropose(c.x, c.s, p); e != nil {
+		c.w(c.x, c.t)
+		if d, e = c.c().SyncPropose(c.x, c.c().GetNoOPSession(), p); e != nil {
 			return nil, e
 		} else if r, e = cmd.DecodeResult(d.Data); e != nil {
 			return nil, e
 		} else {
 			return r, nil
 		}
-
 	}
 }
 
@@ -134,7 +131,7 @@ func (c *clientNutDB) Get(bucket string, key []byte) (e *nutsdb.Entry, err error
 	cmd.Params[0] = bucket
 	cmd.Params[1] = key
 
-	if res, err := c.call(cmd, false); err != nil {
+	if res, err := c.call(cmd, true); err != nil {
 		return nil, err
 	} else if res == nil {
 		return nil, nil
@@ -189,17 +186,17 @@ func (c *clientNutDB) FindLeafOnDisk(fID int64, rootOff int64, key, newKey []byt
 	panic("implement me")
 }
 
-func (c *clientNutDB) SAdd(bucket string, key []byte, items ...byte) error {
+func (c *clientNutDB) SAdd(bucket string, key []byte, items ...[]byte) error {
 	//@TODO : implement me !!
 	panic("implement me")
 }
 
-func (c *clientNutDB) SRem(bucket string, key []byte, items ...byte) error {
+func (c *clientNutDB) SRem(bucket string, key []byte, items ...[]byte) error {
 	//@TODO : implement me !!
 	panic("implement me")
 }
 
-func (c *clientNutDB) SAreMembers(bucket string, key []byte, items ...byte) (bool, error) {
+func (c *clientNutDB) SAreMembers(bucket string, key []byte, items ...[]byte) (bool, error) {
 	//@TODO : implement me !!
 	panic("implement me")
 }
@@ -269,12 +266,12 @@ func (c *clientNutDB) RPeek(bucket string, key []byte) (item []byte, err error) 
 	panic("implement me")
 }
 
-func (c *clientNutDB) RPush(bucket string, key []byte, values ...byte) error {
+func (c *clientNutDB) RPush(bucket string, key []byte, values ...[]byte) error {
 	//@TODO : implement me !!
 	panic("implement me")
 }
 
-func (c *clientNutDB) LPush(bucket string, key []byte, values ...byte) error {
+func (c *clientNutDB) LPush(bucket string, key []byte, values ...[]byte) error {
 	//@TODO : implement me !!
 	panic("implement me")
 }

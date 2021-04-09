@@ -25,42 +25,41 @@
  *
  **********************************************************************************************************************/
 
-package nutsdb
+package progress
 
-import (
-	"context"
-	"sync/atomic"
-	"time"
+import liberr "github.com/nabbar/golib/errors"
 
-	libclu "github.com/nabbar/golib/cluster"
-
-	liberr "github.com/nabbar/golib/errors"
+const (
+	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgNutsDB
+	ErrorParamsMissing
+	ErrorParamsMismatching
+	ErrorBarNotInitialized
 )
 
-type NutsDB interface {
-	Listen() liberr.Error
-	Restart() liberr.Error
-	Shutdown() liberr.Error
+var isCodeError = false
 
-	ForceRestart()
-	ForceShutdown()
-
-	IsRunning() bool
-	IsReady(ctx context.Context) bool
-	WaitReady(ctx context.Context, tick time.Duration)
-
-	//StatusInfo() (name string, release string, hash string)
-	//StatusHealth() error
-	//StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
-
-	Cluster() libclu.Cluster
-	Client(ctx context.Context, tickSync time.Duration) Client
+func IsCodeError() bool {
+	return isCodeError
 }
 
-func New(c Config) NutsDB {
-	return &ndb{
-		c: c,
-		t: new(atomic.Value),
-		r: new(atomic.Value),
+func init() {
+	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
+	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+}
+
+func getMessage(code liberr.CodeError) (message string) {
+	switch code {
+	case liberr.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
+		return "at least on given parameters is empty"
+	case ErrorParamsMissing:
+		return "at least on given parameters is missing"
+	case ErrorParamsMismatching:
+		return "at least on given parameters is mismatching awaiting type"
+	case ErrorBarNotInitialized:
+		return "progress bar not initialized"
 	}
+
+	return ""
 }

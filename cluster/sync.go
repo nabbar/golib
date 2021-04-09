@@ -29,6 +29,7 @@ package cluster
 
 import (
 	"context"
+	"time"
 
 	dgbclt "github.com/lni/dragonboat/v3"
 	dgbcli "github.com/lni/dragonboat/v3/client"
@@ -43,9 +44,9 @@ func (c *cRaft) syncCtxTimeout(parent context.Context) (context.Context, context
 	)
 
 	if parent != nil {
-		ctx, cnl = context.WithTimeout(parent, c.timeoutCmdSync)
+		ctx, cnl = context.WithDeadline(parent, time.Now().Add(c.timeoutCmdSync))
 	} else {
-		ctx, cnl = context.WithTimeout(context.Background(), c.timeoutCmdSync)
+		ctx, cnl = context.WithDeadline(context.Background(), time.Now().Add(c.timeoutCmdSync))
 	}
 
 	return ctx, cnl

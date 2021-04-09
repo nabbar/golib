@@ -31,6 +31,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/nabbar/golib/logger"
+
 	"github.com/fxamacker/cbor/v2"
 	liberr "github.com/nabbar/golib/errors"
 	"github.com/xujiajun/nutsdb"
@@ -87,7 +89,9 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 		return nil, ErrorClientCommandInvalid.Error(nil)
 	}
 
-	method := reflect.ValueOf(tx).MethodByName(c.Cmd.Name())
+	valTx := reflect.ValueOf(tx)
+	mtName := c.Cmd.Name()
+	method := valTx.MethodByName(mtName)
 	nbPrm := method.Type().NumIn()
 
 	if len(c.Params) != nbPrm {
@@ -96,7 +100,58 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 
 	params := make([]reflect.Value, nbPrm)
 	for i := 0; i < nbPrm; i++ {
-		params[i] = reflect.ValueOf(c.Params[i])
+		v := reflect.ValueOf(c.Params[i])
+		logger.DebugLevel.Logf("Param %d : type %s - Val %v", i, v.Type().Name(), v.Interface())
+
+		if v.Type().Kind() == method.Type().In(i).Kind() {
+			params[i] = v
+			continue
+		}
+
+		if !v.Type().ConvertibleTo(method.Type().In(i)) {
+			return nil, ErrorClientCommandParamsMismatching.ErrorParent(fmt.Errorf("cmd: %s", mtName), fmt.Errorf("param num: %d", i), fmt.Errorf("param type: %s, avaitting type: %s", v.Type().Kind(), method.Type().In(i).Kind()))
+		}
+
+		switch method.Type().In(i).Kind() {
+		case reflect.Bool:
+			params[i] = reflect.ValueOf(v.Bool())
+		case reflect.Int:
+			params[i] = reflect.ValueOf(int(v.Int()))
+		case reflect.Int8:
+			params[i] = reflect.ValueOf(int8(v.Int()))
+		case reflect.Int16:
+			params[i] = reflect.ValueOf(int8(v.Int()))
+		case reflect.Int32:
+			params[i] = reflect.ValueOf(int16(v.Int()))
+		case reflect.Int64:
+			params[i] = reflect.ValueOf(v.Int())
+		case reflect.Uintptr:
+			params[i] = reflect.ValueOf(v.UnsafeAddr())
+		case reflect.Uint:
+			params[i] = reflect.ValueOf(uint(v.Uint()))
+		case reflect.Uint8:
+			params[i] = reflect.ValueOf(uint8(v.Uint()))
+		case reflect.Uint16:
+			params[i] = reflect.ValueOf(uint16(v.Uint()))
+		case reflect.Uint32:
+			params[i] = reflect.ValueOf(uint32(v.Uint()))
+		case reflect.Uint64:
+			params[i] = reflect.ValueOf(v.Uint())
+		case reflect.Float32:
+			params[i] = reflect.ValueOf(float32(v.Float()))
+		case reflect.Float64:
+			params[i] = reflect.ValueOf(v.Float())
+		case reflect.Complex64:
+			params[i] = reflect.ValueOf(complex64(v.Complex()))
+		case reflect.Complex128:
+			params[i] = reflect.ValueOf(v.Complex())
+		case reflect.Interface:
+			params[i] = reflect.ValueOf(v.Interface())
+		case reflect.String:
+			params[i] = reflect.ValueOf(v.String())
+		}
+
+		logger.DebugLevel.Logf("Change Param %d : type %s to %v", i, v.Type().Name(), params[i].Type().Name())
 	}
 
 	resp := method.Call(params)

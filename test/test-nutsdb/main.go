@@ -30,24 +30,37 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
-	libsem "github.com/nabbar/golib/semaphore"
-
-	liberr "github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/logger"
 
 	libclu "github.com/nabbar/golib/cluster"
+	liberr "github.com/nabbar/golib/errors"
 	libndb "github.com/nabbar/golib/nutsdb"
+	"github.com/nabbar/golib/progress"
+	"github.com/vbauerster/mpb/v5"
 	"github.com/xujiajun/nutsdb"
 )
 
 const (
 	BaseDirPattern = "/nutsdb/node-%d"
 	NbInstances    = 3
+	NbEntries      = 100000
+)
+
+var (
+	bg = new(atomic.Value)
+	bp = new(atomic.Value)
 )
 
 func init() {
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
+	logger.SetLevel(logger.WarnLevel)
+	logger.AddGID(true)
+	logger.EnableColor()
+	logger.FileTrace(true)
+	logger.Timestamp(true)
 }
 
 func main() {
@@ -59,31 +72,37 @@ func main() {
 		}
 	}()
 
+	tStart := time.Now()
 	cluster := Start(ctx)
-	clilst := make([]libndb.Client, NbInstances)
+	tInit := time.Since(tStart)
 
-	for i := 0; i < NbInstances; i++ {
-		clilst[i] = cluster[i].Client()
-	}
+	pgb := progress.NewProgressBarWithContext(ctx, mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
+	barPut := pgb.NewBarSimpleCounter("PutEntry", int64(NbEntries))
+	defer barPut.DeferMain(false)
 
-	s := libsem.NewSemaphoreWithContext(ctx, 0)
-	defer s.DeferMain()
-
-	for i := 0; i < 100; i++ {
-		if e := s.NewWorker(); e != nil {
+	tStart = time.Now()
+	for i := 0; i < NbEntries; i++ {
+		if e := barPut.NewWorker(); e != nil {
 			continue
 		}
 
-		go func(sem libsem.Sem, cli libndb.Client, num int) {
-			defer sem.DeferWorker()
-			Put(cli, fmt.Sprintf("key-%3d", num), fmt.Sprintf("val-%3d", num))
-		}(s, clilst[i%3], i)
+		go func(ctx context.Context, bar progress.Bar, clu libndb.NutsDB, num int) {
+			defer bar.DeferWorker()
+			Put(ctx, clu, fmt.Sprintf("key-%3d", num), fmt.Sprintf("val-%03d", num))
+		}(ctx, barPut, cluster[i%3], i)
 	}
 
-	time.Sleep(5 * time.Second)
+	if e := barPut.WaitAll(); e != nil {
+		panic(e)
+	}
+	tPut := time.Since(tStart)
 
-	for i := 0; i < 100; i++ {
-		if e := s.NewWorker(); e != nil {
+	barGet := pgb.NewBarSimpleCounter("GetEntry", int64(NbEntries))
+	defer barGet.DeferMain(false)
+
+	tStart = time.Now()
+	for i := 0; i < NbEntries; i++ {
+		if e := barGet.NewWorker(); e != nil {
 			continue
 		}
 
@@ -92,50 +111,47 @@ func main() {
 			c = 0
 		}
 
-		go func(sem libsem.Sem, cli libndb.Client, num int) {
-			defer sem.DeferWorker()
-			Get(cli, fmt.Sprintf("key-%3d", num))
-		}(s, clilst[c], i)
+		go func(ctx context.Context, bar progress.Bar, clu libndb.NutsDB, num int) {
+			defer bar.DeferWorker()
+			Get(ctx, clu, fmt.Sprintf("key-%3d", num))
+		}(ctx, barGet, cluster[c], i)
 	}
 
-	if e := s.WaitAll(); e != nil {
+	if e := barGet.WaitAll(); e != nil {
 		panic(e)
 	}
+	tGet := time.Since(tStart)
+
+	time.Sleep(10 * time.Second)
+
+	println(fmt.Sprintf("Time for init cluster: %s", tInit.String()))
+	println(fmt.Sprintf("Time for %d Put in DB: %s", NbEntries, tPut.String()))
+	println(fmt.Sprintf("Time for %d Get in DB: %s", NbEntries, tGet.String()))
 }
 
-func Put(c libndb.Client, key, val string) {
-	fmt.Printf("Cmd Put(%s, %s) : %v", key, val, c.Put("myBucket", []byte(key), []byte(val), 0))
+func Put(ctx context.Context, c libndb.NutsDB, key, val string) {
+	_ = c.Client(ctx, 100*time.Microsecond).Put("myBucket", []byte(key), []byte(val), 0)
+	//res := c.Client(ctx, 100*time.Microsecond).Put("myBucket", []byte(key), []byte(val), 0)
+	//fmt.Printf("Cmd Put(%s, %s) : %v\n", key, val, res)
 }
 
-func Get(c libndb.Client, key string) {
-	v, e := c.Get("myBucket", []byte(key))
-	fmt.Printf("Cmd Get(%s) : %v --- err : %v", key, v, e)
+func Get(ctx context.Context, c libndb.NutsDB, key string) {
+	_, _ = c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
+	//v, e := c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
+	//fmt.Printf("Cmd Get(%s) : %v --- err : %v\n", key, string(v.Value), e)
 }
 
 func Start(ctx context.Context) []libndb.NutsDB {
 	var clusters = make([]libndb.NutsDB, NbInstances)
 
-	s := libsem.NewSemaphoreWithContext(ctx, 0)
-	defer s.DeferMain()
-
 	for i := 0; i < NbInstances; i++ {
-		if err := s.NewWorker(); err != nil {
+		clusters[i] = initNutDB(i + 1)
+
+		if err := clusters[i].Listen(); err != nil {
 			panic(err)
 		}
 
-		clusters[i] = initNutDB(i + 1)
-
-		go func(clu libndb.NutsDB, sem libsem.Sem) {
-			defer sem.DeferWorker()
-			if err := clu.Listen(); err != nil {
-				panic(err)
-			}
-
-		}(clusters[i], s)
-	}
-
-	if err := s.WaitAll(); err != nil {
-		panic(err)
+		time.Sleep(5 * time.Second)
 	}
 
 	return clusters
@@ -165,7 +181,7 @@ func configNutDB() libndb.Config {
 				DeploymentID:                  0,
 				WALDir:                        "",
 				NodeHostDir:                   "",
-				RTTMillisecond:                1,
+				RTTMillisecond:                200,
 				RaftAddress:                   "",
 				AddressByNodeHostID:           false,
 				ListenAddress:                 "",
@@ -173,7 +189,7 @@ func configNutDB() libndb.Config {
 				CAFile:                        "",
 				CertFile:                      "",
 				KeyFile:                       "",
-				EnableMetrics:                 false,
+				EnableMetrics:                 true,
 				MaxSendQueueSize:              0,
 				MaxReceiveQueueSize:           0,
 				MaxSnapshotSendBytesPerSecond: 0,
@@ -200,23 +216,23 @@ func configNutDB() libndb.Config {
 				NodeID:                  0,
 				ClusterID:               1,
 				CheckQuorum:             true,
-				ElectionRTT:             0,
-				HeartbeatRTT:            0,
-				SnapshotEntries:         0,
+				ElectionRTT:             15,
+				HeartbeatRTT:            1,
+				SnapshotEntries:         10,
 				CompactionOverhead:      0,
 				OrderedConfigChange:     false,
 				MaxInMemLogSize:         0,
 				SnapshotCompressionType: 0,
 				EntryCompressionType:    0,
-				DisableAutoCompactions:  false,
+				DisableAutoCompactions:  true,
 				IsObserver:              false,
 				IsWitness:               false,
 				Quiesce:                 false,
 			},
 			InitMember: map[uint64]string{
-				1: "0.0.0.0:9001",
-				2: "0.0.0.0:9002",
-				3: "0.0.0.0:9003",
+				1: "localhost:9001",
+				2: "localhost:9002",
+				3: "localhost:9003",
 			},
 		},
 
