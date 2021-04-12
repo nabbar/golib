@@ -29,7 +29,7 @@ package bz2
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Archive + 10
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive + 10
 	ErrorFileSeek
 	ErrorIOCopy
 )

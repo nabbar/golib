@@ -29,7 +29,7 @@ package version
 import errors "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Version
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgVersion
 	ErrorGoVersionInit
 	ErrorGoVersionRuntime
 	ErrorGoVersionConstraint

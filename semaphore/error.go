@@ -29,7 +29,7 @@ package semaphore
 import errors "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Semaphore
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgSemaphore
 	ErrorWorkerNew
 	ErrorWorkerWaitAll
 )

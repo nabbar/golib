@@ -29,7 +29,7 @@ package certificates
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Certif
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgCertificate
 	ErrorFileStat
 	ErrorFileRead
 	ErrorFileEmpty

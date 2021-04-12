@@ -29,7 +29,7 @@ package static
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Static
+	EMPTY_PARAMS errors.CodeError = iota + errors.MinPkgStatic
 	EMPTY_PACKED
 	INDEX_NOT_FOUND
 	INDEX_REQUESTED_NOT_SET

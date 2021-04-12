@@ -29,7 +29,7 @@ package router
 import errors "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Router
+	EMPTY_PARAMS errors.CodeError = iota + errors.MinPkgRouter
 	HEADER_AUTH_MISSING
 	HEADER_AUTH_EMPTY
 	HEADER_AUTH_REQUIRE

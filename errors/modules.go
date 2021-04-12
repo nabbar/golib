@@ -27,25 +27,27 @@
 package errors
 
 const (
-	MIN_PKG_Archive    = 100
-	MIN_PKG_Artifact   = 200
-	MIN_PKG_Certif     = 300
-	MIN_PKG_Console    = 400
-	MIN_PKG_Crypt      = 500
-	MIN_PKG_Httpcli    = 600
-	MIN_PKG_Httpserver = 700
-	MIN_PKG_IOUtils    = 800
-	MIN_PKG_LDAP       = 900
-	MIN_PKG_Mail       = 1000
-	MIN_PKG_Mailer     = 1100
-	MIN_PKG_Network    = 1200
-	MIN_PKG_OAuth      = 1300
-	MIN_PKG_Aws        = 1400
-	MIN_PKG_Router     = 1500
-	MIN_PKG_Semaphore  = 1600
-	MIN_PKG_SMTP       = 1700
-	MIN_PKG_Static     = 1800
-	MIN_PKG_Version    = 1900
+	MinPkgArchive     = 100
+	MinPkgArtifact    = 200
+	MinPkgCertificate = 300
+	MinPkgCluster     = 400
+	MinPkgConsole     = 500
+	MinPkgCrypt       = 600
+	MinPkgHttpCli     = 700
+	MinPkgHttpServer  = 800
+	MinPkgIOUtils     = 900
+	MinPkgLDAP        = 1000
+	MinPkgMail        = 1100
+	MinPkgMailer      = 1200
+	MinPkgNetwork     = 1300
+	MinPkgNutsDB      = 1400
+	MinPkgOAuth       = 1500
+	MinPkgAws         = 1600
+	MinPkgRouter      = 1700
+	MinPkgSemaphore   = 1800
+	MinPkgSMTP        = 1900
+	MinPkgStatic      = 2000
+	MinPkgVersion     = 2100
 
 	MIN_AVAILABLE = 4000
 )
