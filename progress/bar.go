@@ -26,6 +26,7 @@
 package progress
 
 import (
+	"sync/atomic"
 	"time"
 
 	"github.com/nabbar/golib/errors"
@@ -34,10 +35,10 @@ import (
 )
 
 type bar struct {
-	i time.Time
+	i *atomic.Value
 	s semaphore.Sem
 	t int64
-	b *mpb.Bar
+	b *atomic.Value
 	u bool
 	w bool
 }
@@ -63,59 +64,135 @@ type Bar interface {
 }
 
 func newBar(b *mpb.Bar, s semaphore.Sem, total int64, isModeUnic bool) Bar {
+	mpbBar := new(atomic.Value)
+	mpbBar.Store(b)
+
 	return &bar{
 		u: total > 0,
 		t: total,
-		b: b,
+		b: mpbBar,
 		s: s,
 		w: isModeUnic,
+		i: new(atomic.Value),
+	}
+}
+
+func (b *bar) storeTime(ts time.Time) {
+	if b.i == nil {
+		b.i = new(atomic.Value)
+	}
+
+	b.i.Store(ts)
+}
+
+func (b *bar) loadTime() time.Time {
+	if b.i == nil {
+		b.i = new(atomic.Value)
+	}
+
+	if i := b.i.Load(); i == nil {
+		return semaphore.EmptyTime()
+	} else if ts, ok := i.(time.Time); !ok {
+		return semaphore.EmptyTime()
+	} else {
+		return ts
+	}
+}
+
+func (b *bar) storeBar(mpbBar *mpb.Bar) {
+	if b.b == nil {
+		b.b = new(atomic.Value)
+	}
+
+	b.b.Store(mpbBar)
+}
+
+func (b *bar) loadBar() *mpb.Bar {
+	if b.b == nil {
+		b.b = new(atomic.Value)
+	}
+
+	if i := b.b.Load(); i == nil {
+		return nil
+	} else if mpbBar, ok := i.(*mpb.Bar); !ok {
+		return nil
+	} else {
+		return mpbBar
 	}
 }
 
 func (b bar) GetBarMPB() *mpb.Bar {
-	return b.b
+	return b.loadBar()
 }
 
 func (b bar) Current() int64 {
-	return b.b.Current()
+	if mpgBar := b.loadBar(); mpgBar == nil {
+		return 0
+	} else {
+		return mpgBar.Current()
+	}
 }
 
 func (b bar) Completed() bool {
-	return b.b.Completed()
+	if mpgBar := b.loadBar(); mpgBar == nil {
+		return false
+	} else {
+		return mpgBar.Completed()
+	}
 }
 
 func (b *bar) Increment(n int) {
 	if n > 0 {
-		b.b.IncrBy(n)
+		var mpgBar *mpb.Bar
 
-		if b.i != semaphore.EmptyTime() {
-			b.b.DecoratorEwmaUpdate(time.Since(b.i))
+		if mpgBar = b.loadBar(); mpgBar == nil {
+			panic(ErrorBarNotInitialized.Error(nil))
 		}
-	}
 
-	b.i = time.Now()
+		mpgBar.IncrBy(n)
+
+		if b.loadTime() == semaphore.EmptyTime() {
+			b.storeTime(time.Now())
+			mpgBar.DecoratorEwmaUpdate(time.Since(b.loadTime()))
+		}
+
+		b.storeBar(mpgBar)
+	}
 }
 
 func (b *bar) Increment64(n int64) {
 	if n > 0 {
-		b.b.IncrInt64(n)
+		var mpgBar *mpb.Bar
 
-		if b.i != semaphore.EmptyTime() {
-			b.b.DecoratorEwmaUpdate(time.Since(b.i))
+		if mpgBar = b.loadBar(); mpgBar == nil {
+			panic(ErrorBarNotInitialized.Error(nil))
 		}
-	}
 
-	b.i = time.Now()
+		mpgBar.IncrInt64(n)
+
+		if b.loadTime() == semaphore.EmptyTime() {
+			b.storeTime(time.Now())
+			mpgBar.DecoratorEwmaUpdate(time.Since(b.loadTime()))
+		}
+
+		b.storeBar(mpgBar)
+	}
 }
 
 func (b *bar) ResetDefined(current int64) {
-	if current >= b.t {
-		b.b.SetTotal(b.t, true)
-		b.b.SetRefill(b.t)
+	var mpgBar *mpb.Bar
+
+	if mpgBar = b.loadBar(); mpgBar == nil {
+		return
+	} else if current >= b.t {
+		mpgBar.SetTotal(b.t, true)
+		mpgBar.SetRefill(b.t)
 	} else {
-		b.b.SetTotal(b.t, false)
-		b.b.SetRefill(current)
+		mpgBar.SetTotal(b.t, false)
+		mpgBar.SetRefill(current)
 	}
+
+	b.storeBar(mpgBar)
 }
 
 func (b *bar) Reset(total, current int64) {
@@ -125,14 +202,28 @@ func (b *bar) Reset(total, current int64) {
 }
 
 func (b *bar) Done() {
-	b.b.SetRefill(b.t)
-	b.b.SetTotal(b.t, true)
+	var mpgBar *mpb.Bar
+
+	if mpgBar = b.loadBar(); mpgBar == nil {
+		return
+	}
+
+	mpgBar.SetRefill(b.t)
+	mpgBar.SetTotal(b.t, true)
+	b.storeBar(mpgBar)
 }
 
 func (b *bar) NewWorker() errors.Error {
+	var mpgBar *mpb.Bar
+
 	if !b.u {
 		b.t++
-		b.b.SetTotal(b.t, false)
+		if mpgBar = b.loadBar(); mpgBar == nil {
+			return ErrorBarNotInitialized.Error(nil)
+		} else {
+			mpgBar.SetTotal(b.t, false)
+			b.storeBar(mpgBar)
+		}
 	}
 
 	if !b.w {
@@ -143,7 +234,6 @@ func (b *bar) NewWorker() errors.Error {
 }
 
 func (b *bar) NewWorkerTry() bool {
-
 	if !b.w {
 		return b.s.NewWorkerTry()
 	}
@@ -157,7 +247,15 @@ func (b *bar) DeferWorker() {
 }
 
 func (b *bar) DeferMain(dropBar bool) {
-	b.b.Abort(dropBar)
+	var mpgBar *mpb.Bar
+
+	if mpgBar = b.loadBar(); mpgBar == nil {
+		return
+	} else {
+		mpgBar.Abort(dropBar)
+		b.storeBar(mpgBar)
+	}
+
 	if !b.w {
 		b.s.DeferMain()
 	}
