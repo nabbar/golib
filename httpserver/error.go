@@ -29,7 +29,7 @@ package httpserver
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Httpserver
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgHttpServer
 	ErrorHTTP2Configure
 	ErrorPoolAdd
 	ErrorPoolValidate

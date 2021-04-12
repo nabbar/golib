@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	ErrorEmptyParams errors.CodeError = iota + errors.MIN_PKG_OAuth
+	ErrorEmptyParams errors.CodeError = iota + errors.MinPkgOAuth
 	ErrorOAuthExchange
 )
 
