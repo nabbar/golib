@@ -30,6 +30,7 @@ package nutsdb
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 
 	"github.com/nabbar/golib/logger"
 
@@ -60,6 +61,54 @@ func NewCommandByDecode(p []byte) (*CommandRequest, liberr.Error) {
 	}
 
 	return &d, nil
+}
+
+func NewCommandByCaller(params ...interface{}) *CommandRequest {
+	pc := make([]uintptr, 10) // at least 1 entry needed
+	runtime.Callers(2, pc)
+	f := runtime.FuncForPC(pc[0])
+
+	d := &CommandRequest{}
+	d.Cmd = CmdCodeFromName(f.Name())
+
+	if len(params) > 0 {
+		d.Params = params
+	}
+
+	return d
+}
+
+func (c *CommandRequest) InitParams(num int) {
+	c.Params = make([]interface{}, num)
+}
+
+func (c *CommandRequest) InitParamsCounter(num int) int {
+	c.InitParams(num)
+	return 0
+}
+
+func (c *CommandRequest) SetParams(num int, val interface{}) {
+	if num < len(c.Params) {
+		c.Params[num] = val
+		return
+	}
+
+	tmp := c.Params
+	c.Params = make([]interface{}, len(c.Params)+1)
+
+	if len(tmp) > 0 {
+		for i := 0; i < len(tmp); i++ {
+			c.Params[i] = tmp[i]
+		}
+	}
+
+	c.Params[num] = val
+}
+
+func (c *CommandRequest) SetParamsInc(num int, val interface{}) int {
+	c.SetParams(num, val)
+	num++
+	return num
 }
 
 func (c *CommandRequest) EncodeRequest() ([]byte, liberr.Error) {

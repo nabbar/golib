@@ -84,309 +84,1329 @@ func (c *clientNutDB) call(cmd *CommandRequest, read bool) (*CommandResponse, li
 }
 
 func (c *clientNutDB) Put(bucket string, key, value []byte, ttl uint32) error {
-	cmd := NewCommand()
-	cmd.Cmd = CmdPut
-	cmd.Params = make([]interface{}, 4)
-	cmd.Params[0] = bucket
-	cmd.Params[1] = key
-	cmd.Params[2] = value
-	cmd.Params[3] = ttl
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
 
-	if res, err := c.call(cmd, false); err != nil {
-		return err
-	} else if res == nil {
+	d = NewCommandByCaller(bucket, key, value, ttl)
+
+	if r, f = c.call(d, false); f != nil {
+		return f
+	} else if r == nil {
 		return nil
-	} else if res.Error != nil {
-		return res.Error
+	} else if r.Error != nil {
+		return r.Error
 	}
 
 	return nil
 }
 
 func (c *clientNutDB) PutWithTimestamp(bucket string, key, value []byte, ttl uint32, timestamp uint64) error {
-	cmd := NewCommand()
-	cmd.Cmd = CmdPutWithTimestamp
-	cmd.Params = make([]interface{}, 5)
-	cmd.Params[0] = bucket
-	cmd.Params[1] = key
-	cmd.Params[2] = value
-	cmd.Params[3] = ttl
-	cmd.Params[4] = timestamp
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
 
-	if res, err := c.call(cmd, false); err != nil {
-		return err
-	} else if res == nil {
+	d = NewCommandByCaller(bucket, key, value, ttl, timestamp)
+
+	if r, f = c.call(d, false); f != nil {
+		return f
+	} else if r == nil {
 		return nil
-	} else if res.Error != nil {
-		return res.Error
+	} else if r.Error != nil {
+		return r.Error
 	}
 
 	return nil
 }
 
 func (c *clientNutDB) Get(bucket string, key []byte) (e *nutsdb.Entry, err error) {
-	cmd := NewCommand()
-	cmd.Cmd = CmdGet
-	cmd.Params = make([]interface{}, 2)
-	cmd.Params[0] = bucket
-	cmd.Params[1] = key
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
 
-	if res, err := c.call(cmd, true); err != nil {
-		return nil, err
-	} else if res == nil {
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
 		return nil, nil
-	} else if res.Error != nil {
-		return nil, res.Error
-	} else if len(res.Value) < 1 || res.Value[0] == nil {
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
 		return nil, nil
-	} else if e, ok := res.Value[0].(*nutsdb.Entry); !ok {
-		return nil, nil
-	} else {
-		return e, nil
 	}
+
+	if e, k = r.Value[0].(*nutsdb.Entry); !k {
+		e = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) GetAll(bucket string) (entries nutsdb.Entries, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if entries, k = r.Value[0].(nutsdb.Entries); !k {
+		entries = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) RangeScan(bucket string, start, end []byte) (es nutsdb.Entries, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, start, end)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if es, k = r.Value[0].(nutsdb.Entries); !k {
+		es = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) PrefixScan(bucket string, prefix []byte, offsetNum int, limitNum int) (es nutsdb.Entries, off int, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, prefix, offsetNum, limitNum)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, 0, f
+	} else if r == nil {
+		return nil, 0, nil
+	} else if r.Error != nil {
+		return nil, 0, r.Error
+	} else if len(r.Value) < 2 {
+		return nil, 0, nil
+	}
+
+	if es, k = r.Value[0].(nutsdb.Entries); !k {
+		es = nil
+	}
+
+	if off, k = r.Value[1].(int); !k {
+		off = 0
+	}
+
+	return
 }
 
 func (c *clientNutDB) PrefixSearchScan(bucket string, prefix []byte, reg string, offsetNum int, limitNum int) (es nutsdb.Entries, off int, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, prefix, reg, offsetNum, limitNum)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, 0, f
+	} else if r == nil {
+		return nil, 0, nil
+	} else if r.Error != nil {
+		return nil, 0, r.Error
+	} else if len(r.Value) < 2 {
+		return nil, 0, nil
+	}
+
+	if es, k = r.Value[0].(nutsdb.Entries); !k {
+		es = nil
+	}
+
+	if off, k = r.Value[1].(int); !k {
+		off = 0
+	}
+
+	return
 }
 
 func (c *clientNutDB) Delete(bucket string, key []byte) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 func (c *clientNutDB) FindTxIDOnDisk(fID, txID uint64) (ok bool, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(fID, txID)
+
+	if r, f = c.call(d, true); f != nil {
+		return false, f
+	} else if r == nil {
+		return false, nil
+	} else if r.Error != nil {
+		return false, r.Error
+	} else if len(r.Value) < 1 {
+		return false, nil
+	}
+
+	if ok, k = r.Value[0].(bool); !k {
+		ok = false
+	}
+
+	return
 }
 
 func (c *clientNutDB) FindOnDisk(fID uint64, rootOff uint64, key, newKey []byte) (entry *nutsdb.Entry, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(fID, rootOff, key, newKey)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if entry, k = r.Value[0].(*nutsdb.Entry); !k {
+		entry = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) FindLeafOnDisk(fID int64, rootOff int64, key, newKey []byte) (bn *nutsdb.BinaryNode, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(fID, rootOff, key, newKey)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if bn, k = r.Value[0].(*nutsdb.BinaryNode); !k {
+		bn = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) SAdd(bucket string, key []byte, items ...[]byte) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, items)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 func (c *clientNutDB) SRem(bucket string, key []byte, items ...[]byte) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, items)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
-func (c *clientNutDB) SAreMembers(bucket string, key []byte, items ...[]byte) (bool, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) SAreMembers(bucket string, key []byte, items ...[]byte) (ok bool, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, items)
+
+	if r, f = c.call(d, true); f != nil {
+		return false, f
+	} else if r == nil {
+		return false, nil
+	} else if r.Error != nil {
+		return false, r.Error
+	} else if len(r.Value) < 1 {
+		return false, nil
+	}
+
+	if ok, k = r.Value[0].(bool); !k {
+		ok = false
+	}
+
+	return
 }
 
-func (c *clientNutDB) SIsMember(bucket string, key, item []byte) (bool, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) SIsMember(bucket string, key, item []byte) (ok bool, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, item)
+
+	if r, f = c.call(d, true); f != nil {
+		return false, f
+	} else if r == nil {
+		return false, nil
+	} else if r.Error != nil {
+		return false, r.Error
+	} else if len(r.Value) < 1 {
+		return false, nil
+	}
+
+	if ok, k = r.Value[0].(bool); !k {
+		ok = false
+	}
+
+	return
 }
 
 func (c *clientNutDB) SMembers(bucket string, key []byte) (list [][]byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].([][]byte); !k {
+		list = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) SHasKey(bucket string, key []byte) (bool, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) SHasKey(bucket string, key []byte) (ok bool, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return false, f
+	} else if r == nil {
+		return false, nil
+	} else if r.Error != nil {
+		return false, r.Error
+	} else if len(r.Value) < 1 {
+		return false, nil
+	}
+
+	if ok, k = r.Value[0].(bool); !k {
+		ok = false
+	}
+
+	return
 }
 
-func (c *clientNutDB) SPop(bucket string, key []byte) ([]byte, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) SPop(bucket string, key []byte) (val []byte, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if val, k = r.Value[0].([]byte); !k {
+		val = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) SCard(bucket string, key []byte) (int, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) SCard(bucket string, key []byte) (card int, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return 0, f
+	} else if r == nil {
+		return 0, nil
+	} else if r.Error != nil {
+		return 0, r.Error
+	} else if len(r.Value) < 1 {
+		return 0, nil
+	}
+
+	if card, k = r.Value[0].(int); !k {
+		card = 0
+	}
+
+	return
 }
 
 func (c *clientNutDB) SDiffByOneBucket(bucket string, key1, key2 []byte) (list [][]byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key1, key2)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].([][]byte); !k {
+		list = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) SDiffByTwoBuckets(bucket1 string, key1 []byte, bucket2 string, key2 []byte) (list [][]byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket1, key1, bucket2, key2)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].([][]byte); !k {
+		list = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) SMoveByOneBucket(bucket string, key1, key2, item []byte) (bool, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) SMoveByOneBucket(bucket string, key1, key2, item []byte) (ok bool, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key1, key2, item)
+
+	if r, f = c.call(d, true); f != nil {
+		return false, f
+	} else if r == nil {
+		return false, nil
+	} else if r.Error != nil {
+		return false, r.Error
+	} else if len(r.Value) < 1 {
+		return false, nil
+	}
+
+	if ok, k = r.Value[0].(bool); !k {
+		ok = false
+	}
+
+	return
 }
 
-func (c *clientNutDB) SMoveByTwoBuckets(bucket1 string, key1 []byte, bucket2 string, key2, item []byte) (bool, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) SMoveByTwoBuckets(bucket1 string, key1 []byte, bucket2 string, key2, item []byte) (ok bool, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket1, key1, bucket2, key2, item)
+
+	if r, f = c.call(d, true); f != nil {
+		return false, f
+	} else if r == nil {
+		return false, nil
+	} else if r.Error != nil {
+		return false, r.Error
+	} else if len(r.Value) < 1 {
+		return false, nil
+	}
+
+	if ok, k = r.Value[0].(bool); !k {
+		ok = false
+	}
+
+	return
 }
 
 func (c *clientNutDB) SUnionByOneBucket(bucket string, key1, key2 []byte) (list [][]byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key1, key2)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].([][]byte); !k {
+		list = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) SUnionByTwoBuckets(bucket1 string, key1 []byte, bucket2 string, key2 []byte) (list [][]byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket1, key1, bucket2, key2)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].([][]byte); !k {
+		list = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) RPop(bucket string, key []byte) (item []byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].([]byte); !k {
+		item = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) RPeek(bucket string, key []byte) (item []byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].([]byte); !k {
+		item = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) RPush(bucket string, key []byte, values ...[]byte) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, values)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 func (c *clientNutDB) LPush(bucket string, key []byte, values ...[]byte) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, values)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 func (c *clientNutDB) LPop(bucket string, key []byte) (item []byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].([]byte); !k {
+		item = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) LPeek(bucket string, key []byte) (item []byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].([]byte); !k {
+		item = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) LSize(bucket string, key []byte) (int, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) LSize(bucket string, key []byte) (size int, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return 0, f
+	} else if r == nil {
+		return 0, nil
+	} else if r.Error != nil {
+		return 0, r.Error
+	} else if len(r.Value) < 1 {
+		return 0, nil
+	}
+
+	if size, k = r.Value[0].(int); !k {
+		size = 0
+	}
+
+	return
 }
 
 func (c *clientNutDB) LRange(bucket string, key []byte, start, end int) (list [][]byte, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, start, end)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].([][]byte); !k {
+		list = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) LRem(bucket string, key []byte, count int, value []byte) (removedNum int, err error) {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, count, value)
+
+	if r, f = c.call(d, true); f != nil {
+		return 0, f
+	} else if r == nil {
+		return 0, nil
+	} else if r.Error != nil {
+		return 0, r.Error
+	} else if len(r.Value) < 1 {
+		return 0, nil
+	}
+
+	if removedNum, k = r.Value[0].(int); !k {
+		removedNum = 0
+	}
+
+	return
 }
 
 func (c *clientNutDB) LSet(bucket string, key []byte, index int, value []byte) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, index, value)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 func (c *clientNutDB) LTrim(bucket string, key []byte, start, end int) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, start, end)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 func (c *clientNutDB) ZAdd(bucket string, key []byte, score float64, val []byte) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key, score, val)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
-func (c *clientNutDB) ZMembers(bucket string) (map[string]*zset.SortedSetNode, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZMembers(bucket string) (list map[string]*zset.SortedSetNode, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].(map[string]*zset.SortedSetNode); !k {
+		list = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZCard(bucket string) (int, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZCard(bucket string) (card int, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket)
+
+	if r, f = c.call(d, true); f != nil {
+		return 0, f
+	} else if r == nil {
+		return 0, nil
+	} else if r.Error != nil {
+		return 0, r.Error
+	} else if len(r.Value) < 1 {
+		return 0, nil
+	}
+
+	if card, k = r.Value[0].(int); !k {
+		card = 0
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZCount(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) (int, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZCount(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) (number int, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, start, end, opts)
+
+	if r, f = c.call(d, true); f != nil {
+		return 0, f
+	} else if r == nil {
+		return 0, nil
+	} else if r.Error != nil {
+		return 0, r.Error
+	} else if len(r.Value) < 1 {
+		return 0, nil
+	}
+
+	if number, k = r.Value[0].(int); !k {
+		number = 0
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZPopMax(bucket string) (*zset.SortedSetNode, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZPopMax(bucket string) (item *zset.SortedSetNode, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+		item = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZPopMin(bucket string) (*zset.SortedSetNode, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZPopMin(bucket string) (item *zset.SortedSetNode, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+		item = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZPeekMax(bucket string) (*zset.SortedSetNode, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZPeekMax(bucket string) (item *zset.SortedSetNode, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+		item = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZPeekMin(bucket string) (*zset.SortedSetNode, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZPeekMin(bucket string) (item *zset.SortedSetNode, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+		item = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZRangeByScore(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) ([]*zset.SortedSetNode, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZRangeByScore(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) (list []*zset.SortedSetNode, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, start, end, opts)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].([]*zset.SortedSetNode); !k {
+		list = nil
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZRangeByRank(bucket string, start, end int) ([]*zset.SortedSetNode, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZRangeByRank(bucket string, start, end int) (list []*zset.SortedSetNode, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, start, end)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if list, k = r.Value[0].([]*zset.SortedSetNode); !k {
+		list = nil
+	}
+
+	return
 }
 
 func (c *clientNutDB) ZRem(bucket, key string) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
 func (c *clientNutDB) ZRemRangeByRank(bucket string, start, end int) error {
-	//@TODO : implement me !!
-	panic("implement me")
+	var (
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, start, end)
+
+	if r, f = c.call(d, true); f != nil {
+		return f
+	} else if r == nil {
+		return nil
+	} else if r.Error != nil {
+		return r.Error
+	}
+
+	return nil
 }
 
-func (c *clientNutDB) ZRank(bucket string, key []byte) (int, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZRank(bucket string, key []byte) (rank int, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return 0, f
+	} else if r == nil {
+		return 0, nil
+	} else if r.Error != nil {
+		return 0, r.Error
+	} else if len(r.Value) < 1 {
+		return 0, nil
+	}
+
+	if rank, k = r.Value[0].(int); !k {
+		rank = 0
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZRevRank(bucket string, key []byte) (int, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZRevRank(bucket string, key []byte) (rank int, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return 0, f
+	} else if r == nil {
+		return 0, nil
+	} else if r.Error != nil {
+		return 0, r.Error
+	} else if len(r.Value) < 1 {
+		return 0, nil
+	}
+
+	if rank, k = r.Value[0].(int); !k {
+		rank = 0
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZScore(bucket string, key []byte) (float64, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZScore(bucket string, key []byte) (score float64, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return 0, f
+	} else if r == nil {
+		return 0, nil
+	} else if r.Error != nil {
+		return 0, r.Error
+	} else if len(r.Value) < 1 {
+		return 0, nil
+	}
+
+	if score, k = r.Value[0].(float64); !k {
+		score = 0
+	}
+
+	return
 }
 
-func (c *clientNutDB) ZGetByKey(bucket string, key []byte) (*zset.SortedSetNode, error) {
-	//@TODO : implement me !!
-	panic("implement me")
+func (c *clientNutDB) ZGetByKey(bucket string, key []byte) (item *zset.SortedSetNode, err error) {
+	var (
+		k bool
+		f liberr.Error
+		r *CommandResponse
+		d *CommandRequest
+	)
+
+	d = NewCommandByCaller(bucket, key)
+
+	if r, f = c.call(d, true); f != nil {
+		return nil, f
+	} else if r == nil {
+		return nil, nil
+	} else if r.Error != nil {
+		return nil, r.Error
+	} else if len(r.Value) < 1 {
+		return nil, nil
+	}
+
+	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+		item = nil
+	}
+
+	return
 }

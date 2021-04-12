@@ -29,7 +29,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"sync/atomic"
 	"time"
 
@@ -47,6 +49,7 @@ const (
 	BaseDirPattern = "/nutsdb/node-%d"
 	NbInstances    = 3
 	NbEntries      = 100000
+	LoggerFile     = "/nutsdb/nutsdb.log"
 )
 
 var (
@@ -64,17 +67,38 @@ func init() {
 }
 
 func main() {
-	ctx, cnl := context.WithCancel(context.Background())
+	if _, err := os.Stat(LoggerFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+		panic(err)
+	} else if err == nil {
+		if err = os.Remove(LoggerFile); err != nil {
+			panic(err)
+		}
+	}
 
+	if file, err := os.OpenFile(LoggerFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666); err != nil {
+		panic(err)
+	} else {
+		logger.SetOutput(file)
+		defer func() {
+			if file != nil {
+				logger.SetOutput(os.Stdout)
+				_ = file.Close()
+			}
+		}()
+	}
+
+	ctx, cnl := context.WithCancel(context.Background())
 	defer func() {
 		if cnl != nil {
 			cnl()
 		}
 	}()
 
+	println(fmt.Sprintf("Init cluster..."))
 	tStart := time.Now()
 	cluster := Start(ctx)
 	tInit := time.Since(tStart)
+	println(fmt.Sprintf("Init done. \n"))
 
 	pgb := progress.NewProgressBarWithContext(ctx, mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
 	barPut := pgb.NewBarSimpleCounter("PutEntry", int64(NbEntries))
