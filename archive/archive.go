@@ -26,25 +26,34 @@
 package archive
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
 
-	"github.com/nabbar/golib/archive/bz2"
-	"github.com/nabbar/golib/archive/gzip"
-	"github.com/nabbar/golib/archive/tar"
-	"github.com/nabbar/golib/archive/zip"
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils"
-	"github.com/nabbar/golib/logger"
+	libbz2 "github.com/nabbar/golib/archive/bz2"
+	libgzp "github.com/nabbar/golib/archive/gzip"
+	libtar "github.com/nabbar/golib/archive/tar"
+	libzip "github.com/nabbar/golib/archive/zip"
+	liberr "github.com/nabbar/golib/errors"
+	libiot "github.com/nabbar/golib/ioutils"
+	liblog "github.com/nabbar/golib/logger"
 )
 
 type ArchiveType uint8
 
-func ExtractFile(src, dst ioutils.FileProgress, fileNameContain, fileNameRegex string) errors.Error {
+const (
+	ArchiveTypeUnknown = iota
+	ArchiveTypeZip
+	ArchiveTypeTar
+	ArchiveTypeTarGzip
+	ArchiveTypeGzip
+)
+
+func ExtractFile(src, dst libiot.FileProgress, fileNameContain, fileNameRegex string) liberr.Error {
 	var (
-		tmp ioutils.FileProgress
-		err errors.Error
+		tmp libiot.FileProgress
+		err liberr.Error
 	)
 
 	if tmp, err = dst.NewFileTemp(); err != nil {
@@ -56,31 +65,31 @@ func ExtractFile(src, dst ioutils.FileProgress, fileNameContain, fileNameRegex s
 		// #nosec
 	}
 
-	if err := bz2.GetFile(src, tmp); err == nil {
+	if err := libbz2.GetFile(src, tmp); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
-	} else if err.IsCodeError(bz2.ErrorIOCopy) {
+	} else if err.IsCodeError(libbz2.ErrorIOCopy) {
 		return err
 	}
 
-	if err := gzip.GetFile(src, tmp); err == nil {
+	if err := libgzp.GetFile(src, tmp); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
-	} else if !err.IsCodeError(gzip.ErrorGZReader) {
+	} else if !err.IsCodeError(libgzp.ErrorGZReader) {
 		return err
 	}
 
-	if err := tar.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
+	if err := libtar.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
-	} else if !err.IsCodeError(tar.ErrorTarNext) {
+	} else if !err.IsCodeError(libtar.ErrorTarNext) {
 		return err
 	}
 
-	if err := zip.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
+	if err := libzip.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
-	} else if !err.IsCodeError(zip.ErrorZipOpen) {
+	} else if !err.IsCodeError(libzip.ErrorZipOpen) {
 		return err
 	}
 
@@ -94,11 +103,11 @@ func ExtractFile(src, dst ioutils.FileProgress, fileNameContain, fileNameRegex s
 	return nil
 }
 
-func ExtractAll(src ioutils.FileProgress, originalName, outputPath string, defaultDirPerm os.FileMode) errors.Error {
+func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaultDirPerm os.FileMode) liberr.Error {
 	var (
-		tmp ioutils.FileProgress
-		dst ioutils.FileProgress
-		err errors.Error
+		tmp libiot.FileProgress
+		dst libiot.FileProgress
+		err liberr.Error
 	)
 
 	defer func() {
@@ -117,33 +126,33 @@ func ExtractAll(src ioutils.FileProgress, originalName, outputPath string, defau
 		return ErrorFileOpen.Error(err)
 	}
 
-	logger.DebugLevel.Log("try BZ2...")
-	if err = bz2.GetFile(src, tmp); err == nil {
-		logger.DebugLevel.Log("try another archive...")
+	liblog.DebugLevel.Log("try BZ2...")
+	if err = libbz2.GetFile(src, tmp); err == nil {
+		liblog.DebugLevel.Log("try another archive...")
 		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
-	} else if !err.IsCodeError(bz2.ErrorIOCopy) {
-		logger.DebugLevel.Logf("error found on BZ2 : %v", err)
+	} else if !err.IsCodeError(libbz2.ErrorIOCopy) {
+		liblog.DebugLevel.Logf("error found on BZ2 : %v", err)
 		return err
 	} else {
-		logger.DebugLevel.Logf("not a BZ2 : %v", err)
+		liblog.DebugLevel.Logf("not a BZ2 : %v", err)
 	}
 
-	logger.DebugLevel.Log("try GZIP...")
-	if err = gzip.GetFile(src, tmp); err == nil {
-		logger.DebugLevel.Log("try another archive...")
+	liblog.DebugLevel.Log("try GZIP...")
+	if err = libgzp.GetFile(src, tmp); err == nil {
+		liblog.DebugLevel.Log("try another archive...")
 		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
-	} else if !err.IsCodeError(gzip.ErrorGZReader) {
-		logger.DebugLevel.Logf("error found on GZIP : %v", err)
+	} else if !err.IsCodeError(libgzp.ErrorGZReader) {
+		liblog.DebugLevel.Logf("error found on GZIP : %v", err)
 		return err
 	} else {
-		logger.DebugLevel.Logf("not a GZIP : %v", err)
+		liblog.DebugLevel.Logf("not a GZIP : %v", err)
 	}
 
 	if tmp != nil {
 		_ = tmp.Close()
 	}
 
-	logger.DebugLevel.Log("prepare output...")
+	liblog.DebugLevel.Log("prepare output...")
 	if i, e := os.Stat(outputPath); e != nil && os.IsNotExist(e) {
 		//nolint #nosec
 		/* #nosec */
@@ -156,29 +165,29 @@ func ExtractAll(src ioutils.FileProgress, originalName, outputPath string, defau
 		return ErrorDirNotDir.Error(nil)
 	}
 
-	logger.DebugLevel.Log("try tar...")
-	if err = tar.GetAll(src, outputPath, defaultDirPerm); err == nil {
-		logger.DebugLevel.Log("extracting TAR finished...")
+	liblog.DebugLevel.Log("try tar...")
+	if err = libtar.GetAll(src, outputPath, defaultDirPerm); err == nil {
+		liblog.DebugLevel.Log("extracting TAR finished...")
 		return nil
-	} else if !err.IsCodeError(tar.ErrorTarNext) {
-		logger.DebugLevel.Logf("error found on TAR : %v", err)
+	} else if !err.IsCodeError(libtar.ErrorTarNext) {
+		liblog.DebugLevel.Logf("error found on TAR : %v", err)
 		return err
 	} else {
-		logger.DebugLevel.Logf("not a TAR : %v", err)
+		liblog.DebugLevel.Logf("not a TAR : %v", err)
 	}
 
-	logger.DebugLevel.Log("try zip...")
-	if err = zip.GetAll(src, outputPath, defaultDirPerm); err == nil {
-		logger.DebugLevel.Log("extracting ZIP finished...")
+	liblog.DebugLevel.Log("try zip...")
+	if err = libzip.GetAll(src, outputPath, defaultDirPerm); err == nil {
+		liblog.DebugLevel.Log("extracting ZIP finished...")
 		return nil
-	} else if !err.IsCodeError(zip.ErrorZipOpen) {
-		logger.DebugLevel.Logf("error found on ZIP : %v", err)
+	} else if !err.IsCodeError(libzip.ErrorZipOpen) {
+		liblog.DebugLevel.Logf("error found on ZIP : %v", err)
 		return err
 	} else {
-		logger.DebugLevel.Logf("not a ZIP : %v", err)
+		liblog.DebugLevel.Logf("not a ZIP : %v", err)
 	}
 
-	logger.DebugLevel.Log("writing original file...")
+	liblog.DebugLevel.Log("writing original file...")
 	if dst, err = src.NewFilePathWrite(path.Join(outputPath, originalName), true, true, 0664); err != nil {
 		return ErrorFileOpen.Error(err)
 	}
@@ -190,4 +199,22 @@ func ExtractAll(src ioutils.FileProgress, originalName, outputPath string, defau
 	}
 
 	return nil
+}
+
+func CreateArchive(archiveType ArchiveType, archive libiot.FileProgress, pathContent ...string) (created bool, err liberr.Error) {
+	//@TODO: make function
+	if len(pathContent) < 1 {
+		return false, ErrorParamsEmpty.ErrorParent(fmt.Errorf("pathContent is empty"))
+	}
+
+	switch archiveType {
+	case ArchiveTypeGzip:
+		return libgzp.Create(archive, pathContent...)
+	case ArchiveTypeTar:
+		return libtar.Create(archive, pathContent...)
+	case ArchiveTypeTarGzip:
+		return libtar.CreateGzip(archive, pathContent...)
+	}
+
+	return false, nil
 }
