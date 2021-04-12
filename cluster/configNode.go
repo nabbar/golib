@@ -35,6 +35,7 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+//nolint #maligned
 type ConfigNode struct {
 	// DeploymentID is used to determine whether two NodeHost instances belong to
 	// the same deployment and thus allowed to communicate with each other. This
@@ -60,6 +61,7 @@ type ConfigNode struct {
 	// NodeHostDir is where everything else is stored.
 	NodeHostDir string `mapstructure:"node_host_dir" json:"node_host_dir" yaml:"node_host_dir" toml:"node_host_dir"`
 
+	//nolint #godox
 	// RTTMillisecond defines the average Rround Trip Time (RTT) in milliseconds
 	// between two NodeHost instances. Such a RTT interval is internally used as
 	// a logical clock tick, Raft heartbeat and election intervals are both
@@ -88,6 +90,7 @@ type ConfigNode struct {
 	// value might change after restart.
 	RaftAddress string `mapstructure:"raft_address" json:"raft_address" yaml:"raft_address" toml:"raft_address"`
 
+	//nolint #godox
 	// AddressByNodeHostID indicates that NodeHost instances should be addressed
 	// by their NodeHostID values. This feature is usually used when only dynamic
 	// addresses are available. When enabled, NodeHostID values should be used

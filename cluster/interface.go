@@ -38,6 +38,11 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+const (
+	_DefaultTimeoutCommandSync  = 10 * time.Second
+	_DefaultTimeoutCommandAsync = 100 * time.Second
+)
+
 type Cluster interface {
 	GetConfig() dgbcfg.Config
 	SetConfig(cfg dgbcfg.Config)
@@ -102,8 +107,8 @@ func NewCluster(cfg Config, fctCreate interface{}) (Cluster, liberr.Error) {
 		fctCreate:       fctCreate,
 		config:          cfg.GetDGBConfigCluster(),
 		nodeHost:        nil,
-		timeoutCmdSync:  10 * time.Second,
-		timeoutCmdASync: 100 * time.Second,
+		timeoutCmdSync:  _DefaultTimeoutCommandSync,
+		timeoutCmdASync: _DefaultTimeoutCommandAsync,
 	}
 
 	if n, e := dgbclt.NewNodeHost(cfg.GetDGBConfigNode()); e != nil {

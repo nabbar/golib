@@ -41,6 +41,7 @@ import (
 const (
 	_RaftBucket          = "_raft"
 	_RaftKeyAppliedIndex = "_raft_applied_index"
+	_WordByteTrue        = 0xff
 )
 
 func newNode(node uint64, cluster uint64, opt Options, fct func(state bool)) dgbstm.IOnDiskStateMachine {
@@ -124,7 +125,7 @@ func (n *nutsNode) getRaftLogIndexLastApplied() (idxRaftlog uint64, err error) {
 func (n *nutsNode) i64tob(val uint64) []byte {
 	r := make([]byte, 8)
 	for i := uint64(0); i < 8; i++ {
-		r[i] = byte((val >> (i * 8)) & 0xff)
+		r[i] = byte((val >> (i * 8)) & _WordByteTrue)
 	}
 	return r
 }
@@ -161,7 +162,7 @@ func (n *nutsNode) applyRaftLogIndexLastApplied(idx uint64) error {
 	}
 }
 
-// @TODO : analyse channel role !!
+// Open @TODO : analyze channel role !!
 func (n *nutsNode) Open(stopc <-chan struct{}) (idxRaftlog uint64, err error) {
 	var db *nutsdb.DB
 

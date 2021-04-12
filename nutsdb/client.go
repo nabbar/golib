@@ -83,6 +83,7 @@ func (c *clientNutDB) call(cmd *CommandRequest, read bool) (*CommandResponse, li
 	}
 }
 
+// nolint #dupl
 func (c *clientNutDB) Put(bucket string, key, value []byte, ttl uint32) error {
 	var (
 		f liberr.Error
@@ -103,6 +104,7 @@ func (c *clientNutDB) Put(bucket string, key, value []byte, ttl uint32) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) PutWithTimestamp(bucket string, key, value []byte, ttl uint32, timestamp uint64) error {
 	var (
 		f liberr.Error
@@ -123,6 +125,7 @@ func (c *clientNutDB) PutWithTimestamp(bucket string, key, value []byte, ttl uin
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) Get(bucket string, key []byte) (e *nutsdb.Entry, err error) {
 	var (
 		k bool
@@ -150,6 +153,7 @@ func (c *clientNutDB) Get(bucket string, key []byte) (e *nutsdb.Entry, err error
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) GetAll(bucket string) (entries nutsdb.Entries, err error) {
 	var (
 		k bool
@@ -177,6 +181,7 @@ func (c *clientNutDB) GetAll(bucket string) (entries nutsdb.Entries, err error) 
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) RangeScan(bucket string, start, end []byte) (es nutsdb.Entries, err error) {
 	var (
 		k bool
@@ -204,6 +209,7 @@ func (c *clientNutDB) RangeScan(bucket string, start, end []byte) (es nutsdb.Ent
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) PrefixScan(bucket string, prefix []byte, offsetNum int, limitNum int) (es nutsdb.Entries, off int, err error) {
 	var (
 		k bool
@@ -235,6 +241,7 @@ func (c *clientNutDB) PrefixScan(bucket string, prefix []byte, offsetNum int, li
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) PrefixSearchScan(bucket string, prefix []byte, reg string, offsetNum int, limitNum int) (es nutsdb.Entries, off int, err error) {
 	var (
 		k bool
@@ -266,6 +273,7 @@ func (c *clientNutDB) PrefixSearchScan(bucket string, prefix []byte, reg string,
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) Delete(bucket string, key []byte) error {
 	var (
 		f liberr.Error
@@ -286,6 +294,7 @@ func (c *clientNutDB) Delete(bucket string, key []byte) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) FindTxIDOnDisk(fID, txID uint64) (ok bool, err error) {
 	var (
 		k bool
@@ -313,6 +322,7 @@ func (c *clientNutDB) FindTxIDOnDisk(fID, txID uint64) (ok bool, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) FindOnDisk(fID uint64, rootOff uint64, key, newKey []byte) (entry *nutsdb.Entry, err error) {
 	var (
 		k bool
@@ -340,6 +350,7 @@ func (c *clientNutDB) FindOnDisk(fID uint64, rootOff uint64, key, newKey []byte)
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) FindLeafOnDisk(fID int64, rootOff int64, key, newKey []byte) (bn *nutsdb.BinaryNode, err error) {
 	var (
 		k bool
@@ -367,6 +378,7 @@ func (c *clientNutDB) FindLeafOnDisk(fID int64, rootOff int64, key, newKey []byt
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SAdd(bucket string, key []byte, items ...[]byte) error {
 	var (
 		f liberr.Error
@@ -387,6 +399,7 @@ func (c *clientNutDB) SAdd(bucket string, key []byte, items ...[]byte) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) SRem(bucket string, key []byte, items ...[]byte) error {
 	var (
 		f liberr.Error
@@ -407,6 +420,7 @@ func (c *clientNutDB) SRem(bucket string, key []byte, items ...[]byte) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) SAreMembers(bucket string, key []byte, items ...[]byte) (ok bool, err error) {
 	var (
 		k bool
@@ -434,6 +448,7 @@ func (c *clientNutDB) SAreMembers(bucket string, key []byte, items ...[]byte) (o
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SIsMember(bucket string, key, item []byte) (ok bool, err error) {
 	var (
 		k bool
@@ -461,6 +476,7 @@ func (c *clientNutDB) SIsMember(bucket string, key, item []byte) (ok bool, err e
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SMembers(bucket string, key []byte) (list [][]byte, err error) {
 	var (
 		k bool
@@ -488,6 +504,7 @@ func (c *clientNutDB) SMembers(bucket string, key []byte) (list [][]byte, err er
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SHasKey(bucket string, key []byte) (ok bool, err error) {
 	var (
 		k bool
@@ -515,6 +532,7 @@ func (c *clientNutDB) SHasKey(bucket string, key []byte) (ok bool, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SPop(bucket string, key []byte) (val []byte, err error) {
 	var (
 		k bool
@@ -542,6 +560,7 @@ func (c *clientNutDB) SPop(bucket string, key []byte) (val []byte, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SCard(bucket string, key []byte) (card int, err error) {
 	var (
 		k bool
@@ -569,6 +588,7 @@ func (c *clientNutDB) SCard(bucket string, key []byte) (card int, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SDiffByOneBucket(bucket string, key1, key2 []byte) (list [][]byte, err error) {
 	var (
 		k bool
@@ -596,6 +616,7 @@ func (c *clientNutDB) SDiffByOneBucket(bucket string, key1, key2 []byte) (list [
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SDiffByTwoBuckets(bucket1 string, key1 []byte, bucket2 string, key2 []byte) (list [][]byte, err error) {
 	var (
 		k bool
@@ -623,6 +644,7 @@ func (c *clientNutDB) SDiffByTwoBuckets(bucket1 string, key1 []byte, bucket2 str
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SMoveByOneBucket(bucket string, key1, key2, item []byte) (ok bool, err error) {
 	var (
 		k bool
@@ -650,6 +672,7 @@ func (c *clientNutDB) SMoveByOneBucket(bucket string, key1, key2, item []byte) (
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SMoveByTwoBuckets(bucket1 string, key1 []byte, bucket2 string, key2, item []byte) (ok bool, err error) {
 	var (
 		k bool
@@ -677,6 +700,7 @@ func (c *clientNutDB) SMoveByTwoBuckets(bucket1 string, key1 []byte, bucket2 str
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SUnionByOneBucket(bucket string, key1, key2 []byte) (list [][]byte, err error) {
 	var (
 		k bool
@@ -704,6 +728,7 @@ func (c *clientNutDB) SUnionByOneBucket(bucket string, key1, key2 []byte) (list 
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) SUnionByTwoBuckets(bucket1 string, key1 []byte, bucket2 string, key2 []byte) (list [][]byte, err error) {
 	var (
 		k bool
@@ -731,6 +756,7 @@ func (c *clientNutDB) SUnionByTwoBuckets(bucket1 string, key1 []byte, bucket2 st
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) RPop(bucket string, key []byte) (item []byte, err error) {
 	var (
 		k bool
@@ -758,6 +784,7 @@ func (c *clientNutDB) RPop(bucket string, key []byte) (item []byte, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) RPeek(bucket string, key []byte) (item []byte, err error) {
 	var (
 		k bool
@@ -785,6 +812,7 @@ func (c *clientNutDB) RPeek(bucket string, key []byte) (item []byte, err error) 
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) RPush(bucket string, key []byte, values ...[]byte) error {
 	var (
 		f liberr.Error
@@ -805,6 +833,7 @@ func (c *clientNutDB) RPush(bucket string, key []byte, values ...[]byte) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) LPush(bucket string, key []byte, values ...[]byte) error {
 	var (
 		f liberr.Error
@@ -825,6 +854,7 @@ func (c *clientNutDB) LPush(bucket string, key []byte, values ...[]byte) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) LPop(bucket string, key []byte) (item []byte, err error) {
 	var (
 		k bool
@@ -852,6 +882,7 @@ func (c *clientNutDB) LPop(bucket string, key []byte) (item []byte, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) LPeek(bucket string, key []byte) (item []byte, err error) {
 	var (
 		k bool
@@ -879,6 +910,7 @@ func (c *clientNutDB) LPeek(bucket string, key []byte) (item []byte, err error) 
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) LSize(bucket string, key []byte) (size int, err error) {
 	var (
 		k bool
@@ -906,6 +938,7 @@ func (c *clientNutDB) LSize(bucket string, key []byte) (size int, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) LRange(bucket string, key []byte, start, end int) (list [][]byte, err error) {
 	var (
 		k bool
@@ -933,6 +966,7 @@ func (c *clientNutDB) LRange(bucket string, key []byte, start, end int) (list []
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) LRem(bucket string, key []byte, count int, value []byte) (removedNum int, err error) {
 	var (
 		k bool
@@ -960,6 +994,7 @@ func (c *clientNutDB) LRem(bucket string, key []byte, count int, value []byte) (
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) LSet(bucket string, key []byte, index int, value []byte) error {
 	var (
 		f liberr.Error
@@ -980,6 +1015,7 @@ func (c *clientNutDB) LSet(bucket string, key []byte, index int, value []byte) e
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) LTrim(bucket string, key []byte, start, end int) error {
 	var (
 		f liberr.Error
@@ -1000,6 +1036,7 @@ func (c *clientNutDB) LTrim(bucket string, key []byte, start, end int) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZAdd(bucket string, key []byte, score float64, val []byte) error {
 	var (
 		f liberr.Error
@@ -1020,6 +1057,7 @@ func (c *clientNutDB) ZAdd(bucket string, key []byte, score float64, val []byte)
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZMembers(bucket string) (list map[string]*zset.SortedSetNode, err error) {
 	var (
 		k bool
@@ -1047,6 +1085,7 @@ func (c *clientNutDB) ZMembers(bucket string) (list map[string]*zset.SortedSetNo
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZCard(bucket string) (card int, err error) {
 	var (
 		k bool
@@ -1074,6 +1113,7 @@ func (c *clientNutDB) ZCard(bucket string) (card int, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZCount(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) (number int, err error) {
 	var (
 		k bool
@@ -1101,6 +1141,7 @@ func (c *clientNutDB) ZCount(bucket string, start, end float64, opts *zset.GetBy
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZPopMax(bucket string) (item *zset.SortedSetNode, err error) {
 	var (
 		k bool
@@ -1128,6 +1169,7 @@ func (c *clientNutDB) ZPopMax(bucket string) (item *zset.SortedSetNode, err erro
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZPopMin(bucket string) (item *zset.SortedSetNode, err error) {
 	var (
 		k bool
@@ -1155,6 +1197,7 @@ func (c *clientNutDB) ZPopMin(bucket string) (item *zset.SortedSetNode, err erro
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZPeekMax(bucket string) (item *zset.SortedSetNode, err error) {
 	var (
 		k bool
@@ -1182,6 +1225,7 @@ func (c *clientNutDB) ZPeekMax(bucket string) (item *zset.SortedSetNode, err err
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZPeekMin(bucket string) (item *zset.SortedSetNode, err error) {
 	var (
 		k bool
@@ -1209,6 +1253,7 @@ func (c *clientNutDB) ZPeekMin(bucket string) (item *zset.SortedSetNode, err err
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZRangeByScore(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) (list []*zset.SortedSetNode, err error) {
 	var (
 		k bool
@@ -1236,6 +1281,7 @@ func (c *clientNutDB) ZRangeByScore(bucket string, start, end float64, opts *zse
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZRangeByRank(bucket string, start, end int) (list []*zset.SortedSetNode, err error) {
 	var (
 		k bool
@@ -1263,6 +1309,7 @@ func (c *clientNutDB) ZRangeByRank(bucket string, start, end int) (list []*zset.
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZRem(bucket, key string) error {
 	var (
 		f liberr.Error
@@ -1283,6 +1330,7 @@ func (c *clientNutDB) ZRem(bucket, key string) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZRemRangeByRank(bucket string, start, end int) error {
 	var (
 		f liberr.Error
@@ -1303,6 +1351,7 @@ func (c *clientNutDB) ZRemRangeByRank(bucket string, start, end int) error {
 	return nil
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZRank(bucket string, key []byte) (rank int, err error) {
 	var (
 		k bool
@@ -1330,6 +1379,7 @@ func (c *clientNutDB) ZRank(bucket string, key []byte) (rank int, err error) {
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZRevRank(bucket string, key []byte) (rank int, err error) {
 	var (
 		k bool
@@ -1357,6 +1407,7 @@ func (c *clientNutDB) ZRevRank(bucket string, key []byte) (rank int, err error) 
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZScore(bucket string, key []byte) (score float64, err error) {
 	var (
 		k bool
@@ -1384,6 +1435,7 @@ func (c *clientNutDB) ZScore(bucket string, key []byte) (score float64, err erro
 	return
 }
 
+// nolint #dupl
 func (c *clientNutDB) ZGetByKey(bucket string, key []byte) (item *zset.SortedSetNode, err error) {
 	var (
 		k bool

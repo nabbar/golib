@@ -32,11 +32,14 @@ import (
 	"reflect"
 	"runtime"
 
-	"github.com/nabbar/golib/logger"
-
 	"github.com/fxamacker/cbor/v2"
 	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
 	"github.com/xujiajun/nutsdb"
+)
+
+const (
+	_MinSkipCaller = 2
 )
 
 type CommandRequest struct {
@@ -65,7 +68,7 @@ func NewCommandByDecode(p []byte) (*CommandRequest, liberr.Error) {
 
 func NewCommandByCaller(params ...interface{}) *CommandRequest {
 	pc := make([]uintptr, 10) // at least 1 entry needed
-	runtime.Callers(2, pc)
+	runtime.Callers(_MinSkipCaller, pc)
 	f := runtime.FuncForPC(pc[0])
 
 	d := &CommandRequest{}
@@ -144,13 +147,14 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 	nbPrm := method.Type().NumIn()
 
 	if len(c.Params) != nbPrm {
+		//nolint #goerr113
 		return nil, ErrorClientCommandParamsBadNumber.ErrorParent(fmt.Errorf("%s need %d parameters", c.Cmd.Name(), nbPrm))
 	}
 
 	params := make([]reflect.Value, nbPrm)
 	for i := 0; i < nbPrm; i++ {
 		v := reflect.ValueOf(c.Params[i])
-		logger.DebugLevel.Logf("Param %d : type %s - Val %v", i, v.Type().Name(), v.Interface())
+		liblog.DebugLevel.Logf("Param %d : type %s - Val %v", i, v.Type().Name(), v.Interface())
 
 		if v.Type().Kind() == method.Type().In(i).Kind() {
 			params[i] = v
@@ -158,9 +162,11 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 		}
 
 		if !v.Type().ConvertibleTo(method.Type().In(i)) {
+			//nolint #goerr113
 			return nil, ErrorClientCommandParamsMismatching.ErrorParent(fmt.Errorf("cmd: %s", mtName), fmt.Errorf("param num: %d", i), fmt.Errorf("param type: %s, avaitting type: %s", v.Type().Kind(), method.Type().In(i).Kind()))
 		}
 
+		//nolint #exhaustive
 		switch method.Type().In(i).Kind() {
 		case reflect.Bool:
 			params[i] = reflect.ValueOf(v.Bool())
@@ -200,7 +206,7 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 			params[i] = reflect.ValueOf(v.String())
 		}
 
-		logger.DebugLevel.Logf("Change Param %d : type %s to %v", i, v.Type().Name(), params[i].Type().Name())
+		liblog.DebugLevel.Logf("Change Param %d : type %s to %v", i, v.Type().Name(), params[i].Type().Name())
 	}
 
 	resp := method.Call(params)

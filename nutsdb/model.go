@@ -33,14 +33,12 @@ import (
 	"time"
 
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
-
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
 )
 
 type ndb struct {
 	c Config
-	o Options
 	t *atomic.Value
 	r *atomic.Value
 }

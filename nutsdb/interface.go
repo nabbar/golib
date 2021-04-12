@@ -33,7 +33,6 @@ import (
 	"time"
 
 	libclu "github.com/nabbar/golib/cluster"
-
 	liberr "github.com/nabbar/golib/errors"
 )
 

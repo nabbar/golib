@@ -230,7 +230,3 @@ type CommandZSet interface {
 	// ZGetByKey returns node in the bucket at given bucket and key.
 	ZGetByKey(bucket string, key []byte) (*zset.SortedSetNode, error)
 }
-
-type cmd struct {
-	t *nutsdb.Tx
-}

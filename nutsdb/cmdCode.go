@@ -30,12 +30,12 @@ package nutsdb
 type CmdCode uint32
 
 const (
-	// No Command
+	// CmdUnknown is no Command.
 	CmdUnknown CmdCode = iota
-	// Transaction
+	// Command for transaction.
 	CmdPut
 	CmdPutWithTimestamp
-	// BPTree
+	// Command for BPTree.
 	CmdGet
 	CmdGetAll
 	CmdRangeScan
@@ -45,7 +45,7 @@ const (
 	CmdFindTxIDOnDisk
 	CmdFindOnDisk
 	CmdFindLeafOnDisk
-	// Set
+	// Command for Set.
 	CmdSAdd
 	CmdSRem
 	CmdSAreMembers
@@ -60,7 +60,7 @@ const (
 	CmdSMoveByTwoBuckets
 	CmdSUnionByOneBucket
 	CmdSUnionByTwoBuckets
-	// List
+	// Command for List.
 	CmdRPop
 	CmdRPeek
 	CmdRPush
@@ -72,7 +72,7 @@ const (
 	CmdLRem
 	CmdLSet
 	CmdLTrim
-	// ZSet
+	// Command for ZSet.
 	CmdZAdd
 	CmdZMembers
 	CmdZCard
@@ -91,6 +91,7 @@ const (
 	CmdZGetByKey
 )
 
+// nolint #funlen
 func CmdCodeFromName(name string) CmdCode {
 	switch name {
 	case CmdPut.Name():
@@ -254,6 +255,7 @@ func CmdCodeFromName(name string) CmdCode {
 	}
 }
 
+// nolint #funlen
 func (c CmdCode) Name() string {
 	switch c {
 	case CmdPut:

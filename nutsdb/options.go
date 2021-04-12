@@ -38,11 +38,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xujiajun/utils/filesystem"
-
 	liberr "github.com/nabbar/golib/errors"
-
 	"github.com/xujiajun/nutsdb"
+	"github.com/xujiajun/utils/filesystem"
 )
 
 type Options interface {

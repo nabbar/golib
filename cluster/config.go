@@ -51,7 +51,7 @@ func (c Config) GetDGBConfigNode() dgbcfg.NodeHostConfig {
 }
 
 func (c Config) GetInitMember() map[uint64]dgbclt.Target {
-	var m = make(map[uint64]dgbclt.Target, 0)
+	var m = make(map[uint64]dgbclt.Target)
 
 	for k, v := range c.InitMember {
 		m[k] = v

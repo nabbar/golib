@@ -48,18 +48,22 @@ type cRaft struct {
 }
 
 func (c *cRaft) getErrorCluster() error {
+	//nolint #goerr113
 	return fmt.Errorf("cluster: %v", c.config.ClusterID)
 }
 
 func (c *cRaft) getErrorNode() error {
+	//nolint #goerr113
 	return fmt.Errorf("node: %v", c.config.NodeID)
 }
 
 func (c *cRaft) getErrorNodeTarget(target uint64) error {
+	//nolint #goerr113
 	return fmt.Errorf("target node: %v", target)
 }
 
 func (c *cRaft) getErrorCommand(cmd string) error {
+	//nolint #goerr113
 	return fmt.Errorf("command: %v", cmd)
 }
 
@@ -150,6 +154,7 @@ func (c *cRaft) ClusterStart(join bool) liberr.Error {
 	} else if f, ok := c.fctCreate.(dgbstm.CreateOnDiskStateMachineFunc); ok {
 		err.AddParent(c.nodeHost.StartOnDiskCluster(c.memberInit, join, f, c.config))
 	} else {
+		//nolint #goerr113
 		return ErrorParamsMismatching.ErrorParent(fmt.Errorf("create function is not one of type of CreateStateMachineFunc, CreateConcurrentStateMachineFunc, CreateOnDiskStateMachineFunc"))
 	}
 

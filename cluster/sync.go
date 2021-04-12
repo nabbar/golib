@@ -157,6 +157,7 @@ func (c *cRaft) SyncRequestDeleteNode(parent context.Context, nodeID uint64, con
 	return nil
 }
 
+//nolint #dupl
 func (c *cRaft) SyncRequestAddNode(parent context.Context, nodeID uint64, target string, configChangeIndex uint64) liberr.Error {
 	ctx, cnl := c.syncCtxTimeout(parent)
 	defer c.syncCtxCancel(cnl)
@@ -178,6 +179,7 @@ func (c *cRaft) SyncRequestAddNode(parent context.Context, nodeID uint64, target
 	return nil
 }
 
+//nolint #dupl
 func (c *cRaft) SyncRequestAddObserver(parent context.Context, nodeID uint64, target string, configChangeIndex uint64) liberr.Error {
 	ctx, cnl := c.syncCtxTimeout(parent)
 	defer c.syncCtxCancel(cnl)
@@ -199,6 +201,7 @@ func (c *cRaft) SyncRequestAddObserver(parent context.Context, nodeID uint64, ta
 	return nil
 }
 
+//nolint #dupl
 func (c *cRaft) SyncRequestAddWitness(parent context.Context, nodeID uint64, target string, configChangeIndex uint64) liberr.Error {
 	ctx, cnl := c.syncCtxTimeout(parent)
 	defer c.syncCtxCancel(cnl)
