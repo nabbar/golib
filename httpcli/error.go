@@ -29,7 +29,7 @@ package httpcli
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MIN_PKG_Httpcli
+	EMPTY_PARAMS errors.CodeError = iota + errors.MinPkgHttpCli
 	URL_PARSE
 	HTTP_CLIENT
 	HTTP_REQUEST

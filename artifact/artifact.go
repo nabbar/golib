@@ -37,11 +37,11 @@ import (
 )
 
 const (
-	MIN_ARTIFACT_ARTIFAC = errors.MIN_PKG_Artifact + 10
-	MIN_ARTIFACT_GITLAB  = errors.MIN_PKG_Artifact + 20
-	MIN_ARTIFACT_GITHUB  = errors.MIN_PKG_Artifact + 40
-	MIN_ARTIFACT_JFORG   = errors.MIN_PKG_Artifact + 60
-	MIN_ARTIFACT_S3AWS   = errors.MIN_PKG_Artifact + 80
+	MIN_ARTIFACT_ARTIFAC = errors.MinPkgArtifact + 10
+	MIN_ARTIFACT_GITLAB  = errors.MinPkgArtifact + 20
+	MIN_ARTIFACT_GITHUB  = errors.MinPkgArtifact + 40
+	MIN_ARTIFACT_JFORG   = errors.MinPkgArtifact + 60
+	MIN_ARTIFACT_S3AWS   = errors.MinPkgArtifact + 80
 )
 
 type Client interface {

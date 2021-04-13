@@ -29,7 +29,7 @@ package ioutils
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_IOUtils
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgIOUtils
 	ErrorSyscallRLimitGet
 	ErrorSyscallRLimitSet
 	ErrorIOFileStat
