@@ -29,7 +29,7 @@ package ldap
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorEmptyParams errors.CodeError = iota + errors.MIN_PKG_LDAP
+	ErrorEmptyParams errors.CodeError = iota + errors.MinPkgLDAP
 	ErrorLDAPContext
 	ErrorLDAPServerConfig
 	ErrorLDAPServerConnection

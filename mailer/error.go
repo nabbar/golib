@@ -29,7 +29,7 @@ package mailer
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Mailer
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgMailer
 	ErrorMailerHtml
 	ErrorMailerText
 )

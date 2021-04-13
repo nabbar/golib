@@ -29,10 +29,13 @@ package gzip
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Archive + 20
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive + 20
+	ErrorParamsMismatching
+	ErrorGZCreate
 	ErrorGZReader
 	ErrorFileSeek
 	ErrorIOCopy
+	ErrorFileOpen
 )
 
 var isCodeError = false
@@ -52,12 +55,18 @@ func getMessage(code errors.CodeError) (message string) {
 		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
+	case ErrorParamsMismatching:
+		return "given parameters is not matching the awaiting scope"
+	case ErrorGZCreate:
+		return "cannot create the GZip archive"
 	case ErrorGZReader:
 		return "cannot create new reader GZip"
 	case ErrorFileSeek:
 		return "cannot seek into file"
 	case ErrorIOCopy:
 		return "io copy occurs error"
+	case ErrorFileOpen:
+		return "cannot open file content"
 	}
 
 	return ""

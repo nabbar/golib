@@ -29,7 +29,7 @@ package mail
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Mail
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgMail
 	ErrorIORead
 	ErrorIOWrite
 	ErrorDateParsing

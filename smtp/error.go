@@ -29,7 +29,7 @@ package smtp
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_SMTP
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgSMTP
 	ErrorConfigInvalidDSN
 	ErrorConfigInvalidNetwork
 	ErrorConfigInvalidParams

@@ -85,17 +85,39 @@ jobs:
 
       - name: Test Build Linux/amd64 with suffix
         continue-on-error: false
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " ./...
+        run: |
+          CGO_ENABLED=0
+          GOOS=linux
+          GOARCH=amd64
+          IGNORE_BUILD=$(sed '/^[[:space:]]*$/d' "build.$(go env | grep GOARCH | cut -d'=' -f2 | tr -d '"')" | tr '\n' '|')
+          go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " $(go list ./... | grep -vPi ${IGNORE_BUILD::-1})
 
       - name: Test Build Linux/386 with suffix
         continue-on-error: false
-        run: CGO_ENABLED=0 GOOS=linux GOARCH=386 go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " ./...
+        run: |
+          CGO_ENABLED=0
+          GOOS=linux
+          GOARCH=386
+          IGNORE_BUILD=$(sed '/^[[:space:]]*$/d' "build.$(go env | grep GOARCH | cut -d'=' -f2 | tr -d '"')" | tr '\n' '|')
+          go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " $(go list ./... | grep -vPi ${IGNORE_BUILD::-1})
 
       - name: Test Build Windows/amd64 with CGO
         continue-on-error: false
-        run: CC=/usr/bin/x86_64-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v -ldflags "-w -s -extldflags '-static' " ./...
+        run: |
+          CC=/usr/bin/x86_64-w64-mingw32-gcc
+          CGO_ENABLED=1
+          GOOS=windows
+          GOARCH=amd64
+          IGNORE_BUILD=$(sed '/^[[:space:]]*$/d' "build.$(go env | grep GOARCH | cut -d'=' -f2 | tr -d '"')" | tr '\n' '|')
+          go build -a -v -ldflags "-w -s -extldflags '-static' " $(go list ./... | grep -vPi ${IGNORE_BUILD::-1})
 
       - name: Test Build Windows/386 with CGO
         continue-on-error: false
-        run: CC=/usr/bin/i686-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=386 go build -a -v -ldflags "-w -s -extldflags '-static' " ./...
+        run: |
+          CC=/usr/bin/i686-w64-mingw32-gcc
+          CGO_ENABLED=1
+          GOOS=windows
+          GOARCH=386
+          IGNORE_BUILD=$(sed '/^[[:space:]]*$/d' "build.$(go env | grep GOARCH | cut -d'=' -f2 | tr -d '"')" | tr '\n' '|')
+          go build -a -v -ldflags "-w -s -extldflags '-static' " $(go list ./... | grep -vPi ${IGNORE_BUILD::-1})
 

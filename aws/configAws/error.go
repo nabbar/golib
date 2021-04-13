@@ -23,14 +23,15 @@
  *
  */
 
-package configCustom
+package configAws
 
 import (
 	"github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorAwsError errors.CodeError = iota + errors.MIN_PKG_Aws + 20
+	ErrorAwsError errors.CodeError = iota + errors.MinPkgAws + 40
+	ErrorConfigLoader
 	ErrorConfigValidator
 	ErrorConfigJsonUnmarshall
 	ErrorEndpointInvalid
@@ -56,6 +57,8 @@ func getMessage(code errors.CodeError) string {
 		return ""
 	case ErrorAwsError:
 		return "calling aws api occurred a response error"
+	case ErrorConfigLoader:
+		return "calling AWS Default config Loader has occurred an error"
 	case ErrorConfigValidator:
 		return "invalid config, validation error"
 	case ErrorConfigJsonUnmarshall:

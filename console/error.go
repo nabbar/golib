@@ -29,7 +29,7 @@ package console
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MIN_PKG_Console
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgConsole
 	ErrorColorIOFprintf
 	ErrorColorBufWrite
 	ErrorColorBufUndefined
