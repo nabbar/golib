@@ -42,6 +42,7 @@ const maxItemList int32 = 1000
 
 func (cli *client) VersionList(arn string, maxItem int32) (map[string]string, liberr.Error) {
 	if arn == "" {
+		//nolint #goerr113
 		return nil, libhlp.ErrorParamsEmpty.ErrorParent(fmt.Errorf("arn is empty"))
 	}
 
@@ -51,7 +52,7 @@ func (cli *client) VersionList(arn string, maxItem int32) (map[string]string, li
 
 	var (
 		marker = ""
-		res    = make(map[string]string, 0)
+		res    = make(map[string]string)
 	)
 
 	for {

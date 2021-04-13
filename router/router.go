@@ -44,14 +44,13 @@ func SetGinHandler(fct func(c *gin.Context)) gin.HandlerFunc {
 }
 
 func Handler(routerList RouterList) http.Handler {
-	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery())
+	e := routerList.Engine()
 
 	if routerList == nil {
-		RoutersHandler(engine)
+		RoutersHandler(e)
 	} else {
-		routerList.Handler(engine)
+		routerList.Handler(e)
 	}
 
-	return engine
+	return e
 }

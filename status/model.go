@@ -31,12 +31,11 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/gin-gonic/gin"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
-
-	"github.com/gin-gonic/gin"
-	"github.com/nabbar/golib/router"
-	"github.com/nabbar/golib/semaphore"
+	librtr "github.com/nabbar/golib/router"
+	libsem "github.com/nabbar/golib/semaphore"
 )
 
 type rtrStatus struct {
@@ -74,7 +73,7 @@ func (r *rtrStatus) cleanPrefix(prefix string) string {
 	return path.Clean(strings.TrimRight(path.Join("/", prefix), "/"))
 }
 
-func (r *rtrStatus) Register(prefix string, register router.RegisterRouter) {
+func (r *rtrStatus) Register(prefix string, register librtr.RegisterRouter) {
 	prefix = r.cleanPrefix(prefix)
 
 	var m = r.m
@@ -86,7 +85,7 @@ func (r *rtrStatus) Register(prefix string, register router.RegisterRouter) {
 	}
 }
 
-func (r *rtrStatus) RegisterGroup(group, prefix string, register router.RegisterRouterInGroup) {
+func (r *rtrStatus) RegisterGroup(group, prefix string, register librtr.RegisterRouterInGroup) {
 	prefix = r.cleanPrefix(prefix)
 
 	var m = r.m
@@ -107,7 +106,7 @@ func (r *rtrStatus) Get(x *gin.Context) {
 		key string
 		err liberr.Error
 		rsp *Response
-		sem semaphore.Sem
+		sem libsem.Sem
 	)
 
 	defer func() {
@@ -130,7 +129,7 @@ func (r *rtrStatus) Get(x *gin.Context) {
 		Components: make([]CptResponse, 0),
 	}
 
-	sem = semaphore.NewSemaphoreWithContext(x, 0)
+	sem = libsem.NewSemaphoreWithContext(x, 0)
 
 	for key, atm = range r.c {
 		if atm == nil {
@@ -182,7 +181,7 @@ func (r *rtrStatus) Get(x *gin.Context) {
 
 func (r *rtrStatus) ComponentNew(key string, cpt Component) {
 	if len(r.c) < 1 {
-		r.c = make(map[string]*atomic.Value, 0)
+		r.c = make(map[string]*atomic.Value)
 	}
 
 	if _, ok := r.c[key]; !ok {

@@ -30,9 +30,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/nabbar/golib/logger"
-
 	"github.com/gin-gonic/gin"
+	liblog "github.com/nabbar/golib/logger"
 )
 
 type GinTonic interface {
@@ -102,11 +101,11 @@ func (c *ctxGinTonic) CancelOnSignal(s ...os.Signal) {
 
 		select {
 		case <-sc:
-			logger.InfoLevel.Logf("Os Signal recieved, calling context cancel !")
+			liblog.InfoLevel.Logf("Os Signal received, calling context cancel !")
 			c.c()
 			return
 		case <-c.Done():
-			logger.InfoLevel.Logf("Context has been closed...")
+			liblog.InfoLevel.Logf("Context has been closed...")
 			return
 		}
 	}()

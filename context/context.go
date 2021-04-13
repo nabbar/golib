@@ -27,6 +27,7 @@ package context
 import "context"
 
 func IsolateParent(parent context.Context) context.Context {
+	//nolint #govet
 	x, _ := context.WithCancel(parent)
 	return x
 }

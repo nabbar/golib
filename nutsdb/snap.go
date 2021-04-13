@@ -104,7 +104,7 @@ func (s *snap) Save(opt Options, writer io.Writer) liberr.Error {
 		_ = t.Close()
 	}()
 
-	if _, e = archive.CreateArchive(archive.ArchiveTypeTarGzip, t, s.path); e != nil {
+	if _, e = archive.CreateArchive(archive.TypeTarGzip, t, s.path); e != nil {
 		return ErrorFolderArchive.Error(e)
 	}
 

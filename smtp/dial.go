@@ -70,17 +70,6 @@ func (s *smtpClient) dial(ctx context.Context, addr string) (con net.Conn, err l
 	return
 }
 
-func (s *smtpClient) dialStarttls(ctx context.Context, addr string, tlsConfig *tls.Config) (con net.Conn, err liberr.Error) {
-	defer func() {
-		if err != nil && con != nil {
-			_ = con.Close()
-		}
-	}()
-
-	con, err = s.dial(ctx, addr)
-	return
-}
-
 func (s *smtpClient) client(ctx context.Context, addr string, tlsConfig *tls.Config) (cli *smtp.Client, con net.Conn, err liberr.Error) {
 	var e error
 

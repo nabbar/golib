@@ -43,11 +43,9 @@ import (
 type ArchiveType uint8
 
 const (
-	ArchiveTypeUnknown = iota
-	ArchiveTypeZip
-	ArchiveTypeTar
-	ArchiveTypeTarGzip
-	ArchiveTypeGzip
+	TypeTar = iota + 1
+	TypeTarGzip
+	TypeGzip
 )
 
 func ExtractFile(src, dst libiot.FileProgress, fileNameContain, fileNameRegex string) liberr.Error {
@@ -204,15 +202,16 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 func CreateArchive(archiveType ArchiveType, archive libiot.FileProgress, pathContent ...string) (created bool, err liberr.Error) {
 	//@TODO: make function
 	if len(pathContent) < 1 {
+		//nolint #goerr113
 		return false, ErrorParamsEmpty.ErrorParent(fmt.Errorf("pathContent is empty"))
 	}
 
 	switch archiveType {
-	case ArchiveTypeGzip:
+	case TypeGzip:
 		return libgzp.Create(archive, pathContent...)
-	case ArchiveTypeTar:
+	case TypeTar:
 		return libtar.Create(archive, pathContent...)
-	case ArchiveTypeTarGzip:
+	case TypeTarGzip:
 		return libtar.CreateGzip(archive, pathContent...)
 	}
 
