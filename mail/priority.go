@@ -34,11 +34,11 @@ const (
 type Priority uint8
 
 const (
-	// PriorityNormal sets the email priority to normal
+	// PriorityNormal sets the email priority to normal.
 	PriorityNormal Priority = iota
-	// PriorityLow sets the email priority to Low
+	// PriorityLow sets the email priority to Low.
 	PriorityLow
-	// PriorityHigh sets the email priority to High
+	// PriorityHigh sets the email priority to High.
 	PriorityHigh
 )
 
@@ -71,9 +71,9 @@ func (p Priority) headerPriority() string {
 func (p Priority) headerImportance() string {
 	switch p {
 	case PriorityLow:
-		return "Low"
+		return PriorityLow.String()
 	case PriorityHigh:
-		return "High"
+		return PriorityHigh.String()
 	case PriorityNormal:
 		return ""
 	}
@@ -84,9 +84,9 @@ func (p Priority) headerImportance() string {
 func (p Priority) headerMSMailPriority() string {
 	switch p {
 	case PriorityLow:
-		return "Low"
+		return PriorityLow.String()
 	case PriorityHigh:
-		return "High"
+		return PriorityHigh.String()
 	case PriorityNormal:
 		return ""
 	}

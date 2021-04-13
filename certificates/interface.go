@@ -80,47 +80,47 @@ func New() TLSConfig {
 	}
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AddRootCAContents(rootContent string) bool {
 	return Default.AddRootCAString(rootContent)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AddRootCAFile(rootFile string) liberr.Error {
 	return Default.AddRootCAFile(rootFile)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AddCACertificateContents(caContent string) bool {
 	return Default.AddClientCAString(caContent)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AddCACertificateFile(caFile string) liberr.Error {
 	return Default.AddClientCAFile(caFile)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AddCertificatePairString(key, crt string) liberr.Error {
 	return Default.AddCertificatePairString(key, crt)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AddCertificatePairFile(keyFile, crtFile string) liberr.Error {
 	return Default.AddCertificatePairFile(keyFile, crtFile)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func CheckCertificates() bool {
 	return Default.LenCertificatePair() > 0
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func GetCertificates() []tls.Certificate {
 	return Default.GetCertificatePair()
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AppendCertificates(cert []tls.Certificate) []tls.Certificate {
 	if !CheckCertificates() {
 		return cert
@@ -129,67 +129,67 @@ func AppendCertificates(cert []tls.Certificate) []tls.Certificate {
 	return append(cert, GetCertificates()...)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func GetRootCA() *x509.CertPool {
 	return Default.GetRootCA()
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func GetClientCA() *x509.CertPool {
 	return Default.GetClientCA()
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func SetVersionMin(vers uint16) {
 	Default.SetVersionMin(vers)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func SetVersionMax(vers uint16) {
 	Default.SetVersionMax(vers)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func SetClientAuth(auth string) {
 	Default.SetClientAuth(StringToClientAuth(auth))
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func SetCipherList(cipher []uint16) {
 	Default.SetCipherList(cipher)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func SetCurve(curves []tls.CurveID) {
 	Default.SetCurveList(curves)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func SetDynamicSizing(enable bool) {
 	Default.SetDynamicSizingDisabled(!enable)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func SetSessionTicket(enable bool) {
 	Default.SetSessionTicketDisabled(!enable)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func GetTLSConfig(serverName string) *tls.Config {
 	return Default.TlsConfig(serverName)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func GetTlsConfigCertificates() *tls.Config {
 	return Default.TlsConfig("")
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AddCertificateContents(keyContents, certContents string) liberr.Error {
 	return Default.AddCertificatePairString(keyContents, certContents)
 }
 
-// Deprecated: use local config and no more globals default config
+// Deprecated: use local config and no more globals default config.
 func AddCertificateFile(keyFile, certFile string) liberr.Error {
 	return Default.AddCertificatePairFile(keyFile, certFile)
 }

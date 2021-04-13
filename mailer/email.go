@@ -28,10 +28,10 @@ package mailer
 import "github.com/matcornic/hermes/v2"
 
 type email struct {
-	t Themes
-	d TextDirection
 	p hermes.Product
 	b *hermes.Body
+	t Themes
+	d TextDirection
 	c bool
 }
 

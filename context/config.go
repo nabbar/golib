@@ -36,39 +36,43 @@ type Config interface {
 
 	Store(key string, cfg interface{})
 	Load(key string) interface{}
-
-	ObjectStore(key string, obj interface{})
-	ObjectLoad(key string) interface{}
 }
 
 func NewConfig(ctx context.Context) Config {
 	return &configContext{
 		Context: ctx,
-		cfg:     &atomic.Value{},
-		obj:     &atomic.Value{},
+		cfg:     new(atomic.Value),
 	}
 }
 
 type configContext struct {
 	context.Context
 	cfg *atomic.Value
-	obj *atomic.Value
 }
 
-func (c *configContext) Store(key string, cfg interface{}) {
+func (c configContext) getMap() map[string]*atomic.Value {
 	var (
 		v  interface{}
 		s  map[string]*atomic.Value
 		ok bool
 	)
 
-	if v = c.cfg.Load(); v == nil {
-		s = make(map[string]*atomic.Value, 0)
+	if c.cfg == nil {
+		c.cfg = new(atomic.Value)
+	} else if v = c.cfg.Load(); v == nil {
+		s = make(map[string]*atomic.Value)
+
 	} else if s, ok = v.(map[string]*atomic.Value); !ok {
-		s = make(map[string]*atomic.Value, 0)
+		s = make(map[string]*atomic.Value)
 	}
 
-	if _, ok = s[key]; !ok {
+	return s
+}
+
+func (c *configContext) Store(key string, cfg interface{}) {
+	s := c.getMap()
+
+	if _, ok := s[key]; !ok {
 		s[key] = &atomic.Value{}
 	}
 
@@ -77,17 +81,9 @@ func (c *configContext) Store(key string, cfg interface{}) {
 }
 
 func (c *configContext) Load(key string) interface{} {
-	var (
-		v  interface{}
-		s  map[string]*atomic.Value
-		ok bool
-	)
+	s := c.getMap()
 
-	if v = c.cfg.Load(); v == nil {
-		return nil
-	} else if s, ok = v.(map[string]*atomic.Value); !ok {
-		return nil
-	} else if _, ok = s[key]; !ok {
+	if _, ok := s[key]; !ok {
 		return nil
 	} else {
 		return s[key].Load()
@@ -97,10 +93,6 @@ func (c *configContext) Load(key string) interface{} {
 func (c *configContext) Merge(cfg Config) bool {
 	var (
 		x  *configContext
-		vx interface{}
-		ix interface{}
-		sc map[string]*atomic.Value
-		sx map[string]*atomic.Value
 		ok bool
 	)
 
@@ -108,68 +100,32 @@ func (c *configContext) Merge(cfg Config) bool {
 		return false
 	}
 
-	sc = make(map[string]*atomic.Value, 0)
+	s := c.getMap()
 
-	if vx = x.cfg.Load(); vx == nil {
-		sx = make(map[string]*atomic.Value, 0)
-	} else if sx, ok = vx.(map[string]*atomic.Value); !ok {
-		sx = make(map[string]*atomic.Value, 0)
-	}
-
-	for k, v := range sx {
+	for k, v := range x.getMap() {
 		if k == "" || v == nil {
 			continue
 		}
 
-		ix = v.Load()
-		if ix == nil {
+		if i := v.Load(); i == nil {
 			continue
+		} else {
+			s[k] = &atomic.Value{}
+			s[k].Store(i)
 		}
-
-		sc[k] = &atomic.Value{}
-		sc[k].Store(ix)
 	}
 
-	c.cfg.Store(sc)
+	c.cfg.Store(s)
 
 	return true
 }
 
+//Deprecated: use Store.
 func (c *configContext) ObjectStore(key string, obj interface{}) {
-	var (
-		v  interface{}
-		s  map[string]*atomic.Value
-		ok bool
-	)
-
-	if v = c.obj.Load(); v == nil {
-		s = make(map[string]*atomic.Value, 0)
-	} else if s, ok = v.(map[string]*atomic.Value); !ok {
-		s = make(map[string]*atomic.Value, 0)
-	}
-
-	if _, ok = s[key]; !ok {
-		s[key] = &atomic.Value{}
-	}
-
-	s[key].Store(obj)
-	c.obj.Store(s)
+	c.Store(key, obj)
 }
 
+//Deprecated: use Load.
 func (c *configContext) ObjectLoad(key string) interface{} {
-	var (
-		v  interface{}
-		s  map[string]*atomic.Value
-		ok bool
-	)
-
-	if v = c.obj.Load(); v == nil {
-		return nil
-	} else if s, ok = v.(map[string]*atomic.Value); !ok {
-		return nil
-	} else if _, ok = s[key]; !ok {
-		return nil
-	} else {
-		return s[key].Load()
-	}
+	return c.Load(key)
 }

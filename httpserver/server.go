@@ -34,24 +34,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nabbar/golib/status"
-
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
 )
 
 const (
 	timeoutShutdown = 10 * time.Second
-	timeoutRestart  = 30 * time.Second
 )
 
 type server struct {
 	run *atomic.Value
-	cfg ServerConfig
+	cfg *atomic.Value
 }
 
 type Server interface {
 	GetConfig() *ServerConfig
-	SetConfig(cfg *ServerConfig)
+	SetConfig(cfg *ServerConfig) bool
 
 	GetName() string
 	GetBindable() string
@@ -69,14 +67,48 @@ type Server interface {
 
 	StatusInfo() (name string, release string, hash string)
 	StatusHealth() error
-	StatusComponent(message status.FctMessage) status.Component
+	StatusComponent(message libsts.FctMessage) libsts.Component
 }
 
 func NewServer(cfg *ServerConfig) Server {
+	c := new(atomic.Value)
+	c.Store(cfg.Clone())
+
 	return &server{
-		cfg: cfg.Clone(),
+		cfg: c,
 		run: new(atomic.Value),
 	}
+}
+
+func (s *server) GetConfig() *ServerConfig {
+	if s.cfg == nil {
+		return nil
+	} else if i := s.cfg.Load(); i == nil {
+		return nil
+	} else if c, ok := i.(ServerConfig); !ok {
+		return nil
+	} else {
+		return &c
+	}
+}
+
+func (s *server) SetConfig(cfg *ServerConfig) bool {
+	if cfg == nil {
+		return false
+	}
+
+	if s.cfg == nil {
+		s.cfg = new(atomic.Value)
+	}
+
+	c := cfg.Clone()
+
+	if c.Name == "" {
+		c.Name = c.GetListen().Host
+	}
+
+	s.cfg.Store(cfg.Clone())
+	return true
 }
 
 func (s *server) getRun() run {
@@ -103,32 +135,20 @@ func (s *server) getErr() error {
 	}
 }
 
-func (s *server) GetConfig() *ServerConfig {
-	return &s.cfg
-}
-
-func (s *server) SetConfig(cfg *ServerConfig) {
-	s.cfg = cfg.Clone()
-}
-
 func (s server) GetName() string {
-	if s.cfg.Name == "" {
-		s.cfg.Name = s.GetBindable()
-	}
-
-	return s.cfg.Name
+	return s.GetConfig().Name
 }
 
 func (s *server) GetBindable() string {
-	return s.cfg.GetListen().Host
+	return s.GetConfig().GetListen().Host
 }
 
 func (s *server) GetExpose() string {
-	return s.cfg.GetExpose().String()
+	return s.GetConfig().GetExpose().String()
 }
 
 func (s *server) GetHandlerKey() string {
-	return s.cfg.GetHandlerKey()
+	return s.GetConfig().GetHandlerKey()
 }
 
 func (s *server) IsRunning() bool {
@@ -136,12 +156,12 @@ func (s *server) IsRunning() bool {
 }
 
 func (s *server) IsTLS() bool {
-	return s.cfg.IsTLS()
+	return s.GetConfig().IsTLS()
 }
 
 func (s *server) Listen(handler http.Handler) liberr.Error {
 	r := s.getRun()
-	e := r.Listen(&s.cfg, handler)
+	e := r.Listen(s.GetConfig(), handler)
 	s.setRun(r)
 
 	return e
@@ -163,12 +183,11 @@ func (s *server) Shutdown() {
 }
 
 func (s *server) Merge(srv Server) bool {
-	if x, ok := srv.(*server); ok {
-		s.cfg = x.cfg
-		return true
+	if x, ok := srv.(*server); !ok {
+		return false
+	} else {
+		return s.SetConfig(x.GetConfig())
 	}
-
-	return false
 }
 
 func (s *server) StatusInfo() (name string, release string, hash string) {
@@ -180,17 +199,20 @@ func (s *server) StatusInfo() (name string, release string, hash string) {
 }
 
 func (s *server) StatusHealth() error {
-	if !s.cfg.Disabled && s.IsRunning() {
+	c := s.GetConfig()
+	if !c.Disabled && s.IsRunning() {
 		return nil
-	} else if s.cfg.Disabled {
+	} else if c.Disabled {
+		//nolint #goerr113
 		return fmt.Errorf("server disabled")
 	} else if e := s.getErr(); e != nil {
 		return e
 	} else {
+		//nolint #goerr113
 		return fmt.Errorf("server is offline -- missing error")
 	}
 }
 
-func (s *server) StatusComponent(message status.FctMessage) status.Component {
-	return status.NewComponent(s.cfg.Mandatory, s.StatusInfo, s.StatusHealth, message, s.cfg.TimeoutCacheInfo, s.cfg.TimeoutCacheHealth)
+func (s *server) StatusComponent(message libsts.FctMessage) libsts.Component {
+	return libsts.NewComponent(s.GetConfig().Mandatory, s.StatusInfo, s.StatusHealth, message, s.GetConfig().TimeoutCacheInfo, s.GetConfig().TimeoutCacheHealth)
 }

@@ -120,7 +120,7 @@ func (s *smtpClient) Client(ctx context.Context) (*smtp.Client, errors.Error) {
 	return s.cli, nil
 }
 
-// validateLine checks to see if a line has CR or LF as per RFC 5321
+// validateLine checks to see if a line has CR or LF as per RFC 5321.
 func (s smtpClient) validateLine(line string) errors.Error {
 	if strings.ContainsAny(line, "\n\r") {
 		return ErrorSMTPLineCRLF.Error(nil)

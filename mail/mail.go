@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	MailDateTimeLayout = time.RFC1123Z
+	DateTimeLayout = time.RFC1123Z
 
 	headerMimeVersion = "MIME-Version"
 	headerDate        = "Date"
@@ -44,17 +44,16 @@ const (
 )
 
 type mail struct {
-	headers  textproto.MIMEHeader
-	charset  string
-	encoding Encoding
 	date     time.Time
+	attach   []File
+	inline   []File
+	body     []Body
+	charset  string
 	subject  string
+	headers  textproto.MIMEHeader
+	address  *email
+	encoding Encoding
 	priority Priority
-
-	address *email
-	attach  []File
-	inline  []File
-	body    []Body
 }
 
 func (m *mail) Email() Email {
@@ -112,7 +111,7 @@ func (m *mail) SetDateString(layout, datetime string) liberr.Error {
 }
 
 func (m *mail) GetDateString() string {
-	return m.date.Format(MailDateTimeLayout)
+	return m.date.Format(DateTimeLayout)
 }
 
 func (m *mail) AddHeader(key string, values ...string) {
@@ -182,7 +181,7 @@ func (m *mail) GetHeaders() textproto.MIMEHeader {
 		h = m.addHeader(h, key, values...)
 	})
 
-	for k, _ := range m.headers {
+	for k := range m.headers {
 		h = m.addHeader(h, k, m.headers.Values(k)...)
 	}
 

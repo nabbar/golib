@@ -226,7 +226,7 @@ func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, err
 		}, nil
 	}
 
-	logger.DebugLevel.Logf("Called ResolveEndpoint for service / region '%s' with nil endpoint", service, region)
+	logger.DebugLevel.Logf("Called ResolveEndpoint for service '%s' / region '%s' with nil endpoint", service, region)
 	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
 }
 

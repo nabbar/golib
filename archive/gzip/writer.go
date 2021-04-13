@@ -34,10 +34,9 @@ import (
 	"os"
 
 	liberr "github.com/nabbar/golib/errors"
-	libiot "github.com/nabbar/golib/ioutils"
 )
 
-func Create(archive libiot.FileProgress, content ...string) (bool, liberr.Error) {
+func Create(archive io.WriteSeeker, content ...string) (bool, liberr.Error) {
 	var (
 		w *gzip.Writer
 		f *os.File
@@ -46,6 +45,7 @@ func Create(archive libiot.FileProgress, content ...string) (bool, liberr.Error)
 	)
 
 	if len(content) != 1 {
+		//nolint #goerr113
 		return false, ErrorParamsMismatching.ErrorParent(fmt.Errorf("content path must be limited to strictly one contents"))
 	}
 

@@ -71,8 +71,6 @@ func TestGolibAwsHelper(t *testing.T) {
 	RunSpecs(t, "Aws Helper Suite")
 }
 
-const testRegion = "us-east-1"
-
 var _ = BeforeSuite(func() {
 	var (
 		err  error

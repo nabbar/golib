@@ -45,6 +45,8 @@ import (
 	"golang.org/x/net/http2"
 )
 
+const _TimeoutWaitingPortFreeing = 500 * time.Microsecond
+
 type srvRun struct {
 	err *atomic.Value
 	run *atomic.Value
@@ -109,6 +111,7 @@ func (s *srvRun) setErr(e error) {
 	if e != nil {
 		s.err.Store(e)
 	} else {
+		//nolint #goerr113
 		s.err.Store(errors.New(""))
 	}
 }
@@ -141,6 +144,7 @@ func (s *srvRun) Merge(srv Server) bool {
 	panic("implement me")
 }
 
+//nolint #gocognit
 func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	ssl, err := cfg.GetTLS()
 	if err != nil {
@@ -263,6 +267,7 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 			s.setRunning(true)
 			err = s.srv.ListenAndServeTLS("", "")
 		} else if tlsMandatory {
+			//nolint #goerr113
 			err = fmt.Errorf("missing valid server certificates")
 		} else {
 			liblog.InfoLevel.Logf("Server '%s' is starting with bindable: %s", name, host)
@@ -333,7 +338,7 @@ func (s *srvRun) PortInUse(listen string) liberr.Error {
 		}
 	}()
 
-	ctx, cnl = context.WithTimeout(context.TODO(), 2*time.Second)
+	ctx, cnl = context.WithTimeout(context.TODO(), _TimeoutWaitingPortFreeing)
 	con, err = dia.DialContext(ctx, "tcp", listen)
 
 	if con != nil {

@@ -64,7 +64,8 @@ func GetClientTimeout(serverName string, http2Tr bool, GlobalTimeout time.Durati
 		Proxy:              http.ProxyFromEnvironment,
 		DialContext:        dl.DialContext,
 		DisableCompression: true,
-		TLSClientConfig:    certificates.GetTLSConfig(serverName),
+		//nolint #staticcheck
+		TLSClientConfig: certificates.GetTLSConfig(serverName),
 	}
 
 	return getclient(tr, http2Tr, GlobalTimeout)

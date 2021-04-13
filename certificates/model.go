@@ -38,20 +38,16 @@ import (
 )
 
 type config struct {
-	caRoot *x509.CertPool
-	cert   []tls.Certificate
-
-	tlsMinVersion uint16
-	tlsMaxVersion uint16
-
-	cipherList []uint16
-	curveList  []tls.CurveID
-
+	cert                  []tls.Certificate
+	cipherList            []uint16
+	curveList             []tls.CurveID
+	caRoot                *x509.CertPool
+	clientAuth            tls.ClientAuthType
+	clientCA              *x509.CertPool
+	tlsMinVersion         uint16
+	tlsMaxVersion         uint16
 	dynSizingDisabled     bool
 	ticketSessionDisabled bool
-
-	clientAuth tls.ClientAuthType
-	clientCA   *x509.CertPool
 }
 
 func (c *config) checkFile(pemFiles ...string) liberr.Error {
@@ -248,12 +244,7 @@ func (c *config) cloneCipherList() []uint16 {
 		return nil
 	}
 
-	list := make([]uint16, 0)
-	for _, v := range c.cipherList {
-		list = append(list, v)
-	}
-
-	return list
+	return append(make([]uint16, 0), c.cipherList...)
 }
 
 func (c *config) cloneCurveList() []tls.CurveID {
@@ -261,12 +252,7 @@ func (c *config) cloneCurveList() []tls.CurveID {
 		return nil
 	}
 
-	list := make([]tls.CurveID, 0)
-	for _, v := range c.curveList {
-		list = append(list, v)
-	}
-
-	return list
+	return append(make([]tls.CurveID, 0), c.curveList...)
 }
 
 func (c *config) cloneCertificates() []tls.Certificate {
@@ -274,12 +260,7 @@ func (c *config) cloneCertificates() []tls.Certificate {
 		return nil
 	}
 
-	list := make([]tls.Certificate, 0)
-	for _, v := range c.cert {
-		list = append(list, v)
-	}
-
-	return list
+	return append(make([]tls.Certificate, 0), c.cert...)
 }
 
 func (c *config) cloneRootCA() *x509.CertPool {

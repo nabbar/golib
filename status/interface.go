@@ -29,10 +29,9 @@ import (
 	"net/http"
 	"sync/atomic"
 
-	"github.com/nabbar/golib/version"
-
 	"github.com/gin-gonic/gin"
-	"github.com/nabbar/golib/router"
+	librtr "github.com/nabbar/golib/router"
+	libver "github.com/nabbar/golib/version"
 )
 
 const statusOK = "OK"
@@ -82,8 +81,8 @@ type RouteStatus interface {
 	HttpStatusCode(codeOk, codeKO, codeWarning int)
 
 	Get(c *gin.Context)
-	Register(prefix string, register router.RegisterRouter)
-	RegisterGroup(group, prefix string, register router.RegisterRouterInGroup)
+	Register(prefix string, register librtr.RegisterRouter)
+	RegisterGroup(group, prefix string, register librtr.RegisterRouterInGroup)
 
 	ComponentNew(key string, cpt Component)
 	ComponentDel(key string)
@@ -102,10 +101,10 @@ func New(Name string, Release string, Hash string, msgOk string, msgKo string, m
 		cKO: http.StatusServiceUnavailable,
 		mWM: msgWarm,
 		cWM: http.StatusOK,
-		c:   make(map[string]*atomic.Value, 0),
+		c:   make(map[string]*atomic.Value),
 	}
 }
 
-func NewVersion(version version.Version, msgOk string, msgKO string, msgWarm string) RouteStatus {
+func NewVersion(version libver.Version, msgOk string, msgKO string, msgWarm string) RouteStatus {
 	return New(version.GetPackage(), version.GetRelease(), version.GetBuild(), msgOk, msgKO, msgWarm)
 }

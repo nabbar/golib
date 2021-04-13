@@ -60,7 +60,7 @@ func (r *DefaultReturn) SetError(code int, msg string, file string, line int) {
 }
 
 func (r *DefaultReturn) AddParent(code int, msg string, file string, line int) {
-	return
+	// nothing
 }
 
 func (r DefaultReturn) JSON() []byte {
@@ -89,6 +89,7 @@ func (r DefaultReturn) GinTonicErrorAbort(ctx *gin.Context, httpCode int) {
 	}
 
 	ctx.Errors = append(ctx.Errors, &gin.Error{
+		//nolint #goerr113
 		Err:  goErr.New(r.Message),
 		Type: gin.ErrorTypeAny,
 	})

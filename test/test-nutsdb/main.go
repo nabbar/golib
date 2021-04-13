@@ -75,6 +75,8 @@ func main() {
 		}
 	}
 
+	//nolint #gosec
+	/* #nosec */
 	if file, err := os.OpenFile(LoggerFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666); err != nil {
 		panic(err)
 	} else {
