@@ -59,10 +59,11 @@ func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP
 
 	return &HelperLDAP{
 		Attributes: attributes,
-		tlsConfig:  libcrt.GetTLSConfig(cnf.Uri),
-		tlsMode:    tlsmode_init,
-		config:     cnf.Clone(),
-		ctx:        libctx.IsolateParent(ctx),
+		//nolint #staticcheck
+		tlsConfig: libcrt.GetTLSConfig(cnf.Uri),
+		tlsMode:   _TLSModeInit,
+		config:    cnf.Clone(),
+		ctx:       libctx.IsolateParent(ctx),
 	}, nil
 }
 
@@ -83,15 +84,15 @@ func (lc *HelperLDAP) ForceTLSMode(tlsMode TLSMode, tlsConfig *tls.Config) {
 	}
 
 	switch tlsMode {
-	case TLSMODE_TLS:
-		lc.tlsMode = TLSMODE_TLS
-	case TLSMODE_STARTTLS:
-		lc.tlsMode = TLSMODE_STARTTLS
-	case TLSMODE_NONE:
+	case TLSModeTLS:
+		lc.tlsMode = TLSModeTLS
+	case TLSModeStarttls:
+		lc.tlsMode = TLSModeStarttls
+	case TLSModeNone:
 		lc.tlsConfig = nil
-		lc.tlsMode = TLSMODE_NONE
-	case tlsmode_init:
-		lc.tlsMode = tlsmode_init
+		lc.tlsMode = TLSModeNone
+	case _TLSModeInit:
+		lc.tlsMode = _TLSModeInit
 	}
 }
 
@@ -175,7 +176,7 @@ func (lc *HelperLDAP) starttls(l *ldap.Conn) liberr.Error {
 
 func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 	if lc == nil {
-		return TLSMODE_NONE, ErrorEmptyParams.Error(nil)
+		return TLSModeNone, ErrorEmptyParams.Error(nil)
 	}
 
 	var (
@@ -192,32 +193,32 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 	if lc.config.Portldaps != 0 {
 		l, err = lc.dialTLS()
 
-		liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSMODE_TLS.String())
+		liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSModeTLS.String())
 
 		if err == nil {
-			return TLSMODE_TLS, nil
+			return TLSModeTLS, nil
 		}
 	}
 
 	if lc.config.PortLdap == 0 {
-		return tlsmode_init, ErrorLDAPServerConfig.Error(nil)
+		return _TLSModeInit, ErrorLDAPServerConfig.Error(nil)
 	}
 
 	l, err = lc.dial()
-	liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSMODE_NONE.String())
+	liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSModeNone.String())
 
 	if err != nil {
-		return tlsmode_init, err
+		return _TLSModeInit, err
 	}
 
 	err = lc.starttls(l)
-	liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSMODE_STARTTLS.String())
+	liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSModeStarttls.String())
 
 	if err == nil {
-		return TLSMODE_STARTTLS, nil
+		return TLSModeStarttls, nil
 	}
 
-	return TLSMODE_NONE, nil
+	return TLSModeNone, nil
 }
 
 func (lc *HelperLDAP) connect() liberr.Error {
@@ -235,7 +236,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			err liberr.Error
 		)
 
-		if lc.tlsMode == tlsmode_init {
+		if lc.tlsMode == _TLSModeInit {
 			m, e := lc.tryConnect()
 
 			if e != nil {
@@ -245,7 +246,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			lc.tlsMode = m
 		}
 
-		if lc.tlsMode == TLSMODE_TLS {
+		if lc.tlsMode == TLSModeTLS {
 			l, err = lc.dialTLS()
 			if err != nil {
 				if l != nil {
@@ -255,7 +256,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			}
 		}
 
-		if lc.tlsMode == TLSMODE_NONE || lc.tlsMode == TLSMODE_STARTTLS {
+		if lc.tlsMode == TLSModeNone || lc.tlsMode == TLSModeStarttls {
 			l, err = lc.dial()
 			if err != nil {
 				if l != nil {
@@ -265,7 +266,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			}
 		}
 
-		if lc.tlsMode == TLSMODE_STARTTLS {
+		if lc.tlsMode == TLSModeStarttls {
 			err = lc.starttls(l)
 			if err != nil {
 				if l != nil {
@@ -346,7 +347,7 @@ func (lc *HelperLDAP) Connect() liberr.Error {
 		return err
 	}
 
-	liblog.DebugLevel.Logf("Bind success on LDAP server %s with tls mode '%s'", lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String())
+	liblog.DebugLevel.Logf("Bind success on LDAP server %s with tls mode '%s'", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String())
 	return nil
 }
 
@@ -376,7 +377,7 @@ func (lc *HelperLDAP) runSearch(filter string, attributes []string) (*ldap.Searc
 		return nil, ErrorLDAPSearch.ErrorParent(err)
 	}
 
-	liblog.DebugLevel.Logf("Search success on server '%s' with tls mode '%s', with filter [%s] and attribute %v", lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), filter, attributes)
+	liblog.DebugLevel.Logf("Search success on server '%s' with tls mode '%s', with filter [%s] and attribute %v", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), filter, attributes)
 	return src, nil
 }
 
@@ -405,46 +406,10 @@ func (lc *HelperLDAP) getUserName(username string) (string, liberr.Error) {
 
 //UserInfo used to retrieve the information of a given username.
 func (lc *HelperLDAP) UserInfo(username string) (map[string]string, liberr.Error) {
-	var (
-		err     liberr.Error
-		src     *ldap.SearchResult
-		userRes map[string]string
-	)
-
-	if username, err = lc.getUserName(username); err != nil {
-		return nil, err
-	}
-
-	userRes = make(map[string]string)
-	attributes := append(lc.Attributes, "cn")
-
-	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterUser, userFieldUid, username), attributes)
-
-	if err != nil {
-		return userRes, err
-	}
-
-	if len(src.Entries) != 1 {
-		if len(src.Entries) > 1 {
-			return userRes, ErrorLDAPUserNotUniq.Error(nil)
-		} else {
-			return userRes, ErrorLDAPUserNotFound.Error(nil)
-		}
-	}
-
-	for _, attr := range attributes {
-		userRes[attr] = src.Entries[0].GetAttributeValue(attr)
-	}
-
-	if _, ok := userRes["DN"]; !ok {
-		userRes["DN"] = src.Entries[0].DN
-	}
-
-	liblog.DebugLevel.Logf("Map info retrieve in ldap server '%s' with tls mode '%s' about user [%s] : %v", lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), username, userRes)
-	return userRes, nil
+	return lc.UserInfoByField(username, userFieldUid)
 }
 
-//UserInfo used to retrieve the information of a given username.
+//UserInfoByField used to retrieve the information of a given username but use a given field to make the search.
 func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) (map[string]string, liberr.Error) {
 	var (
 		err     liberr.Error
@@ -481,39 +446,16 @@ func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) 
 		userRes["DN"] = src.Entries[0].DN
 	}
 
-	liblog.DebugLevel.Logf("Map info retrieve in ldap server '%s' with tls mode '%s' about user [%s] : %v", lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), username, userRes)
+	liblog.DebugLevel.Logf("Map info retrieve in ldap server '%s' with tls mode '%s' about user [%s] : %v", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), username, userRes)
 	return userRes, nil
 }
 
 //GroupInfo used to retrieve the information of a given group cn.
 func (lc *HelperLDAP) GroupInfo(groupname string) (map[string]interface{}, liberr.Error) {
-	var (
-		err     liberr.Error
-		src     *ldap.SearchResult
-		grpInfo map[string]interface{}
-	)
-
-	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterGroup, groupFieldCN, groupname), []string{})
-	if err != nil {
-		return grpInfo, err
-	}
-
-	if len(src.Entries) == 0 {
-		return nil, ErrorLDAPGroupNotFound.Error(nil)
-	}
-
-	grpInfo = make(map[string]interface{}, len(src.Entries[0].Attributes))
-	for _, entry := range src.Entries {
-		for _, entryAttribute := range entry.Attributes {
-			grpInfo[entryAttribute.Name] = entryAttribute.Values
-		}
-	}
-
-	liblog.DebugLevel.Logf("Info for group [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), grpInfo)
-	return grpInfo, nil
+	return lc.GroupInfoByField(groupname, groupFieldCN)
 }
 
-//GroupInfo used to retrieve the information of a given group cn.
+//GroupInfoByField used to retrieve the information of a given group cn, but use a given field to make the search.
 func (lc *HelperLDAP) GroupInfoByField(groupname string, fieldForUnicValue string) (map[string]interface{}, liberr.Error) {
 	var (
 		err     liberr.Error
@@ -537,7 +479,7 @@ func (lc *HelperLDAP) GroupInfoByField(groupname string, fieldForUnicValue strin
 		}
 	}
 
-	liblog.DebugLevel.Logf("Info for group [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), grpInfo)
+	liblog.DebugLevel.Logf("Info for group [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), grpInfo)
 	return grpInfo, nil
 }
 
@@ -562,13 +504,13 @@ func (lc *HelperLDAP) UserMemberOf(username string) ([]string, liberr.Error) {
 
 	for _, entry := range src.Entries {
 		for _, mmb := range entry.GetAttributeValues("memberOf") {
-			liblog.DebugLevel.Logf("Group find for uid '%s' on server '%s' with tls mode '%s' : %v", username, lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), mmb)
+			liblog.DebugLevel.Logf("Group find for uid '%s' on server '%s' with tls mode '%s' : %v", username, lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), mmb)
 			mmo := lc.ParseEntries(mmb)
 			grp = append(grp, mmo["cn"]...)
 		}
 	}
 
-	liblog.DebugLevel.Logf("Groups find for uid '%s' on server '%s' with tls mode '%s' : %v", username, lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), grp)
+	liblog.DebugLevel.Logf("Groups find for uid '%s' on server '%s' with tls mode '%s' : %v", username, lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), grp)
 	return grp, nil
 }
 
@@ -618,7 +560,7 @@ func (lc *HelperLDAP) UsersOfGroup(groupname string) ([]string, liberr.Error) {
 		}
 	}
 
-	liblog.DebugLevel.Logf("Member of groups [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSMODE_TLS), lc.tlsMode.String(), grp)
+	liblog.DebugLevel.Logf("Member of groups [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), grp)
 	return grp, nil
 }
 

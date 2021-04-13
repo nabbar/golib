@@ -39,12 +39,6 @@ type Certif struct {
 }
 
 type Config struct {
-	InheritDefault       bool     `mapstructure:"inheritDefault" json:"inheritDefault" yaml:"inheritDefault" toml:"inheritDefault"`
-	VersionMin           string   `mapstructure:"versionMin" json:"versionMin" yaml:"versionMin" toml:"versionMin"`
-	VersionMax           string   `mapstructure:"versionMax" json:"versionMax" yaml:"versionMax" toml:"versionMax"`
-	DynmaicSizingDisable bool     `mapstructure:"dynamicSizingDisable" json:"dynamicSizingDisable" yaml:"dynamicSizingDisable" toml:"dynamicSizingDisable"`
-	SessionTicketDisable bool     `mapstructure:"sessionTicketDisable" json:"sessionTicketDisable" yaml:"sessionTicketDisable" toml:"sessionTicketDisable"`
-	AuthClient           string   `mapstructure:"authClient" json:"authClient" yaml:"authClient" toml:"authClient"`
 	CurveList            []string `mapstructure:"curveList" json:"curveList" yaml:"curveList" toml:"curveList"`
 	CipherList           []string `mapstructure:"cipherList" json:"cipherList" yaml:"cipherList" toml:"cipherList"`
 	RootCAString         []string `mapstructure:"rootCA" json:"rootCA" yaml:"rootCA" toml:"rootCA"`
@@ -53,6 +47,12 @@ type Config struct {
 	ClientCAFiles        []string `mapstructure:"clientCAFiles" json:"clientCAFiles" yaml:"clientCAFiles" toml:"clientCAFiles"`
 	CertPairString       []Certif `mapstructure:"certPair" json:"certPair" yaml:"certPair" toml:"certPair"`
 	CertPairFile         []Certif `mapstructure:"certPairFiles" json:"certPairFiles" yaml:"certPairFiles" toml:"certPairFiles"`
+	VersionMin           string   `mapstructure:"versionMin" json:"versionMin" yaml:"versionMin" toml:"versionMin"`
+	VersionMax           string   `mapstructure:"versionMax" json:"versionMax" yaml:"versionMax" toml:"versionMax"`
+	AuthClient           string   `mapstructure:"authClient" json:"authClient" yaml:"authClient" toml:"authClient"`
+	InheritDefault       bool     `mapstructure:"inheritDefault" json:"inheritDefault" yaml:"inheritDefault" toml:"inheritDefault"`
+	DynamicSizingDisable bool     `mapstructure:"dynamicSizingDisable" json:"dynamicSizingDisable" yaml:"dynamicSizingDisable" toml:"dynamicSizingDisable"`
+	SessionTicketDisable bool     `mapstructure:"sessionTicketDisable" json:"sessionTicketDisable" yaml:"sessionTicketDisable" toml:"sessionTicketDisable"`
 }
 
 func (c *Config) Validate() liberr.Error {
@@ -64,6 +64,7 @@ func (c *Config) Validate() liberr.Error {
 		}
 
 		for _, err := range err.(valid.ValidationErrors) {
+			//nolint #goerr113
 			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", err.StructNamespace(), err.ActualTag()))
 		}
 	}
@@ -83,6 +84,7 @@ func (c *Config) New() (TLSConfig, liberr.Error) {
 	}
 }
 
+//nolint #gocognit
 func (c *Config) NewFrom(cfg TLSConfig) (TLSConfig, liberr.Error) {
 	var t *config
 
@@ -103,7 +105,7 @@ func (c *Config) NewFrom(cfg TLSConfig) (TLSConfig, liberr.Error) {
 		t.tlsMaxVersion = StringToTlsVersion(c.VersionMax)
 	}
 
-	if c.DynmaicSizingDisable {
+	if c.DynamicSizingDisable {
 		t.dynSizingDisabled = true
 	}
 

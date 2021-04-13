@@ -91,7 +91,7 @@ type Error interface {
 	IsCodeError(code CodeError) bool
 	//HasCodeError check if current error or parent has the given error code
 	HasCodeError(code CodeError) bool
-	//GetCodeError return the CodeError value of the curent error
+	//GetCodeError return the CodeError value of the current error
 	GetCodeError() CodeError
 	//GetCodeErrorParent return a slice of CodeError value of all parent Error and the code of the current Error
 	GetCodeErrorParent() []CodeError

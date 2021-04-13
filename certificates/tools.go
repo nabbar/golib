@@ -33,12 +33,12 @@ import (
 	"strings"
 )
 
-// Deprecated: use StringToCipherKey
+// Deprecated: use StringToCipherKey.
 func GetCipherKey(cipher string) uint16 {
 	return StringToCipherKey(cipher)
 }
 
-// Deprecated: use StringToCurveID
+// Deprecated: use StringToCurveID.
 func GetCurveID(curveRef string) tls.CurveID {
 	return StringToCurveID(curveRef)
 }

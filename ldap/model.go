@@ -35,13 +35,13 @@ import (
 type TLSMode uint8
 
 const (
-	tlsmode_init TLSMode = iota
+	_TLSModeInit TLSMode = iota
 	//TLSModeNone no tls connection.
-	TLSMODE_NONE TLSMode = iota + 1
+	TLSModeNone TLSMode = iota + 1
 	//TLSModeTLS strict tls connection.
-	TLSMODE_TLS
-	//TLSModeStartTLS starttls connection (tls into a no tls connection).
-	TLSMODE_STARTTLS
+	TLSModeTLS
+	//TLSModeStarttls starttls connection (tls into a no tls connection).
+	TLSModeStarttls
 )
 
 const (
@@ -51,17 +51,17 @@ const (
 
 func (m TLSMode) String() string {
 	switch m {
-	case TLSMODE_STARTTLS:
+	case TLSModeStarttls:
 		return "starttls"
-	case TLSMODE_TLS:
+	case TLSModeTLS:
 		return "tls"
-	case TLSMODE_NONE:
+	case TLSModeNone:
 		return "none"
-	case tlsmode_init:
+	case _TLSModeInit:
 		return "not defined"
 	}
 
-	return tlsmode_init.String()
+	return _TLSModeInit.String()
 }
 
 func GetDefaultAttributes() []string {
@@ -123,6 +123,7 @@ func (cnf Config) Validate() errors.Error {
 		}
 
 		for _, err := range err.(validator.ValidationErrors) {
+			//nolint #goerr113
 			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", err.StructNamespace(), err.ActualTag()))
 		}
 	}

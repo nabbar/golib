@@ -223,6 +223,7 @@ func (c ConfigCluster) GetDGBConfigCluster() dgbcfg.Config {
 		d.Quiesce = true
 	}
 
+	//nolint #exhaustive
 	switch c.SnapshotCompressionType {
 	case dgbcfg.Snappy:
 		d.SnapshotCompressionType = dgbcfg.Snappy
@@ -230,6 +231,7 @@ func (c ConfigCluster) GetDGBConfigCluster() dgbcfg.Config {
 		d.SnapshotCompressionType = dgbcfg.NoCompression
 	}
 
+	//nolint #exhaustive
 	switch c.EntryCompressionType {
 	case dgbcfg.Snappy:
 		d.EntryCompressionType = dgbcfg.Snappy

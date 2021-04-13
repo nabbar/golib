@@ -36,13 +36,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/nabbar/golib/status"
-
-	"github.com/nabbar/golib/logger"
-
-	"github.com/nabbar/golib/semaphore"
-
 	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
+	libsem "github.com/nabbar/golib/semaphore"
+	libsts "github.com/nabbar/golib/status"
 )
 
 type FieldType uint8
@@ -82,7 +79,7 @@ type PoolServer interface {
 
 	StatusInfo(bindAddress string) (name string, release string, hash string)
 	StatusHealth(bindAddress string) error
-	StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
+	StatusRoute(prefix string, fctMessage libsts.FctMessage, sts libsts.RouteStatus)
 }
 
 func NewPool(srv ...Server) PoolServer {
@@ -353,7 +350,7 @@ func (p pool) ListenMultiHandler(handler map[string]http.Handler) liberr.Error {
 	var e liberr.Error
 
 	e = ErrorPoolListen.Error(nil)
-	logger.InfoLevel.Log("Calling listen for All Servers")
+	liblog.InfoLevel.Log("Calling listen for All Servers")
 
 	p.MapRun(func(srv Server) {
 		if len(handler) < 1 {
@@ -371,7 +368,7 @@ func (p pool) ListenMultiHandler(handler map[string]http.Handler) liberr.Error {
 		}
 	})
 
-	logger.InfoLevel.Log("End of Calling listen for All Servers")
+	liblog.InfoLevel.Log("End of Calling listen for All Servers")
 
 	if !e.HasParent() {
 		e = nil
@@ -380,64 +377,66 @@ func (p pool) ListenMultiHandler(handler map[string]http.Handler) liberr.Error {
 	return e
 }
 
-func (p pool) Restart() {
+func (p pool) runMapCommand(f func(sem libsem.Sem, srv Server)) {
 	if p.Len() < 1 {
 		return
 	}
 
 	var (
-		s semaphore.Sem
+		s libsem.Sem
 		x context.Context
 		c context.CancelFunc
 	)
+
+	x, c = context.WithTimeout(context.Background(), timeoutShutdown)
 
 	defer func() {
 		c()
 		s.DeferMain()
 	}()
 
-	x, c = context.WithTimeout(context.Background(), timeoutRestart)
-	s = semaphore.NewSemaphoreWithContext(x, 0)
+	s = libsem.NewSemaphoreWithContext(x, 0)
 
 	p.MapRun(func(srv Server) {
 		_ = s.NewWorker()
-		go func() {
-			defer s.DeferWorker()
-			srv.Restart()
-		}()
+		go func(sem libsem.Sem, srv Server) {
+			f(sem, srv)
+		}(s, srv)
 	})
 
 	_ = s.WaitAll()
 }
 
-func (p pool) Shutdown() {
-	if p.Len() < 1 {
-		return
-	}
-
-	var (
-		s semaphore.Sem
-		x context.Context
-		c context.CancelFunc
-	)
-
+func (p pool) runMapRestart(sem libsem.Sem, srv Server) {
 	defer func() {
-		c()
-		s.DeferMain()
+		if sem != nil {
+			sem.DeferWorker()
+		}
 	}()
 
-	x, c = context.WithTimeout(context.Background(), timeoutShutdown)
-	s = semaphore.NewSemaphoreWithContext(x, 0)
+	if srv != nil {
+		srv.Restart()
+	}
+}
 
-	p.MapRun(func(srv Server) {
-		_ = s.NewWorker()
-		go func() {
-			defer s.DeferWorker()
-			srv.Shutdown()
-		}()
-	})
+func (p pool) runMapShutdown(sem libsem.Sem, srv Server) {
+	defer func() {
+		if sem != nil {
+			sem.DeferWorker()
+		}
+	}()
 
-	_ = s.WaitAll()
+	if srv != nil {
+		srv.Shutdown()
+	}
+}
+
+func (p pool) Restart() {
+	p.runMapCommand(p.runMapRestart)
+}
+
+func (p pool) Shutdown() {
+	p.runMapCommand(p.runMapShutdown)
 }
 
 func (p pool) StatusInfo(bindAddress string) (name string, release string, hash string) {
@@ -453,10 +452,11 @@ func (p pool) StatusHealth(bindAddress string) error {
 		return s.StatusHealth()
 	}
 
+	//nolint #goerr113
 	return fmt.Errorf("missing server '%s'", bindAddress)
 }
 
-func (p pool) StatusRoute(keyPrefix string, fctMessage status.FctMessage, sts status.RouteStatus) {
+func (p pool) StatusRoute(keyPrefix string, fctMessage libsts.FctMessage, sts libsts.RouteStatus) {
 	p.MapRun(func(srv Server) {
 		bind := srv.GetBindable()
 		sts.ComponentNew(fmt.Sprintf("%s-%s", keyPrefix, bind), srv.StatusComponent(fctMessage))

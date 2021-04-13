@@ -107,22 +107,13 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.
 		u *url.URL
 	)
 
+	//ctx, cnl = context.WithTimeout(a.ctx, libhtc.TIMEOUT_5_SEC)
+	ctx, cnl = context.WithCancel(a.ctx)
 	defer func() {
 		if cnl != nil {
 			cnl()
 		}
-
-		if rsp != nil && rsp.Body != nil {
-			_ = rsp.Body.Close()
-		}
-
-		if req != nil && req.Body != nil {
-			_ = req.Body.Close()
-		}
 	}()
-
-	//ctx, cnl = context.WithTimeout(a.ctx, libhtc.TIMEOUT_5_SEC)
-	ctx, cnl = context.WithCancel(a.ctx)
 
 	u = &url.URL{
 		Scheme:      a.endpoint.Scheme,
@@ -149,15 +140,29 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.
 		return ErrorRequestInit.ErrorParent(e)
 	}
 
+	defer func() {
+		if req != nil && req.Body != nil {
+			_ = req.Body.Close()
+		}
+	}()
+
 	if rsp, e = a.Do(req); e != nil {
 		return ErrorRequestDo.ErrorParent(e)
 	}
 
-	if rsp.StatusCode >= 400 {
+	defer func() {
+		if rsp != nil && rsp.Body != nil {
+			_ = rsp.Body.Close()
+		}
+	}()
+
+	if rsp.StatusCode >= http.StatusBadRequest {
+		//nolint #goerr113
 		return ErrorRequestResponse.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
 	}
 
 	if rsp.Body == nil {
+		//nolint #goerr113
 		return ErrorRequestResponseBodyEmpty.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
 	}
 
@@ -181,10 +186,12 @@ func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.E
 	)
 
 	if a.regex == "" {
+		//nolint #goerr113
 		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("regex is empty: %s", a.regex))
 	}
 
 	if a.group < 1 {
+		//nolint #goerr113
 		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("group extracted from regex is empty: %s - %v", a.regex, a.group))
 	}
 
@@ -342,9 +349,11 @@ func (a *artifactoryModel) Download(dst libiot.FileProgress, containName string,
 		return ErrorRequestInit.ErrorParent(e)
 	} else if rsp, e = a.Do(req); e != nil {
 		return ErrorRequestDo.ErrorParent(e)
-	} else if rsp.StatusCode >= 400 {
+	} else if rsp.StatusCode >= http.StatusBadRequest {
+		//nolint #goerr113
 		return ErrorRequestResponse.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
 	} else if rsp.Body == nil {
+		//nolint #goerr113
 		return ErrorRequestResponseBodyEmpty.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
 	} else if _, e := dst.ReadFrom(rsp.Body); e != nil {
 		return ErrorArtifactoryDownload.ErrorParent(e)

@@ -29,11 +29,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const EMPTY_GROUP = "<nil>"
+const EmptyHandlerGroup = "<nil>"
 
 var (
-	defaultRouters = NewRouterList()
+	defaultRouters = NewRouterList(DefaultGinInit)
 )
+
+func DefaultGinInit() *gin.Engine {
+	engine := gin.New()
+	engine.Use(gin.Logger(), gin.Recovery())
+
+	return engine
+}
+
+func DefaultGinWithTrustyProxy(trustyProxy []string) *gin.Engine {
+	engine := gin.New()
+	engine.Use(gin.Logger(), gin.Recovery())
+
+	if len(trustyProxy) > 0 {
+		engine.TrustedProxies = trustyProxy
+	}
+
+	return engine
+}
 
 type routerItem struct {
 	method   string
@@ -42,6 +60,7 @@ type routerItem struct {
 }
 
 type routerList struct {
+	init func() *gin.Engine
 	list map[string][]routerItem
 }
 
@@ -52,6 +71,7 @@ type RouterList interface {
 	Register(method string, relativePath string, router ...gin.HandlerFunc)
 	RegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc)
 	Handler(engine *gin.Engine)
+	Engine() *gin.Engine
 }
 
 func RoutersRegister(method string, relativePath string, router ...gin.HandlerFunc) {
@@ -66,15 +86,16 @@ func RoutersHandler(engine *gin.Engine) {
 	defaultRouters.Handler(engine)
 }
 
-func NewRouterList() RouterList {
+func NewRouterList(initGin func() *gin.Engine) RouterList {
 	return &routerList{
+		init: initGin,
 		list: make(map[string][]routerItem),
 	}
 }
 
 func (l routerList) Handler(engine *gin.Engine) {
 	for grpRoute, grpList := range l.list {
-		if grpRoute == EMPTY_GROUP {
+		if grpRoute == EmptyHandlerGroup {
 			for _, r := range grpList {
 				engine.Handle(r.method, r.relative, r.router...)
 			}
@@ -89,7 +110,7 @@ func (l routerList) Handler(engine *gin.Engine) {
 
 func (l *routerList) RegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc) {
 	if group == "" {
-		group = EMPTY_GROUP
+		group = EmptyHandlerGroup
 	}
 
 	if _, ok := l.list[group]; !ok {
@@ -105,4 +126,12 @@ func (l *routerList) RegisterInGroup(group, method string, relativePath string, 
 
 func (l *routerList) Register(method string, relativePath string, router ...gin.HandlerFunc) {
 	l.RegisterInGroup("", method, relativePath, router...)
+}
+
+func (l routerList) Engine() *gin.Engine {
+	if l.init != nil {
+		return l.init()
+	} else {
+		return DefaultGinInit()
+	}
 }

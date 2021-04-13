@@ -33,7 +33,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 func printPrompt(text string) {
@@ -87,7 +87,7 @@ func PromptBool(text string) (bool, error) {
 func PromptPassword(text string) (string, error) {
 	printPrompt(text)
 	//nolint #unconvert
-	res, err := terminal.ReadPassword(int(syscall.Stdin))
+	res, err := term.ReadPassword(int(syscall.Stdin))
 	fmt.Printf("\n")
 
 	return string(res), err

@@ -26,10 +26,13 @@
 package object
 
 import (
+	//nolint #nosec
 	/* #nosec */
 	"crypto/md5"
 	"encoding/base64"
 	"io"
+
+	//nolint #gci
 	"os"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
@@ -101,8 +104,8 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 
 		/* #nosec */
 		h := md5.New()
-		if _, err := tmp.WriteTo(h); err != nil {
-			return cli.multipartCancel(err, upl.UploadId, object)
+		if _, e := tmp.WriteTo(h); e != nil {
+			return cli.multipartCancel(e, upl.UploadId, object)
 		}
 
 		_, err = tmp.Seek(0, io.SeekStart)

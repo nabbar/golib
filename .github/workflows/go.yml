@@ -20,13 +20,14 @@ jobs:
       - name: Set up Go 1.x
         uses: actions/setup-go@v2
         with:
-          go-version: ^1.14
+          go-version: ^1.16
         id: go
 
       - name: Check out code into the Go module directory
         uses: actions/checkout@v2
 
       - name: Link workspace with GOPATH
+        continue-on-error: false
         run: |
           sudo mkdir -vp $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
           sudo chown -R ${USER}:users $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
@@ -34,16 +35,18 @@ jobs:
           sudo ln -svf $(pwd) ${GOPATH}/src/github.com/${GITHUB_REPOSITORY}
 
       - name: Check out tools into the Go module directory
+        continue-on-error: false
         run: |
           git clone https://github.com/nabbar/gotools.git scripts
           ./scripts/prepare
 
+      - name: Update vendor or dependancies
+        continue-on-error: false
+        run: ./scripts/ci_depend
+
       - name: Check goFmt & goImport
         continue-on-error: false
         run: ./scripts/ci_format
-
-      - name: Update vendor or dependancies
-        run: ./scripts/ci_depend
 
       - name: Check Missing License
         continue-on-error: false

@@ -31,29 +31,32 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nabbar/golib/smtp"
-
-	"github.com/nabbar/golib/ioutils"
-
 	liberr "github.com/nabbar/golib/errors"
+	libiot "github.com/nabbar/golib/ioutils"
+	libsmtp "github.com/nabbar/golib/smtp"
 	simple "github.com/xhit/go-simple-mail"
+)
+
+const (
+	_MinSizeAddr = 4
 )
 
 type Sender interface {
 	Close() error
-	Send(ctx context.Context, cli smtp.SMTP) liberr.Error
-	SendClose(ctx context.Context, cli smtp.SMTP) liberr.Error
+	Send(ctx context.Context, cli libsmtp.SMTP) liberr.Error
+	SendClose(ctx context.Context, cli libsmtp.SMTP) liberr.Error
 }
 
 type sender struct {
-	data ioutils.FileProgress
+	data libiot.FileProgress
 	from string
 	rcpt []string
 }
 
+//nolint #gocognit
 func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	e := simple.NewMSG()
-	f := make([]ioutils.FileProgress, 0)
+	f := make([]libiot.FileProgress, 0)
 
 	switch m.GetPriority() {
 	case PriorityHigh:
@@ -142,7 +145,7 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 
 	if len(m.attach) > 0 {
 		for _, i := range m.attach {
-			if t, er := ioutils.NewFileProgressTemp(); er != nil {
+			if t, er := libiot.NewFileProgressTemp(); er != nil {
 				return nil, er
 			} else if _, er := t.ReadFrom(i.data); er != nil {
 				return nil, ErrorIORead.ErrorParent(er)
@@ -156,7 +159,7 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 
 	if len(m.inline) > 0 {
 		for _, i := range m.inline {
-			if t, er := ioutils.NewFileProgressTemp(); er != nil {
+			if t, er := libiot.NewFileProgressTemp(); er != nil {
 				return nil, er
 			} else if _, er := t.ReadFrom(i.data); er != nil {
 				return nil, ErrorIORead.ErrorParent(er)
@@ -206,7 +209,7 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	s.rcpt = append(s.rcpt, m.Email().GetRecipients(RecipientCC)...)
 	s.rcpt = append(s.rcpt, m.Email().GetRecipients(RecipientBCC)...)
 
-	if tmp, err := ioutils.NewFileProgressTemp(); err != nil {
+	if tmp, err := libiot.NewFileProgressTemp(); err != nil {
 		return nil, err
 	} else if _, er := tmp.WriteString(e.GetMessage()); er != nil {
 		return nil, ErrorIOWrite.ErrorParent(er)
@@ -222,7 +225,7 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	return
 }
 
-func (s *sender) SendClose(ctx context.Context, cli smtp.SMTP) liberr.Error {
+func (s *sender) SendClose(ctx context.Context, cli libsmtp.SMTP) liberr.Error {
 	defer func() {
 		_ = s.Close()
 	}()
@@ -234,14 +237,16 @@ func (s *sender) SendClose(ctx context.Context, cli smtp.SMTP) liberr.Error {
 	return nil
 }
 
-func (s *sender) Send(ctx context.Context, cli smtp.SMTP) liberr.Error {
+func (s *sender) Send(ctx context.Context, cli libsmtp.SMTP) liberr.Error {
 	if e := cli.Check(ctx); e != nil {
 		return ErrorSmtpClient.ErrorParent(e)
 	}
 
-	if len(s.from) < 4 {
+	if len(s.from) < _MinSizeAddr {
+		//nolint #goerr113
 		return ErrorParamsEmpty.ErrorParent(fmt.Errorf("parameters 'from' is not valid"))
-	} else if len(s.rcpt) < 1 || len(s.rcpt[0]) < 4 {
+	} else if len(s.rcpt) < 1 || len(s.rcpt[0]) < _MinSizeAddr {
+		//nolint #goerr113
 		return ErrorParamsEmpty.ErrorParent(fmt.Errorf("parameters 'receipient' is not valid"))
 	}
 
