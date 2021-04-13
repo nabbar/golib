@@ -35,7 +35,6 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -129,9 +128,36 @@ func (p PoolServerConfig) MapRun(f MapRunPoolServerConfig) PoolServerConfig {
 	return r
 }
 
+//nolint #maligned
 type ServerConfig struct {
-	getTLSDefault    func() libtls.TLSConfig
+
+	// Name is the name of the current server
+	// the configuration allow multipke server, which each one must be identify by a name
+	// If not defined, will use the listen address
+	Name string `mapstructure:"name" json:"name" yaml:"name" toml:"name" validate:"required"`
+
+	// Listen is the local address (ip, hostname, unix socket, ...) with a port
+	// The server will bind with this address only and listen for the port defined
+	Listen string `mapstructure:"listen" json:"listen" yaml:"listen" toml:"listen" validate:"required,hostname_port"`
+
+	// Expose is the address use to call this server. This can be allow to use a single fqdn to multiple server"
+	Expose string `mapstructure:"expose" json:"expose" yaml:"expose" toml:"expose" validate:"required,url"`
+
+	// HandlerKeys is an options to associate current server with a specifc handler defined by the key
+	// This allow to defined multiple server in only one config for different handler to start multiple api
+	HandlerKeys string `mapstructure:"handler_keys" json:"handler_keys" yaml:"handler_keys" toml:"handler_keys"`
+
+	//private
+	getTLSDefault func() libtls.TLSConfig
+
+	//private
 	getParentContext func() context.Context
+
+	// TimeoutCacheInfo defined the validity time of cache for info (name, version, hash)
+	TimeoutCacheInfo time.Duration `mapstructure:"timeout_cache_info" json:"timeout_cache_info" yaml:"timeout_cache_info" toml:"timeout_cache_info"`
+
+	// TimeoutCacheHealth defined the validity time of cache for healthcheck of this server
+	TimeoutCacheHealth time.Duration `mapstructure:"timeout_cache_health" json:"timeout_cache_health" yaml:"timeout_cache_health" toml:"timeout_cache_health"`
 
 	// Enabled allow to disable a server without clean his configuration
 	Disabled bool `mapstructure:"disabled" json:"disabled" yaml:"disabled" toml:"disabled"`
@@ -140,11 +166,13 @@ type ServerConfig struct {
 	// y defined if the component for status is mandatory or not
 	Mandatory bool `mapstructure:"mandatory" json:"mandatory" yaml:"mandatory" toml:"mandatory"`
 
-	// TimeoutCacheInfo defined the validity time of cache for info (name, version, hash)
-	TimeoutCacheInfo time.Duration `mapstructure:"timeout_cache_info" json:"timeout_cache_info" yaml:"timeout_cache_info" toml:"timeout_cache_info"`
+	// TLSMandatory is a flag to defined that TLS must be valid to start current server.
+	TLSMandatory bool `mapstructure:"tls_mandatory" json:"tls_mandatory" yaml:"tls_mandatory" toml:"tls_mandatory"`
 
-	// TimeoutCacheHealth defined the validity time of cache for healthcheck of this server
-	TimeoutCacheHealth time.Duration `mapstructure:"timeout_cache_health" json:"timeout_cache_health" yaml:"timeout_cache_health" toml:"timeout_cache_health"`
+	// TLS is the tls configuration for this server.
+	// To allow tls on this server, at least the TLS Config option InheritDefault must be at true and the default TLS config must be set.
+	// If you don't want any tls config, just omit or set an empty struct.
+	TLS libtls.Config `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
 
 	/*** http options ***/
 
@@ -220,30 +248,6 @@ type ServerConfig struct {
 	// be larger than 2^32-1. If the value is zero or larger than the
 	// maximum, a default value will be used instead.
 	MaxUploadBufferPerStream int32 `json:"max_upload_buffer_per_stream" json:"max_upload_buffer_per_stream" yaml:"max_upload_buffer_per_stream" toml:"max_upload_buffer_per_stream"`
-
-	// Name is the name of the current server
-	// the configuration allow multipke server, which each one must be identify by a name
-	// If not defined, will use the listen address
-	Name string `mapstructure:"name" json:"name" yaml:"name" toml:"name" validate:"required"`
-
-	// Listen is the local address (ip, hostname, unix socket, ...) with a port
-	// The server will bind with this address only and listen for the port defined
-	Listen string `mapstructure:"listen" json:"listen" yaml:"listen" toml:"listen" validate:"required,hostname_port"`
-
-	// Expose is the address use to call this server. This can be allow to use a single fqdn to multiple server"
-	Expose string `mapstructure:"expose" json:"expose" yaml:"expose" toml:"expose" validate:"required,url"`
-
-	// HandlerKeys is an options to associate current server with a specifc handler defined by the key
-	// This allow to defined multiple server in only one config for different handler to start multiple api
-	HandlerKeys string `mapstructure:"handler_keys" json:"handler_keys" yaml:"handler_keys" toml:"handler_keys"`
-
-	// TLSMandatory is a flag to defined that TLS must be valid to start current server.
-	TLSMandatory bool `mapstructure:"tls_mandatory" json:"tls_mandatory" yaml:"tls_mandatory" toml:"tls_mandatory"`
-
-	// TLS is the tls configuration for this server.
-	// To allow tls on this server, at least the TLS Config option InheritDefault must be at true and the default TLS config must be set.
-	// If you don't want any tls config, just omit or set an empty struct.
-	TLS libtls.Config `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
 }
 
 func (c *ServerConfig) Clone() ServerConfig {
@@ -319,7 +323,7 @@ func (c ServerConfig) GetListen() *url.URL {
 
 	if c.Listen != "" {
 		if add, err = url.Parse(c.Listen); err != nil {
-			if host, prt, err := net.SplitHostPort(c.Listen); err == nil {
+			if host, prt, e := net.SplitHostPort(c.Listen); e == nil {
 				add = &url.URL{
 					Host: fmt.Sprintf("%s:%s", host, prt),
 				}

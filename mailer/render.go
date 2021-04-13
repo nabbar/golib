@@ -33,27 +33,14 @@ import (
 )
 
 func (e *email) GenerateHTML() (*bytes.Buffer, liberr.Error) {
-	var buf = bytes.NewBuffer(make([]byte, 0))
-
-	h := hermes.Hermes{
-		Theme:              e.t.getHermes(),
-		TextDirection:      e.d.getDirection(),
-		Product:            e.p,
-		DisableCSSInlining: e.c,
-	}
-
-	if p, e := h.GenerateHTML(hermes.Email{
-		Body: *e.b,
-	}); e != nil {
-		return nil, ErrorMailerHtml.ErrorParent(e)
-	} else {
-		buf.WriteString(p)
-	}
-
-	return buf, nil
+	return e.generated(e.genHtml)
 }
 
 func (e *email) GeneratePlainText() (*bytes.Buffer, liberr.Error) {
+	return e.generated(e.genText)
+}
+
+func (e email) generated(f func(h hermes.Hermes, m hermes.Email) (string, error)) (*bytes.Buffer, liberr.Error) {
 	var buf = bytes.NewBuffer(make([]byte, 0))
 
 	h := hermes.Hermes{
@@ -63,7 +50,7 @@ func (e *email) GeneratePlainText() (*bytes.Buffer, liberr.Error) {
 		DisableCSSInlining: e.c,
 	}
 
-	if p, e := h.GeneratePlainText(hermes.Email{
+	if p, e := f(h, hermes.Email{
 		Body: *e.b,
 	}); e != nil {
 		return nil, ErrorMailerText.ErrorParent(e)
@@ -72,4 +59,12 @@ func (e *email) GeneratePlainText() (*bytes.Buffer, liberr.Error) {
 	}
 
 	return buf, nil
+}
+
+func (e *email) genText(h hermes.Hermes, m hermes.Email) (string, error) {
+	return h.GeneratePlainText(m)
+}
+
+func (e *email) genHtml(h hermes.Hermes, m hermes.Email) (string, error) {
+	return h.GenerateHTML(m)
 }

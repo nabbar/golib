@@ -66,6 +66,7 @@ func (o NutsDBOptions) GetNutsDBOptions(dataDir string) nutsdb.Options {
 	} else {
 		d.Dir = dataDir
 
+		//nolint #exhaustive
 		switch o.RWMode {
 		case nutsdb.MMap:
 			d.RWMode = nutsdb.MMap
@@ -73,6 +74,7 @@ func (o NutsDBOptions) GetNutsDBOptions(dataDir string) nutsdb.Options {
 			d.RWMode = nutsdb.FileIO
 		}
 
+		//nolint #exhaustive
 		switch o.StartFileLoadingMode {
 		case nutsdb.MMap:
 			d.StartFileLoadingMode = nutsdb.MMap
@@ -81,6 +83,7 @@ func (o NutsDBOptions) GetNutsDBOptions(dataDir string) nutsdb.Options {
 		}
 	}
 
+	//nolint #exhaustive
 	switch o.EntryIdxMode {
 	case nutsdb.HintKeyAndRAMIdxMode:
 		d.EntryIdxMode = nutsdb.HintKeyAndRAMIdxMode
