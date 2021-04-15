@@ -28,6 +28,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -56,16 +57,11 @@ const (
 )
 
 var (
-	curLevel = NilLevel
+	curLevel *atomic.Value
 )
 
 func init() {
 	SetLevel(InfoLevel)
-}
-
-//GetCurrentLevel return the current loglevel setting in the logger. All log entry matching this level or below will be logged.
-func GetCurrentLevel() Level {
-	return curLevel
 }
 
 // GetLevelListString return a list ([]string) of all string loglevel available.
@@ -80,6 +76,28 @@ func GetLevelListString() []string {
 	}
 }
 
+//GetCurrentLevel return the current loglevel setting in the logger. All log entry matching this level or below will be logged.
+func GetCurrentLevel() Level {
+	if curLevel == nil {
+		curLevel = new(atomic.Value)
+	}
+
+	if i := curLevel.Load(); i == nil {
+		return NilLevel
+	} else if l, ok := i.(Level); !ok {
+		return NilLevel
+	} else {
+		return l
+	}
+}
+
+func setCurLevel(lvl Level) {
+	if curLevel == nil {
+		curLevel = new(atomic.Value)
+	}
+	curLevel.Store(lvl)
+}
+
 // SetLevel Change the Level of all log entry with the Level type given in parameter. The change is apply for next log entry only.
 // If the given Level type is not matching a correct Level type, no change will be apply.
 /*
@@ -90,30 +108,31 @@ func SetLevel(level Level) {
 	switch level {
 
 	case PanicLevel:
-		curLevel = PanicLevel
+		setCurLevel(PanicLevel)
 		logrus.SetLevel(logrus.PanicLevel)
 
 	case FatalLevel:
-		curLevel = FatalLevel
+		setCurLevel(FatalLevel)
 		logrus.SetLevel(logrus.FatalLevel)
 
 	case ErrorLevel:
-		curLevel = ErrorLevel
+		setCurLevel(ErrorLevel)
 		logrus.SetLevel(logrus.ErrorLevel)
 
 	case WarnLevel:
-		curLevel = WarnLevel
+		setCurLevel(WarnLevel)
 		logrus.SetLevel(logrus.WarnLevel)
 
 	case InfoLevel:
-		curLevel = InfoLevel
+		setCurLevel(InfoLevel)
 		logrus.SetLevel(logrus.InfoLevel)
 
 	case DebugLevel:
-		curLevel = DebugLevel
+		setCurLevel(DebugLevel)
 		logrus.SetLevel(logrus.DebugLevel)
 
 	case NilLevel:
+		setCurLevel(NilLevel)
 		return
 	}
 
@@ -126,8 +145,8 @@ func setViperLogTrace() {
 		return
 	}
 
-	jwalterweatherman.SetLogOutput(GetIOWriter(curLevel, "[Log Config Viper]"))
-	jwalterweatherman.SetStdoutOutput(GetIOWriter(curLevel, "[Std Config Viper]"))
+	jwalterweatherman.SetLogOutput(GetIOWriter(GetCurrentLevel(), "[Log Config Viper]"))
+	jwalterweatherman.SetStdoutOutput(GetIOWriter(GetCurrentLevel(), "[Std Config Viper]"))
 
 	if filetrace {
 		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelTrace)
@@ -135,7 +154,7 @@ func setViperLogTrace() {
 	}
 
 	//nolint exhaustive
-	switch curLevel {
+	switch GetCurrentLevel() {
 	case PanicLevel:
 		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelCritical)
 
@@ -370,7 +389,7 @@ func (level Level) logDetails(message string, data interface{}, err error, field
 
 	tags[tagTime] = level.String()
 
-	if filetrace && curLevel == DebugLevel {
+	if filetrace && GetCurrentLevel() == DebugLevel {
 		frame := getFrame()
 		tags[tagCaller] = frame.Function
 		tags[tagFile] = filterPath(frame.File)

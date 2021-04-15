@@ -34,17 +34,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func Create(archive io.WriteSeeker, content ...string) (bool, liberr.Error) {
+func Create(archive io.WriteSeeker, stripPath string, content ...string) (bool, liberr.Error) {
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
 		return false, ErrorFileSeek.ErrorParent(err)
 	}
 
-	if ok, err := createTar(archive, content...); err != nil || !ok {
+	if ok, err := createTar(archive, stripPath, content...); err != nil || !ok {
 		return ok, err
 	}
 
@@ -55,7 +56,7 @@ func Create(archive io.WriteSeeker, content ...string) (bool, liberr.Error) {
 	return true, nil
 }
 
-func CreateGzip(archive io.WriteSeeker, content ...string) (bool, liberr.Error) {
+func CreateGzip(archive io.WriteSeeker, stripPath string, content ...string) (bool, liberr.Error) {
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
 		return false, ErrorFileSeek.ErrorParent(err)
@@ -63,7 +64,7 @@ func CreateGzip(archive io.WriteSeeker, content ...string) (bool, liberr.Error) 
 
 	z := gzip.NewWriter(archive)
 
-	if ok, err := createTar(z, content...); err != nil || !ok {
+	if ok, err := createTar(z, stripPath, content...); err != nil || !ok {
 		return ok, err
 	}
 
@@ -78,7 +79,7 @@ func CreateGzip(archive io.WriteSeeker, content ...string) (bool, liberr.Error) 
 	return true, nil
 }
 
-func createTar(w io.Writer, content ...string) (bool, liberr.Error) {
+func createTar(w io.Writer, stripPath string, content ...string) (bool, liberr.Error) {
 	var (
 		t *tar.Writer
 		n int64
@@ -87,6 +88,7 @@ func createTar(w io.Writer, content ...string) (bool, liberr.Error) {
 		lEr = ErrorTarCreateAddFile.Error(nil)
 	)
 
+	stripPath = strings.TrimLeft(stripPath, "/")
 	t = tar.NewWriter(w)
 
 	for i := 0; i < len(content); i++ {
@@ -110,6 +112,15 @@ func createTar(w io.Writer, content ...string) (bool, liberr.Error) {
 			// must provide real name
 			// (see https://golang.org/src/archive/tar/common.go?#L626)
 			h.Name = filepath.ToSlash(file)
+
+			if stripPath != "" {
+				h.Name = filepath.Clean(strings.Replace(strings.TrimLeft(h.Name, "/"), stripPath, "", 1))
+			}
+			h.Name = strings.TrimLeft(h.Name, "/")
+
+			if h.Name == "" || h.Name == "." {
+				return nil
+			}
 
 			// write header
 			if e = t.WriteHeader(h); e != nil {

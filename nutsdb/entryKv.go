@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"strings"
 
 	"github.com/fxamacker/cbor/v2"
 	liberr "github.com/nabbar/golib/errors"
@@ -72,7 +73,8 @@ func NewCommandByCaller(params ...interface{}) *CommandRequest {
 	f := runtime.FuncForPC(pc[0])
 
 	d := &CommandRequest{}
-	d.Cmd = CmdCodeFromName(f.Name())
+	fn := strings.Split(f.Name(), ".")
+	d.Cmd = CmdCodeFromName(fn[len(fn)-1])
 
 	if len(params) > 0 {
 		d.Params = params
@@ -232,6 +234,10 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 }
 
 func (c *CommandRequest) Run(tx *nutsdb.Tx) ([]byte, liberr.Error) {
+	if c.Cmd == CmdUnknown {
+		return nil, ErrorClientCommandInvalid.Error(nil)
+	}
+
 	if r, err := c.RunLocal(tx); err != nil {
 		return nil, err
 	} else if p, e := cbor.Marshal(r); e != nil {

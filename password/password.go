@@ -41,13 +41,9 @@ const (
 	loopRandMaxLen = 10
 )
 
-var src = rand.NewSource(time.Now().UnixNano())
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func randStringBytesMaskImprSrc(n int) string {
+	var src = rand.NewSource(time.Now().UnixNano())
+
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
 	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
