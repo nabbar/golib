@@ -13,19 +13,13 @@ require (
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/aokoli/goutils v1.1.1 // indirect
 	github.com/armon/go-metrics v0.3.6 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.3.2
-	github.com/aws/aws-sdk-go-v2/config v1.1.5
-	github.com/aws/aws-sdk-go-v2/credentials v1.1.5
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.0.6 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.3.3
+	github.com/aws/aws-sdk-go-v2/config v1.1.6
+	github.com/aws/aws-sdk-go-v2/credentials v1.1.6
 	github.com/aws/aws-sdk-go-v2/service/iam v1.3.1
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.0.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.0.6 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.2.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.5.0
-	github.com/aws/aws-sdk-go-v2/service/sso v1.1.5 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.2.2 // indirect
-	github.com/cockroachdb/errors v1.8.3 // indirect
-	github.com/cockroachdb/pebble v0.0.0-20210406003833-3d4c32f510a8 // indirect
+	github.com/cockroachdb/errors v1.8.4 // indirect
+	github.com/cockroachdb/pebble v0.0.0-20210414141038-bee0c60e96bc // indirect
 	github.com/cockroachdb/redact v1.0.9 // indirect
 	github.com/fatih/color v1.10.0
 	github.com/fxamacker/cbor/v2 v2.2.0
@@ -38,7 +32,6 @@ require (
 	github.com/gobuffalo/packd v1.0.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-github/v33 v33.0.0
 	github.com/google/go-querystring v1.1.0 // indirect
@@ -58,7 +51,7 @@ require (
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
-	github.com/klauspost/compress v1.11.13 // indirect
+	github.com/klauspost/compress v1.12.1 // indirect
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
@@ -85,10 +78,10 @@ require (
 	github.com/xujiajun/utils v0.0.0-20190123093513-8bf096c4f53b
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
 	golang.org/x/exp v0.0.0-20210405174845-4513512abef3 // indirect
-	golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1
-	golang.org/x/oauth2 v0.0.0-20210402161424-2e8d93401602
+	golang.org/x/net v0.0.0-20210414194228-064579744ee0
+	golang.org/x/oauth2 v0.0.0-20210413134643-5e61552d6c78
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210412220455-f1c623a9e750 // indirect
+	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
 	golang.org/x/term v0.0.0-20210406210042-72f3dc4e9b72
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/appengine v1.6.7 // indirect
