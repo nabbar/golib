@@ -28,12 +28,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/nabbar/golib/password"
 
 	"github.com/nabbar/golib/logger"
 
@@ -48,8 +53,10 @@ import (
 const (
 	BaseDirPattern = "/nutsdb/node-%d"
 	NbInstances    = 3
-	NbEntries      = 100000
+	NbEntries      = 10000
 	LoggerFile     = "/nutsdb/nutsdb.log"
+	AllowPut       = true
+	AllowGet       = true
 )
 
 var (
@@ -59,7 +66,7 @@ var (
 
 func init() {
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
-	logger.SetLevel(logger.WarnLevel)
+	logger.SetLevel(logger.InfoLevel)
 	logger.AddGID(true)
 	logger.EnableColor()
 	logger.FileTrace(true)
@@ -96,10 +103,19 @@ func main() {
 		}
 	}()
 
+	println(fmt.Sprintf("Running test with %d threads...", runtime.GOMAXPROCS(0)))
 	println(fmt.Sprintf("Init cluster..."))
 	tStart := time.Now()
 	cluster := Start(ctx)
+
+	logger.SetLevel(logger.WarnLevel)
+	defer func() {
+		Stop(ctx, cluster)
+	}()
+
 	tInit := time.Since(tStart)
+	mInit := fmt.Sprintf("Memory used after Init: \n%s", strings.Join(GetMemUsage(), "\n"))
+	runtime.GC()
 	println(fmt.Sprintf("Init done. \n"))
 
 	pgb := progress.NewProgressBarWithContext(ctx, mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
@@ -114,14 +130,18 @@ func main() {
 
 		go func(ctx context.Context, bar progress.Bar, clu libndb.NutsDB, num int) {
 			defer bar.DeferWorker()
-			Put(ctx, clu, fmt.Sprintf("key-%3d", num), fmt.Sprintf("val-%03d", num))
-		}(ctx, barPut, cluster[i%3], i)
+			if AllowPut {
+				Put(ctx, clu, fmt.Sprintf("key-%03d", num), fmt.Sprintf("val-%03d|%s|%s|%s", num, password.Generate(50), password.Generate(50), password.Generate(50)))
+			}
+		}(ctx, barPut, cluster[i%3], i+1)
 	}
 
 	if e := barPut.WaitAll(); e != nil {
 		panic(e)
 	}
 	tPut := time.Since(tStart)
+	mPut := fmt.Sprintf("Memory used after Put entries: \n%s", strings.Join(GetMemUsage(), "\n"))
+	runtime.GC()
 
 	barGet := pgb.NewBarSimpleCounter("GetEntry", int64(NbEntries))
 	defer barGet.DeferMain(false)
@@ -139,20 +159,52 @@ func main() {
 
 		go func(ctx context.Context, bar progress.Bar, clu libndb.NutsDB, num int) {
 			defer bar.DeferWorker()
-			Get(ctx, clu, fmt.Sprintf("key-%3d", num))
-		}(ctx, barGet, cluster[c], i)
+			if AllowGet {
+				Get(ctx, clu, fmt.Sprintf("key-%03d", num), fmt.Sprintf("val-%03d", num))
+			}
+		}(ctx, barGet, cluster[c], i+1)
 	}
 
 	if e := barGet.WaitAll(); e != nil {
 		panic(e)
 	}
 	tGet := time.Since(tStart)
+	mGet := fmt.Sprintf("Memory used after Get entries: \n%s", strings.Join(GetMemUsage(), "\n"))
+	runtime.GC()
 
-	time.Sleep(10 * time.Second)
+	barPut.DeferMain(false)
+	barPut = nil
 
-	println(fmt.Sprintf("Time for init cluster: %s", tInit.String()))
-	println(fmt.Sprintf("Time for %d Put in DB: %s", NbEntries, tPut.String()))
-	println(fmt.Sprintf("Time for %d Get in DB: %s", NbEntries, tGet.String()))
+	barGet.DeferMain(false)
+	barGet = nil
+
+	pgb = nil
+	res := []string{
+		fmt.Sprintf("Time for init cluster: %s", tInit.String()),
+		fmt.Sprintf("Time for %d Put in DB: %s ( %s by entry )", NbEntries, tPut.String(), (tPut / NbEntries).String()),
+		fmt.Sprintf("Time for %d Get in DB: %s ( %s by entry )", NbEntries, tGet.String(), (tGet / NbEntries).String()),
+		mInit,
+		mPut,
+		mGet,
+	}
+	runtime.GC()
+	logger.SetLevel(logger.InfoLevel)
+	time.Sleep(5 * time.Second)
+
+	println(strings.Join(res, "\n"))
+	logger.InfoLevel.Logf("Results testing: \n%s", strings.Join(res, "\n"))
+	time.Sleep(5 * time.Second)
+}
+
+func GetMemUsage() []string {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return []string{
+		fmt.Sprintf("\t - Alloc      = %v MiB", m.Alloc/1024/1024),
+		fmt.Sprintf("\t - TotalAlloc = %v MiB", m.TotalAlloc/1024/1024),
+		fmt.Sprintf("\t - Sys        = %v MiB", m.Sys/1024/1024),
+		fmt.Sprintf("\t - NumGC      = %v\n", m.NumGC),
+	}
 }
 
 func Put(ctx context.Context, c libndb.NutsDB, key, val string) {
@@ -161,10 +213,16 @@ func Put(ctx context.Context, c libndb.NutsDB, key, val string) {
 	//fmt.Printf("Cmd Put(%s, %s) : %v\n", key, val, res)
 }
 
-func Get(ctx context.Context, c libndb.NutsDB, key string) {
-	_, _ = c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
-	//v, e := c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
-	//fmt.Printf("Cmd Get(%s) : %v --- err : %v\n", key, string(v.Value), e)
+func Get(ctx context.Context, c libndb.NutsDB, key, val string) {
+	//_, _ = c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
+	v, e := c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
+	if e != nil {
+		logger.ErrorLevel.Logf("Cmd Get for key '%s', error : %v", key, e)
+		fmt.Printf("Cmd Get for key '%s', error : %v", key, e)
+	} else if !bytes.HasPrefix(v.Value, []byte(val)) {
+		logger.ErrorLevel.Logf("Cmd Get for key '%s', awaiting value start with '%s', but find : %s", key, val, string(v.Value))
+		fmt.Printf("Cmd Get for key '%s', awaiting value start with '%s', but find : %s", key, val, string(v.Value))
+	}
 }
 
 func Start(ctx context.Context) []libndb.NutsDB {
@@ -173,6 +231,7 @@ func Start(ctx context.Context) []libndb.NutsDB {
 	for i := 0; i < NbInstances; i++ {
 		clusters[i] = initNutDB(i + 1)
 
+		logger.InfoLevel.Logf("Starting node ID #%d...", i+1)
 		if err := clusters[i].Listen(); err != nil {
 			panic(err)
 		}
@@ -181,6 +240,17 @@ func Start(ctx context.Context) []libndb.NutsDB {
 	}
 
 	return clusters
+}
+
+func Stop(ctx context.Context, clusters []libndb.NutsDB) {
+	for i := 0; i < NbInstances; i++ {
+		logger.InfoLevel.Logf("Stopping node ID #%d...", i+1)
+		if err := clusters[i].Shutdown(); err != nil {
+			panic(err)
+		}
+
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func initNutDB(num int) libndb.NutsDB {
@@ -195,10 +265,10 @@ func initNutDB(num int) libndb.NutsDB {
 func configNutDB() libndb.Config {
 	cfg := libndb.Config{
 		DB: libndb.NutsDBOptions{
-			EntryIdxMode:         nutsdb.HintKeyValAndRAMIdxMode,
+			EntryIdxMode:         nutsdb.HintKeyAndRAMIdxMode,
 			RWMode:               nutsdb.FileIO,
-			SegmentSize:          8 * 1024 * 1024,
-			SyncEnable:           false,
+			SegmentSize:          64 * 1024,
+			SyncEnable:           true,
 			StartFileLoadingMode: nutsdb.MMap,
 		},
 
