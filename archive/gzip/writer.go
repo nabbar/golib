@@ -36,7 +36,7 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func Create(archive io.WriteSeeker, content ...string) (bool, liberr.Error) {
+func Create(archive io.WriteSeeker, stripPath string, content ...string) (bool, liberr.Error) {
 	var (
 		w *gzip.Writer
 		f *os.File

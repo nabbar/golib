@@ -175,7 +175,7 @@ func ginTonicAddError(c *gin.Context, err error) {
 }
 
 func proceed(lvl Level) bool {
-	return lvl != NilLevel && lvl <= curLevel
+	return lvl != NilLevel && lvl <= GetCurrentLevel()
 }
 
 func filterPath(pathname string) string {

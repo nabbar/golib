@@ -199,7 +199,7 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 	return nil
 }
 
-func CreateArchive(archiveType ArchiveType, archive libiot.FileProgress, pathContent ...string) (created bool, err liberr.Error) {
+func CreateArchive(archiveType ArchiveType, archive libiot.FileProgress, stripPath string, pathContent ...string) (created bool, err liberr.Error) {
 	//@TODO: make function
 	if len(pathContent) < 1 {
 		//nolint #goerr113
@@ -208,11 +208,11 @@ func CreateArchive(archiveType ArchiveType, archive libiot.FileProgress, pathCon
 
 	switch archiveType {
 	case TypeGzip:
-		return libgzp.Create(archive, pathContent...)
+		return libgzp.Create(archive, stripPath, pathContent...)
 	case TypeTar:
-		return libtar.Create(archive, pathContent...)
+		return libtar.Create(archive, stripPath, pathContent...)
 	case TypeTarGzip:
-		return libtar.CreateGzip(archive, pathContent...)
+		return libtar.CreateGzip(archive, stripPath, pathContent...)
 	}
 
 	return false, nil
