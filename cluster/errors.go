@@ -70,45 +70,45 @@ func getMessage(code liberr.CodeError) (message string) {
 	case liberr.UNK_ERROR:
 		return ""
 	case ErrorParamsEmpty:
-		return "at least on given parameters is empty"
+		return "at least one given parameter is empty"
 	case ErrorParamsMissing:
-		return "at least on given parameters is missing"
+		return "at least one given parameter is missing"
 	case ErrorParamsMismatching:
-		return "at least on given parameters is mismatching awaiting type"
+		return "at least one given parameter does not match the awaiting type"
 	case ErrorLeader:
-		return "enable to retrieve cluster leader"
+		return "unable to retrieve cluster leader"
 	case ErrorLeaderTransfer:
-		return "enable to transfer cluster leader"
+		return "unable to transfer cluster leader"
 	case ErrorNodeUser:
-		return "enable to retrieve node user"
+		return "unable to retrieve node user"
 	case ErrorNodeHostNew:
-		return "enable to init new NodeHost"
+		return "unable to init new NodeHost"
 	case ErrorNodeHostStart:
-		return "enable to start cluster"
+		return "unable to start cluster"
 	case ErrorNodeHostJoin:
-		return "enable to join cluster"
+		return "unable to join cluster"
 	case ErrorNodeHostStop:
-		return "enable to stop cluster or node"
+		return "unable to stop cluster or node"
 	case ErrorNodeHostRestart:
-		return "enable to restart node properly"
+		return "unable to restart node properly"
 	case ErrorCommandSync:
-		return "enable to call synchronous command"
+		return "unable to call synchronous command"
 	case ErrorCommandASync:
-		return "enable to call asynchronous command"
+		return "unable to call asynchronous command"
 	case ErrorCommandLocal:
-		return "enable to call local command"
+		return "unable to call local command"
 	case ErrorValidateConfig:
-		return "config seems to be not valid"
+		return "config seems to be invalid"
 	case ErrorValidateCluster:
-		return "cluster config seems to be not valid"
+		return "cluster config seems to be invalid"
 	case ErrorValidateNode:
-		return "node config seems to be not valid"
+		return "node config seems to be invalid"
 	case ErrorValidateGossip:
-		return "gossip config seems to be not valid"
+		return "gossip config seems to be invalid"
 	case ErrorValidateExpert:
-		return "expert config seems to be not valid"
+		return "expert config seems to be invalid"
 	case ErrorValidateEngine:
-		return "engine config seems to be not valid"
+		return "engine config seems to be invalid"
 	}
 
 	return ""
