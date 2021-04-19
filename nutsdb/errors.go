@@ -81,11 +81,11 @@ func getMessage(code liberr.CodeError) (message string) {
 	case liberr.UNK_ERROR:
 		return ""
 	case ErrorParamsEmpty:
-		return "at least on given parameters is empty"
+		return "at least one given parameter is empty"
 	case ErrorParamsMissing:
-		return "at least on given parameters is missing"
+		return "at least one given parameter is missing"
 	case ErrorParamsMismatching:
-		return "at least on given parameters is mismatching awaiting type"
+		return "at least one given parameter does not match the awaiting type"
 	case ErrorValidateConfig:
 		return "config seems to be invalid"
 	case ErrorValidateNutsDB:
@@ -109,9 +109,9 @@ func getMessage(code liberr.CodeError) (message string) {
 	case ErrorDatabaseKeyInvalid:
 		return "database key seems to be invalid"
 	case ErrorDatabaseBackup:
-		return "error occurs while trying to backup database folder"
+		return "error occured while trying to backup database folder"
 	case ErrorDatabaseSnapshot:
-		return "error occurs while trying to backup database to cluster members"
+		return "error occured while trying to backup database to cluster members"
 	case ErrorTransactionInit:
 		return "cannot initialize new transaction from database"
 	case ErrorTransactionClosed:
@@ -139,9 +139,9 @@ func getMessage(code liberr.CodeError) (message string) {
 	case ErrorClientCommandParamsMismatching:
 		return "invalid type of parameter for client command"
 	case ErrorClientCommandCall:
-		return "error occurs while running client command"
+		return "error occured while running client command"
 	case ErrorClientCommandCommit:
-		return "error occurs while commit client command"
+		return "error occured while commit client command"
 	case ErrorClientCommandResponseInvalid:
 		return "response of requested client command seems to be invalid"
 	}
