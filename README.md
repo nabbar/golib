@@ -26,3 +26,8 @@ import "github.com/nabbar/golib/version"
 * [package status](status/README.md)
 * [package version](version/README.md)
 
+# Build tags 
+To build static, pure go, some packages need to use tags osusergo and netgo, like this
+```bash
+go build -a -tags osusergo,netgo -installsuffix cgo ...
+```
