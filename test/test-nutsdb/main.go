@@ -38,14 +38,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nabbar/golib/password"
-
-	"github.com/nabbar/golib/logger"
+	"github.com/c-bata/go-prompt"
+	"github.com/c-bata/go-prompt/completer"
 
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
 	libndb "github.com/nabbar/golib/nutsdb"
-	"github.com/nabbar/golib/progress"
+	libpwd "github.com/nabbar/golib/password"
+	libpgb "github.com/nabbar/golib/progress"
+	libsh "github.com/nabbar/golib/shell"
+	libvrs "github.com/nabbar/golib/version"
 	"github.com/vbauerster/mpb/v5"
 	"github.com/xujiajun/nutsdb"
 )
@@ -53,10 +56,10 @@ import (
 const (
 	BaseDirPattern = "/nutsdb/node-%d"
 	NbInstances    = 3
-	NbEntries      = 10000
+	NbEntries      = 1000
 	LoggerFile     = "/nutsdb/nutsdb.log"
-	AllowPut       = true
-	AllowGet       = true
+	AllowPut       = false
+	AllowGet       = false
 )
 
 var (
@@ -66,12 +69,14 @@ var (
 
 func init() {
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
-	logger.SetLevel(logger.InfoLevel)
-	logger.AddGID(true)
-	logger.EnableColor()
-	logger.FileTrace(true)
-	logger.Timestamp(true)
+	liblog.SetLevel(liblog.InfoLevel)
+	liblog.AddGID(true)
+	liblog.EnableColor()
+	liblog.FileTrace(true)
+	liblog.Timestamp(true)
 }
+
+type EmptyStruct struct{}
 
 func main() {
 	if _, err := os.Stat(LoggerFile); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -87,10 +92,10 @@ func main() {
 	if file, err := os.OpenFile(LoggerFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666); err != nil {
 		panic(err)
 	} else {
-		logger.SetOutput(file)
+		liblog.SetOutput(file)
 		defer func() {
 			if file != nil {
-				logger.SetOutput(os.Stdout)
+				liblog.SetOutput(os.Stdout)
 				_ = file.Close()
 			}
 		}()
@@ -108,19 +113,46 @@ func main() {
 	tStart := time.Now()
 	cluster := Start(ctx)
 
-	logger.SetLevel(logger.WarnLevel)
+	liblog.SetLevel(liblog.WarnLevel)
 	defer func() {
 		Stop(ctx, cluster)
 	}()
+
+	if AllowPut || AllowGet {
+		println(strings.Join(Inject(ctx, tStart, cluster), "\n"))
+		os.Exit(0)
+	}
+
+	vs := libvrs.NewVersion(libvrs.License_MIT, "Test Raft DB Nuts", "Tools to test a raft cluster of nutsDB", time.Now().Format(time.RFC3339), "0000000", "v0.0.0", "No one", "pfx", EmptyStruct{}, 0)
+	vs.PrintLicense()
+	vs.PrintInfo()
+
+	_, _ = fmt.Fprintf(os.Stdout, "Please use `exit` or `Ctrl-D` to exit this program.\n")
+
+	sh := libsh.New()
+	sh.Add("", cluster[0].ShellCommand(func() context.Context {
+		return ctx
+	}, 200*time.Millisecond)...)
+	sh.RunPrompt(os.Stdout, os.Stderr,
+		prompt.OptionTitle(fmt.Sprintf("%s: %s", vs.GetPackage(), vs.GetDescription())),
+		prompt.OptionPrefix(">>> "),
+		prompt.OptionInputTextColor(prompt.Yellow),
+		prompt.OptionCompletionWordSeparator(completer.FilePathCompletionSeparator),
+	)
+}
+
+func Inject(ctx context.Context, tStart time.Time, cluster []libndb.NutsDB) []string {
+	lvl := liblog.GetCurrentLevel()
+	liblog.SetLevel(liblog.WarnLevel)
 
 	tInit := time.Since(tStart)
 	mInit := fmt.Sprintf("Memory used after Init: \n%s", strings.Join(GetMemUsage(), "\n"))
 	runtime.GC()
 	println(fmt.Sprintf("Init done. \n"))
 
-	pgb := progress.NewProgressBarWithContext(ctx, mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
+	pgb := libpgb.NewProgressBarWithContext(ctx, mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
 	barPut := pgb.NewBarSimpleCounter("PutEntry", int64(NbEntries))
-	defer barPut.DeferMain(false)
+	defer barPut.DeferMain(true)
 
 	tStart = time.Now()
 	for i := 0; i < NbEntries; i++ {
@@ -128,12 +160,12 @@ func main() {
 			continue
 		}
 
-		go func(ctx context.Context, bar progress.Bar, clu libndb.NutsDB, num int) {
+		go func(ctx context.Context, bar libpgb.Bar, clu libndb.NutsDB, num int) {
 			defer bar.DeferWorker()
 			if AllowPut {
-				Put(ctx, clu, fmt.Sprintf("key-%03d", num), fmt.Sprintf("val-%03d|%s|%s|%s", num, password.Generate(50), password.Generate(50), password.Generate(50)))
+				Put(ctx, clu, fmt.Sprintf("key-%03d", num), fmt.Sprintf("val-%03d|%s|%s|%s", num, libpwd.Generate(50), libpwd.Generate(50), libpwd.Generate(50)))
 			}
-		}(ctx, barPut, cluster[i%3], i+1)
+		}(ctx, barPut, cluster[i%NbInstances], i+1)
 	}
 
 	if e := barPut.WaitAll(); e != nil {
@@ -144,7 +176,7 @@ func main() {
 	runtime.GC()
 
 	barGet := pgb.NewBarSimpleCounter("GetEntry", int64(NbEntries))
-	defer barGet.DeferMain(false)
+	defer barGet.DeferMain(true)
 
 	tStart = time.Now()
 	for i := 0; i < NbEntries; i++ {
@@ -152,12 +184,12 @@ func main() {
 			continue
 		}
 
-		c := i%3 + 1
-		if c == 3 {
+		c := i%NbInstances + 1
+		if c == NbInstances {
 			c = 0
 		}
 
-		go func(ctx context.Context, bar progress.Bar, clu libndb.NutsDB, num int) {
+		go func(ctx context.Context, bar libpgb.Bar, clu libndb.NutsDB, num int) {
 			defer bar.DeferWorker()
 			if AllowGet {
 				Get(ctx, clu, fmt.Sprintf("key-%03d", num), fmt.Sprintf("val-%03d", num))
@@ -172,12 +204,6 @@ func main() {
 	mGet := fmt.Sprintf("Memory used after Get entries: \n%s", strings.Join(GetMemUsage(), "\n"))
 	runtime.GC()
 
-	barPut.DeferMain(false)
-	barPut = nil
-
-	barGet.DeferMain(false)
-	barGet = nil
-
 	pgb = nil
 	res := []string{
 		fmt.Sprintf("Time for init cluster: %s", tInit.String()),
@@ -188,12 +214,10 @@ func main() {
 		mGet,
 	}
 	runtime.GC()
-	logger.SetLevel(logger.InfoLevel)
-	time.Sleep(5 * time.Second)
-
-	println(strings.Join(res, "\n"))
-	logger.InfoLevel.Logf("Results testing: \n%s", strings.Join(res, "\n"))
-	time.Sleep(5 * time.Second)
+	liblog.SetLevel(liblog.InfoLevel)
+	liblog.InfoLevel.Logf("Results testing: \n%s", strings.Join(res, "\n"))
+	liblog.SetLevel(lvl)
+	return res
 }
 
 func GetMemUsage() []string {
@@ -217,10 +241,10 @@ func Get(ctx context.Context, c libndb.NutsDB, key, val string) {
 	//_, _ = c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
 	v, e := c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
 	if e != nil {
-		logger.ErrorLevel.Logf("Cmd Get for key '%s', error : %v", key, e)
+		liblog.ErrorLevel.Logf("Cmd Get for key '%s', error : %v", key, e)
 		fmt.Printf("Cmd Get for key '%s', error : %v", key, e)
 	} else if !bytes.HasPrefix(v.Value, []byte(val)) {
-		logger.ErrorLevel.Logf("Cmd Get for key '%s', awaiting value start with '%s', but find : %s", key, val, string(v.Value))
+		liblog.ErrorLevel.Logf("Cmd Get for key '%s', awaiting value start with '%s', but find : %s", key, val, string(v.Value))
 		fmt.Printf("Cmd Get for key '%s', awaiting value start with '%s', but find : %s", key, val, string(v.Value))
 	}
 }
@@ -231,7 +255,7 @@ func Start(ctx context.Context) []libndb.NutsDB {
 	for i := 0; i < NbInstances; i++ {
 		clusters[i] = initNutDB(i + 1)
 
-		logger.InfoLevel.Logf("Starting node ID #%d...", i+1)
+		liblog.InfoLevel.Logf("Starting node ID #%d...", i+1)
 		if err := clusters[i].Listen(); err != nil {
 			panic(err)
 		}
@@ -244,7 +268,7 @@ func Start(ctx context.Context) []libndb.NutsDB {
 
 func Stop(ctx context.Context, clusters []libndb.NutsDB) {
 	for i := 0; i < NbInstances; i++ {
-		logger.InfoLevel.Logf("Stopping node ID #%d...", i+1)
+		liblog.InfoLevel.Logf("Stopping node ID #%d...", i+1)
 		if err := clusters[i].Shutdown(); err != nil {
 			panic(err)
 		}
@@ -329,6 +353,7 @@ func configNutDB() libndb.Config {
 				1: "localhost:9001",
 				2: "localhost:9002",
 				3: "localhost:9003",
+				4: "localhost:9004",
 			},
 		},
 

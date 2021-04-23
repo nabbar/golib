@@ -52,25 +52,25 @@ func (l *logDragonBoart) SetLevel(level dgblog.LogLevel) {
 
 func (l *logDragonBoart) Debugf(format string, args ...interface{}) {
 	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.DebugLevel.Logf("[DragonBoat: %s]"+format, append(newArg, args...)...)
+	liblog.DebugLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
 }
 
 func (l *logDragonBoart) Infof(format string, args ...interface{}) {
 	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.InfoLevel.Logf("[DragonBoat: %s]"+format, append(newArg, args...)...)
+	liblog.InfoLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
 }
 
 func (l *logDragonBoart) Warningf(format string, args ...interface{}) {
 	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.WarnLevel.Logf("[DragonBoat: %s]"+format, append(newArg, args...)...)
+	liblog.WarnLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
 }
 
 func (l *logDragonBoart) Errorf(format string, args ...interface{}) {
 	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.ErrorLevel.Logf("[DragonBoat: %s]"+format, append(newArg, args...)...)
+	liblog.ErrorLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
 }
 
 func (l *logDragonBoart) Panicf(format string, args ...interface{}) {
 	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.FatalLevel.Logf("[DragonBoat: %s]"+format, append(newArg, args...)...)
+	liblog.FatalLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
 }

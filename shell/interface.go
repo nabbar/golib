@@ -25,44 +25,35 @@
  *
  **********************************************************************************************************************/
 
-package nutsdb
+package shell
 
 import (
-	"context"
-	"sync/atomic"
-	"time"
+	"io"
 
-	libsh "github.com/nabbar/golib/shell"
+	"github.com/c-bata/go-prompt"
 
-	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
 )
 
-type NutsDB interface {
-	Listen() liberr.Error
-	Restart() liberr.Error
-	Shutdown() liberr.Error
-
-	ForceRestart()
-	ForceShutdown()
-
-	IsRunning() bool
-	IsReady(ctx context.Context) bool
-	WaitReady(ctx context.Context, tick time.Duration)
-
-	//StatusInfo() (name string, release string, hash string)
-	//StatusHealth() error
-	//StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
-
-	Cluster() libclu.Cluster
-	Client(ctx context.Context, tickSync time.Duration) Client
-	ShellCommand(ctx func() context.Context, tickSync time.Duration) []libsh.Command
+type Command interface {
+	Name() string
+	Describe() string
+	Run(buf io.Writer, err io.Writer, args []string)
 }
 
-func New(c Config) NutsDB {
-	return &ndb{
-		c: c,
-		t: new(atomic.Value),
-		r: new(atomic.Value),
+type Shell interface {
+	Run(buf io.Writer, err io.Writer, args []string)
+	Add(prefix string, cmd ...Command)
+	Get(cmd string) []Command
+	Desc(cmd string) map[string]string
+	Walk(fct func(name string, item Command) (Command, liberr.Error)) liberr.Error
+
+	//go prompt
+	RunPrompt(out, err io.Writer, opt ...prompt.Option)
+}
+
+func New() Shell {
+	return &shell{
+		c: make(map[string]Command),
 	}
 }
