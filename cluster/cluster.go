@@ -31,6 +31,7 @@ package cluster
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	dgbclt "github.com/lni/dragonboat/v3"
@@ -289,4 +290,8 @@ func (c *cRaft) RequestLeaderTransfer(targetNodeID uint64) liberr.Error {
 	}
 
 	return nil
+}
+
+func (c *cRaft) HandlerMetrics(w io.Writer) {
+	dgbclt.WriteHealthMetrics(w)
 }

@@ -33,6 +33,8 @@ const (
 	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgNutsDB
 	ErrorParamsMissing
 	ErrorParamsMismatching
+	ErrorParamsInvalid
+	ErrorParamsInvalidNumber
 	ErrorValidateConfig
 	ErrorValidateNutsDB
 	ErrorClusterInit
@@ -86,6 +88,10 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "at least one given parameter is missing"
 	case ErrorParamsMismatching:
 		return "at least one given parameter does not match the awaiting type"
+	case ErrorParamsInvalid:
+		return "at least one given parameter is invalid"
+	case ErrorParamsInvalidNumber:
+		return "the number of parameters is not matching the awaiting number"
 	case ErrorValidateConfig:
 		return "config seems to be invalid"
 	case ErrorValidateNutsDB:

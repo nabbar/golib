@@ -54,7 +54,10 @@ type CommandResponse struct {
 }
 
 func NewCommand() *CommandRequest {
-	return &CommandRequest{}
+	return &CommandRequest{
+		Cmd:    CmdUnknown,
+		Params: make([]interface{}, 0),
+	}
 }
 
 func NewCommandByDecode(p []byte) (*CommandRequest, liberr.Error) {

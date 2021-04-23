@@ -31,6 +31,7 @@ package cluster
 
 import (
 	"context"
+	"io"
 	"time"
 
 	dgbclt "github.com/lni/dragonboat/v3"
@@ -79,6 +80,8 @@ type Cluster interface {
 	GetNoOPSession() *dgbcli.Session
 	GetNodeHostInfo(opt dgbclt.NodeHostInfoOption) *dgbclt.NodeHostInfo
 	RequestLeaderTransfer(targetNodeID uint64) liberr.Error
+
+	HandlerMetrics(w io.Writer)
 
 	StaleReadDangerous(query interface{}) (interface{}, error)
 
