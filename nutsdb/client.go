@@ -29,6 +29,9 @@ package nutsdb
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/lni/dragonboat/v3/statemachine"
@@ -40,6 +43,7 @@ import (
 
 type Client interface {
 	Commands
+	Run(cmd CmdCode, args []string) (*CommandResponse, liberr.Error)
 }
 
 type clientNutDB struct {
@@ -81,6 +85,215 @@ func (c *clientNutDB) call(cmd *CommandRequest, read bool) (*CommandResponse, li
 			return r, nil
 		}
 	}
+}
+
+func (c *clientNutDB) strToType(dest reflect.Type, val string) (interface{}, liberr.Error) {
+	sliceByte := reflect.ValueOf(make([]byte, 0))
+
+	switch dest.Kind() {
+	case reflect.Bool:
+		if v, e := strconv.ParseBool(val); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return v, nil
+		}
+	case reflect.Int:
+		if v, e := strconv.ParseInt(val, 10, 64); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return int(v), nil
+		}
+	case reflect.Int8:
+		if v, e := strconv.ParseInt(val, 10, 8); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return int8(v), nil
+		}
+	case reflect.Int16:
+		if v, e := strconv.ParseInt(val, 10, 16); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return int16(v), nil
+		}
+	case reflect.Int32:
+		if v, e := strconv.ParseInt(val, 10, 32); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return int32(v), nil
+		}
+	case reflect.Int64:
+		if v, e := strconv.ParseInt(val, 10, 64); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return v, nil
+		}
+	case reflect.Uint:
+		if v, e := strconv.ParseUint(val, 10, 64); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return uint(v), nil
+		}
+	case reflect.Uint8:
+		if v, e := strconv.ParseUint(val, 10, 8); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return uint8(v), nil
+		}
+	case reflect.Uint16:
+		if v, e := strconv.ParseUint(val, 10, 16); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return uint16(v), nil
+		}
+	case reflect.Uint32:
+		if v, e := strconv.ParseUint(val, 10, 32); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return uint32(v), nil
+		}
+	case reflect.Uint64:
+		if v, e := strconv.ParseUint(val, 10, 64); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return v, nil
+		}
+	case reflect.Uintptr:
+		return nil, ErrorParamsInvalid.ErrorParent(fmt.Errorf("cannot convert int UintPtr"))
+	case reflect.Float32:
+		if v, e := strconv.ParseFloat(val, 32); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return float32(v), nil
+		}
+	case reflect.Float64:
+		if v, e := strconv.ParseFloat(val, 64); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return v, nil
+		}
+	case reflect.Complex64:
+		if v, e := strconv.ParseComplex(val, 64); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return complex64(v), nil
+		}
+	case reflect.Complex128:
+		if v, e := strconv.ParseComplex(val, 128); e != nil {
+			return nil, ErrorParamsMismatching.ErrorParent(e)
+		} else {
+			return v, nil
+		}
+	case reflect.Slice:
+		if dest == sliceByte.Type() {
+			return []byte(val), nil
+		} else {
+			return nil, ErrorParamsInvalid.Error(nil)
+		}
+	case reflect.String:
+		return val, nil
+	default:
+		return nil, ErrorParamsInvalid.Error(nil)
+	}
+}
+
+func (c *clientNutDB) Run(cmd CmdCode, args []string) (*CommandResponse, liberr.Error) {
+	method := reflect.ValueOf(c).MethodByName(cmd.Name())
+	nbPrm := method.Type().NumIn()
+
+	switch cmd {
+	case CmdZCount:
+		if len(args) < 3 || len(args) > 6 {
+			return nil, ErrorParamsInvalidNumber.Error(nil)
+		}
+	case CmdZRangeByScore:
+		if len(args) < 3 || len(args) > 6 {
+			return nil, ErrorParamsInvalidNumber.Error(nil)
+		}
+	default:
+		if len(args) != nbPrm {
+			return nil, ErrorParamsInvalidNumber.Error(nil)
+		}
+	}
+
+	params := make([]reflect.Value, nbPrm)
+	opt := &zset.GetByScoreRangeOptions{
+		Limit:        0,
+		ExcludeStart: false,
+		ExcludeEnd:   false,
+	}
+
+	for i := 0; i < nbPrm; i++ {
+		switch cmd {
+		case CmdZCount, CmdZRangeByScore:
+			switch i {
+			case 3:
+				if v, e := c.strToType(reflect.TypeOf(opt.Limit), args[i]); e != nil {
+					return nil, e
+				} else if v == nil {
+					opt.Limit = 0
+				} else if vv, ok := v.(int); !ok {
+					return nil, ErrorParamsMismatching.Error(nil)
+				} else {
+					opt.Limit = vv
+				}
+			case 4:
+				if v, e := c.strToType(reflect.TypeOf(opt.ExcludeStart), args[i]); e != nil {
+					return nil, e
+				} else if v == nil {
+					opt.ExcludeStart = false
+				} else if vv, ok := v.(bool); !ok {
+					return nil, ErrorParamsMismatching.Error(nil)
+				} else {
+					opt.ExcludeStart = vv
+				}
+			case 5:
+				if v, e := c.strToType(reflect.TypeOf(opt.ExcludeEnd), args[i]); e != nil {
+					return nil, e
+				} else if v == nil {
+					opt.ExcludeEnd = false
+				} else if vv, ok := v.(bool); !ok {
+					return nil, ErrorParamsMismatching.Error(nil)
+				} else {
+					opt.ExcludeEnd = vv
+				}
+			default:
+				return nil, ErrorParamsInvalid.Error(nil)
+			}
+		default:
+			if v, e := c.strToType(method.Type().In(i), args[i]); e != nil {
+				return nil, e
+			} else {
+				params[i] = reflect.ValueOf(v)
+			}
+		}
+	}
+
+	switch cmd {
+	case CmdZCount, CmdZRangeByScore:
+		params[3] = reflect.ValueOf(opt)
+	}
+
+	resp := method.Call(params)
+
+	ret := CommandResponse{
+		Error: nil,
+		Value: make([]interface{}, 0),
+	}
+
+	for i := 0; i < len(resp); i++ {
+		v := resp[i].Interface()
+		if e, ok := v.(error); ok {
+			ret.Error = e
+		} else {
+			ret.Value = append(ret.Value, v)
+		}
+	}
+
+	if ret.Error == nil && len(ret.Value) < 1 {
+		return nil, nil
+	}
+
+	return &ret, nil
 }
 
 // nolint #dupl

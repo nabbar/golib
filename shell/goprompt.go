@@ -25,44 +25,55 @@
  *
  **********************************************************************************************************************/
 
-package nutsdb
+package shell
 
 import (
-	"context"
-	"sync/atomic"
-	"time"
+	"fmt"
+	"io"
+	"os"
+	"strings"
 
-	libsh "github.com/nabbar/golib/shell"
-
-	libclu "github.com/nabbar/golib/cluster"
+	"github.com/c-bata/go-prompt"
 	liberr "github.com/nabbar/golib/errors"
 )
 
-type NutsDB interface {
-	Listen() liberr.Error
-	Restart() liberr.Error
-	Shutdown() liberr.Error
+func (s *shell) RunPrompt(out, err io.Writer, opt ...prompt.Option) {
+	p := prompt.New(
+		func(inputLine string) {
+			if out == nil {
+				out = os.Stdout
+			}
 
-	ForceRestart()
-	ForceShutdown()
+			if err == nil {
+				err = os.Stderr
+			}
 
-	IsRunning() bool
-	IsReady(ctx context.Context) bool
-	WaitReady(ctx context.Context, tick time.Duration)
+			inputLine = strings.TrimSpace(inputLine)
+			if inputLine == "" {
+				return
+			} else if inputLine == "quit" || inputLine == "exit" {
+				_, _ = fmt.Fprintf(out, "Bye !\n")
+				os.Exit(0)
+				return
+			}
 
-	//StatusInfo() (name string, release string, hash string)
-	//StatusHealth() error
-	//StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
+			s.Run(out, err, strings.Fields(inputLine))
+		},
+		func(document prompt.Document) []prompt.Suggest {
+			var res = make([]prompt.Suggest, 0)
 
-	Cluster() libclu.Cluster
-	Client(ctx context.Context, tickSync time.Duration) Client
-	ShellCommand(ctx func() context.Context, tickSync time.Duration) []libsh.Command
-}
+			_ = s.Walk(func(name string, item Command) (Command, liberr.Error) {
+				res = append(res, prompt.Suggest{
+					Text:        name,
+					Description: item.Describe(),
+				})
 
-func New(c Config) NutsDB {
-	return &ndb{
-		c: c,
-		t: new(atomic.Value),
-		r: new(atomic.Value),
-	}
+				return nil, nil
+			})
+
+			return res
+		},
+		opt...,
+	)
+	p.Run()
 }

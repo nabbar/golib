@@ -12,12 +12,13 @@ require (
 	github.com/VictoriaMetrics/metrics v1.17.2 // indirect
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/aokoli/goutils v1.1.1 // indirect
-	github.com/armon/go-metrics v0.3.6 // indirect
+	github.com/armon/go-metrics v0.3.7 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.3.3
 	github.com/aws/aws-sdk-go-v2/config v1.1.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.1.6
 	github.com/aws/aws-sdk-go-v2/service/iam v1.3.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.5.0
+	github.com/c-bata/go-prompt v0.2.6
 	github.com/cockroachdb/errors v1.8.4 // indirect
 	github.com/cockroachdb/pebble v0.0.0-20210414141038-bee0c60e96bc // indirect
 	github.com/cockroachdb/redact v1.0.9 // indirect
@@ -76,13 +77,13 @@ require (
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
 	github.com/xujiajun/nutsdb v0.6.0
 	github.com/xujiajun/utils v0.0.0-20190123093513-8bf096c4f53b
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
-	golang.org/x/exp v0.0.0-20210405174845-4513512abef3 // indirect
-	golang.org/x/net v0.0.0-20210414194228-064579744ee0
+	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
+	golang.org/x/exp v0.0.0-20210417010653-0739314eea07 // indirect
+	golang.org/x/net v0.0.0-20210421230115-4e50805a0758
 	golang.org/x/oauth2 v0.0.0-20210413134643-5e61552d6c78
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
-	golang.org/x/term v0.0.0-20210406210042-72f3dc4e9b72
+	golang.org/x/sys v0.0.0-20210421221651-33663a62ff08 // indirect
+	golang.org/x/term v0.0.0-20210422114643-f5beecf764ed
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 )
