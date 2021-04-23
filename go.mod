@@ -82,7 +82,7 @@ require (
 	golang.org/x/net v0.0.0-20210421230115-4e50805a0758
 	golang.org/x/oauth2 v0.0.0-20210413134643-5e61552d6c78
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210421221651-33663a62ff08 // indirect
+	golang.org/x/sys v0.0.0-20210423082822-04245dca01da // indirect
 	golang.org/x/term v0.0.0-20210422114643-f5beecf764ed
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/appengine v1.6.7 // indirect
