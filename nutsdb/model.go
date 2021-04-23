@@ -32,6 +32,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	libsh "github.com/nabbar/golib/shell"
+
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
@@ -200,4 +202,76 @@ func (n *ndb) Client(ctx context.Context, tickSync time.Duration) Client {
 		c: n.Cluster,
 		w: n.WaitReady,
 	}
+}
+
+func (n *ndb) ShellCommand(ctx func() context.Context, tickSync time.Duration) []libsh.Command {
+	var (
+		res = make([]libsh.Command, 0)
+		cli func() Client
+	)
+
+	cli = func() Client {
+		x := ctx()
+
+		if x.Err() != nil {
+			return nil
+		}
+
+		return n.Client(x, tickSync)
+	}
+
+	res = append(res, newShellCommand(CmdPut, cli))
+	res = append(res, newShellCommand(CmdPutWithTimestamp, cli))
+	res = append(res, newShellCommand(CmdGet, cli))
+	res = append(res, newShellCommand(CmdGetAll, cli))
+	res = append(res, newShellCommand(CmdRangeScan, cli))
+	res = append(res, newShellCommand(CmdPrefixScan, cli))
+	res = append(res, newShellCommand(CmdPrefixSearchScan, cli))
+	res = append(res, newShellCommand(CmdDelete, cli))
+	res = append(res, newShellCommand(CmdFindTxIDOnDisk, cli))
+	res = append(res, newShellCommand(CmdFindOnDisk, cli))
+	res = append(res, newShellCommand(CmdFindLeafOnDisk, cli))
+	res = append(res, newShellCommand(CmdSAdd, cli))
+	res = append(res, newShellCommand(CmdSRem, cli))
+	res = append(res, newShellCommand(CmdSAreMembers, cli))
+	res = append(res, newShellCommand(CmdSIsMember, cli))
+	res = append(res, newShellCommand(CmdSMembers, cli))
+	res = append(res, newShellCommand(CmdSHasKey, cli))
+	res = append(res, newShellCommand(CmdSPop, cli))
+	res = append(res, newShellCommand(CmdSCard, cli))
+	res = append(res, newShellCommand(CmdSDiffByOneBucket, cli))
+	res = append(res, newShellCommand(CmdSDiffByTwoBuckets, cli))
+	res = append(res, newShellCommand(CmdSMoveByOneBucket, cli))
+	res = append(res, newShellCommand(CmdSMoveByTwoBuckets, cli))
+	res = append(res, newShellCommand(CmdSUnionByOneBucket, cli))
+	res = append(res, newShellCommand(CmdSUnionByTwoBuckets, cli))
+	res = append(res, newShellCommand(CmdRPop, cli))
+	res = append(res, newShellCommand(CmdRPeek, cli))
+	res = append(res, newShellCommand(CmdRPush, cli))
+	res = append(res, newShellCommand(CmdLPush, cli))
+	res = append(res, newShellCommand(CmdLPop, cli))
+	res = append(res, newShellCommand(CmdLPeek, cli))
+	res = append(res, newShellCommand(CmdLSize, cli))
+	res = append(res, newShellCommand(CmdLRange, cli))
+	res = append(res, newShellCommand(CmdLRem, cli))
+	res = append(res, newShellCommand(CmdLSet, cli))
+	res = append(res, newShellCommand(CmdLTrim, cli))
+	res = append(res, newShellCommand(CmdZAdd, cli))
+	res = append(res, newShellCommand(CmdZMembers, cli))
+	res = append(res, newShellCommand(CmdZCard, cli))
+	res = append(res, newShellCommand(CmdZCount, cli))
+	res = append(res, newShellCommand(CmdZPopMax, cli))
+	res = append(res, newShellCommand(CmdZPopMin, cli))
+	res = append(res, newShellCommand(CmdZPeekMax, cli))
+	res = append(res, newShellCommand(CmdZPeekMin, cli))
+	res = append(res, newShellCommand(CmdZRangeByScore, cli))
+	res = append(res, newShellCommand(CmdZRangeByRank, cli))
+	res = append(res, newShellCommand(CmdZRem, cli))
+	res = append(res, newShellCommand(CmdZRemRangeByRank, cli))
+	res = append(res, newShellCommand(CmdZRank, cli))
+	res = append(res, newShellCommand(CmdZRevRank, cli))
+	res = append(res, newShellCommand(CmdZScore, cli))
+	res = append(res, newShellCommand(CmdZGetByKey, cli))
+
+	return res
 }
