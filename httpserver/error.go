@@ -36,6 +36,8 @@ const (
 	ErrorPoolListen
 	ErrorServerValidate
 	ErrorPortUse
+	ErrorServerDisabled
+	ErrorServerOffline
 )
 
 var isCodeError = false
@@ -67,6 +69,10 @@ func getMessage(code errors.CodeError) (message string) {
 		return "config server seems to be not valid"
 	case ErrorPortUse:
 		return "server port is still used"
+	case ErrorServerDisabled:
+		return "server disabled"
+	case ErrorServerOffline:
+		return "server offline"
 	}
 
 	return ""

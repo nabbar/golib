@@ -92,6 +92,14 @@ func (s *server) GetConfig() *ServerConfig {
 	}
 }
 
+func (s *server) IsDisabled() bool {
+	if c := s.GetConfig(); c != nil {
+		return c.Disabled
+	}
+
+	return true
+}
+
 func (s *server) SetConfig(cfg *ServerConfig) bool {
 	if cfg == nil {
 		return false
@@ -160,6 +168,13 @@ func (s *server) IsTLS() bool {
 }
 
 func (s *server) Listen(handler http.Handler) liberr.Error {
+	if s.IsDisabled() && !s.IsRunning() {
+		return nil
+	} else if s.IsDisabled() {
+		s.Shutdown()
+		return nil
+	}
+
 	r := s.getRun()
 	e := r.Listen(s.GetConfig(), handler)
 	s.setRun(r)
@@ -177,6 +192,10 @@ func (s *server) Restart() {
 }
 
 func (s *server) Shutdown() {
+	if s.IsDisabled() && !s.IsRunning() {
+		return
+	}
+
 	r := s.getRun()
 	r.Shutdown()
 	s.setRun(r)
@@ -199,17 +218,14 @@ func (s *server) StatusInfo() (name string, release string, hash string) {
 }
 
 func (s *server) StatusHealth() error {
-	c := s.GetConfig()
-	if !c.Disabled && s.IsRunning() {
+	if !s.IsDisabled() && s.IsRunning() {
 		return nil
-	} else if c.Disabled {
-		//nolint #goerr113
-		return fmt.Errorf("server disabled")
+	} else if s.IsDisabled() {
+		return ErrorServerDisabled.Error(nil)
 	} else if e := s.getErr(); e != nil {
 		return e
 	} else {
-		//nolint #goerr113
-		return fmt.Errorf("server is offline -- missing error")
+		return ErrorServerOffline.Error(nil)
 	}
 }
 
