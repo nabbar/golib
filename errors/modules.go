@@ -40,14 +40,18 @@ const (
 	MinPkgMail        = 1100
 	MinPkgMailer      = 1200
 	MinPkgNetwork     = 1300
-	MinPkgNutsDB      = 1400
-	MinPkgOAuth       = 1500
-	MinPkgAws         = 1600
-	MinPkgRouter      = 1700
-	MinPkgSemaphore   = 1800
-	MinPkgSMTP        = 1900
-	MinPkgStatic      = 2000
-	MinPkgVersion     = 2100
+	MinPkgNats        = 1400
+	MinPkgNutsDB      = 1500
+	MinPkgOAuth       = 1600
+	MinPkgAws         = 1700
+	MinPkgRouter      = 1800
+	MinPkgSemaphore   = 1900
+	MinPkgSMTP        = 2000
+	MinPkgStatic      = 2100
+	MinPkgVersion     = 2200
 
-	MIN_AVAILABLE = 4000
+	MinAvailable = 4000
+
+	// MIN_AVAILABLE @Deprecated use MinAvailable constant
+	MIN_AVAILABLE = MinAvailable
 )
