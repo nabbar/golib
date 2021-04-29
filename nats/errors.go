@@ -35,9 +35,16 @@ const (
 	ErrorParamsMismatching
 	ErrorParamsInvalid
 	ErrorParamsInvalidNumber
-	ErrorValidateConfig
+	ErrorConfigValidation
+	ErrorConfigInvalidJWTOperator
+	ErrorConfigInvalidAccount
+	ErrorConfigInvalidAllowedConnectionType
+	ErrorConfigInvalidFilePath
+	ErrorConfigJsonMarshall
+	ErrorConfigWriteInFile
 	ErrorClientConnect
 	ErrorClientClusterConnect
+	ErrorServerStart
 )
 
 var isCodeError = false
@@ -65,7 +72,7 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "at least one given parameter is invalid"
 	case ErrorParamsInvalidNumber:
 		return "the number of parameters is not matching the awaiting number"
-	case ErrorValidateConfig:
+	case ErrorConfigValidation:
 		return "config seems to be invalid"
 	case ErrorClientConnect:
 		return "cannot start new client connection to server"

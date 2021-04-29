@@ -319,14 +319,14 @@ func configServer(id int) libnat.Config {
 			Username:       usrCluster,
 			Password:       pwdCluster,
 			AuthTimeout:    0,
-			Permissions: libnat.ConfigRoutePermissions{
-				Import: libnat.ConfigSubjectPermission{
+			Permissions: libnat.ConfigPermissionsRoute{
+				Import: libnat.ConfigPermissionSubject{
 					Allow: []string{
 						">",
 					},
 					Deny: make([]string, 0),
 				},
-				Export: libnat.ConfigSubjectPermission{
+				Export: libnat.ConfigPermissionSubject{
 					Allow: []string{
 						">",
 					},
@@ -363,8 +363,8 @@ func configServer(id int) libnat.Config {
 				{
 					Username: usrProducer,
 					Password: pwdProducer,
-					Permissions: libnat.ConfigUserPermissions{
-						Publish: libnat.ConfigSubjectPermission{
+					Permissions: libnat.ConfigPermissionsUser{
+						Publish: libnat.ConfigPermissionSubject{
 							Allow: []string{
 								Subject,
 								Subject + ".*",
@@ -372,7 +372,7 @@ func configServer(id int) libnat.Config {
 							},
 							Deny: make([]string, 0),
 						},
-						Subscribe: libnat.ConfigSubjectPermission{
+						Subscribe: libnat.ConfigPermissionSubject{
 							Allow: []string{
 								Subject,
 								Subject + ".*",
@@ -385,8 +385,8 @@ func configServer(id int) libnat.Config {
 				{
 					Username: usrSubsriber,
 					Password: pwdSubsriber,
-					Permissions: libnat.ConfigUserPermissions{
-						Publish: libnat.ConfigSubjectPermission{
+					Permissions: libnat.ConfigPermissionsUser{
+						Publish: libnat.ConfigPermissionSubject{
 							Allow: []string{
 								Subject,
 								Subject + ".*",
@@ -394,7 +394,7 @@ func configServer(id int) libnat.Config {
 							},
 							Deny: make([]string, 0),
 						},
-						Subscribe: libnat.ConfigSubjectPermission{
+						Subscribe: libnat.ConfigPermissionSubject{
 							Allow: []string{
 								Subject,
 								Subject + ".*",
@@ -407,14 +407,14 @@ func configServer(id int) libnat.Config {
 				{
 					Username: usrCluster,
 					Password: pwdCluster,
-					Permissions: libnat.ConfigUserPermissions{
-						Publish: libnat.ConfigSubjectPermission{
+					Permissions: libnat.ConfigPermissionsUser{
+						Publish: libnat.ConfigPermissionSubject{
 							Allow: []string{
 								">",
 							},
 							Deny: make([]string, 0),
 						},
-						Subscribe: libnat.ConfigSubjectPermission{
+						Subscribe: libnat.ConfigPermissionSubject{
 							Allow: []string{
 								">",
 							},

@@ -152,10 +152,10 @@ func (c Client) Validate() liberr.Error {
 	err := val.Struct(c)
 
 	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorValidateConfig.ErrorParent(e)
+		return ErrorConfigValidation.ErrorParent(e)
 	}
 
-	out := ErrorValidateConfig.Error(nil)
+	out := ErrorConfigValidation.Error(nil)
 
 	for _, e := range err.(validator.ValidationErrors) {
 		//nolint goerr113

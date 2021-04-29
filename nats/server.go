@@ -36,7 +36,7 @@ import (
 
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
-	natsrv "github.com/nats-io/nats-server/server"
+	natsrv "github.com/nats-io/nats-server/v2/server"
 	natcli "github.com/nats-io/nats.go"
 )
 
@@ -46,8 +46,8 @@ const (
 )
 
 type Server interface {
-	Listen(ctx context.Context)
-	Restart(ctx context.Context)
+	Listen(ctx context.Context) liberr.Error
+	Restart(ctx context.Context) liberr.Error
 	Shutdown()
 
 	GetOptions() *natsrv.Options
@@ -84,20 +84,27 @@ type server struct {
 	r *atomic.Value
 }
 
-func (s *server) Listen(ctx context.Context) {
+func (s *server) Listen(ctx context.Context) liberr.Error {
 	if s.IsRunning() || s.IsReady() {
 		s.Shutdown()
 	}
 
-	s.s = natsrv.New(s.GetOptions())
+	var e error
+
+	if s.s, e = natsrv.NewServer(s.GetOptions()); e != nil {
+		return ErrorServerStart.ErrorParent(e)
+	}
+
 	s.s.ConfigureLogger()
 	s.s.Start()
 	s.setRunning(true)
 	s.WaitReady(ctx, 0)
+
+	return nil
 }
 
-func (s *server) Restart(ctx context.Context) {
-	s.Listen(ctx)
+func (s *server) Restart(ctx context.Context) liberr.Error {
+	return s.Listen(ctx)
 }
 
 func (s *server) Shutdown() {
@@ -190,16 +197,6 @@ func (s *server) Client(ctx context.Context, tick time.Duration, defTls libtls.T
 
 			if cAddr := s.s.ClusterAddr(); cAddr != nil && cAddr.String() != "" {
 				opt.Url = s.formatAddress(cAddr.String())
-				/*
-					if o.Cluster.Username != "" {
-						opt.User = o.Cluster.Username
-					}
-
-					if o.Cluster.Password != "" {
-						opt.Password = o.Cluster.Password
-					}
-
-				*/
 			} else if sAddr := s.s.Addr(); sAddr != nil && sAddr.String() != "" {
 				opt.Url = s.formatAddress(sAddr.String())
 			} else if o.Host != "" && o.Port > 0 {
