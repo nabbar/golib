@@ -26,3 +26,27 @@
  **********************************************************************************************************************/
 
 package ioutils
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+)
+
+func PathCheckCreate(isFile bool, path string, permFile os.FileMode, permDir os.FileMode) error {
+	if _, err := os.Stat(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if !isFile {
+		return os.MkdirAll(path, permDir)
+	} else if e := PathCheckCreate(false, filepath.Dir(path), permFile, permDir); e != nil {
+		return e
+	} else if hf, err := os.Create(path); err != nil {
+		return err
+	} else {
+		_ = hf.Close()
+	}
+
+	return os.Chmod(path, permFile)
+}
