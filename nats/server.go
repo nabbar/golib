@@ -57,7 +57,9 @@ type Server interface {
 	IsReady() bool
 	WaitReady(ctx context.Context, tick time.Duration)
 
-	Client(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
+	ClientAdvertise(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
+	ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
+	ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
 
 	//StatusInfo() (name string, release string, hash string)
 	//StatusHealth() error
@@ -188,21 +190,43 @@ func (s *server) WaitReady(ctx context.Context, tick time.Duration) {
 	}
 }
 
-func (s *server) Client(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
-	if opt.Url == "" && len(opt.Servers) == 0 {
-		if o := s.GetOptions(); o != nil && o.ClientAdvertise != "" {
-			opt.Url = s.formatAddress(o.ClientAdvertise)
-		} else if o != nil {
-			s.WaitReady(ctx, tick)
+func (s *server) ClientAdvertise(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
+	if o := s.GetOptions(); o != nil && o.ClientAdvertise != "" {
+		opt.Url = s.formatAddress(o.ClientAdvertise)
+	} else {
+		return nil, ErrorConfigValidation.Error(nil)
+	}
 
-			if cAddr := s.s.ClusterAddr(); cAddr != nil && cAddr.String() != "" {
-				opt.Url = s.formatAddress(cAddr.String())
-			} else if sAddr := s.s.Addr(); sAddr != nil && sAddr.String() != "" {
-				opt.Url = s.formatAddress(sAddr.String())
-			} else if o.Host != "" && o.Port > 0 {
-				opt.Url = s.formatAddress(fmt.Sprintf("%s:%d", o.Host, o.Port))
-			}
-		}
+	return opt.NewClient(defTls)
+}
+
+func (s *server) ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
+	s.WaitReady(ctx, tick)
+
+	if cAddr := s.s.ClusterAddr(); cAddr != nil && cAddr.String() != "" {
+		opt.Url = s.formatAddress(cAddr.String())
+	} else {
+		return nil, ErrorConfigValidation.Error(nil)
+	}
+
+	return opt.NewClient(defTls)
+}
+
+func (s *server) ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
+	var o *natsrv.Options
+
+	if o = s.GetOptions(); o == nil {
+		return nil, ErrorConfigValidation.Error(nil)
+	}
+
+	s.WaitReady(ctx, tick)
+
+	if sAddr := s.s.Addr(); sAddr != nil && sAddr.String() != "" {
+		opt.Url = s.formatAddress(sAddr.String())
+	} else if o.Host != "" && o.Port > 0 {
+		opt.Url = s.formatAddress(fmt.Sprintf("%s:%d", o.Host, o.Port))
+	} else {
+		return nil, ErrorConfigValidation.Error(nil)
 	}
 
 	return opt.NewClient(defTls)

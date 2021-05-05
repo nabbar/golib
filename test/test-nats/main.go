@@ -37,6 +37,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -61,18 +62,14 @@ const (
 	SubLogFile     = "nats-node-%d.log"
 	SubNodeDir     = "node-%d"
 
-	NbNodeInstance = 1
+	NbNodeInstance = 3
 	NbEntries      = 1000000
 
-	cptProducer  = "produser"
-	usrProducer  = "produser"
-	pwdProducer  = "test123prod"
-	cptSubsriber = "subuser"
-	usrSubsriber = "subuser"
-	pwdSubsriber = "test123sub"
-	cptCluster   = "cluster"
-	usrCluster   = "cluster"
-	pwdCluster   = "cLu!123-test"
+	nameProducer  = "produser"
+	nameSubsriber = "subuser"
+	cptCluster    = "cluster"
+	usrCluster    = "cluster"
+	pwdCluster    = "cLu!123-test"
 
 	Subject = "_INBOX"
 )
@@ -137,7 +134,8 @@ func main() {
 
 	defer sem.DeferMain()
 
-	sub, err := cluster[0].Client(ctx, 200*time.Millisecond, nil, configClient("subs-test", usrSubsriber, pwdSubsriber))
+	optSub := configClient(nameSubsriber, usrCluster, pwdCluster)
+	sub, err := optSub.NewClient(nil)
 
 	if err != nil {
 		panic(err.CodeErrorTraceFull("", ""))
@@ -182,7 +180,9 @@ func main() {
 		panic(s)
 	}
 
-	prd, err := cluster[2].Client(ctx, 200*time.Millisecond, nil, configClient("prod-test", usrProducer, pwdProducer))
+	time.Sleep(3 * time.Second)
+	optPrd := configClient(nameProducer, usrCluster, pwdCluster)
+	prd, err := optPrd.NewClient(nil)
 	if err != nil {
 		panic(err)
 	}
@@ -222,7 +222,7 @@ func main() {
 		panic(e)
 	}
 
-	time.Sleep(30 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	if e := s.Unsubscribe(); e != nil {
 		panic(e)
@@ -231,6 +231,8 @@ func main() {
 	prd.Close()
 	time.Sleep(200 * time.Millisecond)
 	sub.Close()
+
+	println(strings.Join(GetMemUsage(), "\n"))
 }
 
 func Serialize(idx int, random []string) []byte {
@@ -288,7 +290,7 @@ func configServer(id int) libnat.Config {
 			ProfPort:           BasePortProf + id,
 			Routes:             rts,
 			NoSig:              true,
-			JetStream:          false,
+			JetStream:          true,
 			StoreDir:           fmt.Sprintf(filepath.Join(BasePathFolder, SubNodeDir), id),
 			PermissionStoreDir: 0755,
 			TLS:                false,
@@ -302,23 +304,7 @@ func configServer(id int) libnat.Config {
 			Host:           "127.0.0.1",
 			Port:           BasePortCluster + id,
 			ConnectRetries: 5,
-			Username:       usrCluster,
-			Password:       pwdCluster,
-			Permissions: libnat.ConfigPermissionsRoute{
-				Import: libnat.ConfigPermissionSubject{
-					Allow: []string{
-						">",
-					},
-					Deny: make([]string, 0),
-				},
-				Export: libnat.ConfigPermissionSubject{
-					Allow: []string{
-						">",
-					},
-					Deny: make([]string, 0),
-				},
-			},
-			TLS: false,
+			TLS:            false,
 			TLSConfig: libtls.Config{
 				InheritDefault: true,
 			},
@@ -338,22 +324,6 @@ func configServer(id int) libnat.Config {
 			NKeys: nil,
 			Users: []libnat.ConfigUser{
 				{
-					Username: usrProducer,
-					Password: pwdProducer,
-					Account:  cptProducer,
-					AllowedConnectionTypes: []string{
-						jwt.ConnectionTypeStandard,
-					},
-				},
-				{
-					Username: usrSubsriber,
-					Password: pwdProducer,
-					Account:  cptSubsriber,
-					AllowedConnectionTypes: []string{
-						jwt.ConnectionTypeStandard,
-					},
-				},
-				{
 					Username: usrCluster,
 					Password: pwdCluster,
 					Account:  cptCluster,
@@ -372,54 +342,14 @@ func configServer(id int) libnat.Config {
 						Publish: libnat.ConfigPermissionSubject{
 							Allow: []string{
 								">",
+								"*",
 							},
 							Deny: make([]string, 0),
 						},
 						Subscribe: libnat.ConfigPermissionSubject{
 							Allow: []string{
 								">",
-							},
-							Deny: make([]string, 0),
-						},
-						Response: libnat.ConfigPermissionResponse{
-							MaxMsgs: NbEntries,
-							Expires: time.Second,
-						},
-					},
-				},
-				{
-					Name: cptProducer,
-					Permission: libnat.ConfigPermissionsUser{
-						Publish: libnat.ConfigPermissionSubject{
-							Allow: []string{
-								Subject,
-								Subject + ".*",
-								Subject + ".>",
-							},
-							Deny: make([]string, 0),
-						},
-						Subscribe: libnat.ConfigPermissionSubject{
-							Allow: make([]string, 0),
-							Deny:  make([]string, 0),
-						},
-						Response: libnat.ConfigPermissionResponse{
-							MaxMsgs: 1,
-							Expires: time.Hour,
-						},
-					},
-				},
-				{
-					Name: cptSubsriber,
-					Permission: libnat.ConfigPermissionsUser{
-						Publish: libnat.ConfigPermissionSubject{
-							Allow: make([]string, 0),
-							Deny:  make([]string, 0),
-						},
-						Subscribe: libnat.ConfigPermissionSubject{
-							Allow: []string{
-								Subject,
-								Subject + ".*",
-								Subject + ".>",
+								"*",
 							},
 							Deny: make([]string, 0),
 						},
@@ -431,7 +361,8 @@ func configServer(id int) libnat.Config {
 				},
 			},
 			SystemAccount:    cptCluster,
-			AllowNewAccounts: false,
+			NoSystemAccount:  false,
+			AllowNewAccounts: true,
 			TrustedKeys:      make([]string, 0),
 			TrustedOperators: make([]string, 0),
 		},
@@ -440,15 +371,33 @@ func configServer(id int) libnat.Config {
 }
 
 func configClient(name, user, pass string) libnat.Client {
+	var srv = make([]string, 0)
+
+	for i := 0; i < NbNodeInstance; i++ {
+		srv = append(srv, fmt.Sprintf("nats://127.0.0.1:%d", BasePortServer+i))
+	}
+
 	return libnat.Client{
 		Name:           name,
-		Pedantic:       true,
+		Servers:        srv,
+		Pedantic:       false,
 		AllowReconnect: true,
 		User:           user,
 		Password:       pass,
 		TLSConfig: libtls.Config{
 			InheritDefault: true,
 		},
+	}
+}
+
+func GetMemUsage() []string {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return []string{
+		fmt.Sprintf("\t - Alloc      = %v MiB", m.Alloc/1024/1024),
+		fmt.Sprintf("\t - TotalAlloc = %v MiB", m.TotalAlloc/1024/1024),
+		fmt.Sprintf("\t - Sys        = %v MiB", m.Sys/1024/1024),
+		fmt.Sprintf("\t - NumGC      = %v\n", m.NumGC),
 	}
 }
 
