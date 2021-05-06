@@ -65,20 +65,16 @@ func init() {
 
 // GetLogger return a golang log.logger instance linked with this main logger.
 // This function is useful to keep the format, mode, color, output... same as current config.
-/*
-	msgPrefixPattern a pattern prefix to identify or comment all message passed throw this log.logger instance
-	msgPrefixArgs a list of interface to apply on pattern with a fmt function
-*/
+//   - msgPrefixPattern a pattern prefix to identify or comment all message passed throw this log.logger instance.
+//   - msgPrefixArgs a list of interface to apply on pattern with a fmt function.
 func GetLogger(lvl Level, logFlags int, msgPrefixPattern string, msgPrefixArgs ...interface{}) *log.Logger {
 	return log.New(GetIOWriter(lvl, msgPrefixPattern, msgPrefixArgs...), "", logFlags)
 }
 
-// GetLogger force the default golang log.logger instance linked with this main logger.
+// SetStdLogger force the default golang log.logger instance linked with this main logger.
 // This function is useful to keep the format, mode, color, output... same as current config.
-/*
-	msgPrefixPattern a pattern prefix to identify or comment all message passed throw this log.logger instance
-	msgPrefixArgs a list of interface to apply on pattern with a fmt function
-*/
+//   - msgPrefixPattern a pattern prefix to identify or comment all message passed throw this log.logger instance.
+//   - msgPrefixArgs a list of interface to apply on pattern with a fmt function.
 func SetStdLogger(lvl Level, logFlags int, msgPrefixPattern string, msgPrefixArgs ...interface{}) {
 	log.SetOutput(GetIOWriter(lvl, msgPrefixPattern, msgPrefixArgs...))
 	log.SetPrefix("")
@@ -95,6 +91,11 @@ func Timestamp(enable bool) {
 	timestamp = enable
 }
 
+// IsTimeStamp will return true if timestamp is added or not  on log message
+func IsTimeStamp() bool {
+	return timestamp
+}
+
 // FileTrace Reconfigure the current logger to add or not the origin file/line of each message.
 // This option is apply for all message except info message.
 func FileTrace(enable bool) {
@@ -102,18 +103,35 @@ func FileTrace(enable bool) {
 	setViperLogTrace()
 }
 
+// IsFileTrace will return true if trace is added or not on log message
+func IsFileTrace() bool {
+	return filetrace
+}
+
+// ModeColor will reconfigure the current logger to use or not color in messages format.
+// This apply only for next message and only for TextFormat.
+func ModeColor(enable bool) {
+	modeColor = enable
+	updateFormatter(nilFormat)
+}
+
+// IsModeColor will return true if color is configured on log message
+func IsModeColor() bool {
+	return modeColor
+}
+
 // EnableColor Reconfigure the current logger to use color in messages format.
 // This apply only for next message and only for TextFormat.
+// @deprecated use ModeColor(true)
 func EnableColor() {
-	modeColor = true
-	updateFormatter(nilFormat)
+	ModeColor(true)
 }
 
 // DisableColor Reconfigure the current logger to not use color in messages format.
 // This apply only for next message and only for TextFormat.
+// @deprecated use Color(false)
 func DisableColor() {
-	modeColor = false
-	updateFormatter(nilFormat)
+	ModeColor(false)
 }
 
 // EnableViperLog enable or not the Gin Logger configuration.
