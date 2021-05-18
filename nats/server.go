@@ -31,6 +31,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -82,8 +83,41 @@ func NewServer(opt *natsrv.Options) Server {
 
 type server struct {
 	o *atomic.Value
-	s *natsrv.Server
+	s *atomic.Value
 	r *atomic.Value
+	m sync.Mutex
+}
+
+func (s *server) getServer() *natsrv.Server {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if s == nil {
+		return nil
+	} else if s.s == nil {
+		s.s = new(atomic.Value)
+	}
+
+	if i := s.s.Load(); i == nil {
+		return nil
+	} else if o, ok := i.(*natsrv.Server); ok {
+		return o
+	} else {
+		return nil
+	}
+}
+
+func (s *server) setServer(srv *natsrv.Server) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if s == nil {
+		return
+	} else if s.s == nil {
+		s.s = new(atomic.Value)
+	}
+
+	s.s.Store(srv)
 }
 
 func (s *server) Listen(ctx context.Context) liberr.Error {
@@ -91,15 +125,23 @@ func (s *server) Listen(ctx context.Context) liberr.Error {
 		s.Shutdown()
 	}
 
-	var e error
+	var (
+		e error
+		o *natsrv.Server
+	)
 
-	if s.s, e = natsrv.NewServer(s.GetOptions()); e != nil {
+	if o, e = natsrv.NewServer(s.GetOptions()); e != nil {
 		return ErrorServerStart.ErrorParent(e)
 	}
 
-	s.s.ConfigureLogger()
-	s.s.Start()
+	o.ConfigureLogger()
+	o.Start()
+
+	s.setServer(o)
 	s.setRunning(true)
+
+	//be sure process is launch before trying to check server ready
+	time.Sleep(200 * time.Millisecond)
 	s.WaitReady(ctx, 0)
 
 	return nil
@@ -110,8 +152,8 @@ func (s *server) Restart(ctx context.Context) liberr.Error {
 }
 
 func (s *server) Shutdown() {
-	if s.s != nil {
-		s.s.Shutdown()
+	if o := s.getServer(); o != nil {
+		o.Shutdown()
 	}
 
 	s.setRunning(false)
@@ -165,8 +207,8 @@ func (s *server) setRunning(run bool) {
 }
 
 func (s *server) IsReady() bool {
-	if s.s != nil {
-		return s.s.ReadyForConnections(DefaultWaitReady)
+	if o := s.getServer(); o != nil {
+		return o.ReadyForConnections(DefaultWaitReady)
 	}
 
 	return false
@@ -203,10 +245,12 @@ func (s *server) ClientAdvertise(ctx context.Context, tick time.Duration, defTls
 func (s *server) ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
 	s.WaitReady(ctx, tick)
 
-	if cAddr := s.s.ClusterAddr(); cAddr != nil && cAddr.String() != "" {
-		opt.Url = s.formatAddress(cAddr.String())
-	} else {
-		return nil, ErrorConfigValidation.Error(nil)
+	if srv := s.getServer(); srv != nil {
+		if cAddr := srv.ClusterAddr(); cAddr != nil && cAddr.String() != "" {
+			opt.Url = s.formatAddress(cAddr.String())
+		} else {
+			return nil, ErrorConfigValidation.Error(nil)
+		}
 	}
 
 	return opt.NewClient(defTls)
@@ -221,12 +265,14 @@ func (s *server) ClientServer(ctx context.Context, tick time.Duration, defTls li
 
 	s.WaitReady(ctx, tick)
 
-	if sAddr := s.s.Addr(); sAddr != nil && sAddr.String() != "" {
-		opt.Url = s.formatAddress(sAddr.String())
-	} else if o.Host != "" && o.Port > 0 {
-		opt.Url = s.formatAddress(fmt.Sprintf("%s:%d", o.Host, o.Port))
-	} else {
-		return nil, ErrorConfigValidation.Error(nil)
+	if srv := s.getServer(); srv != nil {
+		if sAddr := srv.Addr(); sAddr != nil && sAddr.String() != "" {
+			opt.Url = s.formatAddress(sAddr.String())
+		} else if o.Host != "" && o.Port > 0 {
+			opt.Url = s.formatAddress(fmt.Sprintf("%s:%d", o.Host, o.Port))
+		} else {
+			return nil, ErrorConfigValidation.Error(nil)
+		}
 	}
 
 	return opt.NewClient(defTls)

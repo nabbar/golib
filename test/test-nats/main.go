@@ -63,7 +63,7 @@ const (
 	SubNodeDir     = "node-%d"
 
 	NbNodeInstance = 3
-	NbEntries      = 1000000
+	NbEntries      = 1000
 
 	nameProducer  = "produser"
 	nameSubsriber = "subuser"
