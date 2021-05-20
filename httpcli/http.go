@@ -33,8 +33,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/logger"
+	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
 )
 
 type httpClient struct {
@@ -45,11 +45,11 @@ type httpClient struct {
 
 type HTTP interface {
 	SetContext(ctx context.Context)
-	Check() errors.Error
-	Call(file *bytes.Buffer) (bool, *bytes.Buffer, errors.Error)
+	Check() liberr.Error
+	Call(file *bytes.Buffer) (bool, *bytes.Buffer, liberr.Error)
 }
 
-func NewClient(uri string) (HTTP, errors.Error) {
+func NewClient(uri string) (HTTP, liberr.Error) {
 	var (
 		pUri *url.URL
 		err  error
@@ -88,7 +88,7 @@ func (obj *httpClient) SetContext(ctx context.Context) {
 	}
 }
 
-func (obj *httpClient) Check() errors.Error {
+func (obj *httpClient) Check() liberr.Error {
 	req, e := obj.newRequest(http.MethodHead, nil)
 
 	if e != nil {
@@ -106,7 +106,7 @@ func (obj *httpClient) Check() errors.Error {
 	return e
 }
 
-func (obj *httpClient) Call(body *bytes.Buffer) (bool, *bytes.Buffer, errors.Error) {
+func (obj *httpClient) Call(body *bytes.Buffer) (bool, *bytes.Buffer, liberr.Error) {
 	req, e := obj.newRequest(http.MethodPost, body)
 
 	if e != nil {
@@ -122,7 +122,7 @@ func (obj *httpClient) Call(body *bytes.Buffer) (bool, *bytes.Buffer, errors.Err
 	return obj.checkResponse(res)
 }
 
-func (obj *httpClient) newRequest(method string, body *bytes.Buffer) (*http.Request, errors.Error) {
+func (obj *httpClient) newRequest(method string, body *bytes.Buffer) (*http.Request, liberr.Error) {
 	var reader *bytes.Reader
 
 	if body != nil && body.Len() > 0 {
@@ -137,7 +137,7 @@ func (obj *httpClient) newRequest(method string, body *bytes.Buffer) (*http.Requ
 	return req, nil
 }
 
-func (obj *httpClient) doRequest(req *http.Request) (*http.Response, errors.Error) {
+func (obj *httpClient) doRequest(req *http.Request) (*http.Response, liberr.Error) {
 	res, e := obj.cli.Do(req)
 
 	if e != nil {
@@ -147,7 +147,7 @@ func (obj *httpClient) doRequest(req *http.Request) (*http.Response, errors.Erro
 	return res, nil
 }
 
-func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer, errors.Error) {
+func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer, liberr.Error) {
 	var buf *bytes.Buffer
 
 	if res.Body != nil {
@@ -163,7 +163,7 @@ func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer, e
 			return false, nil, BUFFER_WRITE.ErrorParent(err)
 		}
 
-		logger.DebugLevel.LogError(err)
+		liblog.GetDefault().Entry(liblog.DebugLevel, "").ErrorAdd(err).FieldAdd("remote.uri", res.Request.URL.String()).FieldAdd("remote.method", res.Request.Method).Log()
 	}
 
 	return strings.HasPrefix(res.Status, "2"), buf, nil

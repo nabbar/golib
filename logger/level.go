@@ -25,15 +25,10 @@ SOFTWARE.
 package logger
 
 import (
-	"encoding/json"
-	"fmt"
+	"math"
 	"strings"
-	"sync/atomic"
-	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/jwalterweatherman"
 )
 
 //Level a uint8 type customized with function to log message with the current log level.
@@ -56,14 +51,6 @@ const (
 	NilLevel
 )
 
-var (
-	curLevel *atomic.Value
-)
-
-func init() {
-	SetLevel(InfoLevel)
-}
-
 // GetLevelListString return a list ([]string) of all string loglevel available.
 func GetLevelListString() []string {
 	return []string{
@@ -76,114 +63,12 @@ func GetLevelListString() []string {
 	}
 }
 
-//GetCurrentLevel return the current loglevel setting in the logger. All log entry matching this level or below will be logged.
-func GetCurrentLevel() Level {
-	if curLevel == nil {
-		curLevel = new(atomic.Value)
-	}
-
-	if i := curLevel.Load(); i == nil {
-		return NilLevel
-	} else if l, ok := i.(Level); !ok {
-		return NilLevel
-	} else {
-		return l
-	}
-}
-
-func setCurLevel(lvl Level) {
-	if curLevel == nil {
-		curLevel = new(atomic.Value)
-	}
-	curLevel.Store(lvl)
-}
-
-// SetLevel Change the Level of all log entry with the Level type given in parameter. The change is apply for next log entry only.
-// If the given Level type is not matching a correct Level type, no change will be apply.
-/*
-	level a Level type to use to specify the new level of logger message
-*/
-func SetLevel(level Level) {
-	//nolint exhaustive
-	switch level {
-
-	case PanicLevel:
-		setCurLevel(PanicLevel)
-		logrus.SetLevel(logrus.PanicLevel)
-
-	case FatalLevel:
-		setCurLevel(FatalLevel)
-		logrus.SetLevel(logrus.FatalLevel)
-
-	case ErrorLevel:
-		setCurLevel(ErrorLevel)
-		logrus.SetLevel(logrus.ErrorLevel)
-
-	case WarnLevel:
-		setCurLevel(WarnLevel)
-		logrus.SetLevel(logrus.WarnLevel)
-
-	case InfoLevel:
-		setCurLevel(InfoLevel)
-		logrus.SetLevel(logrus.InfoLevel)
-
-	case DebugLevel:
-		setCurLevel(DebugLevel)
-		logrus.SetLevel(logrus.DebugLevel)
-
-	case NilLevel:
-		setCurLevel(NilLevel)
-		return
-	}
-
-	DebugLevel.Logf("Change Log Level to %s", logrus.GetLevel().String())
-	setViperLogTrace()
-}
-
-func setViperLogTrace() {
-	if !enableVPR {
-		return
-	}
-
-	jwalterweatherman.SetLogOutput(GetIOWriter(GetCurrentLevel(), "[Log Config Viper]"))
-	jwalterweatherman.SetStdoutOutput(GetIOWriter(GetCurrentLevel(), "[Std Config Viper]"))
-
-	if filetrace {
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelTrace)
-		return
-	}
-
-	//nolint exhaustive
-	switch GetCurrentLevel() {
-	case PanicLevel:
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelCritical)
-
-	case FatalLevel:
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelFatal)
-
-	case ErrorLevel:
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelError)
-
-	case WarnLevel:
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelWarn)
-
-	case InfoLevel:
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelInfo)
-
-	case DebugLevel:
-		jwalterweatherman.SetStdoutThreshold(jwalterweatherman.LevelDebug)
-
-	case NilLevel:
-		return
-	}
-}
-
 // GetLevelString return a valid Level Type matching the given string parameter. If the given parameter don't represent a valid level, the InfoLevel will be return.
 /*
 	level the string representation of a Level type
 */
-func GetLevelString(level string) Level {
-	switch strings.ToLower(level) {
+func GetLevelString(l string) Level {
+	switch strings.ToLower(l) {
 	case strings.ToLower(PanicLevel.String()):
 		return PanicLevel
 
@@ -207,14 +92,14 @@ func GetLevelString(level string) Level {
 }
 
 // Uint8 Convert the current Level type to a uint8 value. E.g. FatalLevel becomes 1.
-func (level Level) Uint8() uint8 {
-	return uint8(level)
+func (l Level) Uint8() uint8 {
+	return uint8(l)
 }
 
 // String Convert the current Level type to a string. E.g. PanicLevel becomes "Critical Error".
-func (level Level) String() string {
+func (l Level) String() string {
 	//nolint exhaustive
-	switch level {
+	switch l {
 	case DebugLevel:
 		return "Debug"
 	case InfoLevel:
@@ -234,244 +119,21 @@ func (level Level) String() string {
 	return "unknown"
 }
 
-// Log Simple function to log directly the given message with the attached log Level.
-/*
-	message a string message to be logged with the attached log Level
-*/
-func (level Level) Log(message string) {
-	level.logDetails(message, nil, nil, nil)
-}
-
-// Logf Simple function to log (to the attached log Level) with a fmt function a given pattern and arguments in parameters.
-/*
-	format a string pattern for fmt function
-	args a list of interface to match the references in the pattern
-*/
-func (level Level) Logf(format string, args ...interface{}) {
-	level.logDetails(fmt.Sprintf(format, args...), nil, nil, nil)
-}
-
-// LogData Simple function to log directly the given message with given data with the attached log Level.
-/*
-	message a string message to be logged with the attached log Level
-	data an interface of data to be logged with the message. (In Text format, the data will be json marshaled)
-*/
-func (level Level) LogData(message string, data interface{}) {
-	level.logDetails(message, data, nil, nil)
-}
-
-// WithFields Simple function to log directly the given message with given fields with the attached log Level.
-/*
-	message a string message to be logged with the attached log Level
-	fields a map of string key and interfaces value for a complete list of field ("field name" => value interface)
-*/
-func (level Level) WithFields(message string, fields map[string]interface{}) {
-	level.logDetails(message, nil, nil, fields)
-}
-
-// LogError Simple function to log directly the given error with the attached log Level.
-//
-// How iot works :
-//  + when the err is a valid error, this function will :
-//  +--- log the Error with the attached log Level
-//  +--- return true
-//  + when the err is nil, this function will :
-//  +--- return false
-/*
-	err an error object message to be logged with the attached log Level
-*/
-func (level Level) LogError(err error) bool {
-	return level.LogGinErrorCtx(NilLevel, "", err, nil)
-}
-
-// LogErrorCtx Function to test, log and inform about the given error object.
-//
-// How iot works :
-//  + when the err is a valid error, this function will :
-//  +--- log the Error with the attached log Level
-//  +--- return true
-//  + when the err is nil, this function will :
-//  +--- use the levelElse if valid to inform with context there is no error found
-//  +--- return false
-/*
-	levelElse level used if the err is nil before returning a False result
-	context a string for the context of the current test of the error
-	err a error object to be log with the attached log level before return true, if the err is nil, the levelElse is used to log there are no error and return false
-*/
-func (level Level) LogErrorCtx(levelElse Level, context string, err error) bool {
-	return level.LogGinErrorCtx(levelElse, context, err, nil)
-}
-
-// LogErrorCtxf Function to test, log and inform about the given error object, but with a context based on a pattern and matching args.
-//
-// How iot works :
-//  + when the err is a valid error, this function will :
-//  +--- log the Error with the attached log Level
-//  +--- return true
-//  + when the err is nil, this function will :
-//  +--- use the levelElse if valid to inform with context there is no error found
-//  +--- return false
-/*
-	levelElse level used if the err is nil before returning a False result
-	contextPattern a pattern string for the context of the current test of the error. This string will be used in a fmt function as pattern string
-	err a error object to be log with the attached log level before return true, if the err is nil, the levelElse is used to log there are no error and return false
-	args a list of interface for the context of the current test of the error. This list of interface will be used in a fmt function as the matching args for the pattern string
-*/
-func (level Level) LogErrorCtxf(levelElse Level, contextPattern string, err error, args ...interface{}) bool {
-	return level.LogGinErrorCtx(levelElse, fmt.Sprintf(contextPattern, args...), err, nil)
-}
-
-// LogGinErrorCtxf Function to test, log and inform about the given error object, but with a context based on a couple of pattern and matching args.
-// This function will also add an Gin Tonic Error if the c parameters is a valid GinTonic Context reference.
-//
-// How iot works :
-//  + when the err is a valid error, this function will :
-//  +--- log the Error with the attached log Level
-//  +--- if the Context Gin Tonic is valid, add the Error into this context
-//  +--- return true
-//  + when the err is nil, this function will :
-//  +--- use the levelElse if valid to inform with context there is no error found
-//  +--- return false
-/*
-	levelElse level used if the err is nil before returning a False result
-	contextPattern a pattern string for the context of the current test of the error. This string will be used in a fmt function as pattern string
-	err a error object to be log with the attached log level before return true, if the err is nil, the levelElse is used to log there are no error and return false
-	c a valid Go GinTonic Context reference to add current error to the Gin Tonic Error Context
-	args a list of interface for the context of the current test of the error. This list of interface will be used in a fmt function as the matching args for the pattern string
-*/
-func (level Level) LogGinErrorCtxf(levelElse Level, contextPattern string, err error, c *gin.Context, args ...interface{}) bool {
-	return level.LogGinErrorCtx(levelElse, fmt.Sprintf(contextPattern, args...), err, c)
-}
-
-// LogGinErrorCtx Function to test, log and inform about the given error object.
-// This function will also add an Gin Tonic Error if the c parameters is a valid GinTonic Context reference.
-//
-// How iot works :
-//  + when the err is a valid error, this function will :
-//  +--- log the Error with the attached log Level
-//  +--- if the Context Gin Tonic is valid, add the Error into this context
-//  +--- return true
-//  + when the err is nil, this function will :
-//  +--- use the levelElse if valid to inform with context there is no error found
-//  +--- return false
-/*
-levelElse level used if the err is nil before returning a False result
-context a string for the context of the current test of the error
-err a error object to be log with the attached log level before return true, if the err is nil, the levelElse is used to log there are no error and return false
-c a valid Go GinTonic Context reference to add current error to the Gin Tonic Error Context.
-*/
-func (level Level) LogGinErrorCtx(levelElse Level, context string, err error, c *gin.Context) bool {
-	if err != nil {
-		level.logDetails(fmt.Sprintf("KO : %s", context), nil, err, nil)
-		ginTonicAddError(c, err)
-		return true
-	} else if proceed(levelElse) {
-		levelElse.logDetails(fmt.Sprintf("OK : %s", context), nil, err, nil)
-	}
-
-	return false
-}
-
-func (level Level) logDetails(message string, data interface{}, err error, fields logrus.Fields) {
-	if !proceed(level) {
-		return
-	}
-
-	var tags = make(map[string]interface{})
-
-	if enableGID {
-		tags[tagStack] = getGID()
-	}
-
-	if timestamp {
-		tags[tagTime] = time.Now().Format(time.RFC3339Nano)
-	}
-
-	tags[tagTime] = level.String()
-
-	if filetrace && GetCurrentLevel() == DebugLevel {
-		frame := getFrame()
-		tags[tagCaller] = frame.Function
-		tags[tagFile] = filterPath(frame.File)
-		tags[tagLine] = frame.Line
-	}
-
-	tags[tagMsg] = message
-	tags[tagErr] = err
-	tags[tagData] = data
-
-	var (
-		ent = logrus.NewEntry(logrus.StandardLogger())
-		msg string
-	)
-
-	if fields != nil && len(fields) > 0 {
-		ent.WithFields(fields)
-	}
-
-	//nolint exhaustive
-	switch curFormat {
-	case TextFormat:
-		if _, ok := tags[tagStack]; ok {
-			msg += fmt.Sprintf("[%d] ", tags[tagStack])
-		}
-
-		if _, ok := tags[tagCaller]; ok {
-			msg += fmt.Sprintf("[%s] ", tags[tagCaller])
-		}
-
-		var line string
-		if _, ok := tags[tagLine]; ok {
-			line = fmt.Sprintf("(%d) ", tags[tagLine])
-		}
-
-		if _, ok := tags[tagFile]; ok || len(line) > 0 {
-			msg += fmt.Sprintf("[%s%s] ", line, tags[tagFile])
-		}
-
-		msg += fmt.Sprintf("%s", tags[tagMsg])
-
-		if tags[tagErr] != nil {
-			msg += fmt.Sprintf(" -- err : %v", err)
-		}
-
-		if tags[tagData] != nil {
-			if str, err := json.MarshalIndent(data, "", "  "); err == nil {
-				msg += fmt.Sprintf(" -- data : \n%s", string(str))
-			} else {
-				msg += fmt.Sprintf(" -- data : %v", err)
-			}
-		}
-
-	case JsonFormat:
-		ent.WithFields(tags)
-		msg = tags[tagMsg].(string)
-
-	case nilFormat:
-		return
-	}
-
-	//nolint exhaustive
-	switch level {
-	case NilLevel:
-		return
-
+func (l Level) Logrus() logrus.Level {
+	switch l {
 	case DebugLevel:
-		ent.Debugln(msg)
-
+		return logrus.DebugLevel
 	case InfoLevel:
-		ent.Infoln(msg)
-
+		return logrus.InfoLevel
 	case WarnLevel:
-		ent.Warnln(msg)
-
+		return logrus.WarnLevel
 	case ErrorLevel:
-		ent.Errorln(msg)
-
+		return logrus.ErrorLevel
 	case FatalLevel:
-		ent.Fatalln(msg)
-
+		return logrus.FatalLevel
 	case PanicLevel:
-		ent.Panicln(msg)
+		return logrus.PanicLevel
+	default:
+		return math.MaxInt32
 	}
 }
