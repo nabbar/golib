@@ -27,80 +27,62 @@
 
 package logger
 
-import (
-	"io"
-	"log"
+import "sync/atomic"
 
-	"github.com/hashicorp/go-hclog"
-	jww "github.com/spf13/jwalterweatherman"
-)
+func (l *logger) Close() error {
 
-func (l *logger) GetStdLogger(lvl Level, logFlags int) *log.Logger {
-	l.SetIOWriterLevel(lvl)
-	return log.New(l, "", logFlags)
-}
-
-func (l *logger) SetStdLogger(lvl Level, logFlags int) {
-	l.SetIOWriterLevel(lvl)
-	log.SetOutput(l)
-	log.SetPrefix("")
-	log.SetFlags(logFlags)
-}
-
-func (l *logger) SetSPF13Level(lvl Level, log *jww.Notepad) {
-	var (
-		fOutLog func(handle io.Writer)
-		fLvl    func(threshold jww.Threshold)
-	)
-
-	if log == nil {
-		jww.SetStdoutOutput(io.Discard)
-		fOutLog = jww.SetLogOutput
-		fLvl = jww.SetLogThreshold
-	} else {
-		fOutLog = log.SetLogOutput
-		fLvl = log.SetLogThreshold
-	}
-
-	switch lvl {
-	case NilLevel:
-		fOutLog(io.Discard)
-		fLvl(jww.LevelCritical)
-
-	case DebugLevel:
-		fOutLog(l)
-		if opt := l.GetOptions(); opt.EnableTrace {
-			fLvl(jww.LevelTrace)
-		} else {
-			fLvl(jww.LevelDebug)
+	for _, c := range l.closeGetMutex() {
+		if c != nil {
+			_ = c.Close()
 		}
-
-	case InfoLevel:
-		fOutLog(l)
-		fLvl(jww.LevelInfo)
-	case WarnLevel:
-		fOutLog(l)
-		fLvl(jww.LevelWarn)
-	case ErrorLevel:
-		fOutLog(l)
-		fLvl(jww.LevelError)
-	case FatalLevel:
-		fOutLog(l)
-		fLvl(jww.LevelFatal)
-	case PanicLevel:
-		fOutLog(l)
-		fLvl(jww.LevelCritical)
 	}
+
+	if l.n != nil {
+		l.n()
+	}
+
+	l.closeClean()
+
+	return nil
 }
 
-func (l *logger) SetHashicorpHCLog() {
-	hclog.SetDefault(&_hclog{
-		l: l,
-	})
+func (l *logger) Write(p []byte) (n int, err error) {
+	l.newEntry(l.GetIOWriterLevel(), string(p), nil, l.GetFields(), nil).Log()
+	return len(p), nil
 }
 
-func (l *logger) NewHashicorpHCLog() hclog.Logger {
-	return &_hclog{
-		l: l,
+func (l *logger) SetIOWriterLevel(lvl Level) {
+	if l == nil {
+		return
 	}
+
+	l.m.Lock()
+	defer l.m.Unlock()
+
+	if l.w == nil {
+		l.w = new(atomic.Value)
+	}
+
+	l.w.Store(lvl)
+}
+
+func (l *logger) GetIOWriterLevel() Level {
+	if l == nil {
+		return NilLevel
+	}
+
+	l.m.Lock()
+	defer l.m.Unlock()
+
+	if l.w == nil {
+		l.w = new(atomic.Value)
+	}
+
+	if i := l.w.Load(); i == nil {
+		return NilLevel
+	} else if o, ok := i.(Level); ok {
+		return o
+	}
+
+	return NilLevel
 }

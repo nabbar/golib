@@ -27,80 +27,81 @@
 
 package logger
 
-import (
-	"io"
-	"log"
+import "github.com/sirupsen/logrus"
 
-	"github.com/hashicorp/go-hclog"
-	jww "github.com/spf13/jwalterweatherman"
-)
+type Fields map[string]interface{}
 
-func (l *logger) GetStdLogger(lvl Level, logFlags int) *log.Logger {
-	l.SetIOWriterLevel(lvl)
-	return log.New(l, "", logFlags)
+func NewFields() Fields {
+	return make(Fields)
 }
 
-func (l *logger) SetStdLogger(lvl Level, logFlags int) {
-	l.SetIOWriterLevel(lvl)
-	log.SetOutput(l)
-	log.SetPrefix("")
-	log.SetFlags(logFlags)
+func (f Fields) new() map[string]interface{} {
+	return make(map[string]interface{}, 0)
 }
 
-func (l *logger) SetSPF13Level(lvl Level, log *jww.Notepad) {
-	var (
-		fOutLog func(handle io.Writer)
-		fLvl    func(threshold jww.Threshold)
-	)
-
-	if log == nil {
-		jww.SetStdoutOutput(io.Discard)
-		fOutLog = jww.SetLogOutput
-		fLvl = jww.SetLogThreshold
-	} else {
-		fOutLog = log.SetLogOutput
-		fLvl = log.SetLogThreshold
+func (f Fields) clone() map[string]interface{} {
+	if len(f) > 0 {
+		return f
 	}
 
-	switch lvl {
-	case NilLevel:
-		fOutLog(io.Discard)
-		fLvl(jww.LevelCritical)
+	return f.new()
+}
 
-	case DebugLevel:
-		fOutLog(l)
-		if opt := l.GetOptions(); opt.EnableTrace {
-			fLvl(jww.LevelTrace)
-		} else {
-			fLvl(jww.LevelDebug)
+func (f Fields) Add(key string, val interface{}) Fields {
+	res := f.clone()
+	res[key] = val
+
+	return res
+}
+
+func (f Fields) Map(fct func(key string, val interface{}) interface{}) Fields {
+	res := f.clone()
+
+	for k, v := range res {
+		if v = fct(k, v); v != nil {
+			res[k] = v
 		}
-
-	case InfoLevel:
-		fOutLog(l)
-		fLvl(jww.LevelInfo)
-	case WarnLevel:
-		fOutLog(l)
-		fLvl(jww.LevelWarn)
-	case ErrorLevel:
-		fOutLog(l)
-		fLvl(jww.LevelError)
-	case FatalLevel:
-		fOutLog(l)
-		fLvl(jww.LevelFatal)
-	case PanicLevel:
-		fOutLog(l)
-		fLvl(jww.LevelCritical)
 	}
+
+	return res
 }
 
-func (l *logger) SetHashicorpHCLog() {
-	hclog.SetDefault(&_hclog{
-		l: l,
+func (f Fields) Merge(other Fields) Fields {
+	if len(other) < 1 {
+		return f
+	} else if len(f) < 1 {
+		return other
+	}
+
+	res := f.clone()
+
+	other.Map(func(key string, val interface{}) interface{} {
+		res[key] = val
+		return nil
 	})
+
+	return res
 }
 
-func (l *logger) NewHashicorpHCLog() hclog.Logger {
-	return &_hclog{
-		l: l,
+func (f Fields) Clean(keys ...string) Fields {
+	res := f.new()
+
+	if len(keys) > 0 {
+		f.Map(func(key string, val interface{}) interface{} {
+			for _, kk := range keys {
+				if kk == key {
+					return nil
+				}
+			}
+
+			res[key] = val
+			return nil
+		})
 	}
+
+	return res
+}
+
+func (f Fields) Logrus() logrus.Fields {
+	return f.clone()
 }

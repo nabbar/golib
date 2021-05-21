@@ -56,9 +56,14 @@ type GinTonic interface {
 	GetStringMap(key string) (sm map[string]interface{})
 	GetStringMapString(key string) (sms map[string]string)
 	GetStringMapStringSlice(key string) (smss map[string][]string)
+
+	SetLogger(log FuncLogger)
 }
 
+type FuncLogger func() liblog.Logger
+
 type ctxGinTonic struct {
+	l FuncLogger
 	g *gin.Context
 	x context.Context
 	c context.CancelFunc
@@ -88,9 +93,22 @@ func NewGinTonic(c *gin.Context) GinTonic {
 	}
 
 	return &ctxGinTonic{
-		c,
-		x,
-		l,
+		l: liblog.GetDefault,
+		g: c,
+		x: x,
+		c: l,
+	}
+}
+
+func (c *ctxGinTonic) SetLogger(fct FuncLogger) {
+	c.l = fct
+}
+
+func (c *ctxGinTonic) log(lvl liblog.Level, msg string, args ...interface{}) {
+	if c.l != nil {
+		c.l().Entry(lvl, msg, args...).Log()
+	} else {
+		liblog.GetDefault().Entry(lvl, msg, args...).Log()
 	}
 }
 
@@ -101,11 +119,11 @@ func (c *ctxGinTonic) CancelOnSignal(s ...os.Signal) {
 
 		select {
 		case <-sc:
-			liblog.InfoLevel.Logf("Os Signal received, calling context cancel !")
+			c.log(liblog.InfoLevel, "OS Signal received, calling context cancel !")
 			c.c()
 			return
 		case <-c.Done():
-			liblog.InfoLevel.Logf("Context has been closed...")
+			c.log(liblog.InfoLevel, "Context has been closed !")
 			return
 		}
 	}()

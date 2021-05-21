@@ -34,6 +34,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	liblog "github.com/nabbar/golib/logger"
+
 	liberr "github.com/nabbar/golib/errors"
 	libsts "github.com/nabbar/golib/status"
 )
@@ -42,12 +44,17 @@ const (
 	timeoutShutdown = 10 * time.Second
 )
 
+type FuncGetLogger func() liblog.Logger
+
 type server struct {
+	log *atomic.Value
 	run *atomic.Value
 	cfg *atomic.Value
 }
 
 type Server interface {
+	SetLogger(log FuncGetLogger)
+
 	GetConfig() *ServerConfig
 	SetConfig(cfg *ServerConfig) bool
 
@@ -75,9 +82,24 @@ func NewServer(cfg *ServerConfig) Server {
 	c.Store(cfg.Clone())
 
 	return &server{
+		log: new(atomic.Value),
 		cfg: c,
 		run: new(atomic.Value),
 	}
+}
+
+func (s *server) SetLogger(log FuncGetLogger) {
+	s.log.Store(log)
+}
+
+func (s *server) GetLogger() FuncGetLogger {
+	if i := s.log.Load(); i == nil {
+		return nil
+	} else if f, ok := i.(FuncGetLogger); ok {
+		return f
+	}
+
+	return nil
 }
 
 func (s *server) GetConfig() *ServerConfig {
@@ -121,11 +143,11 @@ func (s *server) SetConfig(cfg *ServerConfig) bool {
 
 func (s *server) getRun() run {
 	if s.run == nil {
-		return newRun()
+		return newRun(s.GetLogger())
 	} else if i := s.run.Load(); i == nil {
-		return newRun()
+		return newRun(s.GetLogger())
 	} else if r, ok := i.(run); !ok {
-		return newRun()
+		return newRun(s.GetLogger())
 	} else {
 		return r
 	}

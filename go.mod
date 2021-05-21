@@ -14,14 +14,14 @@ require (
 	github.com/andybalholm/cascadia v1.2.0 // indirect
 	github.com/aokoli/goutils v1.1.1 // indirect
 	github.com/armon/go-metrics v0.3.8 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.5.0
-	github.com/aws/aws-sdk-go-v2/config v1.2.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.2.0
-	github.com/aws/aws-sdk-go-v2/service/iam v1.4.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.7.0
+	github.com/aws/aws-sdk-go-v2 v1.6.0
+	github.com/aws/aws-sdk-go-v2/config v1.3.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.2.1
+	github.com/aws/aws-sdk-go-v2/service/iam v1.5.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.8.0
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/cockroachdb/errors v1.8.4 // indirect
-	github.com/cockroachdb/pebble v0.0.0-20210515132633-39fe91db49c0 // indirect
+	github.com/cockroachdb/pebble v0.0.0-20210520205706-edcfca5432fb // indirect
 	github.com/cockroachdb/redact v1.0.9 // indirect
 	github.com/fatih/color v1.11.0
 	github.com/fxamacker/cbor/v2 v2.2.0
@@ -40,6 +40,7 @@ require (
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-hclog v0.16.1
 	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
 	github.com/hashicorp/go-msgpack v1.1.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
@@ -59,13 +60,14 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lni/dragonboat/v3 v3.3.4
 	github.com/matcornic/hermes/v2 v2.1.0
+	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mattn/go-runewidth v0.0.12 // indirect
 	github.com/miekg/dns v1.1.42 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/nats-io/jwt/v2 v2.0.2
-	github.com/nats-io/nats-server/v2 v2.2.4
+	github.com/nats-io/nats-server/v2 v2.2.5
 	github.com/nats-io/nats.go v1.11.0
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/onsi/ginkgo v1.16.2
@@ -76,6 +78,7 @@ require (
 	github.com/shirou/gopsutil v3.21.4+incompatible
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/jwalterweatherman v1.1.0
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/ugorji/go v1.2.6 // indirect
 	github.com/vanng822/go-premailer v1.20.1 // indirect
 	github.com/vbauerster/mpb/v5 v5.4.0
@@ -85,11 +88,12 @@ require (
 	github.com/xujiajun/utils v0.0.0-20190123093513-8bf096c4f53b
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a // indirect
 	golang.org/x/exp v0.0.0-20210514180818-737f94c0881e // indirect
-	golang.org/x/net v0.0.0-20210510120150-4163338589ed
+	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015 // indirect
+	golang.org/x/sys v0.0.0-20210521090106-6ca3eb03dfc2 // indirect
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/appengine v1.6.7 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

@@ -30,7 +30,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -69,44 +68,55 @@ var (
 
 func init() {
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
-	liblog.SetLevel(liblog.InfoLevel)
-	liblog.AddGID(true)
-	liblog.EnableColor()
-	liblog.FileTrace(true)
-	liblog.Timestamp(true)
 }
 
 type EmptyStruct struct{}
 
 func main() {
-	if _, err := os.Stat(LoggerFile); err != nil && !errors.Is(err, os.ErrNotExist) {
-		panic(err)
-	} else if err == nil {
-		if err = os.Remove(LoggerFile); err != nil {
-			panic(err)
-		}
-	}
-
-	//nolint #gosec
-	/* #nosec */
-	if file, err := os.OpenFile(LoggerFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666); err != nil {
-		panic(err)
-	} else {
-		liblog.SetOutput(file)
-		defer func() {
-			if file != nil {
-				liblog.SetOutput(os.Stdout)
-				_ = file.Close()
-			}
-		}()
-	}
-
 	ctx, cnl := context.WithCancel(context.Background())
 	defer func() {
 		if cnl != nil {
 			cnl()
 		}
 	}()
+
+	log := liblog.New()
+	log.SetLevel(liblog.InfoLevel)
+	if err := log.SetOptions(ctx, &liblog.Options{
+		DisableStandard:  true,
+		DisableStack:     false,
+		DisableTimestamp: false,
+		EnableTrace:      false,
+		TraceFilter:      "",
+		DisableColor:     false,
+		LogFile: []liblog.OptionsFile{
+			{
+				LogLevel: []string{
+					"panic",
+					"fatal",
+					"error",
+					"warning",
+					"info",
+					"debug",
+				},
+				Filepath:         LoggerFile,
+				Create:           true,
+				CreatePath:       true,
+				FileMode:         0644,
+				PathMode:         0755,
+				DisableStack:     false,
+				DisableTimestamp: false,
+				EnableTrace:      true,
+			},
+		},
+	}); err != nil {
+		panic(err)
+	}
+
+	err := liblog.GetDefault().SetOptions(ctx, log.GetOptions())
+	if err != nil {
+		panic(err)
+	}
 
 	println(fmt.Sprintf("Running test with %d threads...", runtime.GOMAXPROCS(0)))
 	println(fmt.Sprintf("Init cluster..."))
