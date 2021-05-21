@@ -40,37 +40,71 @@ func init() {
 			pkg: pkgName,
 		}
 	})
+}
 
+type FuncLogger func() liblog.Logger
+
+func SetLoggerFactory(log FuncLogger) {
+	if log == nil {
+		log = liblog.GetDefault
+	}
+
+	dgblog.SetLoggerFactory(func(pkgName string) dgblog.ILogger {
+		return &logDragonBoart{
+			pkg: pkgName,
+			log: log,
+		}
+	})
 }
 
 type logDragonBoart struct {
 	pkg string
+	log FuncLogger
 }
 
 func (l *logDragonBoart) SetLevel(level dgblog.LogLevel) {
+	if l.log == nil {
+		return
+	}
+
+	switch level {
+	case dgblog.CRITICAL:
+		l.log().SetLevel(liblog.FatalLevel)
+	case dgblog.ERROR:
+		l.log().SetLevel(liblog.ErrorLevel)
+	case dgblog.WARNING:
+		l.log().SetLevel(liblog.WarnLevel)
+	case dgblog.INFO:
+		l.log().SetLevel(liblog.InfoLevel)
+	case dgblog.DEBUG:
+		l.log().SetLevel(liblog.DebugLevel)
+	}
+}
+
+func (l *logDragonBoart) logMsg(lvl liblog.Level, message string, args ...interface{}) {
+	if l.log == nil {
+		l.log = liblog.GetDefault
+	}
+
+	l.log().Entry(lvl, message, args...).FieldAdd("dragonboat.package", l.pkg).Log()
 }
 
 func (l *logDragonBoart) Debugf(format string, args ...interface{}) {
-	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.DebugLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
+	l.logMsg(liblog.DebugLevel, format, args...)
 }
 
 func (l *logDragonBoart) Infof(format string, args ...interface{}) {
-	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.InfoLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
+	l.logMsg(liblog.InfoLevel, format, args...)
 }
 
 func (l *logDragonBoart) Warningf(format string, args ...interface{}) {
-	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.WarnLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
+	l.logMsg(liblog.WarnLevel, format, args...)
 }
 
 func (l *logDragonBoart) Errorf(format string, args ...interface{}) {
-	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.ErrorLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
+	l.logMsg(liblog.ErrorLevel, format, args...)
 }
 
 func (l *logDragonBoart) Panicf(format string, args ...interface{}) {
-	var newArg = append(make([]interface{}, 0), l.pkg)
-	liblog.FatalLevel.Logf("[DragonBoat: %s] "+format, append(newArg, args...)...)
+	l.logMsg(liblog.FatalLevel, format, args...)
 }

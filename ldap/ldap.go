@@ -39,6 +39,8 @@ import (
 	liblog "github.com/nabbar/golib/logger"
 )
 
+type FuncLogger func() liblog.Logger
+
 //HelperLDAP struct use to manage connection to server and request it.
 type HelperLDAP struct {
 	Attributes []string
@@ -49,6 +51,7 @@ type HelperLDAP struct {
 	bindDN     string
 	bindPass   string
 	ctx        context.Context
+	log        FuncLogger
 }
 
 //NewLDAP build a new LDAP helper based on config struct given.
@@ -65,6 +68,37 @@ func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP
 		config:    cnf.Clone(),
 		ctx:       libctx.IsolateParent(ctx),
 	}, nil
+}
+
+//SetLogger is used to specify the logger to be used for debug messgae
+func (lc *HelperLDAP) SetLogger(fct FuncLogger) {
+	lc.log = fct
+}
+
+func (lc HelperLDAP) getLogEntry(lvl liblog.Level, msg string, args ...interface{}) *liblog.Entry {
+	var log liblog.Logger
+	if lc.log == nil {
+		log = liblog.GetDefault()
+	} else if l := lc.log(); l == nil {
+		log = liblog.GetDefault()
+	} else {
+		log = l
+	}
+
+	return log.Entry(lvl, msg, args...).FieldAdd("ldap.host", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS)).FieldAdd("ldap.tlsMode", lc.tlsMode.String())
+}
+
+func (lc HelperLDAP) getLogEntryErr(lvlKO liblog.Level, err error, msg string, args ...interface{}) *liblog.Entry {
+	var log liblog.Logger
+	if lc.log == nil {
+		log = liblog.GetDefault()
+	} else if l := lc.log(); l == nil {
+		log = liblog.GetDefault()
+	} else {
+		log = l
+	}
+
+	return log.Entry(lvlKO, msg, args...).FieldAdd("ldap.host", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS)).ErrorAdd(err)
 }
 
 //SetCredentials used to defined the BindDN and password for connection.
@@ -193,7 +227,7 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 	if lc.config.Portldaps != 0 {
 		l, err = lc.dialTLS()
 
-		liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSModeTLS.String())
+		lc.getLogEntryErr(liblog.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeTLS.String()).Check(liblog.DebugLevel)
 
 		if err == nil {
 			return TLSModeTLS, nil
@@ -205,14 +239,14 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 	}
 
 	l, err = lc.dial()
-	liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSModeNone.String())
+	lc.getLogEntryErr(liblog.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeNone.String()).Check(liblog.DebugLevel)
 
 	if err != nil {
 		return _TLSModeInit, err
 	}
 
 	err = lc.starttls(l)
-	liblog.DebugLevel.LogErrorCtxf(liblog.DebugLevel, "connecting ldap with tls mode '%s'", err, TLSModeStarttls.String())
+	lc.getLogEntryErr(liblog.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeStarttls.String()).Check(liblog.DebugLevel)
 
 	if err == nil {
 		return TLSModeStarttls, nil
@@ -276,7 +310,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			}
 		}
 
-		liblog.DebugLevel.Logf("ldap connected with tls mode '%s'", lc.tlsMode.String())
+		lc.getLogEntry(liblog.DebugLevel, "ldap connected").Log()
 		lc.conn = l
 	}
 
@@ -347,7 +381,7 @@ func (lc *HelperLDAP) Connect() liberr.Error {
 		return err
 	}
 
-	liblog.DebugLevel.Logf("Bind success on LDAP server %s with tls mode '%s'", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String())
+	lc.getLogEntry(liblog.DebugLevel, "ldap bind success").FieldAdd("bind.dn", lc.bindDN).Log()
 	return nil
 }
 
@@ -377,7 +411,7 @@ func (lc *HelperLDAP) runSearch(filter string, attributes []string) (*ldap.Searc
 		return nil, ErrorLDAPSearch.ErrorParent(err)
 	}
 
-	liblog.DebugLevel.Logf("Search success on server '%s' with tls mode '%s', with filter [%s] and attribute %v", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), filter, attributes)
+	lc.getLogEntry(liblog.DebugLevel, "ldap search success").FieldAdd("ldap.filter", filter).FieldAdd("ldap.attributes", attributes).Log()
 	return src, nil
 }
 
@@ -446,7 +480,7 @@ func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) 
 		userRes["DN"] = src.Entries[0].DN
 	}
 
-	liblog.DebugLevel.Logf("Map info retrieve in ldap server '%s' with tls mode '%s' about user [%s] : %v", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), username, userRes)
+	lc.getLogEntry(liblog.DebugLevel, "ldap user find success").FieldAdd("ldap.user", username).FieldAdd("ldap.map", userRes).Log()
 	return userRes, nil
 }
 
@@ -479,7 +513,7 @@ func (lc *HelperLDAP) GroupInfoByField(groupname string, fieldForUnicValue strin
 		}
 	}
 
-	liblog.DebugLevel.Logf("Info for group [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), grpInfo)
+	lc.getLogEntry(liblog.DebugLevel, "ldap group find success").FieldAdd("ldap.group", groupname).FieldAdd("ldap.map", grpInfo).Log()
 	return grpInfo, nil
 }
 
@@ -504,13 +538,13 @@ func (lc *HelperLDAP) UserMemberOf(username string) ([]string, liberr.Error) {
 
 	for _, entry := range src.Entries {
 		for _, mmb := range entry.GetAttributeValues("memberOf") {
-			liblog.DebugLevel.Logf("Group find for uid '%s' on server '%s' with tls mode '%s' : %v", username, lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), mmb)
+			lc.getLogEntry(liblog.DebugLevel, "ldap find user group list building").FieldAdd("ldap.user", username).FieldAdd("ldap.raw.groups", mmb).Log()
 			mmo := lc.ParseEntries(mmb)
 			grp = append(grp, mmo["cn"]...)
 		}
 	}
 
-	liblog.DebugLevel.Logf("Groups find for uid '%s' on server '%s' with tls mode '%s' : %v", username, lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), grp)
+	lc.getLogEntry(liblog.DebugLevel, "ldap user group list success").FieldAdd("ldap.user", username).FieldAdd("ldap.grouplist", grp).Log()
 	return grp, nil
 }
 
@@ -560,7 +594,7 @@ func (lc *HelperLDAP) UsersOfGroup(groupname string) ([]string, liberr.Error) {
 		}
 	}
 
-	liblog.DebugLevel.Logf("Member of groups [%s] find on server '%s' with tls mode '%s' : %v", groupname, lc.config.ServerAddr(lc.tlsMode == TLSModeTLS), lc.tlsMode.String(), grp)
+	lc.getLogEntry(liblog.DebugLevel, "ldap group user list success").FieldAdd("ldap.group", groupname).FieldAdd("ldap.userlist", grp).Log()
 	return grp, nil
 }
 

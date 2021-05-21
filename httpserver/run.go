@@ -48,6 +48,7 @@ import (
 const _TimeoutWaitingPortFreeing = 500 * time.Microsecond
 
 type srvRun struct {
+	log func() liblog.Logger
 	err *atomic.Value
 	run *atomic.Value
 	snm string
@@ -65,8 +66,9 @@ type run interface {
 	Shutdown()
 }
 
-func newRun() run {
+func newRun(log FuncGetLogger) run {
 	return &srvRun{
+		log: log,
 		err: new(atomic.Value),
 		run: new(atomic.Value),
 		srv: nil,
@@ -158,9 +160,21 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 		name = bind
 	}
 
+	var _log liblog.Logger
+
+	if s.log == nil {
+		_log = liblog.GetDefault()
+	} else if l := s.log(); l == nil {
+		_log = liblog.GetDefault()
+	} else {
+		_log = l
+	}
+
+	_log.SetFields(_log.GetFields().Add("http server '%s'", name))
+
 	srv := &http.Server{
 		Addr:     cfg.GetListen().Host,
-		ErrorLog: liblog.GetLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds, "[http/http2 server '%s']", name),
+		ErrorLog: _log.GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds),
 	}
 
 	if cfg.ReadTimeout > 0 {

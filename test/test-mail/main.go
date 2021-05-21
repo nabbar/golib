@@ -52,14 +52,21 @@ var (
 )
 
 func init() {
-	liblog.EnableColor()
-	liblog.AddGID(true)
-	liblog.FileTrace(true)
-	liblog.SetFormat(liblog.TextFormat)
-	liblog.SetLevel(liblog.DebugLevel)
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
 
 	ctx, cnl = context.WithCancel(context.TODO())
+
+	liblog.SetLevel(liblog.DebugLevel)
+	if err := liblog.GetDefault().SetOptions(ctx, &liblog.Options{
+		DisableStandard:  false,
+		DisableStack:     false,
+		DisableTimestamp: false,
+		EnableTrace:      true,
+		TraceFilter:      "",
+		DisableColor:     false,
+	}); err != nil {
+		panic(err)
+	}
 }
 
 func main() {

@@ -62,6 +62,7 @@ type PoolServer interface {
 	Del(bindAddress string) PoolServer
 	Has(bindAddress string) bool
 	Len() int
+	SetLogger(log FuncGetLogger)
 
 	MapRun(f MapRunPoolServer)
 	MapUpd(f MapUpdPoolServer)
@@ -188,6 +189,13 @@ func (p pool) Len() int {
 	}
 
 	return len(p)
+}
+
+func (p pool) SetLogger(log FuncGetLogger) {
+	p.MapUpd(func(srv Server) Server {
+		srv.SetLogger(log)
+		return srv
+	})
 }
 
 func (p pool) List(fieldFilter, fieldReturn FieldType, pattern, regex string) []string {
