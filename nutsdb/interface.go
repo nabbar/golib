@@ -32,11 +32,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	libsh "github.com/nabbar/golib/shell"
+	liblog "github.com/nabbar/golib/logger"
 
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
+	libsh "github.com/nabbar/golib/shell"
 )
+
+const LogLib = "NutsDB"
 
 type NutsDB interface {
 	Listen() liberr.Error
@@ -49,6 +52,9 @@ type NutsDB interface {
 	IsRunning() bool
 	IsReady(ctx context.Context) bool
 	WaitReady(ctx context.Context, tick time.Duration)
+
+	GetLogger() liblog.Logger
+	SetLogger(l liblog.FuncLog)
 
 	//StatusInfo() (name string, release string, hash string)
 	//StatusHealth() error

@@ -44,6 +44,7 @@ const (
 )
 
 type CommandRequest struct {
+	l      liblog.FuncLog
 	Cmd    CmdCode       `mapstructure:"cmd" json:"cmd" yaml:"cmd" toml:"cmd" cbor:"cmd"`
 	Params []interface{} `mapstructure:"params" json:"params" yaml:"params" toml:"params" cbor:"params"`
 }
@@ -60,14 +61,16 @@ func NewCommand() *CommandRequest {
 	}
 }
 
-func NewCommandByDecode(p []byte) (*CommandRequest, liberr.Error) {
-	d := CommandRequest{}
+func NewCommandByDecode(l liblog.FuncLog, p []byte) (*CommandRequest, liberr.Error) {
+	d := NewCommand()
 
-	if e := cbor.Unmarshal(p, &d); e != nil {
+	if e := cbor.Unmarshal(p, d); e != nil {
 		return nil, ErrorCommandUnmarshal.ErrorParent(e)
 	}
 
-	return &d, nil
+	d.SetLogger(l)
+
+	return d, nil
 }
 
 func NewCommandByCaller(params ...interface{}) *CommandRequest {
@@ -75,7 +78,7 @@ func NewCommandByCaller(params ...interface{}) *CommandRequest {
 	runtime.Callers(_MinSkipCaller, pc)
 	f := runtime.FuncForPC(pc[0])
 
-	d := &CommandRequest{}
+	d := NewCommand()
 	fn := strings.Split(f.Name(), ".")
 	d.Cmd = CmdCodeFromName(fn[len(fn)-1])
 
@@ -84,6 +87,20 @@ func NewCommandByCaller(params ...interface{}) *CommandRequest {
 	}
 
 	return d
+}
+
+func (c *CommandRequest) SetLogger(l liblog.FuncLog) {
+	if l != nil {
+		c.l = l
+	}
+}
+
+func (c *CommandRequest) GetLogger() liblog.Logger {
+	if c.l != nil {
+		return c.l()
+	}
+
+	return liblog.GetDefault()
 }
 
 func (c *CommandRequest) InitParams(num int) {

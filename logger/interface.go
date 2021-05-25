@@ -39,6 +39,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 )
 
+type FuncLog func() Logger
+
 type Logger interface {
 	io.WriteCloser
 
