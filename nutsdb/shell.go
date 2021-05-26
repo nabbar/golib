@@ -32,10 +32,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/xujiajun/nutsdb/ds/zset"
-
 	libsh "github.com/nabbar/golib/shell"
 	"github.com/xujiajun/nutsdb"
+	"github.com/xujiajun/nutsdb/ds/zset"
 )
 
 type shellCommand struct {

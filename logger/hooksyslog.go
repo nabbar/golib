@@ -87,6 +87,7 @@ func (o *_HookSyslog) Levels() []logrus.Level {
 
 func (o *_HookSyslog) Fire(entry *logrus.Entry) error {
 	ent := entry.Dup()
+	ent.Level = entry.Level
 
 	if o.s {
 		ent.Data = o.filterKey(ent.Data, FieldStack)

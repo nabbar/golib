@@ -31,7 +31,10 @@ import (
 	"errors"
 	"io"
 	"strings"
+	"sync"
 	"sync/atomic"
+
+	liblog "github.com/nabbar/golib/logger"
 
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
 	liberr "github.com/nabbar/golib/errors"
@@ -49,36 +52,59 @@ func newNode(node uint64, cluster uint64, opt Options, fct func(state bool)) dgb
 		fct = func(state bool) {}
 	}
 
+	o := new(atomic.Value)
+	o.Store(opt)
+
 	return &nutsNode{
 		n: node,
 		c: cluster,
-		o: opt,
+		o: o,
 		r: fct,
 		d: new(atomic.Value),
 	}
 }
 
 type nutsNode struct {
+	m sync.Mutex       // mutex for struct var
 	n uint64           // nodeId
 	c uint64           // clusterId
-	o Options          // options nutsDB
 	r func(state bool) // is running
+	o *atomic.Value    // options nutsDB
 	d *atomic.Value    // nutsDB database pointer
+	l liblog.FuncLog   // logger
+}
+
+func (n *nutsNode) SetLogger(l liblog.FuncLog) {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	if l != nil {
+		n.l = l
+	}
+}
+
+func (n *nutsNode) GetLogger() liblog.Logger {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	if n.l != nil {
+		return n.l()
+	}
+
+	return liblog.GetDefault()
 }
 
 func (n *nutsNode) setRunning(state bool) {
+	n.m.Lock()
+	defer n.m.Unlock()
+
 	if n != nil && n.r != nil {
 		n.r(state)
 	}
 }
 
 func (n *nutsNode) newTx(writable bool) (*nutsdb.Tx, liberr.Error) {
-	if n == nil || n.d == nil {
-		return nil, ErrorDatabaseClosed.Error(nil)
-	}
-	if i := n.d.Load(); i == nil {
-		return nil, ErrorDatabaseClosed.Error(nil)
-	} else if db, ok := i.(*nutsdb.DB); !ok {
+	if db := n.getDb(); db == nil {
 		return nil, ErrorDatabaseClosed.Error(nil)
 	} else if tx, e := db.Begin(writable); e != nil {
 		return nil, ErrorTransactionInit.ErrorParent(e)
@@ -164,12 +190,19 @@ func (n *nutsNode) applyRaftLogIndexLastApplied(idx uint64) error {
 
 // Open @TODO : analyze channel role !!
 func (n *nutsNode) Open(stopc <-chan struct{}) (idxRaftlog uint64, err error) {
-	var db *nutsdb.DB
+	var (
+		opt Options
+		db  *nutsdb.DB
+	)
 
-	if db, err = nutsdb.Open(n.o.NutsDBOptions()); err != nil {
+	if opt = n.getOptions(); opt == nil {
+		return 0, ErrorValidateConfig.Error(nil)
+	}
+
+	if db, err = nutsdb.Open(opt.NutsDBOptions()); err != nil {
 		return 0, err
 	} else {
-		n.d.Store(db)
+		n.setDb(db)
 		n.setRunning(true)
 
 		if idxRaftlog, err = n.getRaftLogIndexLastApplied(); err != nil {
@@ -183,16 +216,13 @@ func (n *nutsNode) Open(stopc <-chan struct{}) (idxRaftlog uint64, err error) {
 func (n *nutsNode) Close() error {
 	defer n.setRunning(false)
 
-	if n == nil || n.d == nil {
-
-		return nil
-	} else if i := n.d.Load(); i == nil {
-		return nil
-	} else if db, ok := i.(*nutsdb.DB); !ok {
-		return nil
-	} else {
-		return db.Close()
+	if db := n.getDb(); db != nil {
+		err := db.Close()
+		n.setDb(db)
+		return err
 	}
+
+	return nil
 }
 
 func (n *nutsNode) Update(logEntry []dgbstm.Entry) ([]dgbstm.Entry, error) {
@@ -213,7 +243,7 @@ func (n *nutsNode) Update(logEntry []dgbstm.Entry) ([]dgbstm.Entry, error) {
 	}
 
 	for idx, ent = range logEntry {
-		if kv, err = NewCommandByDecode(ent.Cmd); err != nil {
+		if kv, err = NewCommandByDecode(n.GetLogger, ent.Cmd); err != nil {
 			logEntry[idx].Result = dgbstm.Result{
 				Value: 0,
 				Data:  nil,
@@ -221,7 +251,9 @@ func (n *nutsNode) Update(logEntry []dgbstm.Entry) ([]dgbstm.Entry, error) {
 
 			_ = tx.Rollback()
 			return logEntry, err
-		} else if res, err = kv.Run(tx); err != nil {
+		}
+
+		if res, err = kv.Run(tx); err != nil {
 			logEntry[idx].Result = dgbstm.Result{
 				Value: 0,
 				Data:  nil,
@@ -279,19 +311,14 @@ func (n *nutsNode) Sync() error {
 }
 
 func (n *nutsNode) PrepareSnapshot() (interface{}, error) {
-	if n == nil || n.d == nil {
-		return nil, ErrorDatabaseClosed.Error(nil)
-	}
-
 	var sh = newSnap()
 
-	if i := n.d.Load(); i == nil {
+	if opt := n.getOptions(); opt == nil {
+		return nil, ErrorValidateConfig.Error(nil)
+	} else if db := n.getDb(); db == nil {
 		sh.Finish()
 		return nil, ErrorDatabaseClosed.Error(nil)
-	} else if db, ok := i.(*nutsdb.DB); !ok {
-		sh.Finish()
-		return nil, ErrorDatabaseClosed.Error(nil)
-	} else if err := sh.Prepare(n.o, db); err != nil {
+	} else if err := sh.Prepare(opt, db); err != nil {
 		sh.Finish()
 		return nil, ErrorDatabaseBackup.ErrorParent(err)
 	} else {
@@ -300,15 +327,13 @@ func (n *nutsNode) PrepareSnapshot() (interface{}, error) {
 }
 
 func (n *nutsNode) SaveSnapshot(i interface{}, writer io.Writer, c <-chan struct{}) error {
-	if n == nil || n.d == nil {
-		return ErrorDatabaseClosed.Error(nil)
-	}
-
 	if i == nil {
 		return ErrorParamsEmpty.Error(nil)
 	} else if sh, ok := snapCast(i); !ok {
 		return ErrorParamsMismatching.Error(nil)
-	} else if err := sh.Save(n.o, writer); err != nil {
+	} else if opt := n.getOptions(); opt == nil {
+		return ErrorValidateConfig.Error(nil)
+	} else if err := sh.Save(opt, writer); err != nil {
 		sh.Finish()
 		return err
 	} else {
@@ -319,30 +344,28 @@ func (n *nutsNode) SaveSnapshot(i interface{}, writer io.Writer, c <-chan struct
 }
 
 func (n *nutsNode) RecoverFromSnapshot(reader io.Reader, c <-chan struct{}) error {
-	if n == nil || n.d == nil {
-		return ErrorDatabaseClosed.Error(nil)
+	var (
+		sh  = newSnap()
+		opt = n.getOptions()
+	)
+
+	defer sh.Finish()
+
+	if opt == nil {
+		return ErrorValidateConfig.Error(nil)
 	}
 
-	s := newSnap()
-	defer s.Finish()
-
-	if err := s.Load(n.o, reader); err != nil {
+	if err := sh.Load(opt, reader); err != nil {
 		return err
 	}
 
-	if i := n.d.Load(); i == nil {
-		if err := s.Apply(n.o); err != nil {
-			return err
-		}
-	} else if db, ok := i.(*nutsdb.DB); !ok {
-		if err := s.Apply(n.o); err != nil {
-			return err
-		}
-	} else {
+	if db := n.getDb(); db != nil {
 		_ = db.Close()
-		if err := s.Apply(n.o); err != nil {
-			return err
-		}
+		n.setDb(db)
+	}
+
+	if err := sh.Apply(opt); err != nil {
+		return err
 	}
 
 	//@TODO : check channel is ok....
@@ -351,4 +374,45 @@ func (n *nutsNode) RecoverFromSnapshot(reader io.Reader, c <-chan struct{}) erro
 	}
 
 	return nil
+}
+
+func (n *nutsNode) getDb() *nutsdb.DB {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	if n.d == nil {
+		return nil
+	} else if i := n.d.Load(); i == nil {
+		return nil
+	} else if db, ok := i.(*nutsdb.DB); !ok {
+		return nil
+	} else {
+		return db
+	}
+}
+
+func (n *nutsNode) setDb(db *nutsdb.DB) {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	if n.d == nil {
+		n.d = new(atomic.Value)
+	}
+
+	n.d.Store(db)
+}
+
+func (n *nutsNode) getOptions() Options {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	if n.o == nil {
+		return nil
+	} else if i := n.o.Load(); i == nil {
+		return nil
+	} else if opt, ok := i.(Options); !ok {
+		return nil
+	} else {
+		return opt
+	}
 }

@@ -109,6 +109,7 @@ func (o *_HookFile) Levels() []logrus.Level {
 
 func (o *_HookFile) Fire(entry *logrus.Entry) error {
 	ent := entry.Dup()
+	ent.Level = entry.Level
 
 	if o.s {
 		ent.Data = o.filterKey(ent.Data, FieldStack)

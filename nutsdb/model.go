@@ -29,20 +29,23 @@ package nutsdb
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
-
-	libsh "github.com/nabbar/golib/shell"
 
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
+	libsh "github.com/nabbar/golib/shell"
 )
 
 type ndb struct {
+	m sync.Mutex
 	c Config
-	t *atomic.Value
-	r *atomic.Value
+	l liblog.FuncLog
+	t *atomic.Value // cluster
+	r *atomic.Value // status
 }
 
 func (n *ndb) createNodeMachine(node uint64, cluster uint64) dgbstm.IOnDiskStateMachine {
@@ -65,7 +68,7 @@ func (n *ndb) newCluster() liberr.Error {
 		cfg libclu.Config
 	)
 
-	if i := n.t.Load(); i != nil {
+	if c := n.Cluster(); c != nil {
 		if err = n.Shutdown(); err != nil {
 			return err
 		}
@@ -82,11 +85,33 @@ func (n *ndb) newCluster() liberr.Error {
 	}
 
 	clu.SetFctCreateSTMOnDisk(n.createNodeMachine)
-	n.t.Store(clu)
+	n.setCluster(clu)
+
 	return nil
 }
 
+func (n *ndb) GetLogger() liblog.Logger {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	if n.l != nil {
+		return n.l()
+	}
+
+	return liblog.GetDefault()
+}
+
+func (n *ndb) SetLogger(l liblog.FuncLog) {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	n.l = l
+}
+
 func (n *ndb) IsRunning() bool {
+	n.m.Lock()
+	defer n.m.Unlock()
+
 	if i := n.r.Load(); i == nil {
 		return false
 	} else if b, ok := i.(bool); !ok {
@@ -97,6 +122,9 @@ func (n *ndb) IsRunning() bool {
 }
 
 func (n *ndb) setRunning(state bool) {
+	n.m.Lock()
+	defer n.m.Unlock()
+
 	if n == nil || n.r == nil {
 		return
 	} else {
@@ -144,7 +172,8 @@ func (n *ndb) Listen() liberr.Error {
 		return e
 	}
 
-	n.t.Store(c)
+	n.setCluster(c)
+
 	return nil
 }
 
@@ -158,15 +187,14 @@ func (n *ndb) ForceRestart() {
 }
 
 func (n *ndb) Shutdown() liberr.Error {
-	if i := n.t.Load(); i == nil {
-		return nil
-	} else if c, ok := i.(libclu.Cluster); !ok {
+	if c := n.Cluster(); c == nil {
 		return nil
 	} else if !c.HasNodeInfo(0) {
 		return nil
 	} else if err := c.NodeStop(0); err != nil {
 		return err
 	} else {
+		n.setCluster(c)
 		return nil
 	}
 }
@@ -174,18 +202,20 @@ func (n *ndb) Shutdown() liberr.Error {
 func (n *ndb) ForceShutdown() {
 	if err := n.Shutdown(); err == nil {
 		return
-	} else if i := n.t.Load(); i == nil {
-		return
-	} else if c, ok := i.(libclu.Cluster); !ok {
+	} else if c := n.Cluster(); c == nil {
 		return
 	} else if !c.HasNodeInfo(0) {
 		return
 	} else {
 		_ = c.ClusterStop(true)
+		n.setCluster(c)
 	}
 }
 
 func (n *ndb) Cluster() libclu.Cluster {
+	n.m.Lock()
+	defer n.m.Unlock()
+
 	if i := n.t.Load(); i == nil {
 		return nil
 	} else if c, ok := i.(libclu.Cluster); !ok {
@@ -193,6 +223,13 @@ func (n *ndb) Cluster() libclu.Cluster {
 	} else {
 		return c
 	}
+}
+
+func (n *ndb) setCluster(clu libclu.Cluster) {
+	n.m.Lock()
+	defer n.m.Unlock()
+
+	n.t.Store(clu)
 }
 
 func (n *ndb) Client(ctx context.Context, tickSync time.Duration) Client {

@@ -211,33 +211,15 @@ func (e *Entry) Log() {
 		ent = log.WithFields(tag.Logrus())
 	}
 
-	//nolint exhaustive
-	switch e.Level {
-	case NilLevel:
-		return
-
-	case DebugLevel:
-		ent.Debugln()
-
-	case InfoLevel:
-		ent.Infoln()
-
-	case WarnLevel:
-		ent.Warnln()
-
-	case ErrorLevel:
-		ent.Errorln()
-
-	case FatalLevel:
-		ent.Fatalln()
-
-	case PanicLevel:
-		ent.Panicln()
-	}
-
 	if e.gin != nil && len(e.Error) > 0 {
 		for _, err := range e.Error {
 			_ = e.gin.Error(err)
 		}
 	}
+
+	if e.Level == NilLevel {
+		return
+	}
+
+	ent.Log(e.Level.Logrus())
 }
