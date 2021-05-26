@@ -58,16 +58,18 @@ const (
 	NbEntries      = 1000
 	LoggerFile     = "/nutsdb/nutsdb.log"
 	AllowPut       = false
-	AllowGet       = false
+	AllowGet       = true
 )
 
 var (
-	bg = new(atomic.Value)
-	bp = new(atomic.Value)
+	bg  = new(atomic.Value)
+	bp  = new(atomic.Value)
+	log = new(atomic.Value)
 )
 
 func init() {
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
+	log.Store(liblog.New())
 }
 
 type EmptyStruct struct{}
@@ -80,43 +82,14 @@ func main() {
 		}
 	}()
 
-	log := liblog.New()
-	log.SetLevel(liblog.InfoLevel)
-	if err := log.SetOptions(ctx, &liblog.Options{
-		DisableStandard:  true,
-		DisableStack:     false,
-		DisableTimestamp: false,
-		EnableTrace:      false,
-		TraceFilter:      "",
-		DisableColor:     false,
-		LogFile: []liblog.OptionsFile{
-			{
-				LogLevel: []string{
-					"panic",
-					"fatal",
-					"error",
-					"warning",
-					"info",
-					"debug",
-				},
-				Filepath:         LoggerFile,
-				Create:           true,
-				CreatePath:       true,
-				FileMode:         0644,
-				PathMode:         0755,
-				DisableStack:     false,
-				DisableTimestamp: false,
-				EnableTrace:      true,
-			},
-		},
-	}); err != nil {
-		panic(err)
-	}
+	initLogger(ctx)
 
-	err := liblog.GetDefault().SetOptions(ctx, log.GetOptions())
-	if err != nil {
-		panic(err)
-	}
+	/*
+		err := liblog.GetDefault().SetOptions(ctx, log.GetOptions())
+		if err != nil {
+			panic(err)
+		}
+	*/
 
 	println(fmt.Sprintf("Running test with %d threads...", runtime.GOMAXPROCS(0)))
 	println(fmt.Sprintf("Init cluster..."))
@@ -264,6 +237,11 @@ func Start(ctx context.Context) []libndb.NutsDB {
 
 	for i := 0; i < NbInstances; i++ {
 		clusters[i] = initNutDB(i + 1)
+		clusters[i].SetLogger(func() liblog.Logger {
+			l := getLogger()
+			l.SetFields(l.GetFields().Add("lib", libndb.LogLib).Add("instance", i))
+			return l
+		})
 
 		liblog.InfoLevel.Logf("Starting node ID #%d...", i+1)
 		if err := clusters[i].Listen(); err != nil {
@@ -378,4 +356,68 @@ func configNutDB() libndb.Config {
 	}
 
 	return cfg
+}
+
+func getLogger() liblog.Logger {
+	if log == nil {
+		return liblog.New()
+	} else if i := log.Load(); i == nil {
+		return liblog.New()
+	} else if l, ok := i.(liblog.Logger); !ok {
+		return liblog.New()
+	} else {
+		return l
+	}
+}
+
+func getLoggerDgb() liblog.Logger {
+	l := getLogger()
+	l.SetFields(l.GetFields().Add("lib", libclu.LogLib))
+	return l
+}
+
+func setLogger(l liblog.Logger) {
+	if log == nil {
+		log = new(atomic.Value)
+	}
+
+	log.Store(l)
+}
+
+func initLogger(ctx context.Context) {
+	l := getLogger()
+	l.SetLevel(liblog.InfoLevel)
+	if err := l.SetOptions(ctx, &liblog.Options{
+		DisableStandard:  true,
+		DisableStack:     false,
+		DisableTimestamp: false,
+		EnableTrace:      false,
+		TraceFilter:      "",
+		DisableColor:     false,
+		LogFile: []liblog.OptionsFile{
+			{
+				LogLevel: []string{
+					"panic",
+					"fatal",
+					"error",
+					"warning",
+					"info",
+					"debug",
+				},
+				Filepath:         LoggerFile,
+				Create:           true,
+				CreatePath:       true,
+				FileMode:         0644,
+				PathMode:         0755,
+				DisableStack:     false,
+				DisableTimestamp: false,
+				EnableTrace:      true,
+			},
+		},
+	}); err != nil {
+		panic(err)
+	}
+
+	setLogger(l)
+	libclu.SetLoggerFactory(getLoggerDgb)
 }

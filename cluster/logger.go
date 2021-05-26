@@ -34,35 +34,27 @@ import (
 	liblog "github.com/nabbar/golib/logger"
 )
 
-func init() {
-	dgblog.SetLoggerFactory(func(pkgName string) dgblog.ILogger {
-		return &logDragonBoart{
-			pkg: pkgName,
-		}
-	})
-}
+const LogLib = "DragonBoat"
 
-type FuncLogger func() liblog.Logger
-
-func SetLoggerFactory(log FuncLogger) {
+func SetLoggerFactory(log liblog.FuncLog) {
 	if log == nil {
 		log = liblog.GetDefault
 	}
 
 	dgblog.SetLoggerFactory(func(pkgName string) dgblog.ILogger {
-		return &logDragonBoart{
+		return &logDragonBoat{
 			pkg: pkgName,
 			log: log,
 		}
 	})
 }
 
-type logDragonBoart struct {
+type logDragonBoat struct {
 	pkg string
-	log FuncLogger
+	log liblog.FuncLog
 }
 
-func (l *logDragonBoart) SetLevel(level dgblog.LogLevel) {
+func (l *logDragonBoat) SetLevel(level dgblog.LogLevel) {
 	if l.log == nil {
 		return
 	}
@@ -81,30 +73,30 @@ func (l *logDragonBoart) SetLevel(level dgblog.LogLevel) {
 	}
 }
 
-func (l *logDragonBoart) logMsg(lvl liblog.Level, message string, args ...interface{}) {
+func (l *logDragonBoat) logMsg(lvl liblog.Level, message string, args ...interface{}) {
 	if l.log == nil {
 		l.log = liblog.GetDefault
 	}
 
-	l.log().Entry(lvl, message, args...).FieldAdd("dragonboat.package", l.pkg).Log()
+	l.log().Entry(lvl, message, args...).FieldAdd("lib", LogLib).FieldAdd("pkg", l.pkg).Log()
 }
 
-func (l *logDragonBoart) Debugf(format string, args ...interface{}) {
+func (l *logDragonBoat) Debugf(format string, args ...interface{}) {
 	l.logMsg(liblog.DebugLevel, format, args...)
 }
 
-func (l *logDragonBoart) Infof(format string, args ...interface{}) {
+func (l *logDragonBoat) Infof(format string, args ...interface{}) {
 	l.logMsg(liblog.InfoLevel, format, args...)
 }
 
-func (l *logDragonBoart) Warningf(format string, args ...interface{}) {
+func (l *logDragonBoat) Warningf(format string, args ...interface{}) {
 	l.logMsg(liblog.WarnLevel, format, args...)
 }
 
-func (l *logDragonBoart) Errorf(format string, args ...interface{}) {
+func (l *logDragonBoat) Errorf(format string, args ...interface{}) {
 	l.logMsg(liblog.ErrorLevel, format, args...)
 }
 
-func (l *logDragonBoart) Panicf(format string, args ...interface{}) {
+func (l *logDragonBoat) Panicf(format string, args ...interface{}) {
 	l.logMsg(liblog.FatalLevel, format, args...)
 }
