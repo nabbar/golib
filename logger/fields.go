@@ -35,16 +35,16 @@ func NewFields() Fields {
 	return make(Fields)
 }
 
-func (f Fields) new() map[string]interface{} {
-	return make(map[string]interface{}, 0)
-}
-
 func (f Fields) clone() map[string]interface{} {
+	res := make(map[string]interface{}, 0)
+
 	if len(f) > 0 {
-		return f
+		for k, v := range f {
+			res[k] = v
+		}
 	}
 
-	return f.new()
+	return res
 }
 
 func (f Fields) Add(key string, val interface{}) Fields {
@@ -84,7 +84,7 @@ func (f Fields) Merge(other Fields) Fields {
 }
 
 func (f Fields) Clean(keys ...string) Fields {
-	res := f.new()
+	res := make(map[string]interface{}, 0)
 
 	if len(keys) > 0 {
 		f.Map(func(key string, val interface{}) interface{} {

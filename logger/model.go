@@ -55,7 +55,7 @@ var _selfPackage = path.Base(reflect.TypeOf(logger{}).PkgPath())
 type logger struct {
 	x context.Context
 	n context.CancelFunc
-	m sync.Mutex
+	m sync.Locker
 	l *atomic.Value //current level set for this logger
 	o *atomic.Value //options
 	s *atomic.Value //logrus logger
@@ -144,7 +144,7 @@ func (l *logger) Clone(ctx context.Context) (Logger, error) {
 	c := &logger{
 		x: nil,
 		n: nil,
-		m: sync.Mutex{},
+		m: &sync.Mutex{},
 		l: new(atomic.Value),
 		o: new(atomic.Value),
 		s: new(atomic.Value),

@@ -125,7 +125,7 @@ func New() Logger {
 	lvl.Store(InfoLevel)
 
 	return &logger{
-		m: sync.Mutex{},
+		m: &sync.Mutex{},
 		l: lvl,
 		o: new(atomic.Value),
 		s: new(atomic.Value),
