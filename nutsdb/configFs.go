@@ -47,32 +47,33 @@ const (
 type NutsDBFolder struct {
 	// Working represents the main working folder witch will include sub directories : data, backup, temp...
 	// If the base directory is empty, all the sub directory will be absolute directories.
-	Base string `mapstructure:"base" json:"base" yaml:"base" toml:"base"`
+	Base string `mapstructure:"base" json:"base" yaml:"base" toml:"base" validate:"dir,required"`
 
 	// Data represents the sub-dir for the opening database.
-	// By default, it will use `data` as sub folder
-	Data string `mapstructure:"sub_data" json:"sub_data" yaml:"sub_data" toml:"sub_data"`
+	// By default, it will use `data` as sub folder.
+	Data string `mapstructure:"sub_data" json:"sub_data" yaml:"sub_data" toml:"sub_data" validate:"printascii,required"`
 
 	// Backup represents the sub-dir with all backup sub-folder.
-	// By default, it will use `backup` as sub folder
-	Backup string `mapstructure:"sub_backup" json:"sub_backup" yaml:"sub_backup" toml:"sub_backup"`
+	// By default, it will use `backup` as sub folder.
+	Backup string `mapstructure:"sub_backup" json:"sub_backup" yaml:"sub_backup" toml:"sub_backup" validate:"printascii,required"`
 
-	// Temp represents the sub-dir for cluster negotiation.
-	// By default, it will use the system temporary folder
-	Temp string `mapstructure:"sub_temp" json:"sub_temp" yaml:"sub_temp" toml:"sub_temp"`
+	// Temp represents the sub-dir for temporary file/dir.
+	// By default, it will use the system temporary folder.
+	Temp string `mapstructure:"sub_temp" json:"sub_temp" yaml:"sub_temp" toml:"sub_temp" validate:"printascii,required"`
 
-	// Temp represents the sub-dir for cluster negotiation.
-	// By default, it will use the system temporary folder
-	WalDir string `mapstructure:"wal_dir" json:"wal_dir" yaml:"wal_dir" toml:"wal_dir"`
+	// WalDir represents the sub-dir for cluster negociation.
+	// By default, it will use `wal` as sub folder.
+	WalDir string `mapstructure:"wal_dir" json:"wal_dir" yaml:"wal_dir" toml:"wal_dir" validate:"printascii,required"`
 
-	// Temp represents the sub-dir for cluster negotiation.
-	// By default, it will use the system temporary folder
-	HostDir string `mapstructure:"host_dir" json:"host_dir" yaml:"host_dir" toml:"host_dir"`
+	// HostDir represents the sub-dir for cluster storage.
+	// By default, it will use `host` as sub folder.
+	HostDir string `mapstructure:"host_dir" json:"host_dir" yaml:"host_dir" toml:"host_dir" validate:"printascii,required"`
 
 	// LimitNumberBackup represents how many backup will be keep.
 	LimitNumberBackup uint8 `mapstructure:"limit_number_backup" json:"limit_number_backup" yaml:"limit_number_backup" toml:"limit_number_backup"`
 
-	// Permission represents the perission apply to folder created.
+	// Permission represents the permission apply to folder created.
+	// By default, it will use `0755` as permission.
 	Permission os.FileMode `mapstructure:"permission" json:"permission" yaml:"permission" toml:"permission"`
 }
 
@@ -118,6 +119,10 @@ func (f NutsDBFolder) getDirectory(base, dir string) (string, liberr.Error) {
 
 	if abs, err = filepath.Abs(dir); err != nil {
 		return "", ErrorFolderCheck.ErrorParent(err)
+	}
+
+	if f.Permission == 0 {
+		f.Permission = 0755
 	}
 
 	if _, err = os.Stat(abs); err != nil && !errors.Is(err, os.ErrNotExist) {

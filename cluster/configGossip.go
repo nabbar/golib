@@ -43,13 +43,13 @@ type ConfigGossip struct {
 	// service should be able to receive gossip service related messages by
 	// binding to and listening on this address. BindAddress is usually in the
 	// format of IP:Port, Hostname:Port or DNS Name:Port.
-	BindAddress string `mapstructure:"bind_address" json:"bind_address" yaml:"bind_address" toml:"bind_address"`
+	BindAddress string `mapstructure:"bind_address" json:"bind_address" yaml:"bind_address" toml:"bind_address" validate:"hostname_port"`
 
 	// AdvertiseAddress is the address to advertise to other NodeHost instances
 	// used for NAT traversal. Gossip services running on remote NodeHost
 	// instances will use AdvertiseAddress to exchange gossip service related
 	// messages. AdvertiseAddress is in the format of IP:Port.
-	AdvertiseAddress string `mapstructure:"advertise_address" json:"advertise_address" yaml:"advertise_address" toml:"advertise_address"`
+	AdvertiseAddress string `mapstructure:"advertise_address" json:"advertise_address" yaml:"advertise_address" toml:"advertise_address" validate:"hostname_port"`
 
 	// Seed is a list of AdvertiseAddress of remote NodeHost instances. Local
 	// NodeHost instance will try to contact all of them to bootstrap the gossip

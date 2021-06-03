@@ -80,22 +80,22 @@ type ConfigUser struct {
 // ConfigPermissionsUser are the allowed subjects on a per publish or subscribe basis.
 type ConfigPermissionsUser struct {
 	//Publish define the scope permission for publisher role.
-	Publish ConfigPermissionSubject `mapstructure:"publish" json:"publish" yaml:"publish" toml:"publish"`
+	Publish ConfigPermissionSubject `mapstructure:"publish" json:"publish" yaml:"publish" toml:"publish" validate:"dive,required"`
 
 	//Subscribe define the scope permission for subscriber role.
-	Subscribe ConfigPermissionSubject `mapstructure:"subscribe" json:"subscribe" yaml:"subscribe" toml:"subscribe"`
+	Subscribe ConfigPermissionSubject `mapstructure:"subscribe" json:"subscribe" yaml:"subscribe" toml:"subscribe" validate:"dive,required"`
 
 	//Response define the scope permission to allow response for a message.
-	Response ConfigPermissionResponse `mapstructure:"response" json:"response" yaml:"response" toml:"response"`
+	Response ConfigPermissionResponse `mapstructure:"response" json:"response" yaml:"response" toml:"response" validate:"dive,required"`
 }
 
 // ConfigPermissionsRoute are similar to user permissions but describe what a server can import/export from and to another server.
 type ConfigPermissionsRoute struct {
 	//Import define the scope permission to import data from the route.
-	Import ConfigPermissionSubject `mapstructure:"import" json:"import" yaml:"import" toml:"import"`
+	Import ConfigPermissionSubject `mapstructure:"import" json:"import" yaml:"import" toml:"import" validate:"dive,required"`
 
 	//Export define the scope permission to export data to the route.
-	Export ConfigPermissionSubject `mapstructure:"export" json:"export" yaml:"export" toml:"export"`
+	Export ConfigPermissionSubject `mapstructure:"export" json:"export" yaml:"export" toml:"export" validate:"dive,required"`
 }
 
 // ConfigPermissionResponse can be used to allow responses to any reply subject that is received on a valid subscription.
@@ -122,18 +122,18 @@ type ConfigAccount struct {
 	//Name define the name of the account.
 	Name string `mapstructure:"name" json:"name" yaml:"name" toml:"name"`
 
-	Permission ConfigPermissionsUser `mapstructure:"permission" json:"permission" yaml:"permission" toml:"permission"`
+	Permission ConfigPermissionsUser `mapstructure:"permission" json:"permission" yaml:"permission" toml:"permission" validate:"dive,required"`
 }
 
 type ConfigAuth struct {
 	//NKeys Set the nkeys list with account.
-	NKeys []ConfigNkey `mapstructure:"nkeys" json:"nkeys" yaml:"nkeys" toml:"nkeys"`
+	NKeys []ConfigNkey `mapstructure:"nkeys" json:"nkeys" yaml:"nkeys" toml:"nkeys" validate:"dive"`
 
 	//Users Set the users list with account.
-	Users []ConfigUser `mapstructure:"users" json:"users" yaml:"users" toml:"users"`
+	Users []ConfigUser `mapstructure:"users" json:"users" yaml:"users" toml:"users" validate:"dive"`
 
 	//Account Set the account list with permissions.
-	Accounts []ConfigAccount `mapstructure:"accounts" json:"accounts" yaml:"accounts" toml:"accounts"`
+	Accounts []ConfigAccount `mapstructure:"accounts" json:"accounts" yaml:"accounts" toml:"accounts" validate:"dive"`
 
 	//AuthTimeout define the timeout for authentication process.
 	AuthTimeout time.Duration `mapstructure:"auth_timeout" json:"auth_timeout" yaml:"auth_timeout" toml:"auth_timeout"`
@@ -304,7 +304,7 @@ type ConfigSrv struct {
 
 	//Tags describing the server.
 	//They will be included in varz and used as a filter criteria for some system requests
-	Tags jwt.TagList `mapstructure:"tags" json:"tags" yaml:"tags" toml:"tags"`
+	Tags jwt.TagList `mapstructure:"tags" json:"tags" yaml:"tags" toml:"tags" validate:"dive"`
 
 	//TLS Enable tls for server.
 	TLS bool `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
@@ -316,7 +316,7 @@ type ConfigSrv struct {
 	TLSTimeout time.Duration `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
 
 	//TLSConfig Configuration map for tls for client and http monitoring.
-	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config"`
+	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:"dive"`
 }
 
 type ConfigCluster struct {
@@ -351,7 +351,7 @@ type ConfigCluster struct {
 	AuthTimeout time.Duration `mapstructure:"auth_timeout" json:"auth_timeout" yaml:"auth_timeout" toml:"auth_timeout"`
 
 	//Permissions define the scope permission assign to route connections.
-	Permissions ConfigPermissionsRoute `mapstructure:"permissions" json:"permissions" yaml:"permissions" toml:"permissions"`
+	Permissions ConfigPermissionsRoute `mapstructure:"permissions" json:"permissions" yaml:"permissions" toml:"permissions" validate:"dive"`
 
 	//TLS Enable tls for cluster connection.
 	TLS bool `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
@@ -360,7 +360,7 @@ type ConfigCluster struct {
 	TLSTimeout time.Duration `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
 
 	//TLSConfig define the tls configuration for cluster connection.
-	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config"`
+	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:"dive"`
 }
 
 // ConfigGatewayRemote are options for connecting to a remote gateway
@@ -370,7 +370,7 @@ type ConfigGatewayRemote struct {
 	Name string `mapstructure:"name" json:"name" yaml:"name" toml:"name"`
 
 	//URLs define a list of route for the current gateways destination.
-	URLs []*url.URL `mapstructure:"urls" json:"urls" yaml:"urls" toml:"urls"`
+	URLs []*url.URL `mapstructure:"urls" json:"urls" yaml:"urls" toml:"urls" validate:"dive"`
 
 	//TLS Enable tls for the current gateways destination.
 	TLS bool `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
@@ -379,7 +379,7 @@ type ConfigGatewayRemote struct {
 	TLSTimeout time.Duration `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
 
 	//TLSConfig define the tls configuration for the current gateways destination.
-	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config"`
+	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:"dive"`
 }
 
 // ConfigGateway are options for gateways.
@@ -410,7 +410,7 @@ type ConfigGateway struct {
 	ConnectRetries int `mapstructure:"connect_retries" json:"connect_retries" yaml:"connect_retries" toml:"connect_retries"`
 
 	//Gateways define a list of route for gateways.
-	Gateways []*ConfigGatewayRemote `mapstructure:"gateways" json:"gateways" yaml:"gateways" toml:"gateways"`
+	Gateways []*ConfigGatewayRemote `mapstructure:"gateways" json:"gateways" yaml:"gateways" toml:"gateways" validate:"dive"`
 
 	//RejectUnknown allow to reject unknown cluster connection.
 	RejectUnknown bool `mapstructure:"reject_unknown" json:"reject_unknown" yaml:"reject_unknown" toml:"reject_unknown"`
@@ -422,7 +422,7 @@ type ConfigGateway struct {
 	TLSTimeout time.Duration `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
 
 	//TLSConfig define the tls configuration for gateways connection.
-	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config"`
+	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:"dive"`
 }
 
 // ConfigLeaf are options for a given server to accept leaf node connections and/or connect to a remote cluster.
@@ -452,7 +452,7 @@ type ConfigLeaf struct {
 	Account string `mapstructure:"account" json:"account" yaml:"account" toml:"account"`
 
 	//Users Set the users list with account.
-	Users []ConfigUser `mapstructure:"users" json:"users" yaml:"users" toml:"users"`
+	Users []ConfigUser `mapstructure:"users" json:"users" yaml:"users" toml:"users" validate:"dive"`
 
 	//ReconnectInterval define the duration to wait after a closed connection and before trying to reconnect
 	ReconnectInterval time.Duration `mapstructure:"reconnect_interval" json:"reconnect_interval" yaml:"reconnect_interval" toml:"reconnect_interval"`

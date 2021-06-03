@@ -37,9 +37,9 @@ import (
 )
 
 type Config struct {
-	DB        NutsDBOptions  `mapstructure:"db" json:"db" yaml:"db" toml:"db"`
-	Cluster   cluster.Config `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster"`
-	Directory NutsDBFolder   `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" `
+	DB        NutsDBOptions  `mapstructure:"db" json:"db" yaml:"db" toml:"db" validate:"dive,required"`
+	Cluster   cluster.Config `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive,required"`
+	Directory NutsDBFolder   `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" validate:"dive,required"`
 }
 
 func (c Config) GetConfigFolder() NutsDBFolder {
