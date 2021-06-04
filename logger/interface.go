@@ -113,7 +113,7 @@ type Logger interface {
 
 	//CheckError will check if a not nil error is given add if yes, will add an entry to the logger.
 	// Othwise if the lvlOK is given (and not NilLevel) the function will add entry and said ok
-	CheckError(lvlKO, lvlOK Level, message string, data interface{}, err []error, fields Fields, args ...interface{}) bool
+	CheckError(lvlKO, lvlOK Level, message string, err ...error) bool
 
 	//Entry will return an entry struct to manage it (set gin context, add fields, log the entry...)
 	Entry(lvl Level, message string, args ...interface{}) *Entry

@@ -42,6 +42,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mattn/go-colorable"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -70,7 +72,7 @@ func (l *logger) defaultFormatter(opt *Options) *logrus.TextFormatter {
 	}
 
 	return &logrus.TextFormatter{
-		ForceColors:               false,
+		ForceColors:               true,
 		DisableColors:             opt.DisableColor,
 		ForceQuote:                false,
 		DisableQuote:              false,
@@ -257,13 +259,23 @@ func (l *logger) setOptionsMutex(ctx context.Context, opt *Options) error {
 	obj.SetOutput(ioutil.Discard) // Send all logs to nowhere by default
 
 	if !opt.DisableStandard {
-		obj.AddHook(NewHookStandard(*opt, os.Stdout, []logrus.Level{
+		var (
+			o io.Writer = os.Stdout
+			e io.Writer = os.Stderr
+		)
+
+		if opt.DisableColor {
+			o = colorable.NewColorableStdout()
+			e = colorable.NewColorableStderr()
+		}
+
+		obj.AddHook(NewHookStandard(*opt, o, []logrus.Level{
 			logrus.InfoLevel,
 			logrus.DebugLevel,
 			logrus.TraceLevel,
 		}))
 
-		obj.AddHook(NewHookStandard(*opt, os.Stderr, []logrus.Level{
+		obj.AddHook(NewHookStandard(*opt, e, []logrus.Level{
 			logrus.PanicLevel,
 			logrus.FatalLevel,
 			logrus.ErrorLevel,

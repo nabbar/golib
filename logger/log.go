@@ -32,44 +32,44 @@ import (
 	"time"
 )
 
-func (l logger) Debug(message string, data interface{}, args ...interface{}) {
+func (l *logger) Debug(message string, data interface{}, args ...interface{}) {
 	l.newEntry(DebugLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l logger) Info(message string, data interface{}, args ...interface{}) {
+func (l *logger) Info(message string, data interface{}, args ...interface{}) {
 	l.newEntry(InfoLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l logger) Warning(message string, data interface{}, args ...interface{}) {
+func (l *logger) Warning(message string, data interface{}, args ...interface{}) {
 	l.newEntry(WarnLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l logger) Error(message string, data interface{}, args ...interface{}) {
+func (l *logger) Error(message string, data interface{}, args ...interface{}) {
 	l.newEntry(ErrorLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l logger) Fatal(message string, data interface{}, args ...interface{}) {
+func (l *logger) Fatal(message string, data interface{}, args ...interface{}) {
 	l.newEntry(FatalLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l logger) Panic(message string, data interface{}, args ...interface{}) {
+func (l *logger) Panic(message string, data interface{}, args ...interface{}) {
 	l.newEntry(PanicLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l logger) LogDetails(lvl Level, message string, data interface{}, err []error, fields Fields, args ...interface{}) {
+func (l *logger) LogDetails(lvl Level, message string, data interface{}, err []error, fields Fields, args ...interface{}) {
 	l.newEntry(lvl, fmt.Sprintf(message, args...), err, fields, data).Log()
 }
 
-func (l logger) CheckError(lvlKO, lvlOK Level, message string, data interface{}, err []error, fields Fields, args ...interface{}) bool {
-	ent := l.newEntry(lvlKO, fmt.Sprintf(message, args...), err, fields, data)
+func (l *logger) CheckError(lvlKO, lvlOK Level, message string, err ...error) bool {
+	ent := l.newEntry(lvlKO, message, err, nil, nil)
 	return ent.Check(lvlOK)
 }
 
-func (l logger) Entry(lvl Level, message string, args ...interface{}) *Entry {
+func (l *logger) Entry(lvl Level, message string, args ...interface{}) *Entry {
 	return l.newEntry(lvl, fmt.Sprintf(message, args...), nil, nil, nil)
 }
 
-func (l logger) newEntry(lvl Level, message string, err []error, fields Fields, data interface{}) *Entry {
+func (l *logger) newEntry(lvl Level, message string, err []error, fields Fields, data interface{}) *Entry {
 	opt := l.GetOptions()
 	cLv := l.GetLevel()
 
