@@ -73,6 +73,7 @@ var (
 	cfgPool libsrv.PoolServerConfig
 	ctx     context.Context
 	cnl     context.CancelFunc
+	log     = liblog.New()
 )
 
 func init() {
@@ -80,8 +81,8 @@ func init() {
 
 	ctx, cnl = context.WithCancel(context.Background())
 
-	liblog.SetLevel(liblog.DebugLevel)
-	if err := liblog.GetDefault().SetOptions(ctx, &liblog.Options{
+	log.SetLevel(liblog.DebugLevel)
+	if err := log.SetOptions(ctx, &liblog.Options{
 		DisableStandard:  false,
 		DisableStack:     false,
 		DisableTimestamp: false,
@@ -110,6 +111,8 @@ func main() {
 
 	if pool, lerr = cfgPool.PoolServer(); lerr != nil {
 		panic(lerr)
+	} else {
+		pool.SetLogger(getLogger)
 	}
 
 	mux := http.NewServeMux()
@@ -128,19 +131,20 @@ func main() {
 	go pool.WaitNotify(ctx, cnl)
 
 	go func() {
+		l := getLogger()
 		for {
 			time.Sleep(5 * time.Second)
+
 			if ctx.Err() != nil {
 				return
 			}
+
 			pool.MapRun(func(srv libsrv.Server) {
 				n, v, _ := srv.StatusInfo()
-				if e := srv.StatusHealth(); e != nil {
-					fmt.Printf("%s - %s : %v\n", n, v, e)
-				} else {
-					fmt.Printf("%s - %s : OK\n", n, v)
-				}
-
+				e := l.Entry(liblog.ErrorLevel, "status message")
+				e = e.FieldAdd("server_name", n).FieldAdd("server_release", v)
+				e.ErrorAdd(true, srv.StatusHealth())
+				e.Check(liblog.InfoLevel)
 			})
 		}
 	}()
@@ -148,17 +152,19 @@ func main() {
 	var i = 0
 	for {
 
+		l := getLogger()
 		time.Sleep(5 * time.Second)
 
 		if ctx.Err() != nil {
 			return
 		}
 
-		fmt.Printf("Srv Name : %v\n", pool.List(libsrv.FieldBind, libsrv.FieldName, "", ".*"))
 		i++
 
 		if i%3 == 0 {
-			fmt.Printf("Reloading Server : %v\n", pool.List(libsrv.FieldBind, libsrv.FieldName, "", ".*"))
+			for s := range pool.List(libsrv.FieldBind, libsrv.FieldName, "", ".*") {
+				l.Entry(liblog.InfoLevel, "Restarting server...").FieldAdd("server_name", s).Log()
+			}
 			pool.Restart()
 			i = 0
 		}
@@ -175,4 +181,9 @@ func headers(w http.ResponseWriter, req *http.Request) {
 			_, _ = fmt.Fprintf(w, "%v: %v\n", name, h)
 		}
 	}
+}
+
+func getLogger() liblog.Logger {
+	l, _ := log.Clone(ctx)
+	return l
 }
