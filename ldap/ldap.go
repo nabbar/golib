@@ -98,7 +98,7 @@ func (lc HelperLDAP) getLogEntryErr(lvlKO liblog.Level, err error, msg string, a
 		log = l
 	}
 
-	return log.Entry(lvlKO, msg, args...).FieldAdd("ldap.host", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS)).ErrorAdd(err)
+	return log.Entry(lvlKO, msg, args...).FieldAdd("ldap.host", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS)).ErrorAdd(true, err)
 }
 
 //SetCredentials used to defined the BindDN and password for connection.

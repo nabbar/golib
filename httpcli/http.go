@@ -163,7 +163,7 @@ func (obj *httpClient) checkResponse(res *http.Response) (bool, *bytes.Buffer, l
 			return false, nil, BUFFER_WRITE.ErrorParent(err)
 		}
 
-		liblog.GetDefault().Entry(liblog.DebugLevel, "").ErrorAdd(err).FieldAdd("remote.uri", res.Request.URL.String()).FieldAdd("remote.method", res.Request.Method).Log()
+		liblog.GetDefault().Entry(liblog.DebugLevel, "").ErrorAdd(true, err).FieldAdd("remote.uri", res.Request.URL.String()).FieldAdd("remote.method", res.Request.Method).Log()
 	}
 
 	return strings.HasPrefix(res.Status, "2"), buf, nil
