@@ -43,10 +43,9 @@ type HookStandard interface {
 type _HookStd struct {
 	w io.Writer
 	l []logrus.Level
-	s bool
-	d bool
-	t bool
-	c bool
+	s bool // Disable Stack
+	d bool // Disable Timestamp
+	t bool // Disable Trace
 }
 
 func NewHookStandard(opt Options, w io.Writer, lvls []logrus.Level) HookFile {

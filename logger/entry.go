@@ -127,16 +127,19 @@ func (e *Entry) ErrorSet(err []error) *Entry {
 	return e
 }
 
-func (e *Entry) ErrorAdd(err ...error) *Entry {
+func (e *Entry) ErrorAdd(cleanNil bool, err ...error) *Entry {
 	for _, er := range err {
+		if cleanNil && er == nil {
+			continue
+		}
 		e.Error = append(e.Error, er)
 	}
 	return e
 }
 
-func (e *Entry) ErrorAddLib(err ...liberr.Error) *Entry {
+func (e *Entry) ErrorAddLib(cleanNil bool, err ...liberr.Error) *Entry {
 	for _, er := range err {
-		e.ErrorAdd(er.GetErrorSlice()...)
+		e.ErrorAdd(cleanNil, er.GetErrorSlice()...)
 	}
 	return e
 }
@@ -170,37 +173,37 @@ func (e *Entry) Log() {
 	)
 
 	if !e.Time.IsZero() {
-		tag.Add(FieldTime, e.Time.Format(time.RFC3339Nano))
+		tag = tag.Add(FieldTime, e.Time.Format(time.RFC3339Nano))
 	}
 
 	if e.Stack > 0 {
-		tag.Add(FieldStack, e.Stack)
+		tag = tag.Add(FieldStack, e.Stack)
 	}
 
 	if e.Caller != "" {
-		tag.Add(FieldCaller, e.Caller)
+		tag = tag.Add(FieldCaller, e.Caller)
 	} else if e.File != "" {
-		tag.Add(FieldFile, e.File)
+		tag = tag.Add(FieldFile, e.File)
 	}
 
 	if e.Line > 0 {
-		tag.Add(FieldLine, e.Line)
+		tag = tag.Add(FieldLine, e.Line)
 	}
 
 	if e.Message != "" {
-		tag.Add(FieldMessage, e.Message)
+		tag = tag.Add(FieldMessage, e.Message)
 	}
 
 	if len(e.Error) > 0 {
-		tag.Add(FieldError, e.Error)
+		tag = tag.Add(FieldError, e.Error)
 	}
 
 	if e.Data != nil {
-		tag.Add(FieldData, e.Data)
+		tag = tag.Add(FieldData, e.Data)
 	}
 
 	if len(e.Fields) > 0 {
-		tag.Merge(e.Fields)
+		tag = tag.Merge(e.Fields)
 	}
 
 	if e.log == nil {

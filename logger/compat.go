@@ -193,7 +193,7 @@ func (l Level) WithFields(message string, fields Fields) {
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.Check
 func (l Level) LogError(err error) bool {
-	return defaultLogger.CheckError(l, NilLevel, "", nil, []error{err}, nil)
+	return defaultLogger.CheckError(l, NilLevel, "", err)
 }
 
 // LogErrorCtx Function to test, log and inform about the given error object.
@@ -212,7 +212,7 @@ func (l Level) LogError(err error) bool {
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.Check
 func (l Level) LogErrorCtx(levelElse Level, context string, err error) bool {
-	return defaultLogger.Entry(l, context).ErrorAdd(err).Check(levelElse)
+	return defaultLogger.Entry(l, context).ErrorAdd(false, err).Check(levelElse)
 }
 
 // LogErrorCtxf Function to test, log and inform about the given error object, but with a context based on a pattern and matching args.
@@ -232,7 +232,7 @@ func (l Level) LogErrorCtx(levelElse Level, context string, err error) bool {
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.Check
 func (l Level) LogErrorCtxf(levelElse Level, contextPattern string, err error, args ...interface{}) bool {
-	return defaultLogger.Entry(l, contextPattern, args...).ErrorAdd(err).Check(levelElse)
+	return defaultLogger.Entry(l, contextPattern, args...).ErrorAdd(false, err).Check(levelElse)
 }
 
 // LogGinErrorCtxf Function to test, log and inform about the given error object, but with a context based on a couple of pattern and matching args.
@@ -255,7 +255,7 @@ func (l Level) LogErrorCtxf(levelElse Level, contextPattern string, err error, a
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.SetGinContext.Check
 func (l Level) LogGinErrorCtxf(levelElse Level, contextPattern string, err error, c *gin.Context, args ...interface{}) bool {
-	return defaultLogger.Entry(l, contextPattern, args...).SetGinContext(c).ErrorAdd(err).Check(levelElse)
+	return defaultLogger.Entry(l, contextPattern, args...).SetGinContext(c).ErrorAdd(false, err).Check(levelElse)
 }
 
 // LogGinErrorCtx Function to test, log and inform about the given error object.
@@ -277,5 +277,5 @@ c a valid Go GinTonic Context reference to add current error to the Gin Tonic Er
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.SetGinContext.Check
 func (l Level) LogGinErrorCtx(levelElse Level, context string, err error, c *gin.Context) bool {
-	return defaultLogger.Entry(l, context).SetGinContext(c).ErrorAdd(err).Check(levelElse)
+	return defaultLogger.Entry(l, context).SetGinContext(c).ErrorAdd(false, err).Check(levelElse)
 }
