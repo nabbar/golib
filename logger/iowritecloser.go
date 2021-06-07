@@ -30,18 +30,20 @@ package logger
 import "sync/atomic"
 
 func (l *logger) Close() error {
+	lst := l.closeGet()
 
-	for _, c := range l.closeGetMutex() {
+	l.m.Lock()
+	defer func() {
+		l.m.Unlock()
+		l.closeClean()
+		l.cancelCall()
+	}()
+
+	for _, c := range lst {
 		if c != nil {
 			_ = c.Close()
 		}
 	}
-
-	if l.n != nil {
-		l.n()
-	}
-
-	l.closeClean()
 
 	return nil
 }

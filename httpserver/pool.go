@@ -62,7 +62,7 @@ type PoolServer interface {
 	Del(bindAddress string) PoolServer
 	Has(bindAddress string) bool
 	Len() int
-	SetLogger(log FuncGetLogger)
+	SetLogger(log liblog.FuncLog)
 
 	MapRun(f MapRunPoolServer)
 	MapUpd(f MapUpdPoolServer)
@@ -191,7 +191,7 @@ func (p pool) Len() int {
 	return len(p)
 }
 
-func (p pool) SetLogger(log FuncGetLogger) {
+func (p pool) SetLogger(log liblog.FuncLog) {
 	p.MapUpd(func(srv Server) Server {
 		srv.SetLogger(log)
 		return srv

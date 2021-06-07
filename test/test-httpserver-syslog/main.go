@@ -73,16 +73,16 @@ var (
 	cfgPool libsrv.PoolServerConfig
 	ctx     context.Context
 	cnl     context.CancelFunc
-	log     = liblog.New()
+	log     liblog.Logger
 )
 
 func init() {
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
 
 	ctx, cnl = context.WithCancel(context.Background())
-
+	log = liblog.New(ctx)
 	log.SetLevel(liblog.DebugLevel)
-	if err := log.SetOptions(ctx, &liblog.Options{
+	if err := log.SetOptions(&liblog.Options{
 		DisableStandard:  false,
 		DisableStack:     false,
 		DisableTimestamp: false,
@@ -197,6 +197,6 @@ func headers(w http.ResponseWriter, req *http.Request) {
 }
 
 func getLogger() liblog.Logger {
-	l, _ := log.Clone(ctx)
+	l, _ := log.Clone()
 	return l
 }

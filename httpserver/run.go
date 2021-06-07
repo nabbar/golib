@@ -48,13 +48,15 @@ import (
 const _TimeoutWaitingPortFreeing = 500 * time.Microsecond
 
 type srvRun struct {
-	log func() liblog.Logger
-	err *atomic.Value
-	run *atomic.Value
-	snm string
-	srv *http.Server
-	ctx context.Context
-	cnl context.CancelFunc
+	log liblog.FuncLog     // return golib logger interface
+	err *atomic.Value      // last err occured
+	run *atomic.Value      // is running
+	snm string             // server name
+	bnd string             // server bind
+	tls bool               // is tls server or tls mandatory
+	srv *http.Server       // golang http server
+	ctx context.Context    // context
+	cnl context.CancelFunc // cancel func of context
 }
 
 type run interface {
@@ -66,7 +68,7 @@ type run interface {
 	Shutdown()
 }
 
-func newRun(log FuncGetLogger) run {
+func newRun(log liblog.FuncLog) run {
 	return &srvRun{
 		log: log,
 		err: new(atomic.Value),
@@ -138,12 +140,31 @@ func (s *srvRun) WaitNotify() {
 	case <-quit:
 		s.Shutdown()
 	case <-s.ctx.Done():
-		s.Shutdown()
+		if s.IsRunning() {
+			s.Shutdown()
+		} else if s.srv != nil {
+			s.srvShutdown()
+		}
 	}
 }
 
 func (s *srvRun) Merge(srv Server) bool {
 	panic("implement me")
+}
+
+func (s *srvRun) getLogger() liblog.Logger {
+	var _log liblog.Logger
+
+	if s.log == nil {
+		_log = liblog.GetDefault()
+	} else if l := s.log(); l == nil {
+		_log = liblog.GetDefault()
+	} else {
+		_log = l
+	}
+
+	_log.SetFields(_log.GetFields().Add("server_name", s.snm).Add("server_bind", s.bnd).Add("server_tls", s.tls))
+	return _log
 }
 
 //nolint #gocognit
@@ -160,21 +181,13 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 		name = bind
 	}
 
-	var _log liblog.Logger
-
-	if s.log == nil {
-		_log = liblog.GetDefault()
-	} else if l := s.log(); l == nil {
-		_log = liblog.GetDefault()
-	} else {
-		_log = l
-	}
-
-	_log.SetFields(_log.GetFields().Add("http server '%s'", name))
+	s.snm = name
+	s.bnd = bind
+	s.tls = sTls || ssl.LenCertificatePair() > 0
 
 	srv := &http.Server{
 		Addr:     cfg.GetListen().Host,
-		ErrorLog: _log.GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds),
+		ErrorLog: s.getLogger().GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds),
 	}
 
 	if cfg.ReadTimeout > 0 {
@@ -257,12 +270,14 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	}
 
 	s.ctx, s.cnl = context.WithCancel(cfg.getContext())
-	s.snm = name
 	s.srv = srv
 
 	go func(name, host string, tlsMandatory bool) {
+		var _log = s.getLogger()
+		ent := _log.Entry(liblog.InfoLevel, "server stopped")
 
 		defer func() {
+			ent.Log()
 			if s.ctx != nil && s.cnl != nil && s.ctx.Err() == nil {
 				s.cnl()
 			}
@@ -274,18 +289,15 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 		}
 
 		var err error
+		_log.Entry(liblog.InfoLevel, "Server is starting").Log()
 
 		if ssl.LenCertificatePair() > 0 {
-			liblog.InfoLevel.Logf("TLS Server '%s' is starting with bindable: %s", name, host)
-
 			s.setRunning(true)
 			err = s.srv.ListenAndServeTLS("", "")
 		} else if tlsMandatory {
 			//nolint #goerr113
 			err = fmt.Errorf("missing valid server certificates")
 		} else {
-			liblog.InfoLevel.Logf("Server '%s' is starting with bindable: %s", name, host)
-
 			s.setRunning(true)
 			err = s.srv.ListenAndServe()
 		}
@@ -296,7 +308,8 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 			return
 		} else if err != nil {
 			s.setErr(err)
-			liblog.ErrorLevel.LogErrorCtxf(liblog.NilLevel, "Listen Server '%s'", err, name)
+			ent.Level = liblog.ErrorLevel
+			ent.ErrorAdd(true, err)
 		}
 	}(name, bind, sTls)
 
@@ -308,28 +321,31 @@ func (s *srvRun) Restart(cfg *ServerConfig) {
 }
 
 func (s *srvRun) Shutdown() {
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutShutdown)
-
-	defer func() {
-		cancel()
-
-		if s.srv != nil {
-			_ = s.srv.Close()
-		}
-
-		s.setRunning(false)
-	}()
-
-	liblog.InfoLevel.Logf("Shutdown Server '%s'...", s.snm)
+	s.srvShutdown()
+	s.setRunning(false)
 
 	if s.cnl != nil && s.ctx != nil && s.ctx.Err() == nil {
 		s.cnl()
 	}
+}
+
+func (s *srvRun) srvShutdown() {
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutShutdown)
+	_log := s.getLogger()
+
+	defer func() {
+		cancel()
+		if s.srv != nil {
+			err := s.srv.Close()
+			s.srv = nil
+			_log.Entry(liblog.ErrorLevel, "closing server").ErrorAdd(true, err).Check(liblog.InfoLevel)
+		}
+	}()
 
 	if s.srv != nil {
 		err := s.srv.Shutdown(ctx)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			liblog.ErrorLevel.Logf("Shutdown Server '%s' Error: %v", s.snm, err)
+			_log.Entry(liblog.ErrorLevel, "Shutdown server").ErrorAdd(true, err).Check(liblog.InfoLevel)
 		}
 	}
 }

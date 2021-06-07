@@ -44,8 +44,6 @@ const (
 	timeoutShutdown = 10 * time.Second
 )
 
-type FuncGetLogger func() liblog.Logger
-
 type server struct {
 	log *atomic.Value
 	run *atomic.Value
@@ -53,7 +51,7 @@ type server struct {
 }
 
 type Server interface {
-	SetLogger(log FuncGetLogger)
+	SetLogger(log liblog.FuncLog)
 
 	GetConfig() *ServerConfig
 	SetConfig(cfg *ServerConfig) bool
@@ -88,14 +86,14 @@ func NewServer(cfg *ServerConfig) Server {
 	}
 }
 
-func (s *server) SetLogger(log FuncGetLogger) {
+func (s *server) SetLogger(log liblog.FuncLog) {
 	s.log.Store(log)
 }
 
-func (s *server) GetLogger() FuncGetLogger {
+func (s *server) GetLogger() liblog.FuncLog {
 	if i := s.log.Load(); i == nil {
 		return nil
-	} else if f, ok := i.(FuncGetLogger); ok {
+	} else if f, ok := i.(liblog.FuncLog); ok {
 		return f
 	}
 
@@ -200,6 +198,8 @@ func (s *server) Listen(handler http.Handler) liberr.Error {
 	r := s.getRun()
 	e := r.Listen(s.GetConfig(), handler)
 	s.setRun(r)
+
+	runtime.GC()
 
 	return e
 }

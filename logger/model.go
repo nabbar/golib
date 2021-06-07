@@ -67,7 +67,7 @@ func defaultFormatter() logrus.TextFormatter {
 	return logrus.TextFormatter{
 		ForceColors:               false,
 		DisableColors:             false,
-		ForceQuote:                false,
+		ForceQuote:                true,
 		DisableQuote:              false,
 		EnvironmentOverrideColors: false,
 		DisableTimestamp:          true,
@@ -75,7 +75,7 @@ func defaultFormatter() logrus.TextFormatter {
 		TimestampFormat:           time.RFC3339,
 		DisableSorting:            false,
 		SortingFunc:               nil,
-		DisableLevelTruncation:    false,
+		DisableLevelTruncation:    true,
 		PadLevelText:              true,
 		QuoteEmptyFields:          true,
 		FieldMap:                  nil,
@@ -109,6 +109,9 @@ func (l *logger) defaultFormatterNoColor() logrus.Formatter {
 func (l *logger) closeAdd(clo io.Closer) {
 	lst := append(l.closeGet(), clo)
 
+	l.m.Lock()
+	defer l.m.Unlock()
+
 	if l.c == nil {
 		l.c = new(atomic.Value)
 	}
@@ -138,6 +141,9 @@ func (l *logger) closeGet() []io.Closer {
 		return res
 	}
 
+	l.m.Lock()
+	defer l.m.Unlock()
+
 	if l.c == nil {
 		l.c = new(atomic.Value)
 	}
@@ -151,16 +157,9 @@ func (l *logger) closeGet() []io.Closer {
 	return res
 }
 
-func (l *logger) closeGetMutex() []io.Closer {
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	return l.closeGet()
-}
-
-func (l *logger) Clone(ctx context.Context) (Logger, error) {
+func (l *logger) Clone() (Logger, error) {
 	c := &logger{
-		x: nil,
+		x: l.contextGet(),
 		n: nil,
 		m: &sync.Mutex{},
 		l: new(atomic.Value),
@@ -171,13 +170,60 @@ func (l *logger) Clone(ctx context.Context) (Logger, error) {
 		c: new(atomic.Value),
 	}
 
-	c.SetLevel(l.GetLevel())
+	c.setLoggerMutex(l.GetLevel())
+	c.SetIOWriterLevel(l.GetIOWriterLevel())
+	c.SetFields(l.GetFields())
 
-	if err := c.SetOptions(ctx, l.GetOptions()); err != nil {
+	if err := c.SetOptions(l.GetOptions()); err != nil {
 		return nil, err
 	}
 
 	return c, nil
+}
+
+func (l *logger) contextGet() context.Context {
+	l.m.Lock()
+	defer l.m.Unlock()
+
+	if l.x == nil {
+		l.x = context.Background()
+	}
+
+	return l.x
+}
+
+func (l *logger) contextNew() context.Context {
+	ctx, cnl := context.WithCancel(l.contextGet())
+
+	l.m.Lock()
+	l.n = cnl
+	l.m.Unlock()
+
+	return ctx
+}
+
+func (l *logger) cancelCall() {
+	l.m.Lock()
+	defer l.m.Unlock()
+
+	if l.n == nil {
+		return
+	}
+
+	l.n()
+	l.n = nil
+}
+
+func (l *logger) cancelClear() {
+	l.m.Lock()
+
+	if l.n == nil {
+		l.m.Unlock()
+		return
+	}
+
+	l.n()
+	l.m.Unlock()
 }
 
 func (l *logger) setLoggerMutex(lvl Level) {
@@ -197,6 +243,7 @@ func (l *logger) setLoggerMutex(lvl Level) {
 
 func (l *logger) SetLevel(lvl Level) {
 	l.setLoggerMutex(lvl)
+	l.setLogrusLevel(l.GetLevel())
 
 	if opt := l.GetOptions(); opt.change != nil {
 		opt.change(l)
@@ -260,17 +307,30 @@ func (l *logger) GetFields() Fields {
 	return NewFields()
 }
 
-func (l *logger) setOptionsMutex(ctx context.Context, opt *Options) error {
+func (l *logger) setOptionsMutex(opt *Options) error {
 	l.setOptions(opt)
+
 	opt = l.GetOptions()
+	lvl := l.GetLevel()
 
 	_ = l.Close()
-	l.x, l.n = context.WithCancel(ctx)
 
-	l.m.Lock()
-	defer l.m.Unlock()
+	go func() {
+		var ctx = l.contextNew()
+
+		defer func() {
+			l.cancelClear()
+		}()
+
+		select {
+		case <-ctx.Done():
+			_ = l.Close()
+			return
+		}
+	}()
 
 	obj := logrus.New()
+	obj.SetLevel(lvl.Logrus())
 	obj.SetFormatter(l.defaultFormatter(opt))
 	obj.SetOutput(ioutil.Discard) // Send all logs to nowhere by default
 
@@ -314,19 +374,11 @@ func (l *logger) setOptionsMutex(ctx context.Context, opt *Options) error {
 	l.s = new(atomic.Value)
 	l.s.Store(obj)
 
-	go func() {
-		select {
-		case <-l.x.Done():
-			_ = l.Close()
-			return
-		}
-	}()
-
 	return nil
 }
 
-func (l *logger) SetOptions(ctx context.Context, opt *Options) error {
-	if err := l.setOptionsMutex(ctx, opt); err != nil {
+func (l *logger) SetOptions(opt *Options) error {
+	if err := l.setOptionsMutex(opt); err != nil {
 		return err
 	}
 
@@ -371,6 +423,21 @@ func (l *logger) setOptions(opt *Options) {
 	}
 
 	l.o.Store(opt)
+}
+
+func (l *logger) setLogrusLevel(lvl Level) {
+	if _log := l.getLog(); _log != nil {
+		_log.SetLevel(lvl.Logrus())
+
+		l.m.Lock()
+		defer l.m.Unlock()
+
+		if l.s == nil {
+			return
+		}
+
+		l.s.Store(_log)
+	}
 }
 
 func (l *logger) getLog() *logrus.Logger {
