@@ -32,7 +32,6 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
-	"os"
 	"path"
 	"reflect"
 	"runtime"
@@ -41,8 +40,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/mattn/go-colorable"
 
 	"github.com/sirupsen/logrus"
 )
@@ -66,14 +63,10 @@ type logger struct {
 	c *atomic.Value
 }
 
-func (l *logger) defaultFormatter(opt *Options) *logrus.TextFormatter {
-	if opt == nil {
-		opt = &Options{}
-	}
-
-	return &logrus.TextFormatter{
-		ForceColors:               true,
-		DisableColors:             opt.DisableColor,
+func defaultFormatter() logrus.TextFormatter {
+	return logrus.TextFormatter{
+		ForceColors:               false,
+		DisableColors:             false,
 		ForceQuote:                false,
 		DisableQuote:              false,
 		EnvironmentOverrideColors: false,
@@ -88,6 +81,29 @@ func (l *logger) defaultFormatter(opt *Options) *logrus.TextFormatter {
 		FieldMap:                  nil,
 		CallerPrettyfier:          nil,
 	}
+}
+
+func (l *logger) defaultFormatter(opt *Options) logrus.Formatter {
+	f := defaultFormatter()
+
+	if opt != nil && opt.DisableColor {
+		f.ForceColors = false
+		f.EnvironmentOverrideColors = false
+		f.DisableColors = true
+	} else {
+		f.ForceColors = true
+		f.DisableColors = false
+	}
+
+	return &f
+}
+
+func (l *logger) defaultFormatterNoColor() logrus.Formatter {
+	f := defaultFormatter()
+	f.ForceColors = false
+	f.EnvironmentOverrideColors = false
+	f.DisableColors = true
+	return &f
 }
 
 func (l *logger) closeAdd(clo io.Closer) {
@@ -259,23 +275,13 @@ func (l *logger) setOptionsMutex(ctx context.Context, opt *Options) error {
 	obj.SetOutput(ioutil.Discard) // Send all logs to nowhere by default
 
 	if !opt.DisableStandard {
-		var (
-			o io.Writer = os.Stdout
-			e io.Writer = os.Stderr
-		)
-
-		if opt.DisableColor {
-			o = colorable.NewColorableStdout()
-			e = colorable.NewColorableStderr()
-		}
-
-		obj.AddHook(NewHookStandard(*opt, o, []logrus.Level{
+		obj.AddHook(NewHookStandard(*opt, StdOut, []logrus.Level{
 			logrus.InfoLevel,
 			logrus.DebugLevel,
 			logrus.TraceLevel,
 		}))
 
-		obj.AddHook(NewHookStandard(*opt, e, []logrus.Level{
+		obj.AddHook(NewHookStandard(*opt, StdErr, []logrus.Level{
 			logrus.PanicLevel,
 			logrus.FatalLevel,
 			logrus.ErrorLevel,
@@ -285,7 +291,7 @@ func (l *logger) setOptionsMutex(ctx context.Context, opt *Options) error {
 
 	if len(opt.LogFile) > 0 {
 		for _, fopt := range opt.LogFile {
-			if hook, err := NewHookFile(fopt); err != nil {
+			if hook, err := NewHookFile(fopt, l.defaultFormatterNoColor()); err != nil {
 				return err
 			} else {
 				l.closeAdd(hook)
@@ -296,7 +302,7 @@ func (l *logger) setOptionsMutex(ctx context.Context, opt *Options) error {
 
 	if len(opt.LogSyslog) > 0 {
 		for _, lopt := range opt.LogSyslog {
-			if hook, err := NewHookSyslog(lopt); err != nil {
+			if hook, err := NewHookSyslog(lopt, l.defaultFormatterNoColor()); err != nil {
 				return err
 			} else {
 				l.closeAdd(hook)
