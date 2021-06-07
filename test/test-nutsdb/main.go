@@ -65,31 +65,25 @@ var (
 	bg  = new(atomic.Value)
 	bp  = new(atomic.Value)
 	log = new(atomic.Value)
+	ctx context.Context
+	cnl context.CancelFunc
 )
 
 func init() {
+	ctx, cnl = context.WithCancel(context.Background())
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
-	log.Store(liblog.New())
+	log.Store(liblog.New(ctx))
+	initLogger()
 }
 
 type EmptyStruct struct{}
 
 func main() {
-	ctx, cnl := context.WithCancel(context.Background())
 	defer func() {
 		if cnl != nil {
 			cnl()
 		}
 	}()
-
-	initLogger(ctx)
-
-	/*
-		err := liblog.GetDefault().SetOptions(ctx, log.GetOptions())
-		if err != nil {
-			panic(err)
-		}
-	*/
 
 	println(fmt.Sprintf("Running test with %d threads...", runtime.GOMAXPROCS(0)))
 	println(fmt.Sprintf("Init cluster..."))
@@ -360,11 +354,11 @@ func configNutDB() libndb.Config {
 
 func getLogger() liblog.Logger {
 	if log == nil {
-		return liblog.New()
+		return liblog.New(context.Background())
 	} else if i := log.Load(); i == nil {
-		return liblog.New()
+		return liblog.New(context.Background())
 	} else if l, ok := i.(liblog.Logger); !ok {
-		return liblog.New()
+		return liblog.New(context.Background())
 	} else {
 		return l
 	}
@@ -384,10 +378,10 @@ func setLogger(l liblog.Logger) {
 	log.Store(l)
 }
 
-func initLogger(ctx context.Context) {
+func initLogger() {
 	l := getLogger()
 	l.SetLevel(liblog.InfoLevel)
-	if err := l.SetOptions(ctx, &liblog.Options{
+	if err := l.SetOptions(&liblog.Options{
 		DisableStandard:  true,
 		DisableStack:     false,
 		DisableTimestamp: false,

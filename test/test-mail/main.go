@@ -57,7 +57,7 @@ func init() {
 	ctx, cnl = context.WithCancel(context.TODO())
 
 	liblog.SetLevel(liblog.DebugLevel)
-	if err := liblog.GetDefault().SetOptions(ctx, &liblog.Options{
+	if err := liblog.GetDefault().SetOptions(&liblog.Options{
 		DisableStandard:  false,
 		DisableStack:     false,
 		DisableTimestamp: false,
