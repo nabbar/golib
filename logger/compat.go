@@ -38,7 +38,7 @@ import (
 var defaultLogger Logger
 
 func init() {
-	defaultLogger = New()
+	defaultLogger = New(context.Background())
 	defaultLogger.SetLevel(InfoLevel)
 }
 
@@ -66,7 +66,7 @@ func SetLevel(level Level) {
 func AddGID(enable bool) {
 	opt := defaultLogger.GetOptions()
 	opt.DisableStack = !enable
-	_ = defaultLogger.SetOptions(context.TODO(), opt)
+	_ = defaultLogger.SetOptions(opt)
 }
 
 // Timestamp Reconfigure the current logger to add or not the timestamp before each message.
@@ -74,7 +74,7 @@ func AddGID(enable bool) {
 func Timestamp(enable bool) {
 	opt := defaultLogger.GetOptions()
 	opt.DisableTimestamp = !enable
-	_ = defaultLogger.SetOptions(context.TODO(), opt)
+	_ = defaultLogger.SetOptions(opt)
 }
 
 // IsTimeStamp will return true if timestamp is added or not  on log message
@@ -89,7 +89,7 @@ func IsTimeStamp() bool {
 func FileTrace(enable bool) {
 	opt := defaultLogger.GetOptions()
 	opt.EnableTrace = enable
-	_ = defaultLogger.SetOptions(context.TODO(), opt)
+	_ = defaultLogger.SetOptions(opt)
 }
 
 // IsFileTrace will return true if trace is added or not on log message
@@ -104,7 +104,7 @@ func IsFileTrace() bool {
 func ModeColor(enable bool) {
 	opt := defaultLogger.GetOptions()
 	opt.DisableColor = !enable
-	_ = defaultLogger.SetOptions(context.TODO(), opt)
+	_ = defaultLogger.SetOptions(opt)
 }
 
 // IsModeColor will return true if color is configured on log message
@@ -138,7 +138,7 @@ func EnableViperLog(enable bool) {
 func SetTracePathFilter(path string) {
 	opt := defaultLogger.GetOptions()
 	opt.TraceFilter = path
-	_ = defaultLogger.SetOptions(context.TODO(), opt)
+	_ = defaultLogger.SetOptions(opt)
 }
 
 // Log Simple function to log directly the given message with the attached log Level.

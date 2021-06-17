@@ -30,8 +30,18 @@ package logger
 import (
 	"fmt"
 	"io"
+	"os"
+
+	"github.com/mattn/go-colorable"
 
 	"github.com/sirupsen/logrus"
+)
+
+type StdWriter uint8
+
+const (
+	StdOut StdWriter = iota
+	StdErr
 )
 
 type HookStandard interface {
@@ -48,9 +58,27 @@ type _HookStd struct {
 	t bool // Disable Trace
 }
 
-func NewHookStandard(opt Options, w io.Writer, lvls []logrus.Level) HookFile {
+func NewHookStandard(opt Options, s StdWriter, lvls []logrus.Level) HookFile {
 	if len(lvls) < 1 {
 		lvls = logrus.AllLevels
+	}
+
+	var w io.Writer
+
+	if opt.DisableColor {
+		switch s {
+		case StdErr:
+			w = os.Stderr
+		default:
+			w = os.Stdout
+		}
+	} else {
+		switch s {
+		case StdErr:
+			w = colorable.NewColorableStderr()
+		default:
+			w = colorable.NewColorableStderr()
+		}
 	}
 
 	return &_HookStd{
