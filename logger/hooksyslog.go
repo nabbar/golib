@@ -30,7 +30,6 @@ package logger
 import (
 	"fmt"
 	"io"
-	"log/syslog"
 
 	"github.com/sirupsen/logrus"
 )
@@ -41,18 +40,32 @@ type HookSyslog interface {
 	RegisterHook(log *logrus.Logger)
 }
 
+type syslogWrapper interface {
+	io.WriteCloser
+
+	Panic(p []byte) (n int, err error)
+	Fatal(p []byte) (n int, err error)
+	Error(p []byte) (n int, err error)
+	Warning(p []byte) (n int, err error)
+	Info(p []byte) (n int, err error)
+	Debug(p []byte) (n int, err error)
+}
+
+type FuncFormatter func() logrus.Formatter
+
 type _HookSyslog struct {
-	w *syslog.Writer
+	w syslogWrapper
+	f logrus.Formatter
 	l []logrus.Level
 	s bool
 	d bool
 	t bool
 }
 
-func NewHookSyslog(opt OptionsSyslog) (HookSyslog, error) {
+func NewHookSyslog(opt OptionsSyslog, format logrus.Formatter) (HookSyslog, error) {
 	var (
 		LVLs = make([]logrus.Level, 0)
-		sys  *syslog.Writer
+		sys  syslogWrapper
 		err  error
 	)
 
@@ -64,12 +77,13 @@ func NewHookSyslog(opt OptionsSyslog) (HookSyslog, error) {
 		LVLs = logrus.AllLevels
 	}
 
-	if sys, err = syslog.Dial(opt.Network.String(), opt.Host, opt.Priority, opt.Tag); err != nil {
+	if sys, err = newSyslog(MakeNetwork(opt.Network), opt.Host, opt.Tag, MakeSeverity(opt.Severity), MakeFacility(opt.Facility)); err != nil {
 		return nil, err
 	}
 
 	return &_HookSyslog{
 		w: sys,
+		f: format,
 		l: LVLs,
 		s: opt.DisableStack,
 		d: opt.DisableTimestamp,
@@ -103,13 +117,28 @@ func (o *_HookSyslog) Fire(entry *logrus.Entry) error {
 		ent.Data = o.filterKey(ent.Data, FieldLine)
 	}
 
-	if p, err := ent.Bytes(); err != nil {
+	if p, err := o.f.Format(ent); err != nil {
 		return err
-	} else if _, err = o.Write(p); err != nil {
+	} else {
+		switch ent.Level {
+		case logrus.PanicLevel:
+			_, err = o.w.Panic(p)
+		case logrus.FatalLevel:
+			_, err = o.w.Fatal(p)
+		case logrus.ErrorLevel:
+			_, err = o.w.Error(p)
+		case logrus.WarnLevel:
+			_, err = o.w.Warning(p)
+		case logrus.InfoLevel:
+			_, err = o.w.Info(p)
+		case logrus.DebugLevel:
+			_, err = o.w.Debug(p)
+		default:
+			return nil
+		}
+
 		return err
 	}
-
-	return nil
 }
 
 func (o *_HookSyslog) Write(p []byte) (n int, err error) {

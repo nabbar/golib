@@ -80,7 +80,6 @@ func init() {
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
 
 	ctx, cnl = context.WithCancel(context.Background())
-
 	log = liblog.New(ctx)
 	log.SetLevel(liblog.DebugLevel)
 	if err := log.SetOptions(&liblog.Options{
@@ -90,6 +89,19 @@ func init() {
 		EnableTrace:      true,
 		TraceFilter:      "",
 		DisableColor:     false,
+		LogSyslog: []liblog.OptionsSyslog{
+			{
+				LogLevel:         nil,
+				Network:          "",
+				Host:             "",
+				Severity:         "",
+				Facility:         "USER",
+				Tag:              "test-http-server",
+				DisableStack:     false,
+				DisableTimestamp: false,
+				EnableTrace:      true,
+			},
+		},
 	}); err != nil {
 		panic(err)
 	}
@@ -142,7 +154,7 @@ func main() {
 
 			pool.MapRun(func(srv libsrv.Server) {
 				n, v, _ := srv.StatusInfo()
-				e := l.Entry(liblog.ErrorLevel, "check status")
+				e := l.Entry(liblog.ErrorLevel, "status message")
 				e = e.FieldAdd("server_name", n).FieldAdd("server_release", v)
 				e.ErrorAdd(true, srv.StatusHealth())
 				e.Check(liblog.InfoLevel)
@@ -164,7 +176,6 @@ func main() {
 
 		if i%3 == 0 {
 			for s := range pool.List(libsrv.FieldBind, libsrv.FieldName, "", ".*") {
-				l.Entry(liblog.DebugLevel, "Restarting server...").FieldAdd("server_name", s).Log()
 				l.Entry(liblog.InfoLevel, "Restarting server...").FieldAdd("server_name", s).Log()
 			}
 			pool.Restart()

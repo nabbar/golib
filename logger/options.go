@@ -28,8 +28,8 @@
 package logger
 
 import (
-	"log/syslog"
 	"os"
+	"strings"
 )
 
 type FuncCustomConfig func(log Logger)
@@ -50,6 +50,17 @@ func (n NetworkType) String() string {
 		return "udp"
 	default:
 		return ""
+	}
+}
+
+func MakeNetwork(net string) NetworkType {
+	switch strings.ToLower(net) {
+	case NetworkTCP.String():
+		return NetworkTCP
+	case NetworkUDP.String():
+		return NetworkUDP
+	default:
+		return NetworkEmpty
 	}
 }
 
@@ -86,17 +97,21 @@ type OptionsSyslog struct {
 	// LogLevel define the allowed level of log for this syslog.
 	LogLevel []string
 
-	// Network define the network used to connect to this syslog.
-	Network NetworkType
+	// Network define the network used to connect to this syslog (tcp, udp, or any other to a local connection).
+	Network string
 
 	// Host define the remote syslog to use.
 	// If Host and Network are empty, local syslog will be used.
 	Host string
 
-	// Priority define the priority used for this syslog.
-	Priority syslog.Priority
+	// Severity define the severity syslog to be used.
+	Severity string
 
-	// Tag define the syslog tag used for log message.
+	// Facility define the facility syslog to be used.
+	Facility string
+
+	// Tag define the syslog tag used in linux syslog system or name of logger for windows event logger.
+	// For window, this value must be unic for each syslog config
 	Tag string
 
 	// DisableStack allow to disable the goroutine id before each message.

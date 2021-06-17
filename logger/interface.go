@@ -57,7 +57,7 @@ type Logger interface {
 	GetIOWriterLevel() Level
 
 	//SetOptions allow to set or update the options for the logger
-	SetOptions(ctx context.Context, opt *Options) error
+	SetOptions(opt *Options) error
 
 	//GetOptions return the options for the logger
 	GetOptions() *Options
@@ -71,7 +71,7 @@ type Logger interface {
 	GetFields() Fields
 
 	//Clone allow to duplicate the logger with a copy of the logger
-	Clone(ctx context.Context) (Logger, error)
+	Clone() (Logger, error)
 
 	//SetSPF13Level allow to plus spf13 logger (jww) to this logger
 	SetSPF13Level(lvl Level, log *jww.Notepad)
@@ -111,7 +111,7 @@ type Logger interface {
 	//LogDetails add an entry to the logger
 	LogDetails(lvl Level, message string, data interface{}, err []error, fields Fields, args ...interface{})
 
-	//CheckError will check if a not nil error is given add if yes, will add an entry to the logger.
+	//CheckError will check if a not nil error is given and if yes, will add an entry to the logger.
 	// Othwise if the lvlOK is given (and not NilLevel) the function will add entry and said ok
 	CheckError(lvlKO, lvlOK Level, message string, err ...error) bool
 
@@ -120,11 +120,13 @@ type Logger interface {
 }
 
 //New return a new logger interface pointer
-func New() Logger {
+func New(ctx context.Context) Logger {
 	lvl := new(atomic.Value)
 	lvl.Store(InfoLevel)
 
 	return &logger{
+		x: ctx,
+		n: nil,
 		m: &sync.Mutex{},
 		l: lvl,
 		o: new(atomic.Value),

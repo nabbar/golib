@@ -44,13 +44,14 @@ type HookFile interface {
 
 type _HookFile struct {
 	f *os.File
+	r logrus.Formatter
 	l []logrus.Level
 	s bool
 	d bool
 	t bool
 }
 
-func NewHookFile(opt OptionsFile) (HookFile, error) {
+func NewHookFile(opt OptionsFile, format logrus.Formatter) (HookFile, error) {
 	if opt.Filepath == "" {
 		return nil, fmt.Errorf("missing file path")
 	}
@@ -92,6 +93,7 @@ func NewHookFile(opt OptionsFile) (HookFile, error) {
 
 	return &_HookFile{
 		f: hdl,
+		r: format,
 		l: LVLs,
 		s: opt.DisableStack,
 		d: opt.DisableTimestamp,
@@ -125,7 +127,7 @@ func (o *_HookFile) Fire(entry *logrus.Entry) error {
 		ent.Data = o.filterKey(ent.Data, FieldLine)
 	}
 
-	if p, err := ent.Bytes(); err != nil {
+	if p, err := o.r.Format(ent); err != nil {
 		return err
 	} else if _, err = o.Write(p); err != nil {
 		return err
