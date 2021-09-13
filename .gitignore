@@ -23,4 +23,6 @@ go.sum
 .idea/*
 .idea/**/*
 
+/scripts
 /test-*
+
