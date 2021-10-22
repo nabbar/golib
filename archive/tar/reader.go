@@ -30,6 +30,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"syscall"
 
 	"github.com/nabbar/golib/archive/archive"
 	"github.com/nabbar/golib/errors"
@@ -162,14 +163,18 @@ func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) errors.Error {
 }
 
 func notDirExistCannotClean(filename string) errors.Error {
-	if i, e := os.Stat(filename); e != nil && os.IsNotExist(e) {
+	if _, e := os.Stat(filename); e != nil && os.IsNotExist(e) {
 		return nil
 	} else if e != nil {
 		return ErrorDestinationStat.ErrorParent(e)
-	} else if i.IsDir() {
-		return ErrorDestinationIsDir.Error(nil)
 	} else if e = os.Remove(filename); e != nil {
-		return ErrorDestinationRemove.ErrorParent(e)
+		err := ErrorDestinationRemove.ErrorParent(e)
+
+		if e = syscall.Rmdir(filename); e != nil {
+			err.AddParentError(ErrorDestinationIsDir.ErrorParent(e))
+		}
+
+		return err
 	}
 
 	return nil
