@@ -47,7 +47,18 @@ func DefaultGinWithTrustyProxy(trustyProxy []string) *gin.Engine {
 	engine.Use(gin.Logger(), gin.Recovery())
 
 	if len(trustyProxy) > 0 {
-		engine.TrustedProxies = trustyProxy
+		engine.SetTrustedProxies(trustyProxy)
+	}
+
+	return engine
+}
+
+func DefaultGinWithTrustedPlatform(trustedPlatform string) *gin.Engine {
+	engine := gin.New()
+	engine.Use(gin.Logger(), gin.Recovery())
+
+	if len(trustedPlatform) > 0 {
+		engine.TrustedPlatform = trustedPlatform
 	}
 
 	return engine
