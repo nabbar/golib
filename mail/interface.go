@@ -34,6 +34,8 @@ import (
 )
 
 type Mail interface {
+	Clone() Mail
+
 	SetCharset(charset string)
 	GetCharset() string
 
@@ -91,6 +93,29 @@ func New() Mail {
 	m.headers.Set("MIME-Version", "1.0")
 
 	return m
+}
+
+func (m *mail) Clone() Mail {
+	return &mail{
+		date:    m.date,
+		attach:  m.attach,
+		inline:  m.inline,
+		body:    m.body,
+		charset: m.charset,
+		subject: m.subject,
+		headers: m.headers,
+		address: &email{
+			from:       m.address.from,
+			sender:     m.address.sender,
+			replyTo:    m.address.replyTo,
+			returnPath: m.address.returnPath,
+			to:         m.address.to,
+			cc:         m.address.cc,
+			bcc:        m.address.bcc,
+		},
+		encoding: m.encoding,
+		priority: m.priority,
+	}
 }
 
 type Email interface {
