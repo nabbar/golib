@@ -33,6 +33,8 @@ import (
 )
 
 type Mailer interface {
+	Clone() Mailer
+
 	SetTheme(t Themes)
 	GetTheme() Themes
 
@@ -76,5 +78,32 @@ func New() Mailer {
 		},
 		b: &hermes.Body{},
 		c: false,
+	}
+}
+
+func (e *email) Clone() Mailer {
+	return &email{
+		p: hermes.Product{
+			Name:        e.p.Name,
+			Link:        e.p.Link,
+			Logo:        e.p.Logo,
+			Copyright:   e.p.Copyright,
+			TroubleText: e.p.TroubleText,
+		},
+		b: &hermes.Body{
+			Name:         e.b.Name,
+			Intros:       e.b.Intros,
+			Dictionary:   e.b.Dictionary,
+			Table:        e.b.Table,
+			Actions:      e.b.Actions,
+			Outros:       e.b.Outros,
+			Greeting:     e.b.Greeting,
+			Signature:    e.b.Signature,
+			Title:        e.b.Title,
+			FreeMarkdown: e.b.FreeMarkdown,
+		},
+		t: e.t,
+		d: e.d,
+		c: e.c,
 	}
 }
