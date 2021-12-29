@@ -34,6 +34,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/nabbar/golib/errors"
 )
@@ -90,6 +91,7 @@ func NewSMTP(cfg Config, tlsConfig *tls.Config) (SMTP, errors.Error) {
 		return nil, ErrorParamsEmpty.Error(nil)
 	} else {
 		return &smtpClient{
+			mut: sync.Mutex{},
 			cfg: cfg,
 			tls: tlsConfig,
 		}, nil
