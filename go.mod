@@ -10,7 +10,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.22.0
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/fatih/color v1.13.0
-	github.com/fxamacker/cbor/v2 v2.3.0
+	github.com/fxamacker/cbor/v2 v2.3.1
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-ldap/ldap/v3 v3.4.1
 	github.com/go-playground/validator/v10 v10.9.0
