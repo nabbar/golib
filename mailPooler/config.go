@@ -1,10 +1,7 @@
-//go:build windows && cgo
-// +build windows,cgo
-
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2021 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -26,17 +23,22 @@
  *
  */
 
-package maxstdio
+package mailPooler
 
-// #cgo CFLAGS: -g -Wall
-// #include <stdlib.h>
-// #include "maxstdio.h"
-import "C"
+import (
+	"time"
 
-func GetMaxStdio() int {
-	return int(C.CGetMaxSTDIO())
+	liberr "github.com/nabbar/golib/errors"
+)
+
+type FuncCaller func() liberr.Error
+
+type Config struct {
+	Max  int           `json:"max" yaml:"max" toml:"max" mapstructure:"max"`
+	Wait time.Duration `json:"wait" yaml:"wait" toml:"wait" mapstructure:"wait"`
+	_fct FuncCaller
 }
 
-func SetMaxStdio(newMax int) int {
-	return int(C.CSetMaxSTDIO(C.int(newMax)))
+func (c *Config) SetFuncCaller(fct FuncCaller) {
+	c._fct = fct
 }

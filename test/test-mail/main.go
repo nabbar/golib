@@ -35,15 +35,17 @@ import (
 	libiot "github.com/nabbar/golib/ioutils"
 	liblog "github.com/nabbar/golib/logger"
 	libsnd "github.com/nabbar/golib/mail"
+	libpool "github.com/nabbar/golib/mailPooler"
 	libtpl "github.com/nabbar/golib/mailer"
+	libsem "github.com/nabbar/golib/semaphore"
 	libsmtp "github.com/nabbar/golib/smtp"
 )
 
 const (
-	CONFIG_SMTP_DSN   = "login@email-example.com:password@tcp4(smtp.mail.example.com:25)/starttls?ServerName=mail.domain.com"
-	CONFIG_EMAIL_FROM = "email@example.com"
-	CONFIG_EMAIL_TO   = "email@example.com"
-	CONFIG_SUBJECT    = "Testing Send Mail"
+	_ConfigSmtpDSN   = "login@email-example.com:password@tcp4(smtp.mail.example.com:25)/starttls?ServerName=mail.domain.com"
+	_ConfigEmailFrom = "email@example.com"
+	_ConfigEmailTo   = "email@example.com"
+	_ConfigSubject   = "Testing Send Mail"
 )
 
 var (
@@ -71,22 +73,36 @@ func init() {
 
 func main() {
 	var (
-		cli libsmtp.SMTP
+		cli libpool.Pooler
 		err liberr.Error
+		sem = libsem.NewSemaphoreWithContext(ctx, 0)
 	)
 
 	defer func() {
+		sem.DeferMain()
 		cnl()
 		if cli != nil {
 			cli.Close()
 		}
 	}()
 
-	cli = getSmtp()
+	//cli = getSmtp()
+	cli = getPool()
 
-	err = getSendMail(getTemplate()).SendClose(ctx, cli)
+	snd := getSendMail(getTemplate())
 
-	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "sending email", err)
+	//	err = getSendMail(getTemplate()).SendClose(ctx, cli)
+	for i := 0; i < 5; i++ {
+		_ = sem.NewWorker()
+		go func() {
+			defer sem.DeferWorker()
+			err = snd.Send(ctx, cli)
+			liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "[sender] sending email", err)
+			time.Sleep(2 * time.Second)
+		}()
+	}
+
+	_ = sem.WaitAll()
 }
 
 func getTemplate() libtpl.Mailer {
@@ -127,27 +143,43 @@ func getTemplate() libtpl.Mailer {
 }
 
 func getSmtp() libsmtp.SMTP {
-	cfg, err := libsmtp.NewConfig(CONFIG_SMTP_DSN)
-	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "smtp config parsing", err)
+	cfg, err := libsmtp.NewConfig(_ConfigSmtpDSN)
+	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "[smtp] config parsing", err)
 
 	/* #nosec */
 	//nolint #nosec
 	s, err := libsmtp.NewSMTP(cfg, &tls.Config{})
-	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "smtp create client", err)
-	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "smtp checking working", s.Check(ctx))
+	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "[smtp] init", err)
+	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "[smtp] checking working", s.Check(ctx))
 
 	return s
+}
+
+func getPool() libpool.Pooler {
+	cfg := &libpool.Config{
+		Max:  2,
+		Wait: 10 * time.Second,
+	}
+	cfg.SetFuncCaller(func() liberr.Error {
+		liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "[mail pooler] reset counter", nil)
+		return nil
+	})
+
+	p := libpool.New(cfg, getSmtp())
+	liblog.FatalLevel.LogErrorCtxf(liblog.InfoLevel, "[mail pooler] init", nil)
+
+	return p
 }
 
 func getSendMail(tpl libtpl.Mailer) libsnd.Sender {
 	m := libsnd.New()
 
-	m.Email().SetFrom(CONFIG_EMAIL_FROM)
-	m.Email().SetRecipients(libsnd.RecipientTo, CONFIG_EMAIL_TO)
+	m.Email().SetFrom(_ConfigEmailFrom)
+	m.Email().SetRecipients(libsnd.RecipientTo, _ConfigEmailTo)
 
 	m.SetCharset("UTF-8")
 	m.SetPriority(libsnd.PriorityNormal)
-	m.SetSubject(CONFIG_SUBJECT)
+	m.SetSubject(_ConfigSubject)
 	m.SetEncoding(libsnd.EncodingBinary)
 	m.SetDateTime(time.Now())
 

@@ -61,6 +61,8 @@ type Mailer interface {
 	SetTroubleText(text string)
 	GetTroubleText() string
 
+	ParseData(data map[string]string)
+
 	GenerateHTML() (*bytes.Buffer, liberr.Error)
 	GeneratePlainText() (*bytes.Buffer, liberr.Error)
 }

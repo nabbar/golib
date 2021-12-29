@@ -1,10 +1,7 @@
-//go:build windows && cgo
-// +build windows,cgo
-
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2021 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -26,17 +23,38 @@
  *
  */
 
-package maxstdio
+package mailPooler
 
-// #cgo CFLAGS: -g -Wall
-// #include <stdlib.h>
-// #include "maxstdio.h"
-import "C"
+import "github.com/nabbar/golib/errors"
 
-func GetMaxStdio() int {
-	return int(C.CGetMaxSTDIO())
+const (
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgMailPooler
+	ErrorMailPooler
+	ErrorMailPoolerContext
+)
+
+var isCodeError = false
+
+func IsCodeError() bool {
+	return isCodeError
 }
 
-func SetMaxStdio(newMax int) int {
-	return int(C.CSetMaxSTDIO(C.int(newMax)))
+func init() {
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+}
+
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
+		return "given parameters is empty"
+	case ErrorMailPooler:
+		return "generic mail pooler error"
+	case ErrorMailPoolerContext:
+		return "context has trigger error"
+	}
+
+	return ""
 }
