@@ -28,10 +28,11 @@ package mailPooler
 import (
 	"context"
 	"errors"
-	liberr "github.com/nabbar/golib/errors"
-	libsmtp "github.com/nabbar/golib/smtp"
 	"io"
 	"net/smtp"
+
+	liberr "github.com/nabbar/golib/errors"
+	libsmtp "github.com/nabbar/golib/smtp"
 )
 
 type Pooler interface {
