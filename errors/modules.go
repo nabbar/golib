@@ -39,16 +39,17 @@ const (
 	MinPkgLDAP        = 1000
 	MinPkgMail        = 1100
 	MinPkgMailer      = 1200
-	MinPkgNetwork     = 1300
-	MinPkgNats        = 1400
-	MinPkgNutsDB      = 1500
-	MinPkgOAuth       = 1600
-	MinPkgAws         = 1700
-	MinPkgRouter      = 1800
-	MinPkgSemaphore   = 1900
-	MinPkgSMTP        = 2000
-	MinPkgStatic      = 2100
-	MinPkgVersion     = 2200
+	MinPkgMailPooler  = 1300
+	MinPkgNetwork     = 1400
+	MinPkgNats        = 1500
+	MinPkgNutsDB      = 1600
+	MinPkgOAuth       = 1700
+	MinPkgAws         = 1800
+	MinPkgRouter      = 1900
+	MinPkgSemaphore   = 2000
+	MinPkgSMTP        = 2100
+	MinPkgStatic      = 2200
+	MinPkgVersion     = 2300
 
 	MinAvailable = 4000
 
