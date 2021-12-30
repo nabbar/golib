@@ -30,11 +30,12 @@ import "github.com/nabbar/golib/errors"
 
 const (
 	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgMail
-	ErrorIORead
-	ErrorIOWrite
-	ErrorDateParsing
-	ErrorSmtpClient
-	ErrorSenderInit
+	ErrorMailConfigInvalid
+	ErrorMailIORead
+	ErrorMailIOWrite
+	ErrorMailDateParsing
+	ErrorMailSmtpClient
+	ErrorMailSenderInit
 )
 
 var isCodeError = false
@@ -54,15 +55,17 @@ func getMessage(code errors.CodeError) (message string) {
 		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
-	case ErrorIORead:
+	case ErrorMailConfigInvalid:
+		return "config is invalid"
+	case ErrorMailIORead:
 		return "cannot read bytes from io source"
-	case ErrorIOWrite:
+	case ErrorMailIOWrite:
 		return "cannot write given string to IO resource"
-	case ErrorDateParsing:
+	case ErrorMailDateParsing:
 		return "error occurs while trying to parse a date string"
-	case ErrorSmtpClient:
+	case ErrorMailSmtpClient:
 		return "error occurs while to checking connection with SMTP server"
-	case ErrorSenderInit:
+	case ErrorMailSenderInit:
 		return "error occurs while to preparing SMTP Email sender"
 	}
 

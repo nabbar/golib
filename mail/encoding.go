@@ -25,6 +25,8 @@
 
 package mail
 
+import "strings"
+
 type Encoding uint8
 
 const (
@@ -53,4 +55,17 @@ func (e Encoding) String() string {
 		return "None"
 	}
 	return EncodingNone.String()
+}
+
+func ParseEncoding(s string) Encoding {
+	switch strings.ToUpper(s) {
+	case strings.ToUpper(EncodingBinary.String()):
+		return EncodingBinary
+	case strings.ToUpper(EncodingBase64.String()):
+		return EncodingBase64
+	case strings.ToUpper(EncodingQuotedPrintable.String()):
+		return EncodingQuotedPrintable
+	default:
+		return EncodingNone
+	}
 }
