@@ -30,6 +30,7 @@ import "github.com/nabbar/golib/errors"
 
 const (
 	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgMailer
+	ErrorMailerConfigInvalid
 	ErrorMailerHtml
 	ErrorMailerText
 )
@@ -51,6 +52,8 @@ func getMessage(code errors.CodeError) (message string) {
 		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
+	case ErrorMailerConfigInvalid:
+		return "config of mailer is invalid"
 	case ErrorMailerHtml:
 		return "cannot generate html content"
 	case ErrorMailerText:

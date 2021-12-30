@@ -28,7 +28,35 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+
+	libtls "github.com/nabbar/golib/certificates"
+	liberr "github.com/nabbar/golib/errors"
 )
+
+type ConfigModel struct {
+	DSN string        `json:"dsn" yaml:"dsn" toml:"dsn" mapstructure:"dsn"`
+	TLS libtls.Config `json:"tls,omitempty" yaml:"tls,omitempty" toml:"tls,omitempty" mapstructure:"tls,omitempty"`
+}
+
+func (c ConfigModel) SMTP(tlsDefault libtls.TLSConfig) (SMTP, liberr.Error) {
+	var (
+		err liberr.Error
+		cfg Config
+		tls libtls.TLSConfig
+	)
+
+	cfg, err = NewConfig(c.DSN)
+	if err != nil {
+		return nil, err
+	}
+
+	tls, err = c.TLS.NewFrom(tlsDefault)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSMTP(cfg, tls.TlsConfig(""))
+}
 
 type smtpConfig struct {
 	DSN        string

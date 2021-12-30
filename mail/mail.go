@@ -102,7 +102,7 @@ func (m *mail) GetDateTime() time.Time {
 
 func (m *mail) SetDateString(layout, datetime string) liberr.Error {
 	if t, e := time.Parse(layout, datetime); e != nil {
-		return ErrorDateParsing.ErrorParent(e)
+		return ErrorMailDateParsing.ErrorParent(e)
 	} else {
 		m.date = t
 	}
