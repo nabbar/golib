@@ -66,7 +66,7 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	}
 
 	if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	}
 
 	switch m.GetEncoding() {
@@ -79,67 +79,67 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	}
 
 	if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	}
 
 	e.Charset = m.GetCharset()
 
 	e.SetSubject(m.GetSubject())
 	if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	}
 
 	e.SetDate(m.date.Format("2006-01-02 15:04:05 MST"))
 	if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	}
 
 	if r := m.Email().GetFrom(); len(r) > 0 {
 		e.SetFrom(r)
 	}
 	if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	}
 
 	if r := m.Email().GetReplyTo(); len(r) > 0 {
 		e.SetReplyTo(r)
 	}
 	if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	}
 
 	if r := m.Email().GetReturnPath(); len(r) > 0 {
 		e.SetReturnPath(r)
 	}
 	if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	}
 
 	if r := m.Email().GetSender(); len(r) > 0 {
 		e.SetSender(r)
 	}
 	if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	}
 
 	if r := m.address.GetRecipients(RecipientTo); len(r) > 0 {
 		e.AddTo(r...)
 		if e.Error != nil {
-			return nil, ErrorSenderInit.ErrorParent(e.Error)
+			return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 		}
 	}
 
 	if r := m.address.GetRecipients(RecipientCC); len(r) > 0 {
 		e.AddCc(r...)
 		if e.Error != nil {
-			return nil, ErrorSenderInit.ErrorParent(e.Error)
+			return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 		}
 	}
 
 	if r := m.address.GetRecipients(RecipientBCC); len(r) > 0 {
 		e.AddBcc(r...)
 		if e.Error != nil {
-			return nil, ErrorSenderInit.ErrorParent(e.Error)
+			return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 		}
 	}
 
@@ -148,9 +148,9 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 			if t, er := libiot.NewFileProgressTemp(); er != nil {
 				return nil, er
 			} else if _, er := t.ReadFrom(i.data); er != nil {
-				return nil, ErrorIORead.ErrorParent(er)
+				return nil, ErrorMailIORead.ErrorParent(er)
 			} else if e.AddAttachment(t.FilePath(), i.name); e.Error != nil {
-				return nil, ErrorSenderInit.ErrorParent(e.Error)
+				return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 			} else {
 				f = append(f, t)
 			}
@@ -162,9 +162,9 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 			if t, er := libiot.NewFileProgressTemp(); er != nil {
 				return nil, er
 			} else if _, er := t.ReadFrom(i.data); er != nil {
-				return nil, ErrorIORead.ErrorParent(er)
+				return nil, ErrorMailIORead.ErrorParent(er)
 			} else if e.AddInline(t.FilePath(), i.name); e.Error != nil {
-				return nil, ErrorSenderInit.ErrorParent(e.Error)
+				return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 			} else {
 				f = append(f, t)
 			}
@@ -183,14 +183,14 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 			}
 
 			if _, er := buf.ReadFrom(b.body); er != nil {
-				return nil, ErrorIORead.ErrorParent(er)
+				return nil, ErrorMailIORead.ErrorParent(er)
 			} else if i > 0 {
 				e.AddAlternative(enc, buf.String())
 			} else {
 				e.SetBody(enc, buf.String())
 			}
 			if e.Error != nil {
-				return nil, ErrorSenderInit.ErrorParent(e.Error)
+				return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 			}
 		}
 	}
@@ -212,11 +212,11 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	if tmp, err := libiot.NewFileProgressTemp(); err != nil {
 		return nil, err
 	} else if _, er := tmp.WriteString(e.GetMessage()); er != nil {
-		return nil, ErrorIOWrite.ErrorParent(er)
+		return nil, ErrorMailIOWrite.ErrorParent(er)
 	} else if e.Error != nil {
-		return nil, ErrorSenderInit.ErrorParent(e.Error)
+		return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 	} else if _, er = tmp.Seek(0, io.SeekStart); er != nil {
-		return nil, ErrorIOWrite.ErrorParent(er)
+		return nil, ErrorMailIOWrite.ErrorParent(er)
 	} else {
 		s.data = tmp
 		snd = s
@@ -239,7 +239,7 @@ func (s *sender) SendClose(ctx context.Context, cli libsmtp.SMTP) liberr.Error {
 
 func (s *sender) Send(ctx context.Context, cli libsmtp.SMTP) liberr.Error {
 	if e := cli.Check(ctx); e != nil {
-		return ErrorSmtpClient.ErrorParent(e)
+		return ErrorMailSmtpClient.ErrorParent(e)
 	}
 
 	if len(s.from) < _MinSizeAddr {
@@ -256,7 +256,7 @@ func (s *sender) Send(ctx context.Context, cli libsmtp.SMTP) liberr.Error {
 	}
 
 	if _, err := s.data.Seek(0, io.SeekStart); err != nil {
-		return ErrorIOWrite.ErrorParent(err)
+		return ErrorMailIOWrite.ErrorParent(err)
 	}
 
 	return nil

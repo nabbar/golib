@@ -25,6 +25,8 @@
 
 package mail
 
+import "strings"
+
 const (
 	headerImportance     = "Importance"
 	headerMSMailPriority = "X-MSMail-Priority"
@@ -103,5 +105,16 @@ func (p Priority) getHeader(h func(key string, values ...string)) {
 		if v := f(); k != "" && v != "" {
 			h(k, v)
 		}
+	}
+}
+
+func ParsePriority(s string) Priority {
+	switch strings.ToUpper(s) {
+	case strings.ToUpper(PriorityLow.String()):
+		return PriorityLow
+	case strings.ToUpper(PriorityHigh.String()):
+		return PriorityHigh
+	default:
+		return PriorityNormal
 	}
 }
