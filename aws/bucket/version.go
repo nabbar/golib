@@ -26,67 +26,39 @@
 package bucket
 
 import (
-	"fmt"
-
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) Check() liberr.Error {
-	out, err := cli.s3.HeadBucket(cli.GetContext(), &sdksss.HeadBucketInput{
+func (cli *client) SetVersioning(state bool) liberr.Error {
+	var status sdkstp.BucketVersioningStatus = libhlp.STATE_ENABLED
+	if !state {
+		status = libhlp.STATE_SUSPENDED
+	}
+
+	_, err := cli.s3.PutBucketVersioning(cli.GetContext(), &sdksss.PutBucketVersioningInput{
 		Bucket: cli.GetBucketAws(),
-	})
-
-	if err != nil {
-		return cli.GetError(err)
-	} else if out == nil {
-		//nolint #goerr113
-		return libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
-	}
-
-	return nil
-}
-
-func (cli *client) Create(RegionConstraint string) liberr.Error {
-	in := &sdksss.CreateBucketInput{
-		Bucket: cli.GetBucketAws(),
-	}
-
-	if RegionConstraint != "" {
-		in.CreateBucketConfiguration = &sdkstp.CreateBucketConfiguration{
-			LocationConstraint: sdkstp.BucketLocationConstraint(RegionConstraint),
-		}
-	}
-
-	out, err := cli.s3.CreateBucket(cli.GetContext(), in)
-
-	if err != nil {
-		return cli.GetError(err)
-	} else if out == nil || len(*out.Location) == 0 {
-		return libhlp.ErrorResponse.Error(nil)
-	}
-
-	return nil
-}
-
-func (cli *client) Delete() liberr.Error {
-	_, err := cli.s3.DeleteBucket(cli.GetContext(), &sdksss.DeleteBucketInput{
-		Bucket: cli.GetBucketAws(),
+		VersioningConfiguration: &sdkstp.VersioningConfiguration{
+			Status: status,
+		},
 	})
 
 	return cli.GetError(err)
 }
 
-func (cli *client) List() ([]sdkstp.Bucket, liberr.Error) {
-	out, err := cli.s3.ListBuckets(cli.GetContext(), nil)
+func (cli *client) GetVersioning() (string, liberr.Error) {
+	out, err := cli.s3.GetBucketVersioning(cli.GetContext(), &sdksss.GetBucketVersioningInput{
+		Bucket: cli.GetBucketAws(),
+	})
 
 	if err != nil {
-		return make([]sdkstp.Bucket, 0), cli.GetError(err)
-	} else if out == nil || out.Buckets == nil {
-		return make([]sdkstp.Bucket, 0), libhlp.ErrorAwsEmpty.Error(nil)
+		return "", cli.GetError(err)
+	} else if out == nil {
+		return "", libhlp.ErrorResponse.Error(nil)
 	}
 
-	return out.Buckets, nil
+	// MarshalValue always return error as nil
+	return string(out.Status), nil
 }

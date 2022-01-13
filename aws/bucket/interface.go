@@ -32,6 +32,7 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 	ligerr "github.com/nabbar/golib/errors"
 )
 
@@ -55,6 +56,12 @@ type Bucket interface {
 
 	EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) ligerr.Error
 	DeleteReplication() ligerr.Error
+
+	PutWebsite(index, error string) liberr.Error
+	GetWebsite() (*sdksss.GetBucketWebsiteOutput, liberr.Error)
+
+	SetCORS(cors []sdkstp.CORSRule) liberr.Error
+	GetCORS() ([]sdkstp.CORSRule, liberr.Error)
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Bucket {
