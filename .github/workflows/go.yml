@@ -76,7 +76,7 @@ jobs:
           do
             cd $(dirname $PKG);
             echo "testing >>> $(basename $(dirname $PKG))";
-            ginkgo -cover .
+            ginkgo run --cover .
           done
         env:
           GOOS: linux

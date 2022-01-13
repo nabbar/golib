@@ -48,7 +48,7 @@ import (
 	"github.com/nabbar/golib/aws/configCustom"
 	"github.com/nabbar/golib/httpcli"
 	"github.com/nabbar/golib/password"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
