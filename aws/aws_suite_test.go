@@ -215,6 +215,9 @@ func LaunchMinio(host, accessKey, secretKey string) {
 
 	if _, minio, _, ok := runtime.Caller(0); ok {
 		if err := exec.CommandContext(ctx, path.Join(path.Dir(minio), "minio"), "server", "--address", host, tmp).Run(); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
 			panic(err)
 		}
 	} else {
