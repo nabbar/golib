@@ -3,11 +3,11 @@ module github.com/nabbar/golib
 go 1.17
 
 require (
-	github.com/aws/aws-sdk-go-v2 v1.12.0
-	github.com/aws/aws-sdk-go-v2/config v1.12.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.7.0
-	github.com/aws/aws-sdk-go-v2/service/iam v1.15.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.23.0
+	github.com/aws/aws-sdk-go-v2 v1.13.0
+	github.com/aws/aws-sdk-go-v2/config v1.13.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.8.0
+	github.com/aws/aws-sdk-go-v2/service/iam v1.16.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.24.0
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/fatih/color v1.13.0
 	github.com/fxamacker/cbor/v2 v2.4.0
@@ -20,11 +20,11 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.0
 	github.com/hashicorp/go-uuid v1.0.2
 	github.com/hashicorp/go-version v1.4.0
-	github.com/lni/dragonboat/v3 v3.3.4
+	github.com/lni/dragonboat/v3 v3.3.5
 	github.com/matcornic/hermes/v2 v2.1.0
 	github.com/mattn/go-colorable v0.1.12
-	github.com/nats-io/jwt/v2 v2.2.0
-	github.com/nats-io/nats-server/v2 v2.6.6
+	github.com/nats-io/jwt/v2 v2.2.1-0.20220113022732-58e87895b296
+	github.com/nats-io/nats-server/v2 v2.7.0
 	github.com/nats-io/nats.go v1.13.1-0.20211122170419-d7c1d78a50fc
 	github.com/onsi/ginkgo/v2 v2.0.0
 	github.com/onsi/gomega v1.17.0
@@ -36,10 +36,10 @@ require (
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
 	github.com/xujiajun/nutsdb v0.6.0
 	github.com/xujiajun/utils v0.0.0-20190123093513-8bf096c4f53b
-	golang.org/x/net v0.0.0-20220111093109-d55c255bac03
+	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20220111092808-5a964db01320
+	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )
 
@@ -55,17 +55,17 @@ require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/aokoli/goutils v1.1.1 // indirect
 	github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.1.0 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.9.0 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.1.0 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.6.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.6.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.10.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.8.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.13.0 // indirect
-	github.com/aws/smithy-go v1.9.1 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.2.0 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.10.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.2.0 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.7.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.7.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.11.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.9.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.14.0 // indirect
+	github.com/aws/smithy-go v1.10.0 // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
 	github.com/cockroachdb/errors v1.7.5 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect

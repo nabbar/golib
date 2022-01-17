@@ -28,10 +28,10 @@ package object
 import (
 	"regexp"
 
-	"github.com/nabbar/golib/errors"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) Find(pattern string) ([]string, errors.Error) {
+func (cli *client) Find(pattern string) ([]string, liberr.Error) {
 	var (
 		result = make([]string, 0)
 		token  = ""
