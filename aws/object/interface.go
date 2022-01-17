@@ -32,33 +32,36 @@ import (
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	libhlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
-	helper.Helper
+	libhlp.Helper
 	iam *sdkiam.Client
 	s3  *sdksss.Client
 }
 
 type Object interface {
-	Find(pattern string) ([]string, errors.Error)
-	Size(object string) (size int64, err errors.Error)
+	Find(pattern string) ([]string, liberr.Error)
+	Size(object string) (size int64, err liberr.Error)
 
-	List(continuationToken string) ([]sdktps.Object, string, int64, errors.Error)
-	Head(object string) (*sdksss.HeadObjectOutput, errors.Error)
-	Get(object string) (*sdksss.GetObjectOutput, errors.Error)
-	Put(object string, body io.Reader) errors.Error
-	Delete(object string) errors.Error
+	List(continuationToken string) ([]sdktps.Object, string, int64, liberr.Error)
+	Head(object string) (*sdksss.HeadObjectOutput, liberr.Error)
+	Get(object string) (*sdksss.GetObjectOutput, liberr.Error)
+	Put(object string, body io.Reader) liberr.Error
+	Delete(object string) liberr.Error
 
-	MultipartPut(object string, body io.Reader) errors.Error
-	MultipartPutCustom(partSize helper.PartSize, object string, body io.Reader) errors.Error
+	MultipartPut(object string, body io.Reader) liberr.Error
+	MultipartPutCustom(partSize libhlp.PartSize, object string, body io.Reader) liberr.Error
+
+	UpdateMetadata(meta *sdksss.CopyObjectInput) liberr.Error
+	SetWebsite(object, redirect string) liberr.Error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Object {
 	return &client{
-		Helper: helper.New(ctx, bucket, region),
+		Helper: libhlp.New(ctx, bucket, region),
 		iam:    iam,
 		s3:     s3,
 	}

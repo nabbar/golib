@@ -31,6 +31,8 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"io"
+	"mime"
+	"path/filepath"
 
 	//nolint #gci
 	"os"
@@ -55,6 +57,7 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 		rio libhlp.ReaderPartSize
 		upl *sdksss.CreateMultipartUploadOutput
 		err error
+		tpe *string
 	)
 
 	defer func() {
@@ -63,9 +66,16 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 		}
 	}()
 
+	if t := mime.TypeByExtension(filepath.Ext(object)); t == "" {
+		tpe = sdkaws.String("application/octet-stream")
+	} else {
+		tpe = sdkaws.String(t)
+	}
+
 	upl, err = cli.s3.CreateMultipartUpload(cli.GetContext(), &sdksss.CreateMultipartUploadInput{
-		Key:    sdkaws.String(object),
-		Bucket: sdkaws.String(cli.GetBucketName()),
+		Key:         sdkaws.String(object),
+		Bucket:      sdkaws.String(cli.GetBucketName()),
+		ContentType: tpe,
 	})
 
 	if err != nil {

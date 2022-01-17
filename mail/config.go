@@ -28,10 +28,11 @@ package mail
 
 import (
 	"fmt"
+	"net/textproto"
+
 	libval "github.com/go-playground/validator/v10"
 	liberr "github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils"
-	"net/textproto"
+	libiot "github.com/nabbar/golib/ioutils"
 )
 
 type Config struct {
@@ -140,7 +141,7 @@ func (c Config) NewMailer() (Mail, liberr.Error) {
 
 	if len(c.Attach) > 0 {
 		for _, f := range c.Attach {
-			if h, e := ioutils.NewFileProgressPathRead(f.Path, 0); e != nil {
+			if h, e := libiot.NewFileProgressPathRead(f.Path, 0); e != nil {
 				return nil, e
 			} else {
 				m.AddAttachment(f.Name, f.Mime, h, false)
@@ -150,7 +151,7 @@ func (c Config) NewMailer() (Mail, liberr.Error) {
 
 	if len(c.Inline) > 0 {
 		for _, f := range c.Inline {
-			if h, e := ioutils.NewFileProgressPathRead(f.Path, 0); e != nil {
+			if h, e := libiot.NewFileProgressPathRead(f.Path, 0); e != nil {
 				return nil, e
 			} else {
 				m.AddAttachment(f.Name, f.Mime, h, true)
