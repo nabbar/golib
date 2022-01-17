@@ -27,15 +27,17 @@ package object
 
 import (
 	"io"
+	"mime"
+	"path/filepath"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	libhlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int64, errors.Error) {
+func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int64, liberr.Error) {
 	in := sdksss.ListObjectsV2Input{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -55,7 +57,7 @@ func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int6
 	}
 }
 
-func (cli *client) Get(object string) (*sdksss.GetObjectOutput, errors.Error) {
+func (cli *client) Get(object string) (*sdksss.GetObjectOutput, liberr.Error) {
 	out, err := cli.s3.GetObject(cli.GetContext(), &sdksss.GetObjectInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
@@ -69,13 +71,13 @@ func (cli *client) Get(object string) (*sdksss.GetObjectOutput, errors.Error) {
 		}()
 		return nil, cli.GetError(err)
 	} else if out.Body == nil {
-		return nil, helper.ErrorResponse.Error(nil)
+		return nil, libhlp.ErrorResponse.Error(nil)
 	} else {
 		return out, nil
 	}
 }
 
-func (cli *client) Head(object string) (*sdksss.HeadObjectOutput, errors.Error) {
+func (cli *client) Head(object string) (*sdksss.HeadObjectOutput, liberr.Error) {
 	out, e := cli.s3.HeadObject(cli.GetContext(), &sdksss.HeadObjectInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
@@ -84,13 +86,13 @@ func (cli *client) Head(object string) (*sdksss.HeadObjectOutput, errors.Error) 
 	if e != nil {
 		return nil, cli.GetError(e)
 	} else if out.ETag == nil {
-		return nil, helper.ErrorResponse.Error(nil)
+		return nil, libhlp.ErrorResponse.Error(nil)
 	} else {
 		return out, nil
 	}
 }
 
-func (cli *client) Size(object string) (size int64, err errors.Error) {
+func (cli *client) Size(object string) (size int64, err liberr.Error) {
 	var (
 		h *sdksss.HeadObjectOutput
 	)
@@ -102,23 +104,32 @@ func (cli *client) Size(object string) (size int64, err errors.Error) {
 	}
 }
 
-func (cli *client) Put(object string, body io.Reader) errors.Error {
+func (cli *client) Put(object string, body io.Reader) liberr.Error {
+	var tpe *string
+
+	if t := mime.TypeByExtension(filepath.Ext(object)); t == "" {
+		tpe = sdkaws.String("application/octet-stream")
+	} else {
+		tpe = sdkaws.String(t)
+	}
+
 	out, err := cli.s3.PutObject(cli.GetContext(), &sdksss.PutObjectInput{
-		Bucket: cli.GetBucketAws(),
-		Key:    sdkaws.String(object),
-		Body:   body,
+		Bucket:      cli.GetBucketAws(),
+		Key:         sdkaws.String(object),
+		Body:        body,
+		ContentType: tpe,
 	})
 
 	if err != nil {
 		return cli.GetError(err)
 	} else if out.ETag == nil {
-		return helper.ErrorResponse.Error(nil)
+		return libhlp.ErrorResponse.Error(nil)
 	}
 
 	return nil
 }
 
-func (cli *client) Delete(object string) errors.Error {
+func (cli *client) Delete(object string) liberr.Error {
 	if _, err := cli.Head(object); err != nil {
 		return err
 	}
@@ -129,4 +140,37 @@ func (cli *client) Delete(object string) errors.Error {
 	})
 
 	return cli.GetError(err)
+}
+
+func (cli *client) UpdateMetadata(meta *sdksss.CopyObjectInput) liberr.Error {
+	_, err := cli.s3.CopyObject(cli.GetContext(), meta)
+
+	return cli.GetError(err)
+}
+
+func (cli *client) SetWebsite(object, redirect string) liberr.Error {
+	var err error
+
+	_, err = cli.s3.PutObjectAcl(cli.GetContext(), &sdksss.PutObjectAclInput{
+		Bucket: cli.GetBucketAws(),
+		Key:    sdkaws.String(object),
+		ACL:    sdktps.ObjectCannedACLPublicRead,
+	})
+
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	if redirect == "" {
+		return nil
+	}
+
+	meta := &sdksss.CopyObjectInput{
+		Bucket:                  cli.GetBucketAws(),
+		CopySource:              sdkaws.String(cli.GetBucketName() + "/" + object),
+		Key:                     sdkaws.String(object),
+		WebsiteRedirectLocation: sdkaws.String(redirect),
+	}
+
+	return cli.UpdateMetadata(meta)
 }
