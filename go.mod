@@ -4,10 +4,10 @@ go 1.17
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.13.0
-	github.com/aws/aws-sdk-go-v2/config v1.13.0
+	github.com/aws/aws-sdk-go-v2/config v1.13.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.8.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.16.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.24.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.24.1
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/fatih/color v1.13.0
 	github.com/fxamacker/cbor/v2 v2.4.0
@@ -24,22 +24,22 @@ require (
 	github.com/matcornic/hermes/v2 v2.1.0
 	github.com/mattn/go-colorable v0.1.12
 	github.com/nats-io/jwt/v2 v2.2.1-0.20220113022732-58e87895b296
-	github.com/nats-io/nats-server/v2 v2.7.0
-	github.com/nats-io/nats.go v1.13.1-0.20211122170419-d7c1d78a50fc
-	github.com/onsi/ginkgo/v2 v2.0.0
-	github.com/onsi/gomega v1.17.0
+	github.com/nats-io/nats-server/v2 v2.7.2
+	github.com/nats-io/nats.go v1.13.1-0.20220121202836-972a071d373d
+	github.com/onsi/ginkgo/v2 v2.1.1
+	github.com/onsi/gomega v1.18.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/vbauerster/mpb/v5 v5.4.0
-	github.com/xanzy/go-gitlab v0.54.3
+	github.com/xanzy/go-gitlab v0.54.4
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
 	github.com/xujiajun/nutsdb v0.6.0
 	github.com/xujiajun/utils v0.0.0-20190123093513-8bf096c4f53b
-	golang.org/x/net v0.0.0-20220114011407-0dd24b26b47d
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9
+	golang.org/x/sys v0.0.0-20220207234003-57398862261d
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 )
 
@@ -59,7 +59,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.10.0 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.2.0 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.7.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.7.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.11.0 // indirect
@@ -100,14 +100,14 @@ require (
 	github.com/joho/godotenv v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441 // indirect
-	github.com/klauspost/compress v1.14.1 // indirect
+	github.com/klauspost/compress v1.14.2 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/lni/goutils v1.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
-	github.com/mattn/go-tty v0.0.3 // indirect
+	github.com/mattn/go-tty v0.0.4 // indirect
 	github.com/miekg/dns v1.1.26 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -133,7 +133,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xujiajun/mmap-go v1.0.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect
+	golang.org/x/crypto v0.0.0-20220208233918-bba287dce954 // indirect
 	golang.org/x/exp v0.0.0-20200513190911-00229845015e // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20211116232009-f0f3c7e86c11 // indirect

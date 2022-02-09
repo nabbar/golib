@@ -229,10 +229,6 @@ func (c ConfigAuth) makeOpt(cfg *natsrv.Options) liberr.Error {
 		cfg.AuthTimeout = float64(c.AuthTimeout) / float64(time.Second)
 	}
 
-	if c.AllowNewAccounts {
-		cfg.AllowNewAccounts = true
-	}
-
 	if c.NoSystemAccount {
 		cfg.NoSystemAccount = true
 	}

@@ -272,14 +272,14 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	s.ctx, s.cnl = context.WithCancel(cfg.getContext())
 	s.srv = srv
 
-	go func(name, host string, tlsMandatory bool) {
+	go func(ctx context.Context, cnl context.CancelFunc, name, host string, tlsMandatory bool) {
 		var _log = s.getLogger()
 		ent := _log.Entry(liblog.InfoLevel, "server stopped")
 
 		defer func() {
 			ent.Log()
-			if s.ctx != nil && s.cnl != nil && s.ctx.Err() == nil {
-				s.cnl()
+			if ctx != nil && cnl != nil && ctx.Err() == nil {
+				cnl()
 			}
 			s.setRunning(false)
 		}()
@@ -288,30 +288,30 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 			return s.ctx
 		}
 
-		var err error
+		var er error
 		_log.Entry(liblog.InfoLevel, "Server is starting").Log()
 
 		if ssl.LenCertificatePair() > 0 {
 			s.setRunning(true)
-			err = s.srv.ListenAndServeTLS("", "")
+			er = s.srv.ListenAndServeTLS("", "")
 		} else if tlsMandatory {
 			//nolint #goerr113
-			err = fmt.Errorf("missing valid server certificates")
+			er = fmt.Errorf("missing valid server certificates")
 		} else {
 			s.setRunning(true)
-			err = s.srv.ListenAndServe()
+			er = s.srv.ListenAndServe()
 		}
 
-		if err != nil && s.ctx.Err() != nil && s.ctx.Err().Error() == err.Error() {
+		if er != nil && ctx.Err() != nil && ctx.Err().Error() == er.Error() {
 			return
-		} else if err != nil && errors.Is(err, http.ErrServerClosed) {
+		} else if er != nil && errors.Is(er, http.ErrServerClosed) {
 			return
-		} else if err != nil {
-			s.setErr(err)
+		} else if er != nil {
+			s.setErr(er)
 			ent.Level = liblog.ErrorLevel
-			ent.ErrorAdd(true, err)
+			ent.ErrorAdd(true, er)
 		}
-	}(name, bind, sTls)
+	}(s.ctx, s.cnl, name, bind, sTls)
 
 	return nil
 }
