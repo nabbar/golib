@@ -286,7 +286,7 @@ func (c *ServerConfig) SetParentContext(f func() context.Context) {
 func (c ServerConfig) GetTLS() (libtls.TLSConfig, liberr.Error) {
 	var def libtls.TLSConfig
 
-	if c.getTLSDefault != nil {
+	if c.TLS.InheritDefault && c.getTLSDefault != nil {
 		def = c.getTLSDefault()
 	}
 

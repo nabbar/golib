@@ -89,31 +89,52 @@ func StringToClientAuth(auth string) tls.ClientAuthType {
 
 func StringToCipherKey(cipher string) uint16 {
 	cipher = strings.ToLower(cipher)
+	cipher = strings.ReplaceAll(cipher, " ", "")
+	cipher = strings.ReplaceAll(cipher, "_", "")
+	cipher = strings.ReplaceAll(cipher, "-", "")
 
-	RSA := strings.Contains(cipher, "rsa")
-	DSA := strings.Contains(cipher, "ecdsa")
-	GSM := strings.Contains(cipher, "gsm")
-	AES128 := strings.Contains(cipher, "aes128") || strings.Contains(cipher, "aes_128") || strings.Contains(cipher, "aes-128")
-	AES256 := strings.Contains(cipher, "aes256") || strings.Contains(cipher, "aes_256") || strings.Contains(cipher, "aes-256")
-	CHACHA := strings.Contains(cipher, "chacha20") || strings.Contains(cipher, "chacha_20") || strings.Contains(cipher, "chacha-20")
-	POLY := strings.Contains(cipher, "poly1305") || strings.Contains(cipher, "poly_1305") || strings.Contains(cipher, "poly-1305")
+	rsa := strings.Contains(cipher, "rsa")
+	dhe := strings.Contains(cipher, "ecdhe")
+	dsa := strings.Contains(cipher, "ecdsa")
+	gcm := strings.Contains(cipher, "gcm")
+	aes1 := strings.Contains(cipher, "aes128")
+	aes2 := strings.Contains(cipher, "aes256")
+	cha := strings.Contains(cipher, "chacha20")
+	poly := strings.Contains(cipher, "poly1305")
 
-	if RSA && AES128 && !GSM {
-		return tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-	} else if RSA && AES128 && GSM {
-		return tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-	} else if RSA && AES256 {
-		return tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	} else if RSA && (CHACHA || POLY) {
-		return tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305
-	} else if DSA && AES128 && !GSM {
+	switch {
+	// TLS v1.0 - v1.2
+	case !dhe && rsa && aes1 && !gcm:
+		return tls.TLS_RSA_WITH_AES_128_CBC_SHA256
+	case !dhe && rsa && aes1 && gcm:
+		return tls.TLS_RSA_WITH_AES_128_GCM_SHA256
+	case !dhe && rsa && aes2 && gcm:
+		return tls.TLS_RSA_WITH_AES_256_GCM_SHA384
+	case dhe && dsa && aes1 && !gcm:
 		return tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
-	} else if DSA && AES128 && GSM {
+	case dhe && rsa && aes1 && !gcm:
+		return tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+	case dhe && rsa && aes1 && gcm:
+		return tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+	case dhe && dsa && aes1 && gcm:
 		return tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-	} else if DSA && AES256 {
+	case dhe && rsa && aes2 && gcm:
+		return tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	case dhe && dsa && aes2 && gcm:
 		return tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-	} else if DSA && (CHACHA || POLY) {
-		return tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305
+	case rsa && (cha || poly):
+		return tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+	case dsa && (cha || poly):
+		return tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+
+	// TLS v1.3
+	case aes1 && gcm:
+		return tls.TLS_AES_128_GCM_SHA256
+	case aes2 && gcm:
+		return tls.TLS_AES_256_GCM_SHA384
+	case cha || poly:
+		return tls.TLS_CHACHA20_POLY1305_SHA256
+
 	}
 
 	return 0
@@ -122,13 +143,13 @@ func StringToCipherKey(cipher string) uint16 {
 func StringToCurveID(curveRef string) tls.CurveID {
 	curveRef = strings.ToLower(curveRef)
 
-	if strings.Contains(curveRef, "p256") {
+	if strings.Contains(curveRef, "p2") {
 		return tls.CurveP256
-	} else if strings.Contains(curveRef, "p384") {
+	} else if strings.Contains(curveRef, "p3") {
 		return tls.CurveP384
-	} else if strings.Contains(curveRef, "p521") {
+	} else if strings.Contains(curveRef, "p5") {
 		return tls.CurveP521
-	} else if strings.Contains(curveRef, "x25519") {
+	} else if strings.Contains(curveRef, "x25") {
 		return tls.X25519
 	}
 

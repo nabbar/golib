@@ -27,6 +27,7 @@ package status
 
 import (
 	"net/http"
+	"sync"
 	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
@@ -41,6 +42,7 @@ type Response struct {
 	InfoResponse
 	StatusResponse
 
+	m          sync.Mutex
 	Components []CptResponse `json:"components"`
 }
 
@@ -74,6 +76,13 @@ func (r Response) IsOkMandatory() bool {
 	}
 
 	return true
+}
+
+func (r *Response) appendNewCpt(cpt CptResponse) {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	r.Components = append(r.Components, cpt)
 }
 
 type RouteStatus interface {
