@@ -28,6 +28,9 @@
 package logger
 
 import (
+	"fmt"
+	valid "github.com/go-playground/validator/v10"
+	liberr "github.com/nabbar/golib/errors"
 	"os"
 	"strings"
 )
@@ -165,4 +168,25 @@ func (o Options) RegisterFuncUpdateLogger(fct FuncCustomConfig) {
 // To clean function, just call RegisterFuncUpdateLevel with nil as param.
 func (o Options) RegisterFuncUpdateLevel(fct FuncCustomConfig) {
 	o.change = fct
+}
+
+func (o *Options) Validate() liberr.Error {
+	var e = ErrorValidatorError.Error(nil)
+
+	if err := valid.New().Struct(o); err != nil {
+		if er, ok := err.(*valid.InvalidValidationError); ok {
+			e.AddParent(er)
+		}
+
+		for _, er := range err.(valid.ValidationErrors) {
+			//nolint #goerr113
+			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.StructNamespace(), er.ActualTag()))
+		}
+	}
+
+	if !e.HasParent() {
+		e = nil
+	}
+
+	return e
 }

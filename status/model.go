@@ -99,10 +99,7 @@ func (r *rtrStatus) RegisterGroup(group, prefix string, register librtr.Register
 
 func (r *rtrStatus) Get(x *gin.Context) {
 	var (
-		ok  bool
 		atm *atomic.Value
-		cpt Component
-		cid int
 		key string
 		err liberr.Error
 		rsp *Response
@@ -132,11 +129,16 @@ func (r *rtrStatus) Get(x *gin.Context) {
 	sem = libsem.NewSemaphoreWithContext(x, 0)
 
 	for key, atm = range r.c {
+		var (
+			ok bool
+			c  Component
+		)
+
 		if atm == nil {
 			continue
 		}
 
-		if cpt, ok = atm.Load().(Component); !ok {
+		if c, ok = atm.Load().(Component); !ok {
 			continue
 		}
 
@@ -145,17 +147,10 @@ func (r *rtrStatus) Get(x *gin.Context) {
 			continue
 		}
 
-		rsp.Components = append(rsp.Components, CptResponse{
-			InfoResponse:   InfoResponse{},
-			StatusResponse: StatusResponse{},
-		})
-
-		cid = len(rsp.Components) - 1
-
-		go func(id int, c Component) {
+		go func(c Component) {
 			defer sem.DeferWorker()
-			rsp.Components[id] = c.Get(x)
-		}(cid, cpt)
+			rsp.appendNewCpt(c.Get(x))
+		}(c)
 	}
 
 	err = sem.WaitAll()

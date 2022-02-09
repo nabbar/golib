@@ -362,7 +362,6 @@ func configServer(id int) libnat.Config {
 			},
 			SystemAccount:    cptCluster,
 			NoSystemAccount:  false,
-			AllowNewAccounts: true,
 			TrustedKeys:      make([]string, 0),
 			TrustedOperators: make([]string, 0),
 		},

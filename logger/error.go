@@ -24,36 +24,35 @@
  *
  */
 
-package errors
+package logger
+
+import "github.com/nabbar/golib/errors"
 
 const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConsole     = 500
-	MinPkgCrypt       = 600
-	MinPkgHttpCli     = 700
-	MinPkgHttpServer  = 800
-	MinPkgIOUtils     = 900
-	MinPkgLDAP        = 1000
-	MinPkgLogger      = 1100
-	MinPkgMail        = 1200
-	MinPkgMailer      = 1300
-	MinPkgMailPooler  = 1400
-	MinPkgNetwork     = 1500
-	MinPkgNats        = 1600
-	MinPkgNutsDB      = 1700
-	MinPkgOAuth       = 1800
-	MinPkgAws         = 1900
-	MinPkgRouter      = 2000
-	MinPkgSemaphore   = 2100
-	MinPkgSMTP        = 2200
-	MinPkgStatic      = 2300
-	MinPkgVersion     = 2400
-
-	MinAvailable = 4000
-
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgCertificate
+	ErrorValidatorError
 )
+
+var isCodeError = false
+
+func IsCodeError() bool {
+	return isCodeError
+}
+
+func init() {
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+}
+
+func getMessage(code errors.CodeError) (message string) {
+	switch code {
+	case errors.UNK_ERROR:
+		return ""
+	case ErrorParamsEmpty:
+		return "given parameters is empty"
+	case ErrorValidatorError:
+		return "logger : invalid config"
+	}
+
+	return ""
+}

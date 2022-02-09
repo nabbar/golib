@@ -68,23 +68,23 @@ func GetLevelListString() []string {
 	level the string representation of a Level type
 */
 func GetLevelString(l string) Level {
-	switch strings.ToLower(l) {
-	case strings.ToLower(PanicLevel.String()):
+	switch {
+	case strings.Contains(strings.ToLower(PanicLevel.String()), strings.ToLower(l)):
 		return PanicLevel
 
-	case strings.ToLower(FatalLevel.String()):
+	case strings.Contains(strings.ToLower(FatalLevel.String()), strings.ToLower(l)):
 		return FatalLevel
 
-	case strings.ToLower(ErrorLevel.String()):
+	case strings.Contains(strings.ToLower(ErrorLevel.String()), strings.ToLower(l)):
 		return ErrorLevel
 
-	case strings.ToLower(WarnLevel.String()):
+	case strings.Contains(strings.ToLower(WarnLevel.String()), strings.ToLower(l)):
 		return WarnLevel
 
-	case strings.ToLower(InfoLevel.String()):
+	case strings.Contains(strings.ToLower(InfoLevel.String()), strings.ToLower(l)):
 		return InfoLevel
 
-	case strings.ToLower(DebugLevel.String()):
+	case strings.Contains(strings.ToLower(DebugLevel.String()), strings.ToLower(l)):
 		return DebugLevel
 	}
 

@@ -147,9 +147,6 @@ type ConfigAuth struct {
 	//NoSystemAccount disable the system account.
 	NoSystemAccount bool `mapstructure:"no_system_account" json:"no_system_account" yaml:"no_system_account" toml:"no_system_account"`
 
-	//AllowNewAccounts define whether or not new accounts can be created on the fly.
-	AllowNewAccounts bool `mapstructure:"allow_new_accounts" json:"allow_new_accounts" yaml:"allow_new_accounts" toml:"allow_new_accounts"`
-
 	//TrustedKeys define the list of trusted keys allowed to operate the server
 	TrustedKeys []string `mapstructure:"trusted_keys" json:"trusted_keys" yaml:"trusted_keys" toml:"trusted_keys"`
 
