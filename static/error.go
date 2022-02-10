@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,11 +29,11 @@ package static
 import "github.com/nabbar/golib/errors"
 
 const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MinPkgStatic
-	EMPTY_PACKED
-	INDEX_NOT_FOUND
-	INDEX_REQUESTED_NOT_SET
-	FILE_NOT_FOUND
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgStatic
+	ErrorFileInfo
+	ErrorFileOpen
+	ErrorFiletemp
+	ErrorFileNotFound
 )
 
 var isCodeError = false
@@ -43,30 +43,24 @@ func IsCodeError() bool {
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
+	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code errors.CodeError) (message string) {
 	switch code {
-
-	case EMPTY_PARAMS:
-		return "given parameters is empty"
-
-	case EMPTY_PACKED:
-		return "packed file is empty"
-
-	case INDEX_NOT_FOUND:
-		return "mode index is defined but index.(html|htm) is not found"
-
-	case INDEX_REQUESTED_NOT_SET:
-		return "request call index but mode index is false"
-
-	case FILE_NOT_FOUND:
-		return "requested packed file is not found"
-
 	case errors.UNK_ERROR:
 		return ""
+	case ErrorParamsEmpty:
+		return "given parameters is empty"
+	case ErrorFileInfo:
+		return "cannot get file info"
+	case ErrorFileOpen:
+		return "cannot open file"
+	case ErrorFiletemp:
+		return "cannot create temporary file"
+	case ErrorFileNotFound:
+		return "file not found"
 	}
 
 	return ""
