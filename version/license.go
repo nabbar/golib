@@ -101,6 +101,35 @@ func (lic license) GetLicense() string {
 	return ""
 }
 
+func (lic license) GetLicenseName() string {
+	switch lic {
+	case License_Apache_v2:
+		return "Apache License - Version 2.0, January 2004"
+	case License_GNU_Affero_GPL_v3:
+		return "GNU AFFERO GENERAL PUBLIC LICENSE - Version 3, 19 November 2007"
+	case License_GNU_GPL_v3:
+		return "GNU GENERAL PUBLIC LICENSE - Version 3, 29 June 2007"
+	case License_GNU_Lesser_GPL_v3:
+		return "GNU LESSER GENERAL PUBLIC LICENSE - Version 3, 29 June 2007"
+	case License_MIT:
+		return "MIT License"
+	case License_Mozilla_PL_v2:
+		return "Mozilla Public License Version 2.0"
+	case License_Unlicense:
+		return "Free and unencumbered software"
+	case License_Creative_Common_Zero_v1:
+		return "Creative Commons - CC0 1.0 Universal"
+	case License_Creative_Common_Attribution_v4_int:
+		return "Creative Commons - Attribution 4.0 International"
+	case License_Creative_Common_Attribution_Share_Alike_v4_int:
+		return "Creative Commons - Attribution-ShareAlike 4.0 International"
+	case License_SIL_Open_Font_1_1:
+		return "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007"
+	}
+
+	return ""
+}
+
 func boiler_MIT(Year, Author string) string {
 	return fmt.Sprintf(`
     MIT License

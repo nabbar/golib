@@ -283,7 +283,7 @@ func (c *ServerConfig) SetParentContext(f func() context.Context) {
 	c.getParentContext = f
 }
 
-func (c ServerConfig) GetTLS() (libtls.TLSConfig, liberr.Error) {
+func (c *ServerConfig) GetTLS() (libtls.TLSConfig, liberr.Error) {
 	var def libtls.TLSConfig
 
 	if c.TLS.InheritDefault && c.getTLSDefault != nil {
@@ -293,7 +293,7 @@ func (c ServerConfig) GetTLS() (libtls.TLSConfig, liberr.Error) {
 	return c.TLS.NewFrom(def)
 }
 
-func (c ServerConfig) IsTLS() bool {
+func (c *ServerConfig) IsTLS() bool {
 	if ssl, err := c.GetTLS(); err == nil && ssl != nil && ssl.LenCertificatePair() > 0 {
 		return true
 	}
@@ -301,7 +301,7 @@ func (c ServerConfig) IsTLS() bool {
 	return false
 }
 
-func (c ServerConfig) getContext() context.Context {
+func (c *ServerConfig) getContext() context.Context {
 	var ctx context.Context
 
 	if c.getParentContext != nil {
@@ -315,7 +315,7 @@ func (c ServerConfig) getContext() context.Context {
 	return ctx
 }
 
-func (c ServerConfig) GetListen() *url.URL {
+func (c *ServerConfig) GetListen() *url.URL {
 	var (
 		err error
 		add *url.URL
@@ -342,7 +342,7 @@ func (c ServerConfig) GetListen() *url.URL {
 	return add
 }
 
-func (c ServerConfig) GetExpose() *url.URL {
+func (c *ServerConfig) GetExpose() *url.URL {
 	var (
 		err error
 		add *url.URL
@@ -367,13 +367,17 @@ func (c ServerConfig) GetExpose() *url.URL {
 	return add
 }
 
-func (c ServerConfig) GetHandlerKey() string {
+func (c *ServerConfig) GetHandlerKey() string {
 	return c.HandlerKeys
 }
 
-func (c ServerConfig) Validate() liberr.Error {
+func (c *ServerConfig) Validate() liberr.Error {
 	val := validator.New()
 	err := val.Struct(c)
+
+	if err == nil {
+		return nil
+	}
 
 	if e, ok := err.(*validator.InvalidValidationError); ok {
 		return ErrorServerValidate.ErrorParent(e)
@@ -394,6 +398,6 @@ func (c ServerConfig) Validate() liberr.Error {
 
 }
 
-func (c ServerConfig) Server() Server {
-	return NewServer(&c)
+func (c *ServerConfig) Server() Server {
+	return NewServer(c)
 }

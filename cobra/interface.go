@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,51 @@
  *
  */
 
-package errors
+package cobra
 
-const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 600
-	MinPkgCrypt       = 700
-	MinPkgHttpCli     = 800
-	MinPkgHttpServer  = 900
-	MinPkgIOUtils     = 1000
-	MinPkgLDAP        = 1100
-	MinPkgLogger      = 1200
-	MinPkgMail        = 1300
-	MinPkgMailer      = 1400
-	MinPkgMailPooler  = 1500
-	MinPkgNetwork     = 1600
-	MinPkgNats        = 1700
-	MinPkgNutsDB      = 1800
-	MinPkgOAuth       = 1900
-	MinPkgAws         = 2000
-	MinPkgRouter      = 2100
-	MinPkgSemaphore   = 2200
-	MinPkgSMTP        = 2300
-	MinPkgStatic      = 2400
-	MinPkgVersion     = 2500
-	MinPkgViper       = 2600
+import (
+	"io"
 
-	MinAvailable = 4000
-
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	liblog "github.com/nabbar/golib/logger"
+	libver "github.com/nabbar/golib/version"
+	libvpr "github.com/nabbar/golib/viper"
+	spfcbr "github.com/spf13/cobra"
 )
+
+type FuncInit func()
+type FuncLogger func() liblog.Logger
+type FuncViper func() libvpr.Viper
+type FuncPrintErrorCode func(item, value string)
+
+type Cobra interface {
+	SetVersion(v libver.Version)
+
+	SetFuncInit(fct FuncInit)
+	SetViper(fct FuncViper)
+	SetLogger(fct FuncLogger)
+	SetForceNoInfo(flag bool)
+
+	Init()
+
+	SetFlagConfig(persistent bool, flagVar *string) error
+	SetFlagVerbose(persistent bool, flagVar *int)
+
+	NewCommand(cmd, short, long, useWithoutCmd, exampleWithoutCmd string) *spfcbr.Command
+	AddCommand(subCmd ...*spfcbr.Command)
+
+	AddCommandCompletion()
+	AddCommandConfigure(basename string, defaultConfig func() io.Reader)
+	AddCommandPrintErrorCode(fct FuncPrintErrorCode)
+
+	Execute() error
+}
+
+func New() Cobra {
+	return &cobra{
+		c: nil,
+		s: nil,
+		v: nil,
+		i: nil,
+		l: nil,
+	}
+}
