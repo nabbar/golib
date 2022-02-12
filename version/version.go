@@ -55,6 +55,7 @@ type Version interface {
 	GetAppId() string
 	GetAuthor() string
 	GetBuild() string
+	GetDate() string
 	GetDescription() string
 	GetHeader() string
 	GetInfo() string
@@ -63,6 +64,7 @@ type Version interface {
 	GetPrefix() string
 	GetRelease() string
 
+	GetLicenseName() string
 	GetLicenseLegal(addMoreLicence ...license) string
 	GetLicenseFull(addMoreLicence ...license) string
 	GetLicenseBoiler(addMoreLicence ...license) string
@@ -156,6 +158,19 @@ func (vers versionModel) GetHeader() string {
 	return fmt.Sprintf("%s (%s)", vers.versionPackage, vers.GetInfo())
 }
 
+func (vers versionModel) GetDate() string {
+	var (
+		err error
+		ts  time.Time
+	)
+
+	if ts, err = time.Parse(time.RFC3339, vers.versionDate); err != nil {
+		ts = time.Time{}
+	}
+
+	return ts.Format(time.RFC1123)
+}
+
 func (vers versionModel) GetBuild() string {
 	return vers.versionBuild
 }
@@ -174,6 +189,10 @@ func (vers versionModel) GetPrefix() string {
 
 func (vers versionModel) GetRelease() string {
 	return vers.versionRelease
+}
+
+func (vers versionModel) GetLicenseName() string {
+	return vers.licenceType.GetLicenseName()
 }
 
 func (vers versionModel) GetLicenseLegal(addMoreLicence ...license) string {

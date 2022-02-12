@@ -26,6 +26,7 @@ package context
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 )
 
@@ -41,53 +42,49 @@ type Config interface {
 func NewConfig(ctx context.Context) Config {
 	return &configContext{
 		Context: ctx,
-		cfg:     new(atomic.Value),
+		cfg:     make(map[string]*atomic.Value, 0),
 	}
 }
 
 type configContext struct {
 	context.Context
-	cfg *atomic.Value
+	m   sync.Mutex
+	cfg map[string]*atomic.Value
 }
 
-func (c configContext) getMap() map[string]*atomic.Value {
+func (c configContext) Load(key string) interface{} {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	var (
-		v  interface{}
-		s  map[string]*atomic.Value
+		i  interface{}
 		ok bool
 	)
 
 	if c.cfg == nil {
-		c.cfg = new(atomic.Value)
-	} else if v = c.cfg.Load(); v == nil {
-		s = make(map[string]*atomic.Value)
-
-	} else if s, ok = v.(map[string]*atomic.Value); !ok {
-		s = make(map[string]*atomic.Value)
+		c.cfg = make(map[string]*atomic.Value, 0)
+	} else if i, ok = c.cfg[key]; ok && i != nil {
+		return i
 	}
 
-	return s
+	return nil
 }
 
-func (c *configContext) Store(key string, cfg interface{}) {
-	s := c.getMap()
+func (c configContext) Store(key string, cfg interface{}) {
+	c.m.Lock()
+	defer c.m.Unlock()
 
-	if _, ok := s[key]; !ok {
-		s[key] = &atomic.Value{}
+	var ok bool
+
+	if c.cfg == nil {
+		c.cfg = make(map[string]*atomic.Value, 0)
 	}
 
-	s[key].Store(cfg)
-	c.cfg.Store(s)
-}
-
-func (c *configContext) Load(key string) interface{} {
-	s := c.getMap()
-
-	if _, ok := s[key]; !ok {
-		return nil
-	} else {
-		return s[key].Load()
+	if _, ok = c.cfg[key]; !ok {
+		c.cfg[key] = new(atomic.Value)
 	}
+
+	c.cfg[key].Store(cfg)
 }
 
 func (c *configContext) Merge(cfg Config) bool {
@@ -100,9 +97,10 @@ func (c *configContext) Merge(cfg Config) bool {
 		return false
 	}
 
-	s := c.getMap()
+	x.m.Lock()
+	defer x.m.Unlock()
 
-	for k, v := range x.getMap() {
+	for k, v := range x.cfg {
 		if k == "" || v == nil {
 			continue
 		}
@@ -110,22 +108,9 @@ func (c *configContext) Merge(cfg Config) bool {
 		if i := v.Load(); i == nil {
 			continue
 		} else {
-			s[k] = &atomic.Value{}
-			s[k].Store(i)
+			c.Store(k, i)
 		}
 	}
 
-	c.cfg.Store(s)
-
 	return true
-}
-
-//Deprecated: use Store.
-func (c *configContext) ObjectStore(key string, obj interface{}) {
-	c.Store(key, obj)
-}
-
-//Deprecated: use Load.
-func (c *configContext) ObjectLoad(key string) interface{} {
-	return c.Load(key)
 }

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,51 @@
  *
  */
 
-package errors
+package log
+
+import (
+	libcfg "github.com/nabbar/golib/config"
+	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
+)
 
 const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 600
-	MinPkgCrypt       = 700
-	MinPkgHttpCli     = 800
-	MinPkgHttpServer  = 900
-	MinPkgIOUtils     = 1000
-	MinPkgLDAP        = 1100
-	MinPkgLogger      = 1200
-	MinPkgMail        = 1300
-	MinPkgMailer      = 1400
-	MinPkgMailPooler  = 1500
-	MinPkgNetwork     = 1600
-	MinPkgNats        = 1700
-	MinPkgNutsDB      = 1800
-	MinPkgOAuth       = 1900
-	MinPkgAws         = 2000
-	MinPkgRouter      = 2100
-	MinPkgSemaphore   = 2200
-	MinPkgSMTP        = 2300
-	MinPkgStatic      = 2400
-	MinPkgVersion     = 2500
-	MinPkgViper       = 2600
-
-	MinAvailable = 4000
-
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	DefaultLevel  = liblog.InfoLevel
+	ComponentType = "log"
 )
+
+type ComponentLog interface {
+	libcfg.Component
+
+	Log() liblog.Logger
+
+	SetLevel(lvl liblog.Level)
+	SetField(fields liblog.Fields)
+	SetOptions(opt *liblog.Options) liberr.Error
+}
+
+func New(lvl liblog.Level, defLogger func() liblog.Logger) ComponentLog {
+	return &componentLog{
+		d: defLogger,
+		l: nil,
+		v: lvl,
+	}
+}
+
+func Register(cfg libcfg.Config, key string, cpt ComponentLog) {
+	cfg.ComponentSet(key, cpt)
+}
+
+func RegisterNew(cfg libcfg.Config, key string, lvl liblog.Level, defLogger func() liblog.Logger) {
+	cfg.ComponentSet(key, New(lvl, defLogger))
+}
+
+func Load(getCpt libcfg.FuncComponentGet, key string) ComponentLog {
+	if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(ComponentLog); !ok {
+		return nil
+	} else {
+		return h
+	}
+}

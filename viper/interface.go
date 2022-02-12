@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,38 @@
  *
  */
 
-package errors
+package viper
 
-const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 600
-	MinPkgCrypt       = 700
-	MinPkgHttpCli     = 800
-	MinPkgHttpServer  = 900
-	MinPkgIOUtils     = 1000
-	MinPkgLDAP        = 1100
-	MinPkgLogger      = 1200
-	MinPkgMail        = 1300
-	MinPkgMailer      = 1400
-	MinPkgMailPooler  = 1500
-	MinPkgNetwork     = 1600
-	MinPkgNats        = 1700
-	MinPkgNutsDB      = 1800
-	MinPkgOAuth       = 1900
-	MinPkgAws         = 2000
-	MinPkgRouter      = 2100
-	MinPkgSemaphore   = 2200
-	MinPkgSMTP        = 2300
-	MinPkgStatic      = 2400
-	MinPkgVersion     = 2500
-	MinPkgViper       = 2600
+import (
+	"io"
 
-	MinAvailable = 4000
+	spfvpr "github.com/spf13/viper"
 
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
 )
+
+type Viper interface {
+	SetRemoteProvider(provider string)
+	SetRemoteEndpoint(endpoint string)
+	SetRemotePath(path string)
+	SetRemoteSecureKey(key string)
+	SetRemoteModel(model interface{})
+	SetRemoteReloadFunc(fct func())
+
+	SetHomeBaseName(base string)
+	SetEnvVarsPrefix(prefix string)
+	SetDefaultConfig(fct func() io.Reader)
+	SetConfigFile(fileConfig string) liberr.Error
+
+	Config(logLevelRemoteKO, logLevelRemoteOK liblog.Level) liberr.Error
+	Viper() *spfvpr.Viper
+	WatchFS(logLevelFSInfo liblog.Level)
+	Unset(key ...string) error
+}
+
+func New() Viper {
+	return &viper{
+		v: spfvpr.New(),
+	}
+}

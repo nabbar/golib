@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,37 @@
  *
  */
 
-package errors
+package cobra
 
-const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 600
-	MinPkgCrypt       = 700
-	MinPkgHttpCli     = 800
-	MinPkgHttpServer  = 900
-	MinPkgIOUtils     = 1000
-	MinPkgLDAP        = 1100
-	MinPkgLogger      = 1200
-	MinPkgMail        = 1300
-	MinPkgMailer      = 1400
-	MinPkgMailPooler  = 1500
-	MinPkgNetwork     = 1600
-	MinPkgNats        = 1700
-	MinPkgNutsDB      = 1800
-	MinPkgOAuth       = 1900
-	MinPkgAws         = 2000
-	MinPkgRouter      = 2100
-	MinPkgSemaphore   = 2200
-	MinPkgSMTP        = 2300
-	MinPkgStatic      = 2400
-	MinPkgVersion     = 2500
-	MinPkgViper       = 2600
+import (
+	"fmt"
+	"sort"
 
-	MinAvailable = 4000
-
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	liberr "github.com/nabbar/golib/errors"
+	spfcbr "github.com/spf13/cobra"
 )
+
+func (c *cobra) AddCommandPrintErrorCode(fct FuncPrintErrorCode) {
+	c.c.AddCommand(&spfcbr.Command{
+		Use:     "error",
+		Example: "error",
+		Short:   "Print error code with package path related",
+		Long:    "",
+		Run: func(cmd *spfcbr.Command, args []string) {
+			var (
+				lst = liberr.GetCodePackages(c.getPackageGRootPath())
+				key = make([]int, 0)
+			)
+
+			for c := range lst {
+				key = append(key, int(c.GetUint16()))
+			}
+
+			sort.Ints(key)
+
+			for _, c := range key {
+				fct(fmt.Sprintf("%d", c), lst[liberr.CodeError(uint16(c))])
+			}
+		},
+	})
+}

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,38 @@
  *
  */
 
-package errors
+package viper
 
-const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 600
-	MinPkgCrypt       = 700
-	MinPkgHttpCli     = 800
-	MinPkgHttpServer  = 900
-	MinPkgIOUtils     = 1000
-	MinPkgLDAP        = 1100
-	MinPkgLogger      = 1200
-	MinPkgMail        = 1300
-	MinPkgMailer      = 1400
-	MinPkgMailPooler  = 1500
-	MinPkgNetwork     = 1600
-	MinPkgNats        = 1700
-	MinPkgNutsDB      = 1800
-	MinPkgOAuth       = 1900
-	MinPkgAws         = 2000
-	MinPkgRouter      = 2100
-	MinPkgSemaphore   = 2200
-	MinPkgSMTP        = 2300
-	MinPkgStatic      = 2400
-	MinPkgVersion     = 2500
-	MinPkgViper       = 2600
-
-	MinAvailable = 4000
-
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+import (
+	liberr "github.com/nabbar/golib/errors"
 )
+
+func (v *viper) initAddRemote() liberr.Error {
+	if v.remote.provider == "" || v.remote.endpoint == "" || v.remote.path == "" {
+		return ErrorParamMissing.Error(nil)
+	}
+
+	if v.remote.secure != "" {
+		if err := v.v.AddSecureRemoteProvider(v.remote.provider, v.remote.endpoint, v.remote.path, v.remote.secure); err != nil {
+			return ErrorRemoteProviderSecure.ErrorParent(err)
+		}
+	} else if err := v.v.AddRemoteProvider(v.remote.provider, v.remote.endpoint, v.remote.path); err != nil {
+		return ErrorRemoteProvider.ErrorParent(err)
+	}
+
+	return v.initSetRemote()
+}
+
+func (v *viper) initSetRemote() liberr.Error {
+	v.v.SetConfigType("json")
+
+	if err := v.v.ReadRemoteConfig(); err != nil {
+		return ErrorRemoteProviderRead.ErrorParent(err)
+	}
+
+	if err := v.v.Unmarshal(v.remote.model); err != nil {
+		return ErrorRemoteProviderMarshall.ErrorParent(err)
+	}
+
+	return nil
+}
