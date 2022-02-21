@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,60 @@
  *
  */
 
-package errors
+package tls
 
-const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 600
-	MinPkgCrypt       = 700
-	MinPkgHttpCli     = 800
-	MinPkgHttpServer  = 900
-	MinPkgIOUtils     = 1000
-	MinPkgLDAP        = 1100
-	MinPkgLogger      = 1200
-	MinPkgMail        = 1300
-	MinPkgMailer      = 1400
-	MinPkgMailPooler  = 1500
-	MinPkgNetwork     = 1600
-	MinPkgNats        = 1700
-	MinPkgNutsDB      = 1800
-	MinPkgOAuth       = 1900
-	MinPkgAws         = 2000
-	MinPkgRouter      = 2100
-	MinPkgSemaphore   = 2200
-	MinPkgSMTP        = 2300
-	MinPkgStatic      = 2400
-	MinPkgVersion     = 2500
-	MinPkgViper       = 2600
+var _defaultConfig = []byte(`{
+   "versionMin":"1.2",
+   "versionMax":"1.2",
+   "dynamicSizingDisable":false,
+   "sessionTicketDisable":false,
+   "authClient":"none",
+   "curveList":[
+      "X25519",
+      "P256",
+      "P384",
+      "P521"
+   ],
+   "cipherList":[
+      "RSA-AES128-GCM",
+      "RSA-AES128-CBC",
+      "RSA-AES256-GCM",
+      "RSA-CHACHA",
+      "ECDSA-AES128-GCM",
+      "ECDSA-AES128-CBC",
+      "ECDSA-AES256-GCM",
+      "ECDSA-CHACHA"
+   ],
+   "rootCA":[
+      ""
+   ],
+   "rootCAFiles":[
+      ""
+   ],
+   "clientCA":[
+      ""
+   ],
+   "clientCAFiles":[
+      ""
+   ],
+   "certPair":[
+      {
+         "key":"",
+         "pem":""
+      }
+   ],
+   "certPairFiles":[
+      {
+         "key":"",
+         "pem":""
+      }
+   ]
+}`)
 
-	MinAvailable = 4000
+func (c *componentTls) DefaultConfig() []byte {
+	return _defaultConfig
+}
 
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
-)
+func SetDefaultConfig(cfg []byte) {
+	_defaultConfig = cfg
+}

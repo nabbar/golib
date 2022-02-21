@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,71 @@
  *
  */
 
-package errors
+package viper
 
-const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 600
-	MinPkgCrypt       = 700
-	MinPkgHttpCli     = 800
-	MinPkgHttpServer  = 900
-	MinPkgIOUtils     = 1000
-	MinPkgLDAP        = 1100
-	MinPkgLogger      = 1200
-	MinPkgMail        = 1300
-	MinPkgMailer      = 1400
-	MinPkgMailPooler  = 1500
-	MinPkgNetwork     = 1600
-	MinPkgNats        = 1700
-	MinPkgNutsDB      = 1800
-	MinPkgOAuth       = 1900
-	MinPkgAws         = 2000
-	MinPkgRouter      = 2100
-	MinPkgSemaphore   = 2200
-	MinPkgSMTP        = 2300
-	MinPkgStatic      = 2400
-	MinPkgVersion     = 2500
-	MinPkgViper       = 2600
+import (
+	"bytes"
+	"encoding/json"
+	"strings"
 
-	MinAvailable = 4000
-
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	spfvpr "github.com/spf13/viper"
 )
+
+func (v *viper) Unset(key ...string) error {
+	if len(key) < 1 {
+		return nil
+	}
+
+	configMap := v.v.AllSettings()
+
+	for _, k := range key {
+		configMap = unsetSub(configMap, k)
+	}
+
+	_v := &viper{
+		v:      spfvpr.New(),
+		base:   v.base,
+		prfx:   v.prfx,
+		deft:   v.deft,
+		remote: v.remote,
+	}
+
+	var (
+		encodedConfig []byte
+		err           error
+	)
+
+	if encodedConfig, err = json.MarshalIndent(configMap, "", " "); err != nil {
+		return err
+	}
+
+	_v.v.SetConfigType("json")
+
+	if err = _v.v.ReadConfig(bytes.NewReader(encodedConfig)); err != nil {
+		return err
+	}
+
+	v.v = _v.v
+
+	return nil
+}
+
+func unsetSub(configMap map[string]interface{}, key string) map[string]interface{} {
+	kkey := strings.Split(key, ".")
+
+	if len(kkey) == 1 {
+		delete(configMap, key)
+		return configMap
+	}
+
+	for k, v := range configMap {
+		if k != kkey[0] {
+			continue
+		}
+
+		configMap[k] = unsetSub(v.(map[string]interface{}), strings.Join(kkey[1:], "."))
+		break
+	}
+
+	return configMap
+}
