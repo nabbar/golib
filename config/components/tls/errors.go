@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +24,48 @@
  *
  */
 
-package errors
+package tls
+
+import (
+	libcfg "github.com/nabbar/golib/config"
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 600
-	MinPkgCrypt       = 700
-	MinPkgHttpCli     = 800
-	MinPkgHttpServer  = 900
-	MinPkgIOUtils     = 1000
-	MinPkgLDAP        = 1100
-	MinPkgLogger      = 1200
-	MinPkgMail        = 1300
-	MinPkgMailer      = 1400
-	MinPkgMailPooler  = 1500
-	MinPkgNetwork     = 1600
-	MinPkgNats        = 1700
-	MinPkgNutsDB      = 1800
-	MinPkgOAuth       = 1900
-	MinPkgAws         = 2000
-	MinPkgRouter      = 2100
-	MinPkgSemaphore   = 2200
-	MinPkgSMTP        = 2300
-	MinPkgStatic      = 2400
-	MinPkgVersion     = 2500
-	MinPkgViper       = 2600
-
-	MinAvailable = 4000
-
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	ErrorParamsEmpty liberr.CodeError = iota + libcfg.MinErrorComponentTls
+	ErrorParamsInvalid
+	ErrorConfigInvalid
+	ErrorComponentNotInitialized
+	ErrorStartTLS
+	ErrorReloadTLS
 )
+
+func init() {
+	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
+	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+}
+
+var isCodeError = false
+
+func IsCodeError() bool {
+	return isCodeError
+}
+
+func getMessage(code liberr.CodeError) (message string) {
+	switch code {
+	case ErrorParamsEmpty:
+		return "at least one given parameters is empty"
+	case ErrorParamsInvalid:
+		return "at least one given parameters is invalid"
+	case ErrorConfigInvalid:
+		return "server invalid config"
+	case ErrorComponentNotInitialized:
+		return "this component seems to not be correctly initialized"
+	case ErrorStartTLS:
+		return "cannot create new TLS Config"
+	case ErrorReloadTLS:
+		return "cannot update TLS Config"
+	}
+
+	return ""
+}

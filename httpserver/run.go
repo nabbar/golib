@@ -36,6 +36,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -48,6 +49,8 @@ import (
 const _TimeoutWaitingPortFreeing = 500 * time.Microsecond
 
 type srvRun struct {
+	m sync.Mutex
+
 	log liblog.FuncLog     // return golib logger interface
 	err *atomic.Value      // last err occured
 	run *atomic.Value      // is running
@@ -70,6 +73,7 @@ type run interface {
 
 func newRun(log liblog.FuncLog) run {
 	return &srvRun{
+		m:   sync.Mutex{},
 		log: log,
 		err: new(atomic.Value),
 		run: new(atomic.Value),
@@ -270,7 +274,10 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	}
 
 	s.ctx, s.cnl = context.WithCancel(cfg.getContext())
+
+	s.m.Lock()
 	s.srv = srv
+	s.m.Unlock()
 
 	go func(ctx context.Context, cnl context.CancelFunc, name, host string, tlsMandatory bool) {
 		var _log = s.getLogger()
@@ -284,9 +291,14 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 			s.setRunning(false)
 		}()
 
+		s.m.Lock()
+		if s.srv == nil {
+			return
+		}
 		s.srv.BaseContext = func(listener net.Listener) context.Context {
 			return s.ctx
 		}
+		s.m.Unlock()
 
 		var er error
 		_log.Entry(liblog.InfoLevel, "Server is starting").Log()
@@ -337,7 +349,11 @@ func (s *srvRun) srvShutdown() {
 		cancel()
 		if s.srv != nil {
 			err := s.srv.Close()
+
+			s.m.Lock()
 			s.srv = nil
+			s.m.Unlock()
+
 			_log.Entry(liblog.ErrorLevel, "closing server").ErrorAdd(true, err).Check(liblog.InfoLevel)
 		}
 	}()
