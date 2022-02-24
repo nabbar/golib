@@ -143,11 +143,11 @@ func (c *componentHead) Stop() {
 }
 
 func (c *componentHead) IsStarted() bool {
-	return c.head == nil
+	return c.head != nil
 }
 
 func (c *componentHead) IsRunning(atLeast bool) bool {
-	return c.head == nil
+	return c.head != nil
 }
 
 func (c *componentHead) Dependencies() []string {
