@@ -32,10 +32,6 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-type DefaultModel struct {
-	libtls.Config
-}
-
 type componentTls struct {
 	ctx libcfg.FuncContext
 	get libcfg.FuncComponentGet
@@ -76,7 +72,7 @@ func (c *componentTls) RegisterFuncReloadAfter(fct func() liberr.Error) {
 }
 
 func (c *componentTls) _run(errCode liberr.CodeError, getCfg libcfg.FuncComponentConfigGet) (libtls.TLSConfig, liberr.Error) {
-	cnf := DefaultModel{}
+	cnf := libtls.Config{}
 
 	if c == nil {
 		return nil, ErrorComponentNotInitialized.Error(nil)
