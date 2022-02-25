@@ -262,7 +262,7 @@ func (c *componentHttp) IsRunning(atLeast bool) bool {
 }
 
 func (c *componentHttp) Dependencies() []string {
-	return []string{cpttls.ComponentType, cptlog.ComponentType}
+	return []string{c.tls, c.log}
 }
 
 func (c *componentHttp) SetTLSKey(tlsKey string) {
