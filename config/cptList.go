@@ -33,6 +33,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -210,7 +211,19 @@ func (c *componentList) startOne(key string, getCpt FuncComponentGet, getCfg Fun
 
 	if dep := cpt.Dependencies(); len(dep) > 0 {
 		for _, k := range dep {
-			if err := c.startOne(k, getCpt, getCfg); err != nil {
+
+			var err liberr.Error
+
+			for retry := 0; retry < 3; retry++ {
+
+				if err = c.startOne(k, getCpt, getCfg); err == nil {
+					break
+				}
+
+				time.Sleep(100 * time.Millisecond)
+			}
+
+			if err != nil {
 				return err
 			}
 		}
