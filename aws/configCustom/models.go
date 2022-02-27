@@ -58,14 +58,14 @@ type awsModel struct {
 func (c *awsModel) Validate() errors.Error {
 	err := ErrorConfigValidator.Error(nil)
 
-	if er := libval.New().Struct(c.Model); er != nil {
+	if er := libval.New().Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
 			err.AddParent(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
 		}
 	}
 
@@ -73,8 +73,8 @@ func (c *awsModel) Validate() errors.Error {
 		var e error
 		if c.endpoint, e = url.Parse(c.Endpoint); e != nil {
 			err.AddParent(e)
-		} else if e := c.RegisterRegionAws(c.endpoint); e != nil {
-			err.AddParentError(e)
+		} else if er := c.RegisterRegionAws(c.endpoint); er != nil {
+			err.AddParentError(er)
 		}
 	} else if !err.HasParent() && c.endpoint != nil && c.Endpoint == "" {
 		c.Endpoint = c.endpoint.String()

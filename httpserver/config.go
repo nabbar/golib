@@ -34,9 +34,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-playground/validator/v10"
+	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
 )
 
 type MapUpdPoolServerConfig func(cfg ServerConfig) ServerConfig
@@ -153,18 +154,12 @@ type ServerConfig struct {
 	//private
 	getParentContext func() context.Context
 
-	// TimeoutCacheInfo defined the validity time of cache for info (name, version, hash)
-	TimeoutCacheInfo time.Duration `mapstructure:"timeout_cache_info" json:"timeout_cache_info" yaml:"timeout_cache_info" toml:"timeout_cache_info"`
-
-	// TimeoutCacheHealth defined the validity time of cache for healthcheck of this server
-	TimeoutCacheHealth time.Duration `mapstructure:"timeout_cache_health" json:"timeout_cache_health" yaml:"timeout_cache_health" toml:"timeout_cache_health"`
-
 	// Enabled allow to disable a server without clean his configuration
 	Disabled bool `mapstructure:"disabled" json:"disabled" yaml:"disabled" toml:"disabled"`
 
 	// Mandator
 	// y defined if the component for status is mandatory or not
-	Mandatory bool `mapstructure:"mandatory" json:"mandatory" yaml:"mandatory" toml:"mandatory"`
+	Status libsts.ConfigStatus `mapstructure:"status" json:"status" yaml:"status" toml:"status"`
 
 	// TLSMandatory is a flag to defined that TLS must be valid to start current server.
 	TLSMandatory bool `mapstructure:"tls_mandatory" json:"tls_mandatory" yaml:"tls_mandatory" toml:"tls_mandatory"`
@@ -271,7 +266,29 @@ func (c *ServerConfig) Clone() ServerConfig {
 		Expose:                       c.Expose,
 		HandlerKeys:                  strings.ToLower(c.HandlerKeys),
 		TLSMandatory:                 c.TLSMandatory,
-		TLS:                          c.TLS,
+		TLS: libtls.Config{
+			CurveList:            c.TLS.CurveList,
+			CipherList:           c.TLS.CipherList,
+			RootCAString:         c.TLS.RootCAString,
+			RootCAFile:           c.TLS.RootCAFile,
+			ClientCAString:       c.TLS.ClientCAString,
+			ClientCAFiles:        c.TLS.ClientCAFiles,
+			CertPairString:       c.TLS.CertPairString,
+			CertPairFile:         c.TLS.CertPairFile,
+			VersionMin:           c.TLS.VersionMin,
+			VersionMax:           c.TLS.VersionMax,
+			AuthClient:           c.TLS.AuthClient,
+			InheritDefault:       c.TLS.InheritDefault,
+			DynamicSizingDisable: c.TLS.DynamicSizingDisable,
+			SessionTicketDisable: c.TLS.SessionTicketDisable,
+		},
+		Status: libsts.ConfigStatus{
+			Mandatory:          c.Status.Mandatory,
+			MessageOK:          c.Status.MessageOK,
+			MessageKO:          c.Status.MessageKO,
+			CacheTimeoutInfo:   c.Status.CacheTimeoutInfo,
+			CacheTimeoutHealth: c.Status.CacheTimeoutHealth,
+		},
 	}
 }
 
@@ -372,26 +389,21 @@ func (c *ServerConfig) GetHandlerKey() string {
 }
 
 func (c *ServerConfig) Validate() liberr.Error {
-	val := validator.New()
-	err := val.Struct(c)
+	err := ErrorServerValidate.Error(nil)
 
-	if err == nil {
-		return nil
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
 	}
 
-	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorServerValidate.ErrorParent(e)
-	}
-
-	out := ErrorServerValidate.Error(nil)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil

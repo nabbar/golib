@@ -61,6 +61,8 @@ type Cobra interface {
 	AddCommandPrintErrorCode(fct FuncPrintErrorCode)
 
 	Execute() error
+
+	Cobra() *spfcbr.Command
 }
 
 func New() Cobra {

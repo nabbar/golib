@@ -33,7 +33,7 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/go-playground/validator/v10"
+	libval "github.com/go-playground/validator/v10"
 	dgbcfg "github.com/lni/dragonboat/v3/config"
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -44,13 +44,13 @@ type ConfigGossip struct {
 	// service should be able to receive gossip service related messages by
 	// binding to and listening on this address. BindAddress is usually in the
 	// format of IP:Port, Hostname:Port or DNS Name:Port.
-	BindAddress string `mapstructure:"bind_address" json:"bind_address" yaml:"bind_address" toml:"bind_address" validate:"hostname_port"`
+	BindAddress string `mapstructure:"bind_address" json:"bind_address" yaml:"bind_address" toml:"bind_address" validate:"omitempty,hostname_port"`
 
 	// AdvertiseAddress is the address to advertise to other NodeHost instances
 	// used for NAT traversal. Gossip services running on remote NodeHost
 	// instances will use AdvertiseAddress to exchange gossip service related
 	// messages. AdvertiseAddress is in the format of IP:Port.
-	AdvertiseAddress string `mapstructure:"advertise_address" json:"advertise_address" yaml:"advertise_address" toml:"advertise_address" validate:"hostname_port"`
+	AdvertiseAddress string `mapstructure:"advertise_address" json:"advertise_address" yaml:"advertise_address" toml:"advertise_address" validate:"omitempty,printascii"`
 
 	// Seed is a list of AdvertiseAddress of remote NodeHost instances. Local
 	// NodeHost instance will try to contact all of them to bootstrap the gossip
@@ -93,22 +93,21 @@ func (c ConfigGossip) GetDGBConfigGossip() dgbcfg.GossipConfig {
 }
 
 func (c ConfigGossip) Validate() liberr.Error {
-	val := validator.New()
-	err := val.Struct(c)
+	err := ErrorValidateConfig.Error(nil)
 
-	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorValidateGossip.ErrorParent(e)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
 	}
 
-	out := ErrorValidateGossip.Error(nil)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil

@@ -181,7 +181,7 @@ func (o *Options) Validate() liberr.Error {
 
 		for _, er := range err.(valid.ValidationErrors) {
 			//nolint #goerr113
-			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.StructNamespace(), er.ActualTag()))
+			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}
 	}
 

@@ -33,6 +33,8 @@ import (
 	"sync"
 	"syscall"
 
+	spfvpr "github.com/spf13/viper"
+
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	libvpr "github.com/nabbar/golib/viper"
@@ -40,7 +42,8 @@ import (
 
 type FuncContext func() context.Context
 type FuncComponentGet func(key string) Component
-type FuncComponentConfigGet func(model interface{}) liberr.Error
+type FuncComponentViper func() *spfvpr.Viper
+type FuncComponentConfigGet func(key string, model interface{}) liberr.Error
 
 type Config interface {
 	/*

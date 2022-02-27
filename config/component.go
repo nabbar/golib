@@ -28,50 +28,31 @@ package config
 
 import (
 	liberr "github.com/nabbar/golib/errors"
+	spfcbr "github.com/spf13/cobra"
+	spfvpr "github.com/spf13/viper"
 )
 
 type Component interface {
 	// Type return the component type.
 	Type() string
 
-	// RegisterContext is called by Config to register a function to get the main context.
-	// This function can be used into start / reload function to use context interface.
-	RegisterContext(fct FuncContext)
+	// Init is called by Config to register some function and value to the component instance.
+	Init(key string, ctx FuncContext, get FuncComponentGet, vpr FuncComponentViper)
 
-	// RegisterGet is called by Config to register a function to get a component by his key.
-	// This function can be used for dependencies into start / reload function.
-	RegisterGet(fct FuncComponentGet)
+	// RegisterFuncStart is called to register the function to be called before and after the start function.
+	RegisterFuncStart(before, after func() liberr.Error)
 
-	// RegisterFuncStartBefore is called to register a function to be called before the start function.
-	RegisterFuncStartBefore(fct func() liberr.Error)
+	// RegisterFuncReload is called to register the function to be called before and after the reload function.
+	RegisterFuncReload(before, after func() liberr.Error)
 
-	// RegisterFuncStartAfter is called to register a function to be called after the start function.
-	RegisterFuncStartAfter(fct func() liberr.Error)
-
-	// RegisterFuncReloadBefore is called to register a function to be called before the reload function.
-	RegisterFuncReloadBefore(fct func() liberr.Error)
-
-	// RegisterFuncReloadAfter is called to register a function to be called after the reload function.
-	RegisterFuncReloadAfter(fct func() liberr.Error)
-
-	// Start is called by the Config interface when the global configuration as been started
-	// This function can be usefull to start server in go routine with a configuration stored
-	// itself.
-	Start(getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error
+	// RegisterFlag can be called to register flag to a spf cobra command and link it with viper
+	// to retrieve it into the config viper.
+	// The key will be use to stay config organisation by compose flag as key.config_key.
+	RegisterFlag(Command *spfcbr.Command, Viper *spfvpr.Viper) error
 
 	// IsStarted is trigger by the Config interface with function ComponentIsStarted.
 	// This function can be usefull to know if the start server function is still call.
 	IsStarted() bool
-
-	// Reload is called by the Config interface when the global configuration as been updated
-	// It receives a func as param to grab a config model by sending a model structure.
-	// It must configure itself, and stop / start his server if possible or return an error.
-	Reload(getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error
-
-	// Stop is called by the Config interface when global context is done.
-	// The context done can arrive by stopping the application or by received a signal KILL/TERM.
-	// This function must stop cleanly the component.
-	Stop()
 
 	// IsRunning is trigger by the Config interface with function ComponentIsRunning.
 	// This function can be usefully to know if the component server function is still call.
@@ -79,9 +60,24 @@ type Component interface {
 	// or if all server must be running to return true.
 	IsRunning(atLeast bool) bool
 
+	// Start is called by the Config interface when the global configuration as been started
+	// This function can be usefull to start server in go routine with a configuration stored
+	// itself.
+	Start(getCfg FuncComponentConfigGet) liberr.Error
+
+	// Reload is called by the Config interface when the global configuration as been updated
+	// It receives a func as param to grab a config model by sending a model structure.
+	// It must configure itself, and stop / start his server if possible or return an error.
+	Reload(getCfg FuncComponentConfigGet) liberr.Error
+
+	// Stop is called by the Config interface when global context is done.
+	// The context done can arrive by stopping the application or by received a signal KILL/TERM.
+	// This function must stop cleanly the component.
+	Stop()
+
 	// DefaultConfig is called by Config.GetDefault.
 	// It must return a slice of byte containing the default json config for this component.
-	DefaultConfig() []byte
+	DefaultConfig(indent string) []byte
 
 	// Dependencies is called by Config to define if this component need other component.
 	// Each other component can be call by calling Config.Get

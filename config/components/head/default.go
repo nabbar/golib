@@ -26,6 +26,15 @@
 
 package head
 
+import (
+	"bytes"
+	"encoding/json"
+
+	libcfg "github.com/nabbar/golib/config"
+	spfcbr "github.com/spf13/cobra"
+	spfvbr "github.com/spf13/viper"
+)
+
 var _defaultConfig = []byte(`{
    "Content-Security-Policy":"default-src 'self' 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: image/svg+xml*; font-src 'self'; connect-src 'self'; media-src 'self'; object-src 'self'; child-src 'none'; frame-src 'none'; worker-src 'none'; frame-ancestors 'none'; form-action 'none'; upgrade-insecure-requests 1; block-all-mixed-content; disown-opener; require-sri-for script style; sandbox allow-same-origin allow-scripts; reflected-xss block; referrer no-referrer",
    "Feature-Policy":"geolocation 'self'; midi 'self'; notifications 'self'; push 'self'; sync-xhr 'self'; microphone 'self'; camera 'self'; magnetometer 'self'; gyroscope 'self'; speaker 'self'; vibrate 'self'; fullscreen 'self'; payment 'self';",
@@ -36,10 +45,23 @@ var _defaultConfig = []byte(`{
    "Referrer-Policy":"no-referrer"
 }`)
 
-func (c *componentHead) DefaultConfig() []byte {
-	return _defaultConfig
-}
-
 func SetDefaultConfig(cfg []byte) {
 	_defaultConfig = cfg
+}
+
+func DefaultConfig(indent string) []byte {
+	var res = bytes.NewBuffer(make([]byte, 0))
+	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+		return _defaultConfig
+	} else {
+		return res.Bytes()
+	}
+}
+
+func (c *componentHead) DefaultConfig(indent string) []byte {
+	return DefaultConfig(indent)
+}
+
+func (c *componentHead) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
+	return nil
 }

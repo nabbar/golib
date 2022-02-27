@@ -36,7 +36,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/nabbar/golib/errors"
+	libtls "github.com/nabbar/golib/certificates"
+
+	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
 )
 
 type Config interface {
@@ -55,8 +58,11 @@ type Config interface {
 	SetNet(mode NETMode)
 	GetNet() NETMode
 
-	SetTls(mode TLSMode)
-	GetTls() TLSMode
+	SetTlsMode(mode TLSMode)
+	GetTlsMode() TLSMode
+
+	SetTls(tls libtls.Config)
+	GetTls() libtls.Config
 
 	ForceTLSSkipVerify(skip bool)
 	IsTLSSkipVerify() bool
@@ -64,15 +70,23 @@ type Config interface {
 	SetTLSServerName(serverName string)
 	GetTlSServerName() string
 
+	SetStatusConfig(sts libsts.ConfigStatus)
+	GetStatusConfig() libsts.ConfigStatus
+
 	GetDsn() string
 }
 
 type SMTP interface {
-	Client(ctx context.Context) (*smtp.Client, errors.Error)
-	Close()
-	Check(ctx context.Context) errors.Error
 	Clone() SMTP
-	Send(ctx context.Context, from string, to []string, data io.WriterTo) errors.Error
+	Close()
+
+	Client(ctx context.Context) (*smtp.Client, liberr.Error)
+	Check(ctx context.Context) liberr.Error
+	Send(ctx context.Context, from string, to []string, data io.WriterTo) liberr.Error
+
+	StatusInfo() (name string, release string, hash string)
+	StatusHealth() error
+	StatusRouter(sts libsts.RouteStatus, prefix string)
 }
 
 // NewSMTP return a SMTP interface to operation negotiation with a SMTP server.
@@ -80,7 +94,7 @@ type SMTP interface {
 //   - params available are : ServerName (string), SkipVerify (boolean).
 //   - tls mode acceptable are :  starttls, tls, <any other value to no tls/startls>.
 //   - net aceeptable are : tcp4, tcp6, unix.
-func NewSMTP(cfg Config, tlsConfig *tls.Config) (SMTP, errors.Error) {
+func NewSMTP(cfg Config, tlsConfig *tls.Config) (SMTP, liberr.Error) {
 	if tlsConfig == nil {
 		/* #nosec */
 		//nolint #nosec
@@ -100,10 +114,13 @@ func NewSMTP(cfg Config, tlsConfig *tls.Config) (SMTP, errors.Error) {
 
 // NewConfig parses the DSN string to a Config.
 // nolint: gocognit
-func NewConfig(dsn string) (Config, errors.Error) {
+func NewConfig(cfg ConfigModel) (Config, liberr.Error) {
 	var (
+		dsn     = cfg.DSN
 		smtpcnf = &smtpConfig{
-			DSN: dsn,
+			DSN:    dsn,
+			TLSCfg: cfg.TLS,
+			Status: cfg.Status,
 		}
 	)
 
@@ -160,7 +177,9 @@ func NewConfig(dsn string) (Config, errors.Error) {
 							if e == nil && p != "" {
 								pint, er := strconv.ParseInt(p, 10, 64)
 								if er == nil {
-									smtpcnf.Port = int(pint)
+									if pint <= 65535 {
+										smtpcnf.Port = int(pint)
+									}
 								}
 								smtpcnf.Host = h
 							}

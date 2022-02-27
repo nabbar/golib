@@ -32,8 +32,8 @@ import (
 
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status"
 	libvpr "github.com/nabbar/golib/viper"
+	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 
 	"io"
@@ -49,7 +49,6 @@ type configModel struct {
 	cpt ComponentList
 
 	fctGolibViper   func() libvpr.Viper
-	fctRouteStatus  func() libsts.RouteStatus
 	fctStartBefore  func() liberr.Error
 	fctStartAfter   func() liberr.Error
 	fctReloadBefore func() liberr.Error
@@ -80,12 +79,6 @@ func (c *configModel) _ComponentGetConfig(key string, model interface{}) liberr.
 	}
 
 	return ErrorComponentConfigError.Iferror(err)
-}
-
-func (c *configModel) _FuncComponentGetConfig(key string) FuncComponentConfigGet {
-	return func(model interface{}) liberr.Error {
-		return c._ComponentGetConfig(key, model)
-	}
 }
 
 func (c *configModel) Context() context.Context {
@@ -133,32 +126,18 @@ func (c *configModel) Start() liberr.Error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	var err liberr.Error
-
 	if c.fctStartBefore != nil {
-		if err = c.fctStartBefore(); err != nil {
+		if err := c.fctStartBefore(); err != nil {
 			return err
 		}
 	}
 
-	getCpt := func(key string) Component {
-		return c.ComponentGet(key)
-	}
-
-	for _, k := range c.ComponentKeys() {
-		cpt := c.ComponentGet(k)
-
-		if cpt == nil {
-			continue
-		}
-
-		if err = cpt.Start(getCpt, c._FuncComponentGetConfig(k)); err != nil {
-			return err
-		}
+	if err := c.cpt.ComponentStart(c._ComponentGetConfig); err != nil {
+		return err
 	}
 
 	if c.fctStartAfter != nil {
-		if err = c.fctStartAfter(); err != nil {
+		if err := c.fctStartAfter(); err != nil {
 			return err
 		}
 	}
@@ -182,32 +161,18 @@ func (c *configModel) Reload() liberr.Error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	var err liberr.Error
-
 	if c.fctReloadBefore != nil {
-		if err = c.fctReloadBefore(); err != nil {
+		if err := c.fctReloadBefore(); err != nil {
 			return err
 		}
 	}
 
-	getCpt := func(key string) Component {
-		return c.ComponentGet(key)
-	}
-
-	for _, k := range c.ComponentKeys() {
-		cpt := c.ComponentGet(k)
-
-		if cpt == nil {
-			continue
-		}
-
-		if err = cpt.Reload(getCpt, c._FuncComponentGetConfig(k)); err != nil {
-			return err
-		}
+	if err := c.cpt.ComponentReload(c._ComponentGetConfig); err != nil {
+		return err
 	}
 
 	if c.fctReloadAfter != nil {
-		if err = c.fctReloadAfter(); err != nil {
+		if err := c.fctReloadAfter(); err != nil {
 			return err
 		}
 	}
@@ -279,8 +244,15 @@ func (c *configModel) ComponentDel(key string) {
 }
 
 func (c *configModel) ComponentSet(key string, cpt Component) {
-	cpt.RegisterContext(c.Context)
-	cpt.RegisterGet(c.ComponentGet)
+	cpt.Init(key, c.Context, c.ComponentGet, func() *spfvpr.Viper {
+		if c.fctGolibViper == nil {
+			return nil
+		} else if vpr := c.fctGolibViper(); vpr == nil {
+			return nil
+		} else {
+			return vpr.Viper()
+		}
+	})
 
 	c.cpt.ComponentSet(key, cpt)
 }
@@ -293,16 +265,16 @@ func (c *configModel) ComponentKeys() []string {
 	return c.cpt.ComponentKeys()
 }
 
-func (c *configModel) ComponentStart(getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error {
-	return c.cpt.ComponentStart(getCpt, getCfg)
+func (c *configModel) ComponentStart(getCfg FuncComponentConfigGet) liberr.Error {
+	return c.cpt.ComponentStart(getCfg)
 }
 
 func (c *configModel) ComponentIsStarted() bool {
 	return c.cpt.ComponentIsStarted()
 }
 
-func (c *configModel) ComponentReload(getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error {
-	return c.cpt.ComponentReload(getCpt, getCfg)
+func (c *configModel) ComponentReload(getCfg FuncComponentConfigGet) liberr.Error {
+	return c.cpt.ComponentReload(getCfg)
 }
 
 func (c *configModel) ComponentStop() {
@@ -315,4 +287,8 @@ func (c *configModel) ComponentIsRunning(atLeast bool) bool {
 
 func (c *configModel) DefaultConfig() io.Reader {
 	return c.cpt.DefaultConfig()
+}
+
+func (c *configModel) RegisterFlag(Command *spfcbr.Command, Viper *spfvpr.Viper) error {
+	return c.cpt.RegisterFlag(Command, Viper)
 }

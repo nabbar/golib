@@ -26,7 +26,19 @@
 
 package tls
 
+import (
+	"bytes"
+	"encoding/json"
+
+	libtls "github.com/nabbar/golib/certificates"
+	libcfg "github.com/nabbar/golib/config"
+	liberr "github.com/nabbar/golib/errors"
+	spfcbr "github.com/spf13/cobra"
+	spfvbr "github.com/spf13/viper"
+)
+
 var _defaultConfig = []byte(`{
+   "inheritDefault": true,
    "versionMin":"1.2",
    "versionMax":"1.2",
    "dynamicSizingDisable":false,
@@ -46,7 +58,15 @@ var _defaultConfig = []byte(`{
       "ECDSA-AES128-GCM",
       "ECDSA-AES128-CBC",
       "ECDSA-AES256-GCM",
-      "ECDSA-CHACHA"
+      "ECDSA-CHACHA",
+      "ECDHE-RSA-AES128-GCM",
+      "ECDHE-RSA-AES128-CBC",
+      "ECDHE-RSA-AES256-GCM",
+      "ECDHE-RSA-CHACHA",
+      "ECDHE-ECDSA-AES128-GCM",
+      "ECDHE-ECDSA-AES128-CBC",
+      "ECDHE-ECDSA-AES256-GCM",
+      "ECDHE-ECDSA-CHACHA"
    ],
    "rootCA":[
       ""
@@ -74,10 +94,37 @@ var _defaultConfig = []byte(`{
    ]
 }`)
 
-func (c *componentTls) DefaultConfig() []byte {
-	return _defaultConfig
-}
-
 func SetDefaultConfig(cfg []byte) {
 	_defaultConfig = cfg
+}
+
+func DefaultConfig(indent string) []byte {
+	var res = bytes.NewBuffer(make([]byte, 0))
+	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+		return _defaultConfig
+	} else {
+		return res.Bytes()
+	}
+}
+
+func (c *componentTls) DefaultConfig(indent string) []byte {
+	return DefaultConfig(indent)
+}
+
+func (c *componentTls) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
+	return nil
+}
+
+func (c *componentTls) _getConfig(getCfg libcfg.FuncComponentConfigGet) (*libtls.Config, liberr.Error) {
+	cfg := libtls.Config{}
+
+	if err := getCfg(c.key, &cfg); err != nil {
+		return nil, ErrorParamsInvalid.Error(err)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, ErrorConfigInvalid.Error(err)
+	}
+
+	return &cfg, nil
 }

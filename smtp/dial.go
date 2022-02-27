@@ -84,15 +84,15 @@ func (s *smtpClient) client(ctx context.Context, addr string, tlsConfig *tls.Con
 		}
 	}()
 
-	if s.cfg.GetTls() == TLS_STARTTLS && tlsConfig == nil {
+	if s.cfg.GetTlsMode() == TLS_STARTTLS && tlsConfig == nil {
 		err = ErrorParamsEmpty.Error(nil)
 		return
-	} else if s.cfg.GetTls() == TLS_TLS && tlsConfig == nil {
+	} else if s.cfg.GetTlsMode() == TLS_TLS && tlsConfig == nil {
 		err = ErrorParamsEmpty.Error(nil)
 		return
 	}
 
-	if s.cfg.GetTls() == TLS_TLS && tlsConfig != nil {
+	if s.cfg.GetTlsMode() == TLS_TLS && tlsConfig != nil {
 		if con, err = s.dialTLS(ctx, addr, tlsConfig); err != nil {
 			return
 		} else if cli, e = smtp.NewClient(con, addr); e != nil {
@@ -109,12 +109,12 @@ func (s *smtpClient) client(ctx context.Context, addr string, tlsConfig *tls.Con
 
 		try := s.checkExtension(cli, "STARTTLS")
 
-		if s.cfg.GetTls() == TLS_STARTTLS || try {
+		if s.cfg.GetTlsMode() == TLS_STARTTLS || try {
 			if e = cli.StartTLS(tlsConfig); e != nil && !try {
 				err = ErrorSMTPClientStartTLS.ErrorParent(e)
 				return
 			} else if e == nil && try {
-				s.cfg.SetTls(TLS_STARTTLS)
+				s.cfg.SetTlsMode(TLS_STARTTLS)
 			}
 		}
 	}
@@ -129,9 +129,9 @@ func (s *smtpClient) tryClient(ctx context.Context, addr string, tlsConfig *tls.
 		return
 	}
 
-	switch s.cfg.GetTls() {
+	switch s.cfg.GetTlsMode() {
 	case TLS_TLS:
-		s.cfg.SetTls(TLS_STARTTLS)
+		s.cfg.SetTlsMode(TLS_STARTTLS)
 		return s.tryClient(ctx, addr, tlsConfig)
 	case TLS_STARTTLS, TLS_NONE:
 		return
