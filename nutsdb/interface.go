@@ -1,3 +1,6 @@
+//go:build !386 && !arm && !mips && !mipsle
+// +build !386,!arm,!mips,!mipsle
+
 /***********************************************************************************************************************
  *
  *   MIT License
@@ -32,11 +35,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	liblog "github.com/nabbar/golib/logger"
-
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
 	libsh "github.com/nabbar/golib/shell"
+	libsts "github.com/nabbar/golib/status"
 )
 
 const LogLib = "NutsDB"
@@ -51,14 +54,15 @@ type NutsDB interface {
 
 	IsRunning() bool
 	IsReady(ctx context.Context) bool
+	IsReadyTimeout(parent context.Context, dur time.Duration) bool
 	WaitReady(ctx context.Context, tick time.Duration)
 
 	GetLogger() liblog.Logger
 	SetLogger(l liblog.FuncLog)
 
-	//StatusInfo() (name string, release string, hash string)
-	//StatusHealth() error
-	//StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
+	StatusInfo() (name string, release string, hash string)
+	StatusHealth() error
+	StatusRouter(sts libsts.RouteStatus, prefix string)
 
 	Cluster() libclu.Cluster
 	Client(ctx context.Context, tickSync time.Duration) Client

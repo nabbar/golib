@@ -35,8 +35,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	spfcbr "github.com/spf13/cobra"
+	spfvpr "github.com/spf13/viper"
+
 	liberr "github.com/nabbar/golib/errors"
 )
+
+const JSONIndent = "  "
 
 type ComponentList interface {
 	// ComponentHas return true if the key is a registered Component
@@ -64,7 +69,7 @@ type ComponentList interface {
 	// ComponentStart trigger the Start function of each Component.
 	// This function will keep the dependencies of each Component.
 	// This function will stop the Start sequence on any error triggered.
-	ComponentStart(getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error
+	ComponentStart(getCfg FuncComponentConfigGet) liberr.Error
 
 	// ComponentIsStarted will trigger the IsStarted function of all registered component.
 	// If any component return false, this func return false.
@@ -73,7 +78,7 @@ type ComponentList interface {
 	// ComponentReload trigger the Reload function of each Component.
 	// This function will keep the dependencies of each Component.
 	// This function will stop the Reload sequence on any error triggered.
-	ComponentReload(getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error
+	ComponentReload(getCfg FuncComponentConfigGet) liberr.Error
 
 	// ComponentStop trigger the Stop function of each Component.
 	// This function will not keep the dependencies of each Component.
@@ -86,6 +91,11 @@ type ComponentList interface {
 	// DefaultConfig aggregates all registered components' default config
 	// Returns a filled buffer with a complete config json model
 	DefaultConfig() io.Reader
+
+	// RegisterFlag can be called to register flag to a spf cobra command and link it with viper
+	// to retrieve it into the config viper.
+	// The key will be use to stay config organisation by compose flag as key.config_key.
+	RegisterFlag(Command *spfcbr.Command, Viper *spfvpr.Viper) error
 }
 
 func newComponentList() ComponentList {
@@ -198,7 +208,7 @@ func (c *componentList) ComponentKeys() []string {
 	return res
 }
 
-func (c *componentList) startOne(key string, getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error {
+func (c *componentList) startOne(key string, getCfg FuncComponentConfigGet) liberr.Error {
 	var cpt Component
 
 	if !c.ComponentHas(key) {
@@ -216,7 +226,7 @@ func (c *componentList) startOne(key string, getCpt FuncComponentGet, getCfg Fun
 
 			for retry := 0; retry < 3; retry++ {
 
-				if err = c.startOne(k, getCpt, getCfg); err == nil {
+				if err = c.startOne(k, getCfg); err == nil {
 					break
 				}
 
@@ -229,7 +239,7 @@ func (c *componentList) startOne(key string, getCpt FuncComponentGet, getCfg Fun
 		}
 	}
 
-	if err := cpt.Start(getCpt, getCfg); err != nil {
+	if err := cpt.Start(getCfg); err != nil {
 		return err
 	} else {
 		c.ComponentSet(key, cpt)
@@ -238,9 +248,9 @@ func (c *componentList) startOne(key string, getCpt FuncComponentGet, getCfg Fun
 	return nil
 }
 
-func (c *componentList) ComponentStart(getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error {
+func (c *componentList) ComponentStart(getCfg FuncComponentConfigGet) liberr.Error {
 	for _, key := range c.ComponentKeys() {
-		if err := c.startOne(key, getCpt, getCfg); err != nil {
+		if err := c.startOne(key, getCfg); err != nil {
 			return err
 		}
 	}
@@ -260,7 +270,7 @@ func (c *componentList) ComponentIsStarted() bool {
 	return true
 }
 
-func (c *componentList) reloadOne(isReload []string, key string, getCpt FuncComponentGet, getCfg FuncComponentConfigGet) ([]string, liberr.Error) {
+func (c *componentList) reloadOne(isReload []string, key string, getCfg FuncComponentConfigGet) ([]string, liberr.Error) {
 	var (
 		err liberr.Error
 		cpt Component
@@ -276,13 +286,13 @@ func (c *componentList) reloadOne(isReload []string, key string, getCpt FuncComp
 
 	if dep := cpt.Dependencies(); len(dep) > 0 {
 		for _, k := range dep {
-			if isReload, err = c.reloadOne(isReload, k, getCpt, getCfg); err != nil {
+			if isReload, err = c.reloadOne(isReload, k, getCfg); err != nil {
 				return isReload, err
 			}
 		}
 	}
 
-	if err = cpt.Reload(getCpt, getCfg); err != nil {
+	if err = cpt.Reload(getCfg); err != nil {
 		return isReload, err
 	} else {
 		c.ComponentSet(key, cpt)
@@ -292,7 +302,7 @@ func (c *componentList) reloadOne(isReload []string, key string, getCpt FuncComp
 	return isReload, nil
 }
 
-func (c *componentList) ComponentReload(getCpt FuncComponentGet, getCfg FuncComponentConfigGet) liberr.Error {
+func (c *componentList) ComponentReload(getCfg FuncComponentConfigGet) liberr.Error {
 	var (
 		err liberr.Error
 		key string
@@ -301,7 +311,7 @@ func (c *componentList) ComponentReload(getCpt FuncComponentGet, getCfg FuncComp
 	)
 
 	for _, key = range c.ComponentKeys() {
-		if isReload, err = c.reloadOne(isReload, key, getCpt, getCfg); err != nil {
+		if isReload, err = c.reloadOne(isReload, key, getCfg); err != nil {
 			return err
 		}
 	}
@@ -347,11 +357,12 @@ func (c *componentList) DefaultConfig() io.Reader {
 	for _, k := range c.ComponentKeys() {
 		if cpt := c.ComponentGet(k); cpt == nil {
 			continue
-		} else if p := cpt.DefaultConfig(); len(p) > 0 {
+		} else if p := cpt.DefaultConfig(JSONIndent); len(p) > 0 {
 			if buffer.Len() > n {
 				buffer.WriteString(",")
+				buffer.WriteString("\n")
 			}
-			buffer.WriteString(fmt.Sprintf("   \"%s\": ", k))
+			buffer.WriteString(fmt.Sprintf("%s\"%s\": ", JSONIndent, k))
 			buffer.Write(p)
 		}
 	}
@@ -360,9 +371,29 @@ func (c *componentList) DefaultConfig() io.Reader {
 	buffer.WriteString("}")
 
 	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, buffer.Bytes(), "", "  "); err != nil {
+	if err := json.Indent(res, buffer.Bytes(), "", JSONIndent); err != nil {
 		return buffer
 	}
 
 	return res
+}
+
+func (c *componentList) RegisterFlag(Command *spfcbr.Command, Viper *spfvpr.Viper) error {
+	var err = ErrorComponentFlagError.Error(nil)
+
+	for _, k := range c.ComponentKeys() {
+		if cpt := c.ComponentGet(k); cpt == nil {
+			continue
+		} else if e := cpt.RegisterFlag(Command, Viper); e != nil {
+			err.AddParent(e)
+		} else {
+			c.ComponentSet(k, cpt)
+		}
+	}
+
+	if err.HasParent() {
+		return err
+	}
+
+	return nil
 }

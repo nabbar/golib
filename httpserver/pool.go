@@ -80,7 +80,7 @@ type PoolServer interface {
 
 	StatusInfo(bindAddress string) (name string, release string, hash string)
 	StatusHealth(bindAddress string) error
-	StatusRoute(prefix string, fctMessage libsts.FctMessage, sts libsts.RouteStatus)
+	StatusRoute(prefix string, sts libsts.RouteStatus)
 }
 
 func NewPool(srv ...Server) PoolServer {
@@ -464,9 +464,9 @@ func (p pool) StatusHealth(bindAddress string) error {
 	return fmt.Errorf("missing server '%s'", bindAddress)
 }
 
-func (p pool) StatusRoute(keyPrefix string, fctMessage libsts.FctMessage, sts libsts.RouteStatus) {
+func (p pool) StatusRoute(keyPrefix string, sts libsts.RouteStatus) {
 	p.MapRun(func(srv Server) {
 		bind := srv.GetBindable()
-		sts.ComponentNew(fmt.Sprintf("%s-%s", keyPrefix, bind), srv.StatusComponent(fctMessage))
+		sts.ComponentNew(fmt.Sprintf("%s-%s", keyPrefix, bind), srv.StatusComponent())
 	})
 }

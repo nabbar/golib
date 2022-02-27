@@ -28,6 +28,7 @@
 package logger
 
 import (
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -225,4 +226,8 @@ func (e *Entry) Log() {
 	}
 
 	ent.Log(e.Level.Logrus())
+
+	if e.Level <= FatalLevel {
+		os.Exit(1)
+	}
 }

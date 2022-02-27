@@ -36,49 +36,48 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nabbar/golib/ioutils"
-
-	"github.com/nats-io/jwt/v2"
-
-	"github.com/go-playground/validator/v10"
+	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
+	libiot "github.com/nabbar/golib/ioutils"
 	liblog "github.com/nabbar/golib/logger"
+	libsts "github.com/nabbar/golib/status"
+	natjwt "github.com/nats-io/jwt/v2"
 	natsrv "github.com/nats-io/nats-server/v2/server"
 )
 
 type Config struct {
-	Server     ConfigSrv       `mapstructure:"server" json:"server" yaml:"server" toml:"server" validate:"dive,required"`
-	Cluster    ConfigCluster   `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive,required"`
-	Gateways   ConfigGateway   `mapstructure:"gateways" json:"gateways" yaml:"gateways" toml:"gateways" validate:"dive,required"`
-	Leaf       ConfigLeaf      `mapstructure:"leaf" json:"leaf" yaml:"leaf" toml:"leaf" validate:"dive,required"`
-	Websockets ConfigWebsocket `mapstructure:"websockets" json:"websockets" yaml:"websockets" toml:"websockets" validate:"dive,required"`
-	MQTT       ConfigMQTT      `mapstructure:"mqtt" json:"mqtt" yaml:"mqtt" toml:"mqtt" validate:"dive,required"`
-	Limits     ConfigLimits    `mapstructure:"limits" json:"limits" yaml:"limits" toml:"limits" validate:"dive,required"`
-	Logs       ConfigLogger    `mapstructure:"logs" json:"logs" yaml:"logs" toml:"logs" validate:"dive,required"`
-	Auth       ConfigAuth      `mapstructure:"auth" json:"auth" yaml:"auth" toml:"auth" validate:"dive,required"`
+	Server     ConfigSrv           `mapstructure:"server" json:"server" yaml:"server" toml:"server" validate:"dive,required"`
+	Cluster    ConfigCluster       `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive,required"`
+	Gateways   ConfigGateway       `mapstructure:"gateways" json:"gateways" yaml:"gateways" toml:"gateways" validate:"dive,required"`
+	Leaf       ConfigLeaf          `mapstructure:"leaf" json:"leaf" yaml:"leaf" toml:"leaf" validate:"dive,required"`
+	Websockets ConfigWebsocket     `mapstructure:"websockets" json:"websockets" yaml:"websockets" toml:"websockets" validate:"dive,required"`
+	MQTT       ConfigMQTT          `mapstructure:"mqtt" json:"mqtt" yaml:"mqtt" toml:"mqtt" validate:"dive,required"`
+	Limits     ConfigLimits        `mapstructure:"limits" json:"limits" yaml:"limits" toml:"limits" validate:"dive,required"`
+	Logs       ConfigLogger        `mapstructure:"logs" json:"logs" yaml:"logs" toml:"logs" validate:"dive,required"`
+	Auth       ConfigAuth          `mapstructure:"auth" json:"auth" yaml:"auth" toml:"auth" validate:"dive,required"`
+	Status     libsts.ConfigStatus `mapstructure:"status" json:"status" yaml:"status" toml:"status" validate:"dive"`
 
 	//function / interface are not defined in config marshall
 	Customs *ConfigCustom `mapstructure:"-" json:"-" yaml:"-" toml:"-"`
 }
 
 func (c Config) Validate() liberr.Error {
-	val := validator.New()
-	err := val.Struct(c)
+	err := ErrorConfigValidation.Error(nil)
 
-	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorConfigValidation.ErrorParent(e)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
 	}
 
-	out := ErrorConfigValidation.Error(nil)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil
@@ -100,7 +99,7 @@ func (c Config) LogConfigJson() liberr.Error {
 		permDirs = c.Logs.PermissionFolderLogFile
 	}
 
-	if e := ioutils.PathCheckCreate(true, c.Logs.LogFile, permFile, permDirs); e != nil {
+	if e := libiot.PathCheckCreate(true, c.Logs.LogFile, permFile, permDirs); e != nil {
 		return ErrorConfigInvalidFilePath.ErrorParent(e)
 	}
 
@@ -246,7 +245,7 @@ func (c ConfigAuth) makeOpt(cfg *natsrv.Options) liberr.Error {
 	}
 
 	if len(c.TrustedOperators) > 0 {
-		cfg.TrustedOperators = make([]*jwt.OperatorClaims, 0)
+		cfg.TrustedOperators = make([]*natjwt.OperatorClaims, 0)
 
 		for _, t := range c.TrustedOperators {
 			if j, e := natsrv.ReadOperatorJWT(t); e != nil {
@@ -303,7 +302,7 @@ func (c ConfigNkey) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.NkeyU
 	}
 
 	if len(c.AllowedConnectionTypes) < 1 {
-		c.AllowedConnectionTypes = []string{jwt.ConnectionTypeStandard}
+		c.AllowedConnectionTypes = []string{natjwt.ConnectionTypeStandard}
 	}
 
 	for _, at := range c.AllowedConnectionTypes {
@@ -311,14 +310,14 @@ func (c ConfigNkey) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.NkeyU
 			continue
 		}
 		switch strings.ToUpper(at) {
-		case jwt.ConnectionTypeStandard:
-			t[jwt.ConnectionTypeStandard] = struct{}{}
-		case jwt.ConnectionTypeWebsocket:
-			t[jwt.ConnectionTypeWebsocket] = struct{}{}
-		case jwt.ConnectionTypeLeafnode:
-			t[jwt.ConnectionTypeLeafnode] = struct{}{}
-		case jwt.ConnectionTypeMqtt:
-			t[jwt.ConnectionTypeMqtt] = struct{}{}
+		case natjwt.ConnectionTypeStandard:
+			t[natjwt.ConnectionTypeStandard] = struct{}{}
+		case natjwt.ConnectionTypeWebsocket:
+			t[natjwt.ConnectionTypeWebsocket] = struct{}{}
+		case natjwt.ConnectionTypeLeafnode:
+			t[natjwt.ConnectionTypeLeafnode] = struct{}{}
+		case natjwt.ConnectionTypeMqtt:
+			t[natjwt.ConnectionTypeMqtt] = struct{}{}
 		default:
 			return nil, ErrorConfigInvalidAllowedConnectionType.ErrorParent(fmt.Errorf("connection type: %s", at))
 		}
@@ -360,7 +359,7 @@ func (c ConfigUser) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.User,
 	}
 
 	if len(c.AllowedConnectionTypes) < 1 {
-		c.AllowedConnectionTypes = []string{jwt.ConnectionTypeStandard}
+		c.AllowedConnectionTypes = []string{natjwt.ConnectionTypeStandard}
 	}
 
 	for _, at := range c.AllowedConnectionTypes {
@@ -368,14 +367,14 @@ func (c ConfigUser) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.User,
 			continue
 		}
 		switch strings.ToUpper(at) {
-		case jwt.ConnectionTypeStandard:
-			t[jwt.ConnectionTypeStandard] = struct{}{}
-		case jwt.ConnectionTypeWebsocket:
-			t[jwt.ConnectionTypeWebsocket] = struct{}{}
-		case jwt.ConnectionTypeLeafnode:
-			t[jwt.ConnectionTypeLeafnode] = struct{}{}
-		case jwt.ConnectionTypeMqtt:
-			t[jwt.ConnectionTypeMqtt] = struct{}{}
+		case natjwt.ConnectionTypeStandard:
+			t[natjwt.ConnectionTypeStandard] = struct{}{}
+		case natjwt.ConnectionTypeWebsocket:
+			t[natjwt.ConnectionTypeWebsocket] = struct{}{}
+		case natjwt.ConnectionTypeLeafnode:
+			t[natjwt.ConnectionTypeLeafnode] = struct{}{}
+		case natjwt.ConnectionTypeMqtt:
+			t[natjwt.ConnectionTypeMqtt] = struct{}{}
 		default:
 			return nil, ErrorConfigInvalidAllowedConnectionType.ErrorParent(fmt.Errorf("connection type: %s", at))
 		}
@@ -499,7 +498,7 @@ func (c ConfigLogger) makeOpt(cfg *natsrv.Options) liberr.Error {
 	}
 
 	if c.LogFile != "" {
-		if e := ioutils.PathCheckCreate(true, c.LogFile, permFile, permDir); e != nil {
+		if e := libiot.PathCheckCreate(true, c.LogFile, permFile, permDir); e != nil {
 			return ErrorConfigInvalidFilePath.ErrorParent(e)
 		}
 		cfg.LogFile = c.LogFile
@@ -711,7 +710,7 @@ func (c ConfigSrv) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) liberr.
 		}
 
 		if c.StoreDir != "" {
-			if e := ioutils.PathCheckCreate(false, c.StoreDir, 0644, perm); e != nil {
+			if e := libiot.PathCheckCreate(false, c.StoreDir, 0644, perm); e != nil {
 				return ErrorConfigInvalidFilePath.ErrorParent(e)
 			}
 
@@ -720,7 +719,7 @@ func (c ConfigSrv) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) liberr.
 	}
 
 	if len(c.Tags) > 0 {
-		l := make(jwt.TagList, 0)
+		l := make(natjwt.TagList, 0)
 
 		for _, t := range c.Tags {
 			if t == "" {

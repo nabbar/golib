@@ -26,11 +26,6 @@
 package mailPooler
 
 import (
-	"context"
-	"errors"
-	"io"
-	"net/smtp"
-
 	liberr "github.com/nabbar/golib/errors"
 	libsmtp "github.com/nabbar/golib/smtp"
 )
@@ -40,11 +35,6 @@ type Pooler interface {
 	NewPooler() Pooler
 
 	libsmtp.SMTP
-}
-
-type pooler struct {
-	s libsmtp.SMTP
-	c Counter
 }
 
 func New(cfg *Config, cli libsmtp.SMTP) Pooler {
@@ -59,68 +49,4 @@ func New(cfg *Config, cli libsmtp.SMTP) Pooler {
 			c: newCounter(cfg.Max, cfg.Wait, cfg._fct),
 		}
 	}
-}
-
-func (p *pooler) Reset() liberr.Error {
-	if p.s == nil {
-		return ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
-	}
-
-	if err := p.c.Reset(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *pooler) NewPooler() Pooler {
-	if p.s == nil {
-		return &pooler{
-			s: nil,
-			c: p.c.Clone(),
-		}
-	} else {
-		return &pooler{
-			s: p.s.Clone(),
-			c: p.c.Clone(),
-		}
-	}
-}
-
-func (p *pooler) Send(ctx context.Context, from string, to []string, data io.WriterTo) liberr.Error {
-	if p.s == nil {
-		return ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
-	}
-
-	if err := p.c.Pool(ctx); err != nil {
-		return err
-	}
-
-	return p.s.Send(ctx, from, to, data)
-}
-
-func (p *pooler) Client(ctx context.Context) (*smtp.Client, liberr.Error) {
-	if p.s == nil {
-		return nil, ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
-	}
-
-	return p.s.Client(ctx)
-}
-
-func (p *pooler) Close() {
-	if p.s != nil {
-		p.s.Close()
-	}
-}
-
-func (p *pooler) Check(ctx context.Context) liberr.Error {
-	if p.s == nil {
-		return ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
-	}
-
-	return p.s.Check(ctx)
-}
-
-func (p *pooler) Clone() libsmtp.SMTP {
-	return p.NewPooler()
 }

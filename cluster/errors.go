@@ -81,9 +81,9 @@ func getMessage(code liberr.CodeError) (message string) {
 	case ErrorLeaderTransfer:
 		return "unable to transfer cluster leader"
 	case ErrorNodeUser:
-		return "unable to retrieve node user"
+		return "unable to retrieve cluster node user"
 	case ErrorNodeHostNew:
-		return "unable to init new NodeHost"
+		return "unable to init new cluster NodeHost"
 	case ErrorNodeHostStart:
 		return "unable to start cluster"
 	case ErrorNodeHostJoin:
@@ -91,25 +91,25 @@ func getMessage(code liberr.CodeError) (message string) {
 	case ErrorNodeHostStop:
 		return "unable to stop cluster or node"
 	case ErrorNodeHostRestart:
-		return "unable to restart node properly"
+		return "unable to restart cluster node properly"
 	case ErrorCommandSync:
-		return "unable to call synchronous command"
+		return "unable to call cluster synchronous command"
 	case ErrorCommandASync:
-		return "unable to call asynchronous command"
+		return "unable to call cluster asynchronous command"
 	case ErrorCommandLocal:
-		return "unable to call local command"
+		return "unable to call cluster local command"
 	case ErrorValidateConfig:
-		return "config seems to be invalid"
+		return "cluster main config seems to be invalid"
 	case ErrorValidateCluster:
 		return "cluster config seems to be invalid"
 	case ErrorValidateNode:
-		return "node config seems to be invalid"
+		return "cluster node config seems to be invalid"
 	case ErrorValidateGossip:
-		return "gossip config seems to be invalid"
+		return "cluster gossip config seems to be invalid"
 	case ErrorValidateExpert:
-		return "expert config seems to be invalid"
+		return "cluster expert config seems to be invalid"
 	case ErrorValidateEngine:
-		return "engine config seems to be invalid"
+		return "cluster engine config seems to be invalid"
 	}
 
 	return ""

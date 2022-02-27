@@ -26,37 +26,25 @@
 
 package http
 
+import (
+	"bytes"
+	"encoding/json"
+
+	libcfg "github.com/nabbar/golib/config"
+	cpttls "github.com/nabbar/golib/config/components/tls"
+	libsts "github.com/nabbar/golib/status"
+	spfcbr "github.com/spf13/cobra"
+	spfvbr "github.com/spf13/viper"
+)
+
 var _defaultConfig = []byte(`[
    {
       "disabled":false,
-      "mandatory":true,
-      "timeout_cache_info":"30s",
-      "timeout_cache_health":"30s",
-      "read_timeout":"0s",
-      "read_header_timeout":"0s",
-      "write_timeout":"0s",
-      "idle_timeout":"0s",
-      "max_header_bytes":0,
-      "max_handlers":0,
-      "max_concurrent_streams":0,
-      "max_read_frame_size":0,
-      "permit_prohibited_cipher_suites":false,
-      "max_upload_buffer_per_connection":0,
-      "max_upload_buffer_per_stream":0,
       "name":"status_http",
       "handler_keys":"status",
-      "tls_mandatory":false,
       "listen":"0.0.0.0:6080",
       "expose":"http://0.0.0.0",
-      "tls":{
-         
-      }
-   },
-   {
-      "disabled":false,
-      "mandatory":true,
-      "timeout_cache_info":"30s",
-      "timeout_cache_health":"30s",
+      "status":` + string(libsts.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `,
       "read_timeout":"0s",
       "read_header_timeout":"0s",
       "write_timeout":"0s",
@@ -68,20 +56,16 @@ var _defaultConfig = []byte(`[
       "permit_prohibited_cipher_suites":false,
       "max_upload_buffer_per_connection":0,
       "max_upload_buffer_per_stream":0,
-      "handler_keys":"api",
       "tls_mandatory":false,
+      "tls": ` + string(cpttls.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `
+   },
+   {
+      "disabled":false,
       "name":"api_http",
+      "handler_keys":"api",
       "listen":"0.0.0.0:7080",
       "expose":"http://0.0.0.0",
-      "tls":{
-         
-      }
-   },
-   {
-      "disabled":false,
-      "mandatory":true,
-      "timeout_cache_info":"30s",
-      "timeout_cache_health":"30s",
+      "status":` + string(libsts.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `,
       "read_timeout":"0s",
       "read_header_timeout":"0s",
       "write_timeout":"0s",
@@ -93,21 +77,49 @@ var _defaultConfig = []byte(`[
       "permit_prohibited_cipher_suites":false,
       "max_upload_buffer_per_connection":0,
       "max_upload_buffer_per_stream":0,
-      "handler_keys":"metrics",
       "tls_mandatory":false,
+      "tls":` + string(cpttls.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `
+   },
+   {
+      "disabled":false,
       "name":"metrics_http",
+      "handler_keys":"metrics",
       "listen":"0.0.0.0:8080",
       "expose":"http://0.0.0.0",
-      "tls":{
-         
-      }
+      "status":` + string(libsts.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `,
+      "read_timeout":"0s",
+      "read_header_timeout":"0s",
+      "write_timeout":"0s",
+      "idle_timeout":"0s",
+      "max_header_bytes":0,
+      "max_handlers":0,
+      "max_concurrent_streams":0,
+      "max_read_frame_size":0,
+      "permit_prohibited_cipher_suites":false,
+      "max_upload_buffer_per_connection":0,
+      "max_upload_buffer_per_stream":0,
+      "tls_mandatory":false,
+      "tls":` + string(cpttls.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `
    }
 ]`)
 
-func (c *componentHttp) DefaultConfig() []byte {
-	return _defaultConfig
-}
-
 func SetDefaultConfig(cfg []byte) {
 	_defaultConfig = cfg
+}
+
+func DefaultConfig(indent string) []byte {
+	var res = bytes.NewBuffer(make([]byte, 0))
+	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+		return _defaultConfig
+	} else {
+		return res.Bytes()
+	}
+}
+
+func (c *componentHttp) DefaultConfig(indent string) []byte {
+	return DefaultConfig(indent)
+}
+
+func (c *componentHttp) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
+	return nil
 }

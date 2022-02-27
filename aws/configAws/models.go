@@ -37,7 +37,7 @@ import (
 	"github.com/nabbar/golib/httpcli"
 )
 
-type configModel struct {
+type Model struct {
 	Region    string `mapstructure:"region" json:"region" yaml:"region" toml:"region" validate:"printascii,required"`
 	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"printascii,required"`
 	SecretKey string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey" toml:"secretkey" validate:"printascii,required"`
@@ -45,27 +45,26 @@ type configModel struct {
 }
 
 type awsModel struct {
-	configModel
+	Model
 	retryer func() sdkaws.Retryer
 }
 
 func (c *awsModel) Validate() errors.Error {
-	val := libval.New()
-	err := val.Struct(c)
+	err := ErrorConfigValidator.Error(nil)
 
-	if e, ok := err.(*libval.InvalidValidationError); ok {
-		return ErrorConfigValidator.ErrorParent(e)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
+		}
 	}
 
-	out := ErrorConfigValidator.Error(nil)
-
-	for _, e := range err.(libval.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil
