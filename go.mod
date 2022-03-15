@@ -26,8 +26,8 @@ require (
 	github.com/mattn/go-colorable v0.1.12
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nats-io/jwt/v2 v2.2.1-0.20220113022732-58e87895b296
-	github.com/nats-io/nats-server/v2 v2.7.3
-	github.com/nats-io/nats.go v1.13.1-0.20220121202836-972a071d373d
+	github.com/nats-io/nats-server/v2 v2.7.4
+	github.com/nats-io/nats.go v1.13.1-0.20220308171302-2f2f6968e98d
 	github.com/onsi/ginkgo/v2 v2.1.3
 	github.com/onsi/gomega v1.18.1
 	github.com/pelletier/go-toml v1.9.4
@@ -61,7 +61,6 @@ require (
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/andybalholm/cascadia v1.3.1 // indirect
-	github.com/aokoli/goutils v1.1.1 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.3.0 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.11.0 // indirect
