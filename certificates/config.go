@@ -29,7 +29,7 @@ package certificates
 import (
 	"fmt"
 
-	valid "github.com/go-playground/validator/v10"
+	libval "github.com/go-playground/validator/v10"
 	liberr "github.com/nabbar/golib/errors"
 )
 
@@ -56,24 +56,24 @@ type Config struct {
 }
 
 func (c *Config) Validate() liberr.Error {
-	var e = ErrorValidatorError.Error(nil)
+	err := ErrorValidatorError.Error(nil)
 
-	if err := valid.New().Struct(c); err != nil {
-		if er, ok := err.(*valid.InvalidValidationError); ok {
-			e.AddParent(er)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
 		}
 
-		for _, err := range err.(valid.ValidationErrors) {
-			//nolint #goerr113
-			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", err.StructNamespace(), err.ActualTag()))
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
 		}
 	}
 
-	if !e.HasParent() {
-		e = nil
+	if err.HasParent() {
+		return err
 	}
 
-	return e
+	return nil
 }
 
 func (c *Config) New() (TLSConfig, liberr.Error) {

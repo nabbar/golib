@@ -43,7 +43,7 @@ type ComponentTlS interface {
 
 func New() ComponentTlS {
 	return &componentTls{
-		tls: nil,
+		t: nil,
 	}
 }
 

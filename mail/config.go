@@ -36,24 +36,53 @@ import (
 )
 
 type Config struct {
-	Charset  string `json:"charset" yaml:"charset" toml:"charset" mapstructure:"charset" validate:"required"`
-	Subject  string `json:"subject" yaml:"subject" toml:"subject" mapstructure:"subject" validate:"required"`
+	// Charset is the charset to use into mail header
+	Charset string `json:"charset" yaml:"charset" toml:"charset" mapstructure:"charset" validate:"required"`
+
+	// Subject is the subject of the mail
+	Subject string `json:"subject" yaml:"subject" toml:"subject" mapstructure:"subject" validate:"required"`
+
+	// Encoding is the encoding mode for contents of mail
 	Encoding string `json:"encoding" yaml:"encoding" toml:"encoding" mapstructure:"encoding" validate:"required"`
+
+	// Priority is priority of the mail
 	Priority string `json:"priority" yaml:"priority" toml:"priority" mapstructure:"priority" validate:"required"`
 
+	// Header is list of header couple like key = value to be added into mail header
 	Headers map[string]string `json:"headers,omitempty" yaml:"headers,omitempty" toml:"headers,omitempty" mapstructure:"headers,omitempty"`
 
-	From       string `json:"from" yaml:"from" toml:"from" mapstructure:"from" validate:"required,email"`
-	Sender     string `json:"sender,omitempty" yaml:"sender,omitempty" toml:"sender,omitempty" mapstructure:"sender,omitempty" validate:"email"`
-	ReplyTo    string `json:"replyTo,omitempty" yaml:"replyTo,omitempty" toml:"replyTo,omitempty" mapstructure:"replyTo,omitempty" validate:"email"`
-	ReturnPath string `json:"returnPath,omitempty" yaml:"returnPath,omitempty" toml:"returnPath,omitempty" mapstructure:"returnPath,omitempty" validate:"email"`
+	// From is the email use for sending the mail.
+	// If Sender is not set, it will be used as sender into.
+	// If ReplyTo is not set, it will be used for the reply email.
+	From string `json:"from" yaml:"from" toml:"from" mapstructure:"from" validate:"required,email"`
 
-	To  []string `json:"to,omitempty" yaml:"to,omitempty" toml:"to,omitempty" mapstructure:"to,omitempty" validate:"email"`
-	Cc  []string `json:"cc,omitempty" yaml:"cc,omitempty" toml:"cc,omitempty" mapstructure:"cc,omitempty" validate:"email"`
-	Bcc []string `json:"bcc,omitempty" yaml:"bcc,omitempty" toml:"bcc,omitempty" mapstructure:"bcc,omitempty" validate:"email"`
+	// Sender is used to specify the email show as sender.
+	// If From is not set, this value will be used as From email.
+	// If ReplyTo is not set, it will be used for the reply email.
+	Sender string `json:"sender,omitempty" yaml:"sender,omitempty" toml:"sender,omitempty" mapstructure:"sender,omitempty" validate:"email"`
 
-	Attach []ConfigFile `json:"attach,omitempty" yaml:"attach,omitempty" toml:"attach,omitempty" mapstructure:"attach,omitempty"`
-	Inline []ConfigFile `json:"inline,omitempty" yaml:"inline,omitempty" toml:"inline,omitempty" mapstructure:"inline,omitempty"`
+	// ReplyTo is used to specify the email to use for reply.
+	// If From is not set, this value will be used as From email.
+	// If Sender is not set, it will be used as sender into.
+	ReplyTo string `json:"replyTo,omitempty" yaml:"replyTo,omitempty" toml:"replyTo,omitempty" mapstructure:"replyTo,omitempty" validate:"email"`
+
+	// ReturnPath allow to specify the return path, usefull is the ip sender is not public to specify the method to contact the mail server
+	ReturnPath string `json:"returnPath,omitempty" yaml:"returnPath,omitempty" toml:"returnPath,omitempty" mapstructure:"returnPath,omitempty"`
+
+	// To is a list of email who the direct recipient of mail.
+	To []string `json:"to,omitempty" yaml:"to,omitempty" toml:"to,omitempty" mapstructure:"to,omitempty" validate:"dive,email"`
+
+	// Cc is a list of email who the copy recipient of mail.
+	Cc []string `json:"cc,omitempty" yaml:"cc,omitempty" toml:"cc,omitempty" mapstructure:"cc,omitempty" validate:"dive,email"`
+
+	// Bcc is a list of email who in copy recipient of mail but not listed in any field of the mail or headers of the mail.
+	Bcc []string `json:"bcc,omitempty" yaml:"bcc,omitempty" toml:"bcc,omitempty" mapstructure:"bcc,omitempty" validate:"dive,email"`
+
+	// Attach define a list of file to be attached to the mail
+	Attach []ConfigFile `json:"attach,omitempty" yaml:"attach,omitempty" toml:"attach,omitempty" mapstructure:"attach,omitempty" validate:"dive"`
+
+	// Inline define a list of file to be attached to the mail, but inline the body of the mail and not as mail attachment
+	Inline []ConfigFile `json:"inline,omitempty" yaml:"inline,omitempty" toml:"inline,omitempty" mapstructure:"inline,omitempty" validate:"dive"`
 }
 
 type ConfigFile struct {
@@ -63,22 +92,21 @@ type ConfigFile struct {
 }
 
 func (c Config) Validate() liberr.Error {
-	val := libval.New()
-	err := val.Struct(c)
+	err := ErrorMailConfigInvalid.Error(nil)
 
-	if e, ok := err.(*libval.InvalidValidationError); ok {
-		return ErrorMailConfigInvalid.ErrorParent(e)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
 	}
 
-	out := ErrorMailConfigInvalid.Error(nil)
-
-	for _, e := range err.(libval.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil

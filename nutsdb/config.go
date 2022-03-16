@@ -1,3 +1,6 @@
+//go:build !386 && !arm && !mips && !mipsle
+// +build !386,!arm,!mips,!mipsle
+
 /***********************************************************************************************************************
  *
  *   MIT License
@@ -30,16 +33,18 @@ package nutsdb
 import (
 	"fmt"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/nabbar/golib/cluster"
+	libval "github.com/go-playground/validator/v10"
+	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
 	"github.com/xujiajun/nutsdb"
 )
 
 type Config struct {
-	DB        NutsDBOptions  `mapstructure:"db" json:"db" yaml:"db" toml:"db" validate:"dive,required"`
-	Cluster   cluster.Config `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive,required"`
-	Directory NutsDBFolder   `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" validate:"dive,required"`
+	DB        NutsDBOptions       `mapstructure:"db" json:"db" yaml:"db" toml:"db" validate:"dive"`
+	Cluster   libclu.Config       `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive"`
+	Directory NutsDBFolder        `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" validate:"dive"`
+	Status    libsts.ConfigStatus `mapstructure:"status" json:"status" yaml:"status" toml:"status" validate:"dive"`
 }
 
 func (c Config) GetConfigFolder() NutsDBFolder {
@@ -54,7 +59,7 @@ func (c Config) GetConfigDB() (nutsdb.Options, liberr.Error) {
 	}
 }
 
-func (c Config) GetConfigCluster() (cluster.Config, liberr.Error) {
+func (c Config) GetConfigCluster() (libclu.Config, liberr.Error) {
 	cfg := c.Cluster
 
 	if dir, err := c.Directory.GetDirectoryWal(); err != nil {
@@ -77,22 +82,21 @@ func (c Config) GetOptions() (Options, liberr.Error) {
 }
 
 func (c Config) Validate() liberr.Error {
-	val := validator.New()
-	err := val.Struct(c)
+	err := ErrorValidateConfig.Error(nil)
 
-	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorValidateConfig.ErrorParent(e)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
 	}
 
-	out := ErrorValidateConfig.Error(nil)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil

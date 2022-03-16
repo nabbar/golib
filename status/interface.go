@@ -35,8 +35,8 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
-const statusOK = "OK"
-const statusKO = "KO"
+const DefMessageOK = "OK"
+const DefMessageKO = "KO"
 
 type Response struct {
 	InfoResponse
@@ -52,7 +52,7 @@ func (r Response) IsOk() bool {
 	}
 
 	for _, c := range r.Components {
-		if c.Status != statusOK {
+		if c.Status != DefMessageOK {
 			return false
 		}
 	}
@@ -70,7 +70,7 @@ func (r Response) IsOkMandatory() bool {
 			continue
 		}
 
-		if c.Status != statusOK {
+		if c.Status != DefMessageOK {
 			return false
 		}
 	}

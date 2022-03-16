@@ -30,6 +30,7 @@ package nats
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,6 +38,7 @@ import (
 
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
 	natsrv "github.com/nats-io/nats-server/v2/server"
 	natcli "github.com/nats-io/nats.go"
 )
@@ -56,18 +58,19 @@ type Server interface {
 
 	IsRunning() bool
 	IsReady() bool
+	IsReadyTimeout(parent context.Context, dur time.Duration) bool
 	WaitReady(ctx context.Context, tick time.Duration)
 
 	ClientAdvertise(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
 	ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
 	ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
 
-	//StatusInfo() (name string, release string, hash string)
-	//StatusHealth() error
-	//StatusRoute(prefix string, fctMessage status.FctMessage, sts status.RouteStatus)
+	StatusInfo() (name string, release string, hash string)
+	StatusHealth() error
+	StatusRouter(sts libsts.RouteStatus, prefix string)
 }
 
-func NewServer(opt *natsrv.Options) Server {
+func NewServer(opt *natsrv.Options, sts libsts.ConfigStatus) Server {
 	o := new(atomic.Value)
 
 	if opt != nil {
@@ -75,6 +78,7 @@ func NewServer(opt *natsrv.Options) Server {
 	}
 
 	return &server{
+		c: &sts,
 		o: o,
 		s: nil,
 		r: new(atomic.Value),
@@ -82,42 +86,12 @@ func NewServer(opt *natsrv.Options) Server {
 }
 
 type server struct {
+	c *libsts.ConfigStatus
 	o *atomic.Value
 	s *atomic.Value
 	r *atomic.Value
+	e liberr.Error
 	m sync.Mutex
-}
-
-func (s *server) getServer() *natsrv.Server {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	if s == nil {
-		return nil
-	} else if s.s == nil {
-		s.s = new(atomic.Value)
-	}
-
-	if i := s.s.Load(); i == nil {
-		return nil
-	} else if o, ok := i.(*natsrv.Server); ok {
-		return o
-	} else {
-		return nil
-	}
-}
-
-func (s *server) setServer(srv *natsrv.Server) {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	if s == nil {
-		return
-	} else if s.s == nil {
-		s.s = new(atomic.Value)
-	}
-
-	s.s.Store(srv)
 }
 
 func (s *server) Listen(ctx context.Context) liberr.Error {
@@ -131,14 +105,17 @@ func (s *server) Listen(ctx context.Context) liberr.Error {
 	)
 
 	if o, e = natsrv.NewServer(s.GetOptions()); e != nil {
-		return ErrorServerStart.ErrorParent(e)
+		err := ErrorServerStart.ErrorParent(e)
+		s._SetError(err)
+		return err
 	}
 
+	s._SetError(nil)
 	o.ConfigureLogger()
 	o.Start()
 
-	s.setServer(o)
-	s.setRunning(true)
+	s._SetServer(o)
+	s._SetRunning(true)
 
 	//be sure process is launch before trying to check server ready
 	time.Sleep(200 * time.Millisecond)
@@ -152,11 +129,11 @@ func (s *server) Restart(ctx context.Context) liberr.Error {
 }
 
 func (s *server) Shutdown() {
-	if o := s.getServer(); o != nil {
+	if o := s._GetServer(); o != nil {
 		o.Shutdown()
 	}
 
-	s.setRunning(false)
+	s._SetRunning(false)
 }
 
 func (s *server) GetOptions() *natsrv.Options {
@@ -198,17 +175,21 @@ func (s *server) IsRunning() bool {
 	}
 }
 
-func (s *server) setRunning(run bool) {
-	if s.r == nil {
-		s.r = new(atomic.Value)
+func (s *server) IsReady() bool {
+	if o := s._GetServer(); o != nil {
+		return o.ReadyForConnections(DefaultWaitReady)
 	}
 
-	s.r.Store(run)
+	return false
 }
 
-func (s *server) IsReady() bool {
-	if o := s.getServer(); o != nil {
-		return o.ReadyForConnections(DefaultWaitReady)
+func (s *server) IsReadyTimeout(parent context.Context, dur time.Duration) bool {
+	ctx, cnl := context.WithTimeout(parent, dur)
+	defer cnl()
+
+	s.WaitReady(ctx, 0)
+	if s.IsRunning() && s.IsReady() {
+		return true
 	}
 
 	return false
@@ -220,7 +201,7 @@ func (s *server) WaitReady(ctx context.Context, tick time.Duration) {
 	}
 
 	for {
-		if s.IsReady() {
+		if s.IsRunning() && s.IsReady() {
 			return
 		}
 
@@ -234,7 +215,7 @@ func (s *server) WaitReady(ctx context.Context, tick time.Duration) {
 
 func (s *server) ClientAdvertise(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
 	if o := s.GetOptions(); o != nil && o.ClientAdvertise != "" {
-		opt.Url = s.formatAddress(o.ClientAdvertise)
+		opt.Url = s._FormatAddress(o.ClientAdvertise)
 	} else {
 		return nil, ErrorConfigValidation.Error(nil)
 	}
@@ -245,9 +226,9 @@ func (s *server) ClientAdvertise(ctx context.Context, tick time.Duration, defTls
 func (s *server) ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
 	s.WaitReady(ctx, tick)
 
-	if srv := s.getServer(); srv != nil {
+	if srv := s._GetServer(); srv != nil {
 		if cAddr := srv.ClusterAddr(); cAddr != nil && cAddr.String() != "" {
-			opt.Url = s.formatAddress(cAddr.String())
+			opt.Url = s._FormatAddress(cAddr.String())
 		} else {
 			return nil, ErrorConfigValidation.Error(nil)
 		}
@@ -265,11 +246,11 @@ func (s *server) ClientServer(ctx context.Context, tick time.Duration, defTls li
 
 	s.WaitReady(ctx, tick)
 
-	if srv := s.getServer(); srv != nil {
+	if srv := s._GetServer(); srv != nil {
 		if sAddr := srv.Addr(); sAddr != nil && sAddr.String() != "" {
-			opt.Url = s.formatAddress(sAddr.String())
+			opt.Url = s._FormatAddress(sAddr.String())
 		} else if o.Host != "" && o.Port > 0 {
-			opt.Url = s.formatAddress(fmt.Sprintf("%s:%d", o.Host, o.Port))
+			opt.Url = s._FormatAddress(fmt.Sprintf("%s:%d", o.Host, o.Port))
 		} else {
 			return nil, ErrorConfigValidation.Error(nil)
 		}
@@ -278,7 +259,103 @@ func (s *server) ClientServer(ctx context.Context, tick time.Duration, defTls li
 	return opt.NewClient(defTls)
 }
 
-func (s *server) formatAddress(addr string) string {
+func (s *server) StatusInfo() (name string, release string, hash string) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	hash = ""
+	release = strings.TrimLeft(strings.ToLower(runtime.Version()), "go")
+	name = fmt.Sprintf("Nats %d (%s)", s.GetOptions().Host, s.GetOptions().ClientAdvertise)
+
+	return name, release, hash
+}
+
+func (s *server) StatusHealth() error {
+	for i := 0; i < 5; i++ {
+		if s.IsRunning() {
+			if s.IsReadyTimeout(context.Background(), time.Second) {
+				return nil
+			}
+		}
+
+		time.Sleep(time.Second)
+	}
+
+	if e := s._GetError(); e != nil {
+		return e
+	}
+
+	return fmt.Errorf("node not ready")
+}
+
+func (s *server) StatusRouter(sts libsts.RouteStatus, prefix string) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if prefix != "" {
+		prefix = fmt.Sprintf("%s Nats %d (%s)", prefix, s.GetOptions().Host, s.GetOptions().ClientAdvertise)
+	} else {
+		prefix = fmt.Sprintf("Nats %d (%s)", s.GetOptions().Host, s.GetOptions().ClientAdvertise)
+	}
+
+	s.c.RegisterStatus(sts, prefix, s.StatusInfo, s.StatusHealth)
+}
+
+func (s *server) _GetServer() *natsrv.Server {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if s == nil {
+		return nil
+	} else if s.s == nil {
+		s.s = new(atomic.Value)
+	}
+
+	if i := s.s.Load(); i == nil {
+		return nil
+	} else if o, ok := i.(*natsrv.Server); ok {
+		return o
+	} else {
+		return nil
+	}
+}
+
+func (s *server) _SetServer(srv *natsrv.Server) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if s == nil {
+		return
+	} else if s.s == nil {
+		s.s = new(atomic.Value)
+	}
+
+	s.s.Store(srv)
+}
+
+func (s *server) _GetError() liberr.Error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	return s.e
+}
+
+func (s *server) _SetError(err liberr.Error) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	s.e = err
+}
+
+func (s *server) _SetRunning(run bool) {
+	if s.r == nil {
+		s.r = new(atomic.Value)
+	}
+
+	s.r.Store(run)
+}
+
+func (s *server) _FormatAddress(addr string) string {
 	if addr == "" {
 		return ""
 	}
@@ -286,7 +363,7 @@ func (s *server) formatAddress(addr string) string {
 	if strings.Contains(addr, ",") {
 		var b = make([]string, 0)
 		for _, a := range strings.Split(addr, ",") {
-			b = append(b, s.formatAddress(a))
+			b = append(b, s._FormatAddress(a))
 		}
 		return strings.Join(b, ",")
 	}

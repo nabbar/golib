@@ -30,6 +30,7 @@ import "github.com/nabbar/golib/errors"
 
 const (
 	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgSMTP
+	ErrorConfigValidator
 	ErrorConfigInvalidDSN
 	ErrorConfigInvalidNetwork
 	ErrorConfigInvalidParams
@@ -63,6 +64,8 @@ func getMessage(code errors.CodeError) (message string) {
 		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
+	case ErrorConfigValidator:
+		return "invalid config, validation error"
 	case ErrorConfigInvalidDSN:
 		return "invalid DSN: did you forget to escape a param value"
 	case ErrorConfigInvalidNetwork:

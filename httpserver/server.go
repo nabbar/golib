@@ -72,7 +72,7 @@ type Server interface {
 
 	StatusInfo() (name string, release string, hash string)
 	StatusHealth() error
-	StatusComponent(message libsts.FctMessage) libsts.Component
+	StatusComponent() libsts.Component
 }
 
 func NewServer(cfg *ServerConfig) Server {
@@ -251,6 +251,17 @@ func (s *server) StatusHealth() error {
 	}
 }
 
-func (s *server) StatusComponent(message libsts.FctMessage) libsts.Component {
-	return libsts.NewComponent(s.GetConfig().Mandatory, s.StatusInfo, s.StatusHealth, message, s.GetConfig().TimeoutCacheInfo, s.GetConfig().TimeoutCacheHealth)
+func (s *server) StatusComponent() libsts.Component {
+	if cfg := s.GetConfig(); cfg == nil {
+		cnf := libsts.ConfigStatus{
+			Mandatory:          true,
+			MessageOK:          "",
+			MessageKO:          "",
+			CacheTimeoutInfo:   30 * time.Second,
+			CacheTimeoutHealth: 5 * time.Second,
+		}
+		return cnf.Component(s.StatusInfo, s.StatusHealth)
+	} else {
+		return cfg.Status.Component(s.StatusInfo, s.StatusHealth)
+	}
 }

@@ -29,6 +29,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"sync"
 
 	libtls "github.com/nabbar/golib/certificates"
 	libcfg "github.com/nabbar/golib/config"
@@ -42,10 +43,15 @@ import (
 type componentHttp struct {
 	ctx libcfg.FuncContext
 	get libcfg.FuncComponentGet
+	vpr libcfg.FuncComponentViper
+	key string
+
 	fsa func() liberr.Error
 	fsb func() liberr.Error
 	fra func() liberr.Error
 	frb func() liberr.Error
+
+	m sync.Mutex
 
 	tls string
 	log string
@@ -64,40 +70,12 @@ func (c *componentHttp) _CheckInit() bool {
 	return c != nil && c._CheckDep() && c.pool != nil
 }
 
-func (c *componentHttp) Type() string {
-	return ComponentType
-}
-
-func (c *componentHttp) RegisterContext(fct libcfg.FuncContext) {
-	c.ctx = fct
-}
-
-func (c *componentHttp) RegisterGet(fct libcfg.FuncComponentGet) {
-	c.get = fct
-}
-
-func (c *componentHttp) RegisterFuncStartBefore(fct func() liberr.Error) {
-	c.fsb = fct
-}
-
-func (c *componentHttp) RegisterFuncStartAfter(fct func() liberr.Error) {
-	c.fsa = fct
-}
-
-func (c *componentHttp) RegisterFuncReloadBefore(fct func() liberr.Error) {
-	c.frb = fct
-}
-
-func (c *componentHttp) RegisterFuncReloadAfter(fct func() liberr.Error) {
-	c.fra = fct
-}
-
-func (c *componentHttp) getTLS(getCpt libcfg.FuncComponentGet) (libtls.TLSConfig, liberr.Error) {
+func (c *componentHttp) _GetTLS() (libtls.TLSConfig, liberr.Error) {
 	if !c._CheckDep() {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	}
 
-	if i := cpttls.Load(getCpt, c.tls); i == nil {
+	if i := cpttls.Load(c.get, c.tls); i == nil {
 		return nil, ErrorDependencyTLSDefault.Error(nil)
 	} else if tls := i.GetTLS(); tls == nil {
 		return nil, ErrorDependencyTLSDefault.Error(nil)
@@ -106,12 +84,12 @@ func (c *componentHttp) getTLS(getCpt libcfg.FuncComponentGet) (libtls.TLSConfig
 	}
 }
 
-func (c *componentHttp) getLogger(getCpt libcfg.FuncComponentGet) (liblog.Logger, liberr.Error) {
+func (c *componentHttp) _GetLogger() (liblog.Logger, liberr.Error) {
 	if !c._CheckDep() {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	}
 
-	if i := cptlog.Load(getCpt, c.log); i == nil {
+	if i := cptlog.Load(c.get, c.log); i == nil {
 		return nil, ErrorDependencyLogDefault.Error(nil)
 	} else if log := i.Log(); log == nil {
 		return nil, ErrorDependencyLogDefault.Error(nil)
@@ -120,18 +98,18 @@ func (c *componentHttp) getLogger(getCpt libcfg.FuncComponentGet) (liblog.Logger
 	}
 }
 
-func (c *componentHttp) _getPoolServerConfig(getCpt libcfg.FuncComponentGet, getCfg libcfg.FuncComponentConfigGet) (libhts.PoolServerConfig, liberr.Error) {
+func (c *componentHttp) _getPoolServerConfig(getCfg libcfg.FuncComponentConfigGet) (libhts.PoolServerConfig, liberr.Error) {
 	cnf := make(libhts.PoolServerConfig, 0)
 
 	if !c._CheckDep() {
 		return cnf, ErrorComponentNotInitialized.Error(nil)
 	}
 
-	if err := getCfg(&cnf); err != nil {
+	if err := getCfg(c.key, &cnf); err != nil {
 		return cnf, ErrorParamsInvalid.Error(err)
 	}
 
-	if tls, err := c.getTLS(getCpt); err != nil {
+	if tls, err := c._GetTLS(); err != nil {
 		return cnf, err
 	} else {
 		cnf.MapUpdate(func(sCFG libhts.ServerConfig) libhts.ServerConfig {
@@ -153,30 +131,45 @@ func (c *componentHttp) _getPoolServerConfig(getCpt libcfg.FuncComponentGet, get
 	return cnf, nil
 }
 
-func (c *componentHttp) Start(getCpt libcfg.FuncComponentGet, getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+func (c *componentHttp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
 	var (
 		err liberr.Error
 		cnf libhts.PoolServerConfig
+
+		isReload = c.IsStarted()
 	)
 
-	if c.fsb != nil {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if !isReload && c.fsb != nil {
 		if err = c.fsb(); err != nil {
+			return err
+		}
+	} else if isReload && c.frb != nil {
+		if err = c.frb(); err != nil {
 			return err
 		}
 	}
 
-	if cnf, err = c._getPoolServerConfig(getCpt, getCfg); err != nil {
+	if cnf, err = c._getPoolServerConfig(getCfg); err != nil {
 		return err
 	}
 
-	if p, e := cnf.PoolServer(); e != nil {
-		return ErrorStartPoolServer.Error(e)
+	if c.pool != nil {
+		if p, e := cnf.UpdatePoolServer(c.pool); e != nil {
+			return ErrorReloadComponent.Error(e)
+		} else {
+			c.pool = p
+		}
+	} else if p, e := cnf.PoolServer(); e != nil {
+		return ErrorReloadComponent.Error(e)
 	} else {
 		c.pool = p
 	}
 
 	c.pool.SetLogger(func() liblog.Logger {
-		if log, err := c.getLogger(getCpt); err != nil {
+		if log, err := c._GetLogger(); err != nil {
 			return liblog.GetDefault()
 		} else {
 			return log
@@ -184,57 +177,14 @@ func (c *componentHttp) Start(getCpt libcfg.FuncComponentGet, getCfg libcfg.Func
 	})
 
 	if err = c.pool.ListenMultiHandler(c.hand); err != nil {
-		return ErrorStartPoolServer.Error(err)
+		return ErrorStartComponent.Error(err)
 	}
 
-	if c.fsa != nil {
+	if !isReload && c.fsa != nil {
 		if err = c.fsa(); err != nil {
 			return err
 		}
-	}
-
-	return nil
-}
-
-func (c *componentHttp) Reload(getCpt libcfg.FuncComponentGet, getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	var (
-		err liberr.Error
-		cnf libhts.PoolServerConfig
-	)
-
-	if c.frb != nil {
-		if err = c.frb(); err != nil {
-			return err
-		}
-	}
-
-	if cnf, err = c._getPoolServerConfig(getCpt, getCfg); err != nil {
-		return err
-	}
-
-	if c.pool != nil {
-		if p, e := cnf.UpdatePoolServer(c.pool); e != nil {
-			return ErrorReloadPoolServer.Error(e)
-		} else {
-			c.pool = p
-		}
-	} else if p, e := cnf.PoolServer(); e != nil {
-		return ErrorReloadPoolServer.Error(e)
-	} else {
-		c.pool = p
-	}
-
-	c.pool.SetLogger(func() liblog.Logger {
-		if log, err := c.getLogger(getCpt); err != nil {
-			return liblog.GetDefault()
-		} else {
-			return log
-		}
-	})
-
-	c.pool.Restart()
-
-	if c.fra != nil {
+	} else if isReload && c.fra != nil {
 		if err = c.fra(); err != nil {
 			return err
 		}
@@ -243,64 +193,109 @@ func (c *componentHttp) Reload(getCpt libcfg.FuncComponentGet, getCfg libcfg.Fun
 	return nil
 }
 
-func (c *componentHttp) Stop() {
-	c.run = false
+func (c *componentHttp) Type() string {
+	return ComponentType
+}
 
-	if !c._CheckInit() {
-		return
-	}
+func (c *componentHttp) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+	c.m.Lock()
+	defer c.m.Unlock()
 
-	c.pool.Shutdown()
+	c.key = key
+	c.ctx = ctx
+	c.get = get
+	c.vpr = vpr
+}
+
+func (c *componentHttp) RegisterFuncStart(before, after func() liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.fsb = before
+	c.fsa = after
+}
+
+func (c *componentHttp) RegisterFuncReload(before, after func() liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.frb = before
+	c.fra = after
 }
 
 func (c *componentHttp) IsStarted() bool {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return c._CheckInit() && c.pool.IsRunning(true)
 }
 
 func (c *componentHttp) IsRunning(atLeast bool) bool {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return c._CheckInit() && c.pool.IsRunning(atLeast)
 }
 
+func (c *componentHttp) Start(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	return c._run(getCfg)
+}
+
+func (c *componentHttp) Reload(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	return c._run(getCfg)
+}
+
+func (c *componentHttp) Stop() {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if c._CheckInit() {
+		c.pool.Shutdown()
+	}
+}
+
 func (c *componentHttp) Dependencies() []string {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if !c._CheckDep() {
+		return []string{cpttls.ComponentType, cptlog.ComponentType}
+	}
+
 	return []string{c.tls, c.log}
 }
 
 func (c *componentHttp) SetTLSKey(tlsKey string) {
-	if c == nil {
-		return
-	}
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	c.tls = tlsKey
 }
 
 func (c *componentHttp) SetLOGKey(logKey string) {
-	if c == nil {
-		return
-	}
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	c.log = logKey
 }
 
 func (c *componentHttp) SetHandler(handler map[string]http.Handler) {
-	if c == nil {
-		return
-	}
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	c.hand = handler
 }
 
 func (c *componentHttp) GetPool() libhts.PoolServer {
-	if c == nil || c.pool == nil {
-		return nil
-	}
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	return c.pool
 }
 
 func (c *componentHttp) SetPool(pool libhts.PoolServer) {
-	if c == nil {
-		return
-	}
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	c.pool = pool
 }

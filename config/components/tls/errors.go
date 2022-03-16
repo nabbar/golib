@@ -34,10 +34,10 @@ import (
 const (
 	ErrorParamsEmpty liberr.CodeError = iota + libcfg.MinErrorComponentTls
 	ErrorParamsInvalid
-	ErrorConfigInvalid
 	ErrorComponentNotInitialized
-	ErrorStartTLS
-	ErrorReloadTLS
+	ErrorConfigInvalid
+	ErrorComponentStart
+	ErrorComponentReload
 )
 
 func init() {
@@ -57,14 +57,14 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "at least one given parameters is empty"
 	case ErrorParamsInvalid:
 		return "at least one given parameters is invalid"
-	case ErrorConfigInvalid:
-		return "server invalid config"
 	case ErrorComponentNotInitialized:
 		return "this component seems to not be correctly initialized"
-	case ErrorStartTLS:
-		return "cannot create new TLS Config"
-	case ErrorReloadTLS:
-		return "cannot update TLS Config"
+	case ErrorConfigInvalid:
+		return "server invalid config"
+	case ErrorComponentStart:
+		return "cannot open database connection with config"
+	case ErrorComponentReload:
+		return "cannot update database connection with new config"
 	}
 
 	return ""

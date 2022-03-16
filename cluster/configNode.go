@@ -33,7 +33,7 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/go-playground/validator/v10"
+	libval "github.com/go-playground/validator/v10"
 	dgbcfg "github.com/lni/dragonboat/v3/config"
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -59,10 +59,10 @@ type ConfigNode struct {
 	// recommended to use low latency storage such as NVME SSD with power loss
 	// protection to store such WAL data. Leave WALDir to have zero value will
 	// have everything stored in NodeHostDir.
-	WALDir string `mapstructure:"wal_dir" json:"wal_dir" yaml:"wal_dir" toml:"wal_dir" validate:"printascii"`
+	WALDir string `mapstructure:"wal_dir" json:"wal_dir" yaml:"wal_dir" toml:"wal_dir" validate:"omitempty,printascii"`
 
 	// NodeHostDir is where everything else is stored.
-	NodeHostDir string `mapstructure:"node_host_dir" json:"node_host_dir" yaml:"node_host_dir" toml:"node_host_dir" validate:"printascii"`
+	NodeHostDir string `mapstructure:"node_host_dir" json:"node_host_dir" yaml:"node_host_dir" toml:"node_host_dir" validate:"omitempty,printascii"`
 
 	//nolint #godox
 	// RTTMillisecond defines the average Rround Trip Time (RTT) in milliseconds
@@ -91,7 +91,7 @@ type ConfigNode struct {
 	// By default, the RaftAddress value is not allowed to change between NodeHost
 	// restarts. AddressByNodeHostID should be set to true when the RaftAddress
 	// value might change after restart.
-	RaftAddress string `mapstructure:"raft_address" json:"raft_address" yaml:"raft_address" toml:"raft_address" validate:"printascii"`
+	RaftAddress string `mapstructure:"raft_address" json:"raft_address" yaml:"raft_address" toml:"raft_address" validate:"omitempty,printascii"`
 
 	//nolint #godox
 	// AddressByNodeHostID indicates that NodeHost instances should be addressed
@@ -118,7 +118,7 @@ type ConfigNode struct {
 	// ListenAddress, Dragonboat listens to the specified port on all network
 	// interfaces. When hostname or domain name is used, it will be resolved to
 	// IPv4 addresses first and Dragonboat listens to all resolved IPv4 addresses.
-	ListenAddress string `mapstructure:"listen_address" json:"listen_address" yaml:"listen_address" toml:"listen_address" validate:"hostname_port"`
+	ListenAddress string `mapstructure:"listen_address" json:"listen_address" yaml:"listen_address" toml:"listen_address" validate:"omitempty,hostname_port"`
 
 	// MutualTLS defines whether to use mutual TLS for authenticating servers
 	// and clients. Insecure communication is used when MutualTLS is set to
@@ -254,14 +254,14 @@ type ConfigNode struct {
 	// points the local gossip service will try to talk to. The Seed field doesn't
 	// need to include all gossip end points, a few well connected nodes in the
 	// gossip network is enough.
-	Gossip ConfigGossip `mapstructure:"gossip" json:"gossip" yaml:"gossip" toml:"gossip" validate:"dive,required"`
+	Gossip ConfigGossip `mapstructure:"gossip" json:"gossip" yaml:"gossip" toml:"gossip" validate:"omitempty,dive"`
 
 	// Expert contains options for expert users who are familiar with the internals
 	// of Dragonboat. Users are recommended not to use this field unless
 	// absoloutely necessary. It is important to note that any change to this field
 	// may cause an existing instance unable to restart, it may also cause negative
 	// performance impacts.
-	Expert ConfigExpert `mapstructure:"expert" json:"expert" yaml:"expert" toml:"expert" validate:"dive,required"`
+	Expert ConfigExpert `mapstructure:"expert" json:"expert" yaml:"expert" toml:"expert" validate:"omitempty,dive"`
 }
 
 func (c ConfigNode) GetDGBConfigNodeHost() dgbcfg.NodeHostConfig {
@@ -318,22 +318,21 @@ func (c ConfigNode) GetDGBConfigNodeHost() dgbcfg.NodeHostConfig {
 }
 
 func (c ConfigNode) Validate() liberr.Error {
-	val := validator.New()
-	err := val.Struct(c)
+	err := ErrorValidateConfig.Error(nil)
 
-	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorValidateNode.ErrorParent(e)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
 	}
 
-	out := ErrorValidateNode.Error(nil)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil

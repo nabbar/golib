@@ -32,14 +32,23 @@ const (
 	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgConfig
 	ErrorConfigMissingViper
 	ErrorComponentNotFound
+	ErrorComponentFlagError
 	ErrorComponentConfigNotFound
 	ErrorComponentConfigError
+	ErrorComponentStart
+	ErrorComponentReload
 )
 
 const (
-	MinErrorComponentHttp = ErrorParamsEmpty + 10
-	MinErrorComponentLog  = MinErrorComponentHttp + 10
-	MinErrorComponentTls  = MinErrorComponentLog + 10
+	MinErrorComponentAws      = ErrorParamsEmpty + 10
+	MinErrorComponentDatabase = MinErrorComponentAws + 10
+	MinErrorComponentHttp     = MinErrorComponentDatabase + 10
+	MinErrorComponentLog      = MinErrorComponentHttp + 10
+	MinErrorComponentMail     = MinErrorComponentLog + 10
+	MinErrorComponentNats     = MinErrorComponentMail + 10
+	MinErrorComponentNutsDB   = MinErrorComponentNats + 10
+	MinErrorComponentSmtp     = MinErrorComponentNutsDB + 10
+	MinErrorComponentTls      = MinErrorComponentSmtp + 10
 )
 
 var isCodeError = false
@@ -63,10 +72,16 @@ func getMessage(code errors.CodeError) (message string) {
 		return "missing valid viper function"
 	case ErrorComponentNotFound:
 		return "component is not found"
+	case ErrorComponentFlagError:
+		return "component register flag occurs at least an error"
 	case ErrorComponentConfigNotFound:
 		return "config keys for component is not found"
 	case ErrorComponentConfigError:
-		return "config for component is trigger an error"
+		return "config for component has occurs an error"
+	case ErrorComponentStart:
+		return "cannot start at least one component"
+	case ErrorComponentReload:
+		return "cannot reload at least one component"
 	}
 
 	return ""

@@ -120,7 +120,7 @@ func (r *rtrStatus) Get(x *gin.Context) {
 			Mandatory: true,
 		},
 		StatusResponse: StatusResponse{
-			Status:  statusOK,
+			Status:  DefMessageOK,
 			Message: r.mOK,
 		},
 		Components: make([]CptResponse, 0),
@@ -157,19 +157,19 @@ func (r *rtrStatus) Get(x *gin.Context) {
 
 	if liblog.ErrorLevel.LogGinErrorCtx(liblog.DebugLevel, "waiting all thread to collect data component ", err, x) {
 		rsp.Message = r.mKO
-		rsp.Status = statusKO
+		rsp.Status = DefMessageKO
 		x.AbortWithStatusJSON(r.cKO, rsp)
 	} else if !rsp.IsOkMandatory() {
 		rsp.Message = r.mKO
-		rsp.Status = statusKO
+		rsp.Status = DefMessageKO
 		x.AbortWithStatusJSON(r.cKO, rsp)
 	} else if !rsp.IsOk() {
 		rsp.Message = r.mWM
-		rsp.Status = statusOK
+		rsp.Status = DefMessageOK
 		x.JSON(r.cWM, rsp)
 	} else {
 		rsp.Message = r.mOK
-		rsp.Status = statusOK
+		rsp.Status = DefMessageOK
 		x.JSON(r.cOk, rsp)
 	}
 }

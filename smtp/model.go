@@ -32,8 +32,12 @@ import (
 	"io"
 	"net"
 	"net/smtp"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
+
+	libsts "github.com/nabbar/golib/status"
 
 	"github.com/nabbar/golib/errors"
 )
@@ -46,8 +50,8 @@ type smtpClient struct {
 	cfg Config
 }
 
-// Check Try to initiate SMTP dial and negotiation and try to close connection.
-func (s smtpClient) Clone() SMTP {
+// Clone is used to clone current smtp pointer to a new one with same config.
+func (s *smtpClient) Clone() SMTP {
 	return &smtpClient{
 		mut: sync.Mutex{},
 		con: nil,
@@ -62,6 +66,14 @@ func (s *smtpClient) Close() {
 	s.mut.Lock()
 	defer s.mut.Unlock()
 	s._close()
+}
+
+// Client Get SMTP Client interface.
+func (s *smtpClient) Client(ctx context.Context) (*smtp.Client, errors.Error) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	return s._client(ctx)
 }
 
 // Check Try to initiate SMTP dial and negotiation and try to close connection.
@@ -81,23 +93,8 @@ func (s *smtpClient) Check(ctx context.Context) errors.Error {
 	return nil
 }
 
-// Client Get SMTP Client interface.
-func (s *smtpClient) Client(ctx context.Context) (*smtp.Client, errors.Error) {
-	s.mut.Lock()
-	defer s.mut.Unlock()
-
-	return s._client(ctx)
-}
-
-// validateLine checks to see if a line has CR or LF as per RFC 5321.
-func (s smtpClient) validateLine(line string) errors.Error {
-	if strings.ContainsAny(line, "\n\r") {
-		return ErrorSMTPLineCRLF.Error(nil)
-	}
-
-	return nil
-}
-
+// Send is used to initiate the smtp connection with the client and send a mail before closing the connection.
+// This function is based on smtp.SendMail function.
 func (s *smtpClient) Send(ctx context.Context, from string, to []string, data io.WriterTo) errors.Error {
 	//from smtp.SendMail()
 
@@ -122,12 +119,12 @@ func (s *smtpClient) Send(ctx context.Context, from string, to []string, data io
 		s.mut.Unlock()
 	}()
 
-	if err = s.validateLine(from); err != nil {
+	if err = s._ValidateLine(from); err != nil {
 		return err
 	}
 
 	for _, recp := range to {
-		if err = s.validateLine(recp); err != nil {
+		if err = s._ValidateLine(recp); err != nil {
 			return err
 		}
 	}
@@ -156,6 +153,46 @@ func (s *smtpClient) Send(ctx context.Context, from string, to []string, data io
 
 	if _, e = data.WriteTo(w); e != nil {
 		return ErrorSMTPClientWrite.ErrorParent(e)
+	}
+
+	return nil
+}
+
+// StatusInfo is used to return the information part for the router status process
+func (s *smtpClient) StatusInfo() (name string, release string, hash string) {
+	s.mut.Lock()
+	defer s.mut.Unlock()
+
+	hash = ""
+	release = strings.TrimLeft(strings.ToLower(runtime.Version()), "go")
+	name = fmt.Sprintf("SMTP %s:%d", s.cfg.GetHost(), s.cfg.GetPort())
+
+	return name, release, hash
+}
+
+// StatusHealth is used to return the status of the SMTP connection to the server (with a timeout of 5 sec).
+func (s *smtpClient) StatusHealth() error {
+	ctx, cnl := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cnl()
+
+	return s.Check(ctx)
+}
+
+// StatusRouter is used to initiate a router status component and register it to the router status interface
+func (s *smtpClient) StatusRouter(sts libsts.RouteStatus, prefix string) {
+	if prefix != "" {
+		prefix = fmt.Sprintf("%s SMTP %s:%d", prefix, s.cfg.GetHost(), s.cfg.GetPort())
+	} else {
+		prefix = fmt.Sprintf("SMTP %s:%d", s.cfg.GetHost(), s.cfg.GetPort())
+	}
+
+	cfg := s.cfg.GetStatusConfig()
+	cfg.RegisterStatus(sts, prefix, s.StatusInfo, s.StatusHealth)
+}
+
+func (s *smtpClient) _ValidateLine(line string) errors.Error {
+	if strings.ContainsAny(line, "\n\r") {
+		return ErrorSMTPLineCRLF.Error(nil)
 	}
 
 	return nil
