@@ -48,6 +48,10 @@ type cobra struct {
 	l FuncLogger
 }
 
+func (c *cobra) Cobra() *spfcbr.Command {
+	return c.c
+}
+
 func (c *cobra) Init() {
 
 	c.c = &spfcbr.Command{

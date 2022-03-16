@@ -36,8 +36,8 @@ const (
 	ErrorParamsInvalid
 	ErrorComponentNotInitialized
 	ErrorConfigInvalid
-	ErrorStartPoolServer
-	ErrorReloadPoolServer
+	ErrorStartComponent
+	ErrorReloadComponent
 	ErrorDependencyTLSDefault
 	ErrorDependencyLogDefault
 )
@@ -62,15 +62,15 @@ func getMessage(code liberr.CodeError) (message string) {
 	case ErrorComponentNotInitialized:
 		return "this component seems to not be correctly initialized"
 	case ErrorConfigInvalid:
-		return "server invalid config"
-	case ErrorStartPoolServer:
-		return "cannot start new pool servers with config"
-	case ErrorReloadPoolServer:
-		return "cannot update pool servers with new config"
+		return "invalid component config"
+	case ErrorStartComponent:
+		return "cannot start component with config"
+	case ErrorReloadComponent:
+		return "cannot reload component with new config"
 	case ErrorDependencyTLSDefault:
-		return "cannot retrieve default TLS"
+		return "cannot retrieve TLS component"
 	case ErrorDependencyLogDefault:
-		return "cannot retrieve default Logger"
+		return "cannot retrieve Logger Component"
 	}
 
 	return ""

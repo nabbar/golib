@@ -29,7 +29,7 @@ package logger
 import "github.com/nabbar/golib/errors"
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgCertificate
+	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgLogger
 	ErrorValidatorError
 )
 

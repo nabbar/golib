@@ -38,24 +38,24 @@ import (
 )
 
 func GetConfigModel() interface{} {
-	return configModel{}
+	return Model{}
 }
 
 func NewConfigJsonUnmashal(p []byte) (libaws.Config, errors.Error) {
-	c := configModel{}
+	c := Model{}
 	if err := json.Unmarshal(p, &c); err != nil {
 		return nil, ErrorConfigJsonUnmarshall.ErrorParent(err)
 	}
 
 	return &awsModel{
-		configModel: c,
-		retryer:     nil,
+		Model:   c,
+		retryer: nil,
 	}, nil
 }
 
 func NewConfig(bucket, accessKey, secretKey, region string) libaws.Config {
 	return &awsModel{
-		configModel: configModel{
+		Model: Model{
 			Region:    region,
 			AccessKey: accessKey,
 			SecretKey: secretKey,
@@ -67,7 +67,7 @@ func NewConfig(bucket, accessKey, secretKey, region string) libaws.Config {
 
 func (c *awsModel) Clone() libaws.Config {
 	return &awsModel{
-		configModel: configModel{
+		Model: Model{
 			Region:    c.Region,
 			AccessKey: c.AccessKey,
 			SecretKey: c.SecretKey,

@@ -33,7 +33,7 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/go-playground/validator/v10"
+	libval "github.com/go-playground/validator/v10"
 	dgbcfg "github.com/lni/dragonboat/v3/config"
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -88,22 +88,21 @@ func (c ConfigEngine) GetDGBConfigEngine() dgbcfg.EngineConfig {
 }
 
 func (c ConfigEngine) Validate() liberr.Error {
-	val := validator.New()
-	err := val.Struct(c)
+	err := ErrorValidateConfig.Error(nil)
 
-	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorValidateEngine.ErrorParent(e)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
 	}
 
-	out := ErrorValidateEngine.Error(nil)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil

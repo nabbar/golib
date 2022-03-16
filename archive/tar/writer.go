@@ -39,7 +39,7 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func Create(archive io.WriteSeeker, stripPath string, content ...string) (bool, liberr.Error) {
+func Create(archive io.WriteSeeker, stripPath string, comment string, content ...string) (bool, liberr.Error) {
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
 		return false, ErrorFileSeek.ErrorParent(err)
@@ -56,7 +56,7 @@ func Create(archive io.WriteSeeker, stripPath string, content ...string) (bool, 
 	return true, nil
 }
 
-func CreateGzip(archive io.WriteSeeker, stripPath string, content ...string) (bool, liberr.Error) {
+func CreateGzip(archive io.WriteSeeker, stripPath string, comment string, content ...string) (bool, liberr.Error) {
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
 		return false, ErrorFileSeek.ErrorParent(err)

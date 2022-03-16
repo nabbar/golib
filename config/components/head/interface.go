@@ -44,7 +44,7 @@ type ComponentHead interface {
 
 func New() ComponentHead {
 	return &componentHead{
-		head: nil,
+		h: nil,
 	}
 }
 

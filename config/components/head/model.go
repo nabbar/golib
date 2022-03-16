@@ -27,127 +27,115 @@
 package head
 
 import (
+	"sync"
+
 	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
-	libhts "github.com/nabbar/golib/httpserver"
 	librtr "github.com/nabbar/golib/router"
 )
-
-type DefaultModel struct {
-	Head librtr.HeadersConfig
-	Http libhts.PoolServerConfig
-}
 
 type componentHead struct {
 	ctx libcfg.FuncContext
 	get libcfg.FuncComponentGet
+	vpr libcfg.FuncComponentViper
+	key string
+
 	fsa func() liberr.Error
 	fsb func() liberr.Error
 	fra func() liberr.Error
 	frb func() liberr.Error
 
-	head librtr.Headers
+	m sync.Mutex
+	h librtr.Headers
+}
+
+func (c *componentHead) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	var isReload = c.h != nil
+
+	if isReload && c.frb != nil {
+		if err := c.frb(); err != nil {
+			return err
+		}
+	} else if !isReload && c.fsb != nil {
+		if err := c.fsb(); err != nil {
+			return err
+		}
+	}
+
+	cnf := librtr.HeadersConfig{}
+	if err := getCfg(c.key, &cnf); err != nil {
+		return ErrorParamsInvalid.Error(err)
+	}
+
+	c.h = cnf.New()
+
+	if isReload && c.fra != nil {
+		if err := c.fra(); err != nil {
+			return err
+		}
+	} else if !isReload && c.fsa != nil {
+		if err := c.fsa(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *componentHead) Type() string {
 	return ComponentType
 }
 
-func (c *componentHead) RegisterContext(fct libcfg.FuncContext) {
-	c.ctx = fct
+func (c *componentHead) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.key = key
+	c.ctx = ctx
+	c.get = get
+	c.vpr = vpr
 }
 
-func (c *componentHead) RegisterGet(fct libcfg.FuncComponentGet) {
-	c.get = fct
+func (c *componentHead) RegisterFuncStart(before, after func() liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.fsb = before
+	c.fsa = after
 }
 
-func (c *componentHead) RegisterFuncStartBefore(fct func() liberr.Error) {
-	c.fsb = fct
+func (c *componentHead) RegisterFuncReload(before, after func() liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.frb = before
+	c.fra = after
 }
 
-func (c *componentHead) RegisterFuncStartAfter(fct func() liberr.Error) {
-	c.fsa = fct
+func (c *componentHead) IsStarted() bool {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	return c.h != nil
 }
 
-func (c *componentHead) RegisterFuncReloadBefore(fct func() liberr.Error) {
-	c.frb = fct
+func (c *componentHead) IsRunning(atLeast bool) bool {
+	return c.IsStarted()
 }
 
-func (c *componentHead) RegisterFuncReloadAfter(fct func() liberr.Error) {
-	c.fra = fct
+func (c *componentHead) Start(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	return c._run(getCfg)
 }
 
-func (c *componentHead) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	if c == nil {
-		return ErrorComponentNotInitialized.Error(nil)
-	}
-
-	cnf := DefaultModel{}
-	if err := getCfg(&cnf); err != nil {
-		return ErrorParamsInvalid.Error(err)
-	}
-
-	c.head = cnf.Head.New()
-
-	return nil
-}
-
-func (c *componentHead) Start(getCpt libcfg.FuncComponentGet, getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	var err liberr.Error
-
-	if c.fsb != nil {
-		if err = c.fsb(); err != nil {
-			return err
-		}
-	}
-
-	if err = c._run(getCfg); err != nil {
-		return err
-	}
-
-	if c.fsa != nil {
-		if err = c.fsa(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (c *componentHead) Reload(getCpt libcfg.FuncComponentGet, getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	var (
-		err liberr.Error
-	)
-
-	if c.frb != nil {
-		if err = c.frb(); err != nil {
-			return err
-		}
-	}
-
-	if err = c._run(getCfg); err != nil {
-		return err
-	}
-
-	if c.fra != nil {
-		if err = c.fra(); err != nil {
-			return err
-		}
-	}
-
-	return nil
+func (c *componentHead) Reload(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	return c._run(getCfg)
 }
 
 func (c *componentHead) Stop() {
 
-}
-
-func (c *componentHead) IsStarted() bool {
-	return c.head != nil
-}
-
-func (c *componentHead) IsRunning(atLeast bool) bool {
-	return c.head != nil
 }
 
 func (c *componentHead) Dependencies() []string {
@@ -155,17 +143,15 @@ func (c *componentHead) Dependencies() []string {
 }
 
 func (c *componentHead) GetHeaders() librtr.Headers {
-	if c == nil || c.head == nil {
-		return nil
-	}
+	c.m.Lock()
+	defer c.m.Unlock()
 
-	return c.head
+	return c.h
 }
 
 func (c *componentHead) SetHeaders(head librtr.Headers) {
-	if c == nil {
-		return
-	}
+	c.m.Lock()
+	defer c.m.Unlock()
 
-	c.head = head
+	c.h = head
 }

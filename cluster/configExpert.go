@@ -34,7 +34,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-playground/validator/v10"
+	libval "github.com/go-playground/validator/v10"
 	dgbcfg "github.com/lni/dragonboat/v3/config"
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -69,22 +69,21 @@ func (c ConfigExpert) GetDGBConfigExpert() dgbcfg.ExpertConfig {
 }
 
 func (c ConfigExpert) Validate() liberr.Error {
-	val := validator.New()
-	err := val.Struct(c)
+	err := ErrorValidateConfig.Error(nil)
 
-	if e, ok := err.(*validator.InvalidValidationError); ok {
-		return ErrorValidateExpert.ErrorParent(e)
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
 	}
 
-	out := ErrorValidateExpert.Error(nil)
-
-	for _, e := range err.(validator.ValidationErrors) {
-		//nolint goerr113
-		out.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Field(), e.ActualTag()))
-	}
-
-	if out.HasParent() {
-		return out
+	if err.HasParent() {
+		return err
 	}
 
 	return nil

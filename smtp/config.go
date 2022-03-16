@@ -29,13 +29,59 @@ import (
 	"fmt"
 	"net/url"
 
+	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
 )
 
 type ConfigModel struct {
-	DSN string        `json:"dsn" yaml:"dsn" toml:"dsn" mapstructure:"dsn"`
-	TLS libtls.Config `json:"tls,omitempty" yaml:"tls,omitempty" toml:"tls,omitempty" mapstructure:"tls,omitempty"`
+	DSN    string              `json:"dsn" yaml:"dsn" toml:"dsn" mapstructure:"dsn"`
+	TLS    libtls.Config       `json:"tls,omitempty" yaml:"tls,omitempty" toml:"tls,omitempty" mapstructure:"tls,omitempty"`
+	Status libsts.ConfigStatus `json:"status,omitempty" yaml:"status,omitempty" toml:"status,omitempty" mapstructure:"status,omitempty"`
+
+	_tls func() libtls.TLSConfig
+}
+
+func (c ConfigModel) Validate() liberr.Error {
+	err := ErrorConfigValidator.Error(nil)
+
+	if er := libval.New().Struct(c); er != nil {
+		if e, ok := er.(*libval.InvalidValidationError); ok {
+			err.AddParent(e)
+		}
+
+		for _, e := range er.(libval.ValidationErrors) {
+			//nolint goerr113
+			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+		}
+	}
+
+	if c.DSN != "" {
+		if _, er := NewConfig(c); er != nil {
+			err.AddParent(er)
+		}
+	} else {
+		err.AddParent(ErrorConfigInvalidDSN.Error(nil))
+	}
+
+	if !err.HasParent() {
+		err = nil
+	}
+
+	return err
+}
+
+func (c ConfigModel) RegisterDefaultTLS(fct func() libtls.TLSConfig) {
+	c._tls = fct
+}
+
+func (c ConfigModel) GetSMTP() (SMTP, liberr.Error) {
+	if c._tls == nil {
+		return c.SMTP(nil)
+	}
+
+	return c.SMTP(c._tls())
 }
 
 func (c ConfigModel) SMTP(tlsDefault libtls.TLSConfig) (SMTP, liberr.Error) {
@@ -45,7 +91,7 @@ func (c ConfigModel) SMTP(tlsDefault libtls.TLSConfig) (SMTP, liberr.Error) {
 		tls libtls.TLSConfig
 	)
 
-	cfg, err = NewConfig(c.DSN)
+	cfg, err = NewConfig(c)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +114,9 @@ type smtpConfig struct {
 	TLS        TLSMode
 	SkipVerify bool
 	ServerName string
+
+	TLSCfg libtls.Config
+	Status libsts.ConfigStatus
 }
 
 func (c *smtpConfig) SetHost(host string) {
@@ -110,12 +159,20 @@ func (c *smtpConfig) GetNet() NETMode {
 	return c.Net
 }
 
-func (c *smtpConfig) SetTls(mode TLSMode) {
+func (c *smtpConfig) SetTlsMode(mode TLSMode) {
 	c.TLS = mode
 }
 
-func (c *smtpConfig) GetTls() TLSMode {
+func (c *smtpConfig) GetTlsMode() TLSMode {
 	return c.TLS
+}
+
+func (c *smtpConfig) SetTls(tls libtls.Config) {
+	c.TLSCfg = tls
+}
+
+func (c *smtpConfig) GetTls() libtls.Config {
+	return c.TLSCfg
 }
 
 func (c *smtpConfig) ForceTLSSkipVerify(skip bool) {
@@ -185,4 +242,12 @@ func (c *smtpConfig) GetDsn() string {
 	}
 
 	return buf.String()
+}
+
+func (c *smtpConfig) SetStatusConfig(sts libsts.ConfigStatus) {
+	c.Status = sts
+}
+
+func (c *smtpConfig) GetStatusConfig() libsts.ConfigStatus {
+	return c.Status
 }

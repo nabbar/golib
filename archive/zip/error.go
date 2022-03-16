@@ -36,6 +36,9 @@ const (
 	ErrorFileStat
 	ErrorIOCopy
 	ErrorZipOpen
+	ErrorZipCreate
+	ErrorZipComment
+	ErrorZipAddFile
 	ErrorZipFileOpen
 	ErrorZipFileClose
 	ErrorDirCreate
@@ -74,6 +77,12 @@ func getMessage(code errors.CodeError) (message string) {
 		return "io copy occurs error"
 	case ErrorZipOpen:
 		return "cannot open zip file"
+	case ErrorZipCreate:
+		return "cannot create zip file"
+	case ErrorZipComment:
+		return "cannot set comment to zip file"
+	case ErrorZipAddFile:
+		return "cannot add file to zip file"
 	case ErrorZipFileOpen:
 		return "cannot open file into zip file"
 	case ErrorZipFileClose:

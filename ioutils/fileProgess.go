@@ -72,6 +72,8 @@ type FileProgress interface {
 	NewFilePathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, errors.Error)
 	NewFilePathRead(filepath string, perm os.FileMode) (FileProgress, errors.Error)
 	NewFileTemp() (FileProgress, errors.Error)
+
+	CloseNoClean() error
 }
 
 func NewFileProgress(file *os.File) FileProgress {
@@ -540,4 +542,8 @@ func (f *fileProgress) Close() error {
 	}
 
 	return nil
+}
+
+func (f *fileProgress) CloseNoClean() error {
+	return f.clean(f.fs.Close())
 }
