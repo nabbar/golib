@@ -54,7 +54,7 @@ type componentAws struct {
 
 func (c *componentAws) _getHttpClient() *http.Client {
 	if c.c == nil {
-		return nil
+		return &http.Client{}
 	}
 
 	return c.c()
