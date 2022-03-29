@@ -203,7 +203,7 @@ func (c *client) Clone(ctx context.Context) (AWS, errors.Error) {
 	cli := &client{
 		p: false,
 		x: c.x,
-		c: c.c,
+		c: c.c.Clone(),
 		i: nil,
 		s: nil,
 		h: c.h,
