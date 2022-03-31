@@ -27,20 +27,25 @@
 package httpcli
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"time"
 
-	"github.com/nabbar/golib/certificates"
-	"github.com/nabbar/golib/errors"
 	"golang.org/x/net/http2"
+
+	libtls "github.com/nabbar/golib/certificates"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	TIMEOUT_30_SEC = 30 * time.Second
-	TIMEOUT_10_SEC = 10 * time.Second
-	TIMEOUT_5_SEC  = 5 * time.Second
-	TIMEOUT_1_SEC  = 1 * time.Second
+	ClientTimeout30Sec = 30 * time.Second
+	ClientTimeout10Sec = 10 * time.Second
+	ClientTimeout5Sec  = 5 * time.Second
+	ClientTimeout1Sec  = 1 * time.Second
+
+	ClientNetworkTCP = "tcp"
+	ClientNetworkUDP = "udp"
 )
 
 func GetClient(serverName string) *http.Client {
@@ -53,11 +58,11 @@ func GetClient(serverName string) *http.Client {
 	return c
 }
 
-func GetClientError(serverName string) (*http.Client, errors.Error) {
+func GetClientError(serverName string) (*http.Client, liberr.Error) {
 	return GetClientTimeout(serverName, true, 0)
 }
 
-func GetClientTimeout(serverName string, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, errors.Error) {
+func GetClientTimeout(serverName string, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
 	dl := &net.Dialer{}
 
 	tr := &http.Transport{
@@ -65,20 +70,51 @@ func GetClientTimeout(serverName string, http2Tr bool, GlobalTimeout time.Durati
 		DialContext:        dl.DialContext,
 		DisableCompression: true,
 		//nolint #staticcheck
-		TLSClientConfig: certificates.GetTLSConfig(serverName),
+		TLSClientConfig: libtls.GetTLSConfig(serverName),
 	}
 
 	return getclient(tr, http2Tr, GlobalTimeout)
 }
 
-func GetClientCustom(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, errors.Error) {
+func GetClientCustom(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
 	return getclient(tr, http2Tr, GlobalTimeout)
 }
 
-func getclient(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, errors.Error) {
+func GetClientTls(serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
+	dl := &net.Dialer{}
+
+	tr := &http.Transport{
+		Proxy:              http.ProxyFromEnvironment,
+		DialContext:        dl.DialContext,
+		DisableCompression: true,
+		//nolint #staticcheck
+		TLSClientConfig: tls.TlsConfig(serverName),
+	}
+
+	return getclient(tr, http2Tr, GlobalTimeout)
+}
+
+func GetClientTlsForceIp(netw Network, ip string, serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
+	fctDial := func(ctx context.Context, network, address string) (net.Conn, error) {
+		dl := &net.Dialer{}
+		return dl.DialContext(ctx, netw.Code(), ip)
+	}
+
+	tr := &http.Transport{
+		Proxy:              http.ProxyFromEnvironment,
+		DialContext:        fctDial,
+		DisableCompression: true,
+		//nolint #staticcheck
+		TLSClientConfig: tls.TlsConfig(serverName),
+	}
+
+	return getclient(tr, http2Tr, GlobalTimeout)
+}
+
+func getclient(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
 	if http2Tr {
 		if e := http2.ConfigureTransport(tr); e != nil {
-			return nil, HTTP2_CONFIGURE.ErrorParent(e)
+			return nil, ErrorClientTransportHttp2.ErrorParent(e)
 		}
 	}
 

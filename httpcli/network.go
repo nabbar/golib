@@ -26,27 +26,33 @@
 
 package httpcli
 
-import "bytes"
+import "strings"
 
-type requestError struct {
-	c int
-	s string
-	b *bytes.Buffer
-	e error
+type Network uint8
+
+const (
+	NetworkTCP Network = iota
+	NetworkUDP
+)
+
+func GetNetworkFromString(str string) Network {
+	switch strings.ToLower(str) {
+	case NetworkUDP.Code():
+		return NetworkUDP
+	default:
+		return NetworkTCP
+	}
 }
 
-func (r *requestError) StatusCode() int {
-	return r.c
+func (n Network) String() string {
+	switch n {
+	case NetworkUDP:
+		return "UDP"
+	default:
+		return "TCP"
+	}
 }
 
-func (r *requestError) Status() string {
-	return r.s
-}
-
-func (r *requestError) Body() *bytes.Buffer {
-	return r.b
-}
-
-func (r *requestError) Error() error {
-	return r.e
+func (n Network) Code() string {
+	return strings.ToLower(n.String())
 }
