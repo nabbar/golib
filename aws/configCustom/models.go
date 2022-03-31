@@ -263,8 +263,8 @@ func (c awsModel) Check(ctx context.Context) errors.Error {
 	}
 
 	d := net.Dialer{
-		Timeout:   httpcli.TIMEOUT_5_SEC,
-		KeepAlive: httpcli.TIMEOUT_5_SEC,
+		Timeout:   httpcli.ClientTimeout5Sec,
+		KeepAlive: httpcli.ClientTimeout5Sec,
 	}
 
 	if c.endpoint.Port() == "" && c.endpoint.Scheme == "http" {
