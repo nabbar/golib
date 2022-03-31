@@ -139,8 +139,8 @@ func (c awsModel) Check(ctx context.Context) errors.Error {
 	}
 
 	d := net.Dialer{
-		Timeout:   httpcli.TIMEOUT_5_SEC,
-		KeepAlive: httpcli.TIMEOUT_5_SEC,
+		Timeout:   httpcli.ClientTimeout5Sec,
+		KeepAlive: httpcli.ClientTimeout5Sec,
 	}
 
 	con, err = d.DialContext(ctx, "tcp", adr.Host)
