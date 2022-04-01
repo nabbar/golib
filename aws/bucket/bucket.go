@@ -51,13 +51,12 @@ func (cli *client) Check() liberr.Error {
 
 func (cli *client) Create(RegionConstraint string) liberr.Error {
 	in := &sdksss.CreateBucketInput{
-		Bucket: cli.GetBucketAws(),
+		Bucket:                    cli.GetBucketAws(),
+		CreateBucketConfiguration: &sdkstp.CreateBucketConfiguration{},
 	}
 
 	if RegionConstraint != "" {
-		in.CreateBucketConfiguration = &sdkstp.CreateBucketConfiguration{
-			LocationConstraint: sdkstp.BucketLocationConstraint(RegionConstraint),
-		}
+		in.CreateBucketConfiguration.LocationConstraint = sdkstp.BucketLocationConstraint(RegionConstraint)
 	}
 
 	out, err := cli.s3.CreateBucket(cli.GetContext(), in)

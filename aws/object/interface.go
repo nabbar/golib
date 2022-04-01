@@ -50,7 +50,7 @@ type Object interface {
 	Head(object string) (*sdksss.HeadObjectOutput, liberr.Error)
 	Get(object string) (*sdksss.GetObjectOutput, liberr.Error)
 	Put(object string, body io.Reader) liberr.Error
-	Delete(object string) liberr.Error
+	Delete(check bool, object string) liberr.Error
 
 	MultipartPut(object string, body io.Reader) liberr.Error
 	MultipartPutCustom(partSize libhlp.PartSize, object string, body io.Reader) liberr.Error

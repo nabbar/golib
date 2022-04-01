@@ -31,7 +31,7 @@ import (
 	"os"
 	"strings"
 
-	valid "github.com/go-playground/validator/v10"
+	libval "github.com/go-playground/validator/v10"
 	liberr "github.com/nabbar/golib/errors"
 )
 
@@ -174,12 +174,12 @@ func (o Options) RegisterFuncUpdateLevel(fct FuncCustomConfig) {
 func (o *Options) Validate() liberr.Error {
 	var e = ErrorValidatorError.Error(nil)
 
-	if err := valid.New().Struct(o); err != nil {
-		if er, ok := err.(*valid.InvalidValidationError); ok {
+	if err := libval.New().Struct(o); err != nil {
+		if er, ok := err.(*libval.InvalidValidationError); ok {
 			e.AddParent(er)
 		}
 
-		for _, er := range err.(valid.ValidationErrors) {
+		for _, er := range err.(libval.ValidationErrors) {
 			//nolint #goerr113
 			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}

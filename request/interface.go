@@ -24,7 +24,7 @@
  *
  */
 
-package httpcli
+package request
 
 import (
 	"bytes"
@@ -33,14 +33,14 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
 
 	libtls "github.com/nabbar/golib/certificates"
 
 	liberr "github.com/nabbar/golib/errors"
 )
 
-type FctHttpClient func() *http.Client
+type FctHttpClient func(def libtls.TLSConfig, servername string) *http.Client
+type FctTLSDefault func() libtls.TLSConfig
 
 type RequestError interface {
 	StatusCode() int
@@ -50,43 +50,67 @@ type RequestError interface {
 }
 
 type Request interface {
-	Clone() Request
-	New() Request
+	Clone() (Request, error)
+	New() (Request, error)
 
+	GetOption() *Options
+	SetOption(opt *Options) error
 	SetClient(fct FctHttpClient)
-	UseClientPackage(ip string, tls libtls.TLSConfig, http2Tr bool, GlobalTimeout time.Duration)
 
-	Endpoint(uri string) error
-	SetUrl(u *url.URL)
-	GetUrl() *url.URL
-	AddPath(path string)
+	SetEndpoint(u string) error
+	GetEndpoint() string
+
+	SetPath(raw bool, path string)
+	AddPath(raw bool, path ...string)
+
+	SetMethod(mtd string)
+	GetMethod() string
+
+	CleanParams()
+	DelParams(key string)
+	SetParams(key, val string)
 	AddParams(key, val string)
+
+	GetFullUrl() *url.URL
+	SetFullUrl(u *url.URL)
 
 	AuthBearer(token string)
 	AuthBasic(user, pass string)
 	ContentType(content string)
 
-	Header(key, value string)
-	Method(mtd string)
+	CleanHeader()
+	DelHeader(key string)
+	SetHeader(key, value string)
+	AddHeader(key, value string)
 
-	RequestJson(body interface{}) error
-	RequestReader(body io.Reader)
+	BodyJson(body interface{}) error
+	BodyReader(body io.Reader, contentType string)
 
 	Error() RequestError
+	IsError() bool
 
 	Do(ctx context.Context) (*http.Response, liberr.Error)
 	DoParse(ctx context.Context, model interface{}, validStatus ...int) liberr.Error
 }
 
-func New(fct FctHttpClient) Request {
-	return &request{
+func New(fct FctHttpClient, opt Options) (Request, error) {
+	r := &request{
 		s: sync.Mutex{},
-		f: fct,
+		o: nil,
+		f: nil,
 		u: nil,
 		h: make(url.Values),
 		p: make(url.Values),
 		b: bytes.NewBuffer(make([]byte, 0)),
 		m: http.MethodGet,
 		e: nil,
+	}
+
+	r.SetClient(fct)
+
+	if e := r.SetOption(&opt); e != nil {
+		return nil, e
+	} else {
+		return r, nil
 	}
 }

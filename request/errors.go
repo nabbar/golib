@@ -24,17 +24,22 @@
  *
  */
 
-package httpcli
+package request
 
 import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgHttpCli
+	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgRequest
 	ErrorParamsInvalid
 	ErrorValidatorError
-	ErrorClientTransportHttp2
+	ErrorCreateRequest
+	ErrorSendRequest
+	ErrorResponseInvalid
+	ErrorResponseLoadBody
+	ErrorResponseStatus
+	ErrorResponseUnmarshall
 )
 
 func init() {
@@ -56,8 +61,18 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "at least one given parameters is invalid"
 	case ErrorValidatorError:
 		return "config seems to be invalid"
-	case ErrorClientTransportHttp2:
-		return "error while configure http2 transport for client"
+	case ErrorCreateRequest:
+		return "cannot create http request for given params"
+	case ErrorSendRequest:
+		return "cannot send the http request"
+	case ErrorResponseInvalid:
+		return "the response for the sending request seems to be invalid"
+	case ErrorResponseLoadBody:
+		return "an error occurs while trying to load the response contents"
+	case ErrorResponseStatus:
+		return "the response status is not in the valid status list"
+	case ErrorResponseUnmarshall:
+		return "the response body cannot be unmarshal with given model"
 	}
 
 	return liberr.NUL_MESSAGE

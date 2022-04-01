@@ -62,7 +62,10 @@ var _ = Describe("Bucket", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(objects).To(HaveLen(1))
 
-				err = cli.Object().Delete("object")
+				err = cli.Object().Delete(true, "object")
+				Expect(err).ToNot(HaveOccurred())
+
+				err = cli.Object().Delete(false, "object")
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})

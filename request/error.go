@@ -24,7 +24,7 @@
  *
  */
 
-package httpcli
+package request
 
 import "bytes"
 
