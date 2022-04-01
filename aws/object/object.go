@@ -29,9 +29,11 @@ import (
 	"io"
 	"mime"
 	"path/filepath"
+	"strings"
+
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
-	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
 	liberr "github.com/nabbar/golib/errors"
@@ -129,15 +131,24 @@ func (cli *client) Put(object string, body io.Reader) liberr.Error {
 	return nil
 }
 
-func (cli *client) Delete(object string) liberr.Error {
-	if _, err := cli.Head(object); err != nil {
-		return err
+func (cli *client) Delete(check bool, object string) liberr.Error {
+	if check {
+		if _, err := cli.Head(object); err != nil {
+			return err
+		}
 	}
 
 	_, err := cli.s3.DeleteObject(cli.GetContext(), &sdksss.DeleteObjectInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
 	})
+
+	if !check && err != nil {
+		e := err.Error()
+		if strings.Contains(e, "api error NoSuchKey") {
+			return nil
+		}
+	}
 
 	return cli.GetError(err)
 }

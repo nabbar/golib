@@ -49,12 +49,13 @@ const (
 	MinPkgNutsDB      = 2000
 	MinPkgOAuth       = 2100
 	MinPkgAws         = 2200
-	MinPkgRouter      = 2300
-	MinPkgSemaphore   = 2400
-	MinPkgSMTP        = 2500
-	MinPkgStatic      = 2600
-	MinPkgVersion     = 2700
-	MinPkgViper       = 2800
+	MinPkgRequest     = 2300
+	MinPkgRouter      = 2400
+	MinPkgSemaphore   = 2500
+	MinPkgSMTP        = 2600
+	MinPkgStatic      = 2700
+	MinPkgVersion     = 2800
+	MinPkgViper       = 2900
 
 	MinAvailable = 4000
 

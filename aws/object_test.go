@@ -62,8 +62,8 @@ var _ = Describe("Object", func() {
 	})
 
 	Context("Delete object", func() {
-		It("Must fail as the object doesn't exists - 4", func() {
-			err := cli.Object().Delete("object")
+		It("Must fail as the bucket doesn't exists - 4", func() {
+			err := cli.Object().Delete(true, "object")
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -75,11 +75,17 @@ var _ = Describe("Object", func() {
 		})
 	})
 
-	Context("Delete object", func() {
-		It("Must fail as the object doesn't exists - 6", func() {
-			err := cli.Object().Delete("object")
+	Context("Delete object no check", func() {
+		It("Must fail as the bucket doesn't exists - 6", func() {
+			err := cli.Object().Delete(false, "object")
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
+	Context("Delete object with check", func() {
+		It("Must fail as the bucket doesn't exists - 6", func() {
+			err := cli.Object().Delete(true, "object")
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
