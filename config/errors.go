@@ -42,12 +42,14 @@ const (
 const (
 	MinErrorComponentAws      = ErrorParamsEmpty + 10
 	MinErrorComponentDatabase = MinErrorComponentAws + 10
-	MinErrorComponentHttp     = MinErrorComponentDatabase + 10
+	MinErrorComponentHead     = MinErrorComponentDatabase + 10
+	MinErrorComponentHttp     = MinErrorComponentHead + 10
 	MinErrorComponentLog      = MinErrorComponentHttp + 10
 	MinErrorComponentMail     = MinErrorComponentLog + 10
 	MinErrorComponentNats     = MinErrorComponentMail + 10
 	MinErrorComponentNutsDB   = MinErrorComponentNats + 10
-	MinErrorComponentSmtp     = MinErrorComponentNutsDB + 10
+	MinErrorComponentRequest  = MinErrorComponentNutsDB + 10
+	MinErrorComponentSmtp     = MinErrorComponentRequest + 10
 	MinErrorComponentTls      = MinErrorComponentSmtp + 10
 )
 
