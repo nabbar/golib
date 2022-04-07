@@ -24,48 +24,43 @@
  *
  */
 
-package head
+package ldap
 
 import (
+	"bytes"
+	"encoding/json"
+
 	libcfg "github.com/nabbar/golib/config"
-	liberr "github.com/nabbar/golib/errors"
+	spfcbr "github.com/spf13/cobra"
+	spfvbr "github.com/spf13/viper"
 )
 
-const (
-	ErrorParamsEmpty liberr.CodeError = iota + libcfg.MinErrorComponentHead
-	ErrorParamsInvalid
-	ErrorComponentNotInitialized
-	ErrorConfigInvalid
-	ErrorReloadPoolServer
-	ErrorReloadTLSDefault
-)
+var _defaultConfig = []byte(`{
+   "uri":"ldap.example.com",
+   "port-ldap":"389",
+   "port-ldaps":"686",
+   "basedn":"dc=example,dc=com",
+   "filter-group":"(&(objectClass=groupOfNames)(%s=%s))",
+   "filter-user":"(%s=%s)"
+}`)
 
-func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+func SetDefaultConfig(cfg []byte) {
+	_defaultConfig = cfg
 }
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case ErrorParamsEmpty:
-		return "at least one given parameters is empty"
-	case ErrorParamsInvalid:
-		return "at least one given parameters is invalid"
-	case ErrorComponentNotInitialized:
-		return "this component seems to not be correctly initialized"
-	case ErrorConfigInvalid:
-		return "server invalid config"
-	case ErrorReloadPoolServer:
-		return "cannot update pool servers with new config"
-	case ErrorReloadTLSDefault:
-		return "cannot update default TLS with new config"
+func DefaultConfig(indent string) []byte {
+	var res = bytes.NewBuffer(make([]byte, 0))
+	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+		return _defaultConfig
+	} else {
+		return res.Bytes()
 	}
+}
 
-	return ""
+func (c *componentLDAP) DefaultConfig(indent string) []byte {
+	return DefaultConfig(indent)
+}
+
+func (c *componentLDAP) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
+	return nil
 }

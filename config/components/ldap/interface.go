@@ -24,48 +24,49 @@
  *
  */
 
-package head
+package ldap
 
 import (
+	"sync"
+
+	lbldap "github.com/nabbar/golib/ldap"
+
 	libcfg "github.com/nabbar/golib/config"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + libcfg.MinErrorComponentHead
-	ErrorParamsInvalid
-	ErrorComponentNotInitialized
-	ErrorConfigInvalid
-	ErrorReloadPoolServer
-	ErrorReloadTLSDefault
+	ComponentType = "LDAP"
 )
 
-func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+// @TODO: refactor LDAP Package
+
+type ComponentLDAP interface {
+	libcfg.Component
+
+	LDAP() *lbldap.HelperLDAP
 }
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case ErrorParamsEmpty:
-		return "at least one given parameters is empty"
-	case ErrorParamsInvalid:
-		return "at least one given parameters is invalid"
-	case ErrorComponentNotInitialized:
-		return "this component seems to not be correctly initialized"
-	case ErrorConfigInvalid:
-		return "server invalid config"
-	case ErrorReloadPoolServer:
-		return "cannot update pool servers with new config"
-	case ErrorReloadTLSDefault:
-		return "cannot update default TLS with new config"
+func New() ComponentLDAP {
+	return &componentLDAP{
+		m: sync.Mutex{},
+		l: nil,
 	}
+}
 
-	return ""
+func Register(cfg libcfg.Config, key string, cpt ComponentLDAP) {
+	cfg.ComponentSet(key, cpt)
+}
+
+func RegisterNew(cfg libcfg.Config, key string) {
+	cfg.ComponentSet(key, New())
+}
+
+func Load(getCpt libcfg.FuncComponentGet, key string) ComponentLDAP {
+	if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(ComponentLDAP); !ok {
+		return nil
+	} else {
+		return h
+	}
 }

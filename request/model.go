@@ -31,30 +31,151 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	libtls "github.com/nabbar/golib/certificates"
-
+	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
+)
+
+const (
+	_ContentType         = "Content-Type"
+	_Authorization       = "Authorization"
+	_AuthorizationBearer = "Bearer"
+	_AuthorizationBasic  = "Basic"
 )
 
 type request struct {
 	s sync.Mutex
 
-	o *atomic.Value
-	f FctHttpClient
-	u *url.URL
-	h url.Values
-	p url.Values
-	b io.Reader
-	m string
-	e *requestError
+	o *atomic.Value      // Options
+	x libcfg.FuncContext // Context function
+	f FctHttpClient      // Http client func
+	u *url.URL           // endpoint url
+	h url.Values         // header values
+	p url.Values         // parameters values
+	b io.Reader          // body io reader
+	m string             // method
+	i libsts.FctInfo     // Status Info func
+	e *requestError      // Error pointer
+}
+
+func (r *request) _StatusInfo() (name string, release string, build string) {
+	edp := r.GetFullUrl().Hostname()
+
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	if r.i != nil {
+		name, release, build = r.i()
+	}
+
+	if name == "" {
+		name = fmt.Sprintf("%s", edp)
+	}
+
+	if release == "" {
+		release = strings.TrimLeft(runtime.Version(), "go")
+		release = strings.TrimLeft(release, "Go")
+		release = strings.TrimLeft(release, "GO")
+	}
+
+	return name, release, build
+}
+
+func (r *request) _StatusHealth() error {
+	opts := r.GetOption()
+	ednp := r.GetFullUrl()
+
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	head := make(url.Values, 0)
+	if v := r.h.Get(_Authorization); v != "" {
+		head.Set(_Authorization, v)
+	}
+
+	if !opts.Health.Enable {
+		return nil
+	}
+
+	if opts.Health.Endpoint != "" {
+		if u, e := url.Parse(opts.Health.Endpoint); e == nil {
+			ednp = u
+		}
+	}
+
+	if opts.Health.Auth.Basic.Enable {
+		head.Set(_Authorization, _AuthorizationBasic+" "+base64.StdEncoding.EncodeToString([]byte(opts.Health.Auth.Basic.Username+":"+opts.Health.Auth.Basic.Password)))
+	} else if opts.Health.Auth.Bearer.Enable {
+		head.Set(_Authorization, _AuthorizationBearer+" "+opts.Health.Auth.Bearer.Token)
+	}
+
+	var (
+		e error
+
+		err liberr.Error
+		buf *bytes.Buffer
+		req *http.Request
+		rsp *http.Response
+	)
+
+	req, err = r._MakeRequest(ednp, http.MethodGet, nil, head, nil)
+
+	if err != nil {
+		return err
+	}
+
+	rsp, e = r._GetClient().Do(req)
+
+	if e != nil {
+		return ErrorSendRequest.ErrorParent(e)
+	}
+
+	if buf, err = r._CheckResponse(rsp); err != nil {
+		return err
+	}
+
+	if len(opts.Health.Result.ValidHTTPCode) > 0 {
+		if !r._IsValidCode(opts.Health.Result.ValidHTTPCode, rsp.StatusCode) {
+			return ErrorResponseStatus.ErrorParent(fmt.Errorf("status: %s", rsp.Status))
+		}
+	} else if len(opts.Health.Result.InvalidHTTPCode) > 0 {
+		if r._IsValidCode(opts.Health.Result.InvalidHTTPCode, rsp.StatusCode) {
+			return ErrorResponseStatus.ErrorParent(fmt.Errorf("status: %s", rsp.Status))
+		}
+	}
+
+	if len(opts.Health.Result.Contain) > 0 {
+		if !r._IsValidContents(opts.Health.Result.Contain, buf) {
+			return ErrorResponseContainsNotFound.Error(nil)
+		}
+	} else if len(opts.Health.Result.NotContain) > 0 {
+		if r._IsValidContents(opts.Health.Result.NotContain, buf) {
+			return ErrorResponseNotContainsFound.Error(nil)
+		}
+	}
+
+	return nil
+}
+
+func (r *request) _GetContext() context.Context {
+	if r.x != nil {
+		if x := r.x(); x != nil {
+			return x
+		}
+	}
+
+	return context.Background()
 }
 
 func (r *request) _GetDefaultTLS() libtls.TLSConfig {
@@ -85,6 +206,62 @@ func (r *request) _GetClient() *http.Client {
 	return &http.Client{}
 }
 
+func (r *request) _MakeRequest(u *url.URL, mtd string, body io.Reader, head url.Values, params url.Values) (*http.Request, liberr.Error) {
+	var (
+		req *http.Request
+		err error
+	)
+
+	req, err = http.NewRequestWithContext(r._GetContext(), mtd, u.String(), body)
+
+	if err != nil {
+		return nil, ErrorCreateRequest.ErrorParent(err)
+	}
+
+	if len(head) > 0 {
+		for k := range head {
+			req.Header.Set(k, head.Get(k))
+		}
+	}
+
+	if len(params) > 0 {
+		q := req.URL.Query()
+		for k := range params {
+			q.Add(k, params.Get(k))
+		}
+		req.URL.RawQuery = q.Encode()
+	}
+
+	return req, nil
+}
+
+func (r *request) _CheckResponse(rsp *http.Response, validStatus ...int) (*bytes.Buffer, liberr.Error) {
+	var (
+		e error
+		b = bytes.NewBuffer(make([]byte, 0))
+	)
+
+	defer func() {
+		if rsp != nil && !rsp.Close && rsp.Body != nil {
+			_ = rsp.Body.Close()
+		}
+	}()
+
+	if rsp == nil {
+		return b, ErrorResponseInvalid.Error(nil)
+	}
+
+	if rsp.Body != nil {
+		return b, ErrorResponseLoadBody.ErrorParent(e)
+	}
+
+	if !r._IsValidCode(validStatus, rsp.StatusCode) {
+		return b, ErrorResponseStatus.Error(nil)
+	}
+
+	return b, nil
+}
+
 func (r *request) _IsValidCode(listValid []int, statusCode int) bool {
 	if len(listValid) < 1 {
 		return true
@@ -92,6 +269,22 @@ func (r *request) _IsValidCode(listValid []int, statusCode int) bool {
 
 	for _, c := range listValid {
 		if c == statusCode {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (r *request) _IsValidContents(contains []string, buf *bytes.Buffer) bool {
+	if len(contains) < 1 {
+		return true
+	} else if buf.Len() < 1 {
+		return false
+	}
+
+	for _, c := range contains {
+		if strings.Contains(buf.String(), c) {
 			return true
 		}
 	}
@@ -129,7 +322,7 @@ func (r *request) New() (Request, error) {
 	var n *request
 
 	if cfg == nil {
-		if i, e := New(r.f, Options{}); e != nil {
+		if i, e := New(r.x, r.f, Options{}); e != nil {
 			return nil, e
 		} else {
 			n = i.(*request)
@@ -196,6 +389,13 @@ func (r *request) SetClient(fct FctHttpClient) {
 	defer r.s.Unlock()
 
 	r.f = fct
+}
+
+func (r *request) SetContext(fct libcfg.FuncContext) {
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	r.x = fct
 }
 
 func (r *request) SetEndpoint(u string) error {
@@ -343,15 +543,15 @@ func (r *request) SetFullUrl(u *url.URL) {
 }
 
 func (r *request) AuthBearer(token string) {
-	r.SetHeader("Authorization", "Bearer "+token)
+	r.SetHeader(_Authorization, _AuthorizationBearer+" "+token)
 }
 
 func (r *request) AuthBasic(user, pass string) {
-	r.SetHeader("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(user+":"+pass)))
+	r.SetHeader(_Authorization, _AuthorizationBasic+" "+base64.StdEncoding.EncodeToString([]byte(user+":"+pass)))
 }
 
 func (r *request) ContentType(content string) {
-	r.SetHeader("Content-Type", content)
+	r.SetHeader(_ContentType, content)
 }
 
 func (r *request) CleanHeader() {
@@ -429,7 +629,7 @@ func (r *request) IsError() bool {
 	return r.e != nil
 }
 
-func (r *request) Do(ctx context.Context) (*http.Response, liberr.Error) {
+func (r *request) Do() (*http.Response, liberr.Error) {
 	r.s.Lock()
 	defer r.s.Unlock()
 
@@ -446,8 +646,14 @@ func (r *request) Do(ctx context.Context) (*http.Response, liberr.Error) {
 
 	r.e = nil
 
-	req, err = r._MakeRequest(ctx)
+	req, err = r._MakeRequest(r.u, r.m, r.b, r.h, r.p)
 	if err != nil {
+		r.e = &requestError{
+			c: 0,
+			s: "",
+			b: nil,
+			e: err,
+		}
 		return nil, err
 	}
 
@@ -466,34 +672,7 @@ func (r *request) Do(ctx context.Context) (*http.Response, liberr.Error) {
 	return rsp, nil
 }
 
-func (r *request) _MakeRequest(ctx context.Context) (*http.Request, liberr.Error) {
-	var (
-		req *http.Request
-		err error
-	)
-
-	req, err = http.NewRequestWithContext(ctx, r.m, r.u.String(), r.b)
-
-	if err != nil {
-		return nil, ErrorCreateRequest.ErrorParent(err)
-	}
-
-	if len(r.h) > 0 {
-		for k := range r.h {
-			req.Header.Set(k, r.h.Get(k))
-		}
-	}
-
-	q := req.URL.Query()
-	for k := range r.p {
-		q.Add(k, r.p.Get(k))
-	}
-	req.URL.RawQuery = q.Encode()
-
-	return req, nil
-}
-
-func (r *request) DoParse(ctx context.Context, model interface{}, validStatus ...int) liberr.Error {
+func (r *request) DoParse(model interface{}, validStatus ...int) liberr.Error {
 	var (
 		e error
 		b = bytes.NewBuffer(make([]byte, 0))
@@ -502,38 +681,20 @@ func (r *request) DoParse(ctx context.Context, model interface{}, validStatus ..
 		rsp *http.Response
 	)
 
-	if rsp, err = r.Do(ctx); err != nil {
+	if rsp, err = r.Do(); err != nil {
 		return err
 	} else if rsp == nil {
 		return ErrorResponseInvalid.Error(nil)
 	}
 
-	defer func() {
-		if !rsp.Close && rsp.Body != nil {
-			_ = rsp.Body.Close()
-		}
-	}()
-
-	if rsp.Body != nil {
-		if _, e = io.Copy(b, rsp.Body); e != nil {
-			r.e = &requestError{
-				c: rsp.StatusCode,
-				s: rsp.Status,
-				b: b,
-				e: e,
-			}
-			return ErrorResponseLoadBody.ErrorParent(e)
-		}
-	}
-
-	if !r._IsValidCode(validStatus, rsp.StatusCode) {
+	if b, err = r._CheckResponse(rsp, validStatus...); e != nil {
 		r.e = &requestError{
 			c: rsp.StatusCode,
 			s: rsp.Status,
 			b: b,
-			e: nil,
+			e: err,
 		}
-		return ErrorResponseStatus.Error(nil)
+		return err
 	}
 
 	if e = json.Unmarshal(b.Bytes(), model); e != nil {
@@ -547,4 +708,26 @@ func (r *request) DoParse(ctx context.Context, model interface{}, validStatus ..
 	}
 
 	return nil
+}
+
+func (r *request) StatusRegister(sts libsts.RouteStatus, prefix string) {
+	opts := r.GetOption()
+
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	if len(prefix) > 0 {
+		prefix = fmt.Sprintf("%s %s", prefix, r.u.Hostname())
+	} else {
+		prefix = fmt.Sprintf("%s %s", "HTTP Request", r.u.Hostname())
+	}
+
+	opts.Health.Status.RegisterStatus(sts, prefix, r._StatusInfo, r._StatusHealth)
+}
+
+func (r *request) StatusRegisterInfo(fct libsts.FctInfo) {
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	r.i = fct
 }
