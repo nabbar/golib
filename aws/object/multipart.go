@@ -47,6 +47,30 @@ import (
 
 const DefaultPartSize = 5 * libhlp.SizeMegaBytes
 
+// MultipartList implement the ListMultipartUploads.
+// See docs for more infos : https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListMultipartUploads.html
+func (cli *client) MultipartList(keyMarker, markerId string) (uploads []sdktyp.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e liberr.Error) {
+	in := &sdksss.ListMultipartUploadsInput{
+		Bucket:     sdkaws.String(cli.GetBucketName()),
+		MaxUploads: 1000,
+	}
+
+	if keyMarker != "" && markerId != "" {
+		in.KeyMarker = sdkaws.String(keyMarker)
+		in.UploadIdMarker = sdkaws.String(markerId)
+	}
+
+	out, err := cli.s3.ListMultipartUploads(cli.GetContext(), in)
+
+	if err != nil {
+		return nil, "", "", 0, cli.GetError(err)
+	} else if out.IsTruncated {
+		return out.Uploads, *out.NextKeyMarker, *out.NextUploadIdMarker, int64(out.MaxUploads), nil
+	} else {
+		return out.Uploads, "", "", int64(out.MaxUploads), nil
+	}
+}
+
 func (cli *client) MultipartPut(object string, body io.Reader) liberr.Error {
 	return cli.MultipartPutCustom(DefaultPartSize, object, body)
 }
@@ -94,33 +118,33 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 
 		tmp, err = libiou.NewFileProgressTemp()
 		if err != nil {
-			return cli.multipartCancel(err, upl.UploadId, object)
+			return cli._MultipartCancel(err, upl.UploadId, object)
 		}
 
 		_, err = io.Copy(tmp, rio)
 		if err != nil {
-			return cli.multipartCancel(err, upl.UploadId, object)
+			return cli._MultipartCancel(err, upl.UploadId, object)
 		}
 
 		_, err = tmp.Seek(0, io.SeekStart)
 		if err != nil {
-			return cli.multipartCancel(err, upl.UploadId, object)
+			return cli._MultipartCancel(err, upl.UploadId, object)
 		}
 
 		inf, err = tmp.FileStat()
 		if err != nil {
-			return cli.multipartCancel(err, upl.UploadId, object)
+			return cli._MultipartCancel(err, upl.UploadId, object)
 		}
 
 		/* #nosec */
 		h := md5.New()
 		if _, e := tmp.WriteTo(h); e != nil {
-			return cli.multipartCancel(e, upl.UploadId, object)
+			return cli._MultipartCancel(e, upl.UploadId, object)
 		}
 
 		_, err = tmp.Seek(0, io.SeekStart)
 		if err != nil {
-			return cli.multipartCancel(err, upl.UploadId, object)
+			return cli._MultipartCancel(err, upl.UploadId, object)
 		}
 
 		prt, err = cli.s3.UploadPart(cli.GetContext(), &sdksss.UploadPartInput{
@@ -138,9 +162,9 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 		tmp = nil
 
 		if err != nil {
-			return cli.multipartCancel(err, upl.UploadId, object)
+			return cli._MultipartCancel(err, upl.UploadId, object)
 		} else if prt == nil || prt.ETag == nil || len(*prt.ETag) == 0 {
-			return cli.multipartCancel(libhlp.ErrorResponse.Error(nil), upl.UploadId, object)
+			return cli._MultipartCancel(libhlp.ErrorResponse.Error(nil), upl.UploadId, object)
 		}
 
 		rio.NextPart(prt.ETag)
@@ -156,15 +180,15 @@ func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, b
 	})
 
 	if err != nil {
-		return cli.multipartCancel(err, upl.UploadId, object)
+		return cli._MultipartCancel(err, upl.UploadId, object)
 	} else if prt == nil || prt.ETag == nil || len(*prt.ETag) == 0 {
-		return cli.multipartCancel(libhlp.ErrorResponse.Error(nil), upl.UploadId, object)
+		return cli._MultipartCancel(libhlp.ErrorResponse.Error(nil), upl.UploadId, object)
 	}
 
 	return nil
 }
 
-func (cli *client) multipartCancel(err error, updIp *string, object string) liberr.Error {
+func (cli *client) _MultipartCancel(err error, updIp *string, object string) liberr.Error {
 	cnl, e := cli.s3.AbortMultipartUpload(cli.GetContext(), &sdksss.AbortMultipartUploadInput{
 		Bucket:   sdkaws.String(cli.GetBucketName()),
 		UploadId: updIp,
@@ -175,8 +199,13 @@ func (cli *client) multipartCancel(err error, updIp *string, object string) libe
 		return cli.GetError(e, err)
 	} else if cnl == nil {
 		return libhlp.ErrorResponse.Error(cli.GetError(err))
-	} else {
+	} else if err != nil {
 		return cli.GetError(err)
+	} else {
+		return nil
 	}
+}
 
+func (cli *client) MultipartCancel(uploadId, key string) liberr.Error {
+	return cli._MultipartCancel(nil, sdkaws.String(uploadId), key)
 }
