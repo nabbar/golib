@@ -24,48 +24,51 @@
  *
  */
 
-package head
+package request
 
 import (
+	"sync"
+
 	libcfg "github.com/nabbar/golib/config"
-	liberr "github.com/nabbar/golib/errors"
+	libreq "github.com/nabbar/golib/request"
 )
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + libcfg.MinErrorComponentHead
-	ErrorParamsInvalid
-	ErrorComponentNotInitialized
-	ErrorConfigInvalid
-	ErrorReloadPoolServer
-	ErrorReloadTLSDefault
+	ComponentType = "request"
 )
 
-func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+type ComponentRequest interface {
+	libcfg.Component
+
+	SetHTTPClient(fct libreq.FctHttpClient)
+	SetDefaultTLS(key string)
+
+	Request() (libreq.Request, error)
 }
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case ErrorParamsEmpty:
-		return "at least one given parameters is empty"
-	case ErrorParamsInvalid:
-		return "at least one given parameters is invalid"
-	case ErrorComponentNotInitialized:
-		return "this component seems to not be correctly initialized"
-	case ErrorConfigInvalid:
-		return "server invalid config"
-	case ErrorReloadPoolServer:
-		return "cannot update pool servers with new config"
-	case ErrorReloadTLSDefault:
-		return "cannot update default TLS with new config"
+func New(tls string, cli libreq.FctHttpClient) ComponentRequest {
+	return &componentRequest{
+		m: sync.Mutex{},
+		r: nil,
+		t: tls,
+		c: cli,
 	}
+}
 
-	return ""
+func Register(cfg libcfg.Config, key string, cpt ComponentRequest) {
+	cfg.ComponentSet(key, cpt)
+}
+
+func RegisterNew(cfg libcfg.Config, key, tls string, cli libreq.FctHttpClient) {
+	cfg.ComponentSet(key, New(tls, cli))
+}
+
+func Load(getCpt libcfg.FuncComponentGet, key string) ComponentRequest {
+	if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(ComponentRequest); !ok {
+		return nil
+	} else {
+		return h
+	}
 }
