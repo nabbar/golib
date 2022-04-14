@@ -28,15 +28,15 @@ package request
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"net/http"
 	"net/url"
 	"sync"
 
 	libtls "github.com/nabbar/golib/certificates"
-
+	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
 )
 
 type FctHttpClient func(def libtls.TLSConfig, servername string) *http.Client
@@ -56,6 +56,7 @@ type Request interface {
 	GetOption() *Options
 	SetOption(opt *Options) error
 	SetClient(fct FctHttpClient)
+	SetContext(fct libcfg.FuncContext)
 
 	SetEndpoint(u string) error
 	GetEndpoint() string
@@ -89,14 +90,18 @@ type Request interface {
 	Error() RequestError
 	IsError() bool
 
-	Do(ctx context.Context) (*http.Response, liberr.Error)
-	DoParse(ctx context.Context, model interface{}, validStatus ...int) liberr.Error
+	Do() (*http.Response, liberr.Error)
+	DoParse(model interface{}, validStatus ...int) liberr.Error
+
+	StatusRegister(sts libsts.RouteStatus, prefix string)
+	StatusRegisterInfo(fct libsts.FctInfo)
 }
 
-func New(fct FctHttpClient, opt Options) (Request, error) {
+func New(ctx libcfg.FuncContext, cli FctHttpClient, opt Options) (Request, error) {
 	r := &request{
 		s: sync.Mutex{},
 		o: nil,
+		x: ctx,
 		f: nil,
 		u: nil,
 		h: make(url.Values),
@@ -106,7 +111,7 @@ func New(fct FctHttpClient, opt Options) (Request, error) {
 		e: nil,
 	}
 
-	r.SetClient(fct)
+	r.SetClient(cli)
 
 	if e := r.SetOption(&opt); e != nil {
 		return nil, e

@@ -1,3 +1,29 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2020 Nicolas JUHEL
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ *
+ */
+
 package request
 
 import (
@@ -6,6 +32,7 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
+	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
 	libsts "github.com/nabbar/golib/status"
@@ -31,7 +58,15 @@ type OptionsHealth struct {
 	Enable   bool                `json:"enable" yaml:"enable" toml:"enable" mapstructure:"enable"`
 	Endpoint string              `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"required,url"`
 	Auth     OptionsAuth         `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:"required,dive"`
+	Result   OptionsHealthResult `json:"result" yaml:"result" toml:"result" mapstructure:"result" validate:"required,dive"`
 	Status   libsts.ConfigStatus `json:"status" yaml:"status" toml:"status" mapstructure:"status" validate:"required,dive"`
+}
+
+type OptionsHealthResult struct {
+	ValidHTTPCode   []int    `json:"valid_http_code" yaml:"valid_http_code" toml:"valid_http_code" mapstructure:"valid_http_code"`
+	InvalidHTTPCode []int    `json:"invalid_http_code" yaml:"invalid_http_code" toml:"invalid_http_code" mapstructure:"invalid_http_code"`
+	Contain         []string `json:"contain" yaml:"contain" toml:"contain" mapstructure:"contain"`
+	NotContain      []string `json:"not_contain" yaml:"not_contain" toml:"not_contain" mapstructure:"not_contain"`
 }
 
 type Options struct {
@@ -84,15 +119,15 @@ func (o Options) GetClientHTTP(servername string) *http.Client {
 	return &http.Client{}
 }
 
-func (o Options) New(cli FctHttpClient, tls FctTLSDefault) (Request, error) {
+func (o Options) New(ctx libcfg.FuncContext, cli FctHttpClient, tls FctTLSDefault) (Request, error) {
 	if tls != nil {
 		o.def = tls
 	}
 
-	return New(cli, o)
+	return New(ctx, cli, o)
 }
 
-func (o Options) Update(req Request, cli FctHttpClient, tls FctTLSDefault) (Request, error) {
+func (o Options) Update(req Request, ctx libcfg.FuncContext, cli FctHttpClient, tls FctTLSDefault) (Request, error) {
 	if tls != nil {
 		o.def = tls
 	}
@@ -104,6 +139,10 @@ func (o Options) Update(req Request, cli FctHttpClient, tls FctTLSDefault) (Requ
 
 	if n, e = req.Clone(); e != nil {
 		return nil, e
+	}
+
+	if ctx != nil {
+		n.SetContext(ctx)
 	}
 
 	if cli != nil {

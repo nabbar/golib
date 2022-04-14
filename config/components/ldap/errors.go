@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,24 +24,19 @@
  *
  */
 
-package request
+package ldap
 
 import (
+	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgRequest
+	ErrorParamsEmpty liberr.CodeError = iota + libcfg.MinErrorComponentRequest
 	ErrorParamsInvalid
-	ErrorValidatorError
-	ErrorCreateRequest
-	ErrorSendRequest
-	ErrorResponseInvalid
-	ErrorResponseLoadBody
-	ErrorResponseStatus
-	ErrorResponseUnmarshall
-	ErrorResponseContainsNotFound
-	ErrorResponseNotContainsFound
+	ErrorComponentNotInitialized
+	ErrorConfigInvalid
+	ErrorDependencyTLSDefault
 )
 
 func init() {
@@ -61,25 +56,13 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "at least one given parameters is empty"
 	case ErrorParamsInvalid:
 		return "at least one given parameters is invalid"
-	case ErrorValidatorError:
-		return "config seems to be invalid"
-	case ErrorCreateRequest:
-		return "cannot create http request for given params"
-	case ErrorSendRequest:
-		return "cannot send the http request"
-	case ErrorResponseInvalid:
-		return "the response for the sending request seems to be invalid"
-	case ErrorResponseLoadBody:
-		return "an error occurs while trying to load the response contents"
-	case ErrorResponseStatus:
-		return "the response status is not in the valid status list"
-	case ErrorResponseUnmarshall:
-		return "the response body cannot be unmarshal with given model"
-	case ErrorResponseContainsNotFound:
-		return "the body does not match with contains constraint"
-	case ErrorResponseNotContainsFound:
-		return "the body match with not contains constraint"
+	case ErrorComponentNotInitialized:
+		return "this component seems to not be correctly initialized"
+	case ErrorConfigInvalid:
+		return "server invalid config"
+	case ErrorDependencyTLSDefault:
+		return "cannot retrieve TLS component"
 	}
 
-	return liberr.NUL_MESSAGE
+	return ""
 }

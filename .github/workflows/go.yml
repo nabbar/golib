@@ -57,6 +57,8 @@ jobs:
         run: ./scripts/ci_linter
         env:
           GOOS: linux
+          GOARCH: amd64
+          GOAMD64: v4
           CGO_ENABLED: 0
 
       - name: Check goSecu + snyk.io
@@ -64,6 +66,8 @@ jobs:
         run: ./scripts/ci_secu $SNYK_TOKEN
         env:
           GOOS: linux
+          GOARCH: amd64
+          GOAMD64: v4
           CGO_ENABLED: 0
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -80,6 +84,8 @@ jobs:
           done
         env:
           GOOS: linux
+          GOARCH: amd64
+          GOAMD64: v4
           CGO_ENABLED: 0
 
       - name: Add ming-w32 (x86 + win64)
@@ -92,6 +98,7 @@ jobs:
           CGO_ENABLED=0
           GOOS=linux
           GOARCH=amd64
+          GOAMD64=v4
           IGNORE_BUILD=$(sed '/^[[:space:]]*$/d' "build.$(go env | grep GOARCH | cut -d'=' -f2 | tr -d '"')" | tr '\n' '|')
           go build -a -v -installsuffix cgo -ldflags "-w -s -extldflags '-static' " $(go list ./... | grep -vPi ${IGNORE_BUILD::-1})
 
@@ -111,6 +118,7 @@ jobs:
           CGO_ENABLED=1
           GOOS=windows
           GOARCH=amd64
+          GOAMD64=v4
           IGNORE_BUILD=$(sed '/^[[:space:]]*$/d' "build.$(go env | grep GOARCH | cut -d'=' -f2 | tr -d '"')" | tr '\n' '|')
           go build -a -v -ldflags "-w -s -extldflags '-static' " $(go list ./... | grep -vPi ${IGNORE_BUILD::-1})
 
