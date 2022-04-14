@@ -41,10 +41,10 @@ type componentAws struct {
 	vpr libcfg.FuncComponentViper
 	key string
 
-	fsa func() liberr.Error
-	fsb func() liberr.Error
-	fra func() liberr.Error
-	frb func() liberr.Error
+	fsa func(cpt libcfg.Component) liberr.Error
+	fsb func(cpt libcfg.Component) liberr.Error
+	fra func(cpt libcfg.Component) liberr.Error
+	frb func(cpt libcfg.Component) liberr.Error
 
 	m sync.Mutex
 	d ConfigDriver
@@ -60,20 +60,28 @@ func (c *componentAws) _getHttpClient() *http.Client {
 	return c.c()
 }
 
-func (c *componentAws) _getClient(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	var (
-		isReload = c.a != nil
-	)
+func (c *componentAws) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
 
-	if !isReload && c.fsb != nil {
-		if err := c.fsb(); err != nil {
-			return err
-		}
-	} else if isReload && c.frb != nil {
-		if err := c.frb(); err != nil {
-			return err
-		}
+	if c.a != nil {
+		return c.frb, c.fra
+	} else {
+		return c.fsb, c.fsa
 	}
+}
+
+func (c *componentAws) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
+	if fct != nil {
+		return fct(c)
+	}
+
+	return nil
+}
+
+func (c *componentAws) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	if cfg, err := c._getConfig(getCfg); err != nil {
 		return err
@@ -83,14 +91,18 @@ func (c *componentAws) _getClient(getCfg libcfg.FuncComponentConfigGet) liberr.E
 		c.a = cli
 	}
 
-	if !isReload && c.fsa != nil {
-		if err := c.fsa(); err != nil {
-			return err
-		}
-	} else if isReload && c.fra != nil {
-		if err := c.fra(); err != nil {
-			return err
-		}
+	return nil
+}
+
+func (c *componentAws) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	fb, fa := c._getFct()
+
+	if err := c._runFct(fb); err != nil {
+		return err
+	} else if err = c._runCli(getCfg); err != nil {
+		return err
+	} else if err = c._runFct(fa); err != nil {
+		return err
 	}
 
 	return nil
@@ -110,7 +122,7 @@ func (c *componentAws) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncC
 	c.vpr = vpr
 }
 
-func (c *componentAws) RegisterFuncStart(before, after func() liberr.Error) {
+func (c *componentAws) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -118,7 +130,7 @@ func (c *componentAws) RegisterFuncStart(before, after func() liberr.Error) {
 	c.fsa = after
 }
 
-func (c *componentAws) RegisterFuncReload(before, after func() liberr.Error) {
+func (c *componentAws) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -138,11 +150,11 @@ func (c *componentAws) IsRunning(atLeast bool) bool {
 }
 
 func (c *componentAws) Start(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._getClient(getCfg)
+	return c._run(getCfg)
 }
 
 func (c *componentAws) Reload(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._getClient(getCfg)
+	return c._run(getCfg)
 }
 
 func (c *componentAws) Stop() {
