@@ -43,10 +43,10 @@ type componentSmtp struct {
 	vpr libcfg.FuncComponentViper
 	key string
 
-	fsa func() liberr.Error
-	fsb func() liberr.Error
-	fra func() liberr.Error
-	frb func() liberr.Error
+	fsa func(cpt libcfg.Component) liberr.Error
+	fsb func(cpt libcfg.Component) liberr.Error
+	fra func(cpt libcfg.Component) liberr.Error
+	frb func(cpt libcfg.Component) liberr.Error
 
 	m sync.Mutex
 	t string
@@ -71,11 +71,26 @@ func (c *componentSmtp) _GetTLS() (libtls.TLSConfig, liberr.Error) {
 	}
 }
 
-func (c *componentSmtp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	if !c._CheckDep() {
-		return ErrorComponentNotInitialized.Error(nil)
+func (c *componentSmtp) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if c.s != nil {
+		return c.frb, c.fra
+	} else {
+		return c.fsb, c.fsa
+	}
+}
+
+func (c *componentSmtp) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
+	if fct != nil {
+		return fct(c)
 	}
 
+	return nil
+}
+
+func (c *componentSmtp) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -83,45 +98,40 @@ func (c *componentSmtp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error 
 		err liberr.Error
 		cli libsmtp.SMTP
 		cfg libsmtp.ConfigModel
-
-		isReload = c.s != nil
 	)
-
-	if !isReload && c.fsb != nil {
-		if err = c.fsb(); err != nil {
-			return err
-		}
-	} else if isReload && c.frb != nil {
-		if err = c.frb(); err != nil {
-			return err
-		}
-	}
 
 	if cfg, err = c._getConfig(getCfg); err != nil {
 		return err
 	}
 
 	if cli, err = cfg.GetSMTP(); err != nil {
-		if isReload {
+		if c.s != nil {
 			return ErrorReloadComponent.Error(err)
 		}
 		return ErrorStartComponent.Error(err)
 	}
 
-	if isReload {
+	if c.s != nil {
 		_ = c.s.Close
 	}
 
 	c.s = cli
+	return nil
+}
 
-	if !isReload && c.fsa != nil {
-		if err = c.fsa(); err != nil {
-			return err
-		}
-	} else if isReload && c.fra != nil {
-		if err = c.fra(); err != nil {
-			return err
-		}
+func (c *componentSmtp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	if !c._CheckDep() {
+		return ErrorComponentNotInitialized.Error(nil)
+	}
+
+	fb, fa := c._getFct()
+
+	if err := c._runFct(fb); err != nil {
+		return err
+	} else if err = c._runCli(getCfg); err != nil {
+		return err
+	} else if err = c._runFct(fa); err != nil {
+		return err
 	}
 
 	return nil
@@ -141,7 +151,7 @@ func (c *componentSmtp) Init(key string, ctx libcfg.FuncContext, get libcfg.Func
 	c.vpr = vpr
 }
 
-func (c *componentSmtp) RegisterFuncStart(before, after func() liberr.Error) {
+func (c *componentSmtp) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -149,7 +159,7 @@ func (c *componentSmtp) RegisterFuncStart(before, after func() liberr.Error) {
 	c.fsa = after
 }
 
-func (c *componentSmtp) RegisterFuncReload(before, after func() liberr.Error) {
+func (c *componentSmtp) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

@@ -44,10 +44,10 @@ type componentNats struct {
 	vpr libcfg.FuncComponentViper
 	key string
 
-	fsa func() liberr.Error
-	fsb func() liberr.Error
-	fra func() liberr.Error
-	frb func() liberr.Error
+	fsa func(cpt libcfg.Component) liberr.Error
+	fsb func(cpt libcfg.Component) liberr.Error
+	fra func(cpt libcfg.Component) liberr.Error
+	frb func(cpt libcfg.Component) liberr.Error
 
 	m sync.Mutex
 	t string
@@ -72,7 +72,26 @@ func (c *componentNats) _GetTLS() (libtls.TLSConfig, liberr.Error) {
 	}
 }
 
-func (c *componentNats) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+func (c *componentNats) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if c.n != nil {
+		return c.frb, c.fra
+	} else {
+		return c.fsb, c.fsa
+	}
+}
+
+func (c *componentNats) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
+	if fct != nil {
+		return fct(c)
+	}
+
+	return nil
+}
+
+func (c *componentNats) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -81,19 +100,7 @@ func (c *componentNats) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error 
 		err liberr.Error
 		cfg libnat.Config
 		opt *natsrv.Options
-
-		isReload = c.n != nil
 	)
-
-	if !isReload && c.fsb != nil {
-		if err = c.fsb(); err != nil {
-			return err
-		}
-	} else if isReload && c.frb != nil {
-		if err = c.frb(); err != nil {
-			return err
-		}
-	}
 
 	if cfg, err = c._getConfig(getCfg); err != nil {
 		return err
@@ -119,14 +126,22 @@ func (c *componentNats) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error 
 		}
 	}
 
-	if !isReload && c.fsa != nil {
-		if err = c.fsa(); err != nil {
-			return err
-		}
-	} else if isReload && c.fra != nil {
-		if err = c.fra(); err != nil {
-			return err
-		}
+	return nil
+}
+
+func (c *componentNats) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	if !c._CheckDep() {
+		return ErrorComponentNotInitialized.Error(nil)
+	}
+
+	fb, fa := c._getFct()
+
+	if err := c._runFct(fb); err != nil {
+		return err
+	} else if err = c._runCli(getCfg); err != nil {
+		return err
+	} else if err = c._runFct(fa); err != nil {
+		return err
 	}
 
 	return nil
@@ -146,7 +161,7 @@ func (c *componentNats) Init(key string, ctx libcfg.FuncContext, get libcfg.Func
 	c.vpr = vpr
 }
 
-func (c *componentNats) RegisterFuncStart(before, after func() liberr.Error) {
+func (c *componentNats) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -154,7 +169,7 @@ func (c *componentNats) RegisterFuncStart(before, after func() liberr.Error) {
 	c.fsa = after
 }
 
-func (c *componentNats) RegisterFuncReload(before, after func() liberr.Error) {
+func (c *componentNats) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

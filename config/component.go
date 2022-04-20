@@ -40,10 +40,10 @@ type Component interface {
 	Init(key string, ctx FuncContext, get FuncComponentGet, vpr FuncComponentViper)
 
 	// RegisterFuncStart is called to register the function to be called before and after the start function.
-	RegisterFuncStart(before, after func() liberr.Error)
+	RegisterFuncStart(before, after func(cpt Component) liberr.Error)
 
 	// RegisterFuncReload is called to register the function to be called before and after the reload function.
-	RegisterFuncReload(before, after func() liberr.Error)
+	RegisterFuncReload(before, after func(cpt Component) liberr.Error)
 
 	// RegisterFlag can be called to register flag to a spf cobra command and link it with viper
 	// to retrieve it into the config viper.

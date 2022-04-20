@@ -46,10 +46,10 @@ type componentHttp struct {
 	vpr libcfg.FuncComponentViper
 	key string
 
-	fsa func() liberr.Error
-	fsb func() liberr.Error
-	fra func() liberr.Error
-	frb func() liberr.Error
+	fsa func(cpt libcfg.Component) liberr.Error
+	fsb func(cpt libcfg.Component) liberr.Error
+	fra func(cpt libcfg.Component) liberr.Error
+	frb func(cpt libcfg.Component) liberr.Error
 
 	m sync.Mutex
 
@@ -131,26 +131,35 @@ func (c *componentHttp) _getPoolServerConfig(getCfg libcfg.FuncComponentConfigGe
 	return cnf, nil
 }
 
-func (c *componentHttp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	var (
-		err liberr.Error
-		cnf libhts.PoolServerConfig
-
-		isReload = c.IsStarted()
-	)
+func (c *componentHttp) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
+	var isReload = c.IsStarted()
 
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	if !isReload && c.fsb != nil {
-		if err = c.fsb(); err != nil {
-			return err
-		}
-	} else if isReload && c.frb != nil {
-		if err = c.frb(); err != nil {
-			return err
-		}
+	if isReload {
+		return c.frb, c.fra
+	} else {
+		return c.fsb, c.fsa
 	}
+}
+
+func (c *componentHttp) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
+	if fct != nil {
+		return fct(c)
+	}
+
+	return nil
+}
+
+func (c *componentHttp) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	var (
+		err liberr.Error
+		cnf libhts.PoolServerConfig
+	)
 
 	if cnf, err = c._getPoolServerConfig(getCfg); err != nil {
 		return err
@@ -169,10 +178,14 @@ func (c *componentHttp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error 
 	}
 
 	c.pool.SetLogger(func() liblog.Logger {
-		if log, err := c._GetLogger(); err != nil {
+		var (
+			l liblog.Logger
+			e liberr.Error
+		)
+		if l, e = c._GetLogger(); e != nil {
 			return liblog.GetDefault()
 		} else {
-			return log
+			return l
 		}
 	})
 
@@ -180,14 +193,22 @@ func (c *componentHttp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error 
 		return ErrorStartComponent.Error(err)
 	}
 
-	if !isReload && c.fsa != nil {
-		if err = c.fsa(); err != nil {
-			return err
-		}
-	} else if isReload && c.fra != nil {
-		if err = c.fra(); err != nil {
-			return err
-		}
+	return nil
+}
+
+func (c *componentHttp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	if !c._CheckDep() {
+		return ErrorComponentNotInitialized.Error(nil)
+	}
+
+	fb, fa := c._getFct()
+
+	if err := c._runFct(fb); err != nil {
+		return err
+	} else if err = c._runCli(getCfg); err != nil {
+		return err
+	} else if err = c._runFct(fa); err != nil {
+		return err
 	}
 
 	return nil
@@ -207,7 +228,7 @@ func (c *componentHttp) Init(key string, ctx libcfg.FuncContext, get libcfg.Func
 	c.vpr = vpr
 }
 
-func (c *componentHttp) RegisterFuncStart(before, after func() liberr.Error) {
+func (c *componentHttp) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -215,7 +236,7 @@ func (c *componentHttp) RegisterFuncStart(before, after func() liberr.Error) {
 	c.fsa = after
 }
 
-func (c *componentHttp) RegisterFuncReload(before, after func() liberr.Error) {
+func (c *componentHttp) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

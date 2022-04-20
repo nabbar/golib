@@ -27,20 +27,165 @@ package aws
 
 import (
 	"context"
+	"net/http"
 
-	"github.com/nabbar/golib/aws/bucket"
-	"github.com/nabbar/golib/aws/group"
-	"github.com/nabbar/golib/aws/object"
-	"github.com/nabbar/golib/aws/policy"
-	"github.com/nabbar/golib/aws/role"
-	"github.com/nabbar/golib/aws/user"
-	"github.com/nabbar/golib/errors"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdksv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	awsbck "github.com/nabbar/golib/aws/bucket"
+	awsgrp "github.com/nabbar/golib/aws/group"
+	awsobj "github.com/nabbar/golib/aws/object"
+	awspol "github.com/nabbar/golib/aws/policy"
+	awsrol "github.com/nabbar/golib/aws/role"
+	awsusr "github.com/nabbar/golib/aws/user"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func (c *client) ForcePathStyle(ctx context.Context, enabled bool) errors.Error {
+type client struct {
+	p bool
+	o []func(signer *sdksv4.SignerOptions)
+	x context.Context
+	c Config
+	i *sdkiam.Client
+	s *sdksss.Client
+	h *http.Client
+}
+
+func (c *client) _NewClientIAM(ctx context.Context, httpClient *http.Client) (*sdkiam.Client, liberr.Error) {
+	var (
+		cfg *sdkaws.Config
+		iam *sdkiam.Client
+		err liberr.Error
+		ret sdkaws.Retryer
+		sig *sdksv4.Signer
+	)
+
+	if httpClient == nil {
+		httpClient = c.h
+	}
+
+	if cfg, err = c.c.GetConfig(ctx, httpClient); err != nil {
+		return nil, err
+	}
+
+	if cfg.Retryer != nil {
+		ret = cfg.Retryer()
+	}
+
+	if len(c.o) > 0 {
+		sig = sdksv4.NewSigner(c.o...)
+	} else {
+		sig = sdksv4.NewSigner()
+	}
+
+	iam = sdkiam.New(sdkiam.Options{
+		APIOptions:  cfg.APIOptions,
+		Credentials: cfg.Credentials,
+		EndpointOptions: sdkiam.EndpointResolverOptions{
+			DisableHTTPS: !c.c.IsHTTPs(),
+		},
+		EndpointResolver: c._NewIAMResolver(cfg),
+		HTTPSignerV4:     sig,
+		Region:           cfg.Region,
+		Retryer:          ret,
+		HTTPClient:       httpClient,
+	})
+
+	return iam, nil
+}
+
+func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sdksss.Client, liberr.Error) {
+	var (
+		sss *sdksss.Client
+		err liberr.Error
+		ret sdkaws.Retryer
+		cfg *sdkaws.Config
+		sig *sdksv4.Signer
+	)
+
+	if httpClient == nil {
+		httpClient = c.h
+	}
+
+	if cfg, err = c.c.GetConfig(ctx, httpClient); err != nil {
+		return nil, err
+	}
+
+	if cfg.Retryer != nil {
+		ret = cfg.Retryer()
+	}
+
+	if len(c.o) > 0 {
+		sig = sdksv4.NewSigner(c.o...)
+	} else {
+		sig = sdksv4.NewSigner()
+	}
+
+	sss = sdksss.New(sdksss.Options{
+		APIOptions:  cfg.APIOptions,
+		Credentials: cfg.Credentials,
+		EndpointOptions: sdksss.EndpointResolverOptions{
+			DisableHTTPS: !c.c.IsHTTPs(),
+		},
+		EndpointResolver: c._NewS3Resolver(cfg),
+		HTTPSignerV4:     sig,
+		Region:           cfg.Region,
+		Retryer:          ret,
+		HTTPClient:       httpClient,
+		UsePathStyle:     c.p,
+	})
+
+	return sss, nil
+}
+
+func (c *client) Clone(ctx context.Context) (AWS, liberr.Error) {
+	n := &client{
+		p: false,
+		x: c.x,
+		c: c.c.Clone(),
+		i: nil,
+		s: nil,
+		h: c.h,
+	}
+
+	if i, e := n._NewClientIAM(ctx, c.h); e != nil {
+		return nil, e
+	} else {
+		n.i = i
+	}
+
+	if s, e := n._NewClientS3(ctx, c.h); e != nil {
+		return nil, e
+	} else {
+		n.s = s
+	}
+
+	return n, nil
+}
+
+func (c *client) ForcePathStyle(ctx context.Context, enabled bool) liberr.Error {
 	c.p = enabled
 
-	if s, e := c.newClientS3(ctx, nil); e != nil {
+	if s, e := c._NewClientS3(ctx, nil); e != nil {
+		return e
+	} else {
+		c.s = s
+	}
+
+	return nil
+}
+
+func (c *client) ForceSignerOptions(ctx context.Context, fct ...func(signer *sdksv4.SignerOptions)) liberr.Error {
+	c.o = fct
+
+	if i, e := c._NewClientIAM(ctx, nil); e != nil {
+		return e
+	} else {
+		c.i = i
+	}
+
+	if s, e := c._NewClientS3(ctx, nil); e != nil {
 		return e
 	} else {
 		c.s = s
@@ -53,28 +198,28 @@ func (c *client) Config() Config {
 	return c.c
 }
 
-func (c *client) Bucket() bucket.Bucket {
-	return bucket.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
+func (c *client) Bucket() awsbck.Bucket {
+	return awsbck.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
-func (c *client) Group() group.Group {
-	return group.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
+func (c *client) Group() awsgrp.Group {
+	return awsgrp.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
-func (c *client) Object() object.Object {
-	return object.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
+func (c *client) Object() awsobj.Object {
+	return awsobj.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
-func (c *client) Policy() policy.Policy {
-	return policy.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
+func (c *client) Policy() awspol.Policy {
+	return awspol.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
-func (c *client) Role() role.Role {
-	return role.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
+func (c *client) Role() awsrol.Role {
+	return awsrol.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
-func (c *client) User() user.User {
-	return user.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
+func (c *client) User() awsusr.User {
+	return awsusr.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) GetBucketName() string {

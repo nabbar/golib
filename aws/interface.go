@@ -32,25 +32,23 @@ import (
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
-	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/nabbar/golib/aws/bucket"
-	"github.com/nabbar/golib/aws/group"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/aws/object"
-	"github.com/nabbar/golib/aws/policy"
-	"github.com/nabbar/golib/aws/role"
-	"github.com/nabbar/golib/aws/user"
-	"github.com/nabbar/golib/errors"
+	awsbck "github.com/nabbar/golib/aws/bucket"
+	awsgrp "github.com/nabbar/golib/aws/group"
+	awshlp "github.com/nabbar/golib/aws/helper"
+	awsobj "github.com/nabbar/golib/aws/object"
+	awspol "github.com/nabbar/golib/aws/policy"
+	awsrol "github.com/nabbar/golib/aws/role"
+	awsusr "github.com/nabbar/golib/aws/user"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 type Config interface {
-	Check(ctx context.Context) errors.Error
-	Validate() errors.Error
+	Check(ctx context.Context) liberr.Error
+	Validate() liberr.Error
 
 	ResetRegionEndpoint()
-	RegisterRegionEndpoint(region string, endpoint *url.URL) errors.Error
-	RegisterRegionAws(endpoint *url.URL) errors.Error
+	RegisterRegionEndpoint(region string, endpoint *url.URL) liberr.Error
+	RegisterRegionAws(endpoint *url.URL) liberr.Error
 	SetRegion(region string)
 	GetRegion() string
 	SetEndpoint(endpoint *url.URL)
@@ -60,7 +58,7 @@ type Config interface {
 	ResolveEndpoint(service, region string) (sdkaws.Endpoint, error)
 	SetRetryer(retryer func() sdkaws.Retryer)
 
-	GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, errors.Error)
+	GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, liberr.Error)
 	JSON() ([]byte, error)
 	Clone() Config
 
@@ -69,33 +67,25 @@ type Config interface {
 }
 
 type AWS interface {
-	Bucket() bucket.Bucket
-	Group() group.Group
-	Object() object.Object
-	Policy() policy.Policy
-	Role() role.Role
-	User() user.User
+	Bucket() awsbck.Bucket
+	Group() awsgrp.Group
+	Object() awsobj.Object
+	Policy() awspol.Policy
+	Role() awsrol.Role
+	User() awsusr.User
 
-	Clone(ctx context.Context) (AWS, errors.Error)
+	Clone(ctx context.Context) (AWS, liberr.Error)
 	Config() Config
-	ForcePathStyle(ctx context.Context, enabled bool) errors.Error
+	ForcePathStyle(ctx context.Context, enabled bool) liberr.Error
+	ForceSignerOptions(ctx context.Context, fct ...func(signer *sdksv4.SignerOptions)) liberr.Error
 
 	GetBucketName() string
 	SetBucketName(bucket string)
 }
 
-type client struct {
-	p bool
-	x context.Context
-	c Config
-	i *sdkiam.Client
-	s *sdksss.Client
-	h *http.Client
-}
-
-func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, errors.Error) {
+func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, liberr.Error) {
 	if cfg == nil {
-		return nil, helper.ErrorConfigEmpty.Error(nil)
+		return nil, awshlp.ErrorConfigEmpty.Error(nil)
 	}
 
 	if ctx == nil {
@@ -111,111 +101,13 @@ func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, errors.
 		h: httpClient,
 	}
 
-	if i, e := cli.newClientIAM(ctx, httpClient); e != nil {
+	if i, e := cli._NewClientIAM(ctx, httpClient); e != nil {
 		return nil, e
 	} else {
 		cli.i = i
 	}
 
-	if s, e := cli.newClientS3(ctx, httpClient); e != nil {
-		return nil, e
-	} else {
-		cli.s = s
-	}
-
-	return cli, nil
-}
-
-func (cli *client) newClientIAM(ctx context.Context, httpClient *http.Client) (*sdkiam.Client, errors.Error) {
-	var (
-		c *sdkaws.Config
-		i *sdkiam.Client
-		e errors.Error
-		r sdkaws.Retryer
-	)
-
-	if httpClient == nil {
-		httpClient = cli.h
-	}
-
-	if c, e = cli.c.GetConfig(ctx, httpClient); e != nil {
-		return nil, e
-	}
-
-	if c.Retryer != nil {
-		r = c.Retryer()
-	}
-
-	i = sdkiam.New(sdkiam.Options{
-		APIOptions:  c.APIOptions,
-		Credentials: c.Credentials,
-		EndpointOptions: sdkiam.EndpointResolverOptions{
-			DisableHTTPS: !cli.c.IsHTTPs(),
-		},
-		EndpointResolver: cli.newIAMResolver(c),
-		HTTPSignerV4:     sdksv4.NewSigner(),
-		Region:           c.Region,
-		Retryer:          r,
-		HTTPClient:       httpClient,
-	})
-
-	return i, nil
-}
-
-func (cli *client) newClientS3(ctx context.Context, httpClient *http.Client) (*sdksss.Client, errors.Error) {
-	var (
-		c *sdkaws.Config
-		s *sdksss.Client
-		e errors.Error
-		r sdkaws.Retryer
-	)
-
-	if httpClient == nil {
-		httpClient = cli.h
-	}
-
-	if c, e = cli.c.GetConfig(ctx, httpClient); e != nil {
-		return nil, e
-	}
-
-	if c.Retryer != nil {
-		r = c.Retryer()
-	}
-
-	s = sdksss.New(sdksss.Options{
-		APIOptions:  c.APIOptions,
-		Credentials: c.Credentials,
-		EndpointOptions: sdksss.EndpointResolverOptions{
-			DisableHTTPS: !cli.c.IsHTTPs(),
-		},
-		EndpointResolver: cli.newS3Resolver(c),
-		HTTPSignerV4:     sdksv4.NewSigner(),
-		Region:           c.Region,
-		Retryer:          r,
-		HTTPClient:       httpClient,
-		UsePathStyle:     cli.p,
-	})
-
-	return s, nil
-}
-
-func (c *client) Clone(ctx context.Context) (AWS, errors.Error) {
-	cli := &client{
-		p: false,
-		x: c.x,
-		c: c.c.Clone(),
-		i: nil,
-		s: nil,
-		h: c.h,
-	}
-
-	if i, e := cli.newClientIAM(ctx, c.h); e != nil {
-		return nil, e
-	} else {
-		cli.i = i
-	}
-
-	if s, e := cli.newClientS3(ctx, c.h); e != nil {
+	if s, e := cli._NewClientS3(ctx, httpClient); e != nil {
 		return nil, e
 	} else {
 		cli.s = s
