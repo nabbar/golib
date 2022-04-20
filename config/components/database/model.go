@@ -43,10 +43,10 @@ type componentDatabase struct {
 	vpr libcfg.FuncComponentViper
 	key string
 
-	fsa func() liberr.Error
-	fsb func() liberr.Error
-	fra func() liberr.Error
-	frb func() liberr.Error
+	fsa func(cpt libcfg.Component) liberr.Error
+	fsb func(cpt libcfg.Component) liberr.Error
+	fra func(cpt libcfg.Component) liberr.Error
+	frb func(cpt libcfg.Component) liberr.Error
 
 	m  sync.Mutex
 	l  string
@@ -73,26 +73,35 @@ func (c *componentDatabase) _GetLogger() (liblog.Logger, liberr.Error) {
 	}
 }
 
-func (c *componentDatabase) _getClient(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	var (
-		err liberr.Error
-		cnf libdbs.Config
-
-		isReload = c.IsStarted()
-	)
+func (c *componentDatabase) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
+	var isReload = c.IsStarted()
 
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	if isReload && c.frb != nil {
-		if err = c.frb(); err != nil {
-			return err
-		}
-	} else if !isReload && c.fsb != nil {
-		if err = c.fsb(); err != nil {
-			return err
-		}
+	if isReload {
+		return c.frb, c.fra
+	} else {
+		return c.fsb, c.fsa
 	}
+}
+
+func (c *componentDatabase) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
+	if fct != nil {
+		return fct(c)
+	}
+
+	return nil
+}
+
+func (c *componentDatabase) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	var (
+		err liberr.Error
+		cnf libdbs.Config
+	)
 
 	if cnf, err = c._getConfig(getCfg); err != nil {
 		return err
@@ -106,19 +115,26 @@ func (c *componentDatabase) _getClient(getCfg libcfg.FuncComponentConfigGet) lib
 		return ErrorStartDatabase.Error(err)
 	}
 
-	if isReload && c.fra != nil {
-		if err = c.fra(); err != nil {
-			return err
-		}
-	} else if !isReload && c.fsa != nil {
-		if err = c.fsa(); err != nil {
-			return err
-		}
+	return nil
+}
+
+func (c *componentDatabase) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	if !c._CheckDep() {
+		return ErrorComponentNotInitialized.Error(nil)
+	}
+
+	fb, fa := c._getFct()
+
+	if err := c._runFct(fb); err != nil {
+		return err
+	} else if err = c._runCli(getCfg); err != nil {
+		return err
+	} else if err = c._runFct(fa); err != nil {
+		return err
 	}
 
 	return nil
 }
-
 func (c *componentDatabase) Type() string {
 	return ComponentType
 }
@@ -133,7 +149,7 @@ func (c *componentDatabase) Init(key string, ctx libcfg.FuncContext, get libcfg.
 	c.vpr = vpr
 }
 
-func (c *componentDatabase) RegisterFuncStart(before, after func() liberr.Error) {
+func (c *componentDatabase) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -141,7 +157,7 @@ func (c *componentDatabase) RegisterFuncStart(before, after func() liberr.Error)
 	c.fsa = after
 }
 
-func (c *componentDatabase) RegisterFuncReload(before, after func() liberr.Error) {
+func (c *componentDatabase) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -171,11 +187,11 @@ func (c *componentDatabase) IsRunning(atLeast bool) bool {
 }
 
 func (c *componentDatabase) Start(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._getClient(getCfg)
+	return c._run(getCfg)
 }
 
 func (c *componentDatabase) Reload(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._getClient(getCfg)
+	return c._run(getCfg)
 }
 
 func (c *componentDatabase) Stop() {

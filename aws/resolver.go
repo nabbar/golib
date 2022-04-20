@@ -47,14 +47,14 @@ func (r *resolverS3) ResolveEndpoint(region string, options sdksss.EndpointResol
 	return r.r("s3", region)
 }
 
-func (cli *client) newIAMResolver(c *sdkaws.Config) sdkiam.EndpointResolver {
+func (c *client) _NewIAMResolver(cfg *sdkaws.Config) sdkiam.EndpointResolver {
 	return &resolverIam{
-		r: c.EndpointResolver.ResolveEndpoint,
+		r: cfg.EndpointResolver.ResolveEndpoint,
 	}
 }
 
-func (cli *client) newS3Resolver(c *sdkaws.Config) sdksss.EndpointResolver {
+func (c *client) _NewS3Resolver(cfg *sdkaws.Config) sdksss.EndpointResolver {
 	return &resolverS3{
-		r: c.EndpointResolver.ResolveEndpoint,
+		r: cfg.EndpointResolver.ResolveEndpoint,
 	}
 }

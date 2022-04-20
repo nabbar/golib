@@ -52,8 +52,10 @@ type Object interface {
 	Put(object string, body io.Reader) liberr.Error
 	Delete(check bool, object string) liberr.Error
 
+	MultipartList(keyMarker, markerId string) (uploads []sdktps.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e liberr.Error)
 	MultipartPut(object string, body io.Reader) liberr.Error
 	MultipartPutCustom(partSize libhlp.PartSize, object string, body io.Reader) liberr.Error
+	MultipartCancel(uploadId, key string) liberr.Error
 
 	UpdateMetadata(meta *sdksss.CopyObjectInput) liberr.Error
 	SetWebsite(object, redirect string) liberr.Error

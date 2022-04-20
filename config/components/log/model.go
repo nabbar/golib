@@ -40,10 +40,10 @@ type componentLog struct {
 	vpr libcfg.FuncComponentViper
 	key string
 
-	fsa func() liberr.Error
-	fsb func() liberr.Error
-	fra func() liberr.Error
-	frb func() liberr.Error
+	fsa func(cpt libcfg.Component) liberr.Error
+	fsb func(cpt libcfg.Component) liberr.Error
+	fra func(cpt libcfg.Component) liberr.Error
+	frb func(cpt libcfg.Component) liberr.Error
 
 	d func() liblog.Logger
 
@@ -52,52 +52,60 @@ type componentLog struct {
 	v liblog.Level
 }
 
-func (c *componentLog) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+func (c *componentLog) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	var (
-		isReload = c.l == nil
-	)
+	if c.l != nil {
+		return c.frb, c.fra
+	} else {
+		return c.fsb, c.fsa
+	}
+}
 
-	if c.ctx == nil {
-		return ErrorComponentNotInitialized.Error(nil)
+func (c *componentLog) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
+	if fct != nil {
+		return fct(c)
 	}
 
-	if isReload && c.frb != nil {
-		if err := c.frb(); err != nil {
-			return err
-		}
-	} else if !isReload && c.fsb != nil {
-		if err := c.fsb(); err != nil {
-			return err
-		}
-	}
+	return nil
+}
+
+func (c *componentLog) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	if c.l == nil {
+		if c.ctx == nil {
+			return ErrorComponentNotInitialized.Error(nil)
+		}
+
 		c.l = liblog.New(c.ctx())
 		c.l.SetLevel(c.v)
 	}
 
-	if cnf, err := c._GetOptions(getCfg); err != nil {
+	return nil
+}
+
+func (c *componentLog) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	var (
+		cnf *liblog.Options
+	)
+
+	fb, fa := c._getFct()
+
+	if err := c._runFct(fb); err != nil {
+		return err
+	} else if err = c._runCli(getCfg); err != nil {
+		return err
+	} else if cnf, err = c._GetOptions(getCfg); err != nil {
 		return err
 	} else if cnf == nil {
 		return ErrorConfigInvalid.Error(nil)
 	} else if e := c.l.SetOptions(cnf); e != nil {
-		if isReload {
-			return ErrorReloadLog.Error(err)
-		}
-		return ErrorStartLog.Error(err)
-	}
-
-	if isReload && c.fra != nil {
-		if err := c.fra(); err != nil {
-			return err
-		}
-	} else if !isReload && c.fsa != nil {
-		if err := c.fsa(); err != nil {
-			return err
-		}
+		return ErrorReloadLog.Error(err)
+	} else if err = c._runFct(fa); err != nil {
+		return err
 	}
 
 	return nil
@@ -117,7 +125,7 @@ func (c *componentLog) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncC
 	c.vpr = vpr
 }
 
-func (c *componentLog) RegisterFuncStart(before, after func() liberr.Error) {
+func (c *componentLog) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -125,7 +133,7 @@ func (c *componentLog) RegisterFuncStart(before, after func() liberr.Error) {
 	c.fsa = after
 }
 
-func (c *componentLog) RegisterFuncReload(before, after func() liberr.Error) {
+func (c *componentLog) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

@@ -40,16 +40,35 @@ type componentTls struct {
 	vpr libcfg.FuncComponentViper
 	key string
 
-	fsa func() liberr.Error
-	fsb func() liberr.Error
-	fra func() liberr.Error
-	frb func() liberr.Error
+	fsa func(cpt libcfg.Component) liberr.Error
+	fsb func(cpt libcfg.Component) liberr.Error
+	fra func(cpt libcfg.Component) liberr.Error
+	frb func(cpt libcfg.Component) liberr.Error
 
 	m sync.Mutex
 	t libtls.TLSConfig
 }
 
-func (c *componentTls) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+func (c *componentTls) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if c.t != nil {
+		return c.frb, c.fra
+	} else {
+		return c.fsb, c.fsa
+	}
+}
+
+func (c *componentTls) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
+	if fct != nil {
+		return fct(c)
+	}
+
+	return nil
+}
+
+func (c *componentTls) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -57,24 +76,12 @@ func (c *componentTls) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
 		err liberr.Error
 		cfg *libtls.Config
 		tls libtls.TLSConfig
-
-		isReload = c.t != nil
 	)
-
-	if !isReload && c.fsb != nil {
-		if err = c.fsb(); err != nil {
-			return err
-		}
-	} else if isReload && c.frb != nil {
-		if err = c.frb(); err != nil {
-			return err
-		}
-	}
 
 	if cfg, err = c._getConfig(getCfg); err != nil {
 		return err
 	} else if tls, err = cfg.New(); err != nil {
-		if isReload {
+		if c.t != nil {
 			return ErrorComponentReload.Error(err)
 		}
 		return ErrorComponentStart.Error(err)
@@ -82,14 +89,18 @@ func (c *componentTls) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
 		c.t = tls
 	}
 
-	if !isReload && c.fsa != nil {
-		if err = c.fsa(); err != nil {
-			return err
-		}
-	} else if isReload && c.fra != nil {
-		if err = c.fra(); err != nil {
-			return err
-		}
+	return nil
+}
+
+func (c *componentTls) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+	fb, fa := c._getFct()
+
+	if err := c._runFct(fb); err != nil {
+		return err
+	} else if err = c._runCli(getCfg); err != nil {
+		return err
+	} else if err = c._runFct(fa); err != nil {
+		return err
 	}
 
 	return nil
@@ -109,7 +120,7 @@ func (c *componentTls) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncC
 	c.vpr = vpr
 }
 
-func (c *componentTls) RegisterFuncStart(before, after func() liberr.Error) {
+func (c *componentTls) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -117,7 +128,7 @@ func (c *componentTls) RegisterFuncStart(before, after func() liberr.Error) {
 	c.fsa = after
 }
 
-func (c *componentTls) RegisterFuncReload(before, after func() liberr.Error) {
+func (c *componentTls) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
