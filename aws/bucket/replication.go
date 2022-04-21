@@ -33,6 +33,22 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+func (cli *client) LoadReplication() (*sdkstp.ReplicationConfiguration, liberr.Error) {
+	in := sdksss.GetBucketReplicationInput{
+		Bucket: cli.GetBucketAws(),
+	}
+
+	out, err := cli.s3.GetBucketReplication(cli.GetContext(), &in)
+
+	if err != nil {
+		return nil, cli.GetError(err)
+	} else if out == nil {
+		return nil, libhlp.ErrorResponse.Error(nil)
+	} else {
+		return out.ReplicationConfiguration, nil
+	}
+}
+
 func (cli *client) EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) liberr.Error {
 	var status sdkstp.ReplicationRuleStatus = libhlp.STATE_ENABLED
 

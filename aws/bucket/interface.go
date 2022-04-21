@@ -33,7 +33,6 @@ import (
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
 	liberr "github.com/nabbar/golib/errors"
-	ligerr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
@@ -43,19 +42,20 @@ type client struct {
 }
 
 type Bucket interface {
-	Check() ligerr.Error
+	Check() liberr.Error
 
-	List() ([]sdkstp.Bucket, ligerr.Error)
-	Create(RegionConstraint string) ligerr.Error
-	Delete() ligerr.Error
+	List() ([]sdkstp.Bucket, liberr.Error)
+	Create(RegionConstraint string) liberr.Error
+	Delete() liberr.Error
 
 	//FindObject(pattern string) ([]string, errors.Error)
 
-	SetVersioning(state bool) ligerr.Error
-	GetVersioning() (string, ligerr.Error)
+	SetVersioning(state bool) liberr.Error
+	GetVersioning() (string, liberr.Error)
 
-	EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) ligerr.Error
-	DeleteReplication() ligerr.Error
+	LoadReplication() (*sdkstp.ReplicationConfiguration, liberr.Error)
+	EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) liberr.Error
+	DeleteReplication() liberr.Error
 
 	PutWebsite(index, error string) liberr.Error
 	GetWebsite() (*sdksss.GetBucketWebsiteOutput, liberr.Error)

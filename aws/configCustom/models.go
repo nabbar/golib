@@ -93,6 +93,11 @@ func (c *awsModel) Validate() errors.Error {
 	return err
 }
 
+func (c *awsModel) SetCredentials(accessKey, secretKey string) {
+	c.AccessKey = accessKey
+	c.SecretKey = secretKey
+}
+
 func (c *awsModel) ResetRegionEndpoint() {
 	c.mapRegion = make(map[string]*url.URL)
 }
