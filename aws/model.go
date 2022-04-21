@@ -141,9 +141,10 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sd
 
 func (c *client) Clone(ctx context.Context) (AWS, liberr.Error) {
 	n := &client{
-		p: false,
+		p: c.p,
 		x: c.x,
 		c: c.c.Clone(),
+		o: c.o,
 		i: nil,
 		s: nil,
 		h: c.h,
