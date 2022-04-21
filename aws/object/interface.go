@@ -51,6 +51,7 @@ type Object interface {
 	Get(object string) (*sdksss.GetObjectOutput, liberr.Error)
 	Put(object string, body io.Reader) liberr.Error
 	Delete(check bool, object string) liberr.Error
+	DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, liberr.Error)
 
 	MultipartList(keyMarker, markerId string) (uploads []sdktps.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e liberr.Error)
 	MultipartPut(object string, body io.Reader) liberr.Error
@@ -59,6 +60,12 @@ type Object interface {
 
 	UpdateMetadata(meta *sdksss.CopyObjectInput) liberr.Error
 	SetWebsite(object, redirect string) liberr.Error
+
+	VersionList(prefix, keyMarker, markerId string) (version []sdktps.ObjectVersion, delMarker []sdktps.DeleteMarkerEntry, nextKeyMarker, nextMarkerId string, count int64, err liberr.Error)
+	VersionGet(object, version string) (*sdksss.GetObjectOutput, liberr.Error)
+	VersionHead(object, version string) (*sdksss.HeadObjectOutput, liberr.Error)
+	VersionSize(object, version string) (size int64, err liberr.Error)
+	VersionDelete(check bool, object, version string) liberr.Error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Object {

@@ -46,6 +46,7 @@ type Config interface {
 	Check(ctx context.Context) liberr.Error
 	Validate() liberr.Error
 
+	SetCredentials(accessKey, secretKey string)
 	ResetRegionEndpoint()
 	RegisterRegionEndpoint(region string, endpoint *url.URL) liberr.Error
 	RegisterRegionAws(endpoint *url.URL) liberr.Error
@@ -74,8 +75,9 @@ type AWS interface {
 	Role() awsrol.Role
 	User() awsusr.User
 
-	Clone(ctx context.Context) (AWS, liberr.Error)
 	Config() Config
+	Clone(ctx context.Context) (AWS, liberr.Error)
+	NewForConfig(ctx context.Context, cfg Config) (AWS, liberr.Error)
 	ForcePathStyle(ctx context.Context, enabled bool) liberr.Error
 	ForceSignerOptions(ctx context.Context, fct ...func(signer *sdksv4.SignerOptions)) liberr.Error
 

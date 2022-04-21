@@ -139,6 +139,32 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sd
 	return sss, nil
 }
 
+func (c *client) NewForConfig(ctx context.Context, cfg Config) (AWS, liberr.Error) {
+	n := &client{
+		p: c.p,
+		x: c.x,
+		c: cfg,
+		o: c.o,
+		i: nil,
+		s: nil,
+		h: c.h,
+	}
+
+	if i, e := n._NewClientIAM(ctx, c.h); e != nil {
+		return nil, e
+	} else {
+		n.i = i
+	}
+
+	if s, e := n._NewClientS3(ctx, c.h); e != nil {
+		return nil, e
+	} else {
+		n.s = s
+	}
+
+	return n, nil
+}
+
 func (c *client) Clone(ctx context.Context) (AWS, liberr.Error) {
 	n := &client{
 		p: c.p,

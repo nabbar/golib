@@ -70,6 +70,11 @@ func (c *awsModel) Validate() errors.Error {
 	return nil
 }
 
+func (c *awsModel) SetCredentials(accessKey, secretKey string) {
+	c.AccessKey = accessKey
+	c.SecretKey = secretKey
+}
+
 func (c *awsModel) ResetRegionEndpoint() {
 }
 

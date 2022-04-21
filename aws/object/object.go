@@ -29,7 +29,6 @@ import (
 	"io"
 	"mime"
 	"path/filepath"
-	"strings"
 
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 
@@ -60,50 +59,19 @@ func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int6
 }
 
 func (cli *client) Get(object string) (*sdksss.GetObjectOutput, liberr.Error) {
-	out, err := cli.s3.GetObject(cli.GetContext(), &sdksss.GetObjectInput{
-		Bucket: cli.GetBucketAws(),
-		Key:    sdkaws.String(object),
-	})
-
-	if err != nil {
-		defer func() {
-			if out != nil && out.Body != nil {
-				_ = out.Body.Close()
-			}
-		}()
-		return nil, cli.GetError(err)
-	} else if out.Body == nil {
-		return nil, libhlp.ErrorResponse.Error(nil)
-	} else {
-		return out, nil
-	}
+	return cli.VersionGet(object, "")
 }
 
 func (cli *client) Head(object string) (*sdksss.HeadObjectOutput, liberr.Error) {
-	out, e := cli.s3.HeadObject(cli.GetContext(), &sdksss.HeadObjectInput{
-		Bucket: cli.GetBucketAws(),
-		Key:    sdkaws.String(object),
-	})
-
-	if e != nil {
-		return nil, cli.GetError(e)
-	} else if out.ETag == nil {
-		return nil, libhlp.ErrorResponse.Error(nil)
-	} else {
-		return out, nil
-	}
+	return cli.VersionHead(object, "")
 }
 
 func (cli *client) Size(object string) (size int64, err liberr.Error) {
-	var (
-		h *sdksss.HeadObjectOutput
-	)
+	return cli.VersionSize(object, "")
+}
 
-	if h, err = cli.Head(object); err != nil {
-		return
-	} else {
-		return h.ContentLength, nil
-	}
+func (cli *client) Delete(check bool, object string) liberr.Error {
+	return cli.VersionDelete(check, object, "")
 }
 
 func (cli *client) Put(object string, body io.Reader) liberr.Error {
@@ -131,57 +99,19 @@ func (cli *client) Put(object string, body io.Reader) liberr.Error {
 	return nil
 }
 
-func (cli *client) Delete(check bool, object string) liberr.Error {
-	if check {
-		if _, err := cli.Head(object); err != nil {
-			return err
-		}
+func (cli *client) DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, liberr.Error) {
+	in := sdksss.DeleteObjectsInput{
+		Bucket: cli.GetBucketAws(),
+		Delete: objects,
 	}
 
-	_, err := cli.s3.DeleteObject(cli.GetContext(), &sdksss.DeleteObjectInput{
-		Bucket: cli.GetBucketAws(),
-		Key:    sdkaws.String(object),
-	})
-
-	if !check && err != nil {
-		e := err.Error()
-		if strings.Contains(e, "api error NoSuchKey") {
-			return nil
-		}
-	}
-
-	return cli.GetError(err)
-}
-
-func (cli *client) UpdateMetadata(meta *sdksss.CopyObjectInput) liberr.Error {
-	_, err := cli.s3.CopyObject(cli.GetContext(), meta)
-
-	return cli.GetError(err)
-}
-
-func (cli *client) SetWebsite(object, redirect string) liberr.Error {
-	var err error
-
-	_, err = cli.s3.PutObjectAcl(cli.GetContext(), &sdksss.PutObjectAclInput{
-		Bucket: cli.GetBucketAws(),
-		Key:    sdkaws.String(object),
-		ACL:    sdktps.ObjectCannedACLPublicRead,
-	})
+	out, err := cli.s3.DeleteObjects(cli.GetContext(), &in)
 
 	if err != nil {
-		return cli.GetError(err)
+		return nil, cli.GetError(err)
+	} else if out == nil {
+		return nil, libhlp.ErrorResponse.Error(nil)
+	} else {
+		return out.Deleted, nil
 	}
-
-	if redirect == "" {
-		return nil
-	}
-
-	meta := &sdksss.CopyObjectInput{
-		Bucket:                  cli.GetBucketAws(),
-		CopySource:              sdkaws.String(cli.GetBucketName() + "/" + object),
-		Key:                     sdkaws.String(object),
-		WebsiteRedirectLocation: sdkaws.String(redirect),
-	}
-
-	return cli.UpdateMetadata(meta)
 }
