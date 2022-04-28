@@ -26,11 +26,11 @@
 package configCustom
 
 import (
-	"github.com/nabbar/golib/errors"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorAwsError errors.CodeError = iota + errors.MinPkgAws + 20
+	ErrorAwsError liberr.CodeError = iota + liberr.MinPkgAws + 20
 	ErrorConfigValidator
 	ErrorConfigJsonUnmarshall
 	ErrorEndpointInvalid
@@ -39,21 +39,18 @@ const (
 	ErrorCredentialsInvalid
 )
 
-var isErrInit = false
+var isErrInit = liberr.ExistInMapMessage(ErrorAwsError)
 
 func init() {
-	errors.RegisterIdFctMessage(ErrorAwsError, getMessage)
-	isErrInit = errors.ExistInMapMessage(ErrorAwsError)
+	liberr.RegisterIdFctMessage(ErrorAwsError, getMessage)
 }
 
 func IsErrorInit() bool {
 	return isErrInit
 }
 
-func getMessage(code errors.CodeError) string {
+func getMessage(code liberr.CodeError) string {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
 	case ErrorAwsError:
 		return "calling aws api occurred a response error"
 	case ErrorConfigValidator:
@@ -70,5 +67,5 @@ func getMessage(code errors.CodeError) string {
 		return "the specified credentials seems to be incorrect"
 	}
 
-	return ""
+	return liberr.UNK_MESSAGE
 }
