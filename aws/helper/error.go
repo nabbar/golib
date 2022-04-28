@@ -25,7 +25,9 @@
 
 package helper
 
-import "github.com/nabbar/golib/errors"
+import (
+	errors "github.com/nabbar/golib/errors"
+)
 
 const (
 	// minmal are errors.MIN_AVAILABLE + get a hope free range 1000 + 10 for aws-config errors.
@@ -37,11 +39,10 @@ const (
 	ErrorParamsEmpty
 )
 
-var isErrInit = false
+var isErrInit = errors.ExistInMapMessage(ErrorResponse)
 
 func init() {
 	errors.RegisterIdFctMessage(ErrorResponse, getMessage)
-	isErrInit = errors.ExistInMapMessage(ErrorResponse)
 }
 
 func IsErrorInit() bool {
@@ -50,8 +51,6 @@ func IsErrorInit() bool {
 
 func getMessage(code errors.CodeError) string {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
 	case ErrorResponse:
 		return "calling aws api occurred a response error"
 	case ErrorConfigEmpty:
@@ -66,5 +65,5 @@ func getMessage(code errors.CodeError) string {
 		return "at least one parameters needed is empty"
 	}
 
-	return ""
+	return errors.UNK_MESSAGE
 }

@@ -26,33 +26,32 @@
 
 package logger
 
-import "github.com/nabbar/golib/errors"
+import (
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgLogger
+	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgLogger
 	ErrorValidatorError
 )
 
-var isCodeError = false
+var isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
 
 func IsCodeError() bool {
 	return isCodeError
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
 	case ErrorValidatorError:
 		return "logger : invalid config"
 	}
 
-	return ""
+	return liberr.UNK_MESSAGE
 }
