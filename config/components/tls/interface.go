@@ -37,6 +37,7 @@ const (
 
 type ComponentTlS interface {
 	libcfg.Component
+	Config() *libtls.Config
 	GetTLS() libtls.TLSConfig
 	SetTLS(tls libtls.TLSConfig)
 }

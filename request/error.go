@@ -26,13 +26,18 @@
 
 package request
 
-import "bytes"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 type requestError struct {
-	c int
-	s string
-	b *bytes.Buffer
-	e error
+	c  int
+	s  string
+	se bool
+	b  *bytes.Buffer
+	be bool
+	e  error
 }
 
 func (r *requestError) StatusCode() int {
@@ -49,4 +54,26 @@ func (r *requestError) Body() *bytes.Buffer {
 
 func (r *requestError) Error() error {
 	return r.e
+}
+
+func (r *requestError) IsError() bool {
+	return r.se || r.be || r.e != nil
+}
+
+func (r *requestError) IsStatusError() bool {
+	return r.se
+}
+
+func (r *requestError) IsBodyError() bool {
+	return r.be
+}
+
+func (r *requestError) ParseBody(i interface{}) bool {
+	if r.b != nil && r.b.Len() > 0 {
+		if e := json.Unmarshal(r.b.Bytes(), i); e == nil {
+			return true
+		}
+	}
+
+	return false
 }

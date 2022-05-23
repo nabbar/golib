@@ -112,6 +112,12 @@ type Config interface {
 	// is trigger. This func is call after the stop sequence.
 	RegisterFuncStopAfter(fct func())
 
+	// Shutdown will trigger all stop function.
+	// This function will call the Stop function and the private function cancel.
+	// This will stop all process and do like a SIGTERM/SIGINT signal.
+	// This will finish by an os.Exit with the given parameter code.
+	Shutdown(code int)
+
 	/*
 		// Section Component : github.com/nabbar/golib/config
 	*/

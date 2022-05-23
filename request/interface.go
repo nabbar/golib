@@ -47,6 +47,12 @@ type RequestError interface {
 	Status() string
 	Body() *bytes.Buffer
 	Error() error
+
+	IsError() bool
+	IsStatusError() bool
+	IsBodyError() bool
+
+	ParseBody(i interface{}) bool
 }
 
 type Request interface {

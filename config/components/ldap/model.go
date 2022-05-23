@@ -47,6 +47,7 @@ type componentLDAP struct {
 	frb func(cpt libcfg.Component) liberr.Error
 
 	m sync.Mutex
+	c *lbldap.Config
 	l *lbldap.HelperLDAP
 }
 
@@ -86,7 +87,7 @@ func (c *componentLDAP) _runFct(fct func(cpt libcfg.Component) liberr.Error) lib
 	return nil
 }
 
-func (c *componentLDAP) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
+func (c *componentLDAP) _runCli(ctx context.Context, getCfg libcfg.FuncComponentConfigGet) liberr.Error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -95,10 +96,11 @@ func (c *componentLDAP) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Err
 		return ErrorParamsInvalid.Error(err)
 	}
 
-	if l, e := lbldap.NewLDAP(c._GetContext(), &cfg, nil); e != nil {
+	if l, e := lbldap.NewLDAP(ctx, &cfg, nil); e != nil {
 		return ErrorConfigInvalid.ErrorParent(e)
 	} else {
 		c.l = l
+		c.c = &cfg
 	}
 
 	return nil
@@ -109,7 +111,7 @@ func (c *componentLDAP) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error 
 
 	if err := c._runFct(fb); err != nil {
 		return err
-	} else if err = c._runCli(getCfg); err != nil {
+	} else if err = c._runCli(c._GetContext(), getCfg); err != nil {
 		return err
 	} else if err = c._runFct(fa); err != nil {
 		return err
@@ -173,6 +175,13 @@ func (c *componentLDAP) Stop() {
 
 func (c *componentLDAP) Dependencies() []string {
 	return make([]string, 0)
+}
+
+func (c *componentLDAP) Config() *lbldap.Config {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	return c.c
 }
 
 func (c *componentLDAP) LDAP() *lbldap.HelperLDAP {

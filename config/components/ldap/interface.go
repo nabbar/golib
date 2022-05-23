@@ -43,6 +43,7 @@ const (
 type ComponentLDAP interface {
 	libcfg.Component
 
+	Config() *lbldap.Config
 	LDAP() *lbldap.HelperLDAP
 }
 

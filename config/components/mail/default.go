@@ -42,9 +42,9 @@ var _defaultConfig = []byte(`{
   "subject": "",
   "encoding": "",
   "priority": "",
-  "headers": [
-    ""
-  ],
+  "headers": {
+    "": ""
+  },
   "from": "",
   "sender": "",
   "replyTo": "",

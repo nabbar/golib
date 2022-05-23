@@ -170,7 +170,7 @@ func (lc *HelperLDAP) dialTLS() (*ldap.Conn, liberr.Error) {
 func (lc *HelperLDAP) dial() (*ldap.Conn, liberr.Error) {
 	d := net.Dialer{}
 
-	c, err := d.DialContext(lc.ctx, "tcp", lc.config.ServerAddr(true))
+	c, err := d.DialContext(lc.ctx, "tcp", lc.config.ServerAddr(false))
 
 	if err != nil {
 		if c != nil {

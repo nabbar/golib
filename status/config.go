@@ -59,7 +59,7 @@ type ConfigStatus struct {
 var _defaultConfig = []byte(`{
   "mandatory": false,
   "message_ok": "OK",
-  "message_ko": "OK",
+  "message_ko": "KO",
   "cache_timeout_info": "30s",
   "cache_timeout_health": "5s"
 }

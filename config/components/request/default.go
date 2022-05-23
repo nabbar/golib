@@ -78,7 +78,7 @@ var _defaultConfig = []byte(`{
        "valid_http_code": [200, 201, 202, 203, 204],
        "invalid_http_code": [401, 403, 404, 405, 500, 501, 502, 503, 504],
        "contain": ["OK", "Done"],
-       "not_contain": ["KO", "fail", "error"],
+       "not_contain": ["KO", "fail", "error"]
      },
      "status": ` + string(libsts.DefaultConfig("  ")) + `
    }

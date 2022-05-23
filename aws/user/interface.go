@@ -29,7 +29,7 @@ import (
 	"context"
 
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
-	sdkitp "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	libhlp "github.com/nabbar/golib/aws/helper"
 	liberr "github.com/nabbar/golib/errors"
@@ -43,7 +43,7 @@ type client struct {
 
 type User interface {
 	List() (map[string]string, liberr.Error)
-	Get(username string) (*sdkitp.User, liberr.Error)
+	Get(username string) (*sdktps.User, liberr.Error)
 	Create(username string) liberr.Error
 	Delete(username string) liberr.Error
 
@@ -54,6 +54,7 @@ type User interface {
 	LoginCreate(username, password string) liberr.Error
 	LoginDelete(username string) liberr.Error
 
+	AccessListAll() ([]sdktps.AccessKeyMetadata, liberr.Error)
 	AccessList(username string) (map[string]bool, liberr.Error)
 	AccessCreate(username string) (string, string, liberr.Error)
 	AccessDelete(username, accessKey string) liberr.Error
