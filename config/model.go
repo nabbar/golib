@@ -29,6 +29,7 @@ package config
 import (
 	"context"
 	"fmt"
+	"os"
 
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
@@ -225,6 +226,11 @@ func (c *configModel) RegisterFuncStopAfter(fct func()) {
 	c.m.Lock()
 	defer c.m.Unlock()
 	c.fctStopAfter = fct
+}
+
+func (c *configModel) Shutdown(code int) {
+	c.cancel()
+	os.Exit(code)
 }
 
 func (c *configModel) ComponentHas(key string) bool {

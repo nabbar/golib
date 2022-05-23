@@ -49,14 +49,13 @@ const (
 	ErrorLDAPGroupNotFound
 )
 
-var isCodeError = false
+var isCodeError = errors.ExistInMapMessage(ErrorEmptyParams)
 
 func IsCodeError() bool {
 	return isCodeError
 }
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorEmptyParams)
 	errors.RegisterIdFctMessage(ErrorEmptyParams, getMessage)
 }
 

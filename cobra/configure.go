@@ -38,11 +38,13 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 
 	liblog "github.com/nabbar/golib/logger"
 	spfcbr "github.com/spf13/cobra"
 )
+
+var cfgFile string
 
 func (c *cobra) getDefaultPath(baseName string) (string, error) {
 	path := ""
@@ -65,14 +67,87 @@ func (c *cobra) getDefaultPath(baseName string) (string, error) {
 	return path, nil
 }
 
-func (c *cobra) AddCommandConfigure(basename string, defaultConfig func() io.Reader) {
+func (c *cobra) ConfigureCheckArgs(basename string, args []string) error {
+	if len(args) < 1 {
+		var err error
+		cfgFile, err = c.getDefaultPath(basename)
+		return err
+	} else if len(args) > 1 {
+		return fmt.Errorf("arguments error: too many file path specify")
+	} else {
+		cfgFile = args[0]
+	}
+
+	return nil
+}
+
+func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Reader) error {
 	pkg := c.getPackageName()
 
 	if basename == "" && pkg != "" {
 		basename = "." + strings.ToLower(pkg)
 	}
 
-	var cfgFile string
+	var (
+		fs *os.File
+	)
+
+	defer func() {
+		if fs != nil {
+			_ = fs.Close()
+		}
+	}()
+
+	buf, err := ioutil.ReadAll(defaultConfig())
+	if err != nil {
+		return err
+	}
+
+	if len(path.Ext(cfgFile)) > 0 && strings.ToLower(path.Ext(cfgFile)) != ".json" {
+		var mod = make(map[string]interface{}, 0)
+
+		err = json.Unmarshal(buf, &mod)
+		if err != nil {
+			return err
+		}
+
+		switch strings.ToLower(path.Ext(cfgFile)) {
+		case ".toml":
+			buf, err = toml.Marshal(mod)
+		case ".yml", ".yaml":
+			buf, err = yaml.Marshal(mod)
+		default:
+			return fmt.Errorf("extension file '%s' not compatible", path.Ext(cfgFile))
+		}
+	}
+
+	fs, err = os.OpenFile(cfgFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+
+	_, err = fs.Write(buf)
+	if err != nil {
+		return err
+	}
+
+	err = os.Chmod(cfgFile, 0600)
+	if err != nil {
+		return err
+	}
+
+	println(fmt.Sprintf("\n\t>> Config File '%s' has been created and file permission have been set.", cfgFile))
+	println("\t>> To explicitly specify this config file when you call this tool, use the '-c' flag like this: ")
+	println(fmt.Sprintf("\t\t\t %s -c %s <cmd>...\n", pkg, cfgFile))
+	return nil
+}
+
+func (c *cobra) AddCommandConfigure(basename string, defaultConfig func() io.Reader) {
+	pkg := c.getPackageName()
+
+	if basename == "" && pkg != "" {
+		basename = "." + strings.ToLower(pkg)
+	}
 
 	c.c.AddCommand(&spfcbr.Command{
 		Use:     "configure <file path with valid extension (json, yaml, toml, ...) to be generated>",
@@ -81,60 +156,12 @@ func (c *cobra) AddCommandConfigure(basename string, defaultConfig func() io.Rea
 		Long: `Generates a configuration file based on giving existing config flag
 override by passed flag in command line and completed with default for non existing values.`,
 
-		Run: func(cmd *spfcbr.Command, args []string) {
-			var fs *os.File
-
-			defer func() {
-				if fs != nil {
-					_ = fs.Close()
-				}
-			}()
-
-			buf, err := ioutil.ReadAll(defaultConfig())
-			c.getLog().CheckError(liblog.FatalLevel, liblog.DebugLevel, "reading default config", err)
-
-			if len(path.Ext(cfgFile)) > 0 && strings.ToLower(path.Ext(cfgFile)) != ".json" {
-				var mod = make(map[string]interface{}, 0)
-
-				err = json.Unmarshal(buf, &mod)
-				c.getLog().CheckError(liblog.FatalLevel, liblog.DebugLevel, "transform json default config", err)
-
-				switch strings.ToLower(path.Ext(cfgFile)) {
-				case ".toml":
-					buf, err = toml.Marshal(mod)
-				case ".yml", ".yaml":
-					buf, err = yaml.Marshal(mod)
-				default:
-					c.getLog().CheckError(liblog.FatalLevel, liblog.DebugLevel, "get encode for extension file", fmt.Errorf("extension file '%s' not compatible", path.Ext(cfgFile)))
-				}
-			}
-
-			fs, err = os.OpenFile(cfgFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
-			c.getLog().CheckError(liblog.FatalLevel, liblog.DebugLevel, "opening destination config file for exclusive write with truncate", err)
-
-			_, err = fs.Write(buf)
-			c.getLog().CheckError(liblog.FatalLevel, liblog.DebugLevel, fmt.Sprintf("writing config to file '%s'", cfgFile), err)
-
-			err = os.Chmod(cfgFile, 0600)
-			if !c.getLog().CheckError(liblog.ErrorLevel, liblog.InfoLevel, fmt.Sprintf("setting permission for config file '%s'", cfgFile), err) {
-				println(fmt.Sprintf("\n\t>> Config File '%s' has been created and file permission have been set.", cfgFile))
-				println("\t>> To explicitly specify this config file when you call this tool, use the '-c' flag like this: ")
-				println(fmt.Sprintf("\t\t\t %s -c %s <cmd>...\n", pkg, cfgFile))
-			}
+		RunE: func(cmd *spfcbr.Command, args []string) error {
+			return c.ConfigureWriteConfig(basename, defaultConfig)
 		},
 
 		Args: func(cmd *spfcbr.Command, args []string) error {
-			if len(args) < 1 {
-				var err error
-				cfgFile, err = c.getDefaultPath(basename)
-				return err
-			} else if len(args) > 1 {
-				return fmt.Errorf("arguments error: too many file path specify")
-			} else {
-				cfgFile = args[0]
-			}
-
-			return nil
+			return c.ConfigureCheckArgs(basename, args)
 		},
 	})
 }

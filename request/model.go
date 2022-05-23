@@ -178,8 +178,20 @@ func (r *request) _GetContext() context.Context {
 	return context.Background()
 }
 
+func (r *request) _GetOption() *Options {
+	if r.o == nil {
+		return nil
+	} else if i := r.o.Load(); i == nil {
+		return nil
+	} else if o, ok := i.(*Options); !ok {
+		return nil
+	} else {
+		return o
+	}
+}
+
 func (r *request) _GetDefaultTLS() libtls.TLSConfig {
-	if cfg := r.GetOption(); cfg != nil {
+	if cfg := r._GetOption(); cfg != nil {
 		return cfg._GetDefaultTLS()
 	}
 
@@ -199,7 +211,7 @@ func (r *request) _GetClient() *http.Client {
 		}
 	}
 
-	if cfg := r.GetOption(); cfg != nil {
+	if cfg := r._GetOption(); cfg != nil {
 		return cfg.GetClientHTTP(h)
 	}
 
@@ -252,7 +264,9 @@ func (r *request) _CheckResponse(rsp *http.Response, validStatus ...int) (*bytes
 	}
 
 	if rsp.Body != nil {
-		return b, ErrorResponseLoadBody.ErrorParent(e)
+		if _, e = io.Copy(b, rsp.Body); e != nil {
+			return b, ErrorResponseLoadBody.ErrorParent(e)
+		}
 	}
 
 	if !r._IsValidCode(validStatus, rsp.StatusCode) {
@@ -314,19 +328,22 @@ func (r *request) Clone() (Request, error) {
 }
 
 func (r *request) New() (Request, error) {
-	cfg := r.GetOption()
-
 	r.s.Lock()
 	defer r.s.Unlock()
 
-	var n *request
+	var (
+		n *request
+		c = r._GetOption()
+	)
 
-	if cfg == nil {
-		if i, e := New(r.x, r.f, Options{}); e != nil {
-			return nil, e
-		} else {
-			n = i.(*request)
-		}
+	if c == nil {
+		c = &Options{}
+	}
+
+	if i, e := New(r.x, r.f, *c); e != nil {
+		return nil, e
+	} else {
+		n = i.(*request)
 	}
 
 	if r.u != nil {
@@ -351,15 +368,7 @@ func (r *request) GetOption() *Options {
 	r.s.Lock()
 	defer r.s.Unlock()
 
-	if r.o == nil {
-		return nil
-	} else if i := r.o.Load(); i == nil {
-		return nil
-	} else if o, ok := i.(*Options); !ok {
-		return nil
-	} else {
-		return o
-	}
+	return r._GetOption()
 }
 
 func (r *request) SetOption(opt *Options) error {
@@ -437,7 +446,9 @@ func (r *request) AddPath(raw bool, path ...string) {
 	}
 
 	for i := range path {
-		if strings.HasPrefix(path[i], "/") {
+		if raw && strings.HasSuffix(r.u.RawPath, "/") && strings.HasPrefix(path[i], "/") {
+			path[i] = strings.TrimPrefix(path[i], "/")
+		} else if !raw && strings.HasSuffix(r.u.Path, "/") && strings.HasPrefix(path[i], "/") {
 			path[i] = strings.TrimPrefix(path[i], "/")
 		}
 
@@ -594,10 +605,7 @@ func (r *request) BodyJson(body interface{}) error {
 	if p, e := json.Marshal(body); e != nil {
 		return e
 	} else {
-		r.s.Lock()
-		defer r.s.Unlock()
-
-		r.b = bytes.NewBuffer(p)
+		r._BodyReader(bytes.NewBuffer(p))
 	}
 
 	r.ContentType("application/json")
@@ -605,14 +613,18 @@ func (r *request) BodyJson(body interface{}) error {
 }
 
 func (r *request) BodyReader(body io.Reader, contentType string) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	r.b = body
+	r._BodyReader(body)
 
 	if contentType != "" {
 		r.ContentType(contentType)
 	}
+}
+
+func (r *request) _BodyReader(body io.Reader) {
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	r.b = body
 }
 
 func (r *request) Error() RequestError {
@@ -626,7 +638,7 @@ func (r *request) IsError() bool {
 	r.s.Lock()
 	defer r.s.Unlock()
 
-	return r.e != nil
+	return r.e != nil && r.e.IsError()
 }
 
 func (r *request) Do() (*http.Response, liberr.Error) {
@@ -644,28 +656,25 @@ func (r *request) Do() (*http.Response, liberr.Error) {
 		err liberr.Error
 	)
 
-	r.e = nil
+	r.e = &requestError{
+		c:  0,
+		s:  "",
+		se: false,
+		b:  bytes.NewBuffer(make([]byte, 0)),
+		be: false,
+		e:  nil,
+	}
 
 	req, err = r._MakeRequest(r.u, r.m, r.b, r.h, r.p)
 	if err != nil {
-		r.e = &requestError{
-			c: 0,
-			s: "",
-			b: nil,
-			e: err,
-		}
+		r.e.e = err
 		return nil, err
 	}
 
 	rsp, e = r._GetClient().Do(req)
 
 	if e != nil {
-		r.e = &requestError{
-			c: 0,
-			s: "",
-			b: nil,
-			e: e,
-		}
+		r.e.e = e
 		return nil, ErrorSendRequest.ErrorParent(e)
 	}
 
@@ -681,30 +690,40 @@ func (r *request) DoParse(model interface{}, validStatus ...int) liberr.Error {
 		rsp *http.Response
 	)
 
+	r.e = &requestError{
+		c:  0,
+		s:  "",
+		se: false,
+		b:  bytes.NewBuffer(make([]byte, 0)),
+		be: false,
+		e:  nil,
+	}
+
 	if rsp, err = r.Do(); err != nil {
 		return err
 	} else if rsp == nil {
 		return ErrorResponseInvalid.Error(nil)
+	} else {
+		r.e.c = rsp.StatusCode
+		r.e.s = rsp.Status
 	}
 
-	if b, err = r._CheckResponse(rsp, validStatus...); e != nil {
-		r.e = &requestError{
-			c: rsp.StatusCode,
-			s: rsp.Status,
-			b: b,
-			e: err,
-		}
+	b, err = r._CheckResponse(rsp, validStatus...)
+	r.e.b = b
+
+	if err != nil && err.HasCodeError(ErrorResponseStatus) {
+		r.e.se = true
+	} else if err != nil {
+		r.e.e = err
 		return err
 	}
 
-	if e = json.Unmarshal(b.Bytes(), model); e != nil {
-		r.e = &requestError{
-			c: rsp.StatusCode,
-			s: rsp.Status,
-			b: b,
-			e: e,
+	if b.Len() > 0 {
+		if e = json.Unmarshal(b.Bytes(), model); e != nil {
+			r.e.be = true
+			r.e.e = e
+			return ErrorResponseUnmarshall.ErrorParent(e)
 		}
-		return ErrorResponseUnmarshall.ErrorParent(e)
 	}
 
 	return nil

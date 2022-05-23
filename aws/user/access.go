@@ -26,19 +26,33 @@
 package user
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	awshlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) AccessList(username string) (map[string]bool, errors.Error) {
-	var req = &iam.ListAccessKeysInput{}
+func (cli *client) AccessListAll() ([]sdktps.AccessKeyMetadata, liberr.Error) {
+	var req = &sdkiam.ListAccessKeysInput{}
+
+	out, err := cli.iam.ListAccessKeys(cli.GetContext(), req)
+
+	if err != nil {
+		return nil, cli.GetError(err)
+	} else if out.AccessKeyMetadata == nil {
+		return nil, awshlp.ErrorResponse.Error(nil)
+	} else {
+		return out.AccessKeyMetadata, nil
+	}
+}
+
+func (cli *client) AccessList(username string) (map[string]bool, liberr.Error) {
+	var req = &sdkiam.ListAccessKeysInput{}
 
 	if username != "" {
-		req = &iam.ListAccessKeysInput{
-			UserName: aws.String(username),
+		req = &sdkiam.ListAccessKeysInput{
+			UserName: sdkaws.String(username),
 		}
 	}
 
@@ -47,15 +61,15 @@ func (cli *client) AccessList(username string) (map[string]bool, errors.Error) {
 	if err != nil {
 		return nil, cli.GetError(err)
 	} else if out.AccessKeyMetadata == nil {
-		return nil, helper.ErrorResponse.Error(nil)
+		return nil, awshlp.ErrorResponse.Error(nil)
 	} else {
 		var res = make(map[string]bool)
 
 		for _, a := range out.AccessKeyMetadata {
 			switch a.Status {
-			case types.StatusTypeActive:
+			case sdktps.StatusTypeActive:
 				res[*a.AccessKeyId] = true
-			case types.StatusTypeInactive:
+			case sdktps.StatusTypeInactive:
 				res[*a.AccessKeyId] = false
 			}
 		}
@@ -64,12 +78,12 @@ func (cli *client) AccessList(username string) (map[string]bool, errors.Error) {
 	}
 }
 
-func (cli *client) AccessCreate(username string) (string, string, errors.Error) {
-	var req = &iam.CreateAccessKeyInput{}
+func (cli *client) AccessCreate(username string) (string, string, liberr.Error) {
+	var req = &sdkiam.CreateAccessKeyInput{}
 
 	if username != "" {
-		req = &iam.CreateAccessKeyInput{
-			UserName: aws.String(username),
+		req = &sdkiam.CreateAccessKeyInput{
+			UserName: sdkaws.String(username),
 		}
 	}
 
@@ -78,21 +92,21 @@ func (cli *client) AccessCreate(username string) (string, string, errors.Error) 
 	if err != nil {
 		return "", "", cli.GetError(err)
 	} else if out.AccessKey == nil {
-		return "", "", helper.ErrorResponse.Error(nil)
+		return "", "", awshlp.ErrorResponse.Error(nil)
 	} else {
 		return *out.AccessKey.AccessKeyId, *out.AccessKey.SecretAccessKey, nil
 	}
 }
 
-func (cli *client) AccessDelete(username, accessKey string) errors.Error {
-	var req = &iam.DeleteAccessKeyInput{
-		AccessKeyId: aws.String(accessKey),
+func (cli *client) AccessDelete(username, accessKey string) liberr.Error {
+	var req = &sdkiam.DeleteAccessKeyInput{
+		AccessKeyId: sdkaws.String(accessKey),
 	}
 
 	if username != "" {
-		req = &iam.DeleteAccessKeyInput{
-			AccessKeyId: aws.String(accessKey),
-			UserName:    aws.String(username),
+		req = &sdkiam.DeleteAccessKeyInput{
+			AccessKeyId: sdkaws.String(accessKey),
+			UserName:    sdkaws.String(username),
 		}
 	}
 

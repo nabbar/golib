@@ -47,6 +47,7 @@ type componentTls struct {
 
 	m sync.Mutex
 	t libtls.TLSConfig
+	c *libtls.Config
 }
 
 func (c *componentTls) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
@@ -87,6 +88,7 @@ func (c *componentTls) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Erro
 		return ErrorComponentStart.Error(err)
 	} else {
 		c.t = tls
+		c.c = cfg
 	}
 
 	return nil
@@ -161,6 +163,13 @@ func (c *componentTls) Stop() {
 
 func (c *componentTls) Dependencies() []string {
 	return make([]string, 0)
+}
+
+func (c *componentTls) Config() *libtls.Config {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	return c.c
 }
 
 func (c *componentTls) GetTLS() libtls.TLSConfig {
