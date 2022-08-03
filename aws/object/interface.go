@@ -43,12 +43,19 @@ type client struct {
 	s3  *sdksss.Client
 }
 
+type WalkFunc func(err liberr.Error, obj sdktps.Object) liberr.Error
+type VersionWalkFunc func(err liberr.Error, obj sdktps.ObjectVersion) liberr.Error
+type DelMakWalkFunc func(err liberr.Error, del sdktps.DeleteMarkerEntry) liberr.Error
+
 type Object interface {
 	Find(regex string) ([]string, liberr.Error)
 	Size(object string) (size int64, err liberr.Error)
 
 	List(continuationToken string) ([]sdktps.Object, string, int64, liberr.Error)
+	Walk(f WalkFunc) liberr.Error
+
 	ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, liberr.Error)
+	WalkPrefix(prefix string, f WalkFunc) liberr.Error
 
 	Head(object string) (*sdksss.HeadObjectOutput, liberr.Error)
 	Get(object string) (*sdksss.GetObjectOutput, liberr.Error)
@@ -66,6 +73,9 @@ type Object interface {
 	SetWebsite(object, redirect string) liberr.Error
 
 	VersionList(prefix, keyMarker, markerId string) (version []sdktps.ObjectVersion, delMarker []sdktps.DeleteMarkerEntry, nextKeyMarker, nextMarkerId string, count int64, err liberr.Error)
+	VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) liberr.Error
+	VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) liberr.Error
+
 	VersionGet(object, version string) (*sdksss.GetObjectOutput, liberr.Error)
 	VersionHead(object, version string) (*sdksss.HeadObjectOutput, liberr.Error)
 	VersionSize(object, version string) (size int64, err liberr.Error)

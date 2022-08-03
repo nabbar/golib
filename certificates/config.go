@@ -84,7 +84,7 @@ func (c *Config) New() (TLSConfig, liberr.Error) {
 	}
 }
 
-//nolint #gocognit
+// nolint #gocognit
 func (c *Config) NewFrom(cfg TLSConfig) (TLSConfig, liberr.Error) {
 	var t *config
 

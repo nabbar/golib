@@ -39,23 +39,7 @@ import (
 )
 
 func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int64, liberr.Error) {
-	in := sdksss.ListObjectsV2Input{
-		Bucket: cli.GetBucketAws(),
-	}
-
-	if continuationToken != "" {
-		in.ContinuationToken = sdkaws.String(continuationToken)
-	}
-
-	out, err := cli.s3.ListObjectsV2(cli.GetContext(), &in)
-
-	if err != nil {
-		return nil, "", 0, cli.GetError(err)
-	} else if out.IsTruncated {
-		return out.Contents, *out.NextContinuationToken, int64(out.KeyCount), nil
-	} else {
-		return out.Contents, "", int64(out.KeyCount), nil
-	}
+	return cli.ListPrefix(continuationToken, "")
 }
 
 func (cli *client) ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, liberr.Error) {
@@ -79,6 +63,53 @@ func (cli *client) ListPrefix(continuationToken string, prefix string) ([]sdktps
 		return out.Contents, *out.NextContinuationToken, int64(out.KeyCount), nil
 	} else {
 		return out.Contents, "", int64(out.KeyCount), nil
+	}
+}
+
+func (cli *client) Walk(f WalkFunc) liberr.Error {
+	return cli.WalkPrefix("", f)
+}
+
+func (cli *client) WalkPrefix(prefix string, f WalkFunc) liberr.Error {
+	in := sdksss.ListObjectsV2Input{
+		Bucket: cli.GetBucketAws(),
+	}
+
+	if prefix != "" {
+		in.Prefix = sdkaws.String(prefix)
+	}
+
+	var (
+		e liberr.Error
+		t *string
+	)
+
+	for {
+		if len(*t) > 0 {
+			in.ContinuationToken = t
+		}
+
+		out, err := cli.s3.ListObjectsV2(cli.GetContext(), &in)
+
+		if err != nil {
+			return cli.GetError(err)
+		}
+
+		for _, o := range out.Contents {
+			if o.Key == nil || len(*o.Key) < 3 {
+				continue
+			}
+
+			if f != nil {
+				e = f(e, o)
+			}
+		}
+
+		if out.IsTruncated {
+			t = out.NextContinuationToken
+		} else {
+			return e
+		}
 	}
 }
 

@@ -41,7 +41,7 @@ import (
 
 type FuncLogger func() liblog.Logger
 
-//HelperLDAP struct use to manage connection to server and request it.
+// HelperLDAP struct use to manage connection to server and request it.
 type HelperLDAP struct {
 	Attributes []string
 	conn       *ldap.Conn
@@ -54,7 +54,7 @@ type HelperLDAP struct {
 	log        FuncLogger
 }
 
-//NewLDAP build a new LDAP helper based on config struct given.
+// NewLDAP build a new LDAP helper based on config struct given.
 func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP, liberr.Error) {
 	if cnf == nil {
 		return nil, ErrorEmptyParams.Error(nil)
@@ -70,7 +70,7 @@ func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP
 	}, nil
 }
 
-//SetLogger is used to specify the logger to be used for debug messgae
+// SetLogger is used to specify the logger to be used for debug messgae
 func (lc *HelperLDAP) SetLogger(fct FuncLogger) {
 	lc.log = fct
 }
@@ -101,13 +101,13 @@ func (lc HelperLDAP) getLogEntryErr(lvlKO liblog.Level, err error, msg string, a
 	return log.Entry(lvlKO, msg, args...).FieldAdd("ldap.host", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS)).ErrorAdd(true, err)
 }
 
-//SetCredentials used to defined the BindDN and password for connection.
+// SetCredentials used to defined the BindDN and password for connection.
 func (lc *HelperLDAP) SetCredentials(user, pass string) {
 	lc.bindDN = user
 	lc.bindPass = pass
 }
 
-//ForceTLSMode used to force tls mode and defined tls condition.
+// ForceTLSMode used to force tls mode and defined tls condition.
 func (lc *HelperLDAP) ForceTLSMode(tlsMode TLSMode, tlsConfig *tls.Config) {
 	if tlsConfig != nil {
 		lc.tlsConfig = tlsConfig
@@ -317,7 +317,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 	return nil
 }
 
-//Check used to check if connection success (without any bind).
+// Check used to check if connection success (without any bind).
 func (lc *HelperLDAP) Check() liberr.Error {
 	if lc == nil {
 		return ErrorEmptyParams.Error(nil)
@@ -340,7 +340,7 @@ func (lc *HelperLDAP) Check() liberr.Error {
 	return nil
 }
 
-//Close used to close connection object.
+// Close used to close connection object.
 func (lc *HelperLDAP) Close() {
 	if lc == nil {
 		return
@@ -352,7 +352,7 @@ func (lc *HelperLDAP) Close() {
 	}
 }
 
-//AuthUser used to test bind given user uid and password.
+// AuthUser used to test bind given user uid and password.
 func (lc *HelperLDAP) AuthUser(username, password string) liberr.Error {
 	if lc == nil {
 		return ErrorEmptyParams.Error(nil)
@@ -371,7 +371,7 @@ func (lc *HelperLDAP) AuthUser(username, password string) liberr.Error {
 	return ErrorLDAPBind.Iferror(err)
 }
 
-//Connect used to connect and bind to server.
+// Connect used to connect and bind to server.
 func (lc *HelperLDAP) Connect() liberr.Error {
 	if lc == nil {
 		return ErrorEmptyParams.Error(nil)
@@ -438,12 +438,12 @@ func (lc *HelperLDAP) getUserName(username string) (string, liberr.Error) {
 	return username, nil
 }
 
-//UserInfo used to retrieve the information of a given username.
+// UserInfo used to retrieve the information of a given username.
 func (lc *HelperLDAP) UserInfo(username string) (map[string]string, liberr.Error) {
 	return lc.UserInfoByField(username, userFieldUid)
 }
 
-//UserInfoByField used to retrieve the information of a given username but use a given field to make the search.
+// UserInfoByField used to retrieve the information of a given username but use a given field to make the search.
 func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) (map[string]string, liberr.Error) {
 	var (
 		err     liberr.Error
@@ -484,12 +484,12 @@ func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) 
 	return userRes, nil
 }
 
-//GroupInfo used to retrieve the information of a given group cn.
+// GroupInfo used to retrieve the information of a given group cn.
 func (lc *HelperLDAP) GroupInfo(groupname string) (map[string]interface{}, liberr.Error) {
 	return lc.GroupInfoByField(groupname, groupFieldCN)
 }
 
-//GroupInfoByField used to retrieve the information of a given group cn, but use a given field to make the search.
+// GroupInfoByField used to retrieve the information of a given group cn, but use a given field to make the search.
 func (lc *HelperLDAP) GroupInfoByField(groupname string, fieldForUnicValue string) (map[string]interface{}, liberr.Error) {
 	var (
 		err     liberr.Error
@@ -517,7 +517,7 @@ func (lc *HelperLDAP) GroupInfoByField(groupname string, fieldForUnicValue strin
 	return grpInfo, nil
 }
 
-//UserMemberOf returns the group list of a given user.
+// UserMemberOf returns the group list of a given user.
 func (lc *HelperLDAP) UserMemberOf(username string) ([]string, liberr.Error) {
 	var (
 		err liberr.Error
@@ -548,7 +548,7 @@ func (lc *HelperLDAP) UserMemberOf(username string) ([]string, liberr.Error) {
 	return grp, nil
 }
 
-//UserIsInGroup used to check if a given username is a group member of a list of reference group name.
+// UserIsInGroup used to check if a given username is a group member of a list of reference group name.
 func (lc *HelperLDAP) UserIsInGroup(username string, groupname []string) (bool, liberr.Error) {
 	var (
 		err     liberr.Error
@@ -572,7 +572,7 @@ func (lc *HelperLDAP) UserIsInGroup(username string, groupname []string) (bool, 
 	return false, nil
 }
 
-//UsersOfGroup used to retrieve the member list of a given group name.
+// UsersOfGroup used to retrieve the member list of a given group name.
 func (lc *HelperLDAP) UsersOfGroup(groupname string) ([]string, liberr.Error) {
 	var (
 		err liberr.Error
@@ -598,7 +598,7 @@ func (lc *HelperLDAP) UsersOfGroup(groupname string) ([]string, liberr.Error) {
 	return grp, nil
 }
 
-//ParseEntries used to clean attributes of an object class.
+// ParseEntries used to clean attributes of an object class.
 func (lc HelperLDAP) ParseEntries(entry string) map[string][]string {
 	var listEntries = make(map[string][]string)
 

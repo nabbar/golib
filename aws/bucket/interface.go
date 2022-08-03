@@ -41,10 +41,13 @@ type client struct {
 	s3  *sdksss.Client
 }
 
+type WalkFunc func(err liberr.Error, bucket sdkstp.Bucket) liberr.Error
+
 type Bucket interface {
 	Check() liberr.Error
 
 	List() ([]sdkstp.Bucket, liberr.Error)
+	Walk(f WalkFunc) liberr.Error
 	Create(RegionConstraint string) liberr.Error
 	Delete() liberr.Error
 

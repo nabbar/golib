@@ -36,13 +36,13 @@ import (
 )
 
 // git archive --format=tar --output=git.tar HEAD
-//const fileName = "./git.tar"
+// const fileName = "./git.tar"
 const fileName = "./vendor.zip"
 
-//const contain = "version/license_mit.go"
+// const contain = "version/license_mit.go"
 const contain = "vendor/github.com/gin-gonic/gin/internal/json/json.go"
 
-//const regex = ""
+// const regex = ""
 const regex = "vendor\\.tar(\\.(?:gz|bz))?"
 
 func main() {

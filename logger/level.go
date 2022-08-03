@@ -31,7 +31,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//Level a uint8 type customized with function to log message with the current log level.
+// Level a uint8 type customized with function to log message with the current log level.
 type Level uint8
 
 const (
