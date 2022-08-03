@@ -129,7 +129,7 @@ func (p PoolServerConfig) MapRun(f MapRunPoolServerConfig) PoolServerConfig {
 	return r
 }
 
-//nolint #maligned
+// nolint #maligned
 type ServerConfig struct {
 
 	// Name is the name of the current server

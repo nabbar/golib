@@ -57,13 +57,16 @@ func (c configContext) Load(key string) interface{} {
 	defer c.m.Unlock()
 
 	var (
+		v  *atomic.Value
 		i  interface{}
 		ok bool
 	)
 
 	if c.cfg == nil {
 		c.cfg = make(map[string]*atomic.Value, 0)
-	} else if i, ok = c.cfg[key]; ok && i != nil {
+	} else if v, ok = c.cfg[key]; !ok || v == nil {
+		return nil
+	} else if i = v.Load(); i != nil {
 		return i
 	}
 

@@ -38,7 +38,7 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-//nolint #maligned
+// nolint #maligned
 type ConfigCluster struct {
 	// NodeID is a non-zero value used to identify a node within a Raft cluster.
 	NodeID uint64 `mapstructure:"node_id" json:"node_id" yaml:"node_id" toml:"node_id"`

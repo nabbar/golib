@@ -32,7 +32,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/nabbar/golib/errors"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 const buffSize = 32 * 1024 // see io.copyBuffer
@@ -64,14 +64,14 @@ type FileProgress interface {
 	ResetMax(max int64)
 
 	FilePath() string
-	FileStat() (os.FileInfo, errors.Error)
+	FileStat() (os.FileInfo, liberr.Error)
 
-	SizeToEOF() (size int64, err errors.Error)
+	SizeToEOF() (size int64, err liberr.Error)
 
-	NewFilePathMode(filepath string, mode int, perm os.FileMode) (FileProgress, errors.Error)
-	NewFilePathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, errors.Error)
-	NewFilePathRead(filepath string, perm os.FileMode) (FileProgress, errors.Error)
-	NewFileTemp() (FileProgress, errors.Error)
+	NewFilePathMode(filepath string, mode int, perm os.FileMode) (FileProgress, liberr.Error)
+	NewFilePathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, liberr.Error)
+	NewFilePathRead(filepath string, perm os.FileMode) (FileProgress, liberr.Error)
+	NewFileTemp() (FileProgress, liberr.Error)
 
 	CloseNoClean() error
 }
@@ -87,7 +87,7 @@ func NewFileProgress(file *os.File) FileProgress {
 	}
 }
 
-func NewFileProgressTemp() (FileProgress, errors.Error) {
+func NewFileProgressTemp() (FileProgress, liberr.Error) {
 	if fs, e := NewTempFile(); e != nil {
 		return nil, e
 	} else {
@@ -102,7 +102,7 @@ func NewFileProgressTemp() (FileProgress, errors.Error) {
 	}
 }
 
-func NewFileProgressPathOpen(filepath string) (FileProgress, errors.Error) {
+func NewFileProgressPathOpen(filepath string) (FileProgress, liberr.Error) {
 	//nolint #gosec
 	/* #nosec */
 	if f, err := os.Open(filepath); err != nil {
@@ -112,7 +112,7 @@ func NewFileProgressPathOpen(filepath string) (FileProgress, errors.Error) {
 	}
 }
 
-func NewFileProgressPathMode(filepath string, mode int, perm os.FileMode) (FileProgress, errors.Error) {
+func NewFileProgressPathMode(filepath string, mode int, perm os.FileMode) (FileProgress, liberr.Error) {
 	//nolint #nosec
 	/* #nosec */
 	if f, err := os.OpenFile(filepath, mode, perm); err != nil {
@@ -122,7 +122,7 @@ func NewFileProgressPathMode(filepath string, mode int, perm os.FileMode) (FileP
 	}
 }
 
-func NewFileProgressPathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, errors.Error) {
+func NewFileProgressPathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, liberr.Error) {
 	mode := os.O_RDWR | os.O_TRUNC
 
 	if _, err := os.Stat(filepath); err != nil && os.IsNotExist(err) && create {
@@ -134,7 +134,7 @@ func NewFileProgressPathWrite(filepath string, create, overwrite bool, perm os.F
 	return NewFileProgressPathMode(filepath, mode, perm)
 }
 
-func NewFileProgressPathRead(filepath string, perm os.FileMode) (FileProgress, errors.Error) {
+func NewFileProgressPathRead(filepath string, perm os.FileMode) (FileProgress, liberr.Error) {
 	mode := os.O_RDONLY
 
 	if _, err := os.Stat(filepath); err != nil && !os.IsExist(err) {
@@ -153,7 +153,7 @@ type fileProgress struct {
 	fr func(size, current int64)
 }
 
-func (f *fileProgress) NewFilePathMode(filepath string, mode int, perm os.FileMode) (FileProgress, errors.Error) {
+func (f *fileProgress) NewFilePathMode(filepath string, mode int, perm os.FileMode) (FileProgress, liberr.Error) {
 	if f == nil {
 		return nil, ErrorNilPointer.Error(nil)
 	}
@@ -169,7 +169,7 @@ func (f *fileProgress) NewFilePathMode(filepath string, mode int, perm os.FileMo
 	}
 }
 
-func (f *fileProgress) NewFilePathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, errors.Error) {
+func (f *fileProgress) NewFilePathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, liberr.Error) {
 	if f == nil {
 		return nil, ErrorNilPointer.Error(nil)
 	}
@@ -185,7 +185,7 @@ func (f *fileProgress) NewFilePathWrite(filepath string, create, overwrite bool,
 	}
 }
 
-func (f *fileProgress) NewFilePathRead(filepath string, perm os.FileMode) (FileProgress, errors.Error) {
+func (f *fileProgress) NewFilePathRead(filepath string, perm os.FileMode) (FileProgress, liberr.Error) {
 	if f == nil {
 		return nil, ErrorNilPointer.Error(nil)
 	}
@@ -201,7 +201,7 @@ func (f *fileProgress) NewFilePathRead(filepath string, perm os.FileMode) (FileP
 	}
 }
 
-func (f *fileProgress) NewFileTemp() (FileProgress, errors.Error) {
+func (f *fileProgress) NewFileTemp() (FileProgress, liberr.Error) {
 	if f == nil {
 		return nil, ErrorNilPointer.Error(nil)
 	}
@@ -243,7 +243,7 @@ func (f *fileProgress) FilePath() string {
 	return path.Clean(f.fs.Name())
 }
 
-func (f *fileProgress) FileStat() (os.FileInfo, errors.Error) {
+func (f *fileProgress) FileStat() (os.FileInfo, liberr.Error) {
 	if f == nil {
 		return nil, ErrorNilPointer.Error(nil)
 	}
@@ -255,7 +255,7 @@ func (f *fileProgress) FileStat() (os.FileInfo, errors.Error) {
 	}
 }
 
-func (f *fileProgress) SizeToEOF() (size int64, err errors.Error) {
+func (f *fileProgress) SizeToEOF() (size int64, err liberr.Error) {
 	if f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
@@ -395,7 +395,7 @@ func (f *fileProgress) WriteTo(w io.Writer) (n int64, err error) {
 	return n, err
 }
 
-//nolint #unparam
+// nolint #unparam
 func (f *fileProgress) increment(n int64, size int) {
 	n += int64(size)
 

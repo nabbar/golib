@@ -119,7 +119,7 @@ type Logger interface {
 	Entry(lvl Level, message string, args ...interface{}) *Entry
 }
 
-//New return a new logger interface pointer
+// New return a new logger interface pointer
 func New(ctx context.Context) Logger {
 	lvl := new(atomic.Value)
 	lvl.Store(InfoLevel)

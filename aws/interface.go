@@ -27,13 +27,13 @@ package aws
 
 import (
 	"context"
-	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
-	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	"net/http"
 	"net/url"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	awsbck "github.com/nabbar/golib/aws/bucket"
 	awsgrp "github.com/nabbar/golib/aws/group"
 	awshlp "github.com/nabbar/golib/aws/helper"

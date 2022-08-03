@@ -84,25 +84,25 @@ type Entry struct {
 	Fields Fields `json:"fields"`
 }
 
-//SetGinContext allow to register a gin context pointer to register the errors of the current entry intro gin Context Error Slice.
+// SetGinContext allow to register a gin context pointer to register the errors of the current entry intro gin Context Error Slice.
 func (e *Entry) SetGinContext(ctx *gin.Context) *Entry {
 	e.gin = ctx
 	return e
 }
 
-//FieldAdd allow to add one couple key/val as type string/interface into the custom field of the entry.
+// FieldAdd allow to add one couple key/val as type string/interface into the custom field of the entry.
 func (e *Entry) FieldAdd(key string, val interface{}) *Entry {
 	e.Fields.Add(key, val)
 	return e
 }
 
-//FieldMerge allow to merge a Field pointer into the custom field of the entry.
+// FieldMerge allow to merge a Field pointer into the custom field of the entry.
 func (e *Entry) FieldMerge(fields Fields) *Entry {
 	e.Fields.Merge(fields)
 	return e
 }
 
-//FieldSet allow to change the custom field of the entry with the given Fields in parameter.
+// FieldSet allow to change the custom field of the entry with the given Fields in parameter.
 func (e *Entry) FieldSet(fields Fields) *Entry {
 	e.Fields = fields
 	return e

@@ -53,7 +53,7 @@ type sender struct {
 	rcpt []string
 }
 
-//nolint #gocognit
+// nolint #gocognit
 func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	e := simple.NewMSG()
 	f := make([]libiot.FileProgress, 0)

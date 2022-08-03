@@ -34,7 +34,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//@deprecated: only for retro compatibility
+// @deprecated: only for retro compatibility
 var defaultLogger Logger
 
 func init() {
@@ -42,27 +42,27 @@ func init() {
 	defaultLogger.SetLevel(InfoLevel)
 }
 
-//GetDefault return the default logger
-//@deprecated: create a logger and call GetLevel() like New().GetLevel()
+// GetDefault return the default logger
+// @deprecated: create a logger and call GetLevel() like New().GetLevel()
 func GetDefault() Logger {
 	return defaultLogger
 }
 
-//GetCurrentLevel return the current loglevel setting in the logger. All log entry matching this level or below will be logged.
-//@deprecated: create a logger and call GetLevel() like New().GetLevel()
+// GetCurrentLevel return the current loglevel setting in the logger. All log entry matching this level or below will be logged.
+// @deprecated: create a logger and call GetLevel() like New().GetLevel()
 func GetCurrentLevel() Level {
 	return defaultLogger.GetLevel()
 }
 
 // SetLevel Change the Level of all log entry with the Level type given in parameter. The change is apply for next log entry only.
 // If the given Level type is not matching a correct Level type, no change will be apply.
-//@deprecated: create a logger and call GetLevel() like New().GetLevel...
+// @deprecated: create a logger and call GetLevel() like New().GetLevel...
 func SetLevel(level Level) {
 	defaultLogger.SetLevel(level)
 }
 
 // AddGID Reconfigure the current logger to add or not the thread GID before each message.
-//@deprecated: create a logger and update the options like New().SetOptions...
+// @deprecated: create a logger and update the options like New().SetOptions...
 func AddGID(enable bool) {
 	opt := defaultLogger.GetOptions()
 	opt.DisableStack = !enable
@@ -70,7 +70,7 @@ func AddGID(enable bool) {
 }
 
 // Timestamp Reconfigure the current logger to add or not the timestamp before each message.
-//@deprecated: create a logger and update the options like New().SetOptions...
+// @deprecated: create a logger and update the options like New().SetOptions...
 func Timestamp(enable bool) {
 	opt := defaultLogger.GetOptions()
 	opt.DisableTimestamp = !enable
@@ -78,14 +78,14 @@ func Timestamp(enable bool) {
 }
 
 // IsTimeStamp will return true if timestamp is added or not  on log message
-//@deprecated: create a logger and get the options like New().GetOptions...
+// @deprecated: create a logger and get the options like New().GetOptions...
 func IsTimeStamp() bool {
 	return !defaultLogger.GetOptions().DisableTimestamp
 }
 
 // FileTrace Reconfigure the current logger to add or not the origin file/line of each message.
 // This option is apply for all message except info message.
-//@deprecated: create a logger and update the options like New().SetOptions...
+// @deprecated: create a logger and update the options like New().SetOptions...
 func FileTrace(enable bool) {
 	opt := defaultLogger.GetOptions()
 	opt.EnableTrace = enable
@@ -93,14 +93,14 @@ func FileTrace(enable bool) {
 }
 
 // IsFileTrace will return true if trace is added or not on log message
-//@deprecated: create a logger and get the options like New().GetOptions...
+// @deprecated: create a logger and get the options like New().GetOptions...
 func IsFileTrace() bool {
 	return defaultLogger.GetOptions().EnableTrace
 }
 
 // ModeColor will reconfigure the current logger to use or not color in messages format.
 // This apply only for next message and only for TextFormat.
-//@deprecated: create a logger and update the options like New().SetOptions...
+// @deprecated: create a logger and update the options like New().SetOptions...
 func ModeColor(enable bool) {
 	opt := defaultLogger.GetOptions()
 	opt.DisableColor = !enable
@@ -108,33 +108,33 @@ func ModeColor(enable bool) {
 }
 
 // IsModeColor will return true if color is configured on log message
-//@deprecated: create a logger and get the options like New().GetOptions...
+// @deprecated: create a logger and get the options like New().GetOptions...
 func IsModeColor() bool {
 	return !defaultLogger.GetOptions().DisableColor
 }
 
 // EnableColor Reconfigure the current logger to use color in messages format.
 // This apply only for next message and only for TextFormat.
-//@deprecated: create a logger and update the options like New().SetOptions...
+// @deprecated: create a logger and update the options like New().SetOptions...
 func EnableColor() {
 	ModeColor(true)
 }
 
 // DisableColor Reconfigure the current logger to not use color in messages format.
 // This apply only for next message and only for TextFormat.
-//@deprecated: create a logger and update the options like New().SetOptions...
+// @deprecated: create a logger and update the options like New().SetOptions...
 func DisableColor() {
 	ModeColor(false)
 }
 
 // EnableViperLog enable or not the Gin Logger configuration.
-//@deprecated: create a logger and call function SetSPF13Level like New().SetSPF13Level...
+// @deprecated: create a logger and call function SetSPF13Level like New().SetSPF13Level...
 func EnableViperLog(enable bool) {
 	defaultLogger.SetSPF13Level(defaultLogger.GetLevel(), nil)
 }
 
 // SetTracePathFilter customize the filter apply to filepath on trace.
-//@deprecated: create a logger and update the options like New().SetOptions...
+// @deprecated: create a logger and update the options like New().SetOptions...
 func SetTracePathFilter(path string) {
 	opt := defaultLogger.GetOptions()
 	opt.TraceFilter = path
@@ -212,7 +212,7 @@ func (l Level) LogError(err error) bool {
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.Check
 func (l Level) LogErrorCtx(levelElse Level, context string, err error) bool {
-	return defaultLogger.Entry(l, context).ErrorAdd(false, err).Check(levelElse)
+	return defaultLogger.Entry(l, context).ErrorAdd(true, err).Check(levelElse)
 }
 
 // LogErrorCtxf Function to test, log and inform about the given error object, but with a context based on a pattern and matching args.
@@ -232,7 +232,7 @@ func (l Level) LogErrorCtx(levelElse Level, context string, err error) bool {
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.Check
 func (l Level) LogErrorCtxf(levelElse Level, contextPattern string, err error, args ...interface{}) bool {
-	return defaultLogger.Entry(l, contextPattern, args...).ErrorAdd(false, err).Check(levelElse)
+	return defaultLogger.Entry(l, contextPattern, args...).ErrorAdd(true, err).Check(levelElse)
 }
 
 // LogGinErrorCtxf Function to test, log and inform about the given error object, but with a context based on a couple of pattern and matching args.
@@ -255,7 +255,7 @@ func (l Level) LogErrorCtxf(levelElse Level, contextPattern string, err error, a
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.SetGinContext.Check
 func (l Level) LogGinErrorCtxf(levelElse Level, contextPattern string, err error, c *gin.Context, args ...interface{}) bool {
-	return defaultLogger.Entry(l, contextPattern, args...).SetGinContext(c).ErrorAdd(false, err).Check(levelElse)
+	return defaultLogger.Entry(l, contextPattern, args...).SetGinContext(c).ErrorAdd(true, err).Check(levelElse)
 }
 
 // LogGinErrorCtx Function to test, log and inform about the given error object.
@@ -277,5 +277,5 @@ c a valid Go GinTonic Context reference to add current error to the Gin Tonic Er
 */
 //@deprecated: create a logger and call one of this function : New().CheckError or New().Entry.SetGinContext.Check
 func (l Level) LogGinErrorCtx(levelElse Level, context string, err error, c *gin.Context) bool {
-	return defaultLogger.Entry(l, context).SetGinContext(c).ErrorAdd(false, err).Check(levelElse)
+	return defaultLogger.Entry(l, context).SetGinContext(c).ErrorAdd(true, err).Check(levelElse)
 }

@@ -38,7 +38,7 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-//nolint #maligned
+// nolint #maligned
 type ConfigNode struct {
 	// DeploymentID is used to determine whether two NodeHost instances belong to
 	// the same deployment and thus allowed to communicate with each other. This

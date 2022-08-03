@@ -61,6 +61,71 @@ func (cli *client) VersionList(prefix, keyMarker, markerId string) (version []sd
 	}
 }
 
+func (cli *client) VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) liberr.Error {
+	return cli.VersionWalkPrefix("", fv, fd)
+}
+
+func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) liberr.Error {
+	in := sdksss.ListObjectVersionsInput{
+		Bucket:  cli.GetBucketAws(),
+		MaxKeys: 1000,
+	}
+
+	if prefix != "" {
+		in.Prefix = sdkaws.String(prefix)
+	}
+
+	var (
+		e  liberr.Error
+		km *string
+		mi *string
+	)
+
+	for {
+		if len(*km) > 0 && len(*mi) > 0 {
+			in.KeyMarker = km
+			in.VersionIdMarker = mi
+		}
+
+		out, err := cli.s3.ListObjectVersions(cli.GetContext(), &in)
+
+		if err != nil {
+			return cli.GetError(err)
+		}
+
+		for _, o := range out.Versions {
+			if o.Key == nil || len(*o.Key) < 3 {
+				continue
+			} else if o.VersionId == nil || len(*o.VersionId) < 1 {
+				continue
+			}
+
+			if fv != nil {
+				e = fv(e, o)
+			}
+		}
+
+		for _, o := range out.DeleteMarkers {
+			if o.Key == nil || len(*o.Key) < 3 {
+				continue
+			} else if o.VersionId == nil || len(*o.VersionId) < 1 {
+				continue
+			}
+
+			if fd != nil {
+				e = fd(e, o)
+			}
+		}
+
+		if out.IsTruncated {
+			km = out.NextKeyMarker
+			mi = out.NextVersionIdMarker
+		} else {
+			return e
+		}
+	}
+}
+
 func (cli *client) VersionGet(object, version string) (*sdksss.GetObjectOutput, liberr.Error) {
 	in := sdksss.GetObjectInput{
 		Bucket: cli.GetBucketAws(),

@@ -171,7 +171,7 @@ func (s *srvRun) getLogger() liblog.Logger {
 	return _log
 }
 
-//nolint #gocognit
+// nolint #gocognit
 func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	ssl, err := cfg.GetTLS()
 	if err != nil {
