@@ -27,52 +27,43 @@ package semaphore
 
 import (
 	"context"
-	"runtime"
+	"sync/atomic"
 
-	"github.com/nabbar/golib/errors"
+	liberr "github.com/nabbar/golib/errors"
 	"golang.org/x/sync/semaphore"
 )
 
 type sem struct {
-	m int64
+	d *atomic.Value // compatibility with SemBar => isCompleted
+	i int64         // max process simultaneous
 	s *semaphore.Weighted
 	x context.Context
 	c context.CancelFunc
 }
 
-type Sem interface {
-	NewWorker() errors.Error
-	NewWorkerTry() bool
-	DeferWorker()
-	DeferMain()
-
-	WaitAll() errors.Error
-}
-
-func GetMaxSimultaneous() int {
-	return runtime.GOMAXPROCS(0)
-}
-
-func NewSemaphore(maxSimultaneous int) Sem {
-	return NewSemaphoreWithContext(context.Background(), maxSimultaneous)
-}
-
-func NewSemaphoreWithContext(ctx context.Context, maxSimultaneous int) Sem {
-	if maxSimultaneous < 1 {
-		maxSimultaneous = GetMaxSimultaneous()
+func (s *sem) getCompleted() bool {
+	if s.d == nil {
+		s.d = new(atomic.Value)
 	}
 
-	x, c := NewContext(ctx, 0, EmptyTime())
-
-	return &sem{
-		m: int64(maxSimultaneous),
-		s: semaphore.NewWeighted(int64(maxSimultaneous)),
-		x: x,
-		c: c,
+	if i := s.d.Load(); i == nil {
+		return false
+	} else if o, ok := i.(bool); !ok {
+		return false
+	} else {
+		return o
 	}
 }
 
-func (s *sem) NewWorker() errors.Error {
+func (s *sem) setCompleted(flag bool) {
+	if s.d == nil {
+		s.d = new(atomic.Value)
+	}
+
+	s.d.Store(flag)
+}
+
+func (s *sem) NewWorker() liberr.Error {
 	e := s.s.Acquire(s.context(), 1)
 	return ErrorWorkerNew.Iferror(e)
 }
@@ -81,8 +72,9 @@ func (s *sem) NewWorkerTry() bool {
 	return s.s.TryAcquire(1)
 }
 
-func (s *sem) WaitAll() errors.Error {
-	e := s.s.Acquire(s.context(), s.m)
+func (s *sem) WaitAll() liberr.Error {
+	e := s.s.Acquire(s.context(), s.i)
+	s.setCompleted(true)
 	return ErrorWorkerWaitAll.Iferror(e)
 }
 
@@ -91,6 +83,7 @@ func (s *sem) DeferWorker() {
 }
 
 func (s *sem) DeferMain() {
+	s.setCompleted(true)
 	if s.c != nil {
 		s.c()
 	}
@@ -104,4 +97,32 @@ func (s *sem) context() context.Context {
 		s.x, s.c = NewContext(context.Background(), 0, EmptyTime())
 	}
 	return s.x
+}
+
+func (s *sem) Current() int64 {
+	return -1
+}
+
+func (s *sem) Completed() bool {
+	return s.getCompleted()
+}
+
+func (s *sem) Reset(total, current int64) {
+	return
+}
+
+func (s *sem) ResetDefined(current int64) {
+	return
+}
+
+func (s *sem) Done() {
+	return
+}
+
+func (s *sem) Increment(n int) {
+	return
+}
+
+func (s *sem) Increment64(n int64) {
+	return
 }

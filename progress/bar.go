@@ -29,41 +29,22 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/semaphore"
-	"github.com/vbauerster/mpb/v5"
+	liberr "github.com/nabbar/golib/errors"
+	libsem "github.com/nabbar/golib/semaphore"
+	libmpb "github.com/vbauerster/mpb/v5"
 )
 
 type bar struct {
 	i *atomic.Value
-	s semaphore.Sem
+	s libsem.Sem
 	t int64
 	b *atomic.Value
 	u bool
 	w bool
+	d bool
 }
 
-type Bar interface {
-	Current() int64
-	Completed() bool
-	Reset(total, current int64)
-	ResetDefined(current int64)
-	Done()
-
-	Increment(n int)
-	Increment64(n int64)
-
-	NewWorker() errors.Error
-	NewWorkerTry() bool
-	DeferWorker()
-	DeferMain(dropBar bool)
-
-	WaitAll() errors.Error
-
-	GetBarMPB() *mpb.Bar
-}
-
-func newBar(b *mpb.Bar, s semaphore.Sem, total int64, isModeUnic bool) Bar {
+func newBar(b *libmpb.Bar, s libsem.Sem, total int64, isModeUnic bool) Bar {
 	mpbBar := new(atomic.Value)
 	mpbBar.Store(b)
 
@@ -74,6 +55,7 @@ func newBar(b *mpb.Bar, s semaphore.Sem, total int64, isModeUnic bool) Bar {
 		s: s,
 		w: isModeUnic,
 		i: new(atomic.Value),
+		d: false,
 	}
 }
 
@@ -91,15 +73,15 @@ func (b *bar) loadTime() time.Time {
 	}
 
 	if i := b.i.Load(); i == nil {
-		return semaphore.EmptyTime()
+		return libsem.EmptyTime()
 	} else if ts, ok := i.(time.Time); !ok {
-		return semaphore.EmptyTime()
+		return libsem.EmptyTime()
 	} else {
 		return ts
 	}
 }
 
-func (b *bar) storeBar(mpbBar *mpb.Bar) {
+func (b *bar) storeBar(mpbBar *libmpb.Bar) {
 	if b.b == nil {
 		b.b = new(atomic.Value)
 	}
@@ -107,21 +89,21 @@ func (b *bar) storeBar(mpbBar *mpb.Bar) {
 	b.b.Store(mpbBar)
 }
 
-func (b *bar) loadBar() *mpb.Bar {
+func (b *bar) loadBar() *libmpb.Bar {
 	if b.b == nil {
 		b.b = new(atomic.Value)
 	}
 
 	if i := b.b.Load(); i == nil {
 		return nil
-	} else if mpbBar, ok := i.(*mpb.Bar); !ok {
+	} else if mpbBar, ok := i.(*libmpb.Bar); !ok {
 		return nil
 	} else {
 		return mpbBar
 	}
 }
 
-func (b bar) GetBarMPB() *mpb.Bar {
+func (b bar) GetBarMPB() *libmpb.Bar {
 	return b.loadBar()
 }
 
@@ -143,7 +125,7 @@ func (b bar) Completed() bool {
 
 func (b *bar) Increment(n int) {
 	if n > 0 {
-		var mpgBar *mpb.Bar
+		var mpgBar *libmpb.Bar
 
 		if mpgBar = b.loadBar(); mpgBar == nil {
 			panic(ErrorBarNotInitialized.Error(nil))
@@ -151,7 +133,7 @@ func (b *bar) Increment(n int) {
 
 		mpgBar.IncrBy(n)
 
-		if b.loadTime() == semaphore.EmptyTime() {
+		if b.loadTime() == libsem.EmptyTime() {
 			b.storeTime(time.Now())
 			mpgBar.DecoratorEwmaUpdate(time.Since(b.loadTime()))
 		}
@@ -162,7 +144,7 @@ func (b *bar) Increment(n int) {
 
 func (b *bar) Increment64(n int64) {
 	if n > 0 {
-		var mpgBar *mpb.Bar
+		var mpgBar *libmpb.Bar
 
 		if mpgBar = b.loadBar(); mpgBar == nil {
 			panic(ErrorBarNotInitialized.Error(nil))
@@ -170,7 +152,7 @@ func (b *bar) Increment64(n int64) {
 
 		mpgBar.IncrInt64(n)
 
-		if b.loadTime() == semaphore.EmptyTime() {
+		if b.loadTime() == libsem.EmptyTime() {
 			b.storeTime(time.Now())
 			mpgBar.DecoratorEwmaUpdate(time.Since(b.loadTime()))
 		}
@@ -180,7 +162,7 @@ func (b *bar) Increment64(n int64) {
 }
 
 func (b *bar) ResetDefined(current int64) {
-	var mpgBar *mpb.Bar
+	var mpgBar *libmpb.Bar
 
 	if mpgBar = b.loadBar(); mpgBar == nil {
 		return
@@ -202,7 +184,7 @@ func (b *bar) Reset(total, current int64) {
 }
 
 func (b *bar) Done() {
-	var mpgBar *mpb.Bar
+	var mpgBar *libmpb.Bar
 
 	if mpgBar = b.loadBar(); mpgBar == nil {
 		return
@@ -213,8 +195,8 @@ func (b *bar) Done() {
 	b.storeBar(mpgBar)
 }
 
-func (b *bar) NewWorker() errors.Error {
-	var mpgBar *mpb.Bar
+func (b *bar) NewWorker() liberr.Error {
+	var mpgBar *libmpb.Bar
 
 	if !b.u {
 		b.t++
@@ -246,13 +228,13 @@ func (b *bar) DeferWorker() {
 	b.s.DeferWorker()
 }
 
-func (b *bar) DeferMain(dropBar bool) {
-	var mpgBar *mpb.Bar
+func (b *bar) DeferMain() {
+	var mpgBar *libmpb.Bar
 
 	if mpgBar = b.loadBar(); mpgBar == nil {
 		return
 	} else {
-		mpgBar.Abort(dropBar)
+		mpgBar.Abort(b.d)
 		b.storeBar(mpgBar)
 	}
 
@@ -261,7 +243,11 @@ func (b *bar) DeferMain(dropBar bool) {
 	}
 }
 
-func (b *bar) WaitAll() errors.Error {
+func (b *bar) DropOnDefer(flag bool) {
+	b.d = flag
+}
+
+func (b *bar) WaitAll() liberr.Error {
 	if !b.w {
 		return b.s.WaitAll()
 	}
