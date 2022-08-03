@@ -51,9 +51,9 @@ func main() {
 	brK.Reset(max, 0)
 
 	defer func() {
-		brE.DeferMain(false)
-		brC.DeferMain(false)
-		brK.DeferMain(false)
+		brE.DeferMain()
+		brC.DeferMain()
+		brK.DeferMain()
 	}()
 
 	for i := int64(0); i < (max / inc); i++ {

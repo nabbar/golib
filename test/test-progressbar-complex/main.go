@@ -41,10 +41,10 @@ func main() {
 	println("Starting complex...")
 
 	pb := progress.NewProgressBar(mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
-	pb.UnicProcessInit()
+	pb.MainProcessInit()
 
 	defer func() {
-		pb.UnicProcessDefer()
+		pb.DeferMain()
 	}()
 
 	brK0 := pb.NewBarKBits("KiB bar", 1, " | init | ", nil)
@@ -61,12 +61,12 @@ func main() {
 
 	for i := int64(0); i < (max / inc); i++ {
 		time.Sleep(1 * time.Millisecond)
-		if e := pb.UnicProcessNewWorker(); e != nil {
+		if e := pb.NewWorker(); e != nil {
 			continue
 		}
 		go func() {
 			defer func() {
-				pb.UnicProcessDeferWorker()
+				pb.DeferWorker()
 			}()
 
 			//nolint #nosec
@@ -94,12 +94,12 @@ func main() {
 
 	for i := int64(0); i < (max / inc); i++ {
 		time.Sleep(1 * time.Millisecond)
-		if e := pb.UnicProcessNewWorker(); e != nil {
+		if e := pb.NewWorker(); e != nil {
 			continue
 		}
 		go func() {
 			defer func() {
-				pb.UnicProcessDeferWorker()
+				pb.DeferWorker()
 			}()
 
 			//nolint #nosec
@@ -125,7 +125,7 @@ func main() {
 		}()
 	}
 
-	if e := pb.UnicProcessWait(); e != nil {
+	if e := pb.WaitAll(); e != nil {
 		panic(e)
 	}
 

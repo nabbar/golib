@@ -34,75 +34,11 @@ import (
 	"github.com/vbauerster/mpb/v5/decor"
 )
 
-/*
- https://github.com/vbauerster/mpb
-*/
-
-var (
-	defaultStyle       = "[=>-]<+"
-	defaultMessageDone = "done"
-)
-
-func SetDefaultStyle(style string) {
-	defaultStyle = style
-}
-
-func SetDefaultMessageDone(message string) {
-	defaultMessageDone = message
-}
-
-func GetDefaultStyle() string {
-	return defaultStyle
-}
-
-func GetDefaultMessageDone() string {
-	return defaultMessageDone
-}
-
 type progressBar struct {
 	mpb       *mpb.Progress
 	ctx       context.Context
 	sMaxSimul int
 	sem       semaphore.Sem
-}
-
-type ProgressBar interface {
-	GetMPB() *mpb.Progress
-	SetMaxThread(maxSimultaneous int)
-	SetContext(ctx context.Context)
-
-	UnicProcessInit()
-	UnicProcessWait() errors.Error
-	UnicProcessNewWorker() errors.Error
-	UnicProcessDeferWorker()
-	UnicProcessDefer()
-
-	NewBar(total int64, options ...mpb.BarOption) Bar
-
-	NewBarETA(name string, total int64, job string, parent Bar) Bar
-	NewBarCounter(name string, total int64, job string, parent Bar) Bar
-	NewBarKBits(name string, total int64, job string, parent Bar) Bar
-
-	NewBarSimpleETA(name string, total int64) Bar
-	NewBarSimpleCounter(name string, total int64) Bar
-	NewBarSimpleKBits(name string, total int64) Bar
-}
-
-func NewProgressBar(options ...mpb.ContainerOption) ProgressBar {
-	return NewProgressBarWithContext(context.Background(), options...)
-}
-
-func NewProgressBarWithContext(ctx context.Context, options ...mpb.ContainerOption) ProgressBar {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	return &progressBar{
-		mpb:       mpb.New(options...),
-		ctx:       ctx,
-		sem:       nil,
-		sMaxSimul: semaphore.GetMaxSimultaneous(),
-	}
 }
 
 func (p *progressBar) GetMPB() *mpb.Progress {
@@ -113,31 +49,38 @@ func (p *progressBar) SetMaxThread(maxSimultaneous int) {
 	p.sMaxSimul = maxSimultaneous
 }
 
-func (p *progressBar) UnicProcessInit() {
+func (p *progressBar) MainProcessInit() {
 	p.sem = p.semaphore()
 }
 
-func (p *progressBar) UnicProcessWait() errors.Error {
+func (p *progressBar) WaitAll() errors.Error {
 	if p.sem != nil {
 		return p.sem.WaitAll()
 	}
 	return nil
 }
 
-func (p *progressBar) UnicProcessNewWorker() errors.Error {
+func (p *progressBar) NewWorker() errors.Error {
 	if p.sem != nil {
 		return p.sem.NewWorker()
 	}
 	return nil
 }
 
-func (p *progressBar) UnicProcessDeferWorker() {
+func (p *progressBar) NewWorkerTry() bool {
+	if p.sem != nil {
+		return p.sem.NewWorkerTry()
+	}
+	return false
+}
+
+func (p *progressBar) DeferWorker() {
 	if p.sem != nil {
 		p.sem.DeferWorker()
 	}
 }
 
-func (p *progressBar) UnicProcessDefer() {
+func (p *progressBar) DeferMain() {
 	if p.sem != nil {
 		p.sem.DeferMain()
 	}
