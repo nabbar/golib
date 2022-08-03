@@ -28,6 +28,7 @@ package object
 import (
 	"context"
 	"io"
+	"time"
 
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
@@ -43,15 +44,18 @@ type client struct {
 }
 
 type Object interface {
-	Find(pattern string) ([]string, liberr.Error)
+	Find(regex string) ([]string, liberr.Error)
 	Size(object string) (size int64, err liberr.Error)
 
 	List(continuationToken string) ([]sdktps.Object, string, int64, liberr.Error)
+	ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, liberr.Error)
+
 	Head(object string) (*sdksss.HeadObjectOutput, liberr.Error)
 	Get(object string) (*sdksss.GetObjectOutput, liberr.Error)
 	Put(object string, body io.Reader) liberr.Error
 	Delete(check bool, object string) liberr.Error
 	DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, liberr.Error)
+	GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, liberr.Error)
 
 	MultipartList(keyMarker, markerId string) (uploads []sdktps.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e liberr.Error)
 	MultipartPut(object string, body io.Reader) liberr.Error
@@ -66,6 +70,12 @@ type Object interface {
 	VersionHead(object, version string) (*sdksss.HeadObjectOutput, liberr.Error)
 	VersionSize(object, version string) (size int64, err liberr.Error)
 	VersionDelete(check bool, object, version string) liberr.Error
+
+	GetRetention(object, version string) (*sdktps.ObjectLockRetention, liberr.Error)
+	SetRetention(object, version string, retentionUntil time.Time) liberr.Error
+
+	GetTags(object, version string) ([]sdktps.Tag, liberr.Error)
+	SetTags(object, version string, tags ...sdktps.Tag) liberr.Error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Object {

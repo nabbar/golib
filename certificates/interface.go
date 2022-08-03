@@ -45,6 +45,7 @@ type TLSConfig interface {
 	AddCertificatePairString(key, crt string) liberr.Error
 	AddCertificatePairFile(keyFile, crtFile string) liberr.Error
 	LenCertificatePair() int
+	CleanCertificatePair()
 	GetCertificatePair() []tls.Certificate
 
 	SetVersionMin(vers uint16)

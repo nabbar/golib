@@ -318,6 +318,10 @@ func (c *config) LenCertificatePair() int {
 	return len(c.cert)
 }
 
+func (c *config) CleanCertificatePair() {
+	c.cert = make([]tls.Certificate, 0)
+}
+
 func (c *config) GetCertificatePair() []tls.Certificate {
 	return c.cert
 }

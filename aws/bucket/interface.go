@@ -67,6 +67,9 @@ type Bucket interface {
 	SetACL(ACP *sdkstp.AccessControlPolicy, cannedACL sdkstp.BucketCannedACL, header ACLHeaders) liberr.Error
 	SetACLPolicy(ACP *sdkstp.AccessControlPolicy) liberr.Error
 	SetACLHeader(cannedACL sdkstp.BucketCannedACL, header ACLHeaders) liberr.Error
+
+	GetLifeCycle() ([]sdkstp.LifecycleRule, liberr.Error)
+	SetLifeCycle(rules ...sdkstp.LifecycleRule) liberr.Error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Bucket {
