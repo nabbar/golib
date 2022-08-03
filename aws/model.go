@@ -256,3 +256,11 @@ func (c *client) GetBucketName() string {
 func (c *client) SetBucketName(bucket string) {
 	c.c.SetBucketName(bucket)
 }
+
+func (c *client) GetClientS3() *sdksss.Client {
+	return c.s
+}
+
+func (c *client) GetClientIam() *sdkiam.Client {
+	return c.i
+}

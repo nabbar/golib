@@ -27,6 +27,8 @@ package aws
 
 import (
 	"context"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	"net/http"
 	"net/url"
 
@@ -83,6 +85,9 @@ type AWS interface {
 
 	GetBucketName() string
 	SetBucketName(bucket string)
+
+	GetClientS3() *sdksss.Client
+	GetClientIam() *sdkiam.Client
 }
 
 func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, liberr.Error) {

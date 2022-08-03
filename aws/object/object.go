@@ -58,6 +58,30 @@ func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int6
 	}
 }
 
+func (cli *client) ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, liberr.Error) {
+	in := sdksss.ListObjectsV2Input{
+		Bucket: cli.GetBucketAws(),
+	}
+
+	if continuationToken != "" {
+		in.ContinuationToken = sdkaws.String(continuationToken)
+	}
+
+	if prefix != "" {
+		in.Prefix = sdkaws.String(prefix)
+	}
+
+	out, err := cli.s3.ListObjectsV2(cli.GetContext(), &in)
+
+	if err != nil {
+		return nil, "", 0, cli.GetError(err)
+	} else if out.IsTruncated {
+		return out.Contents, *out.NextContinuationToken, int64(out.KeyCount), nil
+	} else {
+		return out.Contents, "", int64(out.KeyCount), nil
+	}
+}
+
 func (cli *client) Get(object string) (*sdksss.GetObjectOutput, liberr.Error) {
 	return cli.VersionGet(object, "")
 }
@@ -114,4 +138,23 @@ func (cli *client) DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, li
 	} else {
 		return out.Deleted, nil
 	}
+}
+
+func (cli *client) GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, liberr.Error) {
+	in := sdksss.GetObjectAttributesInput{
+		Bucket: cli.GetBucketAws(),
+		Key:    sdkaws.String(object),
+	}
+
+	if version != "" {
+		in.VersionId = sdkaws.String(version)
+	}
+
+	out, err := cli.s3.GetObjectAttributes(cli.GetContext(), &in)
+
+	if err != nil {
+		return nil, cli.GetError(err)
+	}
+
+	return out, nil
 }

@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2022 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -26,33 +26,51 @@
 package object
 
 import (
-	"regexp"
+	"time"
 
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) Find(regex string) ([]string, liberr.Error) {
-	var (
-		result = make([]string, 0)
-		token  = ""
-	)
-
-	for {
-		if lst, tok, cnt, err := cli.List(token); err != nil {
-			return result, cli.GetError(err)
-		} else if cnt > 0 {
-			token = tok
-			for _, o := range lst {
-				if ok, _ := regexp.MatchString(regex, *o.Key); ok {
-					result = append(result, *o.Key)
-				}
-			}
-		} else {
-			return result, nil
-		}
-
-		if token == "" {
-			return result, nil
-		}
+func (cli *client) GetRetention(object, version string) (*sdktps.ObjectLockRetention, liberr.Error) {
+	in := sdksss.GetObjectRetentionInput{
+		Bucket: cli.GetBucketAws(),
+		Key:    sdkaws.String(object),
 	}
+
+	if version != "" {
+		in.VersionId = sdkaws.String(version)
+	}
+
+	out, err := cli.s3.GetObjectRetention(cli.GetContext(), &in)
+
+	if err != nil {
+		return nil, cli.GetError(err)
+	}
+
+	return out.Retention, nil
+}
+
+func (cli *client) SetRetention(object, version string, retentionUntil time.Time) liberr.Error {
+	in := sdksss.PutObjectRetentionInput{
+		Bucket: cli.GetBucketAws(),
+		Key:    sdkaws.String(object),
+		Retention: &sdktps.ObjectLockRetention{
+			RetainUntilDate: sdkaws.Time(retentionUntil),
+		},
+	}
+
+	if version != "" {
+		in.VersionId = sdkaws.String(version)
+	}
+
+	_, err := cli.s3.PutObjectRetention(cli.GetContext(), &in)
+
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	return nil
 }

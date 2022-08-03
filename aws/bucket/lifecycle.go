@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2022 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -23,36 +23,46 @@
  *
  */
 
-package object
+package bucket
 
 import (
-	"regexp"
+	"fmt"
 
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	libhlp "github.com/nabbar/golib/aws/helper"
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) Find(regex string) ([]string, liberr.Error) {
-	var (
-		result = make([]string, 0)
-		token  = ""
-	)
+func (cli *client) GetLifeCycle() ([]sdkstp.LifecycleRule, liberr.Error) {
+	out, err := cli.s3.GetBucketLifecycleConfiguration(cli.GetContext(), &sdksss.GetBucketLifecycleConfigurationInput{
+		Bucket: cli.GetBucketAws(),
+	})
 
-	for {
-		if lst, tok, cnt, err := cli.List(token); err != nil {
-			return result, cli.GetError(err)
-		} else if cnt > 0 {
-			token = tok
-			for _, o := range lst {
-				if ok, _ := regexp.MatchString(regex, *o.Key); ok {
-					result = append(result, *o.Key)
-				}
-			}
-		} else {
-			return result, nil
-		}
-
-		if token == "" {
-			return result, nil
-		}
+	if err != nil {
+		return nil, cli.GetError(err)
+	} else if out == nil {
+		//nolint #goerr113
+		return nil, libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
 	}
+
+	return out.Rules, nil
+}
+
+func (cli *client) SetLifeCycle(rules ...sdkstp.LifecycleRule) liberr.Error {
+	out, err := cli.s3.PutBucketLifecycleConfiguration(cli.GetContext(), &sdksss.PutBucketLifecycleConfigurationInput{
+		Bucket: cli.GetBucketAws(),
+		LifecycleConfiguration: &sdkstp.BucketLifecycleConfiguration{
+			Rules: rules,
+		},
+	})
+
+	if err != nil {
+		return cli.GetError(err)
+	} else if out == nil {
+		//nolint #goerr113
+		return libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
+	}
+
+	return nil
 }
