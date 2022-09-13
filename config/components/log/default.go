@@ -137,7 +137,7 @@ func (c *componentLog) _GetOptions(getCfg libcfg.FuncComponentConfigGet) (*liblo
 	)
 
 	if err = getCfg(c.key, &cfg); err != nil {
-		return nil, ErrorParamsInvalid.Error(err)
+		return nil, ErrorParamInvalid.Error(err)
 	}
 
 	if val := vpr.GetBool(c.key + "disableStandard"); val {

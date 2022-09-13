@@ -244,10 +244,10 @@ func (s *sender) Send(ctx context.Context, cli libsmtp.SMTP) liberr.Error {
 
 	if len(s.from) < _MinSizeAddr {
 		//nolint #goerr113
-		return ErrorParamsEmpty.ErrorParent(fmt.Errorf("parameters 'from' is not valid"))
+		return ErrorParamEmpty.ErrorParent(fmt.Errorf("parameters 'from' is not valid"))
 	} else if len(s.rcpt) < 1 || len(s.rcpt[0]) < _MinSizeAddr {
 		//nolint #goerr113
-		return ErrorParamsEmpty.ErrorParent(fmt.Errorf("parameters 'receipient' is not valid"))
+		return ErrorParamEmpty.ErrorParent(fmt.Errorf("parameters 'receipient' is not valid"))
 	}
 
 	e := cli.Send(ctx, s.from, s.rcpt, s.data)

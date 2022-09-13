@@ -29,9 +29,8 @@ package ldap
 import (
 	"sync"
 
-	lbldap "github.com/nabbar/golib/ldap"
-
 	libcfg "github.com/nabbar/golib/config"
+	lbldap "github.com/nabbar/golib/ldap"
 )
 
 const (

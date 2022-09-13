@@ -36,6 +36,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/nabbar/golib/status/config"
+
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
 	libsts "github.com/nabbar/golib/status"
@@ -70,7 +72,7 @@ type Server interface {
 	StatusRouter(sts libsts.RouteStatus, prefix string)
 }
 
-func NewServer(opt *natsrv.Options, sts libsts.ConfigStatus) Server {
+func NewServer(opt *natsrv.Options, sts config.ConfigStatus) Server {
 	o := new(atomic.Value)
 
 	if opt != nil {
@@ -86,7 +88,7 @@ func NewServer(opt *natsrv.Options, sts libsts.ConfigStatus) Server {
 }
 
 type server struct {
-	c *libsts.ConfigStatus
+	c *config.ConfigStatus
 	o *atomic.Value
 	s *atomic.Value
 	r *atomic.Value

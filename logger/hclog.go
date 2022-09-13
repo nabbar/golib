@@ -45,7 +45,7 @@ type _hclog struct {
 
 func (l *_hclog) Log(level hclog.Level, msg string, args ...interface{}) {
 	switch level {
-	case hclog.Off, hclog.NoLevel:
+	case hclog.NoLevel, hclog.Off:
 		return
 	case hclog.Trace:
 		l.l.Debug(msg, nil, args...)
@@ -141,7 +141,7 @@ func (l *_hclog) ResetNamed(name string) hclog.Logger {
 
 func (l *_hclog) SetLevel(level hclog.Level) {
 	switch level {
-	case hclog.Off, hclog.NoLevel:
+	case hclog.NoLevel, hclog.Off:
 		l.l.SetLevel(NilLevel)
 	case hclog.Trace:
 		l.l.SetLevel(DebugLevel)
@@ -159,7 +159,7 @@ func (l *_hclog) SetLevel(level hclog.Level) {
 func (l *_hclog) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
 	var lvl Level
 	switch opts.ForceLevel {
-	case hclog.Off, hclog.NoLevel:
+	case hclog.NoLevel, hclog.Off:
 		lvl = NilLevel
 	case hclog.Trace:
 		lvl = DebugLevel

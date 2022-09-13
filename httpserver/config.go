@@ -34,10 +34,11 @@ import (
 	"strings"
 	"time"
 
+	libsts "github.com/nabbar/golib/status/config"
+
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status"
 )
 
 type MapUpdPoolServerConfig func(cfg ServerConfig) ServerConfig

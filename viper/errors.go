@@ -27,6 +27,8 @@
 package viper
 
 import (
+	"fmt"
+
 	liberr "github.com/nabbar/golib/errors"
 )
 
@@ -44,21 +46,15 @@ const (
 	ErrorConfigIsDefault
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamEmpty)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/viper"))
+	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case liberr.UNK_ERROR:
-		return ""
 	case ErrorParamMissing:
 		return "at least one parameter is missing"
 	case ErrorHomePathNotFound:
@@ -81,5 +77,5 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "cannot read config, use default config"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

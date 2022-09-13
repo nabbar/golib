@@ -30,7 +30,9 @@
 
 package nutsdb
 
-import liberr "github.com/nabbar/golib/errors"
+import (
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
 	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgNutsDB

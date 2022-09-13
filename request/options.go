@@ -30,12 +30,13 @@ import (
 	"fmt"
 	"net/http"
 
+	libsts "github.com/nabbar/golib/status/config"
+
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
-	libsts "github.com/nabbar/golib/status"
 )
 
 type OptionsCredentials struct {

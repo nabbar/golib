@@ -37,7 +37,7 @@ type Component interface {
 	Type() string
 
 	// Init is called by Config to register some function and value to the component instance.
-	Init(key string, ctx FuncContext, get FuncComponentGet, vpr FuncComponentViper)
+	Init(key string, ctx FuncContext, get FuncComponentGet, vpr FuncComponentViper, sts FuncRouteStatus)
 
 	// RegisterFuncStart is called to register the function to be called before and after the start function.
 	RegisterFuncStart(before, after func(cpt Component) liberr.Error)

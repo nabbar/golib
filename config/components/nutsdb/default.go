@@ -142,7 +142,7 @@ func (c *componentNutsDB) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libn
 	)
 
 	if e := getCfg(c.key, &cfg); e != nil {
-		return cfg, ErrorParamsInvalid.Error(e)
+		return cfg, ErrorParamInvalid.Error(e)
 	}
 
 	if err = cfg.Validate(); err != nil {

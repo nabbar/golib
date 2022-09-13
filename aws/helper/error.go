@@ -26,12 +26,14 @@
 package helper
 
 import (
-	errors "github.com/nabbar/golib/errors"
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	// minmal are errors.MIN_AVAILABLE + get a hope free range 1000 + 10 for aws-config errors.
-	ErrorResponse errors.CodeError = iota + errors.MinPkgAws + 60
+	// minmal are liberr.MIN_AVAILABLE + get a hope free range 1000 + 10 for aws-config liberr.
+	ErrorResponse liberr.CodeError = iota + liberr.MinPkgAws + 60
 	ErrorConfigEmpty
 	ErrorAwsEmpty
 	ErrorAws
@@ -39,17 +41,20 @@ const (
 	ErrorParamsEmpty
 )
 
-var isErrInit = errors.ExistInMapMessage(ErrorResponse)
+var isErrInit = liberr.ExistInMapMessage(ErrorResponse)
 
 func init() {
-	errors.RegisterIdFctMessage(ErrorResponse, getMessage)
+	if liberr.ExistInMapMessage(ErrorResponse) {
+		panic(fmt.Errorf("error code collision with package golib/aws/helpers"))
+	}
+	liberr.RegisterIdFctMessage(ErrorResponse, getMessage)
 }
 
 func IsErrorInit() bool {
 	return isErrInit
 }
 
-func getMessage(code errors.CodeError) string {
+func getMessage(code liberr.CodeError) string {
 	switch code {
 	case ErrorResponse:
 		return "calling aws api occurred a response error"
@@ -65,5 +70,5 @@ func getMessage(code errors.CodeError) string {
 		return "at least one parameters needed is empty"
 	}
 
-	return errors.UNK_MESSAGE
+	return liberr.NullMessage
 }

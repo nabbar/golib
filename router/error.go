@@ -26,51 +26,43 @@
 
 package router
 
-import errors "github.com/nabbar/golib/errors"
+import (
+	"fmt"
 
-const (
-	EMPTY_PARAMS errors.CodeError = iota + errors.MinPkgRouter
-	HEADER_AUTH_MISSING
-	HEADER_AUTH_EMPTY
-	HEADER_AUTH_REQUIRE
-	HEADER_AUTH_FORBIDDEN
-	HEADER_AUTH_ERROR
+	liberr "github.com/nabbar/golib/errors"
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
+const (
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgRouter
+	ErrorHeaderAuth
+	ErrorHeaderAuthMissing
+	ErrorHeaderAuthEmpty
+	ErrorHeaderAuthRequire
+	ErrorHeaderAuthForbidden
+)
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(EMPTY_PARAMS)
-	errors.RegisterIdFctMessage(EMPTY_PARAMS, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/router"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case EMPTY_PARAMS:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
-
-	case HEADER_AUTH_MISSING:
+	case ErrorHeaderAuthMissing:
 		return "missing authorization header"
-
-	case HEADER_AUTH_EMPTY:
+	case ErrorHeaderAuthEmpty:
 		return "authorization header is empty"
-
-	case HEADER_AUTH_REQUIRE:
+	case ErrorHeaderAuthRequire:
 		return "authorization check failed, authorization still require"
-
-	case HEADER_AUTH_FORBIDDEN:
+	case ErrorHeaderAuthForbidden:
 		return "authorization check success but unauthorized client"
-
-	case HEADER_AUTH_ERROR:
+	case ErrorHeaderAuth:
 		return "authorization check return an invalid response code"
-
-	case errors.UNK_ERROR:
-		return ""
 	}
 
-	return ""
+	return liberr.NullMessage
 }

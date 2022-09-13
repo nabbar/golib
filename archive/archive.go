@@ -203,7 +203,7 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 func CreateArchive(archiveType ArchiveType, archive libiot.FileProgress, stripPath string, comment string, pathContent ...string) (created bool, err liberr.Error) {
 	if len(pathContent) < 1 {
 		//nolint #goerr113
-		return false, ErrorParamsEmpty.ErrorParent(fmt.Errorf("pathContent is empty"))
+		return false, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathContent is empty"))
 	}
 
 	switch archiveType {

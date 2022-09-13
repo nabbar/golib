@@ -26,10 +26,14 @@
 
 package archive
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgArchive
 	ErrorFileSeek
 	ErrorFileOpen
 	ErrorFileClose
@@ -39,22 +43,16 @@ const (
 	ErrorIOCopy
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorFileSeek:
 		return "cannot seek into file"
@@ -72,5 +70,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "error occurs when io copy"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

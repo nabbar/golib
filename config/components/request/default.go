@@ -32,7 +32,7 @@ import (
 
 	libcfg "github.com/nabbar/golib/config"
 	cmptls "github.com/nabbar/golib/config/components/tls"
-	libsts "github.com/nabbar/golib/status"
+	libsts "github.com/nabbar/golib/status/config"
 	spfcbr "github.com/spf13/cobra"
 	spfvbr "github.com/spf13/viper"
 )

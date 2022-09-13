@@ -29,16 +29,15 @@ package config
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
+	"sync"
 
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
-
-	"io"
-	"sync"
 )
 
 type configModel struct {
@@ -49,6 +48,7 @@ type configModel struct {
 
 	cpt ComponentList
 
+	fctGolibStatus  FuncRouteStatus
 	fctGolibViper   func() libvpr.Viper
 	fctStartBefore  func() liberr.Error
 	fctStartAfter   func() liberr.Error
@@ -121,6 +121,10 @@ func (c *configModel) cancelCustom() {
 
 func (c *configModel) RegisterFuncViper(fct func() libvpr.Viper) {
 	c.fctGolibViper = fct
+}
+
+func (c *configModel) RegisterFuncRouteStatus(fct FuncRouteStatus) {
+	c.fctGolibStatus = fct
 }
 
 func (c *configModel) Start() liberr.Error {
@@ -250,7 +254,7 @@ func (c *configModel) ComponentDel(key string) {
 }
 
 func (c *configModel) ComponentSet(key string, cpt Component) {
-	cpt.Init(key, c.Context, c.ComponentGet, func() *spfvpr.Viper {
+	fv := func() *spfvpr.Viper {
 		if c.fctGolibViper == nil {
 			return nil
 		} else if vpr := c.fctGolibViper(); vpr == nil {
@@ -258,8 +262,9 @@ func (c *configModel) ComponentSet(key string, cpt Component) {
 		} else {
 			return vpr.Viper()
 		}
-	})
+	}
 
+	cpt.Init(key, c.Context, c.ComponentGet, fv, c.fctGolibStatus)
 	c.cpt.ComponentSet(key, cpt)
 }
 

@@ -36,7 +36,7 @@ import (
 	libval "github.com/go-playground/validator/v10"
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status"
+	libsts "github.com/nabbar/golib/status/config"
 	"github.com/xujiajun/nutsdb"
 )
 
