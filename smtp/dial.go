@@ -85,10 +85,10 @@ func (s *smtpClient) client(ctx context.Context, addr string, tlsConfig *tls.Con
 	}()
 
 	if s.cfg.GetTlsMode() == TLS_STARTTLS && tlsConfig == nil {
-		err = ErrorParamsEmpty.Error(nil)
+		err = ErrorParamEmpty.Error(nil)
 		return
 	} else if s.cfg.GetTlsMode() == TLS_TLS && tlsConfig == nil {
-		err = ErrorParamsEmpty.Error(nil)
+		err = ErrorParamEmpty.Error(nil)
 		return
 	}
 

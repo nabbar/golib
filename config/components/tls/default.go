@@ -119,7 +119,7 @@ func (c *componentTls) _getConfig(getCfg libcfg.FuncComponentConfigGet) (*libtls
 	cfg := libtls.Config{}
 
 	if err := getCfg(c.key, &cfg); err != nil {
-		return nil, ErrorParamsInvalid.Error(err)
+		return nil, ErrorParamInvalid.Error(err)
 	}
 
 	if err := cfg.Validate(); err != nil {

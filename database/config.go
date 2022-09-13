@@ -32,7 +32,7 @@ import (
 	"fmt"
 	"time"
 
-	libsts "github.com/nabbar/golib/status"
+	libsts "github.com/nabbar/golib/status/config"
 
 	libval "github.com/go-playground/validator/v10"
 	liberr "github.com/nabbar/golib/errors"

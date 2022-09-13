@@ -25,30 +25,28 @@
 
 package mailPooler
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgMailPooler
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgMailPooler
 	ErrorMailPooler
 	ErrorMailPoolerContext
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/mailPooler"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorMailPooler:
 		return "generic mail pooler error"
@@ -56,5 +54,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "context has trigger error"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

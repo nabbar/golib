@@ -34,6 +34,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/nabbar/golib/status/config"
+
 	liblog "github.com/nabbar/golib/logger"
 
 	liberr "github.com/nabbar/golib/errors"
@@ -253,7 +255,7 @@ func (s *server) StatusHealth() error {
 
 func (s *server) StatusComponent() libsts.Component {
 	if cfg := s.GetConfig(); cfg == nil {
-		cnf := libsts.ConfigStatus{
+		cnf := config.ConfigStatus{
 			Mandatory:          true,
 			MessageOK:          "",
 			MessageKO:          "",

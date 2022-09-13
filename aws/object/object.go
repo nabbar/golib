@@ -81,7 +81,7 @@ func (cli *client) WalkPrefix(prefix string, f WalkFunc) liberr.Error {
 
 	var (
 		e liberr.Error
-		t *string
+		t = sdkaws.String("")
 	)
 
 	for {

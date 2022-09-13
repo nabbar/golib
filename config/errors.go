@@ -26,10 +26,14 @@
 
 package config
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgConfig
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgConfig
 	ErrorConfigMissingViper
 	ErrorComponentNotFound
 	ErrorComponentFlagError
@@ -40,7 +44,7 @@ const (
 )
 
 const (
-	MinErrorComponentAws      = ErrorParamsEmpty + 10
+	MinErrorComponentAws      = ErrorParamEmpty + 10
 	MinErrorComponentDatabase = MinErrorComponentAws + 10
 	MinErrorComponentHead     = MinErrorComponentDatabase + 10
 	MinErrorComponentHttp     = MinErrorComponentHead + 10
@@ -53,22 +57,18 @@ const (
 	MinErrorComponentTls      = MinErrorComponentSmtp + 10
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/config"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
+	case liberr.UNK_ERROR:
 		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorConfigMissingViper:
 		return "missing valid viper function"
@@ -86,5 +86,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "cannot reload at least one component"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

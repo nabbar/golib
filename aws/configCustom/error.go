@@ -26,6 +26,8 @@
 package configCustom
 
 import (
+	"fmt"
+
 	liberr "github.com/nabbar/golib/errors"
 )
 
@@ -39,14 +41,11 @@ const (
 	ErrorCredentialsInvalid
 )
 
-var isErrInit = liberr.ExistInMapMessage(ErrorAwsError)
-
 func init() {
+	if liberr.ExistInMapMessage(ErrorAwsError) {
+		panic(fmt.Errorf("error code collision"))
+	}
 	liberr.RegisterIdFctMessage(ErrorAwsError, getMessage)
-}
-
-func IsErrorInit() bool {
-	return isErrInit
 }
 
 func getMessage(code liberr.CodeError) string {
@@ -67,5 +66,5 @@ func getMessage(code liberr.CodeError) string {
 		return "the specified credentials seems to be incorrect"
 	}
 
-	return liberr.UNK_MESSAGE
+	return liberr.NullMessage
 }

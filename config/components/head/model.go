@@ -74,7 +74,7 @@ func (c *componentHead) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Err
 
 	cnf := librtr.HeadersConfig{}
 	if err := getCfg(c.key, &cnf); err != nil {
-		return ErrorParamsInvalid.Error(err)
+		return ErrorParamInvalid.Error(err)
 	}
 
 	c.h = cnf.New()
@@ -99,7 +99,7 @@ func (c *componentHead) Type() string {
 	return ComponentType
 }
 
-func (c *componentHead) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+func (c *componentHead) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

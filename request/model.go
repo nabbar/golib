@@ -646,7 +646,7 @@ func (r *request) Do() (*http.Response, liberr.Error) {
 	defer r.s.Unlock()
 
 	if r.m == "" || r.u == nil || r.u.String() == "" {
-		return nil, ErrorParamsInvalid.Error(nil)
+		return nil, ErrorParamInvalid.Error(nil)
 	}
 
 	var (

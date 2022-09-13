@@ -27,13 +27,15 @@
 package log
 
 import (
+	"fmt"
+
 	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + libcfg.MinErrorComponentLog
-	ErrorParamsInvalid
+	ErrorParamEmpty liberr.CodeError = iota + libcfg.MinErrorComponentLog
+	ErrorParamInvalid
 	ErrorConfigInvalid
 	ErrorComponentNotInitialized
 	ErrorStartLog
@@ -41,21 +43,17 @@ const (
 )
 
 func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
-}
-
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/config/components/log"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "at least one given parameters is empty"
-	case ErrorParamsInvalid:
+	case ErrorParamInvalid:
 		return "at least one given parameters is invalid"
 	case ErrorConfigInvalid:
 		return "server invalid config"
@@ -67,5 +65,5 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "cannot update Logger with new config"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

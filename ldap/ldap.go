@@ -57,7 +57,7 @@ type HelperLDAP struct {
 // NewLDAP build a new LDAP helper based on config struct given.
 func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP, liberr.Error) {
 	if cnf == nil {
-		return nil, ErrorEmptyParams.Error(nil)
+		return nil, ErrorParamEmpty.Error(nil)
 	}
 
 	return &HelperLDAP{
@@ -210,7 +210,7 @@ func (lc *HelperLDAP) starttls(l *ldap.Conn) liberr.Error {
 
 func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 	if lc == nil {
-		return TLSModeNone, ErrorEmptyParams.Error(nil)
+		return TLSModeNone, ErrorParamEmpty.Error(nil)
 	}
 
 	var (
@@ -257,7 +257,7 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 
 func (lc *HelperLDAP) connect() liberr.Error {
 	if lc == nil || lc.ctx == nil {
-		return ErrorLDAPContext.Error(ErrorEmptyParams.Error(nil))
+		return ErrorLDAPContext.Error(ErrorParamEmpty.Error(nil))
 	}
 
 	if err := lc.ctx.Err(); err != nil {
@@ -320,7 +320,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 // Check used to check if connection success (without any bind).
 func (lc *HelperLDAP) Check() liberr.Error {
 	if lc == nil {
-		return ErrorEmptyParams.Error(nil)
+		return ErrorParamEmpty.Error(nil)
 	}
 
 	if lc.conn == nil {
@@ -355,7 +355,7 @@ func (lc *HelperLDAP) Close() {
 // AuthUser used to test bind given user uid and password.
 func (lc *HelperLDAP) AuthUser(username, password string) liberr.Error {
 	if lc == nil {
-		return ErrorEmptyParams.Error(nil)
+		return ErrorParamEmpty.Error(nil)
 	}
 
 	if err := lc.connect(); err != nil {
@@ -363,7 +363,7 @@ func (lc *HelperLDAP) AuthUser(username, password string) liberr.Error {
 	}
 
 	if username == "" || password == "" {
-		return ErrorEmptyParams.Error(nil)
+		return ErrorParamEmpty.Error(nil)
 	}
 
 	err := lc.conn.Bind(username, password)
@@ -374,7 +374,7 @@ func (lc *HelperLDAP) AuthUser(username, password string) liberr.Error {
 // Connect used to connect and bind to server.
 func (lc *HelperLDAP) Connect() liberr.Error {
 	if lc == nil {
-		return ErrorEmptyParams.Error(nil)
+		return ErrorParamEmpty.Error(nil)
 	}
 
 	if err := lc.AuthUser(lc.bindDN, lc.bindPass); err != nil {

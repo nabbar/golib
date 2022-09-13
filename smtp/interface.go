@@ -36,6 +36,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/nabbar/golib/status/config"
+
 	libtls "github.com/nabbar/golib/certificates"
 
 	liberr "github.com/nabbar/golib/errors"
@@ -70,8 +72,8 @@ type Config interface {
 	SetTLSServerName(serverName string)
 	GetTlSServerName() string
 
-	SetStatusConfig(sts libsts.ConfigStatus)
-	GetStatusConfig() libsts.ConfigStatus
+	SetStatusConfig(sts config.ConfigStatus)
+	GetStatusConfig() config.ConfigStatus
 
 	GetDsn() string
 }
@@ -102,7 +104,7 @@ func NewSMTP(cfg Config, tlsConfig *tls.Config) (SMTP, liberr.Error) {
 	}
 
 	if cfg == nil {
-		return nil, ErrorParamsEmpty.Error(nil)
+		return nil, ErrorParamEmpty.Error(nil)
 	} else {
 		return &smtpClient{
 			mut: sync.Mutex{},

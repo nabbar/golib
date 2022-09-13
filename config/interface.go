@@ -33,14 +33,15 @@ import (
 	"sync"
 	"syscall"
 
-	spfvpr "github.com/spf13/viper"
-
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
 	libvpr "github.com/nabbar/golib/viper"
+	spfvpr "github.com/spf13/viper"
 )
 
 type FuncContext func() context.Context
+type FuncRouteStatus func() libsts.RouteStatus
 type FuncComponentGet func(key string) Component
 type FuncComponentViper func() *spfvpr.Viper
 type FuncComponentConfigGet func(key string, model interface{}) liberr.Error
@@ -74,7 +75,13 @@ type Config interface {
 		// Section Event : github.com/nabbar/golib/config
 	*/
 
+	// RegisterFuncViper is used to expose golib Viper instance to all config component.
+	// With this function, the component can load his own config part and start or reload.
 	RegisterFuncViper(fct func() libvpr.Viper)
+
+	// RegisterFuncRouteStatus is used to expose golib Status Router instance to all config component.
+	// With this function, the component can register component status for router status and expose his own health.
+	RegisterFuncRouteStatus(fct FuncRouteStatus)
 
 	// Start will trigger the start function of all registered component.
 	// If any component return an error, this func will stop the start

@@ -53,7 +53,7 @@ type config struct {
 func (c *config) checkFile(pemFiles ...string) liberr.Error {
 	for _, f := range pemFiles {
 		if f == "" {
-			return ErrorParamsEmpty.Error(nil)
+			return ErrorParamEmpty.Error(nil)
 		}
 
 		if _, e := os.Stat(f); e != nil {
@@ -157,7 +157,7 @@ func (c *config) AddCertificatePairString(key, crt string) liberr.Error {
 	crt = strings.TrimSpace(crt)
 
 	if len(key) < 1 || len(crt) < 1 {
-		return ErrorParamsEmpty.Error(nil)
+		return ErrorParamEmpty.Error(nil)
 	}
 
 	p, err := tls.X509KeyPair([]byte(crt), []byte(key))

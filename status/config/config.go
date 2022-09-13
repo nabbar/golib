@@ -24,15 +24,17 @@
  *
  */
 
-package status
+package config
 
 import (
 	"bytes"
 	"encoding/json"
 	"time"
 
-	libcfg "github.com/nabbar/golib/config"
+	"github.com/nabbar/golib/status"
 
+	libcfg "github.com/nabbar/golib/config"
+	libsts "github.com/nabbar/golib/status"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -76,8 +78,8 @@ func DefaultConfig(indent string) []byte {
 
 func RegisterFlag(prefix string, Command *spfcbr.Command, Viper *spfvpr.Viper) error {
 	_ = Command.PersistentFlags().Bool(prefix+".mandatory", true, "define if the component must be available for the api. If yes, api status will be KO if this component is down. If no, api status can be OK if this component is down.")
-	_ = Command.PersistentFlags().String(prefix+".message_ok", DefMessageOK, "define the message if the status is OK.")
-	_ = Command.PersistentFlags().String(prefix+".message_ko", DefMessageKO, "define the message if the status is KO.")
+	_ = Command.PersistentFlags().String(prefix+".message_ok", status.DefMessageOK, "define the message if the status is OK.")
+	_ = Command.PersistentFlags().String(prefix+".message_ko", status.DefMessageKO, "define the message if the status is KO.")
 	_ = Command.PersistentFlags().Duration(prefix+".cache_timeout_info", time.Hour, "define the time between checking the component information (name, release, ...), to prevent asking it too many.")
 	_ = Command.PersistentFlags().Duration(prefix+".cache_timeout_health", 5*time.Second, "define the time between checking the component health to prevent asking it too many.")
 
@@ -98,20 +100,20 @@ func RegisterFlag(prefix string, Command *spfcbr.Command, Viper *spfvpr.Viper) e
 
 func (c *ConfigStatus) fctMessage() (msgOk string, msgKO string) {
 	if c.MessageOK == "" {
-		c.MessageOK = DefMessageOK
+		c.MessageOK = status.DefMessageOK
 	}
 
 	if c.MessageKO == "" {
-		c.MessageKO = DefMessageKO
+		c.MessageKO = status.DefMessageKO
 	}
 
 	return c.MessageOK, c.MessageKO
 }
 
-func (c *ConfigStatus) RegisterStatus(sts RouteStatus, key string, fctInfo FctInfo, fctHealth FctHealth) {
-	sts.ComponentNew(key, NewComponent(c.Mandatory, fctInfo, fctHealth, c.fctMessage, c.CacheTimeoutInfo, c.CacheTimeoutHealth))
+func (c *ConfigStatus) RegisterStatus(sts libsts.RouteStatus, key string, fctInfo libsts.FctInfo, fctHealth libsts.FctHealth) {
+	sts.ComponentNew(key, status.NewComponent(c.Mandatory, fctInfo, fctHealth, c.fctMessage, c.CacheTimeoutInfo, c.CacheTimeoutHealth))
 }
 
-func (c *ConfigStatus) Component(fctInfo FctInfo, fctHealth FctHealth) Component {
-	return NewComponent(c.Mandatory, fctInfo, fctHealth, c.fctMessage, c.CacheTimeoutInfo, c.CacheTimeoutHealth)
+func (c *ConfigStatus) Component(fctInfo libsts.FctInfo, fctHealth libsts.FctHealth) libsts.Component {
+	return status.NewComponent(c.Mandatory, fctInfo, fctHealth, c.fctMessage, c.CacheTimeoutInfo, c.CacheTimeoutHealth)
 }
