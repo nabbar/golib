@@ -27,63 +27,13 @@ package status
 
 import (
 	"net/http"
-	"sync"
 	"sync/atomic"
 
-	"github.com/gin-gonic/gin"
 	librtr "github.com/nabbar/golib/router"
+
+	"github.com/gin-gonic/gin"
 	libver "github.com/nabbar/golib/version"
 )
-
-const DefMessageOK = "OK"
-const DefMessageKO = "KO"
-
-type Response struct {
-	InfoResponse
-	StatusResponse
-
-	m          sync.Mutex
-	Components []CptResponse `json:"components"`
-}
-
-func (r Response) IsOk() bool {
-	if len(r.Components) < 1 {
-		return true
-	}
-
-	for _, c := range r.Components {
-		if c.Status != DefMessageOK {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (r Response) IsOkMandatory() bool {
-	if len(r.Components) < 1 {
-		return true
-	}
-
-	for _, c := range r.Components {
-		if !c.Mandatory {
-			continue
-		}
-
-		if c.Status != DefMessageOK {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (r *Response) appendNewCpt(cpt CptResponse) {
-	r.m.Lock()
-	defer r.m.Unlock()
-
-	r.Components = append(r.Components, cpt)
-}
 
 type RouteStatus interface {
 	MiddlewareAdd(mdw ...gin.HandlerFunc)

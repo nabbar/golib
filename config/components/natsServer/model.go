@@ -151,7 +151,7 @@ func (c *componentNats) Type() string {
 	return ComponentType
 }
 
-func (c *componentNats) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+func (c *componentNats) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

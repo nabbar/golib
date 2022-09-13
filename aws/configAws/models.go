@@ -31,6 +31,8 @@ import (
 	"net"
 	"net/url"
 
+	libsts "github.com/nabbar/golib/status/config"
+
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
 	"github.com/nabbar/golib/errors"
@@ -42,6 +44,11 @@ type Model struct {
 	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"printascii,required"`
 	SecretKey string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey" toml:"secretkey" validate:"printascii,required"`
 	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket" toml:"bucket" validate:"printascii,omitempty"`
+}
+
+type ModelStatus struct {
+	Config Model               `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required,dive"`
+	Status libsts.ConfigStatus `json:"status" yaml:"status" toml:"status" mapstructure:"status" validate:"required,dive"`
 }
 
 type awsModel struct {
@@ -68,6 +75,10 @@ func (c *awsModel) Validate() errors.Error {
 	}
 
 	return nil
+}
+
+func (c *awsModel) GetAccessKey() string {
+	return c.AccessKey
 }
 
 func (c *awsModel) SetCredentials(accessKey, secretKey string) {

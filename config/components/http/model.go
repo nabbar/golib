@@ -44,6 +44,7 @@ type componentHttp struct {
 	ctx libcfg.FuncContext
 	get libcfg.FuncComponentGet
 	vpr libcfg.FuncComponentViper
+	sts libcfg.FuncRouteStatus
 	key string
 
 	fsa func(cpt libcfg.Component) liberr.Error
@@ -106,7 +107,7 @@ func (c *componentHttp) _getPoolServerConfig(getCfg libcfg.FuncComponentConfigGe
 	}
 
 	if err := getCfg(c.key, &cnf); err != nil {
-		return cnf, ErrorParamsInvalid.Error(err)
+		return cnf, ErrorParamInvalid.Error(err)
 	}
 
 	if tls, err := c._GetTLS(); err != nil {
@@ -189,6 +190,10 @@ func (c *componentHttp) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Err
 		}
 	})
 
+	if c.sts != nil {
+		c.pool.StatusRoute(c.key, c.sts())
+	}
+
 	if err = c.pool.ListenMultiHandler(c.hand); err != nil {
 		return ErrorStartComponent.Error(err)
 	}
@@ -218,7 +223,7 @@ func (c *componentHttp) Type() string {
 	return ComponentType
 }
 
-func (c *componentHttp) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+func (c *componentHttp) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -226,6 +231,7 @@ func (c *componentHttp) Init(key string, ctx libcfg.FuncContext, get libcfg.Func
 	c.ctx = ctx
 	c.get = get
 	c.vpr = vpr
+	c.sts = sts
 }
 
 func (c *componentHttp) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {

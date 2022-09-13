@@ -77,8 +77,8 @@ func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMa
 
 	var (
 		e  liberr.Error
-		km *string
-		mi *string
+		km = sdkaws.String("")
+		mi = sdkaws.String("")
 	)
 
 	for {

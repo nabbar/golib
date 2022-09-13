@@ -115,7 +115,7 @@ func (c *componentMail) Type() string {
 	return ComponentType
 }
 
-func (c *componentMail) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+func (c *componentMail) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

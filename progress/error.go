@@ -27,39 +27,37 @@
 
 package progress
 
-import liberr "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgNutsDB
-	ErrorParamsMissing
-	ErrorParamsMismatching
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgNutsDB
+	ErrorParamMissing
+	ErrorParamMismatching
 	ErrorBarNotInitialized
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/progress"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case liberr.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "at least on given parameters is empty"
-	case ErrorParamsMissing:
+	case ErrorParamMissing:
 		return "at least on given parameters is missing"
-	case ErrorParamsMismatching:
+	case ErrorParamMismatching:
 		return "at least on given parameters is mismatching awaiting type"
 	case ErrorBarNotInitialized:
 		return "progress bar not initialized"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

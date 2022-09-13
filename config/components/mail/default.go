@@ -157,7 +157,7 @@ func (c *componentMail) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libmai
 	}
 
 	if e := getCfg(c.key, &cfg); e != nil {
-		return cfg, ErrorParamsInvalid.Error(e)
+		return cfg, ErrorParamInvalid.Error(e)
 	}
 
 	if val := vpr.GetString(c.key + ".charset"); val != "" {

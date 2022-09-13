@@ -139,7 +139,7 @@ func (c *componentDatabase) Type() string {
 	return ComponentType
 }
 
-func (c *componentDatabase) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+func (c *componentDatabase) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

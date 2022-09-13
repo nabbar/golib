@@ -27,13 +27,15 @@
 package http
 
 import (
+	"fmt"
+
 	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + libcfg.MinErrorComponentHttp
-	ErrorParamsInvalid
+	ErrorParamEmpty liberr.CodeError = iota + libcfg.MinErrorComponentHttp
+	ErrorParamInvalid
 	ErrorComponentNotInitialized
 	ErrorConfigInvalid
 	ErrorStartComponent
@@ -43,21 +45,17 @@ const (
 )
 
 func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
-}
-
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/config/components/http"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "at least one given parameters is empty"
-	case ErrorParamsInvalid:
+	case ErrorParamInvalid:
 		return "at least one given parameters is invalid"
 	case ErrorComponentNotInitialized:
 		return "this component seems to not be correctly initialized"
@@ -73,5 +71,5 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "cannot retrieve Logger Component"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

@@ -25,6 +25,8 @@
 
 package mail
 
+import "golang.org/x/exp/slices"
+
 const (
 	headerFrom       = "From"
 	headerSender     = "Sender"
@@ -150,33 +152,19 @@ func (e *email) AddRecipients(rt recipientType, rcpt ...string) {
 	for _, s := range rcpt {
 		switch rt {
 		case RecipientTo:
-			if !e.isInSlice(e.to, s) {
+			if !slices.Contains(e.to, s) {
 				e.to = append(e.to, s)
 			}
 		case RecipientCC:
-			if !e.isInSlice(e.cc, s) {
+			if !slices.Contains(e.cc, s) {
 				e.cc = append(e.cc, s)
 			}
 		case RecipientBCC:
-			if !e.isInSlice(e.bcc, s) {
+			if !slices.Contains(e.bcc, s) {
 				e.bcc = append(e.bcc, s)
 			}
 		}
 	}
-}
-
-func (e email) isInSlice(s []string, str string) bool {
-	if str == "" {
-		return true
-	}
-
-	for _, i := range s {
-		if i == str {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (e *email) getHeader(h func(key string, values ...string)) {

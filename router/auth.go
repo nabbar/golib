@@ -104,7 +104,7 @@ func (a authorization) Handler(c *gin.Context) {
 	auth := c.Request.Header.Get(HEAD_AUTH_SEND)
 
 	if auth == "" {
-		AuthRequire(c, HEADER_AUTH_MISSING.Error(nil).GetErrorFull(""))
+		AuthRequire(c, ErrorHeaderAuthMissing.Error(nil).GetErrorFull(""))
 		return
 	}
 
@@ -118,7 +118,7 @@ func (a authorization) Handler(c *gin.Context) {
 	}
 
 	if authValue == "" {
-		AuthRequire(c, HEADER_AUTH_EMPTY.Error(nil).GetErrorFull(""))
+		AuthRequire(c, ErrorHeaderAuthEmpty.Error(nil).GetErrorFull(""))
 		return
 	} else {
 		code, err := a.check(authValue)
@@ -130,12 +130,12 @@ func (a authorization) Handler(c *gin.Context) {
 				r(c)
 			}
 		case AUTH_CODE_REQUIRE:
-			AuthRequire(c, HEADER_AUTH_REQUIRE.Error(err).GetErrorFull(""))
+			AuthRequire(c, ErrorHeaderAuthRequire.Error(err).GetErrorFull(""))
 		case AUTH_CODE_FORBIDDEN:
-			AuthForbidden(c, HEADER_AUTH_FORBIDDEN.Error(err).GetErrorFull(""))
+			AuthForbidden(c, ErrorHeaderAuthForbidden.Error(err).GetErrorFull(""))
 		default:
 			c.Errors = append(c.Errors, &gin.Error{
-				Err:  HEADER_AUTH_ERROR.Error(err).GetErrorFull(""),
+				Err:  ErrorHeaderAuth.Error(err).GetErrorFull(""),
 				Type: gin.ErrorTypePrivate,
 			})
 			c.AbortWithStatus(http.StatusInternalServerError)

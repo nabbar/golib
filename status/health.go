@@ -93,7 +93,7 @@ func (s *status) Get(x *gin.Context) StatusResponse {
 		if err != nil {
 			c.Status = DefMessageKO
 			c.Message = msgKO
-			liblog.ErrorLevel.LogGinErrorCtx(liblog.DebugLevel, "get health status", err, x)
+			liblog.ErrorLevel.LogErrorCtx(liblog.DebugLevel, "get health status", err)
 		} else {
 			c.Status = DefMessageOK
 			c.Message = msgOk

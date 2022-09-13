@@ -41,6 +41,7 @@ type componentRequest struct {
 	ctx libcfg.FuncContext
 	get libcfg.FuncComponentGet
 	vpr libcfg.FuncComponentViper
+	sts libcfg.FuncRouteStatus
 	key string
 
 	fsa func(cpt libcfg.Component) liberr.Error
@@ -112,7 +113,7 @@ func (c *componentRequest) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.
 	cfg.SetDefaultTLS(c._GetTLS)
 
 	if err := getCfg(c.key, &cfg); err != nil {
-		return ErrorParamsInvalid.Error(err)
+		return ErrorParamInvalid.Error(err)
 	}
 
 	if c.r == nil {
@@ -126,6 +127,12 @@ func (c *componentRequest) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.
 			return ErrorConfigInvalid.ErrorParent(e)
 		} else {
 			c.r = r
+		}
+	}
+
+	if c.sts != nil {
+		if s := c.sts(); s != nil {
+			c.r.StatusRegister(s, c.key)
 		}
 	}
 
@@ -150,7 +157,7 @@ func (c *componentRequest) Type() string {
 	return ComponentType
 }
 
-func (c *componentRequest) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+func (c *componentRequest) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -158,6 +165,7 @@ func (c *componentRequest) Init(key string, ctx libcfg.FuncContext, get libcfg.F
 	c.ctx = ctx
 	c.get = get
 	c.vpr = vpr
+	c.sts = sts
 }
 
 func (c *componentRequest) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {

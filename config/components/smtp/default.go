@@ -35,7 +35,7 @@ import (
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	liberr "github.com/nabbar/golib/errors"
 	libsmtp "github.com/nabbar/golib/smtp"
-	libsts "github.com/nabbar/golib/status"
+	libsts "github.com/nabbar/golib/status/config"
 	spfcbr "github.com/spf13/cobra"
 	spfvbr "github.com/spf13/viper"
 )
@@ -81,7 +81,7 @@ func (c *componentSmtp) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libsmt
 	)
 
 	if e := getCfg(c.key, &cfg); e != nil {
-		return cfg, ErrorParamsInvalid.Error(e)
+		return cfg, ErrorParamInvalid.Error(e)
 	}
 
 	if val := vpr.GetString(c.key + "dsn"); val != "" {

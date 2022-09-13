@@ -33,12 +33,16 @@ import (
 	libaws "github.com/nabbar/golib/aws"
 	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status"
+	stscfg "github.com/nabbar/golib/status/config"
 )
 
 type componentAws struct {
 	ctx libcfg.FuncContext
 	get libcfg.FuncComponentGet
 	vpr libcfg.FuncComponentViper
+	sts libcfg.FuncRouteStatus
+
 	key string
 
 	fsa func(cpt libcfg.Component) liberr.Error
@@ -46,10 +50,14 @@ type componentAws struct {
 	fra func(cpt libcfg.Component) liberr.Error
 	frb func(cpt libcfg.Component) liberr.Error
 
+	fsi libsts.FctInfo
+	fsh libsts.FctHealth
+
 	m sync.Mutex
 	d ConfigDriver
 	c func() *http.Client
 	a libaws.AWS
+	s stscfg.ConfigStatus
 }
 
 func (c *componentAws) _getHttpClient() *http.Client {
@@ -83,12 +91,16 @@ func (c *componentAws) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Erro
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	if cfg, err := c._getConfig(getCfg); err != nil {
+	if cfg, sts, err := c._getConfig(getCfg); err != nil {
 		return err
 	} else if cli, er := libaws.New(c.ctx(), cfg, c._getHttpClient()); er != nil {
 		return er
 	} else {
 		c.a = cli
+
+		if sts != nil && c.sts != nil && c.fsi != nil && c.fsh != nil {
+			sts.RegisterStatus(c.sts(), c.key, c.fsi, c.fsh)
+		}
 	}
 
 	return nil
@@ -112,7 +124,7 @@ func (c *componentAws) Type() string {
 	return ComponentType
 }
 
-func (c *componentAws) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+func (c *componentAws) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
