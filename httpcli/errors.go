@@ -27,32 +27,30 @@
 package httpcli
 
 import (
+	"fmt"
+
 	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgHttpCli
-	ErrorParamsInvalid
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgHttpCli
+	ErrorParamInvalid
 	ErrorValidatorError
 	ErrorClientTransportHttp2
 )
 
 func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
-}
-
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/httpcli"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "at least one given parameters is empty"
-	case ErrorParamsInvalid:
+	case ErrorParamInvalid:
 		return "at least one given parameters is invalid"
 	case ErrorValidatorError:
 		return "config seems to be invalid"
@@ -60,5 +58,5 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "error while configure http2 transport for client"
 	}
 
-	return liberr.NUL_MESSAGE
+	return liberr.NullMessage
 }

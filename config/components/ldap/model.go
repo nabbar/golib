@@ -39,6 +39,7 @@ type componentLDAP struct {
 	ctx libcfg.FuncContext
 	get libcfg.FuncComponentGet
 	vpr libcfg.FuncComponentViper
+	sts libcfg.FuncRouteStatus
 	key string
 
 	fsa func(cpt libcfg.Component) liberr.Error
@@ -93,7 +94,7 @@ func (c *componentLDAP) _runCli(ctx context.Context, getCfg libcfg.FuncComponent
 
 	cfg := lbldap.Config{}
 	if err := getCfg(c.key, &cfg); err != nil {
-		return ErrorParamsInvalid.Error(err)
+		return ErrorParamInvalid.Error(err)
 	}
 
 	if l, e := lbldap.NewLDAP(ctx, &cfg, nil); e != nil {
@@ -101,6 +102,12 @@ func (c *componentLDAP) _runCli(ctx context.Context, getCfg libcfg.FuncComponent
 	} else {
 		c.l = l
 		c.c = &cfg
+	}
+
+	if c.sts != nil {
+		if s := c.sts(); s != nil {
+
+		}
 	}
 
 	return nil
@@ -124,7 +131,7 @@ func (c *componentLDAP) Type() string {
 	return ComponentType
 }
 
-func (c *componentLDAP) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper) {
+func (c *componentLDAP) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
 	c.m.Lock()
 	defer c.m.Unlock()
 

@@ -26,31 +26,29 @@
 
 package version
 
-import errors "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgVersion
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgVersion
 	ErrorGoVersionInit
 	ErrorGoVersionRuntime
 	ErrorGoVersionConstraint
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/version"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorGoVersionInit:
 		return "init GoVersion contraint error"
@@ -60,5 +58,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "current binary is build with a non-compatible version of Go"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

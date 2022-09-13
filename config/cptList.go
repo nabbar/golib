@@ -35,10 +35,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	spfcbr "github.com/spf13/cobra"
-	spfvpr "github.com/spf13/viper"
+	"golang.org/x/exp/slices"
 
 	liberr "github.com/nabbar/golib/errors"
+	spfcbr "github.com/spf13/cobra"
+	spfvpr "github.com/spf13/viper"
 )
 
 const JSONIndent = "  "
@@ -280,7 +281,7 @@ func (c *componentList) reloadOne(isReload []string, key string, getCfg FuncComp
 		return isReload, ErrorComponentNotFound.ErrorParent(fmt.Errorf("component: %s", key))
 	} else if cpt = c.ComponentGet(key); cpt == nil {
 		return isReload, ErrorComponentNotFound.ErrorParent(fmt.Errorf("component: %s", key))
-	} else if stringIsInSlice(isReload, key) {
+	} else if slices.Contains(isReload, key) {
 		return isReload, nil
 	}
 
@@ -370,12 +371,18 @@ func (c *componentList) DefaultConfig() io.Reader {
 	buffer.WriteString("\n")
 	buffer.WriteString("}")
 
-	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, buffer.Bytes(), "", JSONIndent); err != nil {
+	var (
+		cmp = bytes.NewBuffer(make([]byte, 0))
+		ind = bytes.NewBuffer(make([]byte, 0))
+	)
+
+	if err := json.Compact(cmp, buffer.Bytes()); err != nil {
+		return buffer
+	} else if err = json.Indent(ind, cmp.Bytes(), "", JSONIndent); err != nil {
 		return buffer
 	}
 
-	return res
+	return ind
 }
 
 func (c *componentList) RegisterFlag(Command *spfcbr.Command, Viper *spfvpr.Viper) error {

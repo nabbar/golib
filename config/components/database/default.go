@@ -35,7 +35,7 @@ import (
 	libdbs "github.com/nabbar/golib/database"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
-	libsts "github.com/nabbar/golib/status"
+	libsts "github.com/nabbar/golib/status/config"
 	spfcbr "github.com/spf13/cobra"
 	spfvbr "github.com/spf13/viper"
 )
@@ -153,7 +153,7 @@ func (c *componentDatabase) _getConfig(getCfg libcfg.FuncComponentConfigGet) (li
 	}
 
 	if err := getCfg(c.key, &cnf); err != nil {
-		return cnf, ErrorParamsInvalid.Error(err)
+		return cnf, ErrorParamInvalid.Error(err)
 	}
 
 	fct := func() liblog.Logger {

@@ -29,13 +29,11 @@ package smtp
 import (
 	"sync"
 
-	libsts "github.com/nabbar/golib/status"
-
-	cpttls "github.com/nabbar/golib/config/components/tls"
-
 	libcfg "github.com/nabbar/golib/config"
+	cpttls "github.com/nabbar/golib/config/components/tls"
 	liberr "github.com/nabbar/golib/errors"
 	libsmtp "github.com/nabbar/golib/smtp"
+	libsts "github.com/nabbar/golib/status"
 )
 
 const (

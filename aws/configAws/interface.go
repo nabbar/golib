@@ -53,6 +53,18 @@ func NewConfigJsonUnmashal(p []byte) (libaws.Config, errors.Error) {
 	}, nil
 }
 
+func NewConfigStatusJsonUnmashal(p []byte) (libaws.Config, errors.Error) {
+	c := ModelStatus{}
+	if err := json.Unmarshal(p, &c); err != nil {
+		return nil, ErrorConfigJsonUnmarshall.ErrorParent(err)
+	}
+
+	return &awsModel{
+		Model:   c.Config,
+		retryer: nil,
+	}, nil
+}
+
 func NewConfig(bucket, accessKey, secretKey, region string) libaws.Config {
 	return &awsModel{
 		Model: Model{

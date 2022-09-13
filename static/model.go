@@ -43,6 +43,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
 
@@ -75,16 +77,6 @@ func (s *staticHandler) _makeRoute(group, route string) string {
 		group = "/"
 	}
 	return path.Join(group, route)
-}
-
-func (s *staticHandler) _IsInSlice(sl []string, val string) bool {
-	for _, v := range sl {
-		if v == val {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (s *staticHandler) _getSize() int64 {
@@ -297,7 +289,7 @@ func (s *staticHandler) _setRouter(val []string) {
 
 func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
 	if root == "" {
-		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
 	}
 
 	s.m.Lock()
@@ -316,7 +308,7 @@ func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
 
 func (s *staticHandler) _fileGet(pathFile string) (fs.FileInfo, io.ReadCloser, liberr.Error) {
 	if pathFile == "" {
-		return nil, nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
 	}
 
 	if inf, err := s._fileInfo(pathFile); err != nil {
@@ -332,7 +324,7 @@ func (s *staticHandler) _fileGet(pathFile string) (fs.FileInfo, io.ReadCloser, l
 
 func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
 	if pathFile == "" {
-		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
 	}
 
 	s.m.Lock()
@@ -364,7 +356,7 @@ func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
 
 func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error) {
 	if pathFile == "" {
-		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
 	}
 
 	s.m.Lock()
@@ -383,7 +375,7 @@ func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error)
 
 func (s *staticHandler) _fileTemp(pathFile string) (libiot.FileProgress, liberr.Error) {
 	if pathFile == "" {
-		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
 	}
 
 	s.m.Lock()
@@ -462,7 +454,7 @@ func (s *staticHandler) GetIndex(group, route string) string {
 			continue
 		}
 
-		if s._IsInSlice(r, route) {
+		if slices.Contains(r, route) {
 			return f
 		}
 	}
@@ -533,7 +525,7 @@ func (s *staticHandler) IsIndexForRoute(pathFile, group, route string) bool {
 		return false
 	}
 
-	return s._IsInSlice(val, s._makeRoute(group, route))
+	return slices.Contains(val, s._makeRoute(group, route))
 }
 
 func (s *staticHandler) IsRedirect(group, route string) bool {

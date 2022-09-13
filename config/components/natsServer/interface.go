@@ -29,11 +29,10 @@ package natsServer
 import (
 	"sync"
 
-	libsts "github.com/nabbar/golib/status"
-
 	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
 	libnat "github.com/nabbar/golib/nats"
+	libsts "github.com/nabbar/golib/status"
 )
 
 const (

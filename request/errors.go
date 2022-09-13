@@ -27,12 +27,14 @@
 package request
 
 import (
+	"fmt"
+
 	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgRequest
-	ErrorParamsInvalid
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgRequest
+	ErrorParamInvalid
 	ErrorValidatorError
 	ErrorCreateRequest
 	ErrorSendRequest
@@ -45,21 +47,17 @@ const (
 )
 
 func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
-}
-
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/request"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "at least one given parameters is empty"
-	case ErrorParamsInvalid:
+	case ErrorParamInvalid:
 		return "at least one given parameters is invalid"
 	case ErrorValidatorError:
 		return "config seems to be invalid"
@@ -81,5 +79,5 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "the body match with not contains constraint"
 	}
 
-	return liberr.NUL_MESSAGE
+	return liberr.NullMessage
 }

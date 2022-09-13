@@ -26,10 +26,14 @@
 
 package ldap
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorEmptyParams errors.CodeError = iota + errors.MinPkgLDAP
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgLDAP
 	ErrorLDAPContext
 	ErrorLDAPServerConfig
 	ErrorLDAPServerConnection
@@ -49,21 +53,16 @@ const (
 	ErrorLDAPGroupNotFound
 )
 
-var isCodeError = errors.ExistInMapMessage(ErrorEmptyParams)
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	errors.RegisterIdFctMessage(ErrorEmptyParams, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/ldap"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorEmptyParams:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorLDAPContext:
 		return "LDAP server connection context occurs an error"
@@ -101,5 +100,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "group not found"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

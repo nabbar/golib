@@ -26,31 +26,29 @@
 
 package console
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgConsole
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgConsole
 	ErrorColorIOFprintf
 	ErrorColorBufWrite
 	ErrorColorBufUndefined
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/console"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorColorIOFprintf:
 		return "cannot write on IO"
@@ -60,5 +58,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "buffer is not defined"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

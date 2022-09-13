@@ -36,12 +36,13 @@ import (
 	"strings"
 	"time"
 
+	libsts "github.com/nabbar/golib/status/config"
+
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
 	libiot "github.com/nabbar/golib/ioutils"
 	liblog "github.com/nabbar/golib/logger"
-	libsts "github.com/nabbar/golib/status"
 	natjwt "github.com/nats-io/jwt/v2"
 	natsrv "github.com/nats-io/nats-server/v2/server"
 )

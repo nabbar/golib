@@ -21,21 +21,58 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package config
+package status
 
-func stringIsInSlice(list []string, key string) bool {
-	if len(list) < 1 {
-		return false
+import "sync"
+
+const DefMessageOK = "OK"
+const DefMessageKO = "KO"
+
+type Response struct {
+	InfoResponse
+	StatusResponse
+
+	m          sync.Mutex
+	Components []CptResponse `json:"components"`
+}
+
+func (r Response) IsOk() bool {
+	if len(r.Components) < 1 {
+		return true
 	}
 
-	for _, k := range list {
-		if k == key {
-			return true
+	for _, c := range r.Components {
+		if c.Status != DefMessageOK {
+			return false
 		}
 	}
 
-	return false
+	return true
+}
+
+func (r Response) IsOkMandatory() bool {
+	if len(r.Components) < 1 {
+		return true
+	}
+
+	for _, c := range r.Components {
+		if !c.Mandatory {
+			continue
+		}
+
+		if c.Status != DefMessageOK {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (r *Response) appendNewCpt(cpt CptResponse) {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	r.Components = append(r.Components, cpt)
 }

@@ -45,7 +45,7 @@ type pooler struct {
 
 func (p *pooler) Reset() liberr.Error {
 	if p.s == nil {
-		return ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
+		return ErrorParamEmpty.ErrorParent(errors.New("smtp client is not define"))
 	}
 
 	if err := p.c.Reset(); err != nil {
@@ -71,7 +71,7 @@ func (p *pooler) NewPooler() Pooler {
 
 func (p *pooler) Send(ctx context.Context, from string, to []string, data io.WriterTo) liberr.Error {
 	if p.s == nil {
-		return ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
+		return ErrorParamEmpty.ErrorParent(errors.New("smtp client is not define"))
 	}
 
 	if err := p.c.Pool(ctx); err != nil {
@@ -83,7 +83,7 @@ func (p *pooler) Send(ctx context.Context, from string, to []string, data io.Wri
 
 func (p *pooler) Client(ctx context.Context) (*smtp.Client, liberr.Error) {
 	if p.s == nil {
-		return nil, ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
+		return nil, ErrorParamEmpty.ErrorParent(errors.New("smtp client is not define"))
 	}
 
 	return p.s.Client(ctx)
@@ -97,7 +97,7 @@ func (p *pooler) Close() {
 
 func (p *pooler) Check(ctx context.Context) liberr.Error {
 	if p.s == nil {
-		return ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
+		return ErrorParamEmpty.ErrorParent(errors.New("smtp client is not define"))
 	}
 
 	return p.s.Check(ctx)
@@ -121,7 +121,7 @@ func (p *pooler) StatusInfo() (name string, release string, hash string) {
 
 func (p *pooler) StatusHealth() error {
 	if p.s == nil {
-		return ErrorParamsEmpty.ErrorParent(errors.New("smtp client is not define"))
+		return ErrorParamEmpty.ErrorParent(errors.New("smtp client is not define"))
 	}
 
 	return p.s.StatusHealth()

@@ -35,6 +35,7 @@ import (
 	cfgcus "github.com/nabbar/golib/aws/configCustom"
 	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
+	libsts "github.com/nabbar/golib/status/config"
 	spfcbr "github.com/spf13/cobra"
 	spfvbr "github.com/spf13/viper"
 )
@@ -47,6 +48,15 @@ var _defaultConfigStandard = []byte(`{
   "endpoint": ""
 }`)
 
+var _defaultConfigStandardWithStatus = []byte(`{
+  "bucket": "",
+  "accesskey": "",
+  "secretkey": "",
+  "region": "",
+  "endpoint": "",
+  "status":` + string(libsts.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `
+}`)
+
 var _defaultConfigCustom = []byte(`{
   "bucket": "",
   "accesskey": "",
@@ -55,18 +65,35 @@ var _defaultConfigCustom = []byte(`{
   "endpoint": ""
 }`)
 
+var _defaultConfigCustomWithStatus = []byte(`{
+  "bucket": "",
+  "accesskey": "",
+  "secretkey": "",
+  "region": "",
+  "endpoint": "",
+  "status":` + string(libsts.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `
+}`)
+
 var _defaultConfig = _defaultConfigCustom
 
 func SetDefaultConfig(cfg []byte) {
 	_defaultConfig = cfg
 }
 
-func SetDefaultConfigStandard() {
-	_defaultConfig = _defaultConfigStandard
+func SetDefaultConfigStandard(withStatus bool) {
+	if withStatus {
+		_defaultConfig = _defaultConfigStandardWithStatus
+	} else {
+		_defaultConfig = _defaultConfigStandard
+	}
 }
 
-func SetDefaultConfigCustom() {
-	_defaultConfig = _defaultConfigCustom
+func SetDefaultConfigCustom(withStatus bool) {
+	if withStatus {
+		_defaultConfig = _defaultConfigCustomWithStatus
+	} else {
+		_defaultConfig = _defaultConfigCustom
+	}
 }
 
 func DefaultConfig(indent string) []byte {
@@ -104,18 +131,44 @@ func (c *componentAws) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper
 	return nil
 }
 
-func (c *componentAws) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libaws.Config, liberr.Error) {
+func (c *componentAws) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libaws.Config, *libsts.ConfigStatus, liberr.Error) {
 	var (
 		vpr = c.vpr()
 		cfg libaws.Config
+		sts *libsts.ConfigStatus
 		err liberr.Error
 	)
 
 	switch c.d {
+	case ConfigCustomStatus:
+		cnf := cfgcus.ModelStatus{}
+		if e := getCfg(c.key, &cnf); e != nil {
+			return nil, nil, ErrorParamInvalid.Error(e)
+		}
+		if s := vpr.GetString(c.key + ".access-key"); s != "" {
+			cnf.Config.AccessKey = s
+		}
+		if s := vpr.GetString(c.key + ".secret-key"); s != "" {
+			cnf.Config.SecretKey = s
+		}
+		if s := vpr.GetString(c.key + ".bucket"); s != "" {
+			cnf.Config.Bucket = s
+		}
+		if s := vpr.GetString(c.key + ".region"); s != "" {
+			cnf.Config.Region = s
+		}
+		if s := vpr.GetString(c.key + ".endpoint"); s != "" {
+			cnf.Config.Endpoint = s
+		}
+		if cfg, err = c.d.NewFromModel(cnf); err != nil {
+			return nil, nil, err
+		} else {
+			sts = &cnf.Status
+		}
 	case ConfigCustom:
 		cnf := cfgcus.Model{}
 		if e := getCfg(c.key, &cnf); e != nil {
-			return nil, ErrorParamsInvalid.Error(e)
+			return nil, nil, ErrorParamInvalid.Error(e)
 		}
 		if s := vpr.GetString(c.key + ".access-key"); s != "" {
 			cnf.AccessKey = s
@@ -133,12 +186,34 @@ func (c *componentAws) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libaws.
 			cnf.Endpoint = s
 		}
 		if cfg, err = c.d.NewFromModel(cnf); err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+	case ConfigStandardStatus:
+		cnf := cfgstd.ModelStatus{}
+		if e := getCfg(c.key, &cnf); e != nil {
+			return nil, nil, ErrorParamInvalid.Error(e)
+		}
+		if s := vpr.GetString(c.key + ".access-key"); s != "" {
+			cnf.Config.AccessKey = s
+		}
+		if s := vpr.GetString(c.key + ".secret-key"); s != "" {
+			cnf.Config.SecretKey = s
+		}
+		if s := vpr.GetString(c.key + ".bucket"); s != "" {
+			cnf.Config.Bucket = s
+		}
+		if s := vpr.GetString(c.key + ".region"); s != "" {
+			cnf.Config.Region = s
+		}
+		if cfg, err = c.d.NewFromModel(cnf); err != nil {
+			return nil, nil, err
+		} else {
+			sts = &cnf.Status
 		}
 	case ConfigStandard:
 		cnf := cfgstd.Model{}
 		if e := getCfg(c.key, &cnf); e != nil {
-			return nil, ErrorParamsInvalid.Error(e)
+			return nil, nil, ErrorParamInvalid.Error(e)
 		}
 		if s := vpr.GetString(c.key + ".access-key"); s != "" {
 			cnf.AccessKey = s
@@ -153,13 +228,13 @@ func (c *componentAws) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libaws.
 			cnf.Region = s
 		}
 		if cfg, err = c.d.NewFromModel(cnf); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if err = cfg.Validate(); err != nil {
-		return nil, ErrorConfigInvalid.Error(err)
+		return nil, nil, ErrorConfigInvalid.Error(err)
 	}
 
-	return cfg, nil
+	return cfg, sts, nil
 }

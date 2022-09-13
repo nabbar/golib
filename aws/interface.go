@@ -48,6 +48,7 @@ type Config interface {
 	Check(ctx context.Context) liberr.Error
 	Validate() liberr.Error
 
+	GetAccessKey() string
 	SetCredentials(accessKey, secretKey string)
 	ResetRegionEndpoint()
 	RegisterRegionEndpoint(region string, endpoint *url.URL) liberr.Error

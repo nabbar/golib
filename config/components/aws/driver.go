@@ -39,13 +39,19 @@ type ConfigDriver uint8
 
 const (
 	ConfigStandard ConfigDriver = iota
+	ConfigStandardStatus
 	ConfigCustom
+	ConfigCustomStatus
 )
 
 func DriverConfig(value int) ConfigDriver {
 	switch value {
 	case int(ConfigCustom):
 		return ConfigCustom
+	case int(ConfigCustomStatus):
+		return ConfigCustomStatus
+	case int(ConfigStandardStatus):
+		return ConfigStandardStatus
 	default:
 		return ConfigStandard
 	}
@@ -55,6 +61,10 @@ func (a ConfigDriver) String() string {
 	switch a {
 	case ConfigCustom:
 		return "Custom"
+	case ConfigCustomStatus:
+		return "CustomWithStatus"
+	case ConfigStandardStatus:
+		return "StandardWithStatus"
 	default:
 		return "Standard"
 	}
@@ -64,6 +74,10 @@ func (a ConfigDriver) Unmarshal(p []byte) (libaws.Config, liberr.Error) {
 	switch a {
 	case ConfigCustom:
 		return cfgcus.NewConfigJsonUnmashal(p)
+	case ConfigCustomStatus:
+		return cfgcus.NewConfigStatusJsonUnmashal(p)
+	case ConfigStandardStatus:
+		return cfgstd.NewConfigStatusJsonUnmashal(p)
 	default:
 		return cfgstd.NewConfigJsonUnmashal(p)
 	}
@@ -71,8 +85,10 @@ func (a ConfigDriver) Unmarshal(p []byte) (libaws.Config, liberr.Error) {
 
 func (a ConfigDriver) Config(bucket, accessKey, secretKey string, region string, endpoint *url.URL) libaws.Config {
 	switch a {
-	case ConfigCustom:
+	case ConfigCustom, ConfigCustomStatus:
 		return cfgcus.NewConfig(bucket, accessKey, secretKey, endpoint, region)
+	case ConfigStandardStatus:
+		return cfgstd.NewConfig(bucket, accessKey, secretKey, region)
 	default:
 		return cfgstd.NewConfig(bucket, accessKey, secretKey, region)
 	}
@@ -82,6 +98,10 @@ func (a ConfigDriver) Model() interface{} {
 	switch a {
 	case ConfigCustom:
 		return cfgcus.Model{}
+	case ConfigCustomStatus:
+		return cfgcus.ModelStatus{}
+	case ConfigStandardStatus:
+		return cfgstd.ModelStatus{}
 	default:
 		return cfgstd.Model{}
 	}
@@ -89,6 +109,18 @@ func (a ConfigDriver) Model() interface{} {
 
 func (a ConfigDriver) NewFromModel(i interface{}) (libaws.Config, liberr.Error) {
 	switch a {
+	case ConfigCustomStatus:
+		if o, ok := i.(cfgcus.ModelStatus); !ok {
+			return nil, ErrorConfigInvalid.Error(nil)
+		} else {
+			return ConfigCustom.NewFromModel(o.Config)
+		}
+	case ConfigStandardStatus:
+		if o, ok := i.(cfgstd.ModelStatus); !ok {
+			return nil, ErrorConfigInvalid.Error(nil)
+		} else {
+			return ConfigStandard.NewFromModel(o.Config)
+		}
 	case ConfigCustom:
 		if o, ok := i.(cfgcus.Model); !ok {
 			return nil, ErrorConfigInvalid.Error(nil)
