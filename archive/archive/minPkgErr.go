@@ -24,41 +24,16 @@
  *
  */
 
-package errors
+package archive
+
+import (
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	MinPkgArchive     = 100
-	MinPkgArtifact    = 200
-	MinPkgCertificate = 300
-	MinPkgCluster     = 400
-	MinPkgConfig      = 500
-	MinPkgConsole     = 800
-	MinPkgCrypt       = 900
-	MinPkgDatabase    = 1000
-	MinPkgFTPClient   = 1100
-	MinPkgHttpCli     = 1200
-	MinPkgHttpServer  = 1300
-	MinPkgIOUtils     = 1400
-	MinPkgLDAP        = 1500
-	MinPkgLogger      = 1600
-	MinPkgMail        = 1700
-	MinPkgMailer      = 1800
-	MinPkgMailPooler  = 1900
-	MinPkgNetwork     = 2000
-	MinPkgNats        = 2100
-	MinPkgNutsDB      = 2200
-	MinPkgOAuth       = 2300
-	MinPkgAws         = 2400
-	MinPkgRequest     = 2500
-	MinPkgRouter      = 2600
-	MinPkgSemaphore   = 2700
-	MinPkgSMTP        = 2800
-	MinPkgStatic      = 2900
-	MinPkgVersion     = 3000
-	MinPkgViper       = 3100
-
-	MinAvailable = 4000
-
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	MinPkgArchive     = liberr.MinPkgArchive
+	MinPkgArchiveBZ2  = MinPkgArchive + 20
+	MinPkgArchiveGZip = MinPkgArchiveBZ2 + 20
+	MinPkgArchiveTar  = MinPkgArchiveGZip + 20
+	MinPkgArchiveZip  = MinPkgArchiveTar + 20
 )

@@ -48,7 +48,8 @@ const (
 	MinErrorComponentDatabase = MinErrorComponentAws + 10
 	MinErrorComponentHead     = MinErrorComponentDatabase + 10
 	MinErrorComponentHttp     = MinErrorComponentHead + 10
-	MinErrorComponentLog      = MinErrorComponentHttp + 10
+	MinErrorComponentLdap     = MinErrorComponentHttp + 10
+	MinErrorComponentLog      = MinErrorComponentLdap + 10
 	MinErrorComponentMail     = MinErrorComponentLog + 10
 	MinErrorComponentNats     = MinErrorComponentMail + 10
 	MinErrorComponentNutsDB   = MinErrorComponentNats + 10

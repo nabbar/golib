@@ -26,11 +26,16 @@
 
 package gzip
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	arcmod "github.com/nabbar/golib/archive/archive"
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive + 20
-	ErrorParamsMismatching
+	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchiveGZip
+	ErrorParamMismatching
 	ErrorGZCreate
 	ErrorGZReader
 	ErrorFileSeek
@@ -38,24 +43,18 @@ const (
 	ErrorFileOpen
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision golib/archive/gzip"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
-	case ErrorParamsMismatching:
+	case ErrorParamMismatching:
 		return "given parameters is not matching the awaiting scope"
 	case ErrorGZCreate:
 		return "cannot create the GZip archive"
@@ -69,5 +68,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "cannot open file content"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

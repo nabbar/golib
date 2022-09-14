@@ -26,30 +26,29 @@
 
 package bz2
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	arcmod "github.com/nabbar/golib/archive/archive"
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive + 10
+	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchiveBZ2
 	ErrorFileSeek
 	ErrorIOCopy
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision golib/archive/bz2"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorFileSeek:
 		return "cannot seek into file"
@@ -57,5 +56,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "io copy occurs error"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

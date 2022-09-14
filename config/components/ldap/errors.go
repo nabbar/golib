@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	ErrorParamEmpty liberr.CodeError = iota + libcfg.MinErrorComponentRequest
+	ErrorParamEmpty liberr.CodeError = iota + libcfg.MinErrorComponentLdap
 	ErrorParamInvalid
 	ErrorComponentNotInitialized
 	ErrorConfigInvalid

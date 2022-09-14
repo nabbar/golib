@@ -28,12 +28,12 @@ package archive
 
 import (
 	"fmt"
-
+	arcmod "github.com/nabbar/golib/archive/archive"
 	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgArchive
+	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchive
 	ErrorFileSeek
 	ErrorFileOpen
 	ErrorFileClose
@@ -45,7 +45,7 @@ const (
 
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision"))
+		panic(fmt.Errorf("error code collision golib/archive"))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
