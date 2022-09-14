@@ -26,10 +26,15 @@
 
 package tar
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	arcmod "github.com/nabbar/golib/archive/archive"
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive + 30
+	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchiveTar
 	ErrorTarNext
 	ErrorFileOpen
 	ErrorFileSeek
@@ -47,22 +52,16 @@ const (
 	ErrorTarCreateAddFile
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision golib/archive/tar"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorTarNext:
 		return "cannot get next tar file"
@@ -96,5 +95,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "cannot add file content to tar archive"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

@@ -26,10 +26,15 @@
 
 package zip
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	arcmod "github.com/nabbar/golib/archive/archive"
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgArchive + 40
+	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchiveZip
 	ErrorFileOpen
 	ErrorFileClose
 	ErrorFileSeek
@@ -48,22 +53,16 @@ const (
 	ErrorDestinationRemove
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision golib/archive/zip"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorFileOpen:
 		return "cannot open zipped file"
@@ -99,5 +98,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "cannot remove destination "
 	}
 
-	return ""
+	return liberr.NullMessage
 }
