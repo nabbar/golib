@@ -30,6 +30,7 @@ package logger
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -60,6 +61,7 @@ type _HookSyslog struct {
 	s bool
 	d bool
 	t bool
+	a bool
 }
 
 func NewHookSyslog(opt OptionsSyslog, format logrus.Formatter) (HookSyslog, error) {
@@ -88,6 +90,7 @@ func NewHookSyslog(opt OptionsSyslog, format logrus.Formatter) (HookSyslog, erro
 		s: opt.DisableStack,
 		d: opt.DisableTimestamp,
 		t: opt.EnableTrace,
+		a: opt.EnableAccessLog,
 	}, nil
 }
 
@@ -117,28 +120,46 @@ func (o *_HookSyslog) Fire(entry *logrus.Entry) error {
 		ent.Data = o.filterKey(ent.Data, FieldLine)
 	}
 
-	if p, err := o.f.Format(ent); err != nil {
-		return err
-	} else {
-		switch ent.Level {
-		case logrus.PanicLevel:
-			_, err = o.w.Panic(p)
-		case logrus.FatalLevel:
-			_, err = o.w.Fatal(p)
-		case logrus.ErrorLevel:
-			_, err = o.w.Error(p)
-		case logrus.WarnLevel:
-			_, err = o.w.Warning(p)
-		case logrus.InfoLevel:
-			_, err = o.w.Info(p)
-		case logrus.DebugLevel:
-			_, err = o.w.Debug(p)
-		default:
+	var (
+		p []byte
+		e error
+	)
+
+	if o.a {
+		if len(entry.Message) > 0 {
+			if !strings.HasSuffix(entry.Message, "\n") {
+				entry.Message += "\n"
+			}
+			p = []byte(entry.Message)
+		} else {
 			return nil
 		}
-
-		return err
+	} else {
+		if len(ent.Data) < 1 {
+			return nil
+		} else if p, e = ent.Bytes(); e != nil {
+			return e
+		}
 	}
+
+	switch ent.Level {
+	case logrus.PanicLevel:
+		_, e = o.w.Panic(p)
+	case logrus.FatalLevel:
+		_, e = o.w.Fatal(p)
+	case logrus.ErrorLevel:
+		_, e = o.w.Error(p)
+	case logrus.WarnLevel:
+		_, e = o.w.Warning(p)
+	case logrus.InfoLevel:
+		_, e = o.w.Info(p)
+	case logrus.DebugLevel:
+		_, e = o.w.Debug(p)
+	default:
+		return nil
+	}
+
+	return e
 }
 
 func (o *_HookSyslog) Write(p []byte) (n int, err error) {
@@ -160,14 +181,22 @@ func (o *_HookSyslog) filterKey(f logrus.Fields, key string) logrus.Fields {
 		return f
 	}
 
-	var res = make(map[string]interface{}, 0)
-
-	for k, v := range f {
-		if k == key {
-			continue
-		}
-		res[k] = v
+	if _, ok := f[key]; !ok {
+		return f
+	} else {
+		delete(f, key)
+		return f
 	}
+	/*
+		var res = make(map[string]interface{}, 0)
 
-	return res
+		for k, v := range f {
+			if k == key {
+				continue
+			}
+			res[k] = v
+		}
+
+		return res
+	*/
 }

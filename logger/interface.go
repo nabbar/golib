@@ -33,6 +33,7 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -117,6 +118,9 @@ type Logger interface {
 
 	//Entry will return an entry struct to manage it (set gin context, add fields, log the entry...)
 	Entry(lvl Level, message string, args ...interface{}) *Entry
+
+	//Access will return an entry struct to store info level access log message
+	Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) *Entry
 }
 
 // New return a new logger interface pointer

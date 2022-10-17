@@ -32,6 +32,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	librtr "github.com/nabbar/golib/router"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -58,7 +60,19 @@ func (m *monitor) Expose(c *gin.Context) {
 
 // MiddleWare as gin monitor middleware.
 func (m *monitor) MiddleWare(c *gin.Context) {
-	startTime := time.Now()
+	startTime := c.GetInt64(librtr.GinContextStartUnixNanoTime)
+
+	if startTime == 0 {
+		startTime = time.Now().UnixNano()
+	}
+
+	path := c.GetString(librtr.GinContextRequestPath)
+	if path == "" {
+		path = c.Request.URL.Path
+		if raw := c.Request.URL.RawQuery; len(raw) > 0 {
+			path += "?" + raw
+		}
+	}
 
 	if len(m.exclude) > 0 {
 		r := c.Request.URL.Path
@@ -76,7 +90,7 @@ func (m *monitor) MiddleWare(c *gin.Context) {
 	c.Next()
 
 	// after request
-	m.CollectMetrics(c, startTime)
+	m.CollectMetrics(c, time.Unix(0, startTime))
 }
 
 func (m *monitor) CollectMetrics(c *gin.Context, start time.Time) {

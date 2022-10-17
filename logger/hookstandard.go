@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/mattn/go-colorable"
 
@@ -56,9 +57,10 @@ type _HookStd struct {
 	s bool // Disable Stack
 	d bool // Disable Timestamp
 	t bool // Disable Trace
+	a bool // Enable AccessLog
 }
 
-func NewHookStandard(opt Options, s StdWriter, lvls []logrus.Level) HookFile {
+func NewHookStandard(opt Options, s StdWriter, lvls []logrus.Level) HookStandard {
 	if len(lvls) < 1 {
 		lvls = logrus.AllLevels
 	}
@@ -87,6 +89,7 @@ func NewHookStandard(opt Options, s StdWriter, lvls []logrus.Level) HookFile {
 		s: opt.DisableStack,
 		d: opt.DisableTimestamp,
 		t: opt.EnableTrace,
+		a: opt.EnableAccessLog,
 	}
 }
 
@@ -116,10 +119,30 @@ func (o *_HookStd) Fire(entry *logrus.Entry) error {
 		ent.Data = o.filterKey(ent.Data, FieldLine)
 	}
 
-	if p, err := ent.Bytes(); err != nil {
-		return err
-	} else if _, err = o.Write(p); err != nil {
-		return err
+	var (
+		p []byte
+		e error
+	)
+
+	if o.a {
+		if len(entry.Message) > 0 {
+			if !strings.HasSuffix(entry.Message, "\n") {
+				entry.Message += "\n"
+			}
+			p = []byte(entry.Message)
+		} else {
+			return nil
+		}
+	} else {
+		if len(ent.Data) < 1 {
+			return nil
+		} else if p, e = ent.Bytes(); e != nil {
+			return e
+		}
+	}
+
+	if _, e = o.Write(p); e != nil {
+		return e
 	}
 
 	return nil
@@ -142,14 +165,22 @@ func (o *_HookStd) filterKey(f logrus.Fields, key string) logrus.Fields {
 		return f
 	}
 
-	var res = make(map[string]interface{}, 0)
-
-	for k, v := range f {
-		if k == key {
-			continue
-		}
-		res[k] = v
+	if _, ok := f[key]; !ok {
+		return f
+	} else {
+		delete(f, key)
+		return f
 	}
+	/*
+		var res = make(map[string]interface{}, 0)
 
-	return res
+		for k, v := range f {
+			if k == key {
+				continue
+			}
+			res[k] = v
+		}
+
+		return res
+	*/
 }

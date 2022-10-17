@@ -26,14 +26,156 @@
 package router
 
 import (
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/gin-gonic/gin"
+	liblog "github.com/nabbar/golib/logger"
 )
 
-const EmptyHandlerGroup = "<nil>"
+const (
+	EmptyHandlerGroup           = "<nil>"
+	GinContextStartUnixNanoTime = "gin-ctx-start-unix-nano-time"
+	GinContextRequestPath       = "gin-ctx-request-path"
+)
 
 var (
 	defaultRouters = NewRouterList(DefaultGinInit)
 )
+
+func GinEngine(trustedPlatform string, trustyProxy ...string) (*gin.Engine, error) {
+	var err error
+
+	engine := gin.New()
+	if len(trustyProxy) > 0 {
+		err = engine.SetTrustedProxies(trustyProxy)
+	}
+	if len(trustedPlatform) > 0 {
+		engine.TrustedPlatform = trustedPlatform
+	}
+
+	return engine, err
+}
+
+func GinAddGlobalMiddleware(eng *gin.Engine, middleware ...gin.HandlerFunc) *gin.Engine {
+	eng.Use(middleware...)
+	return eng
+}
+
+func GinLatencyContext(c *gin.Context) {
+	// Start timer
+	c.Set(GinContextStartUnixNanoTime, time.Now().UnixNano())
+
+	// Process request
+	c.Next()
+}
+
+func GinRequestContext(c *gin.Context) {
+	// Set Path
+	path := c.Request.URL.Path
+
+	if raw := c.Request.URL.RawQuery; len(raw) > 0 {
+		path += "?" + raw
+	}
+
+	c.Set(GinContextRequestPath, path)
+
+	// Process request
+	c.Next()
+}
+
+func GinAccessLog(log liblog.FuncLog) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Process request
+		c.Next()
+
+		// Log only when path is not being skipped
+		if log == nil {
+			return
+		} else if l := log(); l == nil {
+			return
+		} else {
+			sttm := time.Unix(0, c.GetInt64(GinContextStartUnixNanoTime))
+			path := c.GetString(GinContextRequestPath)
+
+			ent := l.Access(
+				c.ClientIP(),
+				c.Request.URL.User.Username(),
+				time.Now(),
+				time.Now().Sub(sttm),
+				c.Request.Method,
+				path,
+				c.Request.Proto,
+				c.Writer.Status(),
+				int64(c.Writer.Size()),
+			)
+			ent.Log()
+		}
+	}
+}
+
+func GinErrorLog(log liblog.FuncLog) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			var rec error
+
+			if err := recover(); err != nil {
+				// Check for a broken connection, as it is not really a
+				// condition that warrants a panic stack trace.
+				var brokenPipe bool
+				if ne, ok := err.(*net.OpError); ok {
+					var se *os.SyscallError
+					if errors.As(ne, &se) {
+						if strings.Contains(strings.ToLower(se.Error()), "broken pipe") || strings.Contains(strings.ToLower(se.Error()), "connection reset by peer") {
+							brokenPipe = true
+						}
+					}
+				}
+
+				if brokenPipe {
+					rec = fmt.Errorf("[Recovery] connection error: %s", err)
+				} else {
+					rec = fmt.Errorf("[Recovery] panic recovered: %s", err)
+				}
+
+				if brokenPipe {
+					// If the connection is dead, we can't write a status to it.
+					c.Abort()
+				} else {
+					c.AbortWithStatus(http.StatusInternalServerError)
+				}
+			}
+
+			path := c.GetString(GinContextRequestPath)
+
+			// Log only when path is not being skipped
+			if log == nil {
+				return
+			} else if l := log(); l == nil {
+				return
+			} else {
+				if len(c.Errors) > 0 {
+					for _, e := range c.Errors {
+						ent := l.Entry(liblog.ErrorLevel, "error on request \"%s %s %s\"", c.Request.Method, path, c.Request.Proto)
+						ent.ErrorAdd(true, e)
+						ent.Check(liblog.NilLevel)
+					}
+				}
+				if rec != nil {
+					ent := l.Entry(liblog.ErrorLevel, "error on request \"%s %s %s\"", c.Request.Method, path, c.Request.Proto)
+					ent.ErrorAdd(true, rec)
+					ent.Check(liblog.NilLevel)
+				}
+			}
+		}()
+		c.Next()
+	}
+}
 
 func DefaultGinInit() *gin.Engine {
 	engine := gin.New()

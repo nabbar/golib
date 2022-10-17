@@ -94,6 +94,9 @@ type OptionsFile struct {
 
 	// EnableTrace allow to add the origin caller/file/line of each message.
 	EnableTrace bool `json:"enableTrace,omitempty" yaml:"enableTrace,omitempty" toml:"enableTrace,omitempty" mapstructure:"enableTrace,omitempty"`
+
+	// EnableAccessLog allow to add all message from api router for access log and error log.
+	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
 }
 
 type OptionsSyslog struct {
@@ -125,6 +128,9 @@ type OptionsSyslog struct {
 
 	// EnableTrace allow to add the origin caller/file/line of each message.
 	EnableTrace bool `json:"enableTrace,omitempty" yaml:"enableTrace,omitempty" toml:"enableTrace,omitempty" mapstructure:"enableTrace,omitempty"`
+
+	// EnableAccessLog allow to add all message from api router for access log and error log.
+	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
 }
 
 type Options struct {
@@ -146,6 +152,9 @@ type Options struct {
 	// DisableColor define if color could be use or not in messages format.
 	// If the running process is not a tty, no color will be used.
 	DisableColor bool `json:"disableColor,omitempty" yaml:"disableColor,omitempty" toml:"disableColor,omitempty" mapstructure:"disableColor,omitempty"`
+
+	// EnableAccessLog allow to add all message from api router for access log and error log.
+	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
 
 	// LogFile define a list of log file configuration to allow log to files.
 	LogFile []OptionsFile `json:"logFile,omitempty" yaml:"logFile,omitempty" toml:"logFile,omitempty" mapstructure:"logFile,omitempty"`
