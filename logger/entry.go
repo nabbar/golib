@@ -50,8 +50,9 @@ const (
 )
 
 type Entry struct {
-	log func() *logrus.Logger
-	gin *gin.Context
+	log   func() *logrus.Logger
+	gin   *gin.Context
+	clean bool
 
 	//Time is the time of the event (can be empty time if disabled timestamp)
 	Time time.Time `json:"time"`
@@ -166,7 +167,26 @@ func (e *Entry) Check(lvlNoErr Level) bool {
 	return found
 }
 
+func (e *Entry) _logClean() {
+	var (
+		log *logrus.Logger
+	)
+
+	if e.log == nil {
+		return
+	} else if log = e.log(); log == nil {
+		return
+	} else {
+		log.Info(e.Message)
+	}
+}
+
 func (e *Entry) Log() {
+	if e.clean {
+		e._logClean()
+		return
+	}
+
 	var (
 		ent *logrus.Entry
 		tag = NewFields().Add(FieldLevel, e.Level.String())
