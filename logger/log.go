@@ -69,6 +69,10 @@ func (l *logger) Entry(lvl Level, message string, args ...interface{}) *Entry {
 	return l.newEntry(lvl, fmt.Sprintf(message, args...), nil, nil, nil)
 }
 
+func (l *logger) Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) *Entry {
+	return l.newEntryClean(fmt.Sprintf("%s - %s [%s] [%s] \"%s %s %s\" %d %d", remoteAddr, remoteUser, localtime.Format(time.RFC1123Z), latency.String(), method, request, proto, status, size))
+}
+
 func (l *logger) newEntry(lvl Level, message string, err []error, fields Fields, data interface{}) *Entry {
 	opt := l.GetOptions()
 	cLv := l.GetLevel()
@@ -79,6 +83,7 @@ func (l *logger) newEntry(lvl Level, message string, err []error, fields Fields,
 
 	var ent = &Entry{
 		log:     l.getLog,
+		clean:   false,
 		Time:    time.Time{},
 		Level:   lvl,
 		Stack:   0,
@@ -113,6 +118,16 @@ func (l *logger) newEntry(lvl Level, message string, err []error, fields Fields,
 		if frm.Line > 0 {
 			ent.Line = uint32(frm.Line)
 		}
+	}
+
+	return ent
+}
+
+func (l *logger) newEntryClean(message string) *Entry {
+	var ent = &Entry{
+		log:     l.getLog,
+		clean:   true,
+		Message: message,
 	}
 
 	return ent

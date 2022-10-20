@@ -58,7 +58,6 @@ jobs:
         env:
           GOOS: linux
           GOARCH: amd64
-          GOAMD64: v4
           CGO_ENABLED: 0
 
       - name: Check goSecu + snyk.io
@@ -67,7 +66,6 @@ jobs:
         env:
           GOOS: linux
           GOARCH: amd64
-          GOAMD64: v4
           CGO_ENABLED: 0
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
@@ -89,7 +87,6 @@ jobs:
         env:
           GOOS: linux
           GOARCH: amd64
-          GOAMD64: v4
           CGO_ENABLED: 0
 
       - name: Add ming-w32 (x86 + win64)

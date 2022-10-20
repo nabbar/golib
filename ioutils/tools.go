@@ -36,6 +36,9 @@ import (
 func PathCheckCreate(isFile bool, path string, permFile os.FileMode, permDir os.FileMode) error {
 	if _, err := os.Stat(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
+	} else if err == nil {
+		_ = os.Chmod(path, permFile)
+		return nil
 	}
 
 	if !isFile {
@@ -48,5 +51,6 @@ func PathCheckCreate(isFile bool, path string, permFile os.FileMode, permDir os.
 		_ = hf.Close()
 	}
 
-	return os.Chmod(path, permFile)
+	_ = os.Chmod(path, permFile)
+	return nil
 }

@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/nabbar/golib/ioutils"
 	"github.com/sirupsen/logrus"
@@ -43,12 +44,21 @@ type HookFile interface {
 }
 
 type _HookFile struct {
-	f *os.File
 	r logrus.Formatter
 	l []logrus.Level
 	s bool
 	d bool
 	t bool
+	a bool
+	o _HookFileOptions
+}
+
+type _HookFileOptions struct {
+	Create   bool
+	FilePath string
+	Flags    int
+	ModeFile os.FileMode
+	ModePath os.FileMode
 }
 
 func NewHookFile(opt OptionsFile, format logrus.Formatter) (HookFile, error) {
@@ -57,31 +67,9 @@ func NewHookFile(opt OptionsFile, format logrus.Formatter) (HookFile, error) {
 	}
 
 	var (
-		flags = os.O_WRONLY | os.O_APPEND
 		LVLs  = make([]logrus.Level, 0)
-		hdl   *os.File
-		err   error
+		flags = os.O_WRONLY | os.O_APPEND
 	)
-
-	if opt.FileMode == 0 {
-		opt.FileMode = 0644
-	}
-
-	if opt.PathMode == 0 {
-		opt.PathMode = 0755
-	}
-
-	if opt.CreatePath {
-		if err = ioutils.PathCheckCreate(true, opt.Filepath, opt.FileMode, opt.PathMode); err != nil {
-			return nil, err
-		}
-	} else if opt.Create {
-		flags = os.O_CREATE | flags
-	}
-
-	if hdl, err = os.OpenFile(opt.Filepath, flags, opt.FileMode); err != nil {
-		return nil, err
-	}
 
 	if len(opt.LogLevel) > 0 {
 		for _, ls := range opt.LogLevel {
@@ -91,14 +79,59 @@ func NewHookFile(opt OptionsFile, format logrus.Formatter) (HookFile, error) {
 		LVLs = logrus.AllLevels
 	}
 
-	return &_HookFile{
-		f: hdl,
+	if opt.Create {
+		flags = os.O_CREATE | flags
+	}
+
+	if opt.FileMode == 0 {
+		opt.FileMode = 0644
+	}
+
+	if opt.PathMode == 0 {
+		opt.PathMode = 0755
+	}
+
+	obj := &_HookFile{
 		r: format,
 		l: LVLs,
 		s: opt.DisableStack,
 		d: opt.DisableTimestamp,
 		t: opt.EnableTrace,
-	}, nil
+		a: opt.EnableAccessLog,
+		o: _HookFileOptions{
+			Create:   opt.CreatePath,
+			FilePath: opt.Filepath,
+			Flags:    flags,
+			ModeFile: opt.FileMode,
+			ModePath: opt.PathMode,
+		},
+	}
+
+	if h, e := obj.openCreate(); e != nil {
+		return nil, e
+	} else {
+		_ = h.Close()
+	}
+
+	return obj, nil
+}
+
+func (o *_HookFile) openCreate() (*os.File, error) {
+	var err error
+
+	if o.o.Create {
+		if err = ioutils.PathCheckCreate(true, o.o.FilePath, o.o.ModeFile, o.o.ModePath); err != nil {
+			return nil, err
+		}
+	}
+
+	if h, e := os.OpenFile(o.o.FilePath, o.o.Flags, o.o.ModeFile); e != nil {
+		return nil, e
+	} else if _, e = h.Seek(0, io.SeekEnd); e != nil {
+		return nil, e
+	} else {
+		return h, nil
+	}
 }
 
 func (o *_HookFile) RegisterHook(log *logrus.Logger) {
@@ -127,27 +160,55 @@ func (o *_HookFile) Fire(entry *logrus.Entry) error {
 		ent.Data = o.filterKey(ent.Data, FieldLine)
 	}
 
-	if p, err := o.r.Format(ent); err != nil {
-		return err
-	} else if _, err = o.Write(p); err != nil {
-		return err
+	var (
+		p []byte
+		e error
+	)
+
+	if o.a {
+		if len(entry.Message) > 0 {
+			if !strings.HasSuffix(entry.Message, "\n") {
+				entry.Message += "\n"
+			}
+			p = []byte(entry.Message)
+		} else {
+			return nil
+		}
+	} else {
+		if len(ent.Data) < 1 {
+			return nil
+		} else if p, e = ent.Bytes(); e != nil {
+			return e
+		}
+	}
+
+	if _, e = o.Write(p); e != nil {
+		return e
 	}
 
 	return nil
 }
 
 func (o *_HookFile) Write(p []byte) (n int, err error) {
-	if o.f == nil {
-		return 0, fmt.Errorf("logrus.hookfile: file not setup")
-	}
+	h, e := o.openCreate()
 
-	return o.f.Write(p)
+	defer func() {
+		if h != nil {
+			_ = h.Close()
+		}
+	}()
+
+	if e != nil {
+		return 0, fmt.Errorf("logrus.hookfile: cannot open '%s'", o.o.FilePath)
+	} else if n, e = h.Write(p); e != nil {
+		return n, e
+	} else {
+		return n, h.Sync()
+	}
 }
 
 func (o *_HookFile) Close() error {
-	err := o.f.Close()
-	o.f = nil
-	return err
+	return nil
 }
 
 func (o *_HookFile) filterKey(f logrus.Fields, key string) logrus.Fields {
@@ -155,14 +216,22 @@ func (o *_HookFile) filterKey(f logrus.Fields, key string) logrus.Fields {
 		return f
 	}
 
-	var res = make(map[string]interface{}, 0)
-
-	for k, v := range f {
-		if k == key {
-			continue
-		}
-		res[k] = v
+	if _, ok := f[key]; !ok {
+		return f
+	} else {
+		delete(f, key)
+		return f
 	}
+	/*
+		var res = make(map[string]interface{}, 0)
 
-	return res
+		for k, v := range f {
+			if k == key {
+				continue
+			}
+			res[k] = v
+		}
+
+		return res
+	*/
 }
