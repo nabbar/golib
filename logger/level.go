@@ -63,28 +63,29 @@ func GetLevelListString() []string {
 	}
 }
 
-// GetLevelString return a valid Level Type matching the given string parameter. If the given parameter don't represent a valid level, the InfoLevel will be return.
+// GetLevelString return a valid Level Type matching the given string parameter.
+// If the given parameter don't represent a valid level, the InfoLevel will be return.
 /*
 	level the string representation of a Level type
 */
 func GetLevelString(l string) Level {
 	switch {
-	case strings.Contains(strings.ToLower(PanicLevel.String()), strings.ToLower(l)):
+	case strings.EqualFold(PanicLevel.String(), l):
 		return PanicLevel
 
-	case strings.Contains(strings.ToLower(FatalLevel.String()), strings.ToLower(l)):
+	case strings.EqualFold(FatalLevel.String(), l):
 		return FatalLevel
 
-	case strings.Contains(strings.ToLower(ErrorLevel.String()), strings.ToLower(l)):
+	case strings.EqualFold(ErrorLevel.String(), l):
 		return ErrorLevel
 
-	case strings.Contains(strings.ToLower(WarnLevel.String()), strings.ToLower(l)):
+	case strings.EqualFold(WarnLevel.String(), l):
 		return WarnLevel
 
-	case strings.Contains(strings.ToLower(InfoLevel.String()), strings.ToLower(l)):
+	case strings.EqualFold(InfoLevel.String(), l):
 		return InfoLevel
 
-	case strings.Contains(strings.ToLower(DebugLevel.String()), strings.ToLower(l)):
+	case strings.EqualFold(DebugLevel.String(), l):
 		return DebugLevel
 	}
 
@@ -109,9 +110,9 @@ func (l Level) String() string {
 	case ErrorLevel:
 		return "Error"
 	case FatalLevel:
-		return "Fatal Error"
+		return "Fatal"
 	case PanicLevel:
-		return "Critical Error"
+		return "Critical"
 	case NilLevel:
 		return ""
 	}

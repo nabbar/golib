@@ -26,10 +26,24 @@
 package logger_test
 
 import (
+	"path/filepath"
+
 	"github.com/nabbar/golib/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+func getLogFileTemp() string {
+	fsp, err := GetTempFile()
+	Expect(err).ToNot(HaveOccurred())
+
+	defer func() {
+		err = DelTempFile(fsp)
+		Expect(err).ToNot(HaveOccurred())
+	}()
+
+	return filepath.Base(fsp)
+}
 
 var _ = Describe("Logger", func() {
 	Context("Create New Logger with Default Config", func() {
@@ -82,12 +96,12 @@ var _ = Describe("Logger", func() {
 				EnableTrace: true,
 				LogFile: []logger.OptionsFile{
 					{
-						LogLevel:         nil,
-						Filepath:         fsp,
-						Create:           true,
-						CreatePath:       true,
-						FileMode:         0644,
-						PathMode:         0755,
+						LogLevel:   nil,
+						Filepath:   fsp,
+						Create:     true,
+						CreatePath: true,
+						//FileMode:         0644,
+						//PathMode:         0755,
 						DisableStack:     false,
 						DisableTimestamp: false,
 						EnableTrace:      true,
@@ -118,12 +132,12 @@ var _ = Describe("Logger", func() {
 				EnableTrace: true,
 				LogFile: []logger.OptionsFile{
 					{
-						LogLevel:         nil,
-						Filepath:         fsp,
-						Create:           true,
-						CreatePath:       true,
-						FileMode:         0644,
-						PathMode:         0755,
+						LogLevel:   nil,
+						Filepath:   fsp,
+						Create:     true,
+						CreatePath: true,
+						//FileMode:         0644,
+						//PathMode:         0755,
 						DisableStack:     false,
 						DisableTimestamp: false,
 						EnableTrace:      true,
