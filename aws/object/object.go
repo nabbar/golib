@@ -96,7 +96,7 @@ func (cli *client) WalkPrefix(prefix string, f WalkFunc) liberr.Error {
 		}
 
 		for _, o := range out.Contents {
-			if o.Key == nil || len(*o.Key) < 3 {
+			if o.Key == nil || len(*o.Key) < 1 {
 				continue
 			}
 
