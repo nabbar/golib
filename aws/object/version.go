@@ -94,7 +94,7 @@ func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMa
 		}
 
 		for _, o := range out.Versions {
-			if o.Key == nil || len(*o.Key) < 3 {
+			if o.Key == nil || len(*o.Key) < 1 {
 				continue
 			} else if o.VersionId == nil || len(*o.VersionId) < 1 {
 				continue
@@ -106,7 +106,7 @@ func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMa
 		}
 
 		for _, o := range out.DeleteMarkers {
-			if o.Key == nil || len(*o.Key) < 3 {
+			if o.Key == nil || len(*o.Key) < 1 {
 				continue
 			} else if o.VersionId == nil || len(*o.VersionId) < 1 {
 				continue
