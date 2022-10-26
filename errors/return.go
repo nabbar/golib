@@ -45,6 +45,7 @@ type Return interface {
 type DefaultReturn struct {
 	Code    string
 	Message string
+	err     []error
 }
 
 func NewDefaultReturn() *DefaultReturn {
@@ -57,10 +58,20 @@ func NewDefaultReturn() *DefaultReturn {
 func (r *DefaultReturn) SetError(code int, msg string, file string, line int) {
 	r.Code = fmt.Sprintf("%d", code)
 	r.Message = msg
+
+	if len(r.err) < 1 {
+		r.err = make([]error, 0)
+	}
+
+	r.err = append(r.err, NewErrorTrace(code, msg, file, line, nil))
 }
 
 func (r *DefaultReturn) AddParent(code int, msg string, file string, line int) {
-	// nothing
+	if len(r.err) < 1 {
+		r.err = make([]error, 0)
+	}
+
+	r.err = append(r.err, NewErrorTrace(code, msg, file, line, nil))
 }
 
 func (r DefaultReturn) JSON() []byte {
@@ -93,6 +104,16 @@ func (r DefaultReturn) GinTonicErrorAbort(ctx *gin.Context, httpCode int) {
 		Err:  goErr.New(r.Message),
 		Type: gin.ErrorTypeAny,
 	})
+
+	if len(r.err) > 0 {
+		for _, e := range r.err {
+			ctx.Errors = append(ctx.Errors, &gin.Error{
+				//nolint #goerr113
+				Err:  goErr.New(e.Error()),
+				Type: gin.ErrorTypeAny,
+			})
+		}
+	}
 
 	r.GinTonicAbort(ctx, httpCode)
 }
