@@ -201,6 +201,24 @@ func NewError(code uint16, message string, parent Error) Error {
 	}
 }
 
+func NewErrorTrace(code int, msg string, file string, line int, parent Error) Error {
+	var p = make([]Error, 0)
+
+	if parent != nil {
+		p = parent.GetIErrorSlice()
+	}
+
+	return &errors{
+		c: uint16(code),
+		e: msg,
+		p: p,
+		t: runtime.Frame{
+			File: file,
+			Line: line,
+		},
+	}
+}
+
 func NewErrorIferror(code uint16, message string, parent error) Error {
 	if parent == nil {
 		return nil
