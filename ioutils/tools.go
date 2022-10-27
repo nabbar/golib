@@ -34,10 +34,14 @@ import (
 )
 
 func PathCheckCreate(isFile bool, path string, permFile os.FileMode, permDir os.FileMode) error {
-	if _, err := os.Stat(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if inf, err := os.Stat(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	} else if err == nil {
-		_ = os.Chmod(path, permFile)
+		if inf.IsDir() {
+			_ = os.Chmod(path, permDir)
+		} else {
+			_ = os.Chmod(path, permFile)
+		}
 		return nil
 	}
 
@@ -52,5 +56,6 @@ func PathCheckCreate(isFile bool, path string, permFile os.FileMode, permDir os.
 	}
 
 	_ = os.Chmod(path, permFile)
+
 	return nil
 }

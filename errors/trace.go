@@ -45,9 +45,9 @@ func init() {
 }
 
 func getFrame() runtime.Frame {
-	// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need
-	programCounters := make([]uintptr, 10, 255)
-	n := runtime.Callers(1, programCounters)
+	// Set size to targetFrameIndex+20 to ensure we have room for one more caller than we need
+	programCounters := make([]uintptr, 20, 255)
+	n := runtime.Callers(2, programCounters)
 
 	if n > 0 {
 		frames := runtime.CallersFrames(programCounters[:n])
@@ -62,9 +62,6 @@ func getFrame() runtime.Frame {
 
 			if strings.Contains(frame.Function, currPkgs) {
 				continue
-			} else {
-				// next frame to escape files errors
-				frame, _ = frames.Next()
 			}
 
 			return runtime.Frame{
@@ -76,6 +73,75 @@ func getFrame() runtime.Frame {
 	}
 
 	return getNilFrame()
+}
+
+func getFrameVendor() []runtime.Frame {
+	// Set size to targetFrameIndex+20 to ensure we have room for one more caller than we need
+	programCounters := make([]uintptr, 20, 255)
+	n := runtime.Callers(2, programCounters)
+
+	res := make([]runtime.Frame, 0)
+
+	if n > 0 {
+		frames := runtime.CallersFrames(programCounters[:n])
+		more := true
+
+		for more {
+			var (
+				frame runtime.Frame
+			)
+
+			frame, more = frames.Next()
+
+			item := runtime.Frame{
+				Function: frame.Function,
+				File:     frame.File,
+				Line:     frame.Line,
+			}
+
+			if strings.Contains(item.Function, currPkgs) {
+				continue
+			} else if strings.Contains(frame.File, "/vendor/") {
+				continue
+			} else if strings.HasPrefix(frame.Function, "runtime") {
+				continue
+			} else if frameInSlice(res, item) {
+				continue
+			}
+
+			res = append(res, item)
+
+			if len(res) > 4 {
+				return res
+			}
+		}
+	}
+
+	return res
+}
+
+func frameInSlice(s []runtime.Frame, f runtime.Frame) bool {
+	if len(s) < 1 {
+		return false
+	}
+
+	for _, i := range s {
+		if i.Function != f.Function {
+			continue
+		}
+
+		if i.File != f.File {
+			continue
+		}
+
+		if i.Line != i.Line {
+			continue
+		}
+
+		return true
+	}
+
+	return false
 }
 
 func getNilFrame() runtime.Frame {

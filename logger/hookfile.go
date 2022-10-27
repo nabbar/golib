@@ -32,6 +32,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/nabbar/golib/ioutils"
 	"github.com/sirupsen/logrus"
@@ -44,6 +45,7 @@ type HookFile interface {
 }
 
 type _HookFile struct {
+	m sync.Mutex
 	r logrus.Formatter
 	l []logrus.Level
 	s bool
@@ -92,6 +94,7 @@ func NewHookFile(opt OptionsFile, format logrus.Formatter) (HookFile, error) {
 	}
 
 	obj := &_HookFile{
+		m: sync.Mutex{},
 		r: format,
 		l: LVLs,
 		s: opt.DisableStack,
@@ -143,6 +146,9 @@ func (o *_HookFile) Levels() []logrus.Level {
 }
 
 func (o *_HookFile) Fire(entry *logrus.Entry) error {
+	o.m.Lock()
+	defer o.m.Unlock()
+
 	ent := entry.Dup()
 	ent.Level = entry.Level
 
@@ -191,7 +197,6 @@ func (o *_HookFile) Fire(entry *logrus.Entry) error {
 
 func (o *_HookFile) Write(p []byte) (n int, err error) {
 	h, e := o.openCreate()
-
 	defer func() {
 		if h != nil {
 			_ = h.Close()
@@ -199,7 +204,7 @@ func (o *_HookFile) Write(p []byte) (n int, err error) {
 	}()
 
 	if e != nil {
-		return 0, fmt.Errorf("logrus.hookfile: cannot open '%s'", o.o.FilePath)
+		return 0, fmt.Errorf("logrus.hookfile: cannot open '%s': %v", o.o.FilePath, e)
 	} else if n, e = h.Write(p); e != nil {
 		return n, e
 	} else {
@@ -222,16 +227,4 @@ func (o *_HookFile) filterKey(f logrus.Fields, key string) logrus.Fields {
 		delete(f, key)
 		return f
 	}
-	/*
-		var res = make(map[string]interface{}, 0)
-
-		for k, v := range f {
-			if k == key {
-				continue
-			}
-			res[k] = v
-		}
-
-		return res
-	*/
 }
