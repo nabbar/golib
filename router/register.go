@@ -34,6 +34,8 @@ import (
 	"strings"
 	"time"
 
+	liberr "github.com/nabbar/golib/errors"
+
 	"github.com/gin-gonic/gin"
 	liblog "github.com/nabbar/golib/logger"
 )
@@ -122,7 +124,7 @@ func GinAccessLog(log liblog.FuncLog) gin.HandlerFunc {
 func GinErrorLog(log liblog.FuncLog) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
-			var rec error
+			var rec liberr.Error
 
 			if err := recover(); err != nil {
 				// Check for a broken connection, as it is not really a
@@ -138,16 +140,18 @@ func GinErrorLog(log liblog.FuncLog) gin.HandlerFunc {
 				}
 
 				if brokenPipe {
-					rec = fmt.Errorf("[Recovery] connection error: %s", err)
+					rec = liberr.NewErrorRecovered("[Recovery] connection error", fmt.Sprintf("%s", err))
 				} else {
-					rec = fmt.Errorf("[Recovery] panic recovered: %s", err)
+					rec = liberr.NewErrorRecovered("[Recovery] panic recovered", fmt.Sprintf("%s", err))
 				}
 
-				if brokenPipe {
-					// If the connection is dead, we can't write a status to it.
-					c.Abort()
-				} else {
-					c.AbortWithStatus(http.StatusInternalServerError)
+				if !c.IsAborted() {
+					if brokenPipe {
+						// If the connection is dead, we can't write a status to it.
+						c.Abort()
+					} else {
+						c.AbortWithStatus(http.StatusInternalServerError)
+					}
 				}
 			}
 

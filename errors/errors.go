@@ -219,6 +219,46 @@ func NewErrorTrace(code int, msg string, file string, line int, parent Error) Er
 	}
 }
 
+func NewErrorRecovered(msg string, recovered string, parent ...error) Error {
+	var p = make([]Error, 0)
+
+	if recovered != "" {
+		p = append(p, &errors{
+			c: 0,
+			e: recovered,
+			p: nil,
+		})
+	}
+
+	if len(parent) > 0 {
+		for _, err := range parent {
+			if err == nil {
+				continue
+			}
+
+			p = append(p, &errors{
+				c: 0,
+				e: err.Error(),
+				p: nil,
+			})
+		}
+	}
+
+	for _, t := range getFrameVendor() {
+		if t == getNilFrame() {
+			continue
+		}
+		msg += "\n " + fmt.Sprintf("Fct: %s - File: %s - Line: %d", t.Function, t.File, t.Line)
+	}
+
+	return &errors{
+		c: 0,
+		e: msg,
+		p: p,
+		t: getFrame(),
+	}
+}
+
 func NewErrorIferror(code uint16, message string, parent error) Error {
 	if parent == nil {
 		return nil
