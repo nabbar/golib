@@ -49,7 +49,7 @@ type Policy interface {
 	Update(polArn, polContents string) liberr.Error
 	Delete(polArn string) liberr.Error
 
-	VersionList(arn string, maxItem int32) (map[string]string, liberr.Error)
+	VersionList(arn string, maxItem int32, noDefaultVersion bool) (map[string]string, liberr.Error)
 	VersionGet(arn string, vers string) (*types.PolicyVersion, liberr.Error)
 	VersionAdd(arn string, doc string) liberr.Error
 	VersionDel(arn string, vers string) liberr.Error

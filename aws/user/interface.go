@@ -41,6 +41,8 @@ type client struct {
 	s3  *sdksss.Client
 }
 
+type PoliciesWalkFunc func(err liberr.Error, pol sdktps.AttachedPolicy) liberr.Error
+
 type User interface {
 	List() (map[string]string, liberr.Error)
 	Get(username string) (*sdktps.User, liberr.Error)
@@ -49,6 +51,9 @@ type User interface {
 
 	PolicyPut(policyDocument, policyName, username string) liberr.Error
 	PolicyAttach(policyARN, username string) liberr.Error
+	PolicyDetach(policyARN, username string) liberr.Error
+	PolicyAttachedList(username, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error)
+	PolicyAttachedWalk(username string, fct PoliciesWalkFunc) liberr.Error
 
 	LoginCheck(username string) liberr.Error
 	LoginCreate(username, password string) liberr.Error

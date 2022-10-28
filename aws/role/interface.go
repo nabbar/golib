@@ -28,34 +28,37 @@ package role
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	libhlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
-	helper.Helper
-	iam *iam.Client
-	s3  *s3.Client
+	libhlp.Helper
+	iam *sdkiam.Client
+	s3  *sdksss.Client
 }
+
+type PoliciesWalkFunc func(err liberr.Error, pol sdktps.AttachedPolicy) liberr.Error
 
 type Role interface {
-	List() ([]types.Role, errors.Error)
-	Check(name string) (string, errors.Error)
-	Add(name, role string) (string, errors.Error)
-	Delete(roleName string) errors.Error
+	List() ([]sdktps.Role, liberr.Error)
+	Check(name string) (string, liberr.Error)
+	Add(name, role string) (string, liberr.Error)
+	Delete(roleName string) liberr.Error
 
-	PolicyAttach(policyARN, roleName string) errors.Error
-	PolicyDetach(policyARN, roleName string) errors.Error
-
-	PolicyListAttached(roleName string) ([]types.AttachedPolicy, errors.Error)
+	PolicyAttach(policyARN, roleName string) liberr.Error
+	PolicyDetach(policyARN, roleName string) liberr.Error
+	PolicyListAttached(roleName string) ([]sdktps.AttachedPolicy, liberr.Error)
+	PolicyAttachedList(roleName, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error)
+	PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) liberr.Error
 }
 
-func New(ctx context.Context, bucket, region string, iam *iam.Client, s3 *s3.Client) Role {
+func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Role {
 	return &client{
-		Helper: helper.New(ctx, bucket, region),
+		Helper: libhlp.New(ctx, bucket, region),
 		iam:    iam,
 		s3:     s3,
 	}
