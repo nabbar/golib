@@ -64,28 +64,28 @@ func ExtractFile(src, dst libiot.FileProgress, fileNameContain, fileNameRegex st
 		// #nosec
 	}
 
-	if err := libbz2.GetFile(src, tmp); err == nil {
+	if err = libbz2.GetFile(src, tmp); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
 	} else if err.IsCodeError(libbz2.ErrorIOCopy) {
 		return err
 	}
 
-	if err := libgzp.GetFile(src, tmp); err == nil {
+	if err = libgzp.GetFile(src, tmp); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
 	} else if !err.IsCodeError(libgzp.ErrorGZReader) {
 		return err
 	}
 
-	if err := libtar.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
+	if err = libtar.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
 	} else if !err.IsCodeError(libtar.ErrorTarNext) {
 		return err
 	}
 
-	if err := libzip.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
+	if err = libzip.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
 	} else if !err.IsCodeError(libzip.ErrorZipOpen) {

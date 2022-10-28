@@ -38,27 +38,28 @@ import (
 
 func GetFile(src, dst ioutils.FileProgress, filenameContain, filenameRegex string) errors.Error {
 	var (
-		r *zip.Reader
-		i os.FileInfo
-		e error
+		arc *zip.Reader
+		inf os.FileInfo
+		err error
 	)
 
-	if _, e = src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
-	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
-	} else if i, e = src.FileStat(); e != nil {
-		return ErrorFileStat.ErrorParent(e)
-	} else if r, e = zip.NewReader(src, i.Size()); e != nil {
-		return ErrorZipOpen.ErrorParent(e)
+	if _, err = src.Seek(0, io.SeekStart); err != nil {
+		return ErrorFileSeek.ErrorParent(err)
+	} else if _, err = dst.Seek(0, io.SeekStart); err != nil {
+		return ErrorFileSeek.ErrorParent(err)
+	} else if inf, err = src.FileStat(); err != nil {
+		return ErrorFileStat.ErrorParent(err)
+	} else if arc, err = zip.NewReader(src, inf.Size()); err != nil {
+		return ErrorZipOpen.ErrorParent(err)
 	}
 
-	for _, f := range r.File {
+	for _, f := range arc.File {
 		if f.Mode()&os.ModeType == os.ModeType {
 			continue
 		}
 
 		z := archive.NewFileFullPath(f.Name)
+
 		if z.MatchingFullPath(filenameContain) || z.RegexFullPath(filenameRegex) {
 			if f == nil {
 				continue
@@ -119,7 +120,7 @@ func GetAll(src ioutils.FileProgress, outputFolder string, defaultDirPerm os.Fil
 
 		//nolint #nosec
 		/* #nosec */
-		if err := writeContent(f, path.Join(outputFolder, f.Name), defaultDirPerm); err != nil {
+		if err := writeContent(f, path.Join(outputFolder, path.Clean(f.Name)), defaultDirPerm); err != nil {
 			return err
 		}
 	}
@@ -157,6 +158,8 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err erro
 	if inf.IsDir() {
 		err = dirIsExistOrCreate(out, inf.Mode())
 		return
+	} else if inf.Mode()&os.ModeSymlink == os.ModeSymlink {
+		return nil
 	} else if err = notDirExistCannotClean(out); err != nil {
 		return
 	}
@@ -169,7 +172,7 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err erro
 
 	//nolint #nosec
 	/* #nosec */
-	if _, e := io.Copy(dst, r); e != nil {
+	if _, e = io.Copy(dst, r); e != nil {
 		return ErrorIOCopy.ErrorParent(e)
 	} else if e = dst.Close(); e != nil {
 		return ErrorFileClose.ErrorParent(e)
