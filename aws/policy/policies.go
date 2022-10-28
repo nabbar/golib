@@ -86,7 +86,7 @@ func (cli *client) Update(polArn, polContents string) liberr.Error {
 
 	if pol, err = cli.Get(polArn); err != nil {
 		return err
-	} else if lst, err = cli.VersionList(polArn, 0); err != nil {
+	} else if lst, err = cli.VersionList(polArn, 0, false); err != nil {
 		return err
 	} else if len(lst) > 0 {
 		for v := range lst {

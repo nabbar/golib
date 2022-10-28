@@ -26,22 +26,21 @@
 package group
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/nabbar/golib/errors"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) PolicyList(groupName string) (map[string]string, errors.Error) {
-	out, err := cli.iam.ListAttachedGroupPolicies(cli.GetContext(), &iam.ListAttachedGroupPoliciesInput{
-		GroupName: aws.String(groupName),
-	})
+func (cli *client) PolicyList(groupName string) (map[string]string, liberr.Error) {
+	out, _, err := cli.PolicyAttachedList(groupName, "")
 
 	if err != nil {
-		return nil, cli.GetError(err)
+		return nil, err
 	} else {
 		var res = make(map[string]string)
 
-		for _, p := range out.AttachedPolicies {
+		for _, p := range out {
 			res[*p.PolicyName] = *p.PolicyArn
 		}
 
@@ -49,20 +48,83 @@ func (cli *client) PolicyList(groupName string) (map[string]string, errors.Error
 	}
 }
 
-func (cli *client) PolicyAttach(groupName, polArn string) errors.Error {
-	_, err := cli.iam.AttachGroupPolicy(cli.GetContext(), &iam.AttachGroupPolicyInput{
-		GroupName: aws.String(groupName),
-		PolicyArn: aws.String(polArn),
+func (cli *client) PolicyAttach(groupName, polArn string) liberr.Error {
+	_, err := cli.iam.AttachGroupPolicy(cli.GetContext(), &sdkiam.AttachGroupPolicyInput{
+		GroupName: sdkaws.String(groupName),
+		PolicyArn: sdkaws.String(polArn),
 	})
 
 	return cli.GetError(err)
 }
 
-func (cli *client) PolicyDetach(groupName, polArn string) errors.Error {
-	_, err := cli.iam.DetachGroupPolicy(cli.GetContext(), &iam.DetachGroupPolicyInput{
-		GroupName: aws.String(groupName),
-		PolicyArn: aws.String(polArn),
+func (cli *client) PolicyDetach(groupName, polArn string) liberr.Error {
+	_, err := cli.iam.DetachGroupPolicy(cli.GetContext(), &sdkiam.DetachGroupPolicyInput{
+		GroupName: sdkaws.String(groupName),
+		PolicyArn: sdkaws.String(polArn),
 	})
 
 	return cli.GetError(err)
+}
+
+func (cli *client) PolicyAttachedList(groupName, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error) {
+	in := &sdkiam.ListAttachedGroupPoliciesInput{
+		GroupName: sdkaws.String(groupName),
+		MaxItems:  sdkaws.Int32(1000),
+	}
+
+	if marker != "" {
+		in.Marker = sdkaws.String(marker)
+	}
+
+	lst, err := cli.iam.ListAttachedGroupPolicies(cli.GetContext(), in)
+
+	if err != nil {
+		return nil, "", cli.GetError(err)
+	} else if lst == nil || lst.AttachedPolicies == nil {
+		return nil, "", nil
+	} else if lst.IsTruncated && lst.Marker != nil {
+		return lst.AttachedPolicies, *lst.Marker, nil
+	} else {
+		return lst.AttachedPolicies, "", nil
+	}
+}
+
+func (cli *client) PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) liberr.Error {
+	var m *string
+
+	in := &sdkiam.ListAttachedGroupPoliciesInput{
+		GroupName: sdkaws.String(groupName),
+		MaxItems:  sdkaws.Int32(1000),
+	}
+
+	for {
+		if m != nil {
+			in.Marker = m
+		} else {
+			in.Marker = nil
+		}
+
+		lst, err := cli.iam.ListAttachedGroupPolicies(cli.GetContext(), in)
+
+		if err != nil {
+			return cli.GetError(err)
+		} else if lst == nil || lst.AttachedPolicies == nil {
+			return nil
+		}
+
+		var e liberr.Error
+		for _, p := range lst.AttachedPolicies {
+			e = fct(e, p)
+		}
+
+		if e != nil {
+			return e
+		}
+
+		if lst.IsTruncated && lst.Marker != nil {
+			m = lst.Marker
+		} else {
+			return nil
+		}
+	}
 }

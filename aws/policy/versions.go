@@ -40,7 +40,7 @@ import (
 
 const maxItemList int32 = 1000
 
-func (cli *client) VersionList(arn string, maxItem int32) (map[string]string, liberr.Error) {
+func (cli *client) VersionList(arn string, maxItem int32, noDefaultVersion bool) (map[string]string, liberr.Error) {
 	if arn == "" {
 		//nolint #goerr113
 		return nil, libhlp.ErrorParamsEmpty.ErrorParent(fmt.Errorf("arn is empty"))
@@ -78,6 +78,10 @@ func (cli *client) VersionList(arn string, maxItem int32) (map[string]string, li
 		for _, v := range out.Versions {
 			if cli.GetContext().Err() != nil {
 				return nil, nil
+			}
+
+			if noDefaultVersion && v.IsDefaultVersion {
+				continue
 			}
 
 			if v.VersionId == nil || len(*v.VersionId) < 1 {

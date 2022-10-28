@@ -28,36 +28,41 @@ package group
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	awshlp "github.com/nabbar/golib/aws/helper"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
-	helper.Helper
-	iam *iam.Client
-	s3  *s3.Client
+	awshlp.Helper
+	iam *sdkiam.Client
+	s3  *sdksss.Client
 }
+
+type PoliciesWalkFunc func(err liberr.Error, pol sdktps.AttachedPolicy) liberr.Error
 
 type Group interface {
-	UserList(username string) ([]string, errors.Error)
-	UserCheck(username, groupName string) (errors.Error, bool)
-	UserAdd(username, groupName string) errors.Error
-	UserRemove(username, groupName string) errors.Error
+	UserList(username string) ([]string, liberr.Error)
+	UserCheck(username, groupName string) (liberr.Error, bool)
+	UserAdd(username, groupName string) liberr.Error
+	UserRemove(username, groupName string) liberr.Error
 
-	List() (map[string]string, errors.Error)
-	Add(groupName string) errors.Error
-	Remove(groupName string) errors.Error
+	List() (map[string]string, liberr.Error)
+	Add(groupName string) liberr.Error
+	Remove(groupName string) liberr.Error
 
-	PolicyList(groupName string) (map[string]string, errors.Error)
-	PolicyAttach(groupName, polArn string) errors.Error
-	PolicyDetach(groupName, polArn string) errors.Error
+	PolicyList(groupName string) (map[string]string, liberr.Error)
+	PolicyAttach(groupName, polArn string) liberr.Error
+	PolicyDetach(groupName, polArn string) liberr.Error
+	PolicyAttachedList(groupName, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error)
+	PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) liberr.Error
 }
 
-func New(ctx context.Context, bucket, region string, iam *iam.Client, s3 *s3.Client) Group {
+func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Group {
 	return &client{
-		Helper: helper.New(ctx, bucket, region),
+		Helper: awshlp.New(ctx, bucket, region),
 		iam:    iam,
 		s3:     s3,
 	}
