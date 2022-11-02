@@ -55,9 +55,6 @@ type NutsDBOptions struct {
 	// if SyncEnable is false, high write performance but potential data loss likely.
 	// if SyncEnable is true, slower but persistent.
 	SyncEnable bool `mapstructure:"sync_enable" json:"sync_enable" yaml:"sync_enable" toml:"sync_enable"`
-
-	// StartFileLoadingMode represents when open a database which RWMode to load files.
-	StartFileLoadingMode nutsdb.RWMode `mapstructure:"start_file_loading_mode" json:"start_file_loading_mode" yaml:"start_file_loading_mode" toml:"start_file_loading_mode"`
 }
 
 func (o NutsDBOptions) GetNutsDBOptions(dataDir string) nutsdb.Options {
@@ -65,7 +62,6 @@ func (o NutsDBOptions) GetNutsDBOptions(dataDir string) nutsdb.Options {
 
 	if len(dataDir) < 1 {
 		d.RWMode = nutsdb.MMap
-		d.StartFileLoadingMode = nutsdb.MMap
 	} else {
 		d.Dir = dataDir
 
@@ -75,14 +71,6 @@ func (o NutsDBOptions) GetNutsDBOptions(dataDir string) nutsdb.Options {
 			d.RWMode = nutsdb.MMap
 		default:
 			d.RWMode = nutsdb.FileIO
-		}
-
-		//nolint #exhaustive
-		switch o.StartFileLoadingMode {
-		case nutsdb.MMap:
-			d.StartFileLoadingMode = nutsdb.MMap
-		default:
-			d.StartFileLoadingMode = nutsdb.FileIO
 		}
 	}
 
