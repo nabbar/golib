@@ -58,8 +58,10 @@ func (g *gitlabModel) ListReleases() (releases version.Collection, err errors.Er
 	var (
 		e    error
 		lopt = &gitlab.ListReleasesOptions{
-			Page:    0,
-			PerPage: gitlabPageSize,
+			ListOptions: gitlab.ListOptions{
+				Page:    0,
+				PerPage: gitlabPageSize,
+			},
 		}
 	)
 
