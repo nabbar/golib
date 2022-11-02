@@ -164,11 +164,7 @@ func (c *componentList) ComponentDel(key string) {
 		c.l = make(map[string]*atomic.Value, 0)
 	}
 
-	if v := c.l[key]; v == nil {
-		return
-	} else {
-		c.l[key] = new(atomic.Value)
-	}
+	delete(c.l, key)
 }
 
 func (c *componentList) ComponentSet(key string, cpt Component) {
