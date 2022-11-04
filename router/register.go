@@ -102,6 +102,12 @@ func GinAccessLog(log liblog.FuncLog) gin.HandlerFunc {
 		} else if l := log(); l == nil {
 			return
 		} else {
+			defer func() {
+				if l != nil {
+					_ = l.Close()
+				}
+			}()
+
 			sttm := time.Unix(0, c.GetInt64(GinContextStartUnixNanoTime))
 			path := c.GetString(GinContextRequestPath)
 
@@ -163,6 +169,12 @@ func GinErrorLog(log liblog.FuncLog) gin.HandlerFunc {
 			} else if l := log(); l == nil {
 				return
 			} else {
+				defer func() {
+					if l != nil {
+						_ = l.Close()
+					}
+				}()
+
 				if len(c.Errors) > 0 {
 					for _, e := range c.Errors {
 						ent := l.Entry(liblog.ErrorLevel, "error on request \"%s %s %s\"", c.Request.Method, path, c.Request.Proto)
@@ -193,7 +205,7 @@ func DefaultGinWithTrustyProxy(trustyProxy []string) *gin.Engine {
 	engine.Use(gin.Logger(), gin.Recovery())
 
 	if len(trustyProxy) > 0 {
-		engine.SetTrustedProxies(trustyProxy)
+		_ = engine.SetTrustedProxies(trustyProxy)
 	}
 
 	return engine
