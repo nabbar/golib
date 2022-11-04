@@ -26,7 +26,11 @@
 package logger_test
 
 import (
+	"context"
 	"path/filepath"
+	"time"
+
+	libsem "github.com/nabbar/golib/semaphore"
 
 	"github.com/nabbar/golib/logger"
 	. "github.com/onsi/ginkgo/v2"
@@ -114,7 +118,7 @@ var _ = Describe("Logger", func() {
 			log.LogDetails(logger.InfoLevel, "test logger with field", nil, nil, nil)
 		})
 	})
-	Context("Create New Logger with file in multithread mode", func() {
+	Context("Create New Logger with file in multithreading mode", func() {
 		It("Must succeed", func() {
 			log := logger.New(GetContext())
 			log.SetLevel(logger.DebugLevel)
@@ -166,9 +170,22 @@ var _ = Describe("Logger", func() {
 			}(sub)
 
 			log.SetFields(logger.NewFields().Add("logger", "main"))
-			for i := 0; i < 10; i++ {
-				log.Entry(logger.InfoLevel, "test multithreading logger").FieldAdd("id", i).Log()
+			sem := libsem.NewSemaphoreWithContext(context.Background(), 0)
+			defer sem.DeferMain()
+
+			for i := 0; i < 25; i++ {
+				Expect(sem.NewWorker()).ToNot(HaveOccurred())
+
+				go func(id int) {
+					defer sem.DeferWorker()
+					ent := log.Entry(logger.InfoLevel, "test multithreading logger")
+					ent.FieldAdd("id", id)
+					ent.Log()
+				}(i)
 			}
+
+			Expect(sem.WaitAll()).ToNot(HaveOccurred())
+			time.Sleep(100 * time.Millisecond)
 		})
 	})
 })

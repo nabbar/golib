@@ -75,35 +75,52 @@ func (c *componentLog) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Erro
 	c.m.Lock()
 	defer c.m.Unlock()
 
-	if c.l == nil {
-		if c.ctx == nil {
-			return ErrorComponentNotInitialized.Error(nil)
-		}
+	if c.ctx == nil {
+		return ErrorComponentNotInitialized.Error(nil)
+	}
 
+	if c.l == nil {
 		c.l = liblog.New(c.ctx())
 		c.l.SetLevel(c.v)
 	}
+
+	var (
+		e error
+
+		log liblog.Logger
+		cnf *liblog.Options
+		err liberr.Error
+	)
+
+	if log, e = c.l.Clone(); e != nil {
+		log = liblog.New(c.ctx())
+		log.SetLevel(c.v)
+	}
+
+	if cnf, err = c._GetOptions(getCfg); err != nil {
+		return err
+	} else if cnf == nil {
+		return ErrorConfigInvalid.Error(nil)
+	} else if e = log.SetOptions(cnf); e != nil {
+		return ErrorReloadLog.Error(err)
+	}
+
+	if c.l != nil {
+		_ = c.l.Close()
+	}
+
+	c.l = log
 
 	return nil
 }
 
 func (c *componentLog) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	var (
-		cnf *liblog.Options
-	)
-
 	fb, fa := c._getFct()
 
 	if err := c._runFct(fb); err != nil {
 		return err
 	} else if err = c._runCli(getCfg); err != nil {
 		return err
-	} else if cnf, err = c._GetOptions(getCfg); err != nil {
-		return err
-	} else if cnf == nil {
-		return ErrorConfigInvalid.Error(nil)
-	} else if e := c.l.SetOptions(cnf); e != nil {
-		return ErrorReloadLog.Error(err)
 	} else if err = c._runFct(fa); err != nil {
 		return err
 	}
