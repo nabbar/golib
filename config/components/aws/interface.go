@@ -46,7 +46,7 @@ type ComponentAws interface {
 	SetAws(a libaws.AWS)
 }
 
-func New(drv ConfigDriver, logKey string) ComponentAws {
+func New(drv ConfigDriver) ComponentAws {
 	return &componentAws{
 		ctx: nil,
 		get: nil,
@@ -64,8 +64,8 @@ func Register(cfg libcfg.Config, key string, cpt ComponentAws) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, drv ConfigDriver, key, logKey string) {
-	cfg.ComponentSet(key, New(drv, logKey))
+func RegisterNew(cfg libcfg.Config, drv ConfigDriver, key string) {
+	cfg.ComponentSet(key, New(drv))
 }
 
 func Load(getCpt libcfg.FuncComponentGet, key string) ComponentAws {

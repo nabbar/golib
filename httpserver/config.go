@@ -215,35 +215,41 @@ type ServerConfig struct {
 	// which may be active globally, which is MaxHandlers.
 	// If zero, MaxConcurrentStreams defaults to at least 100, per
 	// the HTTP/2 spec's recommendations.
-	MaxConcurrentStreams uint32 `json:"max_concurrent_streams" json:"max_concurrent_streams" yaml:"max_concurrent_streams" toml:"max_concurrent_streams"`
+	MaxConcurrentStreams uint32 `mapstructure:"max_concurrent_streams" json:"max_concurrent_streams" yaml:"max_concurrent_streams" toml:"max_concurrent_streams"`
 
 	// MaxReadFrameSize optionally specifies the largest frame
 	// this server is willing to read. A valid value is between
 	// 16k and 16M, inclusive. If zero or otherwise invalid, a
 	// default value is used.
-	MaxReadFrameSize uint32 `json:"max_read_frame_size" json:"max_read_frame_size" yaml:"max_read_frame_size" toml:"max_read_frame_size"`
+	MaxReadFrameSize uint32 `mapstructure:"max_read_frame_size" json:"max_read_frame_size" yaml:"max_read_frame_size" toml:"max_read_frame_size"`
 
 	// PermitProhibitedCipherSuites, if true, permits the use of
 	// cipher suites prohibited by the HTTP/2 spec.
-	PermitProhibitedCipherSuites bool `json:"permit_prohibited_cipher_suites" json:"permit_prohibited_cipher_suites" yaml:"permit_prohibited_cipher_suites" toml:"permit_prohibited_cipher_suites"`
+	PermitProhibitedCipherSuites bool `mapstructure:"permit_prohibited_cipher_suites" json:"permit_prohibited_cipher_suites" yaml:"permit_prohibited_cipher_suites" toml:"permit_prohibited_cipher_suites"`
 
 	// IdleTimeout specifies how long until idle clients should be
 	// closed with a GOAWAY frame. PING frames are not considered
 	// activity for the purposes of IdleTimeout.
-	IdleTimeout time.Duration `json:"idle_timeout" json:"idle_timeout" yaml:"idle_timeout" toml:"idle_timeout"`
+	IdleTimeout time.Duration `mapstructure:"idle_timeout" json:"idle_timeout" yaml:"idle_timeout" toml:"idle_timeout"`
 
 	// MaxUploadBufferPerConnection is the size of the initial flow
 	// control window for each connections. The HTTP/2 spec does not
 	// allow this to be smaller than 65535 or larger than 2^32-1.
 	// If the value is outside this range, a default value will be
 	// used instead.
-	MaxUploadBufferPerConnection int32 `json:"max_upload_buffer_per_connection" json:"max_upload_buffer_per_connection" yaml:"max_upload_buffer_per_connection" toml:"max_upload_buffer_per_connection"`
+	MaxUploadBufferPerConnection int32 `mapstructure:"max_upload_buffer_per_connection" json:"max_upload_buffer_per_connection" yaml:"max_upload_buffer_per_connection" toml:"max_upload_buffer_per_connection"`
 
 	// MaxUploadBufferPerStream is the size of the initial flow control
 	// window for each stream. The HTTP/2 spec does not allow this to
 	// be larger than 2^32-1. If the value is zero or larger than the
 	// maximum, a default value will be used instead.
-	MaxUploadBufferPerStream int32 `json:"max_upload_buffer_per_stream" json:"max_upload_buffer_per_stream" yaml:"max_upload_buffer_per_stream" toml:"max_upload_buffer_per_stream"`
+	MaxUploadBufferPerStream int32 `mapstructure:"max_upload_buffer_per_stream" json:"max_upload_buffer_per_stream" yaml:"max_upload_buffer_per_stream" toml:"max_upload_buffer_per_stream"`
+
+	// DisableKeepAlive controls whether HTTP keep-alives are disabled.
+	// By default, keep-alives are always enabled. Only very
+	// resource-constrained environments or servers in the process of
+	// shutting down should disable them.
+	DisableKeepAlive bool `mapstructure:"disable_keep_alive" json:"disable_keep_alive" yaml:"disable_keep_alive" toml:"disable_keep_alive"`
 }
 
 func (c *ServerConfig) Clone() ServerConfig {
@@ -262,6 +268,7 @@ func (c *ServerConfig) Clone() ServerConfig {
 		IdleTimeout:                  c.IdleTimeout,
 		MaxUploadBufferPerConnection: c.MaxUploadBufferPerConnection,
 		MaxUploadBufferPerStream:     c.MaxUploadBufferPerStream,
+		DisableKeepAlive:             c.DisableKeepAlive,
 		Name:                         c.Name,
 		Listen:                       c.Listen,
 		Expose:                       c.Expose,
