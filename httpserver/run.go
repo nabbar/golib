@@ -189,9 +189,13 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	s.bnd = bind
 	s.tls = sTls || ssl.LenCertificatePair() > 0
 
+	var (
+		l = s.getLogger()
+	)
+
 	srv := &http.Server{
 		Addr:     cfg.GetListen().Host,
-		ErrorLog: s.getLogger().GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds),
+		ErrorLog: l.GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds),
 	}
 
 	if cfg.ReadTimeout > 0 {
@@ -212,6 +216,12 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 
 	if cfg.IdleTimeout > 0 {
 		srv.IdleTimeout = cfg.IdleTimeout
+	}
+
+	if cfg.DisableKeepAlive {
+		srv.SetKeepAlivesEnabled(false)
+	} else {
+		srv.SetKeepAlivesEnabled(true)
 	}
 
 	if ssl.LenCertificatePair() > 0 {
@@ -279,15 +289,20 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 	s.srv = srv
 	s.m.Unlock()
 
-	go func(ctx context.Context, cnl context.CancelFunc, name, host string, tlsMandatory bool) {
-		var _log = s.getLogger()
+	go func(ctx context.Context, cnl context.CancelFunc, _log liblog.Logger, name, host string, tlsMandatory bool) {
 		ent := _log.Entry(liblog.InfoLevel, "server stopped")
 
 		defer func() {
 			ent.Log()
+
+			if _log != nil {
+				_ = _log.Close()
+			}
+
 			if ctx != nil && cnl != nil && ctx.Err() == nil {
 				cnl()
 			}
+
 			s.setRunning(false)
 		}()
 
@@ -323,7 +338,7 @@ func (s *srvRun) Listen(cfg *ServerConfig, handler http.Handler) liberr.Error {
 			ent.Level = liblog.ErrorLevel
 			ent.ErrorAdd(true, er)
 		}
-	}(s.ctx, s.cnl, name, bind, sTls)
+	}(s.ctx, s.cnl, l, name, bind, sTls)
 
 	return nil
 }
@@ -347,6 +362,7 @@ func (s *srvRun) srvShutdown() {
 
 	defer func() {
 		cancel()
+
 		if s.srv != nil {
 			err := s.srv.Close()
 
@@ -355,6 +371,10 @@ func (s *srvRun) srvShutdown() {
 			s.m.Unlock()
 
 			_log.Entry(liblog.ErrorLevel, "closing server").ErrorAdd(true, err).Check(liblog.InfoLevel)
+		}
+
+		if _log != nil {
+			_ = _log.Close()
 		}
 	}()
 

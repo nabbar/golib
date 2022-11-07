@@ -93,13 +93,13 @@ func (e *Entry) SetGinContext(ctx *gin.Context) *Entry {
 
 // FieldAdd allow to add one couple key/val as type string/interface into the custom field of the entry.
 func (e *Entry) FieldAdd(key string, val interface{}) *Entry {
-	e.Fields.Add(key, val)
+	e.Fields = e.Fields.Add(key, val)
 	return e
 }
 
 // FieldMerge allow to merge a Field pointer into the custom field of the entry.
 func (e *Entry) FieldMerge(fields Fields) *Entry {
-	e.Fields.Merge(fields)
+	e.Fields = e.Fields.Merge(fields)
 	return e
 }
 
@@ -110,7 +110,7 @@ func (e *Entry) FieldSet(fields Fields) *Entry {
 }
 
 func (e *Entry) FieldClean(keys ...string) *Entry {
-	e.Fields.Clean(keys...)
+	e.Fields = e.Fields.Clean(keys...)
 	return e
 }
 

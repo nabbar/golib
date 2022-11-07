@@ -26,6 +26,7 @@
 package status
 
 import (
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,7 @@ type Status interface {
 
 func NewStatus(health FctHealth, msg FctMessage, cacheDuration time.Duration) Status {
 	return &status{
+		m:  sync.Mutex{},
 		fh: health,
 		fm: msg,
 		c:  nil,
@@ -64,12 +66,50 @@ func NewStatus(health FctHealth, msg FctMessage, cacheDuration time.Duration) St
 }
 
 type status struct {
+	m  sync.Mutex
 	fh FctHealth
 	fm FctMessage
 
 	c *StatusResponse
 	t time.Time
 	d time.Duration
+}
+
+func (s *status) getInfo() (string, string) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if s.fm != nil {
+		return s.fm()
+	}
+
+	return "", ""
+}
+
+func (s *status) getHealth() error {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	if s.fh != nil {
+		return s.fh()
+	}
+
+	return nil
+}
+
+func (s *status) setCache(obj *StatusResponse) {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	s.c = obj
+	s.t = time.Now()
+}
+
+func (s *status) getCache() StatusResponse {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	return s.c.Clone()
 }
 
 func (s *status) Get(x *gin.Context) StatusResponse {
@@ -80,13 +120,8 @@ func (s *status) Get(x *gin.Context) StatusResponse {
 			msgKO string
 		)
 
-		if s.fm != nil {
-			msgOk, msgKO = s.fm()
-		}
-
-		if s.fh != nil {
-			err = s.fh()
-		}
+		msgOk, msgKO = s.getInfo()
+		err = s.getHealth()
 
 		c := &StatusResponse{}
 
@@ -99,19 +134,24 @@ func (s *status) Get(x *gin.Context) StatusResponse {
 			c.Message = msgOk
 		}
 
-		s.c = c
-		s.t = time.Now()
+		s.setCache(c)
 	}
 
-	return s.c.Clone()
+	return s.getCache()
 }
 
 func (s *status) Clean() {
+	s.m.Lock()
+	defer s.m.Unlock()
+
 	s.c = nil
 	s.t = time.Now()
 }
 
 func (s *status) IsValid() bool {
+	s.m.Lock()
+	defer s.m.Unlock()
+
 	if s.c == nil {
 		return false
 	} else if s.t.IsZero() {

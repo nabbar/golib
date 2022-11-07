@@ -28,6 +28,7 @@ package http
 
 import (
 	"net/http"
+	"sync"
 
 	libcfg "github.com/nabbar/golib/config"
 	libhts "github.com/nabbar/golib/httpserver"
@@ -60,6 +61,7 @@ func New(tlsKey, logKey string, handler map[string]http.Handler) ComponentHttp {
 	}
 
 	return &componentHttp{
+		m:    sync.Mutex{},
 		tls:  tlsKey,
 		log:  logKey,
 		run:  false,

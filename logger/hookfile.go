@@ -33,6 +33,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nabbar/golib/ioutils"
 	"github.com/sirupsen/logrus"
@@ -46,6 +47,8 @@ type HookFile interface {
 
 type _HookFile struct {
 	m sync.Mutex
+	h *os.File
+	w time.Time
 	r logrus.Formatter
 	l []logrus.Level
 	s bool
@@ -95,6 +98,8 @@ func NewHookFile(opt OptionsFile, format logrus.Formatter) (HookFile, error) {
 
 	obj := &_HookFile{
 		m: sync.Mutex{},
+		h: nil,
+		w: time.Time{},
 		r: format,
 		l: LVLs,
 		s: opt.DisableStack,
@@ -137,6 +142,34 @@ func (o *_HookFile) openCreate() (*os.File, error) {
 	}
 }
 
+func (o *_HookFile) isStack() bool {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	return o.s
+}
+
+func (o *_HookFile) isTimeStamp() bool {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	return o.d
+}
+
+func (o *_HookFile) isTrace() bool {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	return o.t
+}
+
+func (o *_HookFile) isAccessLog() bool {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	return o.a
+}
+
 func (o *_HookFile) RegisterHook(log *logrus.Logger) {
 	log.AddHook(o)
 }
@@ -146,21 +179,18 @@ func (o *_HookFile) Levels() []logrus.Level {
 }
 
 func (o *_HookFile) Fire(entry *logrus.Entry) error {
-	o.m.Lock()
-	defer o.m.Unlock()
-
 	ent := entry.Dup()
 	ent.Level = entry.Level
 
-	if o.s {
+	if !o.isStack() {
 		ent.Data = o.filterKey(ent.Data, FieldStack)
 	}
 
-	if o.d {
+	if !o.isTimeStamp() {
 		ent.Data = o.filterKey(ent.Data, FieldTime)
 	}
 
-	if !o.t {
+	if !o.isTrace() {
 		ent.Data = o.filterKey(ent.Data, FieldCaller)
 		ent.Data = o.filterKey(ent.Data, FieldFile)
 		ent.Data = o.filterKey(ent.Data, FieldLine)
@@ -171,7 +201,7 @@ func (o *_HookFile) Fire(entry *logrus.Entry) error {
 		e error
 	)
 
-	if o.a {
+	if o.isAccessLog() {
 		if len(entry.Message) > 0 {
 			if !strings.HasSuffix(entry.Message, "\n") {
 				entry.Message += "\n"
@@ -195,24 +225,72 @@ func (o *_HookFile) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
-func (o *_HookFile) Write(p []byte) (n int, err error) {
-	h, e := o.openCreate()
-	defer func() {
-		if h != nil {
-			_ = h.Close()
-		}
-	}()
+func (o *_HookFile) write(p []byte) (n int, err error) {
+	o.m.Lock()
+	defer o.m.Unlock()
 
-	if e != nil {
-		return 0, fmt.Errorf("logrus.hookfile: cannot open '%s': %v", o.o.FilePath, e)
-	} else if n, e = h.Write(p); e != nil {
-		return n, e
-	} else {
-		return n, h.Sync()
+	var e error
+
+	if o.h == nil {
+		if o.h, e = o.openCreate(); e != nil {
+			return 0, fmt.Errorf("logrus.hookfile: cannot open '%s': %v", o.o.FilePath, e)
+		}
+	} else if _, e = o.h.Seek(0, io.SeekEnd); e != nil {
+		return 0, fmt.Errorf("logrus.hookfile: cannot seek file '%s' to EOF: %v", o.o.FilePath, e)
 	}
+
+	return o.h.Write(p)
+}
+
+func (o *_HookFile) Write(p []byte) (n int, err error) {
+	if n, err = o.write(p); err != nil {
+		_ = o.Close()
+		n, err = o.write(p)
+	}
+
+	if err != nil {
+		return n, err
+	}
+
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	if o.w.IsZero() {
+		_ = o.h.Sync()
+		o.w = time.Now()
+		return n, err
+	} else if time.Since(o.w) > 30*time.Second {
+		_ = o.h.Sync()
+		o.w = time.Now()
+		return n, err
+	}
+
+	return n, err
 }
 
 func (o *_HookFile) Close() error {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	if o.h != nil {
+		var e error
+
+		if er := o.h.Sync(); er != nil {
+			e = fmt.Errorf("logrus.hookfile: sync file error '%s': %v", o.o.FilePath, er)
+		}
+
+		if er := o.h.Close(); er != nil {
+			if e != nil {
+				e = fmt.Errorf("%v, close file error '%s': %v", e, o.o.FilePath, er)
+			} else {
+				e = fmt.Errorf("logrus.hookfile: close file error '%s': %v", o.o.FilePath, er)
+			}
+		}
+
+		o.h = nil
+		return e
+	}
+
 	return nil
 }
 

@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
@@ -39,7 +40,8 @@ import (
 )
 
 type rtrStatus struct {
-	m []gin.HandlerFunc
+	m sync.Mutex
+	f []gin.HandlerFunc
 
 	n string
 	v string
@@ -55,6 +57,8 @@ type rtrStatus struct {
 	c map[string]*atomic.Value
 }
 
+const keyShortOutput = "short"
+
 func (r *rtrStatus) HttpStatusCode(codeOk, codeKO, codeWarning int) {
 	r.cOk = codeOk
 	r.cKO = codeKO
@@ -62,11 +66,11 @@ func (r *rtrStatus) HttpStatusCode(codeOk, codeKO, codeWarning int) {
 }
 
 func (r *rtrStatus) MiddlewareAdd(mdw ...gin.HandlerFunc) {
-	if len(r.m) < 1 {
-		r.m = make([]gin.HandlerFunc, 0)
+	if len(r.f) < 1 {
+		r.f = make([]gin.HandlerFunc, 0)
 	}
 
-	r.m = append(r.m, mdw...)
+	r.f = append(r.f, mdw...)
 }
 
 func (r *rtrStatus) cleanPrefix(prefix string) string {
@@ -76,7 +80,7 @@ func (r *rtrStatus) cleanPrefix(prefix string) string {
 func (r *rtrStatus) Register(prefix string, register librtr.RegisterRouter) {
 	prefix = r.cleanPrefix(prefix)
 
-	var m = r.m
+	var m = r.f
 	m = append(m, r.Get)
 	register(http.MethodGet, prefix, m...)
 
@@ -88,7 +92,7 @@ func (r *rtrStatus) Register(prefix string, register librtr.RegisterRouter) {
 func (r *rtrStatus) RegisterGroup(group, prefix string, register librtr.RegisterRouterInGroup) {
 	prefix = r.cleanPrefix(prefix)
 
-	var m = r.m
+	var m = r.f
 	m = append(m, r.Get)
 	register(group, http.MethodGet, prefix, m...)
 
@@ -97,80 +101,153 @@ func (r *rtrStatus) RegisterGroup(group, prefix string, register librtr.Register
 	}
 }
 
+func (r *rtrStatus) getInfo() (name string, release string, hash string) {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	return r.n, r.v, r.h
+}
+
+func (r *rtrStatus) getMsgOk() string {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	return r.mOK
+}
+
+func (r *rtrStatus) getMsgKo() string {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	return r.mKO
+}
+
+func (r *rtrStatus) getMsgWarn() string {
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	return r.mWM
+}
+
 func (r *rtrStatus) Get(x *gin.Context) {
 	var (
-		atm *atomic.Value
 		key string
 		err liberr.Error
 		rsp *Response
-		sem libsem.Sem
+		s   libsem.Sem
 	)
 
 	defer func() {
-		if sem != nil {
-			sem.DeferMain()
+		if s != nil {
+			s.DeferMain()
 		}
 	}()
 
+	inf := InfoResponse{
+		Mandatory: true,
+	}
+	inf.Name, inf.Release, inf.HashBuild = r.getInfo()
+
+	sts := StatusResponse{
+		Status: DefMessageOK,
+	}
+	sts.Message = r.getMsgOk()
+
 	rsp = &Response{
-		InfoResponse: InfoResponse{
-			Name:      r.n,
-			Release:   r.v,
-			HashBuild: r.h,
-			Mandatory: true,
-		},
-		StatusResponse: StatusResponse{
-			Status:  DefMessageOK,
-			Message: r.mOK,
-		},
-		Components: make([]CptResponse, 0),
+		InfoResponse:   inf,
+		StatusResponse: sts,
+		Components:     make([]CptResponse, 0),
 	}
 
-	sem = libsem.NewSemaphoreWithContext(x, 0)
+	s = libsem.NewSemaphoreWithContext(x, 0)
 
-	for key, atm = range r.c {
-		var (
-			ok bool
-			c  Component
-		)
+	for _, key = range r.ComponentKeys() {
+		var c Component
 
-		if atm == nil {
+		if c = r.ComponentGet(key); c == nil {
 			continue
 		}
 
-		if c, ok = atm.Load().(Component); !ok {
-			continue
-		}
-
-		err = sem.NewWorker()
+		err = s.NewWorker()
 		if liblog.ErrorLevel.LogGinErrorCtxf(liblog.DebugLevel, "init new thread to collect data for component '%s'", err, x, key) {
 			continue
 		}
 
-		go func(c Component) {
+		go func(ctx *gin.Context, sem libsem.Sem, cpt Component, resp *Response) {
 			defer sem.DeferWorker()
-			rsp.appendNewCpt(c.Get(x))
-		}(c)
+			resp.appendNewCpt(cpt.Get(ctx))
+		}(x, s, c, rsp)
 	}
 
-	err = sem.WaitAll()
+	err = s.WaitAll()
+
+	var (
+		code int
+	)
 
 	if liblog.ErrorLevel.LogGinErrorCtx(liblog.DebugLevel, "waiting all thread to collect data component ", err, x) {
-		rsp.Message = r.mKO
+		rsp.Message = r.getMsgKo()
 		rsp.Status = DefMessageKO
-		x.AbortWithStatusJSON(r.cKO, rsp)
+		code = r.cKO
 	} else if !rsp.IsOkMandatory() {
-		rsp.Message = r.mKO
+		rsp.Message = r.getMsgKo()
 		rsp.Status = DefMessageKO
-		x.AbortWithStatusJSON(r.cKO, rsp)
+		code = r.cKO
 	} else if !rsp.IsOk() {
-		rsp.Message = r.mWM
+		rsp.Message = r.getMsgWarn()
 		rsp.Status = DefMessageOK
-		x.JSON(r.cWM, rsp)
+		code = r.cWM
 	} else {
-		rsp.Message = r.mOK
+		rsp.Message = r.getMsgOk()
 		rsp.Status = DefMessageOK
-		x.JSON(r.cOk, rsp)
+		code = r.cOk
+	}
+
+	if x.Request.URL.Query().Has(keyShortOutput) {
+		rsp.Components = nil
+	}
+
+	x.Header("Connection", "Close")
+
+	if code == r.cKO {
+		x.AbortWithStatusJSON(code, rsp)
+	} else {
+		x.JSON(code, rsp)
+	}
+
+}
+
+func (r *rtrStatus) ComponentKeys() []string {
+	var l = make([]string, 0)
+
+	r.m.Lock()
+	defer r.m.Unlock()
+
+	for k := range r.c {
+		if len(k) > 0 {
+			l = append(l, k)
+		}
+	}
+
+	return l
+}
+
+func (r *rtrStatus) ComponentGet(key string) Component {
+	var (
+		v  *atomic.Value
+		i  interface{}
+		o  Component
+		ok bool
+	)
+
+	if v, ok = r.c[key]; !ok || v == nil {
+		return nil
+	} else if i = v.Load(); i == nil {
+		return nil
+	} else if o, ok = i.(Component); !ok {
+		return nil
+	} else {
+		return o
 	}
 }
 

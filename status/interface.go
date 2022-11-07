@@ -27,6 +27,7 @@ package status
 
 import (
 	"net/http"
+	"sync"
 	"sync/atomic"
 
 	librtr "github.com/nabbar/golib/router"
@@ -50,7 +51,8 @@ type RouteStatus interface {
 
 func New(Name string, Release string, Hash string, msgOk string, msgKo string, msgWarm string) RouteStatus {
 	return &rtrStatus{
-		m:   make([]gin.HandlerFunc, 0),
+		m:   sync.Mutex{},
+		f:   make([]gin.HandlerFunc, 0),
 		n:   Name,
 		v:   Release,
 		h:   Hash,
