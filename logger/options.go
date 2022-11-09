@@ -109,10 +109,10 @@ type OptionsSyslog struct {
 	// Host define the remote syslog to use.
 	// If Host and Network are empty, local syslog will be used.
 	Host string `json:"host,omitempty" yaml:"host,omitempty" toml:"host,omitempty" mapstructure:"host,omitempty"`
-
-	// Severity define the severity syslog to be used.
-	Severity string `json:"severity,omitempty" yaml:"severity,omitempty" toml:"severity,omitempty" mapstructure:"severity,omitempty"`
-
+	/*
+		// Severity define the severity syslog to be used.
+		Severity string `json:"severity,omitempty" yaml:"severity,omitempty" toml:"severity,omitempty" mapstructure:"severity,omitempty"`
+	*/
 	// Facility define the facility syslog to be used.
 	Facility string `json:"facility,omitempty" yaml:"facility,omitempty" toml:"facility,omitempty" mapstructure:"facility,omitempty"`
 

@@ -137,6 +137,6 @@ func New(ctx context.Context) Logger {
 		s: new(atomic.Value),
 		f: new(atomic.Value),
 		w: new(atomic.Value),
-		c: new(atomic.Value),
+		c: _NewCloser(),
 	}
 }

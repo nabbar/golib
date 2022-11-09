@@ -30,7 +30,6 @@ package logger
 import (
 	"bytes"
 	"context"
-	"io"
 	"io/ioutil"
 	"path"
 	"reflect"
@@ -60,7 +59,7 @@ type logger struct {
 	s *atomic.Value //logrus logger
 	f *atomic.Value //defaults fields
 	w *atomic.Value //io writer level
-	c *atomic.Value
+	c _Closer       // closer
 }
 
 func defaultFormatter() logrus.TextFormatter {
@@ -106,57 +105,6 @@ func (l *logger) defaultFormatterNoColor() logrus.Formatter {
 	return &f
 }
 
-func (l *logger) closeAdd(clo io.Closer) {
-	lst := append(l.closeGet(), clo)
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.c == nil {
-		l.c = new(atomic.Value)
-	}
-
-	l.c.Store(lst)
-}
-
-func (l *logger) closeClean() {
-	if l == nil {
-		return
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.c == nil {
-		l.c = new(atomic.Value)
-	}
-
-	l.c.Store(make([]io.Closer, 0))
-}
-
-func (l *logger) closeGet() []io.Closer {
-	res := make([]io.Closer, 0)
-
-	if l == nil {
-		return res
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.c == nil {
-		l.c = new(atomic.Value)
-	}
-
-	if i := l.c.Load(); i == nil {
-		return res
-	} else if o, ok := i.([]io.Closer); ok {
-		return o
-	}
-
-	return res
-}
-
 func (l *logger) Clone() (Logger, error) {
 	c := &logger{
 		x: l.contextGet(),
@@ -167,7 +115,7 @@ func (l *logger) Clone() (Logger, error) {
 		s: new(atomic.Value),
 		f: new(atomic.Value),
 		w: new(atomic.Value),
-		c: new(atomic.Value),
+		c: _NewCloser(),
 	}
 
 	c.setLoggerMutex(l.GetLevel())
@@ -308,12 +256,7 @@ func (l *logger) GetFields() Fields {
 }
 
 func (l *logger) setOptionsMutex(opt *Options) error {
-	l.setOptions(opt)
-
-	opt = l.GetOptions()
 	lvl := l.GetLevel()
-
-	_ = l.Close()
 
 	go func() {
 		var ctx = l.contextNew()
@@ -333,6 +276,7 @@ func (l *logger) setOptionsMutex(opt *Options) error {
 	obj.SetLevel(lvl.Logrus())
 	obj.SetFormatter(l.defaultFormatter(opt))
 	obj.SetOutput(ioutil.Discard) // Send all logs to nowhere by default
+	clo := _NewCloser()
 
 	if !opt.DisableStandard {
 		obj.AddHook(NewHookStandard(*opt, StdOut, []logrus.Level{
@@ -354,7 +298,7 @@ func (l *logger) setOptionsMutex(opt *Options) error {
 			if hook, err := NewHookFile(fopt, l.defaultFormatterNoColor()); err != nil {
 				return err
 			} else {
-				l.closeAdd(hook)
+				clo.Add(hook)
 				hook.RegisterHook(obj)
 			}
 		}
@@ -365,11 +309,19 @@ func (l *logger) setOptionsMutex(opt *Options) error {
 			if hook, err := NewHookSyslog(lopt, l.defaultFormatterNoColor()); err != nil {
 				return err
 			} else {
-				l.closeAdd(hook)
+				clo.Add(hook)
 				hook.RegisterHook(obj)
 			}
 		}
 	}
+
+	l.setOptions(opt)
+
+	l.m.Lock()
+	defer l.m.Unlock()
+
+	_ = l.c.Close()
+	l.c = clo
 
 	l.s = new(atomic.Value)
 	l.s.Store(obj)
