@@ -27,58 +27,90 @@
 
 package logger
 
-import "sync/atomic"
+import (
+	"fmt"
+	"io"
+	"strings"
+	"sync"
+)
 
-func (l *logger) Close() error {
-	l.m.Lock()
-	defer func() {
-		l.m.Unlock()
-		l.cancelCall()
-	}()
-
-	_ = l.c.Close()
-	l.c = _NewCloser()
-
-	return nil
+type _Closer interface {
+	Add(clo io.Closer)
+	Get() []io.Closer
+	Len() int
+	Clean()
+	Clone() _Closer
+	Close() error
 }
 
-func (l *logger) Write(p []byte) (n int, err error) {
-	l.newEntry(l.GetIOWriterLevel(), string(p), nil, l.GetFields(), nil).Log()
-	return len(p), nil
+func _NewCloser() _Closer {
+	return &closer{
+		m: sync.Mutex{},
+		c: make([]io.Closer, 0),
+	}
 }
 
-func (l *logger) SetIOWriterLevel(lvl Level) {
-	if l == nil {
-		return
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.w == nil {
-		l.w = new(atomic.Value)
-	}
-
-	l.w.Store(lvl)
+type closer struct {
+	m sync.Mutex
+	c []io.Closer
 }
 
-func (l *logger) GetIOWriterLevel() Level {
-	if l == nil {
-		return NilLevel
+func (c *closer) Add(clo io.Closer) {
+	lst := append(c.Get(), clo)
+
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.c = lst
+}
+
+func (c *closer) Get() []io.Closer {
+	res := make([]io.Closer, 0)
+
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if len(c.c) > 0 {
+		for _, i := range c.c {
+			if i == nil {
+				continue
+			}
+			res = append(res, i)
+		}
 	}
 
-	l.m.Lock()
-	defer l.m.Unlock()
+	return res
+}
 
-	if l.w == nil {
-		l.w = new(atomic.Value)
+func (c *closer) Len() int {
+	c.m.Lock()
+	defer c.m.Unlock()
+	return len(c.c)
+}
+
+func (c *closer) Clean() {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.c = make([]io.Closer, 0)
+}
+
+func (c *closer) Clone() _Closer {
+	o := _NewCloser()
+	for _, i := range c.Get() {
+		o.Add(i)
+	}
+	return o
+}
+
+func (c *closer) Close() error {
+	var e = make([]string, 0)
+
+	for _, i := range c.Get() {
+		if err := i.Close(); err != nil {
+			e = append(e, err.Error())
+		}
 	}
 
-	if i := l.w.Load(); i == nil {
-		return NilLevel
-	} else if o, ok := i.(Level); ok {
-		return o
-	}
-
-	return NilLevel
+	return fmt.Errorf("%s", strings.Join(e, ", "))
 }

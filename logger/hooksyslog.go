@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
@@ -55,13 +56,24 @@ type syslogWrapper interface {
 type FuncFormatter func() logrus.Formatter
 
 type _HookSyslog struct {
+	m sync.Mutex
 	w syslogWrapper
 	f logrus.Formatter
 	l []logrus.Level
-	s bool
-	d bool
-	t bool
-	a bool
+	o _HookSyslogOptions
+}
+
+type _HookSyslogOptions struct {
+	Net NetworkType
+	Hst string
+	Tag string
+	//	Sev SyslogSeverity
+	Fac SyslogFacility
+
+	Pid bool
+	Tms bool
+	Trc bool
+	Acc bool
 }
 
 func NewHookSyslog(opt OptionsSyslog, format logrus.Formatter) (HookSyslog, error) {
@@ -79,19 +91,64 @@ func NewHookSyslog(opt OptionsSyslog, format logrus.Formatter) (HookSyslog, erro
 		LVLs = logrus.AllLevels
 	}
 
-	if sys, err = newSyslog(MakeNetwork(opt.Network), opt.Host, opt.Tag, MakeSeverity(opt.Severity), MakeFacility(opt.Facility)); err != nil {
-		return nil, err
-	}
-
-	return &_HookSyslog{
+	obj := &_HookSyslog{
+		m: sync.Mutex{},
 		w: sys,
 		f: format,
 		l: LVLs,
-		s: opt.DisableStack,
-		d: opt.DisableTimestamp,
-		t: opt.EnableTrace,
-		a: opt.EnableAccessLog,
-	}, nil
+		o: _HookSyslogOptions{
+			Net: MakeNetwork(opt.Network),
+			Hst: opt.Host,
+			Tag: opt.Tag,
+			//			Sev: MakeSeverity(opt.Severity),
+			Fac: MakeFacility(opt.Facility),
+			Pid: opt.DisableStack,
+			Tms: opt.DisableTimestamp,
+			Trc: opt.EnableTrace,
+			Acc: opt.EnableAccessLog,
+		},
+	}
+
+	if h, e := obj.openCreate(); e != nil {
+		return nil, e
+	} else {
+		_ = h.Close()
+	}
+
+	return obj, err
+}
+
+func (o *_HookSyslog) openCreate() (syslogWrapper, error) {
+	return newSyslog(o.o.Net, o.o.Hst, o.o.Tag, o.o.Fac)
+	//return newSyslog(o.o.Net, o.o.Hst, o.o.Tag, o.o.Sev, o.o.Fac)
+}
+
+func (o *_HookSyslog) isStack() bool {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	return o.o.Pid
+}
+
+func (o *_HookSyslog) isTimeStamp() bool {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	return o.o.Tms
+}
+
+func (o *_HookSyslog) isTrace() bool {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	return o.o.Trc
+}
+
+func (o *_HookSyslog) isAccessLog() bool {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	return o.o.Acc
 }
 
 func (o *_HookSyslog) RegisterHook(log *logrus.Logger) {
@@ -106,15 +163,15 @@ func (o *_HookSyslog) Fire(entry *logrus.Entry) error {
 	ent := entry.Dup()
 	ent.Level = entry.Level
 
-	if o.s {
+	if !o.isStack() {
 		ent.Data = o.filterKey(ent.Data, FieldStack)
 	}
 
-	if o.d {
+	if !o.isTimeStamp() {
 		ent.Data = o.filterKey(ent.Data, FieldTime)
 	}
 
-	if !o.t {
+	if !o.isTrace() {
 		ent.Data = o.filterKey(ent.Data, FieldCaller)
 		ent.Data = o.filterKey(ent.Data, FieldFile)
 		ent.Data = o.filterKey(ent.Data, FieldLine)
@@ -125,7 +182,7 @@ func (o *_HookSyslog) Fire(entry *logrus.Entry) error {
 		e error
 	)
 
-	if o.a {
+	if o.isAccessLog() {
 		if len(entry.Message) > 0 {
 			if !strings.HasSuffix(entry.Message, "\n") {
 				entry.Message += "\n"
@@ -142,38 +199,59 @@ func (o *_HookSyslog) Fire(entry *logrus.Entry) error {
 		}
 	}
 
-	switch ent.Level {
-	case logrus.PanicLevel:
-		_, e = o.w.Panic(p)
-	case logrus.FatalLevel:
-		_, e = o.w.Fatal(p)
-	case logrus.ErrorLevel:
-		_, e = o.w.Error(p)
-	case logrus.WarnLevel:
-		_, e = o.w.Warning(p)
-	case logrus.InfoLevel:
-		_, e = o.w.Info(p)
-	case logrus.DebugLevel:
-		_, e = o.w.Debug(p)
-	default:
-		return nil
+	if _, e = o.writeLevel(ent.Level, p); e != nil {
+		_ = o.Close()
+		_, e = o.writeLevel(ent.Level, p)
 	}
 
 	return e
 }
 
 func (o *_HookSyslog) Write(p []byte) (n int, err error) {
+	return o.writeLevel(logrus.InfoLevel, p)
+}
+
+func (o *_HookSyslog) writeLevel(lvl logrus.Level, p []byte) (n int, err error) {
+	o.m.Lock()
+	defer o.m.Unlock()
+
 	if o.w == nil {
-		return 0, fmt.Errorf("logrus.hooksyslog: connection not setup")
+		var e error
+		if o.w, e = o.openCreate(); e != nil {
+			return 0, fmt.Errorf("logrus.hooksyslog: %v", e)
+		}
 	}
 
-	return o.w.Write(p)
+	switch lvl {
+	case logrus.PanicLevel:
+		return o.w.Panic(p)
+	case logrus.FatalLevel:
+		return o.w.Fatal(p)
+	case logrus.ErrorLevel:
+		return o.w.Error(p)
+	case logrus.WarnLevel:
+		return o.w.Warning(p)
+	case logrus.InfoLevel:
+		return o.w.Info(p)
+	case logrus.DebugLevel:
+		return o.w.Debug(p)
+	default:
+		return o.w.Write(p)
+	}
 }
 
 func (o *_HookSyslog) Close() error {
-	err := o.w.Close()
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	var e error
+
+	if o.w != nil {
+		e = o.w.Close()
+	}
+
 	o.w = nil
-	return err
+	return e
 }
 
 func (o *_HookSyslog) filterKey(f logrus.Fields, key string) logrus.Fields {
@@ -187,16 +265,4 @@ func (o *_HookSyslog) filterKey(f logrus.Fields, key string) logrus.Fields {
 		delete(f, key)
 		return f
 	}
-	/*
-		var res = make(map[string]interface{}, 0)
-
-		for k, v := range f {
-			if k == key {
-				continue
-			}
-			res[k] = v
-		}
-
-		return res
-	*/
 }

@@ -2,6 +2,11 @@
 This package help to manage status router in a API to respond a standard response for status of API and his component.
 This package requires `golib/router` + go Gin Tonic API Framework.
 
+This package also include 2 option of call that can be passed into query string : 
+- `short` : if use, the response will only include the main status and no one component, but all health are still check
+- `online` : if use, the response will be into a list of text line composed as `status: name (release - build) - message`, instead of a JSON output
+This 2 options call be use together. 
+
 ## Example of implementation
 We will work on an example of file/folder tree like this : 
 ```bash
