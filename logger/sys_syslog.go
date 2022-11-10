@@ -111,55 +111,86 @@ type _Syslog struct {
 	w *syslog.Writer
 }
 
-func newSyslog(net NetworkType, host, tag string, severity SyslogSeverity, facility SyslogFacility) (syslogWrapper, error) {
+func newSyslog(net NetworkType, host, tag string, fac SyslogFacility) (syslogWrapper, error) {
 	var (
-		sys *syslog.Writer
 		err error
 	)
 
-	if sys, err = syslog.Dial(net.String(), host, makePriority(severity, facility), tag); err != nil {
+	var obj = &_Syslog{
+		w: nil,
+	}
+
+	if obj.w, err = obj.openSyslogSev(net, host, tag, makePriority(SyslogSeverityInfo, fac)); err != nil {
+		_ = obj.Close()
 		return nil, err
 	}
 
-	return &_Syslog{
-		w: sys,
-	}, nil
+	return obj, nil
+}
+
+func (o *_Syslog) openSyslogSev(net NetworkType, host, tag string, prio syslog.Priority) (*syslog.Writer, error) {
+	return syslog.Dial(net.String(), host, prio, tag)
 }
 
 func (o *_Syslog) Write(p []byte) (n int, err error) {
+	return o.WriteSev(SyslogSeverityInfo, p)
+}
+
+func (o *_Syslog) WriteSev(sev SyslogSeverity, p []byte) (n int, err error) {
 	if o.w == nil {
 		return 0, fmt.Errorf("logrus.hooksyslog: connection not setup")
+	}
+
+	switch sev {
+	case SyslogSeverityEmerg:
+		return len(p), o.w.Emerg(string(p))
+	case SyslogSeverityAlert:
+		return len(p), o.w.Alert(string(p))
+	case SyslogSeverityCrit:
+		return len(p), o.w.Crit(string(p))
+	case SyslogSeverityErr:
+		return len(p), o.w.Err(string(p))
+	case SyslogSeverityWarning:
+		return len(p), o.w.Warning(string(p))
+	case SyslogSeverityNotice:
+		return len(p), o.w.Notice(string(p))
+	case SyslogSeverityInfo:
+		return len(p), o.w.Info(string(p))
+	case SyslogSeverityDebug:
+		return len(p), o.w.Debug(string(p))
 	}
 
 	return o.w.Write(p)
 }
 
 func (o *_Syslog) Close() error {
-	err := o.w.Close()
-	o.w = nil
-	return err
+	if o.w == nil {
+		return nil
+	}
+
+	return o.w.Close()
 }
 
 func (o *_Syslog) Panic(p []byte) (n int, err error) {
-	return o.Write(p)
+	return o.WriteSev(SyslogSeverityAlert, p)
 }
 
 func (o *_Syslog) Fatal(p []byte) (n int, err error) {
-	return o.Write(p)
+	return o.WriteSev(SyslogSeverityCrit, p)
 }
 
 func (o *_Syslog) Error(p []byte) (n int, err error) {
-	return o.Write(p)
+	return o.WriteSev(SyslogSeverityErr, p)
 }
 
 func (o *_Syslog) Warning(p []byte) (n int, err error) {
-	return o.Write(p)
+	return o.WriteSev(SyslogSeverityWarning, p)
 }
 
 func (o *_Syslog) Info(p []byte) (n int, err error) {
-	return o.Write(p)
+	return o.WriteSev(SyslogSeverityInfo, p)
 }
 
 func (o *_Syslog) Debug(p []byte) (n int, err error) {
-	return o.Write(p)
+	return o.WriteSev(SyslogSeverityDebug, p)
 }
