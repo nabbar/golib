@@ -125,7 +125,7 @@ type _WinLog struct {
 	w *eventlog.Log
 }
 
-func newSyslog(net NetworkType, host, tag string, severity SyslogSeverity, facility SyslogFacility) (syslogWrapper, error) {
+func newSyslog(net NetworkType, host, tag string, facility SyslogFacility) (syslogWrapper, error) {
 	var (
 		sys *eventlog.Log
 		err error
