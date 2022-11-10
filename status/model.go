@@ -26,11 +26,15 @@
 package status
 
 import (
+	"bytes"
+	"fmt"
 	"net/http"
 	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/gin-gonic/gin/render"
 
 	"github.com/gin-gonic/gin"
 	liberr "github.com/nabbar/golib/errors"
@@ -57,7 +61,10 @@ type rtrStatus struct {
 	c map[string]*atomic.Value
 }
 
-const keyShortOutput = "short"
+const (
+	keyShortOutput   = "short"
+	keyOneLineOutput = "oneline"
+)
 
 func (r *rtrStatus) HttpStatusCode(codeOk, codeKO, codeWarning int) {
 	r.cOk = codeOk
@@ -204,17 +211,30 @@ func (r *rtrStatus) Get(x *gin.Context) {
 	}
 
 	if x.Request.URL.Query().Has(keyShortOutput) {
-		rsp.Components = nil
+		rsp.Components = make([]CptResponse, 0)
 	}
 
 	x.Header("Connection", "Close")
 
 	if code == r.cKO {
-		x.AbortWithStatusJSON(code, rsp)
+		x.Abort()
+	}
+
+	if x.Request.URL.Query().Has(keyOneLineOutput) {
+		var buf = bytes.NewBuffer(make([]byte, 0))
+		buf.WriteString(fmt.Sprintf("%s: %s (%s - %s) : %s\n", rsp.Status, rsp.Name, rsp.Release, rsp.HashBuild, rsp.Message))
+
+		for _, c := range rsp.Components {
+			buf.WriteString(fmt.Sprintf("%s: %s (%s - %s) : %s\n", c.Status, c.Name, c.Release, c.HashBuild, c.Message))
+		}
+
+		x.Render(code, render.Data{
+			ContentType: gin.MIMEPlain,
+			Data:        buf.Bytes(),
+		})
 	} else {
 		x.JSON(code, rsp)
 	}
-
 }
 
 func (r *rtrStatus) ComponentKeys() []string {
