@@ -4,10 +4,10 @@ go 1.19
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.17.1
-	github.com/aws/aws-sdk-go-v2/config v1.17.10
-	github.com/aws/aws-sdk-go-v2/credentials v1.12.23
+	github.com/aws/aws-sdk-go-v2/config v1.18.0
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.0
 	github.com/aws/aws-sdk-go-v2/service/iam v1.18.23
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.1
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.2
 	github.com/bits-and-blooms/bitset v1.3.3
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/fatih/color v1.13.0
@@ -28,7 +28,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/nats-io/jwt/v2 v2.3.0
 	github.com/nats-io/nats-server/v2 v2.9.6
-	github.com/nats-io/nats.go v1.19.1
+	github.com/nats-io/nats.go v1.20.0
 	github.com/onsi/ginkgo/v2 v2.5.0
 	github.com/onsi/gomega v1.24.1
 	github.com/pelletier/go-toml v1.9.5
@@ -42,9 +42,9 @@ require (
 	github.com/vbauerster/mpb/v5 v5.4.0
 	github.com/xanzy/go-gitlab v0.74.0
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
-	github.com/xujiajun/nutsdb v0.11.0
+	github.com/xujiajun/nutsdb v0.11.1
 	github.com/xujiajun/utils v0.0.0-20220904132955-5f7c5b914235
-	golang.org/x/exp v0.0.0-20221109205753-fc8884afc316
+	golang.org/x/exp v0.0.0-20221111204811-129d8d6c17ab
 	golang.org/x/net v0.2.0
 	golang.org/x/oauth2 v0.2.0
 	golang.org/x/sync v0.1.0
@@ -52,7 +52,7 @@ require (
 	golang.org/x/term v0.2.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/clickhouse v0.5.0
-	gorm.io/driver/mysql v1.4.3
+	gorm.io/driver/mysql v1.4.4
 	gorm.io/driver/postgres v1.4.5
 	gorm.io/driver/sqlite v1.4.3
 	gorm.io/driver/sqlserver v1.4.1
@@ -63,6 +63,7 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
 	github.com/ClickHouse/ch-go v0.49.0 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.3.0 // indirect
+	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
@@ -85,7 +86,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.17.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.17.2 // indirect
 	github.com/aws/smithy-go v1.13.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // indirect

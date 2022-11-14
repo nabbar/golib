@@ -35,6 +35,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -445,10 +446,15 @@ func (r *request) AddPath(raw bool, path ...string) {
 		return
 	}
 
+	var str string
+	if raw {
+		str = strings.Replace(r.u.RawPath, "/", string(os.PathSeparator), -1)
+	} else {
+		str = strings.Replace(r.u.Path, "/", string(os.PathSeparator), -1)
+	}
+
 	for i := range path {
-		if raw && strings.HasSuffix(r.u.RawPath, "/") && strings.HasPrefix(path[i], "/") {
-			path[i] = strings.TrimPrefix(path[i], "/")
-		} else if !raw && strings.HasSuffix(r.u.Path, "/") && strings.HasPrefix(path[i], "/") {
+		if strings.HasSuffix(str, "/") && strings.HasPrefix(path[i], "/") {
 			path[i] = strings.TrimPrefix(path[i], "/")
 		}
 
@@ -456,11 +462,13 @@ func (r *request) AddPath(raw bool, path ...string) {
 			path[i] = strings.TrimSuffix(path[i], "/")
 		}
 
-		if raw {
-			r.u.RawPath = filepath.Join(r.u.RawPath, path[i])
-		} else {
-			r.u.Path = filepath.Join(r.u.Path, path[i])
-		}
+		str = filepath.Join(str, path[i])
+	}
+
+	if raw {
+		r.u.RawPath = strings.Replace(str, string(os.PathSeparator), "/", -1)
+	} else {
+		r.u.Path = strings.Replace(str, string(os.PathSeparator), "/", -1)
 	}
 }
 
