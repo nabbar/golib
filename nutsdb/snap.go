@@ -33,7 +33,7 @@ package nutsdb
 import (
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/nabbar/golib/archive"
 	liberr "github.com/nabbar/golib/errors"
@@ -156,7 +156,7 @@ func (s *snap) Load(opt Options, reader io.Reader) liberr.Error {
 		return e
 	}
 
-	if e = archive.ExtractAll(a, path.Base(arc), out, opt.Permission()); e != nil {
+	if e = archive.ExtractAll(a, filepath.Base(arc), out, opt.Permission()); e != nil {
 		return ErrorFolderExtract.Error(e)
 	}
 

@@ -40,6 +40,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	liberr "github.com/nabbar/golib/errors"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -452,7 +454,7 @@ func (l *logger) getCaller() runtime.Frame {
 }
 
 func (l *logger) filterPath(pathname string) string {
-	var ()
+	pathname = liberr.ConvPathFromLocal(pathname)
 
 	if i := strings.LastIndex(pathname, _TraceFilterMod); i != -1 {
 		i = i + len(_TraceFilterMod)
@@ -473,5 +475,5 @@ func (l *logger) filterPath(pathname string) string {
 		}
 	}
 
-	return strings.Trim(path.Clean(pathname), "/")
+	return strings.Trim(path.Clean(pathname), liberr.PathSeparator)
 }

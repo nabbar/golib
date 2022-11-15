@@ -36,7 +36,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
+	"path"
 	"runtime"
 	"strings"
 	"sync"
@@ -438,7 +438,7 @@ func (r *request) SetPath(raw bool, path string) {
 	}
 }
 
-func (r *request) AddPath(raw bool, path ...string) {
+func (r *request) AddPath(raw bool, pathPart ...string) {
 	r.s.Lock()
 	defer r.s.Unlock()
 
@@ -453,22 +453,22 @@ func (r *request) AddPath(raw bool, path ...string) {
 		str = strings.Replace(r.u.Path, "/", string(os.PathSeparator), -1)
 	}
 
-	for i := range path {
-		if strings.HasSuffix(str, "/") && strings.HasPrefix(path[i], "/") {
-			path[i] = strings.TrimPrefix(path[i], "/")
+	for i := range pathPart {
+		if strings.HasSuffix(str, "/") && strings.HasPrefix(pathPart[i], "/") {
+			pathPart[i] = strings.TrimPrefix(pathPart[i], "/")
 		}
 
-		if strings.HasSuffix(path[i], "/") {
-			path[i] = strings.TrimSuffix(path[i], "/")
+		if strings.HasSuffix(pathPart[i], "/") {
+			pathPart[i] = strings.TrimSuffix(pathPart[i], "/")
 		}
 
-		str = filepath.Join(str, path[i])
+		str = path.Join(str, pathPart[i])
 	}
 
 	if raw {
-		r.u.RawPath = strings.Replace(str, string(os.PathSeparator), "/", -1)
+		r.u.RawPath = path.Clean(str)
 	} else {
-		r.u.Path = strings.Replace(str, string(os.PathSeparator), "/", -1)
+		r.u.Path = path.Clean(str)
 	}
 }
 
