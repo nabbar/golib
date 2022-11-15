@@ -55,7 +55,10 @@ import (
 	libsts "github.com/nabbar/golib/status"
 )
 
-const _textEmbed = "Embed FS"
+const (
+	urlPathSeparator = "/"
+	textEmbed        = "Embed FS"
+)
 
 type staticHandler struct {
 	m sync.Mutex
@@ -74,7 +77,7 @@ type staticHandler struct {
 
 func (s *staticHandler) _makeRoute(group, route string) string {
 	if group == "" {
-		group = "/"
+		group = urlPathSeparator
 	}
 	return path.Join(group, route)
 }
@@ -408,17 +411,17 @@ func (s *staticHandler) _fileTemp(pathFile string) (libiot.FileProgress, liberr.
 }
 
 func (s *staticHandler) RegisterRouter(route string, register librtr.RegisterRouter, router ...gin.HandlerFunc) {
-	s._setRouter(append(s._getRouter(), s._makeRoute("/", route)))
+	s._setRouter(append(s._getRouter(), s._makeRoute(urlPathSeparator, route)))
 
 	router = append(router, s.Get)
-	register(http.MethodGet, path.Join(route, "/*file"), router...)
+	register(http.MethodGet, path.Join(route, urlPathSeparator+"*file"), router...)
 }
 
 func (s *staticHandler) RegisterRouterInGroup(route, group string, register librtr.RegisterRouterInGroup, router ...gin.HandlerFunc) {
 	s._setRouter(append(s._getRouter(), s._makeRoute(group, route)))
 
 	router = append(router, s.Get)
-	register(group, http.MethodGet, path.Join(route, "/*file"), router...)
+	register(group, http.MethodGet, path.Join(route, urlPathSeparator+"*file"), router...)
 }
 
 func (s *staticHandler) RegisterLogger(log func() liblog.Logger) {
@@ -642,9 +645,9 @@ func (s *staticHandler) _statusInfoPath(pathFile string) (name string, release s
 	vers = strings.TrimLeft(vers, "GO")
 
 	if inf, err := s._fileInfo(pathFile); err != nil {
-		return _textEmbed, vers, ""
+		return textEmbed, vers, ""
 	} else {
-		return fmt.Sprintf("%s [%s]", _textEmbed, inf.Name()), vers, ""
+		return fmt.Sprintf("%s [%s]", textEmbed, inf.Name()), vers, ""
 	}
 }
 
@@ -680,7 +683,7 @@ func (s *staticHandler) _statusComponentPath(pathFile string, mandatory bool, me
 
 func (s *staticHandler) StatusComponent(mandatory bool, message libsts.FctMessage, infoCacheTimeout, healthCacheTimeout time.Duration, sts libsts.RouteStatus) {
 	for _, p := range s._getBase() {
-		name := fmt.Sprintf("%s-%s", strings.ReplaceAll(_textEmbed, " ", "."), p)
+		name := fmt.Sprintf("%s-%s", strings.ReplaceAll(textEmbed, " ", "."), p)
 		sts.ComponentNew(name, s._statusComponentPath(p, mandatory, message, infoCacheTimeout, healthCacheTimeout))
 	}
 }
@@ -705,14 +708,14 @@ func (s *staticHandler) Get(c *gin.Context) {
 		calledFile = idx
 	} else {
 		for _, p := range s._getRouter() {
-			if p == "/" {
+			if p == urlPathSeparator {
 				continue
 			}
 			calledFile = strings.TrimLeft(calledFile, p)
 		}
 	}
 
-	calledFile = strings.Trim(calledFile, "/")
+	calledFile = strings.Trim(calledFile, urlPathSeparator)
 
 	if !s.Has(calledFile) {
 		for _, p := range s._getBase() {

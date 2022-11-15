@@ -30,7 +30,7 @@ import (
 	"context"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -240,7 +240,7 @@ func (f *fileProgress) FilePath() string {
 		return ""
 	}
 
-	return path.Clean(f.fs.Name())
+	return filepath.Clean(f.fs.Name())
 }
 
 func (f *fileProgress) FileStat() (os.FileInfo, liberr.Error) {

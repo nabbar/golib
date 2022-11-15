@@ -26,9 +26,16 @@
 package archive
 
 import (
-	"path"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+)
+
+const (
+	pathSeparatorOs     = string(os.PathSeparator)
+	pathSeparatorCommon = "/"
+	pathParentCommon    = ".."
 )
 
 type File struct {
@@ -71,15 +78,15 @@ func (a File) RegexFullPath(regex string) bool {
 }
 
 func (a File) GetKeyMap() string {
-	return path.Join(a.Path, a.Name)
+	return filepath.Join(a.Path, a.Name)
 }
 
 func (a File) GetDestFileOnly(baseDestination string) string {
-	return path.Join(baseDestination, a.Name)
+	return filepath.Join(baseDestination, a.Name)
 }
 
 func (a File) GetDestWithPath(baseDestination string) string {
-	return path.Join(baseDestination, a.Path, a.Name)
+	return filepath.Join(baseDestination, a.Path, a.Name)
 }
 
 func NewFile(name, path string) File {
@@ -90,5 +97,19 @@ func NewFile(name, path string) File {
 }
 
 func NewFileFullPath(fullpath string) File {
-	return NewFile(path.Base(fullpath), path.Dir(fullpath))
+	return NewFile(filepath.Base(fullpath), filepath.Dir(fullpath))
+}
+
+func CleanPath(p string) string {
+	for {
+		if strings.HasPrefix(p, pathParentCommon) {
+			p = strings.TrimPrefix(p, pathParentCommon)
+		} else if strings.HasPrefix(p, pathSeparatorCommon+pathParentCommon) {
+			p = strings.TrimPrefix(p, pathSeparatorCommon+pathParentCommon)
+		} else if strings.HasPrefix(p, pathSeparatorOs+pathParentCommon) {
+			p = strings.TrimPrefix(p, pathSeparatorOs+pathParentCommon)
+		} else {
+			return filepath.Clean(p)
+		}
+	}
 }

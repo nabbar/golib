@@ -62,6 +62,7 @@ type rtrStatus struct {
 }
 
 const (
+	urlPathSeparator = "/"
 	keyShortOutput   = "short"
 	keyOneLineOutput = "oneline"
 )
@@ -81,7 +82,7 @@ func (r *rtrStatus) MiddlewareAdd(mdw ...gin.HandlerFunc) {
 }
 
 func (r *rtrStatus) cleanPrefix(prefix string) string {
-	return path.Clean(strings.TrimRight(path.Join("/", prefix), "/"))
+	return path.Clean(strings.TrimRight(path.Join(urlPathSeparator, prefix), urlPathSeparator))
 }
 
 func (r *rtrStatus) Register(prefix string, register librtr.RegisterRouter) {
@@ -91,8 +92,8 @@ func (r *rtrStatus) Register(prefix string, register librtr.RegisterRouter) {
 	m = append(m, r.Get)
 	register(http.MethodGet, prefix, m...)
 
-	if prefix != "/" {
-		register(http.MethodGet, prefix+"/", m...)
+	if prefix != urlPathSeparator {
+		register(http.MethodGet, prefix+urlPathSeparator, m...)
 	}
 }
 
@@ -103,8 +104,8 @@ func (r *rtrStatus) RegisterGroup(group, prefix string, register librtr.Register
 	m = append(m, r.Get)
 	register(group, http.MethodGet, prefix, m...)
 
-	if prefix != "/" {
-		register(group, http.MethodGet, prefix+"/", m...)
+	if prefix != urlPathSeparator {
+		register(group, http.MethodGet, prefix+urlPathSeparator, m...)
 	}
 }
 

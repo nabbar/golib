@@ -29,17 +29,16 @@ import (
 	"archive/tar"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	libarc "github.com/nabbar/golib/archive/archive"
 	liberr "github.com/nabbar/golib/errors"
-	libiut "github.com/nabbar/golib/ioutils"
+	libiot "github.com/nabbar/golib/ioutils"
 )
 
-func GetFile(src, dst libiut.FileProgress, filenameContain, filenameRegex string) liberr.Error {
+func GetFile(src, dst libiot.FileProgress, filenameContain, filenameRegex string) liberr.Error {
 
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.ErrorParent(e)
@@ -95,7 +94,7 @@ func GetAll(src io.ReadSeeker, outputFolder string, defaultDirPerm os.FileMode) 
 
 		//nolint #nosec
 		/* #nosec */
-		if err := writeContent(r, h, path.Join(outputFolder, path.Clean(h.Name)), defaultDirPerm); err != nil {
+		if err := writeContent(r, h, filepath.Join(outputFolder, libarc.CleanPath(h.Name)), defaultDirPerm); err != nil {
 			return err
 		}
 	}
@@ -104,10 +103,10 @@ func GetAll(src io.ReadSeeker, outputFolder string, defaultDirPerm os.FileMode) 
 func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.FileMode) (err liberr.Error) {
 	var (
 		inf = h.FileInfo()
-		dst libiut.FileProgress
+		dst libiot.FileProgress
 	)
 
-	if e := dirIsExistOrCreate(path.Dir(out), defaultDirPerm); e != nil {
+	if e := dirIsExistOrCreate(filepath.Dir(out), defaultDirPerm); e != nil {
 		return e
 	}
 
@@ -126,12 +125,12 @@ func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.File
 	} else if err = notDirExistCannotClean(out, h.Typeflag, h.Linkname); err != nil {
 		return
 	} else if h.Typeflag&tar.TypeLink == tar.TypeLink {
-		return createLink(out, path.Clean(h.Linkname), false)
+		return createLink(out, libarc.CleanPath(h.Linkname), false)
 	} else if h.Typeflag&tar.TypeSymlink == tar.TypeSymlink {
-		return createLink(out, path.Clean(h.Linkname), true)
+		return createLink(out, libarc.CleanPath(h.Linkname), true)
 	}
 
-	if dst, err = libiut.NewFileProgressPathWrite(out, true, true, inf.Mode()); err != nil {
+	if dst, err = libiot.NewFileProgressPathWrite(out, true, true, inf.Mode()); err != nil {
 		return ErrorFileOpen.Error(err)
 	} else if _, e := io.Copy(dst, r); e != nil {
 		return ErrorIOCopy.ErrorParent(e)
@@ -207,12 +206,12 @@ func createLink(link, target string, sym bool) liberr.Error {
 	}
 
 	if sym {
-		err := os.Symlink(path.Clean(target), path.Clean(link))
+		err := os.Symlink(libarc.CleanPath(target), libarc.CleanPath(link))
 		if err != nil {
 			return ErrorLinkCreate.ErrorParent(err)
 		}
 	} else {
-		err := os.Link(path.Clean(target), path.Clean(link))
+		err := os.Link(libarc.CleanPath(target), libarc.CleanPath(link))
 		if err != nil {
 			return ErrorLinkCreate.ErrorParent(err)
 		}
@@ -230,5 +229,5 @@ func compareLinkTarget(link, target string) bool {
 		return false
 	}
 
-	return strings.EqualFold(path.Clean(l), path.Clean(target))
+	return strings.EqualFold(libarc.CleanPath(l), libarc.CleanPath(target))
 }
