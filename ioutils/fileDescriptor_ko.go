@@ -33,12 +33,22 @@ import (
 	"github.com/nabbar/golib/ioutils/maxstdio"
 )
 
+const (
+	//cf https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmaxstdio
+	winDefaultMaxStdio   = 512
+	winHardLimitMaxStdio = 8192
+)
+
 func systemFileDescriptor(newValue int) (current int, max int, err Error) {
 	rLimit := maxstdio.GetMaxStdio()
 
 	if rLimit < 0 {
 		// default windows value
-		rLimit = 512
+		rLimit = winDefaultMaxStdio
+	}
+
+	if newValue > winHardLimitMaxStdio {
+		newValue = winHardLimitMaxStdio
 	}
 
 	if newValue > rLimit {
@@ -46,6 +56,6 @@ func systemFileDescriptor(newValue int) (current int, max int, err Error) {
 		return SystemFileDescriptor(0)
 	}
 
-	return rLimit, rLimit, nil
+	return rLimit, winHardLimitMaxStdio, nil
 	//	return 0, 0, fmt.Errorf("rLimit is nor implemented in current system")
 }
