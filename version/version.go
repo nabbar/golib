@@ -27,7 +27,7 @@ package version
 import (
 	"bytes"
 	"fmt"
-	"path"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
@@ -80,11 +80,11 @@ func NewVersion(License license, Package, Description, Date, Build, Release, Aut
 	Source := rfl.PkgPath()
 
 	for i := 1; i <= numSubPackage; i++ {
-		Source = path.Dir(Source)
+		Source = filepath.Dir(Source)
 	}
 
 	if Package == "" || Package == "noname" {
-		Package = path.Base(Source)
+		Package = filepath.Base(Source)
 	}
 
 	return &versionModel{

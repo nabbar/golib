@@ -32,7 +32,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -103,7 +102,7 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 		return err
 	}
 
-	if len(path.Ext(cfgFile)) > 0 && strings.ToLower(path.Ext(cfgFile)) != ".json" {
+	if len(filepath.Ext(cfgFile)) > 0 && strings.ToLower(filepath.Ext(cfgFile)) != ".json" {
 		var mod = make(map[string]interface{}, 0)
 
 		err = json.Unmarshal(buf, &mod)
@@ -111,13 +110,13 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 			return err
 		}
 
-		switch strings.ToLower(path.Ext(cfgFile)) {
+		switch strings.ToLower(filepath.Ext(cfgFile)) {
 		case ".toml":
 			buf, err = toml.Marshal(mod)
 		case ".yml", ".yaml":
 			buf, err = yaml.Marshal(mod)
 		default:
-			return fmt.Errorf("extension file '%s' not compatible", path.Ext(cfgFile))
+			return fmt.Errorf("extension file '%s' not compatible", filepath.Ext(cfgFile))
 		}
 	}
 

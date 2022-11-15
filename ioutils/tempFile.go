@@ -26,15 +26,14 @@
 package ioutils
 
 import (
-	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 
 	. "github.com/nabbar/golib/errors"
 )
 
 func NewTempFile() (*os.File, Error) {
-	f, e := ioutil.TempFile(os.TempDir(), "")
+	f, e := os.CreateTemp(os.TempDir(), "")
 	return f, ErrorIOFileTempNew.Iferror(e)
 }
 
@@ -43,7 +42,7 @@ func GetTempFilePath(f *os.File) string {
 		return ""
 	}
 
-	return path.Join(os.TempDir(), path.Base(f.Name()))
+	return filepath.Join(os.TempDir(), filepath.Base(f.Name()))
 }
 
 func DelTempFile(f *os.File) Error {

@@ -29,7 +29,7 @@ package cobra
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	liblog "github.com/nabbar/golib/logger"
@@ -142,11 +142,11 @@ func (c *cobra) getLog() liblog.Logger {
 }
 
 func (c *cobra) getPackageName() string {
-	pkg := path.Base(os.Args[0])
+	pkg := filepath.Base(os.Args[0])
 
 	if pkg == "" {
 		if f, e := os.Executable(); e == nil {
-			pkg = path.Base(f)
+			pkg = filepath.Base(f)
 		} else {
 			pkg = c.s.GetPackage()
 		}

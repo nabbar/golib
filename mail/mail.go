@@ -29,7 +29,7 @@ import (
 	"io"
 	mime2 "mime"
 	"net/textproto"
-	"path"
+	"path/filepath"
 	"time"
 
 	liberr "github.com/nabbar/golib/errors"
@@ -38,6 +38,7 @@ import (
 const (
 	DateTimeLayout = time.RFC1123Z
 
+	mimeDownload      = "application/octet-stream"
 	headerMimeVersion = "MIME-Version"
 	headerDate        = "Date"
 	headerSubject     = "Subject"
@@ -243,14 +244,14 @@ func (m *mail) AddAttachment(name string, mime string, data io.ReadCloser, inlin
 	}
 }
 
-func (m *mail) AttachFile(filepath string, data io.ReadCloser, inline bool) {
-	mime := mime2.TypeByExtension(path.Ext(filepath))
+func (m *mail) AttachFile(filePath string, data io.ReadCloser, inline bool) {
+	mime := mime2.TypeByExtension(filepath.Ext(filePath))
 
 	if mime == "" {
-		mime = "application/octet-stream"
+		mime = mimeDownload
 	}
 
-	m.AddAttachment(path.Base(filepath), mime, data, inline)
+	m.AddAttachment(filepath.Base(filePath), mime, data, inline)
 }
 
 func (m *mail) GetAttachment(inline bool) []File {
