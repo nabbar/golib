@@ -29,14 +29,14 @@ import (
 	"archive/zip"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 
-	"github.com/nabbar/golib/archive/archive"
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils"
+	arcmod "github.com/nabbar/golib/archive/archive"
+	liberr "github.com/nabbar/golib/errors"
+	libiot "github.com/nabbar/golib/ioutils"
 )
 
-func GetFile(src, dst ioutils.FileProgress, filenameContain, filenameRegex string) errors.Error {
+func GetFile(src, dst libiot.FileProgress, filenameContain, filenameRegex string) liberr.Error {
 	var (
 		arc *zip.Reader
 		inf os.FileInfo
@@ -58,7 +58,7 @@ func GetFile(src, dst ioutils.FileProgress, filenameContain, filenameRegex strin
 			continue
 		}
 
-		z := archive.NewFileFullPath(f.Name)
+		z := arcmod.NewFileFullPath(f.Name)
 
 		if z.MatchingFullPath(filenameContain) || z.RegexFullPath(filenameRegex) {
 			if f == nil {
@@ -98,7 +98,7 @@ func GetFile(src, dst ioutils.FileProgress, filenameContain, filenameRegex strin
 	return nil
 }
 
-func GetAll(src ioutils.FileProgress, outputFolder string, defaultDirPerm os.FileMode) errors.Error {
+func GetAll(src libiot.FileProgress, outputFolder string, defaultDirPerm os.FileMode) liberr.Error {
 	var (
 		r *zip.Reader
 		i os.FileInfo
@@ -120,7 +120,7 @@ func GetAll(src ioutils.FileProgress, outputFolder string, defaultDirPerm os.Fil
 
 		//nolint #nosec
 		/* #nosec */
-		if err := writeContent(f, path.Join(outputFolder, path.Clean(f.Name)), defaultDirPerm); err != nil {
+		if err := writeContent(f, filepath.Join(outputFolder, arcmod.CleanPath(f.Name)), defaultDirPerm); err != nil {
 			return err
 		}
 	}
@@ -128,16 +128,16 @@ func GetAll(src ioutils.FileProgress, outputFolder string, defaultDirPerm os.Fil
 	return nil
 }
 
-func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err errors.Error) {
+func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err liberr.Error) {
 	var (
-		dst ioutils.FileProgress
+		dst libiot.FileProgress
 		inf = f.FileInfo()
 
 		r io.ReadCloser
 		e error
 	)
 
-	if err = dirIsExistOrCreate(path.Dir(out), defaultDirPerm); err != nil {
+	if err = dirIsExistOrCreate(filepath.Dir(out), defaultDirPerm); err != nil {
 		return
 	}
 
@@ -164,7 +164,7 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err erro
 		return
 	}
 
-	if dst, err = ioutils.NewFileProgressPathWrite(out, true, true, inf.Mode()); err != nil {
+	if dst, err = libiot.NewFileProgressPathWrite(out, true, true, inf.Mode()); err != nil {
 		return ErrorFileOpen.Error(err)
 	} else if r, e = f.Open(); e != nil {
 		return ErrorZipFileOpen.ErrorParent(e)
@@ -181,9 +181,9 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err erro
 	return nil
 }
 
-func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) errors.Error {
-	if i, e := os.Stat(path.Dir(dirname)); e != nil && os.IsNotExist(e) {
-		if e = os.MkdirAll(path.Dir(dirname), dirPerm); e != nil {
+func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) liberr.Error {
+	if i, e := os.Stat(filepath.Dir(dirname)); e != nil && os.IsNotExist(e) {
+		if e = os.MkdirAll(filepath.Dir(dirname), dirPerm); e != nil {
 			return ErrorDirCreate.ErrorParent(e)
 		}
 	} else if e != nil {
@@ -195,7 +195,7 @@ func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) errors.Error {
 	return nil
 }
 
-func notDirExistCannotClean(filename string) errors.Error {
+func notDirExistCannotClean(filename string) liberr.Error {
 	if i, e := os.Stat(filename); e != nil && !os.IsNotExist(e) {
 		return ErrorDestinationStat.ErrorParent(e)
 	} else if e == nil && i.IsDir() {

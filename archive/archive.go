@@ -29,7 +29,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 
 	libbz2 "github.com/nabbar/golib/archive/bz2"
 	libgzp "github.com/nabbar/golib/archive/gzip"
@@ -187,7 +187,7 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 	}
 
 	liblog.DebugLevel.Log("writing original file...")
-	if dst, err = src.NewFilePathWrite(path.Join(outputPath, originalName), true, true, 0664); err != nil {
+	if dst, err = src.NewFilePathWrite(filepath.Join(outputPath, originalName), true, true, 0664); err != nil {
 		return ErrorFileOpen.Error(err)
 	}
 

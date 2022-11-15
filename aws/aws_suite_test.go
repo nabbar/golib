@@ -37,7 +37,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"testing"
@@ -214,7 +214,7 @@ func LaunchMinio(host, accessKey, secretKey string) {
 	defer DelTempFolder(tmp)
 
 	if _, minio, _, ok := runtime.Caller(0); ok {
-		if err := exec.CommandContext(ctx, path.Join(path.Dir(minio), "minio"), "server", "--address", host, tmp).Run(); err != nil {
+		if err := exec.CommandContext(ctx, filepath.Join(filepath.Dir(minio), "minio"), "server", "--address", host, tmp).Run(); err != nil {
 			if ctx.Err() != nil {
 				return
 			}

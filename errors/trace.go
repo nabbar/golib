@@ -28,18 +28,31 @@ package errors
 
 import (
 	"path"
+	"path/filepath"
 	"reflect"
 	"runtime"
 	"strings"
 )
 
-var (
-	currPkgs  = path.Base(reflect.TypeOf(UNK_ERROR).PkgPath())
-	filterPkg = path.Clean(reflect.TypeOf(UNK_ERROR).PkgPath())
+const (
+	PathSeparator = "/"
+	pathVendor    = "vendor"
+	pathMod       = "mod"
+	pathPkg       = "pkg"
+	pkgRuntime    = "runtime"
 )
 
+var (
+	filterPkg = path.Clean(ConvPathFromLocal(reflect.TypeOf(UNK_ERROR).PkgPath()))
+	currPkgs  = path.Base(ConvPathFromLocal(filterPkg))
+)
+
+func ConvPathFromLocal(str string) string {
+	return strings.Replace(str, string(filepath.Separator), PathSeparator, -1)
+}
+
 func init() {
-	if i := strings.LastIndex(filterPkg, "/vendor/"); i != -1 {
+	if i := strings.LastIndex(filterPkg, PathSeparator+pathVendor+PathSeparator); i != -1 {
 		filterPkg = filterPkg[:i+1]
 	}
 }
@@ -101,9 +114,9 @@ func getFrameVendor() []runtime.Frame {
 
 			if strings.Contains(item.Function, currPkgs) {
 				continue
-			} else if strings.Contains(frame.File, "/vendor/") {
+			} else if strings.Contains(ConvPathFromLocal(frame.File), PathSeparator+pathVendor+PathSeparator) {
 				continue
-			} else if strings.HasPrefix(frame.Function, "runtime") {
+			} else if strings.HasPrefix(frame.Function, pkgRuntime) {
 				continue
 			} else if frameInSlice(res, item) {
 				continue
@@ -150,9 +163,11 @@ func getNilFrame() runtime.Frame {
 
 func filterPath(pathname string) string {
 	var (
-		filterMod    = "/pkg/mod/"
-		filterVendor = "/vendor/"
+		filterMod    = PathSeparator + pathPkg + PathSeparator + pathMod + PathSeparator
+		filterVendor = PathSeparator + pathVendor + PathSeparator
 	)
+
+	pathname = ConvPathFromLocal(pathname)
 
 	if i := strings.LastIndex(pathname, filterMod); i != -1 {
 		i = i + len(filterMod)
@@ -171,5 +186,5 @@ func filterPath(pathname string) string {
 
 	pathname = path.Clean(pathname)
 
-	return strings.Trim(pathname, "/")
+	return strings.Trim(pathname, PathSeparator)
 }
