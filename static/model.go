@@ -669,7 +669,7 @@ func (s *staticHandler) _statusHealthPath(pathFile string) error {
 	return nil
 }
 
-func (s *staticHandler) _statusComponentPath(pathFile string, mandatory bool, message libsts.FctMessage, infoCacheTimeout, healthCacheTimeout time.Duration) libsts.Component {
+func (s *staticHandler) _statusComponentPath(key string, pathFile string, mandatory bool, message libsts.FctMessage, infoCacheTimeout, healthCacheTimeout time.Duration) libsts.Component {
 	fctSts := func() (name string, release string, hash string) {
 		return s._statusInfoPath(pathFile)
 	}
@@ -678,13 +678,13 @@ func (s *staticHandler) _statusComponentPath(pathFile string, mandatory bool, me
 		return s._statusHealthPath(pathFile)
 	}
 
-	return libsts.NewComponent(mandatory, fctSts, fctHlt, message, infoCacheTimeout, healthCacheTimeout)
+	return libsts.NewComponent(key, mandatory, fctSts, fctHlt, message, infoCacheTimeout, healthCacheTimeout)
 }
 
 func (s *staticHandler) StatusComponent(mandatory bool, message libsts.FctMessage, infoCacheTimeout, healthCacheTimeout time.Duration, sts libsts.RouteStatus) {
 	for _, p := range s._getBase() {
 		name := fmt.Sprintf("%s-%s", strings.ReplaceAll(textEmbed, " ", "."), p)
-		sts.ComponentNew(name, s._statusComponentPath(p, mandatory, message, infoCacheTimeout, healthCacheTimeout))
+		sts.ComponentNew(name, s._statusComponentPath(name, p, mandatory, message, infoCacheTimeout, healthCacheTimeout))
 	}
 }
 

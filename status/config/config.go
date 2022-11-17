@@ -111,9 +111,9 @@ func (c *ConfigStatus) fctMessage() (msgOk string, msgKO string) {
 }
 
 func (c *ConfigStatus) RegisterStatus(sts libsts.RouteStatus, key string, fctInfo libsts.FctInfo, fctHealth libsts.FctHealth) {
-	sts.ComponentNew(key, status.NewComponent(c.Mandatory, fctInfo, fctHealth, c.fctMessage, c.CacheTimeoutInfo, c.CacheTimeoutHealth))
+	sts.ComponentNew(key, status.NewComponent(key, c.Mandatory, fctInfo, fctHealth, c.fctMessage, c.CacheTimeoutInfo, c.CacheTimeoutHealth))
 }
 
-func (c *ConfigStatus) Component(fctInfo libsts.FctInfo, fctHealth libsts.FctHealth) libsts.Component {
-	return status.NewComponent(c.Mandatory, fctInfo, fctHealth, c.fctMessage, c.CacheTimeoutInfo, c.CacheTimeoutHealth)
+func (c *ConfigStatus) Component(key string, fctInfo libsts.FctInfo, fctHealth libsts.FctHealth) libsts.Component {
+	return status.NewComponent(key, c.Mandatory, fctInfo, fctHealth, c.fctMessage, c.CacheTimeoutInfo, c.CacheTimeoutHealth)
 }
