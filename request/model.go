@@ -35,7 +35,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"runtime"
 	"strings"
@@ -85,10 +84,10 @@ func (r *request) _StatusInfo() (name string, release string, build string) {
 	}
 
 	if release == "" {
-		release = strings.TrimLeft(runtime.Version(), "go")
-		release = strings.TrimLeft(release, "Go")
-		release = strings.TrimLeft(release, "GO")
+		release = runtime.Version()[2:]
 	}
+
+	name = fmt.Sprintf("[%s] %s", edp, name)
 
 	return name, release, build
 }
@@ -448,9 +447,9 @@ func (r *request) AddPath(raw bool, pathPart ...string) {
 
 	var str string
 	if raw {
-		str = strings.Replace(r.u.RawPath, "/", string(os.PathSeparator), -1)
+		str = path.Clean(r.u.RawPath)
 	} else {
-		str = strings.Replace(r.u.Path, "/", string(os.PathSeparator), -1)
+		str = path.Clean(r.u.Path)
 	}
 
 	for i := range pathPart {

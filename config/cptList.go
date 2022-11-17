@@ -269,7 +269,8 @@ func (c *componentList) ComponentIsStarted() bool {
 
 func (c *componentList) reloadOne(isReload []string, key string, getCfg FuncComponentConfigGet) ([]string, liberr.Error) {
 	var (
-		err liberr.Error
+		err = ErrorComponentReload.Error(nil)
+		e   liberr.Error
 		cpt Component
 	)
 
@@ -283,37 +284,48 @@ func (c *componentList) reloadOne(isReload []string, key string, getCfg FuncComp
 
 	if dep := cpt.Dependencies(); len(dep) > 0 {
 		for _, k := range dep {
-			if isReload, err = c.reloadOne(isReload, k, getCfg); err != nil {
-				return isReload, err
+			if isReload, e = c.reloadOne(isReload, k, getCfg); e != nil {
+				err.AddParentError(e)
 			}
 		}
 	}
 
-	if err = cpt.Reload(getCfg); err != nil {
-		return isReload, err
+	if e = cpt.Reload(getCfg); e != nil {
+		er := ErrorComponentReload.ErrorParent(fmt.Errorf("component: %s", key))
+		er.AddParentError(e)
+		err.AddParentError(er)
 	} else {
 		c.ComponentSet(key, cpt)
 		isReload = append(isReload, key)
 	}
 
-	return isReload, nil
+	if !err.HasParent() {
+		err = nil
+	}
+
+	return isReload, err
 }
 
 func (c *componentList) ComponentReload(getCfg FuncComponentConfigGet) liberr.Error {
 	var (
-		err liberr.Error
+		err = ErrorComponentReload.Error(nil)
+		e   liberr.Error
 		key string
 
 		isReload = make([]string, 0)
 	)
 
 	for _, key = range c.ComponentKeys() {
-		if isReload, err = c.reloadOne(isReload, key, getCfg); err != nil {
-			return err
+		if isReload, e = c.reloadOne(isReload, key, getCfg); e != nil {
+			err.AddParent(e)
 		}
 	}
 
-	return nil
+	if !err.HasParent() {
+		err = nil
+	}
+
+	return err
 }
 
 func (c *componentList) ComponentStop() {

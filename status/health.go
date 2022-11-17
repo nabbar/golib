@@ -26,11 +26,14 @@
 package status
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+
+	"github.com/gin-gonic/gin"
 )
 
 type FctHealth func() error
@@ -54,11 +57,12 @@ type Status interface {
 	IsValid() bool
 }
 
-func NewStatus(health FctHealth, msg FctMessage, cacheDuration time.Duration) Status {
+func NewStatus(key string, health FctHealth, msg FctMessage, cacheDuration time.Duration) Status {
 	return &status{
 		m:  sync.Mutex{},
 		fh: health,
 		fm: msg,
+		k:  key,
 		c:  nil,
 		t:  time.Time{},
 		d:  cacheDuration,
@@ -70,6 +74,7 @@ type status struct {
 	fh FctHealth
 	fm FctMessage
 
+	k string
 	c *StatusResponse
 	t time.Time
 	d time.Duration
@@ -112,26 +117,34 @@ func (s *status) getCache() StatusResponse {
 	return s.c.Clone()
 }
 
+func (s *status) getKey() string {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	return s.k
+}
+
 func (s *status) Get(x *gin.Context) StatusResponse {
 	if !s.IsValid() {
-		var (
-			err   error
-			msgOk string
-			msgKO string
-		)
+		var err error
 
-		msgOk, msgKO = s.getInfo()
 		err = s.getHealth()
-
 		c := &StatusResponse{}
 
 		if err != nil {
 			c.Status = DefMessageKO
-			c.Message = msgKO
-			liblog.ErrorLevel.LogErrorCtx(liblog.DebugLevel, "get health status", err)
+
+			if e, ok := err.(liberr.Error); ok {
+				c.Message = fmt.Sprintf("%v", e.GetError())
+				liblog.ErrorLevel.LogErrorCtxf(liblog.DebugLevel, "[%s] get health status", e.GetErrorFull(", "), s.getKey())
+			} else {
+				c.Message = fmt.Sprintf("%v", err)
+				liblog.ErrorLevel.LogErrorCtxf(liblog.DebugLevel, "[%s] get health status", err, s.getKey())
+			}
+
 		} else {
 			c.Status = DefMessageOK
-			c.Message = msgOk
+			c.Message = ""
 		}
 
 		s.setCache(c)

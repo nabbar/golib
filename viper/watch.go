@@ -67,8 +67,9 @@ func (v *viper) WatchFS(logLevelFSInfo liblog.Level) {
 	v.v.WatchConfig()
 	v.v.OnConfigChange(func(e libnot.Event) {
 		if v.remote.fct != nil {
-			logLevelFSInfo.Logf("reloaded config file '%s'...", e.Name)
+			logLevelFSInfo.Logf("Reloading local config file '%s'...", e.Name)
 			v.remote.fct()
+			logLevelFSInfo.Logf("local config file '%s' has been reloaded.", e.Name)
 		}
 	})
 }

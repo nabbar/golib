@@ -467,6 +467,7 @@ func (p pool) StatusHealth(bindAddress string) error {
 func (p pool) StatusRoute(keyPrefix string, sts libsts.RouteStatus) {
 	p.MapRun(func(srv Server) {
 		bind := srv.GetBindable()
-		sts.ComponentNew(fmt.Sprintf("%s-%s", keyPrefix, bind), srv.StatusComponent())
+		name := fmt.Sprintf("%s-%s", keyPrefix, bind)
+		sts.ComponentNew(name, srv.StatusComponent(name))
 	})
 }
