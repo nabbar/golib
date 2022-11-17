@@ -163,11 +163,11 @@ func (o *_HookSyslog) Fire(entry *logrus.Entry) error {
 	ent := entry.Dup()
 	ent.Level = entry.Level
 
-	if !o.isStack() {
+	if o.isStack() {
 		ent.Data = o.filterKey(ent.Data, FieldStack)
 	}
 
-	if !o.isTimeStamp() {
+	if o.isTimeStamp() {
 		ent.Data = o.filterKey(ent.Data, FieldTime)
 	}
 

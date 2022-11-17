@@ -74,7 +74,7 @@ type Server interface {
 
 	StatusInfo() (name string, release string, hash string)
 	StatusHealth() error
-	StatusComponent() libsts.Component
+	StatusComponent(key string) libsts.Component
 }
 
 func NewServer(cfg *ServerConfig) Server {
@@ -238,7 +238,7 @@ func (s *server) StatusInfo() (name string, release string, hash string) {
 	vers = strings.TrimLeft(vers, "Go")
 	vers = strings.TrimLeft(vers, "GO")
 
-	return fmt.Sprintf("%s [%s]", s.GetName(), s.GetBindable()), vers, ""
+	return fmt.Sprintf("%s [%s]", s.GetName(), s.GetBindable()), runtime.Version()[2:], ""
 }
 
 func (s *server) StatusHealth() error {
@@ -253,7 +253,7 @@ func (s *server) StatusHealth() error {
 	}
 }
 
-func (s *server) StatusComponent() libsts.Component {
+func (s *server) StatusComponent(key string) libsts.Component {
 	if cfg := s.GetConfig(); cfg == nil {
 		cnf := config.ConfigStatus{
 			Mandatory:          true,
@@ -262,8 +262,8 @@ func (s *server) StatusComponent() libsts.Component {
 			CacheTimeoutInfo:   30 * time.Second,
 			CacheTimeoutHealth: 5 * time.Second,
 		}
-		return cnf.Component(s.StatusInfo, s.StatusHealth)
+		return cnf.Component(key, s.StatusInfo, s.StatusHealth)
 	} else {
-		return cfg.Status.Component(s.StatusInfo, s.StatusHealth)
+		return cfg.Status.Component(key, s.StatusInfo, s.StatusHealth)
 	}
 }

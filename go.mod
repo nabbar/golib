@@ -4,10 +4,10 @@ go 1.19
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.17.1
-	github.com/aws/aws-sdk-go-v2/config v1.18.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.0
+	github.com/aws/aws-sdk-go-v2/config v1.18.1
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.18.23
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.2
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.29.3
 	github.com/bits-and-blooms/bitset v1.3.3
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/fatih/color v1.13.0
@@ -63,6 +63,7 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
 	github.com/ClickHouse/ch-go v0.49.0 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.3.0 // indirect
+	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
@@ -72,6 +73,7 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/andybalholm/cascadia v1.3.1 // indirect
+	github.com/aokoli/goutils v1.1.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.9 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.12.19 // indirect
@@ -85,7 +87,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.19 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.25 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.13.8 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.17.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.17.3 // indirect
 	github.com/aws/smithy-go v1.13.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
@@ -163,13 +165,13 @@ require (
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/paulmach/orb v0.7.1 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.5 // indirect
+	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pierrec/lz4/v4 v4.1.17 // indirect
 	github.com/pkg/term v1.2.0-beta.2 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	github.com/rivo/uniseg v0.4.2 // indirect
+	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
@@ -190,7 +192,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.opentelemetry.io/otel v1.11.1 // indirect
 	go.opentelemetry.io/otel/trace v1.11.1 // indirect
-	golang.org/x/crypto v0.2.0 // indirect
+	golang.org/x/crypto v0.3.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.2.0 // indirect
