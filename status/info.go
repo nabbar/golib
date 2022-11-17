@@ -26,6 +26,7 @@
 package status
 
 import (
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -58,7 +59,7 @@ type Info interface {
 func NewInfo(fct FctInfo, mandatory bool, cacheDuration time.Duration) Info {
 	return &info{
 		f: fct,
-		m: mandatory,
+		o: mandatory,
 		c: nil,
 		t: time.Time{},
 		d: cacheDuration,
@@ -66,8 +67,9 @@ func NewInfo(fct FctInfo, mandatory bool, cacheDuration time.Duration) Info {
 }
 
 type info struct {
+	m sync.Mutex
 	f FctInfo
-	m bool
+	o bool
 	c *InfoResponse
 	t time.Time
 	d time.Duration
@@ -75,34 +77,24 @@ type info struct {
 
 func (i *info) Get(x *gin.Context) InfoResponse {
 	if !i.IsValid() {
-		var (
-			name string
-			vers string
-			hash string
-		)
-
-		if i.f != nil {
-			name, vers, hash = i.f()
-		}
-
-		i.c = &InfoResponse{
-			Name:      name,
-			Release:   vers,
-			HashBuild: hash,
-			Mandatory: i.m,
-		}
-		i.t = time.Now()
+		i.regenCache()
 	}
 
-	return i.c.Clone()
+	return i.clone()
 }
 
 func (i *info) Clean() {
+	i.m.Lock()
+	defer i.m.Unlock()
+
 	i.c = nil
 	i.t = time.Now()
 }
 
 func (i *info) IsValid() bool {
+	i.m.Lock()
+	defer i.m.Unlock()
+
 	if i.c == nil {
 		return false
 	} else if i.t.IsZero() {
@@ -111,4 +103,41 @@ func (i *info) IsValid() bool {
 		return false
 	}
 	return true
+}
+
+func (i *info) regenCache() {
+	var (
+		name string
+		vers string
+		hash string
+	)
+
+	i.m.Lock()
+	defer i.m.Unlock()
+
+	if i.f != nil {
+		name, vers, hash = i.f()
+	}
+
+	i.c = &InfoResponse{
+		Name:      name,
+		Release:   vers,
+		HashBuild: hash,
+		Mandatory: i.o,
+	}
+
+	i.t = time.Now()
+}
+
+func (i *info) clone() InfoResponse {
+	i.m.Lock()
+	defer i.m.Unlock()
+
+	if i.c != nil {
+		return i.c.Clone()
+	}
+
+	return InfoResponse{
+		Mandatory: i.o,
+	}
 }

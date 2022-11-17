@@ -41,10 +41,10 @@ type Component interface {
 	Clean()
 }
 
-func NewComponent(mandatory bool, info FctInfo, health FctHealth, msg FctMessage, infoCacheDuration, statusCacheDuration time.Duration) Component {
+func NewComponent(key string, mandatory bool, info FctInfo, health FctHealth, msg FctMessage, infoCacheDuration, statusCacheDuration time.Duration) Component {
 	return &cpt{
 		i: NewInfo(info, mandatory, infoCacheDuration),
-		s: NewStatus(health, msg, statusCacheDuration),
+		s: NewStatus(key, health, msg, statusCacheDuration),
 	}
 }
 
