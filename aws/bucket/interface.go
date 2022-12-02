@@ -49,6 +49,7 @@ type Bucket interface {
 	List() ([]sdkstp.Bucket, liberr.Error)
 	Walk(f WalkFunc) liberr.Error
 	Create(RegionConstraint string) liberr.Error
+	CreateWithLock(RegionConstraint string) liberr.Error
 	Delete() liberr.Error
 
 	//FindObject(pattern string) ([]string, errors.Error)
@@ -73,6 +74,8 @@ type Bucket interface {
 
 	GetLifeCycle() ([]sdkstp.LifecycleRule, liberr.Error)
 	SetLifeCycle(rules ...sdkstp.LifecycleRule) liberr.Error
+	GetLock() (*sdkstp.ObjectLockConfiguration, liberr.Error)
+	SetLock(cfg sdkstp.ObjectLockConfiguration, token string) liberr.Error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Bucket {
