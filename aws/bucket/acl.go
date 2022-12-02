@@ -36,7 +36,8 @@ import (
 type ACLHeader uint8
 
 const (
-	ACLHeaderFullControl ACLHeader = iota + 1
+	ACLHeaderNone ACLHeader = iota
+	ACLHeaderFullControl
 	ACLHeaderWrite
 	ACLHeaderRead
 	ACLHeaderWriteACP

@@ -29,6 +29,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"sync"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
@@ -79,6 +80,7 @@ type AWS interface {
 	User() awsusr.User
 
 	Config() Config
+	HTTPCli() *http.Client
 	Clone(ctx context.Context) (AWS, liberr.Error)
 	NewForConfig(ctx context.Context, cfg Config) (AWS, liberr.Error)
 	ForcePathStyle(ctx context.Context, enabled bool) liberr.Error
@@ -88,7 +90,9 @@ type AWS interface {
 	SetBucketName(bucket string)
 
 	GetClientS3() *sdksss.Client
+	SetClientS3(aws *sdksss.Client)
 	GetClientIam() *sdkiam.Client
+	SetClientIam(aws *sdkiam.Client)
 }
 
 func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, liberr.Error) {
@@ -101,7 +105,9 @@ func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, liberr.
 	}
 
 	cli := &client{
+		m: sync.Mutex{},
 		p: false,
+		o: make([]func(signer *sdksv4.SignerOptions), 0),
 		x: ctx,
 		c: cfg,
 		i: nil,
