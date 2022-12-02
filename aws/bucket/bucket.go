@@ -50,6 +50,14 @@ func (cli *client) Check() liberr.Error {
 }
 
 func (cli *client) Create(RegionConstraint string) liberr.Error {
+	return cli._create(RegionConstraint, false)
+}
+
+func (cli *client) CreateWithLock(RegionConstraint string) liberr.Error {
+	return cli._create(RegionConstraint, true)
+}
+
+func (cli *client) _create(RegionConstraint string, lockEnable bool) liberr.Error {
 	in := &sdksss.CreateBucketInput{
 		Bucket:                    cli.GetBucketAws(),
 		CreateBucketConfiguration: &sdkstp.CreateBucketConfiguration{},
@@ -57,6 +65,10 @@ func (cli *client) Create(RegionConstraint string) liberr.Error {
 
 	if RegionConstraint != "" {
 		in.CreateBucketConfiguration.LocationConstraint = sdkstp.BucketLocationConstraint(RegionConstraint)
+	}
+
+	if lockEnable {
+		in.ObjectLockEnabledForBucket = true
 	}
 
 	out, err := cli.s3.CreateBucket(cli.GetContext(), in)
@@ -68,6 +80,7 @@ func (cli *client) Create(RegionConstraint string) liberr.Error {
 	}
 
 	return nil
+
 }
 
 func (cli *client) Delete() liberr.Error {

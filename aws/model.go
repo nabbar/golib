@@ -28,6 +28,7 @@ package aws
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
@@ -43,6 +44,7 @@ import (
 )
 
 type client struct {
+	m sync.Mutex
 	p bool
 	o []func(signer *sdksv4.SignerOptions)
 	x context.Context
@@ -140,7 +142,11 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sd
 }
 
 func (c *client) NewForConfig(ctx context.Context, cfg Config) (AWS, liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	n := &client{
+		m: sync.Mutex{},
 		p: c.p,
 		x: c.x,
 		c: cfg,
@@ -166,7 +172,11 @@ func (c *client) NewForConfig(ctx context.Context, cfg Config) (AWS, liberr.Erro
 }
 
 func (c *client) Clone(ctx context.Context) (AWS, liberr.Error) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	n := &client{
+		m: sync.Mutex{},
 		p: c.p,
 		x: c.x,
 		c: c.c.Clone(),
@@ -192,6 +202,9 @@ func (c *client) Clone(ctx context.Context) (AWS, liberr.Error) {
 }
 
 func (c *client) ForcePathStyle(ctx context.Context, enabled bool) liberr.Error {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	c.p = enabled
 
 	if s, e := c._NewClientS3(ctx, nil); e != nil {
@@ -204,6 +217,9 @@ func (c *client) ForcePathStyle(ctx context.Context, enabled bool) liberr.Error 
 }
 
 func (c *client) ForceSignerOptions(ctx context.Context, fct ...func(signer *sdksv4.SignerOptions)) liberr.Error {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	c.o = fct
 
 	if i, e := c._NewClientIAM(ctx, nil); e != nil {
@@ -222,45 +238,99 @@ func (c *client) ForceSignerOptions(ctx context.Context, fct ...func(signer *sdk
 }
 
 func (c *client) Config() Config {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return c.c
 }
 
+func (c *client) HTTPCli() *http.Client {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	return c.h
+}
+
 func (c *client) Bucket() awsbck.Bucket {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return awsbck.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) Group() awsgrp.Group {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return awsgrp.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) Object() awsobj.Object {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return awsobj.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) Policy() awspol.Policy {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return awspol.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) Role() awsrol.Role {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return awsrol.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) User() awsusr.User {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return awsusr.New(c.x, c.c.GetBucketName(), c.c.GetRegion(), c.i, c.s)
 }
 
 func (c *client) GetBucketName() string {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return c.c.GetBucketName()
 }
 
 func (c *client) SetBucketName(bucket string) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	c.c.SetBucketName(bucket)
 }
 
 func (c *client) GetClientS3() *sdksss.Client {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return c.s
 }
 
+func (c *client) SetClientS3(aws *sdksss.Client) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.s = aws
+}
+
 func (c *client) GetClientIam() *sdkiam.Client {
+	c.m.Lock()
+	defer c.m.Unlock()
+
 	return c.i
+}
+
+func (c *client) SetClientIam(aws *sdkiam.Client) {
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	c.i = aws
 }

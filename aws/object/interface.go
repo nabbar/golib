@@ -81,8 +81,10 @@ type Object interface {
 	VersionSize(object, version string) (size int64, err liberr.Error)
 	VersionDelete(check bool, object, version string) liberr.Error
 
-	GetRetention(object, version string) (*sdktps.ObjectLockRetention, liberr.Error)
-	SetRetention(object, version string, retentionUntil time.Time) liberr.Error
+	GetRetention(object, version string) (until time.Time, mode string, err liberr.Error)
+	SetRetention(object, version string, bypass bool, until time.Time, mode string) liberr.Error
+	GetLegalHold(object, version string) (sdktps.ObjectLockLegalHoldStatus, liberr.Error)
+	SetLegalHold(object, version string, flag sdktps.ObjectLockLegalHoldStatus) liberr.Error
 
 	GetTags(object, version string) ([]sdktps.Tag, liberr.Error)
 	SetTags(object, version string, tags ...sdktps.Tag) liberr.Error
