@@ -175,10 +175,14 @@ func (c *client) Clone(ctx context.Context) (AWS, liberr.Error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
+	if ctx == nil {
+		ctx = c.x
+	}
+
 	n := &client{
 		m: sync.Mutex{},
 		p: c.p,
-		x: c.x,
+		x: ctx,
 		c: c.c.Clone(),
 		o: c.o,
 		i: nil,

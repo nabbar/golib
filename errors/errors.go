@@ -438,7 +438,9 @@ func (e *errors) GetErrorSlice() []error {
 	var r = []error{e.GetError()}
 
 	for _, v := range e.p {
-		r = append(r, v.GetError())
+		for _, s := range v.GetErrorSlice() {
+			r = append(r, s)
+		}
 	}
 
 	return r
