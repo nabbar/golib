@@ -29,6 +29,7 @@ package logger
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -216,7 +217,16 @@ func (e *Entry) Log() {
 	}
 
 	if len(e.Error) > 0 {
-		tag = tag.Add(FieldError, e.Error)
+		var msg = make([]string, 0)
+
+		for _, er := range e.Error {
+			if er == nil {
+				continue
+			}
+			msg = append(msg, er.Error())
+		}
+
+		tag = tag.Add(FieldError, strings.Join(msg, ", "))
 	}
 
 	if e.Data != nil {

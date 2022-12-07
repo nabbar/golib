@@ -144,6 +144,9 @@ func (l *_hclog) SetLevel(level hclog.Level) {
 	case hclog.NoLevel, hclog.Off:
 		l.l.SetLevel(NilLevel)
 	case hclog.Trace:
+		opt := l.l.GetOptions()
+		opt.EnableTrace = true
+		_ = l.l.SetOptions(opt)
 		l.l.SetLevel(DebugLevel)
 	case hclog.Debug:
 		l.l.SetLevel(DebugLevel)
@@ -153,6 +156,28 @@ func (l *_hclog) SetLevel(level hclog.Level) {
 		l.l.SetLevel(WarnLevel)
 	case hclog.Error:
 		l.l.SetLevel(ErrorLevel)
+	}
+}
+
+func (l *_hclog) GetLevel() hclog.Level {
+	switch l.l.GetLevel() {
+	case NilLevel:
+		return hclog.NoLevel
+	case DebugLevel:
+		opt := l.l.GetOptions()
+		if opt.EnableTrace {
+			return hclog.Trace
+		} else {
+			return hclog.Debug
+		}
+	case InfoLevel:
+		return hclog.Info
+	case WarnLevel:
+		return hclog.Warn
+	case ErrorLevel:
+		return hclog.Error
+	default:
+		return hclog.Off
 	}
 }
 
