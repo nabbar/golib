@@ -30,25 +30,30 @@ import (
 	"sync"
 
 	libcfg "github.com/nabbar/golib/config"
+	cfgtps "github.com/nabbar/golib/config/types"
+	libctx "github.com/nabbar/golib/context"
 	lbldap "github.com/nabbar/golib/ldap"
-)
-
-const (
-	ComponentType = "LDAP"
 )
 
 // @TODO: refactor LDAP Package
 
 type ComponentLDAP interface {
-	libcfg.Component
+	cfgtps.Component
 
-	Config() *lbldap.Config
-	LDAP() *lbldap.HelperLDAP
+	SetAttributes(att []string)
+
+	GetConfig() *lbldap.Config
+	SetConfig(opt *lbldap.Config)
+
+	GetLDAP() *lbldap.HelperLDAP
+	SetLDAP(l *lbldap.HelperLDAP)
 }
 
-func New() ComponentLDAP {
+func New(ctx libctx.FuncContext) ComponentLDAP {
 	return &componentLDAP{
-		m: sync.Mutex{},
+		m: sync.RWMutex{},
+		x: libctx.NewConfig[uint8](ctx),
+		c: nil,
 		l: nil,
 	}
 }
@@ -57,11 +62,11 @@ func Register(cfg libcfg.Config, key string, cpt ComponentLDAP) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, key string) {
-	cfg.ComponentSet(key, New())
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+	cfg.ComponentSet(key, New(ctx))
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentLDAP {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentLDAP {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentLDAP); !ok {

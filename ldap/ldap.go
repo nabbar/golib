@@ -39,7 +39,7 @@ import (
 	liblog "github.com/nabbar/golib/logger"
 )
 
-type FuncLogger func() liblog.Logger
+type FuncLogger liblog.FuncLog
 
 // HelperLDAP struct use to manage connection to server and request it.
 type HelperLDAP struct {
@@ -51,7 +51,7 @@ type HelperLDAP struct {
 	bindDN     string
 	bindPass   string
 	ctx        context.Context
-	log        FuncLogger
+	log        liblog.FuncLog
 }
 
 // NewLDAP build a new LDAP helper based on config struct given.
@@ -71,7 +71,7 @@ func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP
 }
 
 // SetLogger is used to specify the logger to be used for debug messgae
-func (lc *HelperLDAP) SetLogger(fct FuncLogger) {
+func (lc *HelperLDAP) SetLogger(fct liblog.FuncLog) {
 	lc.log = fct
 }
 

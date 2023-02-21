@@ -31,20 +31,21 @@ import (
 	"io"
 	"os"
 	"sync"
-	"time"
+	"sync/atomic"
 
-	"github.com/gin-gonic/gin"
-
+	ginsdk "github.com/gin-gonic/gin"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	libiot "github.com/nabbar/golib/ioutils"
 	liblog "github.com/nabbar/golib/logger"
+	montps "github.com/nabbar/golib/monitor/types"
 	librtr "github.com/nabbar/golib/router"
-	libsts "github.com/nabbar/golib/status"
+	libver "github.com/nabbar/golib/version"
 )
 
 type Static interface {
-	RegisterRouter(route string, register librtr.RegisterRouter, router ...gin.HandlerFunc)
-	RegisterRouterInGroup(route, group string, register librtr.RegisterRouterInGroup, router ...gin.HandlerFunc)
+	RegisterRouter(route string, register librtr.RegisterRouter, router ...ginsdk.HandlerFunc)
+	RegisterRouterInGroup(route, group string, register librtr.RegisterRouterInGroup, router ...ginsdk.HandlerFunc)
 
 	RegisterLogger(log func() liblog.Logger)
 
@@ -53,8 +54,8 @@ type Static interface {
 	GetIndex(group, route string) string
 	SetRedirect(srcGroup, srcRoute, dstGroup, dstRoute string)
 	GetRedirect(srcGroup, srcRoute string) string
-	SetSpecific(group, route string, router gin.HandlerFunc)
-	GetSpecific(group, route string) gin.HandlerFunc
+	SetSpecific(group, route string, router ginsdk.HandlerFunc)
+	GetSpecific(group, route string) ginsdk.HandlerFunc
 
 	IsDownload(pathFile string) bool
 	IsIndex(pathFile string) bool
@@ -70,24 +71,22 @@ type Static interface {
 	Map(func(pathFile string, inf os.FileInfo) error) liberr.Error
 	UseTempForFileSize(size int64)
 
-	StatusInfo() (name string, release string, hash string)
-	StatusHealth() error
-	StatusComponent(mandatory bool, message libsts.FctMessage, infoCacheTimeout, healthCacheTimeout time.Duration, sts libsts.RouteStatus)
+	Monitor(ctx libctx.FuncContext, cfg montps.Config, vrs libver.Version) (montps.Monitor, error)
 
-	Get(c *gin.Context)
-	SendFile(c *gin.Context, filename string, size int64, isDownload bool, buf io.ReadCloser)
+	Get(c *ginsdk.Context)
+	SendFile(c *ginsdk.Context, filename string, size int64, isDownload bool, buf io.ReadCloser)
 }
 
-func New(content embed.FS, embedRootDir ...string) Static {
+func New(ctx libctx.FuncContext, content embed.FS, embedRootDir ...string) Static {
 	return &staticHandler{
-		m: sync.Mutex{},
+		m: sync.RWMutex{},
 		l: nil,
 		c: content,
 		b: embedRootDir,
 		z: 0,
-		i: nil,
-		d: nil,
-		f: nil,
-		r: nil,
+		i: libctx.NewConfig[string](ctx),
+		d: libctx.NewConfig[string](ctx),
+		f: libctx.NewConfig[string](ctx),
+		r: new(atomic.Value),
 	}
 }

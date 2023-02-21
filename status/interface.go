@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,51 +21,59 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
 package status
 
 import (
-	"net/http"
+	"context"
 	"sync"
-	"sync/atomic"
 
-	librtr "github.com/nabbar/golib/router"
+	liberr "github.com/nabbar/golib/errors"
 
-	"github.com/gin-gonic/gin"
+	montps "github.com/nabbar/golib/monitor/types"
+
+	libctx "github.com/nabbar/golib/context"
+
 	libver "github.com/nabbar/golib/version"
+
+	ginsdk "github.com/gin-gonic/gin"
 )
 
-type RouteStatus interface {
-	MiddlewareAdd(mdw ...gin.HandlerFunc)
-	HttpStatusCode(codeOk, codeKO, codeWarning int)
-
-	Get(c *gin.Context)
-	Register(prefix string, register librtr.RegisterRouter)
-	RegisterGroup(group, prefix string, register librtr.RegisterRouterInGroup)
-
-	ComponentNew(key string, cpt Component)
-	ComponentDel(key string)
-	ComponentDelAll(containKey string)
+type Route interface {
+	Expose(ctx context.Context)
+	MiddleWare(c *ginsdk.Context)
+	SetErrorReturn(f func() liberr.ReturnGin)
 }
 
-func New(Name string, Release string, Hash string, msgOk string, msgKo string, msgWarm string) RouteStatus {
-	return &rtrStatus{
-		m:   sync.Mutex{},
-		f:   make([]gin.HandlerFunc, 0),
-		n:   Name,
-		v:   Release,
-		h:   Hash,
-		mOK: msgOk,
-		cOk: http.StatusOK,
-		mKO: msgKo,
-		cKO: http.StatusServiceUnavailable,
-		mWM: msgWarm,
-		cWM: http.StatusOK,
-		c:   make(map[string]*atomic.Value),
+type Info interface {
+	SetInfo(name, release, hash string)
+	SetVersion(vers libver.Version)
+}
+
+type Pool interface {
+	montps.Pool
+	RegisterPool(fct montps.FuncPool)
+}
+
+type Status interface {
+	Route
+	Info
+	Pool
+
+	SetConfig(cfg Config)
+	IsHealthy(name ...string) bool
+}
+
+func New(ctx libctx.FuncContext) Status {
+	return &sts{
+		m:  sync.RWMutex{},
+		p:  nil,
+		x:  libctx.NewConfig[string](ctx),
+		fn: nil,
+		fr: nil,
+		fh: nil,
+		fd: nil,
 	}
-}
-
-func NewVersion(version libver.Version, msgOk string, msgKO string, msgWarm string) RouteStatus {
-	return New(version.GetPackage(), version.GetRelease(), version.GetBuild(), msgOk, msgKO, msgWarm)
 }

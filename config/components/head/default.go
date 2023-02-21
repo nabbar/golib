@@ -30,9 +30,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	libcfg "github.com/nabbar/golib/config"
-	spfcbr "github.com/spf13/cobra"
-	spfvbr "github.com/spf13/viper"
+	cfgcst "github.com/nabbar/golib/config/const"
 )
 
 var _defaultConfig = []byte(`{
@@ -51,17 +49,13 @@ func SetDefaultConfig(cfg []byte) {
 
 func DefaultConfig(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+	if err := json.Indent(res, _defaultConfig, indent, cfgcst.JSONIndent); err != nil {
 		return _defaultConfig
 	} else {
 		return res.Bytes()
 	}
 }
 
-func (c *componentHead) DefaultConfig(indent string) []byte {
+func (o *componentHead) DefaultConfig(indent string) []byte {
 	return DefaultConfig(indent)
-}
-
-func (c *componentHead) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
-	return nil
 }

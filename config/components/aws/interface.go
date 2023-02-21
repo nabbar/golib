@@ -31,32 +31,36 @@ import (
 	"sync"
 
 	libaws "github.com/nabbar/golib/aws"
+	libtls "github.com/nabbar/golib/certificates"
 	libcfg "github.com/nabbar/golib/config"
+	cfgtps "github.com/nabbar/golib/config/types"
 	liberr "github.com/nabbar/golib/errors"
 )
 
-const (
-	ComponentType = "aws"
-)
+type ComponentAwsClient interface {
+	cfgtps.Component
+	RegisterHTTPClient(fct func() *http.Client)
+}
+
+type ComponentAwsAPI interface {
+	cfgtps.Component
+	RegisterTLS(fct libtls.FctTLSDefault)
+}
 
 type ComponentAws interface {
-	libcfg.Component
-	RegisterHTTPClient(fct func() *http.Client)
+	ComponentAwsClient
+	ComponentAwsAPI
+
 	GetAws() (libaws.AWS, liberr.Error)
 	SetAws(a libaws.AWS)
 }
 
 func New(drv ConfigDriver) ComponentAws {
 	return &componentAws{
-		ctx: nil,
-		get: nil,
-		fsa: nil,
-		fsb: nil,
-		fra: nil,
-		frb: nil,
-		m:   sync.Mutex{},
-		d:   drv,
-		a:   nil,
+		m: sync.RWMutex{},
+		x: nil,
+		d: drv,
+		a: nil,
 	}
 }
 
@@ -68,7 +72,7 @@ func RegisterNew(cfg libcfg.Config, drv ConfigDriver, key string) {
 	cfg.ComponentSet(key, New(drv))
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentAws {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentAws {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentAws); !ok {

@@ -32,15 +32,16 @@ import (
 	"sync/atomic"
 	"time"
 
-	libcfg "github.com/nabbar/golib/config"
-	liblog "github.com/nabbar/golib/logger"
-	gorlog "gorm.io/gorm/logger"
-
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-
-	libsts "github.com/nabbar/golib/status"
+	liblog "github.com/nabbar/golib/logger"
+	montps "github.com/nabbar/golib/monitor/types"
+	libver "github.com/nabbar/golib/version"
 	gormdb "gorm.io/gorm"
+	gorlog "gorm.io/gorm/logger"
 )
+
+type FuncGormLog func() gorlog.Interface
 
 type Database interface {
 	GetDB() *gormdb.DB
@@ -51,13 +52,11 @@ type Database interface {
 	CheckConn() liberr.Error
 	Config() *gormdb.Config
 
-	RegisterContext(fct libcfg.FuncContext)
+	RegisterContext(fct libctx.FuncContext)
 	RegisterLogger(fct func() liblog.Logger, ignoreRecordNotFoundError bool, slowThreshold time.Duration)
 	RegisterGORMLogger(fct func() gorlog.Interface)
 
-	StatusInfo() (name string, release string, hash string)
-	StatusHealth() error
-	StatusRouter(sts libsts.RouteStatus, prefix string) liberr.Error
+	Monitor(vrs libver.Version) (montps.Monitor, error)
 }
 
 func New(cfg *Config) (Database, liberr.Error) {

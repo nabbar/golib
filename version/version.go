@@ -34,13 +34,13 @@ import (
 	"time"
 
 	govers "github.com/hashicorp/go-version"
-	. "github.com/nabbar/golib/errors"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 type versionModel struct {
 	versionRelease     string
 	versionBuild       string
-	versionDate        string
+	versionTime        time.Time
 	versionPackage     string
 	versionDescription string
 	versionAuthor      string
@@ -50,12 +50,13 @@ type versionModel struct {
 }
 
 type Version interface {
-	CheckGo(RequireGoVersion, RequireGoContraint string) Error
+	CheckGo(RequireGoVersion, RequireGoContraint string) liberr.Error
 
 	GetAppId() string
 	GetAuthor() string
 	GetBuild() string
 	GetDate() string
+	GetTime() time.Time
 	GetDescription() string
 	GetHeader() string
 	GetInfo() string
@@ -87,10 +88,17 @@ func NewVersion(License license, Package, Description, Date, Build, Release, Aut
 		Package = filepath.Base(Source)
 	}
 
+	var timeBuild time.Time
+	if ts, err := time.Parse(time.RFC3339, Date); err != nil {
+		timeBuild = time.Now()
+	} else {
+		timeBuild = ts
+	}
+
 	return &versionModel{
 		versionRelease:     Release,
 		versionBuild:       Build,
-		versionDate:        Date,
+		versionTime:        timeBuild,
 		versionPackage:     Package,
 		versionDescription: Description,
 		versionAuthor:      Author,
@@ -100,7 +108,7 @@ func NewVersion(License license, Package, Description, Date, Build, Release, Aut
 	}
 }
 
-func (vers versionModel) CheckGo(RequireGoVersion, RequireGoContraint string) Error {
+func (v versionModel) CheckGo(RequireGoVersion, RequireGoContraint string) liberr.Error {
 	constraint, err := govers.NewConstraint(RequireGoContraint + RequireGoVersion)
 	if err != nil {
 		return ErrorGoVersionInit.ErrorParent(err)
@@ -119,88 +127,77 @@ func (vers versionModel) CheckGo(RequireGoVersion, RequireGoContraint string) Er
 	return nil
 }
 
-func (vers versionModel) getYearOfDate() string {
-	dt, err := time.Parse(time.RFC3339, vers.versionDate)
-
-	if err != nil {
-		dt = time.Now()
-	}
-
-	return fmt.Sprintf("%d", dt.Year())
+func (v versionModel) getYearOfDate() string {
+	return fmt.Sprintf("%d", v.versionTime.Year())
 }
 
 // Info print all information about current build and version.
-func (vers versionModel) PrintInfo() {
-	println(fmt.Sprintf("Running %s", vers.GetHeader()))
+func (v versionModel) PrintInfo() {
+	println(fmt.Sprintf("Running %s", v.GetHeader()))
 }
 
 // GetInfo return string about current build and version.
-func (vers versionModel) GetInfo() string {
-	return fmt.Sprintf("Release: %s, Build: %s, Date: %s", vers.versionRelease, vers.versionBuild, vers.versionDate)
+func (v versionModel) GetInfo() string {
+	return fmt.Sprintf("Release: %s, Build: %s, Date: %s", v.versionRelease, v.versionBuild, v.GetDate())
 }
 
 // GetAppId return string about package name, release and runtime info.
-func (vers versionModel) GetAppId() string {
-	return fmt.Sprintf("%s (OS: %s; Arch: %s; Runtime: %s)", vers.versionRelease, runtime.GOOS, runtime.GOARCH, runtime.Version()[2:])
+func (v versionModel) GetAppId() string {
+	return fmt.Sprintf("%s (OS: %s; Arch: %s; Runtime: %s)", v.versionRelease, runtime.GOOS, runtime.GOARCH, runtime.Version()[2:])
 }
 
 // GetAuthor return string about author name and repository info.
-func (vers versionModel) GetAuthor() string {
-	return fmt.Sprintf("by %s (source : %s)", vers.versionAuthor, vers.versionSource)
+func (v versionModel) GetAuthor() string {
+	return fmt.Sprintf("by %s (source : %s)", v.versionAuthor, v.versionSource)
 }
 
-func (vers versionModel) GetDescription() string {
-	return vers.versionDescription
+func (v versionModel) GetDescription() string {
+	return v.versionDescription
 }
 
 // GetAuthor return string about author name and repository info.
-func (vers versionModel) GetHeader() string {
-	return fmt.Sprintf("%s (%s)", vers.versionPackage, vers.GetInfo())
+func (v versionModel) GetHeader() string {
+	return fmt.Sprintf("%s (%s)", v.versionPackage, v.GetInfo())
 }
 
-func (vers versionModel) GetDate() string {
-	var (
-		err error
-		ts  time.Time
-	)
-
-	if ts, err = time.Parse(time.RFC3339, vers.versionDate); err != nil {
-		ts = time.Time{}
-	}
-
-	return ts.Format(time.RFC1123)
+func (v versionModel) GetDate() string {
+	return v.versionTime.Format(time.RFC1123)
 }
 
-func (vers versionModel) GetBuild() string {
-	return vers.versionBuild
+func (v versionModel) GetTime() time.Time {
+	return v.versionTime
 }
 
-func (vers versionModel) GetPackage() string {
-	return vers.versionPackage
+func (v versionModel) GetBuild() string {
+	return v.versionBuild
 }
 
-func (vers versionModel) GetRootPackagePath() string {
-	return vers.versionSource
+func (v versionModel) GetPackage() string {
+	return v.versionPackage
 }
 
-func (vers versionModel) GetPrefix() string {
-	return strings.ToUpper(vers.versionPrefix)
+func (v versionModel) GetRootPackagePath() string {
+	return v.versionSource
 }
 
-func (vers versionModel) GetRelease() string {
-	return vers.versionRelease
+func (v versionModel) GetPrefix() string {
+	return strings.ToUpper(v.versionPrefix)
 }
 
-func (vers versionModel) GetLicenseName() string {
-	return vers.licenceType.GetLicenseName()
+func (v versionModel) GetRelease() string {
+	return v.versionRelease
 }
 
-func (vers versionModel) GetLicenseLegal(addMoreLicence ...license) string {
+func (v versionModel) GetLicenseName() string {
+	return v.licenceType.GetLicenseName()
+}
+
+func (v versionModel) GetLicenseLegal(addMoreLicence ...license) string {
 	if len(addMoreLicence) == 0 {
-		return vers.licenceType.GetLicense()
+		return v.licenceType.GetLicense()
 	}
 
-	buff := bytes.NewBufferString(vers.licenceType.GetLicense())
+	buff := bytes.NewBufferString(v.licenceType.GetLicense())
 
 	for _, l := range addMoreLicence {
 		//nolint #nosec
@@ -223,8 +220,8 @@ func (vers versionModel) GetLicenseLegal(addMoreLicence ...license) string {
 	return buff.String()
 }
 
-func (vers versionModel) GetLicenseFull(addMoreLicence ...license) string {
-	buff := bytes.NewBufferString(vers.GetLicenseBoiler(addMoreLicence...))
+func (v versionModel) GetLicenseFull(addMoreLicence ...license) string {
+	buff := bytes.NewBufferString(v.GetLicenseBoiler(addMoreLicence...))
 
 	//nolint #nosec
 	/* #nosec */
@@ -240,18 +237,18 @@ func (vers versionModel) GetLicenseFull(addMoreLicence ...license) string {
 	_, _ = buff.WriteString("\n\n")
 	//nolint #nosec
 	/* #nosec */
-	_, _ = buff.WriteString(vers.GetLicenseLegal(addMoreLicence...))
+	_, _ = buff.WriteString(v.GetLicenseLegal(addMoreLicence...))
 
 	return buff.String()
 }
 
-func (vers versionModel) GetLicenseBoiler(addMoreLicence ...license) string {
+func (v versionModel) GetLicenseBoiler(addMoreLicence ...license) string {
 	if len(addMoreLicence) == 0 {
-		return vers.licenceType.GetBoilerPlate(vers.versionPackage, vers.versionDescription, vers.getYearOfDate(), vers.versionAuthor)
+		return v.licenceType.GetBoilerPlate(v.versionPackage, v.versionDescription, v.getYearOfDate(), v.versionAuthor)
 	}
 
-	year := vers.getYearOfDate()
-	buff := bytes.NewBufferString(vers.licenceType.GetBoilerPlate(vers.versionPackage, vers.versionDescription, year, vers.versionAuthor))
+	year := v.getYearOfDate()
+	buff := bytes.NewBufferString(v.licenceType.GetBoilerPlate(v.versionPackage, v.versionDescription, year, v.versionAuthor))
 
 	for _, l := range addMoreLicence {
 		//nolint #nosec
@@ -259,12 +256,12 @@ func (vers versionModel) GetLicenseBoiler(addMoreLicence ...license) string {
 		_, _ = buff.WriteString("\n\n")
 		//nolint #nosec
 		/* #nosec */
-		_, _ = buff.WriteString(l.GetBoilerPlate(vers.versionPackage, vers.versionDescription, year, vers.versionAuthor))
+		_, _ = buff.WriteString(l.GetBoilerPlate(v.versionPackage, v.versionDescription, year, v.versionAuthor))
 	}
 
 	return buff.String()
 }
 
-func (vers versionModel) PrintLicense(addMoreLicence ...license) {
-	println(vers.GetLicenseBoiler(addMoreLicence...))
+func (v versionModel) PrintLicense(addMoreLicence ...license) {
+	println(v.GetLicenseBoiler(addMoreLicence...))
 }

@@ -27,58 +27,52 @@
 
 package logger
 
-import "sync/atomic"
+import "fmt"
 
-func (l *logger) Close() error {
-	l.m.Lock()
-	defer func() {
-		l.m.Unlock()
-		l.cancelCall()
-	}()
+func (o *logger) Close() error {
+	if o == nil {
+		return fmt.Errorf("not initialized")
+	} else if o.c == nil {
+		return fmt.Errorf("not initialized")
+	}
 
-	_ = l.c.Close()
-	l.c = _NewCloser()
+	_ = o.c.Close()
+	o.c.Clean()
 
 	return nil
 }
 
-func (l *logger) Write(p []byte) (n int, err error) {
-	l.newEntry(l.GetIOWriterLevel(), string(p), nil, l.GetFields(), nil).Log()
-	return len(p), nil
-}
-
-func (l *logger) SetIOWriterLevel(lvl Level) {
-	if l == nil {
+func (o *logger) Write(p []byte) (n int, err error) {
+	if o == nil {
+		return
+	} else if o.x == nil {
 		return
 	}
 
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.w == nil {
-		l.w = new(atomic.Value)
-	}
-
-	l.w.Store(lvl)
+	o.newEntry(o.GetIOWriterLevel(), string(p), nil, o.GetFields(), nil).Log()
+	return len(p), nil
 }
 
-func (l *logger) GetIOWriterLevel() Level {
-	if l == nil {
+func (o *logger) SetIOWriterLevel(lvl Level) {
+	if o == nil {
+		return
+	} else if o.x == nil {
+		return
+	}
+
+	o.x.Store(keyWriter, lvl)
+}
+
+func (o *logger) GetIOWriterLevel() Level {
+	if o == nil {
 		return NilLevel
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.w == nil {
-		l.w = new(atomic.Value)
-	}
-
-	if i := l.w.Load(); i == nil {
+	} else if o.x == nil {
 		return NilLevel
-	} else if o, ok := i.(Level); ok {
-		return o
+	} else if i, l := o.x.Load(keyWriter); !l {
+		return NilLevel
+	} else if v, k := i.(Level); !k {
+		return NilLevel
+	} else {
+		return v
 	}
-
-	return NilLevel
 }

@@ -39,6 +39,8 @@ const (
 	ErrorComponentNotInitialized
 	ErrorConfigInvalid
 	ErrorDependencyTLSDefault
+	ErrorComponentStart
+	ErrorComponentReload
 )
 
 func init() {
@@ -60,6 +62,10 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "server invalid config"
 	case ErrorDependencyTLSDefault:
 		return "cannot retrieve TLS component"
+	case ErrorComponentStart:
+		return "cannot start component with config"
+	case ErrorComponentReload:
+		return "cannot restart component with new config"
 	}
 
 	return liberr.NullMessage

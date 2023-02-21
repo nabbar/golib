@@ -38,7 +38,7 @@ import (
 var defaultLogger Logger
 
 func init() {
-	defaultLogger = New(context.Background())
+	defaultLogger = New(context.Background)
 	defaultLogger.SetLevel(InfoLevel)
 }
 

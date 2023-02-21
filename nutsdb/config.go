@@ -33,18 +33,19 @@ package nutsdb
 import (
 	"fmt"
 
+	moncfg "github.com/nabbar/golib/monitor/types"
+
 	libval "github.com/go-playground/validator/v10"
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status/config"
 	"github.com/xujiajun/nutsdb"
 )
 
 type Config struct {
-	DB        NutsDBOptions       `mapstructure:"db" json:"db" yaml:"db" toml:"db" validate:"dive"`
-	Cluster   libclu.Config       `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive"`
-	Directory NutsDBFolder        `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" validate:"dive"`
-	Status    libsts.ConfigStatus `mapstructure:"status" json:"status" yaml:"status" toml:"status" validate:"dive"`
+	DB        NutsDBOptions `mapstructure:"db" json:"db" yaml:"db" toml:"db" validate:"dive"`
+	Cluster   libclu.Config `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive"`
+	Directory NutsDBFolder  `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" validate:"dive"`
+	Monitor   moncfg.Config `mapstructure:"monitor" json:"monitor" yaml:"monitor" toml:"monitor" validate:"dive"`
 }
 
 func (c Config) GetConfigFolder() NutsDBFolder {

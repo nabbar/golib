@@ -29,9 +29,13 @@ package certificates
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"net/http"
 
 	liberr "github.com/nabbar/golib/errors"
 )
+
+type FctHttpClient func(def TLSConfig, servername string) *http.Client
+type FctTLSDefault func() TLSConfig
 
 type TLSConfig interface {
 	AddRootCAString(rootCA string) bool

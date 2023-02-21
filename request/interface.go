@@ -28,21 +28,23 @@ package request
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
 	"net/url"
 	"sync"
 
+	liblog "github.com/nabbar/golib/logger"
+
+	montps "github.com/nabbar/golib/monitor/types"
+
 	libtls "github.com/nabbar/golib/certificates"
-	libcfg "github.com/nabbar/golib/config"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status"
+	libver "github.com/nabbar/golib/version"
 )
 
-type FctHttpClient func(def libtls.TLSConfig, servername string) *http.Client
-type FctTLSDefault func() libtls.TLSConfig
-
-type RequestError interface {
+type Error interface {
 	StatusCode() int
 	Status() string
 	Body() *bytes.Buffer
@@ -55,15 +57,7 @@ type RequestError interface {
 	ParseBody(i interface{}) bool
 }
 
-type Request interface {
-	Clone() (Request, error)
-	New() (Request, error)
-
-	GetOption() *Options
-	SetOption(opt *Options) error
-	SetClient(fct FctHttpClient)
-	SetContext(fct libcfg.FuncContext)
-
+type Url interface {
 	SetEndpoint(u string) error
 	GetEndpoint() string
 
@@ -80,30 +74,52 @@ type Request interface {
 
 	GetFullUrl() *url.URL
 	SetFullUrl(u *url.URL)
+}
 
+type Authorization interface {
 	AuthBearer(token string)
 	AuthBasic(user, pass string)
-	ContentType(content string)
+}
 
-	CleanHeader()
-	DelHeader(key string)
+type Header interface {
 	SetHeader(key, value string)
 	AddHeader(key, value string)
+	DelHeader(key string)
 
+	CleanHeader()
+	ContentType(mime string)
+}
+
+type Body interface {
 	BodyJson(body interface{}) error
 	BodyReader(body io.Reader, contentType string)
+}
 
-	Error() RequestError
+type Request interface {
+	Url
+	Authorization
+	Header
+	Body
+
+	Clone() (Request, error)
+	New() (Request, error)
+
+	GetOption() *Options
+	SetOption(opt *Options) error
+	RegisterHTTPClient(fct libtls.FctHttpClient)
+	RegisterDefaultLogger(fct liblog.FuncLog)
+	RegisterContext(fct libctx.FuncContext)
+
+	Error() Error
 	IsError() bool
 
 	Do() (*http.Response, liberr.Error)
 	DoParse(model interface{}, validStatus ...int) liberr.Error
 
-	StatusRegister(sts libsts.RouteStatus, prefix string)
-	StatusRegisterInfo(fct libsts.FctInfo)
+	Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error)
 }
 
-func New(ctx libcfg.FuncContext, cli FctHttpClient, opt Options) (Request, error) {
+func New(ctx libctx.FuncContext, opt *Options) (Request, error) {
 	r := &request{
 		s: sync.Mutex{},
 		o: nil,
@@ -117,9 +133,7 @@ func New(ctx libcfg.FuncContext, cli FctHttpClient, opt Options) (Request, error
 		e: nil,
 	}
 
-	r.SetClient(cli)
-
-	if e := r.SetOption(&opt); e != nil {
+	if e := r.SetOption(opt); e != nil {
 		return nil, e
 	} else {
 		return r, nil

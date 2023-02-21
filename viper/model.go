@@ -29,8 +29,10 @@ package viper
 import (
 	"fmt"
 	"io"
+	"sync/atomic"
 
 	libhom "github.com/mitchellh/go-homedir"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	spfvpr "github.com/spf13/viper"
 )
@@ -50,6 +52,8 @@ type viperRemote struct {
 
 type viper struct {
 	v *spfvpr.Viper
+	i *atomic.Uint32
+	h libctx.Config[uint8]
 
 	base string
 	prfx string

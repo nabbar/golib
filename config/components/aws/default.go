@@ -30,14 +30,9 @@ import (
 	"bytes"
 	"encoding/json"
 
-	libaws "github.com/nabbar/golib/aws"
-	cfgstd "github.com/nabbar/golib/aws/configAws"
-	cfgcus "github.com/nabbar/golib/aws/configCustom"
-	libcfg "github.com/nabbar/golib/config"
-	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status/config"
-	spfcbr "github.com/spf13/cobra"
-	spfvbr "github.com/spf13/viper"
+	cfgcst "github.com/nabbar/golib/config/const"
+	libhtc "github.com/nabbar/golib/httpcli"
+	montps "github.com/nabbar/golib/monitor/types"
 )
 
 var _defaultConfigStandard = []byte(`{
@@ -49,12 +44,9 @@ var _defaultConfigStandard = []byte(`{
 }`)
 
 var _defaultConfigStandardWithStatus = []byte(`{
-  "bucket": "",
-  "accesskey": "",
-  "secretkey": "",
-  "region": "",
-  "endpoint": "",
-  "status":` + string(libsts.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `
+  "config":` + string(DefaultConfigStandard(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
+  "http-client":` + string(libhtc.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
+  "monitor":` + string(montps.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `
 }`)
 
 var _defaultConfigCustom = []byte(`{
@@ -66,12 +58,9 @@ var _defaultConfigCustom = []byte(`{
 }`)
 
 var _defaultConfigCustomWithStatus = []byte(`{
-  "bucket": "",
-  "accesskey": "",
-  "secretkey": "",
-  "region": "",
-  "endpoint": "",
-  "status":` + string(libsts.DefaultConfig(libcfg.JSONIndent+libcfg.JSONIndent)) + `
+  "config":` + string(DefaultConfigCustom(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
+  "http-client":` + string(libhtc.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
+  "monitor":` + string(montps.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `
 }`)
 
 var _defaultConfig = _defaultConfigCustom
@@ -96,145 +85,51 @@ func SetDefaultConfigCustom(withStatus bool) {
 	}
 }
 
-func DefaultConfig(indent string) []byte {
+func DefaultConfigStandard(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+	if err := json.Indent(res, _defaultConfigStandard, indent, cfgcst.JSONIndent); err != nil {
 		return _defaultConfig
 	} else {
 		return res.Bytes()
 	}
 }
 
-func (c *componentAws) DefaultConfig(indent string) []byte {
+func DefaultConfigStandardStatus(indent string) []byte {
+	var res = bytes.NewBuffer(make([]byte, 0))
+	if err := json.Indent(res, _defaultConfigStandardWithStatus, indent, cfgcst.JSONIndent); err != nil {
+		return _defaultConfig
+	} else {
+		return res.Bytes()
+	}
+}
+
+func DefaultConfigCustom(indent string) []byte {
+	var res = bytes.NewBuffer(make([]byte, 0))
+	if err := json.Indent(res, _defaultConfigCustom, indent, cfgcst.JSONIndent); err != nil {
+		return _defaultConfig
+	} else {
+		return res.Bytes()
+	}
+}
+
+func DefaultConfigCustomStatus(indent string) []byte {
+	var res = bytes.NewBuffer(make([]byte, 0))
+	if err := json.Indent(res, _defaultConfigCustomWithStatus, indent, cfgcst.JSONIndent); err != nil {
+		return _defaultConfig
+	} else {
+		return res.Bytes()
+	}
+}
+
+func DefaultConfig(indent string) []byte {
+	var res = bytes.NewBuffer(make([]byte, 0))
+	if err := json.Indent(res, _defaultConfig, indent, cfgcst.JSONIndent); err != nil {
+		return _defaultConfig
+	} else {
+		return res.Bytes()
+	}
+}
+
+func (o *componentAws) DefaultConfig(indent string) []byte {
 	return DefaultConfig(indent)
-}
-
-func (c *componentAws) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
-	_ = Command.PersistentFlags().String(c.key+".access-key", "", "AWS Access Key")
-	_ = Command.PersistentFlags().String(c.key+".secret-key", "", "AWS Secret Key")
-	_ = Command.PersistentFlags().String(c.key+".bucket", "", "Bucket to use")
-	_ = Command.PersistentFlags().String(c.key+".region", "", "Region for bucket")
-	_ = Command.PersistentFlags().String(c.key+".endpoint", "", "Endpoint if necessary for the region")
-
-	if err := Viper.BindPFlag(c.key+".access-key", Command.PersistentFlags().Lookup(c.key+".access-key")); err != nil {
-		return err
-	} else if err = Viper.BindPFlag(c.key+".secret-key", Command.PersistentFlags().Lookup(c.key+".secret-key")); err != nil {
-		return err
-	} else if err = Viper.BindPFlag(c.key+".bucket", Command.PersistentFlags().Lookup(c.key+".bucket")); err != nil {
-		return err
-	} else if err = Viper.BindPFlag(c.key+".region", Command.PersistentFlags().Lookup(c.key+".region")); err != nil {
-		return err
-	} else if err = Viper.BindPFlag(c.key+".endpoint", Command.PersistentFlags().Lookup(c.key+".endpoint")); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *componentAws) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libaws.Config, *libsts.ConfigStatus, liberr.Error) {
-	var (
-		vpr = c.vpr()
-		cfg libaws.Config
-		sts *libsts.ConfigStatus
-		err liberr.Error
-	)
-
-	switch c.d {
-	case ConfigCustomStatus:
-		cnf := cfgcus.ModelStatus{}
-		if e := getCfg(c.key, &cnf); e != nil {
-			return nil, nil, ErrorParamInvalid.Error(e)
-		}
-		if s := vpr.GetString(c.key + ".access-key"); s != "" {
-			cnf.Config.AccessKey = s
-		}
-		if s := vpr.GetString(c.key + ".secret-key"); s != "" {
-			cnf.Config.SecretKey = s
-		}
-		if s := vpr.GetString(c.key + ".bucket"); s != "" {
-			cnf.Config.Bucket = s
-		}
-		if s := vpr.GetString(c.key + ".region"); s != "" {
-			cnf.Config.Region = s
-		}
-		if s := vpr.GetString(c.key + ".endpoint"); s != "" {
-			cnf.Config.Endpoint = s
-		}
-		if cfg, err = c.d.NewFromModel(cnf); err != nil {
-			return nil, nil, err
-		} else {
-			sts = &cnf.Status
-		}
-	case ConfigCustom:
-		cnf := cfgcus.Model{}
-		if e := getCfg(c.key, &cnf); e != nil {
-			return nil, nil, ErrorParamInvalid.Error(e)
-		}
-		if s := vpr.GetString(c.key + ".access-key"); s != "" {
-			cnf.AccessKey = s
-		}
-		if s := vpr.GetString(c.key + ".secret-key"); s != "" {
-			cnf.SecretKey = s
-		}
-		if s := vpr.GetString(c.key + ".bucket"); s != "" {
-			cnf.Bucket = s
-		}
-		if s := vpr.GetString(c.key + ".region"); s != "" {
-			cnf.Region = s
-		}
-		if s := vpr.GetString(c.key + ".endpoint"); s != "" {
-			cnf.Endpoint = s
-		}
-		if cfg, err = c.d.NewFromModel(cnf); err != nil {
-			return nil, nil, err
-		}
-	case ConfigStandardStatus:
-		cnf := cfgstd.ModelStatus{}
-		if e := getCfg(c.key, &cnf); e != nil {
-			return nil, nil, ErrorParamInvalid.Error(e)
-		}
-		if s := vpr.GetString(c.key + ".access-key"); s != "" {
-			cnf.Config.AccessKey = s
-		}
-		if s := vpr.GetString(c.key + ".secret-key"); s != "" {
-			cnf.Config.SecretKey = s
-		}
-		if s := vpr.GetString(c.key + ".bucket"); s != "" {
-			cnf.Config.Bucket = s
-		}
-		if s := vpr.GetString(c.key + ".region"); s != "" {
-			cnf.Config.Region = s
-		}
-		if cfg, err = c.d.NewFromModel(cnf); err != nil {
-			return nil, nil, err
-		} else {
-			sts = &cnf.Status
-		}
-	case ConfigStandard:
-		cnf := cfgstd.Model{}
-		if e := getCfg(c.key, &cnf); e != nil {
-			return nil, nil, ErrorParamInvalid.Error(e)
-		}
-		if s := vpr.GetString(c.key + ".access-key"); s != "" {
-			cnf.AccessKey = s
-		}
-		if s := vpr.GetString(c.key + ".secret-key"); s != "" {
-			cnf.SecretKey = s
-		}
-		if s := vpr.GetString(c.key + ".bucket"); s != "" {
-			cnf.Bucket = s
-		}
-		if s := vpr.GetString(c.key + ".region"); s != "" {
-			cnf.Region = s
-		}
-		if cfg, err = c.d.NewFromModel(cnf); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if err = cfg.Validate(); err != nil {
-		return nil, nil, ErrorConfigInvalid.Error(err)
-	}
-
-	return cfg, sts, nil
 }

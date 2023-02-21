@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,123 +21,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
 package status
 
 import (
-	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	libver "github.com/nabbar/golib/version"
 )
 
-type FctInfo func() (name string, release string, build string)
+func (o *sts) SetInfo(name, release, hash string) {
+	o.m.Lock()
+	defer o.m.Unlock()
 
-type InfoResponse struct {
-	Name      string `json:"name"`
-	Release   string `json:"release"`
-	HashBuild string `json:"hash_build"`
-	Mandatory bool   `json:"mandatory"`
-}
+	o.fn = func() string {
+		return name
+	}
 
-func (i *InfoResponse) Clone() InfoResponse {
-	return InfoResponse{
-		Name:      i.Name,
-		Release:   i.Release,
-		HashBuild: i.HashBuild,
-		Mandatory: i.Mandatory,
+	o.fr = func() string {
+		return release
+	}
+
+	o.fh = func() string {
+		return hash
+	}
+
+	o.fd = func() time.Time {
+		return time.Time{}
 	}
 }
 
-type Info interface {
-	Get(x *gin.Context) InfoResponse
-	Clean()
-	IsValid() bool
-}
+func (o *sts) SetVersion(v libver.Version) {
+	o.m.Lock()
+	defer o.m.Unlock()
 
-func NewInfo(fct FctInfo, mandatory bool, cacheDuration time.Duration) Info {
-	return &info{
-		f: fct,
-		o: mandatory,
-		c: nil,
-		t: time.Time{},
-		d: cacheDuration,
-	}
-}
-
-type info struct {
-	m sync.Mutex
-	f FctInfo
-	o bool
-	c *InfoResponse
-	t time.Time
-	d time.Duration
-}
-
-func (i *info) Get(x *gin.Context) InfoResponse {
-	if !i.IsValid() {
-		i.regenCache()
-	}
-
-	return i.clone()
-}
-
-func (i *info) Clean() {
-	i.m.Lock()
-	defer i.m.Unlock()
-
-	i.c = nil
-	i.t = time.Now()
-}
-
-func (i *info) IsValid() bool {
-	i.m.Lock()
-	defer i.m.Unlock()
-
-	if i.c == nil {
-		return false
-	} else if i.t.IsZero() {
-		return false
-	} else if time.Since(i.t) > i.d {
-		return false
-	}
-	return true
-}
-
-func (i *info) regenCache() {
-	var (
-		name string
-		vers string
-		hash string
-	)
-
-	i.m.Lock()
-	defer i.m.Unlock()
-
-	if i.f != nil {
-		name, vers, hash = i.f()
-	}
-
-	i.c = &InfoResponse{
-		Name:      name,
-		Release:   vers,
-		HashBuild: hash,
-		Mandatory: i.o,
-	}
-
-	i.t = time.Now()
-}
-
-func (i *info) clone() InfoResponse {
-	i.m.Lock()
-	defer i.m.Unlock()
-
-	if i.c != nil {
-		return i.c.Clone()
-	}
-
-	return InfoResponse{
-		Mandatory: i.o,
-	}
+	o.fn = v.GetPackage
+	o.fr = v.GetRelease
+	o.fh = v.GetBuild
+	o.fd = v.GetTime
 }

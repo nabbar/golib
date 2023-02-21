@@ -1,0 +1,59 @@
+/***********************************************************************************************************************
+ *
+ *   MIT License
+ *
+ *   Copyright (c) 2022 Nicolas JUHEL
+ *
+ *   Permission is hereby granted, free of charge, to any person obtaining a copy
+ *   of this software and associated documentation files (the "Software"), to deal
+ *   in the Software without restriction, including without limitation the rights
+ *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ *   copies of the Software, and to permit persons to whom the Software is
+ *   furnished to do so, subject to the following conditions:
+ *
+ *   The above copyright notice and this permission notice shall be included in all
+ *   copies or substantial portions of the Software.
+ *
+ *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ *   SOFTWARE.
+ *
+ *
+ **********************************************************************************************************************/
+
+package webmetrics
+
+import (
+	"context"
+
+	ginsdk "github.com/gin-gonic/gin"
+	prmmet "github.com/nabbar/golib/prometheus/metrics"
+	prmtps "github.com/nabbar/golib/prometheus/types"
+)
+
+func MetricRequestBody(prefixName string) prmmet.Metric {
+	var met prmmet.Metric
+
+	met = prmmet.NewMetrics(getDefaultPrefix(prefixName, "request_body_total"), prmtps.Counter)
+	met.SetDesc("the server received request body size, unit byte")
+	met.SetCollect(func(ctx context.Context, m prmmet.Metric) {
+		var (
+			c  *ginsdk.Context
+			ok bool
+		)
+
+		if c, ok = ctx.(*ginsdk.Context); !ok {
+			return
+		}
+
+		if c.Request.ContentLength >= 0 {
+			_ = m.Add(nil, float64(c.Request.ContentLength))
+		}
+	})
+
+	return met
+}

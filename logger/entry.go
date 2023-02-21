@@ -94,13 +94,13 @@ func (e *Entry) SetGinContext(ctx *gin.Context) *Entry {
 
 // FieldAdd allow to add one couple key/val as type string/interface into the custom field of the entry.
 func (e *Entry) FieldAdd(key string, val interface{}) *Entry {
-	e.Fields = e.Fields.Add(key, val)
+	e.Fields.Add(key, val)
 	return e
 }
 
 // FieldMerge allow to merge a Field pointer into the custom field of the entry.
 func (e *Entry) FieldMerge(fields Fields) *Entry {
-	e.Fields = e.Fields.Merge(fields)
+	e.Fields.Merge(fields)
 	return e
 }
 
@@ -111,7 +111,10 @@ func (e *Entry) FieldSet(fields Fields) *Entry {
 }
 
 func (e *Entry) FieldClean(keys ...string) *Entry {
-	e.Fields = e.Fields.Clean(keys...)
+	for _, k := range keys {
+		e.Fields.Delete(k)
+	}
+
 	return e
 }
 
@@ -183,14 +186,28 @@ func (e *Entry) _logClean() {
 }
 
 func (e *Entry) Log() {
-	if e.clean {
+	if e == nil {
+		return
+	} else if e.Fields == nil {
+		return
+	} else if e.Fields.Err() != nil {
+		return
+	} else if e.clean {
 		e._logClean()
+		return
+	} else if e.gin != nil && len(e.Error) > 0 {
+		for _, err := range e.Error {
+			_ = e.gin.Error(err)
+		}
+	}
+
+	if e.Level == NilLevel {
 		return
 	}
 
 	var (
 		ent *logrus.Entry
-		tag = NewFields().Add(FieldLevel, e.Level.String())
+		tag = NewFields(e.Fields.GetContext).Add(FieldLevel, e.Level.String())
 		log *logrus.Logger
 	)
 
@@ -233,9 +250,7 @@ func (e *Entry) Log() {
 		tag = tag.Add(FieldData, e.Data)
 	}
 
-	if len(e.Fields) > 0 {
-		tag = tag.Merge(e.Fields)
-	}
+	tag.Merge(e.Fields)
 
 	if e.log == nil {
 		return
@@ -243,16 +258,6 @@ func (e *Entry) Log() {
 		return
 	} else {
 		ent = log.WithFields(tag.Logrus())
-	}
-
-	if e.gin != nil && len(e.Error) > 0 {
-		for _, err := range e.Error {
-			_ = e.gin.Error(err)
-		}
-	}
-
-	if e.Level == NilLevel {
-		return
 	}
 
 	ent.Log(e.Level.Logrus())

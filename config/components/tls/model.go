@@ -30,158 +30,33 @@ import (
 	"sync"
 
 	libtls "github.com/nabbar/golib/certificates"
-	libcfg "github.com/nabbar/golib/config"
-	liberr "github.com/nabbar/golib/errors"
+	libctx "github.com/nabbar/golib/context"
 )
 
 type componentTls struct {
-	ctx libcfg.FuncContext
-	get libcfg.FuncComponentGet
-	vpr libcfg.FuncComponentViper
-	key string
-
-	fsa func(cpt libcfg.Component) liberr.Error
-	fsb func(cpt libcfg.Component) liberr.Error
-	fra func(cpt libcfg.Component) liberr.Error
-	frb func(cpt libcfg.Component) liberr.Error
-
-	m sync.Mutex
+	m sync.RWMutex
+	x libctx.Config[uint8]
 	t libtls.TLSConfig
 	c *libtls.Config
 }
 
-func (c *componentTls) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (o *componentTls) Config() *libtls.Config {
+	o.m.Lock()
+	defer o.m.Unlock()
 
-	if c.t != nil {
-		return c.frb, c.fra
-	} else {
-		return c.fsb, c.fsa
-	}
+	return o.c
 }
 
-func (c *componentTls) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
-	if fct != nil {
-		return fct(c)
-	}
+func (o *componentTls) GetTLS() libtls.TLSConfig {
+	o.m.Lock()
+	defer o.m.Unlock()
 
-	return nil
+	return o.t
 }
 
-func (c *componentTls) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (o *componentTls) SetTLS(tls libtls.TLSConfig) {
+	o.m.Lock()
+	defer o.m.Unlock()
 
-	var (
-		err liberr.Error
-		cfg *libtls.Config
-		tls libtls.TLSConfig
-	)
-
-	if cfg, err = c._getConfig(getCfg); err != nil {
-		return err
-	} else if tls, err = cfg.New(); err != nil {
-		if c.t != nil {
-			return ErrorComponentReload.Error(err)
-		}
-		return ErrorComponentStart.Error(err)
-	} else {
-		c.t = tls
-		c.c = cfg
-	}
-
-	return nil
-}
-
-func (c *componentTls) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	fb, fa := c._getFct()
-
-	if err := c._runFct(fb); err != nil {
-		return err
-	} else if err = c._runCli(getCfg); err != nil {
-		return err
-	} else if err = c._runFct(fa); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *componentTls) Type() string {
-	return ComponentType
-}
-
-func (c *componentTls) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.key = key
-	c.ctx = ctx
-	c.get = get
-	c.vpr = vpr
-}
-
-func (c *componentTls) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.fsb = before
-	c.fsa = after
-}
-
-func (c *componentTls) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.frb = before
-	c.fra = after
-}
-
-func (c *componentTls) IsStarted() bool {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	return c.t != nil
-}
-
-func (c *componentTls) IsRunning(atLeast bool) bool {
-	return c.IsStarted()
-}
-
-func (c *componentTls) Start(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._run(getCfg)
-}
-
-func (c *componentTls) Reload(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._run(getCfg)
-}
-
-func (c *componentTls) Stop() {
-	return
-}
-
-func (c *componentTls) Dependencies() []string {
-	return make([]string, 0)
-}
-
-func (c *componentTls) Config() *libtls.Config {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	return c.c
-}
-
-func (c *componentTls) GetTLS() libtls.TLSConfig {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	return c.t
-}
-
-func (c *componentTls) SetTLS(tls libtls.TLSConfig) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.t = tls
+	o.t = tls
 }
