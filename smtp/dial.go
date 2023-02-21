@@ -32,6 +32,7 @@ import (
 	"net/smtp"
 
 	liberr "github.com/nabbar/golib/errors"
+	smtptl "github.com/nabbar/golib/smtp/tlsmode"
 )
 
 func (s *smtpClient) dialTLS(ctx context.Context, addr string, tlsConfig *tls.Config) (con net.Conn, err liberr.Error) {
@@ -63,7 +64,7 @@ func (s *smtpClient) dial(ctx context.Context, addr string) (con net.Conn, err l
 
 	d := net.Dialer{}
 
-	if con, e = d.DialContext(ctx, s.cfg.GetNet().string(), addr); e != nil {
+	if con, e = d.DialContext(ctx, s.cfg.GetNet().String(), addr); e != nil {
 		return con, ErrorSMTPDial.ErrorParent(e)
 	}
 
@@ -84,15 +85,15 @@ func (s *smtpClient) client(ctx context.Context, addr string, tlsConfig *tls.Con
 		}
 	}()
 
-	if s.cfg.GetTlsMode() == TLS_STARTTLS && tlsConfig == nil {
+	if s.cfg.GetTlsMode() == smtptl.TLSStartTLS && tlsConfig == nil {
 		err = ErrorParamEmpty.Error(nil)
 		return
-	} else if s.cfg.GetTlsMode() == TLS_TLS && tlsConfig == nil {
+	} else if s.cfg.GetTlsMode() == smtptl.TLSStrictTLS && tlsConfig == nil {
 		err = ErrorParamEmpty.Error(nil)
 		return
 	}
 
-	if s.cfg.GetTlsMode() == TLS_TLS && tlsConfig != nil {
+	if s.cfg.GetTlsMode() == smtptl.TLSStrictTLS && tlsConfig != nil {
 		if con, err = s.dialTLS(ctx, addr, tlsConfig); err != nil {
 			return
 		} else if cli, e = smtp.NewClient(con, addr); e != nil {
@@ -109,12 +110,12 @@ func (s *smtpClient) client(ctx context.Context, addr string, tlsConfig *tls.Con
 
 		try := s.checkExtension(cli, "STARTTLS")
 
-		if s.cfg.GetTlsMode() == TLS_STARTTLS || try {
+		if s.cfg.GetTlsMode() == smtptl.TLSStartTLS || try {
 			if e = cli.StartTLS(tlsConfig); e != nil && !try {
 				err = ErrorSMTPClientStartTLS.ErrorParent(e)
 				return
 			} else if e == nil && try {
-				s.cfg.SetTlsMode(TLS_STARTTLS)
+				s.cfg.SetTlsMode(smtptl.TLSStartTLS)
 			}
 		}
 	}
@@ -130,10 +131,10 @@ func (s *smtpClient) tryClient(ctx context.Context, addr string, tlsConfig *tls.
 	}
 
 	switch s.cfg.GetTlsMode() {
-	case TLS_TLS:
-		s.cfg.SetTlsMode(TLS_STARTTLS)
+	case smtptl.TLSStrictTLS:
+		s.cfg.SetTlsMode(smtptl.TLSStartTLS)
 		return s.tryClient(ctx, addr, tlsConfig)
-	case TLS_STARTTLS, TLS_NONE:
+	case smtptl.TLSStartTLS, smtptl.TLSNone:
 		return
 	}
 

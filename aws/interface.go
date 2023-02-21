@@ -61,6 +61,9 @@ type Config interface {
 
 	IsHTTPs() bool
 	ResolveEndpoint(service, region string) (sdkaws.Endpoint, error)
+	ResolveEndpointWithOptions(service, region string, options ...interface{}) (sdkaws.Endpoint, error)
+	GetDisableHTTPS() bool
+	GetResolvedRegion() string
 	SetRetryer(retryer func() sdkaws.Retryer)
 
 	GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, liberr.Error)

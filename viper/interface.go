@@ -28,12 +28,18 @@ package viper
 
 import (
 	"io"
+	"sync/atomic"
 
-	spfvpr "github.com/spf13/viper"
-
+	libmap "github.com/mitchellh/mapstructure"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	spfvpr "github.com/spf13/viper"
 )
+
+type FuncViper func() Viper
+type FuncSPFViper func() *spfvpr.Viper
+type FuncConfigGet func(key string, model interface{}) liberr.Error
 
 type Viper interface {
 	SetRemoteProvider(provider string)
@@ -52,10 +58,23 @@ type Viper interface {
 	Viper() *spfvpr.Viper
 	WatchFS(logLevelFSInfo liblog.Level)
 	Unset(key ...string) error
+
+	HookRegister(hook libmap.DecodeHookFunc)
+	HookReset()
+
+	UnmarshalKey(key string, rawVal interface{}) error
+	Unmarshal(rawVal interface{}) error
+	UnmarshalExact(rawVal interface{}) error
 }
 
-func New() Viper {
-	return &viper{
+func New(ctx libctx.FuncContext) Viper {
+	v := &viper{
 		v: spfvpr.New(),
+		i: new(atomic.Uint32),
+		h: libctx.NewConfig[uint8](ctx),
 	}
+
+	v.i.Store(0)
+
+	return v
 }

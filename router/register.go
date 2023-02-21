@@ -34,9 +34,8 @@ import (
 	"strings"
 	"time"
 
+	ginsdk "github.com/gin-gonic/gin"
 	liberr "github.com/nabbar/golib/errors"
-
-	"github.com/gin-gonic/gin"
 	liblog "github.com/nabbar/golib/logger"
 )
 
@@ -44,16 +43,17 @@ const (
 	EmptyHandlerGroup           = "<nil>"
 	GinContextStartUnixNanoTime = "gin-ctx-start-unix-nano-time"
 	GinContextRequestPath       = "gin-ctx-request-path"
+	GinContextRequestUser       = "gin-ctx-request-user"
 )
 
 var (
 	defaultRouters = NewRouterList(DefaultGinInit)
 )
 
-func GinEngine(trustedPlatform string, trustyProxy ...string) (*gin.Engine, error) {
+func GinEngine(trustedPlatform string, trustyProxy ...string) (*ginsdk.Engine, error) {
 	var err error
 
-	engine := gin.New()
+	engine := ginsdk.New()
 	if len(trustyProxy) > 0 {
 		err = engine.SetTrustedProxies(trustyProxy)
 	}
@@ -64,12 +64,12 @@ func GinEngine(trustedPlatform string, trustyProxy ...string) (*gin.Engine, erro
 	return engine, err
 }
 
-func GinAddGlobalMiddleware(eng *gin.Engine, middleware ...gin.HandlerFunc) *gin.Engine {
+func GinAddGlobalMiddleware(eng *ginsdk.Engine, middleware ...ginsdk.HandlerFunc) *ginsdk.Engine {
 	eng.Use(middleware...)
 	return eng
 }
 
-func GinLatencyContext(c *gin.Context) {
+func GinLatencyContext(c *ginsdk.Context) {
 	// Start timer
 	c.Set(GinContextStartUnixNanoTime, time.Now().UnixNano())
 
@@ -77,22 +77,44 @@ func GinLatencyContext(c *gin.Context) {
 	c.Next()
 }
 
-func GinRequestContext(c *gin.Context) {
+func sanitizeString(s string) string {
+	s = strings.Replace(s, "\n", "", -1)
+	s = strings.Replace(s, "\r", "", -1)
+	s = strings.Replace(s, "\t", "", -1)
+	return s
+}
+
+func GinRequestContext(c *ginsdk.Context) {
 	// Set Path
-	path := c.Request.URL.Path
-
-	if raw := c.Request.URL.RawQuery; len(raw) > 0 {
-		path += "?" + raw
+	if c != nil {
+		if req := c.Request; req != nil {
+			if u := req.URL; u != nil {
+				if p := u.Path; len(p) > 0 {
+					if q := u.Query(); q != nil {
+						if enc := q.Encode(); len(enc) > 0 {
+							c.Set(GinContextRequestPath, sanitizeString(p+"?"+enc))
+						} else {
+							c.Set(GinContextRequestPath, sanitizeString(p))
+						}
+					} else {
+						c.Set(GinContextRequestPath, sanitizeString(p))
+					}
+				}
+				if r := u.User; r != nil {
+					if nm := r.Username(); len(nm) > 0 {
+						c.Set(GinContextRequestUser, sanitizeString(nm))
+					}
+				}
+			}
+		}
 	}
-
-	c.Set(GinContextRequestPath, path)
 
 	// Process request
 	c.Next()
 }
 
-func GinAccessLog(log liblog.FuncLog) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func GinAccessLog(log liblog.FuncLog) ginsdk.HandlerFunc {
+	return func(c *ginsdk.Context) {
 		// Process request
 		c.Next()
 
@@ -110,10 +132,11 @@ func GinAccessLog(log liblog.FuncLog) gin.HandlerFunc {
 
 			sttm := time.Unix(0, c.GetInt64(GinContextStartUnixNanoTime))
 			path := c.GetString(GinContextRequestPath)
+			user := c.GetString(GinContextRequestUser)
 
 			ent := l.Access(
 				c.ClientIP(),
-				c.Request.URL.User.Username(),
+				user,
 				time.Now(),
 				time.Now().Sub(sttm),
 				c.Request.Method,
@@ -127,8 +150,8 @@ func GinAccessLog(log liblog.FuncLog) gin.HandlerFunc {
 	}
 }
 
-func GinErrorLog(log liblog.FuncLog) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func GinErrorLog(log liblog.FuncLog) ginsdk.HandlerFunc {
+	return func(c *ginsdk.Context) {
 		defer func() {
 			var rec liberr.Error
 
@@ -193,16 +216,16 @@ func GinErrorLog(log liblog.FuncLog) gin.HandlerFunc {
 	}
 }
 
-func DefaultGinInit() *gin.Engine {
-	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery())
+func DefaultGinInit() *ginsdk.Engine {
+	engine := ginsdk.New()
+	engine.Use(ginsdk.Logger(), ginsdk.Recovery())
 
 	return engine
 }
 
-func DefaultGinWithTrustyProxy(trustyProxy []string) *gin.Engine {
-	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery())
+func DefaultGinWithTrustyProxy(trustyProxy []string) *ginsdk.Engine {
+	engine := ginsdk.New()
+	engine.Use(ginsdk.Logger(), ginsdk.Recovery())
 
 	if len(trustyProxy) > 0 {
 		_ = engine.SetTrustedProxies(trustyProxy)
@@ -211,9 +234,9 @@ func DefaultGinWithTrustyProxy(trustyProxy []string) *gin.Engine {
 	return engine
 }
 
-func DefaultGinWithTrustedPlatform(trustedPlatform string) *gin.Engine {
-	engine := gin.New()
-	engine.Use(gin.Logger(), gin.Recovery())
+func DefaultGinWithTrustedPlatform(trustedPlatform string) *ginsdk.Engine {
+	engine := ginsdk.New()
+	engine.Use(ginsdk.Logger(), ginsdk.Recovery())
 
 	if len(trustedPlatform) > 0 {
 		engine.TrustedPlatform = trustedPlatform
@@ -225,44 +248,44 @@ func DefaultGinWithTrustedPlatform(trustedPlatform string) *gin.Engine {
 type routerItem struct {
 	method   string
 	relative string
-	router   []gin.HandlerFunc
+	router   []ginsdk.HandlerFunc
 }
 
 type routerList struct {
-	init func() *gin.Engine
+	init func() *ginsdk.Engine
 	list map[string][]routerItem
 }
 
-type RegisterRouter func(method string, relativePath string, router ...gin.HandlerFunc)
-type RegisterRouterInGroup func(group, method string, relativePath string, router ...gin.HandlerFunc)
+type RegisterRouter func(method string, relativePath string, router ...ginsdk.HandlerFunc)
+type RegisterRouterInGroup func(group, method string, relativePath string, router ...ginsdk.HandlerFunc)
 
 type RouterList interface {
-	Register(method string, relativePath string, router ...gin.HandlerFunc)
-	RegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc)
-	Handler(engine *gin.Engine)
-	Engine() *gin.Engine
+	Register(method string, relativePath string, router ...ginsdk.HandlerFunc)
+	RegisterInGroup(group, method string, relativePath string, router ...ginsdk.HandlerFunc)
+	Handler(engine *ginsdk.Engine)
+	Engine() *ginsdk.Engine
 }
 
-func RoutersRegister(method string, relativePath string, router ...gin.HandlerFunc) {
+func RoutersRegister(method string, relativePath string, router ...ginsdk.HandlerFunc) {
 	defaultRouters.Register(method, relativePath, router...)
 }
 
-func RoutersRegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc) {
+func RoutersRegisterInGroup(group, method string, relativePath string, router ...ginsdk.HandlerFunc) {
 	defaultRouters.RegisterInGroup(group, method, relativePath, router...)
 }
 
-func RoutersHandler(engine *gin.Engine) {
+func RoutersHandler(engine *ginsdk.Engine) {
 	defaultRouters.Handler(engine)
 }
 
-func NewRouterList(initGin func() *gin.Engine) RouterList {
+func NewRouterList(initGin func() *ginsdk.Engine) RouterList {
 	return &routerList{
 		init: initGin,
 		list: make(map[string][]routerItem),
 	}
 }
 
-func (l routerList) Handler(engine *gin.Engine) {
+func (l routerList) Handler(engine *ginsdk.Engine) {
 	for grpRoute, grpList := range l.list {
 		if grpRoute == EmptyHandlerGroup {
 			for _, r := range grpList {
@@ -277,7 +300,7 @@ func (l routerList) Handler(engine *gin.Engine) {
 	}
 }
 
-func (l *routerList) RegisterInGroup(group, method string, relativePath string, router ...gin.HandlerFunc) {
+func (l *routerList) RegisterInGroup(group, method string, relativePath string, router ...ginsdk.HandlerFunc) {
 	if group == "" {
 		group = EmptyHandlerGroup
 	}
@@ -293,11 +316,11 @@ func (l *routerList) RegisterInGroup(group, method string, relativePath string, 
 	})
 }
 
-func (l *routerList) Register(method string, relativePath string, router ...gin.HandlerFunc) {
+func (l *routerList) Register(method string, relativePath string, router ...ginsdk.HandlerFunc) {
 	l.RegisterInGroup("", method, relativePath, router...)
 }
 
-func (l routerList) Engine() *gin.Engine {
+func (l routerList) Engine() *ginsdk.Engine {
 	if l.init != nil {
 		return l.init()
 	} else {

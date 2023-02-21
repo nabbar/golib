@@ -29,12 +29,15 @@ package request
 import (
 	"fmt"
 	"net/http"
+	"sync/atomic"
 
-	libsts "github.com/nabbar/golib/status/config"
+	liblog "github.com/nabbar/golib/logger"
+
+	moncfg "github.com/nabbar/golib/monitor/types"
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
-	libcfg "github.com/nabbar/golib/config"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
 )
@@ -60,7 +63,7 @@ type OptionsHealth struct {
 	Endpoint string              `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"required,url"`
 	Auth     OptionsAuth         `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:"required,dive"`
 	Result   OptionsHealthResult `json:"result" yaml:"result" toml:"result" mapstructure:"result" validate:"required,dive"`
-	Status   libsts.ConfigStatus `json:"status" yaml:"status" toml:"status" mapstructure:"status" validate:"required,dive"`
+	Monitor  moncfg.Config       `json:"monitor" yaml:"monitor" toml:"monitor" mapstructure:"monitor" validate:"required,dive"`
 }
 
 type OptionsHealthResult struct {
@@ -76,10 +79,11 @@ type Options struct {
 	Auth       OptionsAuth    `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:"required,dive"`
 	Health     OptionsHealth  `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:"required,dive"`
 
-	def FctTLSDefault
+	tls libtls.FctTLSDefault
+	log liblog.FuncLog
 }
 
-func (o Options) Validate() liberr.Error {
+func (o *Options) Validate() liberr.Error {
 	var e = ErrorValidatorError.Error(nil)
 
 	if err := libval.New().Struct(o); err != nil {
@@ -100,39 +104,45 @@ func (o Options) Validate() liberr.Error {
 	return e
 }
 
-func (o Options) _GetDefaultTLS() libtls.TLSConfig {
-	if o.def != nil {
-		return o.def()
+func (o *Options) defaultTLS() libtls.TLSConfig {
+	if o.tls != nil {
+		return o.tls()
 	}
 
 	return nil
 }
 
-func (o Options) SetDefaultTLS(fct FctTLSDefault) {
-	o.def = fct
+func (o *Options) SetDefaultTLS(fct libtls.FctTLSDefault) {
+	o.tls = fct
 }
 
-func (o Options) GetClientHTTP(servername string) *http.Client {
-	if c, e := o.HttpClient.GetClient(o._GetDefaultTLS(), servername); e == nil {
+func (o *Options) SetDefaultLog(fct liblog.FuncLog) {
+	o.log = fct
+}
+
+func (o *Options) ClientHTTPTLS(tls libtls.TLSConfig, servername string) *http.Client {
+	if c, e := o.HttpClient.GetClient(tls, servername); e == nil {
 		return c
 	}
 
 	return &http.Client{}
 }
 
-func (o Options) New(ctx libcfg.FuncContext, cli FctHttpClient, tls FctTLSDefault) (Request, error) {
-	if tls != nil {
-		o.def = tls
-	}
-
-	return New(ctx, cli, o)
+func (o *Options) ClientHTTP(servername string) *http.Client {
+	return o.ClientHTTPTLS(o.defaultTLS(), servername)
 }
 
-func (o Options) Update(req Request, ctx libcfg.FuncContext, cli FctHttpClient, tls FctTLSDefault) (Request, error) {
-	if tls != nil {
-		o.def = tls
+func (o *Options) New(ctx libctx.FuncContext) (Request, error) {
+	if n, e := New(ctx, o); e != nil {
+		return nil, e
+	} else {
+		n.RegisterDefaultLogger(o.log)
+		n.RegisterHTTPClient(o.ClientHTTPTLS)
+		return n, nil
 	}
+}
 
+func (o *Options) Update(ctx libctx.FuncContext, req Request) (Request, error) {
 	var (
 		e error
 		n Request
@@ -143,16 +153,92 @@ func (o Options) Update(req Request, ctx libcfg.FuncContext, cli FctHttpClient, 
 	}
 
 	if ctx != nil {
-		n.SetContext(ctx)
+		n.RegisterContext(ctx)
 	}
 
-	if cli != nil {
-		n.SetClient(cli)
-	}
-
-	if e = n.SetOption(&o); e != nil {
+	if e = n.SetOption(o); e != nil {
 		return nil, e
 	}
 
 	return n, nil
+}
+
+func (r *request) options() *Options {
+	if r.o == nil {
+		return nil
+	} else if i := r.o.Load(); i == nil {
+		return nil
+	} else if o, ok := i.(*Options); !ok {
+		return nil
+	} else {
+		return o
+	}
+}
+
+func (r *request) GetOption() *Options {
+	r.s.Lock()
+	defer r.s.Unlock()
+	return r.options()
+}
+
+func (r *request) SetOption(opt *Options) error {
+	if e := r.SetEndpoint(opt.Endpoint); e != nil {
+		return e
+	}
+
+	if opt.Auth.Basic.Enable {
+		r.AuthBasic(opt.Auth.Basic.Username, opt.Auth.Basic.Password)
+	} else if opt.Auth.Bearer.Enable {
+		r.AuthBearer(opt.Auth.Bearer.Token)
+	}
+
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	if r.o == nil {
+		r.o = new(atomic.Value)
+	}
+
+	r.o.Store(opt)
+	return nil
+}
+
+func (r *request) RegisterHTTPClient(fct libtls.FctHttpClient) {
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	r.f = fct
+}
+
+func (r *request) RegisterDefaultLogger(fct liblog.FuncLog) {
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	r.l = fct
+}
+
+func (r *request) _getDefaultLogger() liblog.Logger {
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	if r.l == nil {
+		return nil
+	} else {
+		return r.l()
+	}
+}
+
+func (r *request) defaultTLS() libtls.TLSConfig {
+	if cfg := r.options(); cfg != nil {
+		return cfg.defaultTLS()
+	}
+
+	return nil
+}
+
+func (r *request) RegisterContext(fct libctx.FuncContext) {
+	r.s.Lock()
+	defer r.s.Unlock()
+
+	r.x = fct
 }

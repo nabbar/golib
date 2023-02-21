@@ -32,11 +32,9 @@ import (
 	"os"
 	"time"
 
-	natsrv "github.com/nats-io/nats-server/v2/server"
-
-	"github.com/nats-io/jwt/v2"
-
 	libtls "github.com/nabbar/golib/certificates"
+	natjwt "github.com/nats-io/jwt/v2"
+	natsrv "github.com/nats-io/nats-server/v2/server"
 )
 
 type ConfigCustom struct {
@@ -301,7 +299,7 @@ type ConfigSrv struct {
 
 	//Tags describing the server.
 	//They will be included in varz and used as a filter criteria for some system requests
-	Tags jwt.TagList `mapstructure:"tags" json:"tags" yaml:"tags" toml:"tags" validate:"dive"`
+	Tags natjwt.TagList `mapstructure:"tags" json:"tags" yaml:"tags" toml:"tags" validate:"dive"`
 
 	//TLS Enable tls for server.
 	TLS bool `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`

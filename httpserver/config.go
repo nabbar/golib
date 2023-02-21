@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,139 +34,70 @@ import (
 	"strings"
 	"time"
 
-	libsts "github.com/nabbar/golib/status/config"
+	srvtps "github.com/nabbar/golib/httpserver/types"
+
+	moncfg "github.com/nabbar/golib/monitor/types"
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
 )
 
-type MapUpdPoolServerConfig func(cfg ServerConfig) ServerConfig
-type MapRunPoolServerConfig func(cfg ServerConfig)
-type PoolServerConfig []ServerConfig
-
-func (p PoolServerConfig) PoolServer() (PoolServer, liberr.Error) {
-	var (
-		r = NewPool()
-		e = ErrorPoolAdd.Error(nil)
-	)
-
-	p.MapRun(func(cfg ServerConfig) {
-		var err liberr.Error
-
-		if r, err = r.Add(cfg.Server()); err != nil {
-			e.AddParentError(err)
-		}
-	})
-
-	if !e.HasParent() {
-		e = nil
-	}
-
-	return r, e
-}
-
-func (p PoolServerConfig) UpdatePoolServer(pSrv PoolServer) (PoolServer, liberr.Error) {
-	var e = ErrorPoolAdd.Error(nil)
-
-	p.MapRun(func(cfg ServerConfig) {
-		var err liberr.Error
-
-		if pSrv, err = pSrv.Add(cfg.Server()); err != nil {
-			e.AddParentError(err)
-		}
-	})
-
-	if !e.HasParent() {
-		e = nil
-	}
-
-	return pSrv, e
-}
-
-func (p PoolServerConfig) Validate() liberr.Error {
-	var e = ErrorPoolValidate.Error(nil)
-
-	p.MapRun(func(cfg ServerConfig) {
-		var err liberr.Error
-
-		if err = cfg.Validate(); err != nil {
-			e.AddParentError(err)
-		}
-	})
-
-	if !e.HasParent() {
-		e = nil
-	}
-
-	return e
-}
-
-func (p PoolServerConfig) MapUpdate(f MapUpdPoolServerConfig) PoolServerConfig {
-	var r = make(PoolServerConfig, 0)
-
-	if p != nil {
-		r = p
-	}
-
-	for i, c := range r {
-		r[i] = f(c)
-	}
-
-	return r
-}
-
-func (p PoolServerConfig) MapRun(f MapRunPoolServerConfig) PoolServerConfig {
-	var r = make(PoolServerConfig, 0)
-
-	if p != nil {
-		r = p
-	}
-
-	for _, c := range r {
-		f(c)
-	}
-
-	return r
-}
+const (
+	cfgConfig        = "cfgConfig"
+	cfgName          = "cfgName"
+	cfgListen        = "cfgListen"
+	cfgExpose        = "cfgExpose"
+	cfgHandler       = "cfgHandler"
+	cfgHandlerKey    = "cfgHandlerKey"
+	cfgDisabled      = "cfgDisabled"
+	cfgMonitor       = "cfgMonitor"
+	cfgTLS           = "cfgTLS"
+	cfgTLSMandatory  = "cfgTLSMandatory"
+	cfgServerOptions = "cfgServerOptions"
+)
 
 // nolint #maligned
-type ServerConfig struct {
+type Config struct {
 
-	// Name is the name of the current server
-	// the configuration allow multipke server, which each one must be identify by a name
+	// Name is the name of the current srv
+	// the configuration allow multipke srv, which each one must be identify by a name
 	// If not defined, will use the listen address
 	Name string `mapstructure:"name" json:"name" yaml:"name" toml:"name" validate:"required"`
 
 	// Listen is the local address (ip, hostname, unix socket, ...) with a port
-	// The server will bind with this address only and listen for the port defined
+	// The srv will bind with this address only and listen for the port defined
 	Listen string `mapstructure:"listen" json:"listen" yaml:"listen" toml:"listen" validate:"required,hostname_port"`
 
-	// Expose is the address use to call this server. This can be allow to use a single fqdn to multiple server"
+	// Expose is the address use to call this srv. This can be allow to use a single fqdn to multiple srv"
 	Expose string `mapstructure:"expose" json:"expose" yaml:"expose" toml:"expose" validate:"required,url"`
 
-	// HandlerKeys is an options to associate current server with a specifc handler defined by the key
-	// This allow to defined multiple server in only one config for different handler to start multiple api
-	HandlerKeys string `mapstructure:"handler_keys" json:"handler_keys" yaml:"handler_keys" toml:"handler_keys"`
+	// HandlerKey is an options to associate current srv with a specifc handler defined by the key
+	// This key allow to defined multiple srv in only one config for different handler to start multiple api
+	HandlerKey string `mapstructure:"handler_key" json:"handler_key" yaml:"handler_key" toml:"handler_key"`
 
 	//private
-	getTLSDefault func() libtls.TLSConfig
+	getTLSDefault libtls.FctTLSDefault
 
 	//private
-	getParentContext func() context.Context
+	getParentContext libctx.FuncContext
 
-	// Enabled allow to disable a server without clean his configuration
+	//private
+	getHandlerFunc srvtps.FuncHandler
+
+	// Enabled allow to disable a srv without clean his configuration
 	Disabled bool `mapstructure:"disabled" json:"disabled" yaml:"disabled" toml:"disabled"`
 
-	// Mandator
-	// y defined if the component for status is mandatory or not
-	Status libsts.ConfigStatus `mapstructure:"status" json:"status" yaml:"status" toml:"status"`
+	// Monitor defined the monitoring options to monitor the status & metrics about the health of this srv
+	Monitor moncfg.Config `mapstructure:"monitor" json:"monitor" yaml:"monitor" toml:"monitor"`
 
-	// TLSMandatory is a flag to defined that TLS must be valid to start current server.
+	// TLSMandatory is a flag to defined that TLS must be valid to start current srv.
 	TLSMandatory bool `mapstructure:"tls_mandatory" json:"tls_mandatory" yaml:"tls_mandatory" toml:"tls_mandatory"`
 
-	// TLS is the tls configuration for this server.
-	// To allow tls on this server, at least the TLS Config option InheritDefault must be at true and the default TLS config must be set.
+	// TLS is the tls configuration for this srv.
+	// To allow tls on this srv, at least the TLS Config option InheritDefault must be at true and the default TLS config must be set.
 	// If you don't want any tls config, just omit or set an empty struct.
 	TLS libtls.Config `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
 
@@ -196,7 +127,7 @@ type ServerConfig struct {
 	WriteTimeout time.Duration `mapstructure:"write_timeout" json:"write_timeout" yaml:"write_timeout" toml:"write_timeout"`
 
 	// MaxHeaderBytes controls the maximum number of bytes the
-	// server will read parsing the request header's keys and
+	// srv will read parsing the request header's keys and
 	// values, including the request line. It does not limit the
 	// size of the request body.
 	// If zero, DefaultMaxHeaderBytes is used.
@@ -218,7 +149,7 @@ type ServerConfig struct {
 	MaxConcurrentStreams uint32 `mapstructure:"max_concurrent_streams" json:"max_concurrent_streams" yaml:"max_concurrent_streams" toml:"max_concurrent_streams"`
 
 	// MaxReadFrameSize optionally specifies the largest frame
-	// this server is willing to read. A valid value is between
+	// this srv is willing to read. A valid value is between
 	// 16k and 16M, inclusive. If zero or otherwise invalid, a
 	// default value is used.
 	MaxReadFrameSize uint32 `mapstructure:"max_read_frame_size" json:"max_read_frame_size" yaml:"max_read_frame_size" toml:"max_read_frame_size"`
@@ -250,10 +181,13 @@ type ServerConfig struct {
 	// resource-constrained environments or servers in the process of
 	// shutting down should disable them.
 	DisableKeepAlive bool `mapstructure:"disable_keep_alive" json:"disable_keep_alive" yaml:"disable_keep_alive" toml:"disable_keep_alive"`
+
+	// Logger is used to define the logger options.
+	Logger liblog.Options `mapstructure:"logger" json:"logger" yaml:"logger" toml:"logger"`
 }
 
-func (c *ServerConfig) Clone() ServerConfig {
-	return ServerConfig{
+func (c *Config) Clone() Config {
+	return Config{
 		Disabled:                     c.Disabled,
 		getTLSDefault:                c.getTLSDefault,
 		getParentContext:             c.getParentContext,
@@ -272,7 +206,7 @@ func (c *ServerConfig) Clone() ServerConfig {
 		Name:                         c.Name,
 		Listen:                       c.Listen,
 		Expose:                       c.Expose,
-		HandlerKeys:                  strings.ToLower(c.HandlerKeys),
+		HandlerKey:                   strings.ToLower(c.HandlerKey),
 		TLSMandatory:                 c.TLSMandatory,
 		TLS: libtls.Config{
 			CurveList:            c.TLS.CurveList,
@@ -290,25 +224,23 @@ func (c *ServerConfig) Clone() ServerConfig {
 			DynamicSizingDisable: c.TLS.DynamicSizingDisable,
 			SessionTicketDisable: c.TLS.SessionTicketDisable,
 		},
-		Status: libsts.ConfigStatus{
-			Mandatory:          c.Status.Mandatory,
-			MessageOK:          c.Status.MessageOK,
-			MessageKO:          c.Status.MessageKO,
-			CacheTimeoutInfo:   c.Status.CacheTimeoutInfo,
-			CacheTimeoutHealth: c.Status.CacheTimeoutHealth,
-		},
+		Monitor: c.Monitor.Clone(),
 	}
 }
 
-func (c *ServerConfig) SetDefaultTLS(f func() libtls.TLSConfig) {
+func (c *Config) RegisterHandlerFunc(hdl srvtps.FuncHandler) {
+	c.getHandlerFunc = hdl
+}
+
+func (c *Config) SetDefaultTLS(f libtls.FctTLSDefault) {
 	c.getTLSDefault = f
 }
 
-func (c *ServerConfig) SetParentContext(f func() context.Context) {
+func (c *Config) SetContext(f libctx.FuncContext) {
 	c.getParentContext = f
 }
 
-func (c *ServerConfig) GetTLS() (libtls.TLSConfig, liberr.Error) {
+func (c *Config) GetTLS() (libtls.TLSConfig, liberr.Error) {
 	var def libtls.TLSConfig
 
 	if c.TLS.InheritDefault && c.getTLSDefault != nil {
@@ -318,15 +250,25 @@ func (c *ServerConfig) GetTLS() (libtls.TLSConfig, liberr.Error) {
 	return c.TLS.NewFrom(def)
 }
 
-func (c *ServerConfig) IsTLS() bool {
-	if ssl, err := c.GetTLS(); err == nil && ssl != nil && ssl.LenCertificatePair() > 0 {
+func (c *Config) CheckTLS() (libtls.TLSConfig, liberr.Error) {
+	if ssl, err := c.GetTLS(); err == nil {
+		return nil, err
+	} else if ssl != nil && ssl.LenCertificatePair() > 0 {
+		return nil, ErrorServerValidate.ErrorParent(fmt.Errorf("not certificates defined"))
+	} else {
+		return ssl, nil
+	}
+}
+
+func (c *Config) IsTLS() bool {
+	if _, err := c.CheckTLS(); err == nil {
 		return true
 	}
 
 	return false
 }
 
-func (c *ServerConfig) getContext() context.Context {
+func (c *Config) context() context.Context {
 	var ctx context.Context
 
 	if c.getParentContext != nil {
@@ -340,7 +282,7 @@ func (c *ServerConfig) getContext() context.Context {
 	return ctx
 }
 
-func (c *ServerConfig) GetListen() *url.URL {
+func (c *Config) GetListen() *url.URL {
 	var (
 		err error
 		add *url.URL
@@ -367,7 +309,7 @@ func (c *ServerConfig) GetListen() *url.URL {
 	return add
 }
 
-func (c *ServerConfig) GetExpose() *url.URL {
+func (c *Config) GetExpose() *url.URL {
 	var (
 		err error
 		add *url.URL
@@ -392,11 +334,11 @@ func (c *ServerConfig) GetExpose() *url.URL {
 	return add
 }
 
-func (c *ServerConfig) GetHandlerKey() string {
-	return c.HandlerKeys
+func (c *Config) GetHandlerKey() string {
+	return c.HandlerKey
 }
 
-func (c *ServerConfig) Validate() liberr.Error {
+func (c *Config) Validate() liberr.Error {
 	err := ErrorServerValidate.Error(nil)
 
 	if er := libval.New().Struct(c); er != nil {
@@ -418,6 +360,146 @@ func (c *ServerConfig) Validate() liberr.Error {
 
 }
 
-func (c *ServerConfig) Server() Server {
-	return NewServer(c)
+func (c *Config) Server(defLog liblog.FuncLog) (Server, error) {
+	return New(*c, defLog)
+}
+
+func (o *srv) GetConfig() *Config {
+	if i, l := o.c.Load(cfgConfig); !l {
+		return nil
+	} else if v, k := i.(Config); !k {
+		return nil
+	} else {
+		return &v
+	}
+}
+
+func (o *srv) makeOptServer(cfg Config) *optServer {
+	return &optServer{
+		ReadTimeout:                  cfg.ReadTimeout,
+		ReadHeaderTimeout:            cfg.ReadHeaderTimeout,
+		WriteTimeout:                 cfg.WriteTimeout,
+		MaxHeaderBytes:               cfg.MaxHeaderBytes,
+		MaxHandlers:                  cfg.MaxHandlers,
+		MaxConcurrentStreams:         cfg.MaxConcurrentStreams,
+		MaxReadFrameSize:             cfg.MaxReadFrameSize,
+		PermitProhibitedCipherSuites: cfg.PermitProhibitedCipherSuites,
+		IdleTimeout:                  cfg.IdleTimeout,
+		MaxUploadBufferPerConnection: cfg.MaxUploadBufferPerConnection,
+		MaxUploadBufferPerStream:     cfg.MaxUploadBufferPerStream,
+		DisableKeepAlive:             cfg.DisableKeepAlive,
+	}
+}
+
+func (o *srv) SetConfig(cfg Config, defLog liblog.FuncLog) error {
+	if e := o.cfgSetTLS(&cfg); e != nil {
+		return e
+	} else if e = o.setLogger(defLog, cfg.Logger); e != nil {
+		return e
+	}
+
+	if o.HandlerHas(cfg.HandlerKey) {
+		o.HandlerStoreFct(cfg.HandlerKey)
+	} else {
+		return ErrorServerValidate.ErrorParent(fmt.Errorf("handler is missing or not existing"))
+	}
+
+	o.c.Store(cfgName, cfg.Name)
+	o.c.Store(cfgListen, cfg.GetListen())
+	o.c.Store(cfgExpose, cfg.GetExpose())
+	o.c.Store(cfgDisabled, cfg.Disabled)
+	o.c.Store(cfgServerOptions, o.makeOptServer(cfg))
+	o.c.Store(cfgConfig, cfg)
+
+	return nil
+}
+
+func (o *srv) setLogger(def liblog.FuncLog, opt liblog.Options) error {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	var l liblog.Logger
+
+	if def != nil {
+		if n := def(); n != nil {
+			l = n
+		}
+	}
+
+	if l == nil {
+		l = liblog.GetDefault()
+	}
+
+	if e := l.SetOptions(&opt); e == nil {
+		o.l = func() liblog.Logger {
+			return l
+		}
+		return nil
+	} else if o.l == nil {
+		o.l = liblog.GetDefault
+		return e
+	} else {
+		return e
+	}
+}
+
+func (o *srv) logger() liblog.Logger {
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	var log liblog.Logger
+
+	if o.l != nil {
+		log = o.l()
+	}
+
+	if log == nil {
+		log = liblog.GetDefault()
+	}
+
+	log.SetFields(log.GetFields().Add("bind", o.GetBindable()))
+	return log
+}
+
+func (o *srv) cfgSetTLS(cfg *Config) error {
+	o.c.Store(cfgTLSMandatory, cfg.TLSMandatory)
+	if t, e := cfg.CheckTLS(); e != nil && cfg.TLSMandatory {
+		return e
+	} else if e != nil {
+		o.c.Delete(cfgTLS)
+		return nil
+	} else {
+		o.c.Store(cfgTLS, t)
+		return nil
+	}
+}
+
+func (o *srv) cfgGetTLS() libtls.TLSConfig {
+	if i, l := o.c.Load(cfgTLS); !l {
+		return nil
+	} else if v, k := i.(libtls.TLSConfig); !k {
+		return nil
+	} else {
+		return v
+	}
+}
+
+func (o *srv) cfgTLSMandatory() bool {
+	if i, l := o.c.Load(cfgTLSMandatory); !l {
+		return false
+	} else if v, k := i.(bool); !k {
+		return false
+	} else {
+		return v
+	}
+}
+
+func (o *srv) cfgGetServer() *optServer {
+	if i, l := o.c.Load(cfgServerOptions); !l {
+		return &optServer{}
+	} else if v, k := i.(*optServer); !k {
+		return &optServer{}
+	} else {
+		return v
+	}
 }

@@ -35,13 +35,9 @@ import (
 const (
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgHttpServer
 	ErrorHTTP2Configure
-	ErrorPoolAdd
-	ErrorPoolValidate
-	ErrorPoolListen
 	ErrorServerValidate
+	ErrorServerStart
 	ErrorPortUse
-	ErrorServerDisabled
-	ErrorServerOffline
 )
 
 func init() {
@@ -56,21 +52,13 @@ func getMessage(code liberr.CodeError) (message string) {
 	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorHTTP2Configure:
-		return "cannot initialize http2 over http server"
-	case ErrorPoolAdd:
-		return "cannot add server on pool"
-	case ErrorPoolValidate:
-		return "at least one config server seems to be not valid"
-	case ErrorPoolListen:
-		return "at least one server has listen error"
+		return "cannot initialize http2 over http srv"
 	case ErrorServerValidate:
-		return "config server seems to be not valid"
+		return "config srv seems to be not valid"
+	case ErrorServerStart:
+		return "server killed : server start but not listen"
 	case ErrorPortUse:
-		return "server port is still used"
-	case ErrorServerDisabled:
-		return "server disabled"
-	case ErrorServerOffline:
-		return "server offline"
+		return "srv port is still used"
 	}
 
 	return liberr.NullMessage

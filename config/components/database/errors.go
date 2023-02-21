@@ -38,8 +38,8 @@ const (
 	ErrorParamInvalid
 	ErrorComponentNotInitialized
 	ErrorConfigInvalid
-	ErrorStartDatabase
-	ErrorReloadDatabase
+	ErrorComponentStart
+	ErrorComponentReload
 	ErrorDependencyLogDefault
 )
 
@@ -60,9 +60,9 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "this component seems to not be correctly initialized"
 	case ErrorConfigInvalid:
 		return "server invalid config"
-	case ErrorStartDatabase:
+	case ErrorComponentStart:
 		return "cannot open database connection with config"
-	case ErrorReloadDatabase:
+	case ErrorComponentReload:
 		return "cannot update database connection with new config"
 	case ErrorDependencyLogDefault:
 		return "cannot retrieve default Logger"

@@ -27,15 +27,14 @@ package mailPooler
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"io"
 	"net/smtp"
-	"runtime"
-	"strings"
 
 	liberr "github.com/nabbar/golib/errors"
 	libsmtp "github.com/nabbar/golib/smtp"
-	libsts "github.com/nabbar/golib/status"
+	smtpcf "github.com/nabbar/golib/smtp/config"
 )
 
 type pooler struct {
@@ -107,30 +106,10 @@ func (p *pooler) Clone() libsmtp.SMTP {
 	return p.NewPooler()
 }
 
-func (p *pooler) StatusInfo() (name string, release string, hash string) {
-	if p.s == nil {
-		hash = ""
-		release = strings.TrimLeft(strings.ToLower(runtime.Version()), "go")
-		name = "SMTP Pooler unknown"
-
-		return name, release, hash
+func (p *pooler) UpdConfig(cfg smtpcf.SMTP, tslConfig *tls.Config) {
+	if p.s != nil {
+		p.s.UpdConfig(cfg, tslConfig)
+	} else {
+		p.s, _ = libsmtp.New(cfg, tslConfig)
 	}
-
-	return p.s.StatusInfo()
-}
-
-func (p *pooler) StatusHealth() error {
-	if p.s == nil {
-		return ErrorParamEmpty.ErrorParent(errors.New("smtp client is not define"))
-	}
-
-	return p.s.StatusHealth()
-}
-
-func (p *pooler) StatusRouter(sts libsts.RouteStatus, prefix string) {
-	if p.s == nil {
-		return
-	}
-
-	p.s.StatusRouter(sts, prefix)
 }

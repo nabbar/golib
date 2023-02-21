@@ -52,7 +52,7 @@ func getLogFileTemp() string {
 var _ = Describe("Logger", func() {
 	Context("Create New Logger with Default Config", func() {
 		It("Must succeed", func() {
-			log := logger.New(GetContext())
+			log := logger.New(GetContext)
 			log.SetLevel(logger.DebugLevel)
 			err := log.SetOptions(&logger.Options{})
 			Expect(err).ToNot(HaveOccurred())
@@ -61,7 +61,7 @@ var _ = Describe("Logger", func() {
 	})
 	Context("Create New Logger with Default Config and trace", func() {
 		It("Must succeed", func() {
-			log := logger.New(GetContext())
+			log := logger.New(GetContext)
 			log.SetLevel(logger.DebugLevel)
 			err := log.SetOptions(&logger.Options{
 				EnableTrace: true,
@@ -72,19 +72,19 @@ var _ = Describe("Logger", func() {
 	})
 	Context("Create New Logger with field", func() {
 		It("Must succeed", func() {
-			log := logger.New(GetContext())
+			log := logger.New(GetContext)
 			log.SetLevel(logger.DebugLevel)
 			err := log.SetOptions(&logger.Options{
 				EnableTrace: true,
 			})
-			log.SetFields(logger.NewFields().Add("test-field", "ok"))
+			log.SetFields(logger.NewFields(GetContext).Add("test-field", "ok"))
 			Expect(err).ToNot(HaveOccurred())
 			log.LogDetails(logger.InfoLevel, "test logger with field", nil, nil, nil)
 		})
 	})
 	Context("Create New Logger with file", func() {
 		It("Must succeed", func() {
-			log := logger.New(GetContext())
+			log := logger.New(GetContext)
 			log.SetLevel(logger.DebugLevel)
 
 			fsp, err := GetTempFile()
@@ -114,13 +114,13 @@ var _ = Describe("Logger", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			log.SetFields(logger.NewFields().Add("test-field", "ok"))
+			log.SetFields(logger.NewFields(GetContext).Add("test-field", "ok"))
 			log.LogDetails(logger.InfoLevel, "test logger with field", nil, nil, nil)
 		})
 	})
 	Context("Create New Logger with file in multithreading mode", func() {
 		It("Must succeed", func() {
-			log := logger.New(GetContext())
+			log := logger.New(GetContext)
 			log.SetLevel(logger.DebugLevel)
 
 			fsp, err := GetTempFile()
@@ -150,12 +150,11 @@ var _ = Describe("Logger", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			log.SetFields(logger.NewFields().Add("test-field", "ok"))
+			log.SetFields(logger.NewFields(GetContext).Add("test-field", "ok"))
 			log.LogDetails(logger.InfoLevel, "test logger with field", nil, nil, nil)
 
 			var sub logger.Logger
-			sub, err = log.Clone()
-			Expect(err).ToNot(HaveOccurred())
+			sub = log.Clone()
 
 			go func(log logger.Logger) {
 				defer func() {
@@ -163,13 +162,13 @@ var _ = Describe("Logger", func() {
 					Expect(se).ToNot(HaveOccurred())
 				}()
 
-				log.SetFields(logger.NewFields().Add("logger", "sub"))
+				log.SetFields(logger.NewFields(GetContext).Add("logger", "sub"))
 				for i := 0; i < 10; i++ {
 					log.Entry(logger.InfoLevel, "test multithreading logger").FieldAdd("id", i).Log()
 				}
 			}(sub)
 
-			log.SetFields(logger.NewFields().Add("logger", "main"))
+			log.SetFields(logger.NewFields(GetContext).Add("logger", "main"))
 			sem := libsem.NewSemaphoreWithContext(context.Background(), 0)
 			defer sem.DeferMain()
 

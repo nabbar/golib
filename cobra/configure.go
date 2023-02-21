@@ -36,11 +36,10 @@ import (
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
-	"github.com/pelletier/go-toml"
-	"gopkg.in/yaml.v3"
-
 	liblog "github.com/nabbar/golib/logger"
+	"github.com/pelletier/go-toml"
 	spfcbr "github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var cfgFile string

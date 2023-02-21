@@ -29,9 +29,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/logger"
+	ginsdk "github.com/gin-gonic/gin"
+	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
 )
 
 type AuthCode uint8
@@ -48,11 +48,11 @@ const (
 	HEAD_AUTH_REAL = "Basic realm=LDAP Authorization Required"
 )
 
-func AuthRequire(c *gin.Context, err error) {
+func AuthRequire(c *ginsdk.Context, err error) {
 	if err != nil {
-		c.Errors = append(c.Errors, &gin.Error{
+		c.Errors = append(c.Errors, &ginsdk.Error{
 			Err:  err,
-			Type: gin.ErrorTypePrivate,
+			Type: ginsdk.ErrorTypePrivate,
 		})
 	}
 	// Credentials doesn't match, we return 401 and abort handlers chain.
@@ -60,46 +60,46 @@ func AuthRequire(c *gin.Context, err error) {
 	c.AbortWithStatus(http.StatusUnauthorized)
 }
 
-func AuthForbidden(c *gin.Context, err error) {
+func AuthForbidden(c *ginsdk.Context, err error) {
 	if err != nil {
-		c.Errors = append(c.Errors, &gin.Error{
+		c.Errors = append(c.Errors, &ginsdk.Error{
 			Err:  err,
-			Type: gin.ErrorTypePrivate,
+			Type: ginsdk.ErrorTypePrivate,
 		})
 	}
 	c.AbortWithStatus(http.StatusForbidden)
 }
 
 type authorization struct {
-	check    func(AuthHeader string) (AuthCode, errors.Error)
-	router   []gin.HandlerFunc
+	check    func(AuthHeader string) (AuthCode, liberr.Error)
+	router   []ginsdk.HandlerFunc
 	authType string
 }
 
 type Authorization interface {
-	Handler(c *gin.Context)
-	Register(router ...gin.HandlerFunc) gin.HandlerFunc
-	Append(router ...gin.HandlerFunc)
+	Handler(c *ginsdk.Context)
+	Register(router ...ginsdk.HandlerFunc) ginsdk.HandlerFunc
+	Append(router ...ginsdk.HandlerFunc)
 }
 
-func NewAuthorization(HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, errors.Error)) Authorization {
+func NewAuthorization(HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, liberr.Error)) Authorization {
 	return &authorization{
 		check:    authCheckFunc,
 		authType: HeadAuthType,
-		router:   make([]gin.HandlerFunc, 0),
+		router:   make([]ginsdk.HandlerFunc, 0),
 	}
 }
 
-func (a *authorization) Register(router ...gin.HandlerFunc) gin.HandlerFunc {
+func (a *authorization) Register(router ...ginsdk.HandlerFunc) ginsdk.HandlerFunc {
 	a.router = router
 	return a.Handler
 }
 
-func (a *authorization) Append(router ...gin.HandlerFunc) {
+func (a *authorization) Append(router ...ginsdk.HandlerFunc) {
 	a.router = append(a.router, router...)
 }
 
-func (a authorization) Handler(c *gin.Context) {
+func (a authorization) Handler(c *ginsdk.Context) {
 	// Search user in the slice of allowed credentials
 	auth := c.Request.Header.Get(HEAD_AUTH_SEND)
 
@@ -126,7 +126,7 @@ func (a authorization) Handler(c *gin.Context) {
 		switch code {
 		case AUTH_CODE_SUCCESS:
 			for _, r := range a.router {
-				logger.DebugLevel.Logf("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
+				liblog.DebugLevel.Logf("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
 				r(c)
 			}
 		case AUTH_CODE_REQUIRE:
@@ -134,9 +134,9 @@ func (a authorization) Handler(c *gin.Context) {
 		case AUTH_CODE_FORBIDDEN:
 			AuthForbidden(c, ErrorHeaderAuthForbidden.Error(err).GetErrorFull(""))
 		default:
-			c.Errors = append(c.Errors, &gin.Error{
+			c.Errors = append(c.Errors, &ginsdk.Error{
 				Err:  ErrorHeaderAuth.Error(err).GetErrorFull(""),
-				Type: gin.ErrorTypePrivate,
+				Type: ginsdk.ErrorTypePrivate,
 			})
 			c.AbortWithStatus(http.StatusInternalServerError)
 		}

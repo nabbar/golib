@@ -34,11 +34,6 @@ import (
 
 const (
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgSMTP
-	ErrorConfigValidator
-	ErrorConfigInvalidDSN
-	ErrorConfigInvalidNetwork
-	ErrorConfigInvalidParams
-	ErrorConfigInvalidHost
 	ErrorSMTPDial
 	ErrorSMTPClientInit
 	ErrorSMTPClientStartTLS
@@ -62,16 +57,6 @@ func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:
 		return "given parameters is empty"
-	case ErrorConfigValidator:
-		return "invalid config, validation error"
-	case ErrorConfigInvalidDSN:
-		return "invalid DSN: did you forget to escape a param value"
-	case ErrorConfigInvalidNetwork:
-		return "invalid DSN: network address not terminated (missing closing brace)"
-	case ErrorConfigInvalidParams:
-		return "invalid DSN: parsing uri parameters occurs an error"
-	case ErrorConfigInvalidHost:
-		return "invalid DSN: missing the slash ending the host"
 	case ErrorSMTPDial:
 		return "error while trying to dial with SMTP server"
 	case ErrorSMTPClientInit:

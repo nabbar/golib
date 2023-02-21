@@ -36,7 +36,7 @@ import (
 	"strings"
 	"time"
 
-	libsts "github.com/nabbar/golib/status/config"
+	moncfg "github.com/nabbar/golib/monitor/types"
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
@@ -48,16 +48,16 @@ import (
 )
 
 type Config struct {
-	Server     ConfigSrv           `mapstructure:"server" json:"server" yaml:"server" toml:"server" validate:"dive,required"`
-	Cluster    ConfigCluster       `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive,required"`
-	Gateways   ConfigGateway       `mapstructure:"gateways" json:"gateways" yaml:"gateways" toml:"gateways" validate:"dive,required"`
-	Leaf       ConfigLeaf          `mapstructure:"leaf" json:"leaf" yaml:"leaf" toml:"leaf" validate:"dive,required"`
-	Websockets ConfigWebsocket     `mapstructure:"websockets" json:"websockets" yaml:"websockets" toml:"websockets" validate:"dive,required"`
-	MQTT       ConfigMQTT          `mapstructure:"mqtt" json:"mqtt" yaml:"mqtt" toml:"mqtt" validate:"dive,required"`
-	Limits     ConfigLimits        `mapstructure:"limits" json:"limits" yaml:"limits" toml:"limits" validate:"dive,required"`
-	Logs       ConfigLogger        `mapstructure:"logs" json:"logs" yaml:"logs" toml:"logs" validate:"dive,required"`
-	Auth       ConfigAuth          `mapstructure:"auth" json:"auth" yaml:"auth" toml:"auth" validate:"dive,required"`
-	Status     libsts.ConfigStatus `mapstructure:"status" json:"status" yaml:"status" toml:"status" validate:"dive"`
+	Server     ConfigSrv       `mapstructure:"server" json:"server" yaml:"server" toml:"server" validate:"dive,required"`
+	Cluster    ConfigCluster   `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive,required"`
+	Gateways   ConfigGateway   `mapstructure:"gateways" json:"gateways" yaml:"gateways" toml:"gateways" validate:"dive,required"`
+	Leaf       ConfigLeaf      `mapstructure:"leaf" json:"leaf" yaml:"leaf" toml:"leaf" validate:"dive,required"`
+	Websockets ConfigWebsocket `mapstructure:"websockets" json:"websockets" yaml:"websockets" toml:"websockets" validate:"dive,required"`
+	MQTT       ConfigMQTT      `mapstructure:"mqtt" json:"mqtt" yaml:"mqtt" toml:"mqtt" validate:"dive,required"`
+	Limits     ConfigLimits    `mapstructure:"limits" json:"limits" yaml:"limits" toml:"limits" validate:"dive,required"`
+	Logs       ConfigLogger    `mapstructure:"logs" json:"logs" yaml:"logs" toml:"logs" validate:"dive,required"`
+	Auth       ConfigAuth      `mapstructure:"auth" json:"auth" yaml:"auth" toml:"auth" validate:"dive,required"`
+	Monitor    moncfg.Config   `mapstructure:"monitor" json:"monitor" yaml:"monitor" toml:"monitor" validate:"dive"`
 
 	//function / interface are not defined in config marshall
 	Customs *ConfigCustom `mapstructure:"-" json:"-" yaml:"-" toml:"-"`

@@ -29,210 +29,92 @@ package log
 import (
 	"sync"
 
-	libcfg "github.com/nabbar/golib/config"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 )
 
 type componentLog struct {
-	ctx libcfg.FuncContext
-	get libcfg.FuncComponentGet
-	vpr libcfg.FuncComponentViper
-	key string
+	m sync.RWMutex
+	x libctx.Config[uint8]
 
-	fsa func(cpt libcfg.Component) liberr.Error
-	fsb func(cpt libcfg.Component) liberr.Error
-	fra func(cpt libcfg.Component) liberr.Error
-	frb func(cpt libcfg.Component) liberr.Error
-
-	d func() liblog.Logger
-
-	m sync.Mutex
 	l liblog.Logger
 	v liblog.Level
 }
 
-func (c *componentLog) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (o *componentLog) Log() liblog.Logger {
+	o.m.RLock()
+	defer o.m.RUnlock()
 
-	if c.l != nil {
-		return c.frb, c.fra
-	} else {
-		return c.fsb, c.fsa
-	}
-}
-
-func (c *componentLog) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
-	if fct != nil {
-		return fct(c)
+	if o.l != nil {
+		return o.l.Clone()
 	}
 
 	return nil
 }
 
-func (c *componentLog) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (o *componentLog) SetLevel(lvl liblog.Level) {
+	o.m.Lock()
+	defer o.m.Unlock()
 
-	if c.ctx == nil {
-		return ErrorComponentNotInitialized.Error(nil)
-	}
+	o.v = lvl
 
-	if c.l == nil {
-		c.l = liblog.New(c.ctx())
-		c.l.SetLevel(c.v)
-	}
-
-	var (
-		e error
-
-		log liblog.Logger
-		cnf *liblog.Options
-		err liberr.Error
-	)
-
-	if log, e = c.l.Clone(); e != nil {
-		log = liblog.New(c.ctx())
-		log.SetLevel(c.v)
-	}
-
-	if cnf, err = c._GetOptions(getCfg); err != nil {
-		return err
-	} else if cnf == nil {
-		return ErrorConfigInvalid.Error(nil)
-	} else if e = log.SetOptions(cnf); e != nil {
-		return ErrorReloadLog.Error(err)
-	}
-
-	if c.l != nil {
-		_ = c.l.Close()
-	}
-
-	c.l = log
-
-	return nil
-}
-
-func (c *componentLog) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	fb, fa := c._getFct()
-
-	if err := c._runFct(fb); err != nil {
-		return err
-	} else if err = c._runCli(getCfg); err != nil {
-		return err
-	} else if err = c._runFct(fa); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *componentLog) Type() string {
-	return ComponentType
-}
-
-func (c *componentLog) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.key = key
-	c.ctx = ctx
-	c.get = get
-	c.vpr = vpr
-}
-
-func (c *componentLog) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.fsb = before
-	c.fsa = after
-}
-
-func (c *componentLog) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.frb = before
-	c.fra = after
-}
-
-func (c *componentLog) IsStarted() bool {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	return c.l != nil
-}
-
-func (c *componentLog) IsRunning(atLeast bool) bool {
-	return c.IsStarted()
-}
-
-func (c *componentLog) Start(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._run(getCfg)
-}
-
-func (c *componentLog) Reload(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._run(getCfg)
-}
-
-func (c *componentLog) Stop() {
-	return
-}
-
-func (c *componentLog) Dependencies() []string {
-	return make([]string, 0)
-}
-
-func (c *componentLog) Log() liblog.Logger {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	if c.l != nil {
-		if n, e := c.l.Clone(); e != nil {
-			return c.d()
-		} else {
-			return n
-		}
-	}
-
-	return c.d()
-}
-
-func (c *componentLog) SetLevel(lvl liblog.Level) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.v = lvl
-
-	if c.l == nil {
+	if o.l == nil {
 		return
 	}
 
-	c.l.SetLevel(lvl)
+	o.l.SetLevel(lvl)
 }
 
-func (c *componentLog) SetField(fields liblog.Fields) {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (o *componentLog) GetLevel() liblog.Level {
+	o.m.RLock()
+	defer o.m.RUnlock()
 
-	if c.l == nil {
+	return o.v
+}
+
+func (o *componentLog) SetField(fields liblog.Fields) {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	if o.l == nil {
 		return
 	}
 
-	c.l.SetFields(fields)
+	o.l.SetFields(fields)
 }
 
-func (c *componentLog) SetOptions(opt *liblog.Options) liberr.Error {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (o *componentLog) GetField() liblog.Fields {
+	o.m.RLock()
+	defer o.m.RUnlock()
 
-	if c.l == nil {
+	if o.l == nil {
+		return nil
+	}
+
+	return o.l.GetFields()
+}
+
+func (o *componentLog) GetOptions() *liblog.Options {
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if o.l == nil {
+		return nil
+	}
+
+	return o.l.GetOptions()
+}
+
+func (o *componentLog) SetOptions(opt *liblog.Options) liberr.Error {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	if o.l == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	}
 
-	if e := c.l.SetOptions(opt); e != nil {
+	if e := o.l.SetOptions(opt); e != nil {
 		return ErrorConfigInvalid.ErrorParent(e)
 	}
 

@@ -28,7 +28,8 @@ package router
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	ginsdk "github.com/gin-gonic/gin"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 type HeadersConfig map[string]string
@@ -43,6 +44,16 @@ func (h HeadersConfig) New() Headers {
 	return res
 }
 
+func (h HeadersConfig) Validate() liberr.Error {
+	err := ErrorConfigValidator.Error(nil)
+
+	if !err.HasParent() {
+		err = nil
+	}
+
+	return err
+}
+
 type headers struct {
 	head http.Header
 }
@@ -54,8 +65,8 @@ type Headers interface {
 	Del(key string)
 
 	Header() map[string]string
-	Register(router ...gin.HandlerFunc) []gin.HandlerFunc
-	Handler(c *gin.Context)
+	Register(router ...ginsdk.HandlerFunc) []ginsdk.HandlerFunc
+	Handler(c *ginsdk.Context)
 
 	Clone() Headers
 }
@@ -72,8 +83,8 @@ func (h headers) Clone() Headers {
 	}
 }
 
-func (h headers) Register(router ...gin.HandlerFunc) []gin.HandlerFunc {
-	res := make([]gin.HandlerFunc, 0)
+func (h headers) Register(router ...ginsdk.HandlerFunc) []ginsdk.HandlerFunc {
+	res := make([]ginsdk.HandlerFunc, 0)
 	res = append(res, h.Handler)
 	res = append(res, router...)
 
@@ -94,7 +105,7 @@ func (h headers) Header() map[string]string {
 	return res
 }
 
-func (h headers) Handler(c *gin.Context) {
+func (h headers) Handler(c *ginsdk.Context) {
 	if h.head == nil {
 		return
 	}

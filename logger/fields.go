@@ -27,81 +27,83 @@
 
 package logger
 
-import "github.com/sirupsen/logrus"
+import (
+	"context"
+	"encoding/json"
 
-type Fields map[string]interface{}
+	libctx "github.com/nabbar/golib/context"
+	"github.com/sirupsen/logrus"
+)
 
-func NewFields() Fields {
-	return make(Fields)
+type Fields interface {
+	libctx.Config[string]
+	json.Marshaler
+	json.Unmarshaler
+
+	FieldsClone(ctx context.Context) Fields
+	Add(key string, val interface{}) Fields
+	Logrus() logrus.Fields
+	Map(fct func(key string, val interface{}) interface{}) Fields
 }
 
-func (f Fields) clone() map[string]interface{} {
-	res := make(map[string]interface{}, 0)
-
-	if len(f) > 0 {
-		for k, v := range f {
-			res[k] = v
-		}
+func NewFields(ctx libctx.FuncContext) Fields {
+	return &fldModel{
+		libctx.NewConfig[string](ctx),
 	}
-
-	return res
 }
 
-func (f Fields) Add(key string, val interface{}) Fields {
-	res := f.clone()
-	res[key] = val
-
-	return res
+type fldModel struct {
+	libctx.Config[string]
 }
 
-func (f Fields) Map(fct func(key string, val interface{}) interface{}) Fields {
-	res := f.clone()
-
-	for k, v := range res {
-		if v = fct(k, v); v != nil {
-			res[k] = v
-		}
-	}
-
-	return res
+func (o *fldModel) Add(key string, val interface{}) Fields {
+	o.Store(key, val)
+	return o
 }
 
-func (f Fields) Merge(other Fields) Fields {
-	if len(other) < 1 {
-		return f
-	} else if len(f) < 1 {
-		return other
-	}
-
-	res := f.clone()
-
-	other.Map(func(key string, val interface{}) interface{} {
+func (o *fldModel) Logrus() logrus.Fields {
+	var res = make(logrus.Fields, 0)
+	o.Walk(func(key string, val interface{}) bool {
 		res[key] = val
-		return nil
+		return true
 	})
-
 	return res
 }
 
-func (f Fields) Clean(keys ...string) Fields {
-	res := make(map[string]interface{}, 0)
+func (o *fldModel) Map(fct func(key string, val interface{}) interface{}) Fields {
+	o.Walk(func(key string, val interface{}) bool {
+		o.Store(key, fct(key, val))
+		return true
+	})
+	return o
+}
 
-	if len(keys) > 0 {
-		f.Map(func(key string, val interface{}) interface{} {
-			for _, kk := range keys {
-				if kk == key {
-					return nil
-				}
-			}
+func (o *fldModel) MarshalJSON() ([]byte, error) {
+	return json.Marshal(o.Logrus())
+}
 
-			res[key] = val
-			return nil
-		})
+func (o *fldModel) UnmarshalJSON(bytes []byte) error {
+	var l = make(logrus.Fields)
+
+	if e := json.Unmarshal(bytes, &l); e != nil {
+		return e
+	} else if len(l) > 0 {
+		for k, v := range l {
+			o.Store(k, v)
+		}
 	}
 
-	return res
+	return nil
 }
 
-func (f Fields) Logrus() logrus.Fields {
-	return f.clone()
+func (o *fldModel) FieldsClone(ctx context.Context) Fields {
+	if o == nil {
+		return nil
+	} else if o.Config == nil {
+		return nil
+	} else {
+		return &fldModel{
+			o.Config.Clone(ctx),
+		}
+	}
 }
