@@ -27,9 +27,14 @@
 package httpcli
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
+
+	cmptls "github.com/nabbar/golib/config/components/tls"
+	cfgcst "github.com/nabbar/golib/config/const"
 
 	libval "github.com/go-playground/validator/v10"
 
@@ -53,6 +58,27 @@ type Options struct {
 	Http2   bool          `json:"http2" yaml:"http2" toml:"http2" mapstructure:"http2"`
 	TLS     OptionTLS     `json:"tls" yaml:"tls" toml:"tls" mapstructure:"tls"`
 	ForceIP OptionForceIP `json:"force_ip" yaml:"force_ip" toml:"force_ip" mapstructure:"force_ip"`
+}
+
+func DefaultConfig(indent string) []byte {
+	var (
+		res = bytes.NewBuffer(make([]byte, 0))
+		def = []byte(`{
+       "timeout":"0s",
+       "http2": true,
+       "tls": ` + string(cmptls.DefaultConfig(cfgcst.JSONIndent)) + `,
+       "force_ip": {
+         "enable": false,
+         "net":"tcp",
+         "ip":"127.0.0.1:8080"
+       }
+}`)
+	)
+	if err := json.Indent(res, def, indent, cfgcst.JSONIndent); err != nil {
+		return def
+	} else {
+		return res.Bytes()
+	}
 }
 
 func (o Options) Validate() liberr.Error {

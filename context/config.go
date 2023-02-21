@@ -27,93 +27,223 @@ package context
 import (
 	"context"
 	"sync"
-	"sync/atomic"
+	"time"
+
+	"golang.org/x/exp/slices"
 )
 
-type Config interface {
+type FuncContext func() context.Context
+type FuncContextConfig[T comparable] func() Config[T]
+type FuncWalk[T comparable] func(key T, val interface{}) bool
+
+type MapManage[T comparable] interface {
+	Clean()
+	Load(key T) (val interface{}, ok bool)
+	Store(key T, cfg interface{})
+	Delete(key T)
+}
+
+type Context interface {
+	GetContext() context.Context
+}
+
+type Config[T comparable] interface {
 	context.Context
+	MapManage[T]
+	Context
 
-	Merge(cfg Config) bool
+	Clone(ctx context.Context) Config[T]
+	Merge(cfg Config[T]) bool
+	Walk(fct FuncWalk[T]) bool
+	WalkLimit(fct FuncWalk[T], validKeys ...T) bool
 
-	Store(key string, cfg interface{})
-	Load(key string) interface{}
+	LoadOrStore(key T, cfg interface{}) (val interface{}, loaded bool)
+	LoadAndDelete(key T) (val interface{}, loaded bool)
 }
 
-func NewConfig(ctx context.Context) Config {
-	return &configContext{
-		Context: ctx,
-		cfg:     make(map[string]*atomic.Value, 0),
+func NewConfig[T comparable](ctx FuncContext) Config[T] {
+	if ctx == nil {
+		ctx = context.Background
+	}
+
+	return &configContext[T]{
+		Context: ctx(),
+		n:       sync.RWMutex{},
+		m:       sync.Map{},
+		x:       ctx,
 	}
 }
 
-type configContext struct {
+type configContext[T comparable] struct {
 	context.Context
-	m   sync.Mutex
-	cfg map[string]*atomic.Value
+	n sync.RWMutex
+	m sync.Map
+	x FuncContext
 }
 
-func (c configContext) Load(key string) interface{} {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	var (
-		v  *atomic.Value
-		i  interface{}
-		ok bool
-	)
-
-	if c.cfg == nil {
-		c.cfg = make(map[string]*atomic.Value, 0)
-	} else if v, ok = c.cfg[key]; !ok || v == nil {
-		return nil
-	} else if i = v.Load(); i != nil {
-		return i
+func (c *configContext[T]) Delete(key T) {
+	if c.Err() != nil {
+		c.Clean()
+		return
 	}
 
-	return nil
+	c.n.RLock()
+	defer c.n.RUnlock()
+
+	c.m.Delete(key)
 }
 
-func (c configContext) Store(key string, cfg interface{}) {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (c *configContext[T]) Load(key T) (val interface{}, ok bool) {
+	c.n.RLock()
+	defer c.n.RUnlock()
 
-	var ok bool
-
-	if c.cfg == nil {
-		c.cfg = make(map[string]*atomic.Value, 0)
-	}
-
-	if _, ok = c.cfg[key]; !ok {
-		c.cfg[key] = new(atomic.Value)
-	}
-
-	c.cfg[key].Store(cfg)
+	return c.m.Load(key)
 }
 
-func (c *configContext) Merge(cfg Config) bool {
-	var (
-		x  *configContext
-		ok bool
-	)
+func (c *configContext[T]) Store(key T, cfg interface{}) {
+	if c.Err() != nil {
+		c.Clean()
+		return
+	}
 
-	if x, ok = cfg.(*configContext); !ok {
+	c.n.RLock()
+	defer c.n.RUnlock()
+
+	c.m.Store(key, cfg)
+}
+
+func (c *configContext[T]) LoadOrStore(key T, cfg interface{}) (val interface{}, loaded bool) {
+	if c.Err() != nil {
+		c.Clean()
+		return nil, false
+	}
+
+	c.n.RLock()
+	defer c.n.RUnlock()
+
+	return c.m.LoadOrStore(key, cfg)
+}
+
+func (c *configContext[T]) LoadAndDelete(key T) (val interface{}, loaded bool) {
+	c.n.RLock()
+	defer c.n.RUnlock()
+
+	return c.m.LoadAndDelete(key)
+}
+
+func (c *configContext[T]) Walk(fct FuncWalk[T]) bool {
+	return c.WalkLimit(fct)
+}
+
+func (c *configContext[T]) WalkLimit(fct FuncWalk[T], validKeys ...T) bool {
+	c.n.RLock()
+	defer c.n.RUnlock()
+
+	c.m.Range(func(key, value any) bool {
+		if i, k := key.(T); !k {
+			return true
+		} else if len(validKeys) < 1 {
+			return fct(i, value)
+		} else if slices.Contains(validKeys, i) {
+			return fct(i, value)
+		}
+		return true
+	})
+
+	return true
+}
+
+func (c *configContext[T]) Merge(cfg Config[T]) bool {
+	if c.Err() != nil {
+		c.Clean()
+		return false
+	} else if cfg == nil {
 		return false
 	}
 
-	x.m.Lock()
-	defer x.m.Unlock()
+	c.n.RLock()
+	defer c.n.RUnlock()
 
-	for k, v := range x.cfg {
-		if k == "" || v == nil {
-			continue
-		}
-
-		if i := v.Load(); i == nil {
-			continue
-		} else {
-			c.Store(k, i)
-		}
-	}
+	cfg.Walk(func(key T, val interface{}) bool {
+		c.m.Store(key, val)
+		return true
+	})
 
 	return true
+}
+
+func (c *configContext[T]) Clean() {
+	c.n.Lock()
+	defer c.n.Unlock()
+
+	c.m = sync.Map{}
+}
+
+func (c *configContext[T]) Clone(ctx context.Context) Config[T] {
+	if c.Err() != nil {
+		c.Clean()
+		return nil
+	}
+
+	c.n.RLock()
+	defer c.n.RUnlock()
+
+	if ctx == nil {
+		ctx = c.x()
+	}
+
+	if ctx == nil {
+		ctx = c.Context
+	}
+
+	n := &configContext[T]{
+		Context: ctx,
+		n:       sync.RWMutex{},
+		m:       sync.Map{},
+		x:       c.x,
+	}
+
+	c.m.Range(func(key any, val interface{}) bool {
+		if i, k := key.(T); k {
+			n.Store(i, val)
+		}
+		return true
+	})
+
+	return n
+}
+
+func (c *configContext[T]) Deadline() (deadline time.Time, ok bool) {
+	return c.Context.Deadline()
+}
+
+func (c *configContext[T]) Done() <-chan struct{} {
+	return c.Context.Done()
+}
+
+func (c *configContext[T]) Err() error {
+	return c.Context.Err()
+}
+
+func (c *configContext[T]) Value(key any) any {
+	if i, k := key.(T); !k {
+		return c.Context.Value(key)
+	} else if v, ok := c.Load(i); ok {
+		return v
+	} else {
+		return c.Context.Value(key)
+	}
+}
+
+func (c *configContext[T]) GetContext() context.Context {
+	c.n.RLock()
+	defer c.n.RUnlock()
+
+	if c.x == nil {
+		return context.Background()
+	} else if x := c.x(); x == nil {
+		return context.Background()
+	} else {
+		return x
+	}
 }

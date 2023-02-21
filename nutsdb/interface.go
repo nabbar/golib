@@ -36,10 +36,12 @@ import (
 	"time"
 
 	libclu "github.com/nabbar/golib/cluster"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	montps "github.com/nabbar/golib/monitor/types"
 	libsh "github.com/nabbar/golib/shell"
-	libsts "github.com/nabbar/golib/status"
+	libver "github.com/nabbar/golib/version"
 )
 
 const LogLib = "NutsDB"
@@ -60,9 +62,7 @@ type NutsDB interface {
 	GetLogger() liblog.Logger
 	SetLogger(l liblog.FuncLog)
 
-	StatusInfo() (name string, release string, hash string)
-	StatusHealth() error
-	StatusRouter(sts libsts.RouteStatus, prefix string)
+	Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error)
 
 	Cluster() libclu.Cluster
 	Client(ctx context.Context, tickSync time.Duration) Client

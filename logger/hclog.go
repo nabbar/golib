@@ -43,128 +43,128 @@ type _hclog struct {
 	l Logger
 }
 
-func (l *_hclog) Log(level hclog.Level, msg string, args ...interface{}) {
+func (o *_hclog) Log(level hclog.Level, msg string, args ...interface{}) {
 	switch level {
 	case hclog.NoLevel, hclog.Off:
 		return
 	case hclog.Trace:
-		l.l.Debug(msg, nil, args...)
+		o.l.Debug(msg, nil, args...)
 	case hclog.Debug:
-		l.l.Debug(msg, nil, args...)
+		o.l.Debug(msg, nil, args...)
 	case hclog.Info:
-		l.l.Info(msg, nil, args...)
+		o.l.Info(msg, nil, args...)
 	case hclog.Warn:
-		l.l.Warning(msg, nil, args...)
+		o.l.Warning(msg, nil, args...)
 	case hclog.Error:
-		l.l.Error(msg, nil, args...)
+		o.l.Error(msg, nil, args...)
 	}
 }
 
-func (l *_hclog) Trace(msg string, args ...interface{}) {
-	l.l.Debug(msg, nil, args...)
+func (o *_hclog) Trace(msg string, args ...interface{}) {
+	o.l.Debug(msg, nil, args...)
 }
 
-func (l *_hclog) Debug(msg string, args ...interface{}) {
-	l.l.Debug(msg, nil, args...)
+func (o *_hclog) Debug(msg string, args ...interface{}) {
+	o.l.Debug(msg, nil, args...)
 }
 
-func (l *_hclog) Info(msg string, args ...interface{}) {
-	l.l.Info(msg, nil, args...)
+func (o *_hclog) Info(msg string, args ...interface{}) {
+	o.l.Info(msg, nil, args...)
 }
 
-func (l *_hclog) Warn(msg string, args ...interface{}) {
-	l.l.Warning(msg, nil, args...)
+func (o *_hclog) Warn(msg string, args ...interface{}) {
+	o.l.Warning(msg, nil, args...)
 }
 
-func (l *_hclog) Error(msg string, args ...interface{}) {
-	l.l.Error(msg, nil, args...)
+func (o *_hclog) Error(msg string, args ...interface{}) {
+	o.l.Error(msg, nil, args...)
 }
 
-func (l *_hclog) IsTrace() bool {
-	return l.l.GetOptions().EnableTrace
+func (o *_hclog) IsTrace() bool {
+	return o.l.GetOptions().EnableTrace
 }
 
-func (l *_hclog) IsDebug() bool {
-	return l.l.GetLevel() >= DebugLevel
+func (o *_hclog) IsDebug() bool {
+	return o.l.GetLevel() >= DebugLevel
 }
 
-func (l *_hclog) IsInfo() bool {
-	return l.l.GetLevel() >= InfoLevel
+func (o *_hclog) IsInfo() bool {
+	return o.l.GetLevel() >= InfoLevel
 }
 
-func (l *_hclog) IsWarn() bool {
-	return l.l.GetLevel() >= WarnLevel
+func (o *_hclog) IsWarn() bool {
+	return o.l.GetLevel() >= WarnLevel
 }
 
-func (l *_hclog) IsError() bool {
-	return l.l.GetLevel() >= ErrorLevel
+func (o *_hclog) IsError() bool {
+	return o.l.GetLevel() >= ErrorLevel
 }
 
-func (l *_hclog) ImpliedArgs() []interface{} {
-	fields := l.l.GetFields()
+func (o *_hclog) ImpliedArgs() []interface{} {
+	fields := o.l.GetFields()
 
-	if a, ok := fields[HCLogArgs]; !ok {
+	if i, l := fields.Load(HCLogArgs); !l {
 		return make([]interface{}, 0)
-	} else if s, ok := a.([]interface{}); ok {
-		return s
+	} else if v, k := i.([]interface{}); k {
+		return v
 	}
 
 	return make([]interface{}, 0)
 }
 
-func (l *_hclog) With(args ...interface{}) hclog.Logger {
-	l.l.SetFields(l.l.GetFields().Add(HCLogArgs, args))
-	return l
+func (o *_hclog) With(args ...interface{}) hclog.Logger {
+	o.l.SetFields(o.l.GetFields().Add(HCLogArgs, args))
+	return o
 }
 
-func (l *_hclog) Name() string {
-	fields := l.l.GetFields()
+func (o *_hclog) Name() string {
+	fields := o.l.GetFields()
 
-	if a, ok := fields[HCLogName]; !ok {
+	if i, l := fields.Load(HCLogName); !l {
 		return ""
-	} else if s, ok := a.(string); ok {
-		return s
+	} else if v, k := i.(string); k {
+		return v
 	}
 
 	return ""
 }
 
-func (l *_hclog) Named(name string) hclog.Logger {
-	l.l.SetFields(l.l.GetFields().Add(HCLogName, name))
-	return l
+func (o *_hclog) Named(name string) hclog.Logger {
+	o.l.SetFields(o.l.GetFields().Add(HCLogName, name))
+	return o
 }
 
-func (l *_hclog) ResetNamed(name string) hclog.Logger {
-	l.l.SetFields(l.l.GetFields().Add(HCLogName, name))
-	return l
+func (o *_hclog) ResetNamed(name string) hclog.Logger {
+	o.l.SetFields(o.l.GetFields().Add(HCLogName, name))
+	return o
 }
 
-func (l *_hclog) SetLevel(level hclog.Level) {
+func (o *_hclog) SetLevel(level hclog.Level) {
 	switch level {
 	case hclog.NoLevel, hclog.Off:
-		l.l.SetLevel(NilLevel)
+		o.l.SetLevel(NilLevel)
 	case hclog.Trace:
-		opt := l.l.GetOptions()
+		opt := o.l.GetOptions()
 		opt.EnableTrace = true
-		_ = l.l.SetOptions(opt)
-		l.l.SetLevel(DebugLevel)
+		_ = o.l.SetOptions(opt)
+		o.l.SetLevel(DebugLevel)
 	case hclog.Debug:
-		l.l.SetLevel(DebugLevel)
+		o.l.SetLevel(DebugLevel)
 	case hclog.Info:
-		l.l.SetLevel(InfoLevel)
+		o.l.SetLevel(InfoLevel)
 	case hclog.Warn:
-		l.l.SetLevel(WarnLevel)
+		o.l.SetLevel(WarnLevel)
 	case hclog.Error:
-		l.l.SetLevel(ErrorLevel)
+		o.l.SetLevel(ErrorLevel)
 	}
 }
 
-func (l *_hclog) GetLevel() hclog.Level {
-	switch l.l.GetLevel() {
+func (o *_hclog) GetLevel() hclog.Level {
+	switch o.l.GetLevel() {
 	case NilLevel:
 		return hclog.NoLevel
 	case DebugLevel:
-		opt := l.l.GetOptions()
+		opt := o.l.GetOptions()
 		if opt.EnableTrace {
 			return hclog.Trace
 		} else {
@@ -181,7 +181,7 @@ func (l *_hclog) GetLevel() hclog.Level {
 	}
 }
 
-func (l *_hclog) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
+func (o *_hclog) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
 	var lvl Level
 	switch opts.ForceLevel {
 	case hclog.NoLevel, hclog.Off:
@@ -198,9 +198,9 @@ func (l *_hclog) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
 		lvl = ErrorLevel
 	}
 
-	return l.l.GetStdLogger(lvl, 0)
+	return o.l.GetStdLogger(lvl, 0)
 }
 
-func (l *_hclog) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writer {
-	return l.l
+func (o *_hclog) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writer {
+	return o.l
 }

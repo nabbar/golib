@@ -30,17 +30,16 @@ package nats
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/nabbar/golib/status/config"
-
 	libtls "github.com/nabbar/golib/certificates"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status"
+	montps "github.com/nabbar/golib/monitor/types"
+	libver "github.com/nabbar/golib/version"
 	natsrv "github.com/nats-io/nats-server/v2/server"
 	natcli "github.com/nats-io/nats.go"
 )
@@ -67,12 +66,10 @@ type Server interface {
 	ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
 	ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
 
-	StatusInfo() (name string, release string, hash string)
-	StatusHealth() error
-	StatusRouter(sts libsts.RouteStatus, prefix string)
+	Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error)
 }
 
-func NewServer(opt *natsrv.Options, sts config.ConfigStatus) Server {
+func NewServer(opt *natsrv.Options, cfg montps.Config) Server {
 	o := new(atomic.Value)
 
 	if opt != nil {
@@ -80,7 +77,7 @@ func NewServer(opt *natsrv.Options, sts config.ConfigStatus) Server {
 	}
 
 	return &server{
-		c: &sts,
+		c: &cfg,
 		o: o,
 		s: nil,
 		r: new(atomic.Value),
@@ -88,7 +85,7 @@ func NewServer(opt *natsrv.Options, sts config.ConfigStatus) Server {
 }
 
 type server struct {
-	c *config.ConfigStatus
+	c *montps.Config
 	o *atomic.Value
 	s *atomic.Value
 	r *atomic.Value
@@ -259,48 +256,6 @@ func (s *server) ClientServer(ctx context.Context, tick time.Duration, defTls li
 	}
 
 	return opt.NewClient(defTls)
-}
-
-func (s *server) StatusInfo() (name string, release string, hash string) {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	hash = ""
-	release = strings.TrimLeft(strings.ToLower(runtime.Version()), "go")
-	name = fmt.Sprintf("Nats %d (%s)", s.GetOptions().Host, s.GetOptions().ClientAdvertise)
-
-	return name, release, hash
-}
-
-func (s *server) StatusHealth() error {
-	for i := 0; i < 5; i++ {
-		if s.IsRunning() {
-			if s.IsReadyTimeout(context.Background(), time.Second) {
-				return nil
-			}
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	if e := s._GetError(); e != nil {
-		return e
-	}
-
-	return fmt.Errorf("node not ready")
-}
-
-func (s *server) StatusRouter(sts libsts.RouteStatus, prefix string) {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	if prefix != "" {
-		prefix = fmt.Sprintf("%s Nats %d (%s)", prefix, s.GetOptions().Host, s.GetOptions().ClientAdvertise)
-	} else {
-		prefix = fmt.Sprintf("Nats %d (%s)", s.GetOptions().Host, s.GetOptions().ClientAdvertise)
-	}
-
-	s.c.RegisterStatus(sts, prefix, s.StatusInfo, s.StatusHealth)
 }
 
 func (s *server) _GetServer() *natsrv.Server {

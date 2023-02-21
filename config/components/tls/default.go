@@ -30,11 +30,7 @@ import (
 	"bytes"
 	"encoding/json"
 
-	libtls "github.com/nabbar/golib/certificates"
-	libcfg "github.com/nabbar/golib/config"
-	liberr "github.com/nabbar/golib/errors"
-	spfcbr "github.com/spf13/cobra"
-	spfvbr "github.com/spf13/viper"
+	cfgtps "github.com/nabbar/golib/config/const"
 )
 
 var _defaultConfig = []byte(`{
@@ -100,31 +96,13 @@ func SetDefaultConfig(cfg []byte) {
 
 func DefaultConfig(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+	if err := json.Indent(res, _defaultConfig, indent, cfgtps.JSONIndent); err != nil {
 		return _defaultConfig
 	} else {
 		return res.Bytes()
 	}
 }
 
-func (c *componentTls) DefaultConfig(indent string) []byte {
+func (o *componentTls) DefaultConfig(indent string) []byte {
 	return DefaultConfig(indent)
-}
-
-func (c *componentTls) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
-	return nil
-}
-
-func (c *componentTls) _getConfig(getCfg libcfg.FuncComponentConfigGet) (*libtls.Config, liberr.Error) {
-	cfg := libtls.Config{}
-
-	if err := getCfg(c.key, &cfg); err != nil {
-		return nil, ErrorParamInvalid.Error(err)
-	}
-
-	if err := cfg.Validate(); err != nil {
-		return nil, ErrorConfigInvalid.Error(err)
-	}
-
-	return &cfg, nil
 }

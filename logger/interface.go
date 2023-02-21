@@ -28,12 +28,13 @@
 package logger
 
 import (
-	"context"
 	"io"
 	"log"
 	"sync"
-	"sync/atomic"
 	"time"
+
+	libctx "github.com/nabbar/golib/context"
+	iotclo "github.com/nabbar/golib/ioutils/mapCloser"
 
 	"github.com/hashicorp/go-hclog"
 
@@ -41,6 +42,7 @@ import (
 )
 
 type FuncLog func() Logger
+type FuncOpt func() *Options
 
 type Logger interface {
 	io.WriteCloser
@@ -72,7 +74,7 @@ type Logger interface {
 	GetFields() Fields
 
 	//Clone allow to duplicate the logger with a copy of the logger
-	Clone() (Logger, error)
+	Clone() Logger
 
 	//SetSPF13Level allow to plus spf13 logger (jww) to this logger
 	SetSPF13Level(lvl Level, log *jww.Notepad)
@@ -124,19 +126,15 @@ type Logger interface {
 }
 
 // New return a new logger interface pointer
-func New(ctx context.Context) Logger {
-	lvl := new(atomic.Value)
-	lvl.Store(InfoLevel)
-
-	return &logger{
-		x: ctx,
-		n: nil,
-		m: &sync.Mutex{},
-		l: lvl,
-		o: new(atomic.Value),
-		s: new(atomic.Value),
-		f: new(atomic.Value),
-		w: new(atomic.Value),
-		c: _NewCloser(),
+func New(ctx libctx.FuncContext) Logger {
+	l := &logger{
+		m: sync.RWMutex{},
+		x: libctx.NewConfig[uint8](ctx),
+		f: NewFields(ctx),
+		c: iotclo.New(ctx),
 	}
+
+	l.SetLevel(InfoLevel)
+
+	return l
 }

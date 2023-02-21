@@ -32,14 +32,9 @@ package nutsdb
 
 import (
 	"context"
-	"fmt"
-	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	libsts "github.com/nabbar/golib/status"
 
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
 	libclu "github.com/nabbar/golib/cluster"
@@ -335,49 +330,6 @@ func (n *ndb) ShellCommand(ctx func() context.Context, tickSync time.Duration) [
 	res = append(res, newShellCommand(CmdZGetByKey, cli))
 
 	return res
-}
-
-func (n *ndb) StatusInfo() (name string, release string, hash string) {
-	n.m.Lock()
-	defer n.m.Unlock()
-
-	hash = ""
-	release = strings.TrimLeft(strings.ToLower(runtime.Version()), "go")
-	name = fmt.Sprintf("NutsDB %d (%s)", n.c.Cluster.Cluster.NodeID, n.c.Cluster.Node.RaftAddress)
-
-	return name, release, hash
-}
-
-func (n *ndb) StatusHealth() error {
-	for i := 0; i < 5; i++ {
-		if n.IsRunning() {
-			if n.IsReadyTimeout(context.Background(), time.Second) {
-				return nil
-			}
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	if e := n._GetError(); e != nil {
-		return e
-	}
-
-	return fmt.Errorf("node not ready")
-}
-
-func (n *ndb) StatusRouter(sts libsts.RouteStatus, prefix string) {
-	n.m.Lock()
-	defer n.m.Unlock()
-
-	if prefix != "" {
-		prefix = fmt.Sprintf("%s NutsDB %d (%s)", prefix, n.c.Cluster.Cluster.NodeID, n.c.Cluster.Node.RaftAddress)
-	} else {
-		prefix = fmt.Sprintf("NutsDB %d (%s)", n.c.Cluster.Cluster.NodeID, n.c.Cluster.Node.RaftAddress)
-	}
-
-	cfg := n.c.Status
-	cfg.RegisterStatus(sts, prefix, n.StatusInfo, n.StatusHealth)
 }
 
 func (n *ndb) _SetError(e liberr.Error) {

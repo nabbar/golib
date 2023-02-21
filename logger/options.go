@@ -99,6 +99,8 @@ type OptionsFile struct {
 	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
 }
 
+type OptionsFiles []OptionsFile
+
 type OptionsSyslog struct {
 	// LogLevel define the allowed level of log for this syslog.
 	LogLevel []string `json:"logLevel,omitempty" yaml:"logLevel,omitempty" toml:"logLevel,omitempty" mapstructure:"logLevel,omitempty"`
@@ -133,7 +135,12 @@ type OptionsSyslog struct {
 	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
 }
 
+type OptionsSyslogs []OptionsSyslog
+
 type Options struct {
+	// InheritDefault define if the current options will override a default options
+	InheritDefault bool `json:"inheritDefault" yaml:"inheritDefault" toml:"inheritDefault" mapstructure:"inheritDefault"`
+
 	// DisableStandard allow disabling to write log to standard output stdout/stderr.
 	DisableStandard bool `json:"disableStandard,omitempty" yaml:"disableStandard,omitempty" toml:"disableStandard,omitempty" mapstructure:"disableStandard,omitempty"`
 
@@ -156,26 +163,42 @@ type Options struct {
 	// EnableAccessLog allow to add all message from api router for access log and error log.
 	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
 
+	// LogFileExtend define if the logFile given is in addition of default LogFile or a replacement.
+	LogFileExtend bool `json:"logFileExtend,omitempty" yaml:"logFileExtend,omitempty" toml:"logFileExtend,omitempty" mapstructure:"logFileExtend,omitempty"`
+
 	// LogFile define a list of log file configuration to allow log to files.
-	LogFile []OptionsFile `json:"logFile,omitempty" yaml:"logFile,omitempty" toml:"logFile,omitempty" mapstructure:"logFile,omitempty"`
+	LogFile OptionsFiles `json:"logFile,omitempty" yaml:"logFile,omitempty" toml:"logFile,omitempty" mapstructure:"logFile,omitempty"`
+
+	// LogSyslogExtend define if the logFile given is in addition of default LogSyslog or a replacement.
+	LogSyslogExtend bool `json:"logSyslogExtend,omitempty" yaml:"logSyslogExtend,omitempty" toml:"logSyslogExtend,omitempty" mapstructure:"logSyslogExtend,omitempty"`
 
 	// LogSyslog define a list of syslog configuration to allow log to syslog.
-	LogSyslog []OptionsSyslog `json:"logSyslog,omitempty" yaml:"logSyslog,omitempty" toml:"logSyslog,omitempty" mapstructure:"logSyslog,omitempty"`
+	LogSyslog OptionsSyslogs `json:"logSyslog,omitempty" yaml:"logSyslog,omitempty" toml:"logSyslog,omitempty" mapstructure:"logSyslog,omitempty"`
 
 	// custom function handler.
 	init   FuncCustomConfig
 	change FuncCustomConfig
+
+	// default options
+	opts FuncOpt
+}
+
+// RegisterDefaultFunc allow to register a function called to retrieve default options for inheritDefault.
+// If not set, the previous options will be used as default options.
+// To clean function, just call RegisterDefaultFunc with nil as param.
+func (o *Options) RegisterDefaultFunc(fct FuncOpt) {
+	o.opts = fct
 }
 
 // RegisterFuncUpdateLogger allow to register a function called when init or update of logger.
 // To clean function, just call RegisterFuncUpdateLogger with nil as param.
-func (o Options) RegisterFuncUpdateLogger(fct FuncCustomConfig) {
+func (o *Options) RegisterFuncUpdateLogger(fct FuncCustomConfig) {
 	o.init = fct
 }
 
 // RegisterFuncUpdateLevel allow to register a function called when init or update level
 // To clean function, just call RegisterFuncUpdateLevel with nil as param.
-func (o Options) RegisterFuncUpdateLevel(fct FuncCustomConfig) {
+func (o *Options) RegisterFuncUpdateLevel(fct FuncCustomConfig) {
 	o.change = fct
 }
 
@@ -199,4 +222,65 @@ func (o *Options) Validate() liberr.Error {
 	}
 
 	return e
+}
+
+func (o *Options) Clone() Options {
+	return Options{
+		DisableStandard:  o.DisableStandard,
+		DisableStack:     o.DisableStack,
+		DisableTimestamp: o.DisableTimestamp,
+		EnableTrace:      o.EnableTrace,
+		TraceFilter:      o.TraceFilter,
+		DisableColor:     o.DisableColor,
+		EnableAccessLog:  o.EnableAccessLog,
+		LogFile:          o.LogFile.Clone(),
+		LogSyslog:        o.LogSyslog.Clone(),
+		init:             o.init,
+		change:           o.change,
+	}
+}
+
+func (o OptionsFile) Clone() OptionsFile {
+	return OptionsFile{
+		LogLevel:         o.LogLevel,
+		Filepath:         o.Filepath,
+		Create:           o.Create,
+		CreatePath:       o.CreatePath,
+		FileMode:         o.FileMode,
+		PathMode:         o.PathMode,
+		DisableStack:     o.DisableStack,
+		DisableTimestamp: o.DisableTimestamp,
+		EnableTrace:      o.EnableTrace,
+		EnableAccessLog:  o.EnableAccessLog,
+	}
+}
+
+func (o OptionsFiles) Clone() OptionsFiles {
+	var c = make([]OptionsFile, 0)
+	for _, i := range o {
+		c = append(c, i.Clone())
+	}
+	return c
+}
+
+func (o OptionsSyslog) Clone() OptionsSyslog {
+	return OptionsSyslog{
+		LogLevel:         o.LogLevel,
+		Network:          o.Network,
+		Host:             o.Host,
+		Facility:         o.Facility,
+		Tag:              o.Tag,
+		DisableStack:     o.DisableStack,
+		DisableTimestamp: o.DisableTimestamp,
+		EnableTrace:      o.EnableTrace,
+		EnableAccessLog:  o.EnableAccessLog,
+	}
+}
+
+func (o OptionsSyslogs) Clone() OptionsSyslogs {
+	var c = make([]OptionsSyslog, 0)
+	for _, i := range o {
+		c = append(c, i.Clone())
+	}
+	return c
 }

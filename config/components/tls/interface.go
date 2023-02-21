@@ -27,24 +27,27 @@
 package tls
 
 import (
+	"sync"
+
 	libtls "github.com/nabbar/golib/certificates"
 	libcfg "github.com/nabbar/golib/config"
-)
-
-const (
-	ComponentType = "tls"
+	cfgtps "github.com/nabbar/golib/config/types"
+	libctx "github.com/nabbar/golib/context"
 )
 
 type ComponentTlS interface {
-	libcfg.Component
+	cfgtps.Component
 	Config() *libtls.Config
 	GetTLS() libtls.TLSConfig
 	SetTLS(tls libtls.TLSConfig)
 }
 
-func New() ComponentTlS {
+func New(ctx libctx.FuncContext) ComponentTlS {
 	return &componentTls{
+		m: sync.RWMutex{},
+		x: libctx.NewConfig[uint8](ctx),
 		t: nil,
+		c: nil,
 	}
 }
 
@@ -52,11 +55,11 @@ func Register(cfg libcfg.Config, key string, cpt ComponentTlS) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, key string) {
-	cfg.ComponentSet(key, New())
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+	cfg.ComponentSet(key, New(ctx))
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentTlS {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentTlS {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentTlS); !ok {

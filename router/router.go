@@ -29,17 +29,17 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gin-gonic/gin"
+	ginsdk "github.com/gin-gonic/gin"
 )
 
 func init() {
 	if os.Getenv("GIN_MODE") == "" {
-		gin.SetMode(gin.ReleaseMode)
+		ginsdk.SetMode(ginsdk.ReleaseMode)
 	}
 }
 
 // SetGinHandler func that return given func as ginTonic HandlerFunc interface type.
-func SetGinHandler(fct func(c *gin.Context)) gin.HandlerFunc {
+func SetGinHandler(fct func(c *ginsdk.Context)) ginsdk.HandlerFunc {
 	return fct
 }
 

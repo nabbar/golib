@@ -30,28 +30,24 @@ import (
 	"sync"
 
 	libcfg "github.com/nabbar/golib/config"
+	cfgtps "github.com/nabbar/golib/config/types"
+	libctx "github.com/nabbar/golib/context"
 	libreq "github.com/nabbar/golib/request"
 )
 
-const (
-	ComponentType = "request"
-)
-
 type ComponentRequest interface {
-	libcfg.Component
+	cfgtps.Component
 
-	SetHTTPClient(fct libreq.FctHttpClient)
 	SetDefaultTLS(key string)
-
 	Request() (libreq.Request, error)
 }
 
-func New(tls string, cli libreq.FctHttpClient) ComponentRequest {
+func New(ctx libctx.FuncContext, tls string) ComponentRequest {
 	return &componentRequest{
-		m: sync.Mutex{},
+		m: sync.RWMutex{},
+		x: libctx.NewConfig[uint8](ctx),
 		r: nil,
 		t: tls,
-		c: cli,
 	}
 }
 
@@ -59,11 +55,11 @@ func Register(cfg libcfg.Config, key string, cpt ComponentRequest) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, key, tls string, cli libreq.FctHttpClient) {
-	cfg.ComponentSet(key, New(tls, cli))
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key, tls string) {
+	cfg.ComponentSet(key, New(ctx, tls))
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentRequest {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentRequest {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentRequest); !ok {

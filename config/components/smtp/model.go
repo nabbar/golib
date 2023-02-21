@@ -29,214 +29,34 @@ package smtp
 import (
 	"sync"
 
-	libtls "github.com/nabbar/golib/certificates"
-	libcfg "github.com/nabbar/golib/config"
-	cpttls "github.com/nabbar/golib/config/components/tls"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
+	montps "github.com/nabbar/golib/monitor/types"
 	libsmtp "github.com/nabbar/golib/smtp"
-	libsts "github.com/nabbar/golib/status"
 )
 
 type componentSmtp struct {
-	ctx libcfg.FuncContext
-	get libcfg.FuncComponentGet
-	vpr libcfg.FuncComponentViper
-	key string
-
-	fsa func(cpt libcfg.Component) liberr.Error
-	fsb func(cpt libcfg.Component) liberr.Error
-	fra func(cpt libcfg.Component) liberr.Error
-	frb func(cpt libcfg.Component) liberr.Error
-
-	m sync.Mutex
+	m sync.RWMutex
+	x libctx.Config[uint8]
+	p montps.FuncPool
 	t string
 	s libsmtp.SMTP
 }
 
-func (c *componentSmtp) _CheckDep() bool {
-	return c != nil && c.t != ""
+func (o *componentSmtp) SetTLSKey(tlsKey string) {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	o.t = tlsKey
 }
 
-func (c *componentSmtp) _GetTLS() (libtls.TLSConfig, liberr.Error) {
-	if !c._CheckDep() {
+func (o *componentSmtp) GetSMTP() (libsmtp.SMTP, liberr.Error) {
+	if !o.IsStarted() {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	}
 
-	if i := cpttls.Load(c.get, c.t); i == nil {
-		return nil, ErrorDependencyTLSDefault.Error(nil)
-	} else if tls := i.GetTLS(); tls == nil {
-		return nil, ErrorDependencyTLSDefault.Error(nil)
-	} else {
-		return tls, nil
-	}
-}
+	o.m.Lock()
+	defer o.m.Unlock()
 
-func (c *componentSmtp) _getFct() (func(cpt libcfg.Component) liberr.Error, func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	if c.s != nil {
-		return c.frb, c.fra
-	} else {
-		return c.fsb, c.fsa
-	}
-}
-
-func (c *componentSmtp) _runFct(fct func(cpt libcfg.Component) liberr.Error) liberr.Error {
-	if fct != nil {
-		return fct(c)
-	}
-
-	return nil
-}
-
-func (c *componentSmtp) _runCli(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	var (
-		err liberr.Error
-		cli libsmtp.SMTP
-		cfg libsmtp.ConfigModel
-	)
-
-	if cfg, err = c._getConfig(getCfg); err != nil {
-		return err
-	}
-
-	if cli, err = cfg.GetSMTP(); err != nil {
-		if c.s != nil {
-			return ErrorReloadComponent.Error(err)
-		}
-		return ErrorStartComponent.Error(err)
-	}
-
-	if c.s != nil {
-		_ = c.s.Close
-	}
-
-	c.s = cli
-	return nil
-}
-
-func (c *componentSmtp) _run(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	if !c._CheckDep() {
-		return ErrorComponentNotInitialized.Error(nil)
-	}
-
-	fb, fa := c._getFct()
-
-	if err := c._runFct(fb); err != nil {
-		return err
-	} else if err = c._runCli(getCfg); err != nil {
-		return err
-	} else if err = c._runFct(fa); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *componentSmtp) Type() string {
-	return ComponentType
-}
-
-func (c *componentSmtp) Init(key string, ctx libcfg.FuncContext, get libcfg.FuncComponentGet, vpr libcfg.FuncComponentViper, sts libcfg.FuncRouteStatus) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.key = key
-	c.ctx = ctx
-	c.get = get
-	c.vpr = vpr
-}
-
-func (c *componentSmtp) RegisterFuncStart(before, after func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.fsb = before
-	c.fsa = after
-}
-
-func (c *componentSmtp) RegisterFuncReload(before, after func(cpt libcfg.Component) liberr.Error) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.frb = before
-	c.fra = after
-}
-
-func (c *componentSmtp) IsStarted() bool {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	return c._CheckDep() && c.s != nil
-}
-
-func (c *componentSmtp) IsRunning(atLeast bool) bool {
-	if !c.IsStarted() {
-		return false
-	}
-
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	e := c.s.Check(c.ctx())
-	return e == nil
-}
-
-func (c *componentSmtp) Start(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._run(getCfg)
-}
-
-func (c *componentSmtp) Reload(getCfg libcfg.FuncComponentConfigGet) liberr.Error {
-	return c._run(getCfg)
-}
-
-func (c *componentSmtp) Stop() {
-	if !c.IsStarted() {
-		return
-	}
-
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.s.Close()
-}
-
-func (c *componentSmtp) Dependencies() []string {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	if !c._CheckDep() {
-		return []string{cpttls.ComponentType}
-	}
-
-	return []string{c.t}
-}
-
-func (c *componentSmtp) SetTLSKey(tlsKey string) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.t = tlsKey
-}
-
-func (c *componentSmtp) GetSMTP() (libsmtp.SMTP, liberr.Error) {
-	if !c.IsStarted() {
-		return nil, ErrorComponentNotInitialized.Error(nil)
-	}
-
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	return c.s.Clone(), nil
-}
-
-func (c *componentSmtp) SetStatusRouter(sts libsts.RouteStatus, prefix string) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.s.StatusRouter(sts, prefix)
+	return o.s.Clone(), nil
 }

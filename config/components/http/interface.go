@@ -27,46 +27,41 @@
 package http
 
 import (
-	"net/http"
 	"sync"
 
 	libcfg "github.com/nabbar/golib/config"
-	libhts "github.com/nabbar/golib/httpserver"
+	cfgtps "github.com/nabbar/golib/config/types"
+	libctx "github.com/nabbar/golib/context"
+	htpool "github.com/nabbar/golib/httpserver/pool"
+	srvtps "github.com/nabbar/golib/httpserver/types"
 )
 
 const (
-	DefaultTlsKey = "tls"
-	DefaultLogKey = "log"
-	ComponentType = "http"
+	DefaultTlsKey = "t"
 )
 
 type ComponentHttp interface {
-	libcfg.Component
+	cfgtps.Component
 
 	SetTLSKey(tlsKey string)
-	SetLOGKey(logKey string)
-	SetHandler(handler map[string]http.Handler)
+	SetHandler(fct srvtps.FuncHandler)
 
-	GetPool() libhts.PoolServer
-	SetPool(pool libhts.PoolServer)
+	GetPool() htpool.Pool
+	SetPool(pool htpool.Pool)
 }
 
-func New(tlsKey, logKey string, handler map[string]http.Handler) ComponentHttp {
+func New(ctx libctx.FuncContext, tlsKey string, hdl srvtps.FuncHandler) ComponentHttp {
 	if tlsKey == "" {
 		tlsKey = DefaultTlsKey
 	}
 
-	if logKey == "" {
-		logKey = DefaultLogKey
-	}
-
 	return &componentHttp{
-		m:    sync.Mutex{},
-		tls:  tlsKey,
-		log:  logKey,
-		run:  false,
-		hand: handler,
-		pool: nil,
+		m: sync.RWMutex{},
+		x: libctx.NewConfig[uint8](ctx),
+		t: tlsKey,
+		h: hdl,
+		s: nil,
+		p: nil,
 	}
 }
 
@@ -74,11 +69,11 @@ func Register(cfg libcfg.Config, key string, cpt ComponentHttp) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, key string, tlsKey, logKey string, handler map[string]http.Handler) {
-	cfg.ComponentSet(key, New(tlsKey, logKey, handler))
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, tlsKey string, hdl srvtps.FuncHandler) {
+	cfg.ComponentSet(key, New(ctx, tlsKey, hdl))
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentHttp {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentHttp {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentHttp); !ok {

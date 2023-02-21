@@ -30,20 +30,15 @@ import (
 	"bytes"
 	"encoding/json"
 
-	libtls "github.com/nabbar/golib/certificates"
-	libcfg "github.com/nabbar/golib/config"
 	cpttls "github.com/nabbar/golib/config/components/tls"
-	liberr "github.com/nabbar/golib/errors"
-	libsmtp "github.com/nabbar/golib/smtp"
-	libsts "github.com/nabbar/golib/status/config"
-	spfcbr "github.com/spf13/cobra"
-	spfvbr "github.com/spf13/viper"
+	cfgcst "github.com/nabbar/golib/config/const"
+	moncfg "github.com/nabbar/golib/monitor/types"
 )
 
 var _defaultConfig = []byte(`{
   "dsn": "",
-  "tls": ` + string(cpttls.DefaultConfig(libcfg.JSONIndent)) + `,
-  "status": ` + string(libsts.DefaultConfig(libcfg.JSONIndent)) + `
+  "tls": ` + string(cpttls.DefaultConfig(cfgcst.JSONIndent)) + `,
+  "monitor": ` + string(moncfg.DefaultConfig(cfgcst.JSONIndent)) + `
 }`)
 
 func SetDefaultConfig(cfg []byte) {
@@ -52,58 +47,13 @@ func SetDefaultConfig(cfg []byte) {
 
 func DefaultConfig(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+	if err := json.Indent(res, _defaultConfig, indent, cfgcst.JSONIndent); err != nil {
 		return _defaultConfig
 	} else {
 		return res.Bytes()
 	}
 }
 
-func (c *componentSmtp) DefaultConfig(indent string) []byte {
+func (o *componentSmtp) DefaultConfig(indent string) []byte {
 	return DefaultConfig(indent)
-}
-
-func (c *componentSmtp) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
-	_ = Command.PersistentFlags().String(c.key+".dsn", "", "A DSN like string to describe the smtp connection. Format allowed is [user[:password]@][net[(addr)]]/tlsmode[?param1=value1&paramN=valueN] ")
-
-	if err := Viper.BindPFlag(c.key+".dsn", Command.PersistentFlags().Lookup(c.key+".dsn")); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *componentSmtp) _getConfig(getCfg libcfg.FuncComponentConfigGet) (libsmtp.ConfigModel, liberr.Error) {
-	var (
-		cfg = libsmtp.ConfigModel{}
-		vpr = c.vpr()
-		err liberr.Error
-	)
-
-	if e := getCfg(c.key, &cfg); e != nil {
-		return cfg, ErrorParamInvalid.Error(e)
-	}
-
-	if val := vpr.GetString(c.key + "dsn"); val != "" {
-		cfg.DSN = val
-	}
-
-	if err = cfg.Validate(); err != nil {
-		return cfg, ErrorConfigInvalid.Error(err)
-	}
-
-	cfg.RegisterDefaultTLS(func() libtls.TLSConfig {
-		var (
-			t libtls.TLSConfig
-			e liberr.Error
-		)
-
-		if t, e = c._GetTLS(); e != nil {
-			return t
-		} else {
-			return nil
-		}
-	})
-
-	return cfg, nil
 }

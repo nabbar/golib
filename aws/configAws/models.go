@@ -31,12 +31,12 @@ import (
 	"net"
 	"net/url"
 
-	libsts "github.com/nabbar/golib/status/config"
+	moncfg "github.com/nabbar/golib/monitor/types"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/httpcli"
+	liberr "github.com/nabbar/golib/errors"
+	libhtc "github.com/nabbar/golib/httpcli"
 )
 
 type Model struct {
@@ -47,8 +47,9 @@ type Model struct {
 }
 
 type ModelStatus struct {
-	Config Model               `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required,dive"`
-	Status libsts.ConfigStatus `json:"status" yaml:"status" toml:"status" mapstructure:"status" validate:"required,dive"`
+	Config     Model          `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required,dive"`
+	HTTPClient libhtc.Options `json:"http-client" yaml:"http-client" toml:"http-client" mapstructure:"http-client" validate:"required,dive"`
+	Monitor    moncfg.Config  `json:"monitor" yaml:"monitor" toml:"monitor" mapstructure:"monitor" validate:"required,dive"`
 }
 
 type awsModel struct {
@@ -56,7 +57,7 @@ type awsModel struct {
 	retryer func() sdkaws.Retryer
 }
 
-func (c *awsModel) Validate() errors.Error {
+func (c *awsModel) Validate() liberr.Error {
 	err := ErrorConfigValidator.Error(nil)
 
 	if er := libval.New().Struct(c); er != nil {
@@ -89,11 +90,11 @@ func (c *awsModel) SetCredentials(accessKey, secretKey string) {
 func (c *awsModel) ResetRegionEndpoint() {
 }
 
-func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) errors.Error {
+func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) liberr.Error {
 	return nil
 }
 
-func (c *awsModel) RegisterRegionAws(endpoint *url.URL) errors.Error {
+func (c *awsModel) RegisterRegionAws(endpoint *url.URL) liberr.Error {
 	return nil
 }
 
@@ -108,12 +109,24 @@ func (c *awsModel) GetRegion() string {
 func (c *awsModel) SetEndpoint(endpoint *url.URL) {
 }
 
-func (c awsModel) GetEndpoint() *url.URL {
+func (c *awsModel) GetEndpoint() *url.URL {
 	return nil
 }
 
 func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, error) {
 	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
+}
+
+func (c *awsModel) ResolveEndpointWithOptions(service, region string, options ...interface{}) (sdkaws.Endpoint, error) {
+	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
+}
+
+func (c *awsModel) GetDisableHTTPS() bool {
+	return false
+}
+
+func (c *awsModel) GetResolvedRegion() string {
+	return c.GetRegion()
 }
 
 func (c *awsModel) IsHTTPs() bool {
@@ -124,14 +137,14 @@ func (c *awsModel) SetRetryer(retryer func() sdkaws.Retryer) {
 	c.retryer = retryer
 }
 
-func (c awsModel) Check(ctx context.Context) errors.Error {
+func (c *awsModel) Check(ctx context.Context) liberr.Error {
 	var (
 		cfg *sdkaws.Config
 		con net.Conn
 		end sdkaws.Endpoint
 		adr *url.URL
 		err error
-		e   errors.Error
+		e   liberr.Error
 	)
 
 	if cfg, e = c.GetConfig(ctx, nil); e != nil {
@@ -142,7 +155,7 @@ func (c awsModel) Check(ctx context.Context) errors.Error {
 		ctx = context.Background()
 	}
 
-	if end, err = cfg.EndpointResolver.ResolveEndpoint("s3", c.GetRegion()); err != nil {
+	if end, err = cfg.EndpointResolverWithOptions.ResolveEndpoint("s3", c.GetRegion()); err != nil {
 		return ErrorEndpointInvalid.ErrorParent(err)
 	}
 
@@ -155,8 +168,8 @@ func (c awsModel) Check(ctx context.Context) errors.Error {
 	}
 
 	d := net.Dialer{
-		Timeout:   httpcli.ClientTimeout5Sec,
-		KeepAlive: httpcli.ClientTimeout5Sec,
+		Timeout:   libhtc.ClientTimeout5Sec,
+		KeepAlive: libhtc.ClientTimeout5Sec,
 	}
 
 	con, err = d.DialContext(ctx, "tcp", adr.Host)

@@ -31,27 +31,26 @@ import (
 	"time"
 
 	libcfg "github.com/nabbar/golib/config"
+	cfgtps "github.com/nabbar/golib/config/types"
+	libctx "github.com/nabbar/golib/context"
 	libdbs "github.com/nabbar/golib/database"
 )
 
-const (
-	ComponentType = "database"
-)
-
 type ComponentDatabase interface {
-	libcfg.Component
+	cfgtps.Component
 
-	SetLOGKey(logKey string)
 	SetLogOptions(ignoreRecordNotFoundError bool, slowThreshold time.Duration)
 	GetDatabase() libdbs.Database
 	SetDatabase(db libdbs.Database)
 }
 
-func New(logKey string) ComponentDatabase {
+func New(ctx libctx.FuncContext) ComponentDatabase {
 	return &componentDatabase{
-		m: sync.Mutex{},
-		l: logKey,
-		d: nil,
+		m:  sync.RWMutex{},
+		x:  libctx.NewConfig[uint8](ctx),
+		li: false,
+		ls: 0,
+		d:  nil,
 	}
 }
 
@@ -59,11 +58,11 @@ func Register(cfg libcfg.Config, key string, cpt ComponentDatabase) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, key, logKey string) {
-	cfg.ComponentSet(key, New(logKey))
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+	cfg.ComponentSet(key, New(ctx))
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentDatabase {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentDatabase {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentDatabase); !ok {
