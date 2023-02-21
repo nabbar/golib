@@ -32,87 +32,90 @@ import (
 	"time"
 )
 
-func (l *logger) Debug(message string, data interface{}, args ...interface{}) {
-	l.newEntry(DebugLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
+func (o *logger) Debug(message string, data interface{}, args ...interface{}) {
+	o.newEntry(DebugLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l *logger) Info(message string, data interface{}, args ...interface{}) {
-	l.newEntry(InfoLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
+func (o *logger) Info(message string, data interface{}, args ...interface{}) {
+	o.newEntry(InfoLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l *logger) Warning(message string, data interface{}, args ...interface{}) {
-	l.newEntry(WarnLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
+func (o *logger) Warning(message string, data interface{}, args ...interface{}) {
+	o.newEntry(WarnLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l *logger) Error(message string, data interface{}, args ...interface{}) {
-	l.newEntry(ErrorLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
+func (o *logger) Error(message string, data interface{}, args ...interface{}) {
+	o.newEntry(ErrorLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l *logger) Fatal(message string, data interface{}, args ...interface{}) {
-	l.newEntry(FatalLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
+func (o *logger) Fatal(message string, data interface{}, args ...interface{}) {
+	o.newEntry(FatalLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l *logger) Panic(message string, data interface{}, args ...interface{}) {
-	l.newEntry(PanicLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
+func (o *logger) Panic(message string, data interface{}, args ...interface{}) {
+	o.newEntry(PanicLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
-func (l *logger) LogDetails(lvl Level, message string, data interface{}, err []error, fields Fields, args ...interface{}) {
-	l.newEntry(lvl, fmt.Sprintf(message, args...), err, fields, data).Log()
+func (o *logger) LogDetails(lvl Level, message string, data interface{}, err []error, fields Fields, args ...interface{}) {
+	o.newEntry(lvl, fmt.Sprintf(message, args...), err, fields, data).Log()
 }
 
-func (l *logger) CheckError(lvlKO, lvlOK Level, message string, err ...error) bool {
-	ent := l.newEntry(lvlKO, message, err, nil, nil)
+func (o *logger) CheckError(lvlKO, lvlOK Level, message string, err ...error) bool {
+	ent := o.newEntry(lvlKO, message, err, nil, nil)
 	return ent.Check(lvlOK)
 }
 
-func (l *logger) Entry(lvl Level, message string, args ...interface{}) *Entry {
-	return l.newEntry(lvl, fmt.Sprintf(message, args...), nil, nil, nil)
+func (o *logger) Entry(lvl Level, message string, args ...interface{}) *Entry {
+	return o.newEntry(lvl, fmt.Sprintf(message, args...), nil, nil, nil)
 }
 
-func (l *logger) Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) *Entry {
-	return l.newEntryClean(fmt.Sprintf("%s - %s [%s] [%s] \"%s %s %s\" %d %d", remoteAddr, remoteUser, localtime.Format(time.RFC1123Z), latency.String(), method, request, proto, status, size))
+func (o *logger) Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) *Entry {
+	return o.newEntryClean(fmt.Sprintf("%s - %s [%s] [%s] \"%s %s %s\" %d %d", remoteAddr, remoteUser, localtime.Format(time.RFC1123Z), latency.String(), method, request, proto, status, size))
 }
 
-func (l *logger) newEntry(lvl Level, message string, err []error, fields Fields, data interface{}) *Entry {
-	opt := l.GetOptions()
-	cLv := l.GetLevel()
-
-	if cLv == NilLevel || lvl > cLv {
-		return &Entry{}
-	}
+func (o *logger) newEntry(lvl Level, message string, err []error, fields Fields, data interface{}) *Entry {
+	opt := o.GetOptions()
+	cLv := o.GetLevel()
 
 	var ent = &Entry{
-		log:     l.getLog,
-		clean:   false,
-		Time:    time.Time{},
-		Level:   lvl,
-		Stack:   0,
-		Caller:  "",
-		File:    "",
-		Line:    0,
-		Message: message,
-		Error:   err,
-		Data:    data,
-		Fields:  NewFields().Merge(l.GetFields()).Merge(fields),
+		clean:  false,
+		Time:   time.Time{},
+		Level:  lvl,
+		Stack:  0,
+		Caller: "",
+		File:   "",
+		Line:   0,
+		Error:  err,
+		Fields: o.GetFields().FieldsClone(nil),
 	}
+
+	if cLv == NilLevel || lvl > cLv {
+		return ent
+	} else {
+		ent.log = o.getLogrus
+		ent.Message = message
+		ent.Data = data
+	}
+
+	ent.Fields.Merge(fields)
 
 	if !opt.DisableTimestamp {
 		ent.Time = time.Now()
 	}
 
 	if !opt.DisableStack {
-		ent.Stack = l.getStack()
+		ent.Stack = o.getStack()
 	}
 
 	if opt.EnableTrace {
-		frm := l.getCaller()
+		frm := o.getCaller()
 
 		if frm.Function != "" {
 			ent.Caller = frm.Function
 		}
 
 		if frm.File != "" {
-			ent.File = l.filterPath(frm.File)
+			ent.File = o.filterPath(frm.File)
 		}
 
 		if frm.Line > 0 {
@@ -123,11 +126,12 @@ func (l *logger) newEntry(lvl Level, message string, err []error, fields Fields,
 	return ent
 }
 
-func (l *logger) newEntryClean(message string) *Entry {
+func (o *logger) newEntryClean(message string) *Entry {
 	var ent = &Entry{
-		log:     l.getLog,
+		log:     o.getLogrus,
 		clean:   true,
 		Message: message,
+		Fields:  NewFields(o.x.GetContext),
 	}
 
 	return ent

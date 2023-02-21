@@ -27,27 +27,56 @@
 package prometheus
 
 import (
-	"sync/atomic"
-	"time"
+	"context"
+	"sync"
 
-	"github.com/gin-gonic/gin"
+	ginsdk "github.com/gin-gonic/gin"
+
+	libctx "github.com/nabbar/golib/context"
+	libmet "github.com/nabbar/golib/prometheus/metrics"
+	prmpol "github.com/nabbar/golib/prometheus/pool"
 )
 
 const (
 	DefaultSlowTime = int32(5)
 )
 
-type Prometheus interface {
-	Expose(c *gin.Context)
-	MiddleWare(c *gin.Context)
-	CollectMetrics(c *gin.Context, start time.Time)
+type FuncGetPrometheus func() Prometheus
+type FuncCollectMetrics func(ctx context.Context, name ...string)
+
+type MetricsCollection interface {
+	// GetMetric is used to retrieve the metric instance from prometheus instance.
+	GetMetric(name string) libmet.Metric
+
+	// AddMetric is used to register the metric instance into prometheus instance.
+	AddMetric(isAPI bool, metric libmet.Metric) error
+
+	// DelMetric is used to unregister the metric instance into prometheus instance.
+	DelMetric(name string)
+
+	// ListMetric retrieve a slice of ginMet' name registered for all type API or not.
+	ListMetric() []string
+}
+
+type GinRoute interface {
+	Expose(ctx context.Context)
+	ExposeGin(c *ginsdk.Context)
+
+	MiddleWare(ctx context.Context)
+	MiddleWareGin(c *ginsdk.Context)
 
 	ExcludePath(startWith ...string)
+}
 
-	GetMetric(name string) *metrics
-	SetMetric(metric Metrics) error
-	AddMetric(metric Metrics) error
-	ListMetric() []string
+type Collect interface {
+	libmet.Collect
+	CollectMetrics(ctx context.Context, name ...string)
+}
+
+type Prometheus interface {
+	GinRoute
+	MetricsCollection
+	Collect
 
 	SetSlowTime(slowTime int32)
 	GetSlowTime() int32
@@ -57,11 +86,13 @@ type Prometheus interface {
 }
 
 // New will return a new object that implement interface GinPrometheus.
-func New() Prometheus {
-	return &monitor{
+func New(ctx libctx.FuncContext) Prometheus {
+	return &prom{
+		m:           sync.RWMutex{},
+		exclude:     make([]string, 0),
 		slowTime:    DefaultSlowTime,
 		reqDuration: []float64{0.1, 0.3, 1.2, 5, 10},
-		metrics:     make(map[string]*atomic.Value),
-		exclude:     make([]string, 0),
+		ginMet:      prmpol.New(ctx),
+		othMet:      prmpol.New(ctx),
 	}
 }

@@ -27,16 +27,15 @@
 package head
 
 import (
+	"sync"
+
 	libcfg "github.com/nabbar/golib/config"
+	cfgtps "github.com/nabbar/golib/config/types"
 	librtr "github.com/nabbar/golib/router"
 )
 
-const (
-	ComponentType = "head"
-)
-
 type ComponentHead interface {
-	libcfg.Component
+	cfgtps.Component
 
 	GetHeaders() librtr.Headers
 	SetHeaders(head librtr.Headers)
@@ -44,6 +43,7 @@ type ComponentHead interface {
 
 func New() ComponentHead {
 	return &componentHead{
+		m: sync.RWMutex{},
 		h: nil,
 	}
 }
@@ -56,7 +56,7 @@ func RegisterNew(cfg libcfg.Config, key string) {
 	cfg.ComponentSet(key, New())
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentHead {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentHead {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentHead); !ok {

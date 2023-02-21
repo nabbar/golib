@@ -30,25 +30,14 @@ import (
 	"bytes"
 	"encoding/json"
 
-	libcfg "github.com/nabbar/golib/config"
-	cmptls "github.com/nabbar/golib/config/components/tls"
-	libsts "github.com/nabbar/golib/status/config"
-	spfcbr "github.com/spf13/cobra"
-	spfvbr "github.com/spf13/viper"
+	cfgcst "github.com/nabbar/golib/config/const"
+	libhtc "github.com/nabbar/golib/httpcli"
+	moncfg "github.com/nabbar/golib/monitor/types"
 )
 
 var _defaultConfig = []byte(`{
    "endpoint":"https://endpoint.example.com/path",
-   "http_client": {
-     "timeout":"0s",
-     "http2": true,
-     "tls": ` + string(cmptls.DefaultConfig("  ")) + `,
-     "force_ip": {
-       "enable": false,
-       "net":"tcp",
-       "ip":"127.0.0.1:8080"
-     }
-   },
+   "http_client": ` + string(libhtc.DefaultConfig(cfgcst.JSONIndent)) + `,
    "auth": {
      "basic":{
        "enable": false,
@@ -80,7 +69,7 @@ var _defaultConfig = []byte(`{
        "contain": ["OK", "Done"],
        "not_contain": ["KO", "fail", "error"]
      },
-     "status": ` + string(libsts.DefaultConfig("  ")) + `
+     "monitor": ` + string(moncfg.DefaultConfig(cfgcst.JSONIndent)) + `
    }
 }`)
 
@@ -90,17 +79,13 @@ func SetDefaultConfig(cfg []byte) {
 
 func DefaultConfig(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, _defaultConfig, indent, libcfg.JSONIndent); err != nil {
+	if err := json.Indent(res, _defaultConfig, indent, cfgcst.JSONIndent); err != nil {
 		return _defaultConfig
 	} else {
 		return res.Bytes()
 	}
 }
 
-func (c *componentRequest) DefaultConfig(indent string) []byte {
+func (o *componentRequest) DefaultConfig(indent string) []byte {
 	return DefaultConfig(indent)
-}
-
-func (c *componentRequest) RegisterFlag(Command *spfcbr.Command, Viper *spfvbr.Viper) error {
-	return nil
 }

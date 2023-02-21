@@ -30,30 +30,23 @@ import (
 	"sync"
 
 	libcfg "github.com/nabbar/golib/config"
+	cfgtps "github.com/nabbar/golib/config/types"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	libmail "github.com/nabbar/golib/mail"
 )
 
-const (
-	ComponentType = "smtp"
-)
-
 type ComponentMail interface {
-	libcfg.Component
+	cfgtps.Component
 
 	GetMail() (libmail.Mail, liberr.Error)
 }
 
-func New() ComponentMail {
+func New(ctx libctx.FuncContext) ComponentMail {
 	return &componentMail{
-		ctx: nil,
-		get: nil,
-		fsa: nil,
-		fsb: nil,
-		fra: nil,
-		frb: nil,
-		m:   sync.Mutex{},
-		e:   nil,
+		m: sync.RWMutex{},
+		x: libctx.NewConfig[uint8](ctx),
+		e: nil,
 	}
 }
 
@@ -61,11 +54,11 @@ func Register(cfg libcfg.Config, key string, cpt ComponentMail) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, key string) {
-	cfg.ComponentSet(key, New())
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+	cfg.ComponentSet(key, New(ctx))
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentMail {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentMail {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentMail); !ok {

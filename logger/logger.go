@@ -35,19 +35,19 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 )
 
-func (l *logger) GetStdLogger(lvl Level, logFlags int) *log.Logger {
-	l.SetIOWriterLevel(lvl)
-	return log.New(l, "", logFlags)
+func (o *logger) GetStdLogger(lvl Level, logFlags int) *log.Logger {
+	o.SetIOWriterLevel(lvl)
+	return log.New(o, "", logFlags)
 }
 
-func (l *logger) SetStdLogger(lvl Level, logFlags int) {
-	l.SetIOWriterLevel(lvl)
-	log.SetOutput(l)
+func (o *logger) SetStdLogger(lvl Level, logFlags int) {
+	o.SetIOWriterLevel(lvl)
+	log.SetOutput(o)
 	log.SetPrefix("")
 	log.SetFlags(logFlags)
 }
 
-func (l *logger) SetSPF13Level(lvl Level, log *jww.Notepad) {
+func (o *logger) SetSPF13Level(lvl Level, log *jww.Notepad) {
 	var (
 		fOutLog func(handle io.Writer)
 		fLvl    func(threshold jww.Threshold)
@@ -68,39 +68,39 @@ func (l *logger) SetSPF13Level(lvl Level, log *jww.Notepad) {
 		fLvl(jww.LevelCritical)
 
 	case DebugLevel:
-		fOutLog(l)
-		if opt := l.GetOptions(); opt.EnableTrace {
+		fOutLog(o)
+		if opt := o.GetOptions(); opt.EnableTrace {
 			fLvl(jww.LevelTrace)
 		} else {
 			fLvl(jww.LevelDebug)
 		}
 
 	case InfoLevel:
-		fOutLog(l)
+		fOutLog(o)
 		fLvl(jww.LevelInfo)
 	case WarnLevel:
-		fOutLog(l)
+		fOutLog(o)
 		fLvl(jww.LevelWarn)
 	case ErrorLevel:
-		fOutLog(l)
+		fOutLog(o)
 		fLvl(jww.LevelError)
 	case FatalLevel:
-		fOutLog(l)
+		fOutLog(o)
 		fLvl(jww.LevelFatal)
 	case PanicLevel:
-		fOutLog(l)
+		fOutLog(o)
 		fLvl(jww.LevelCritical)
 	}
 }
 
-func (l *logger) SetHashicorpHCLog() {
+func (o *logger) SetHashicorpHCLog() {
 	hclog.SetDefault(&_hclog{
-		l: l,
+		l: o,
 	})
 }
 
-func (l *logger) NewHashicorpHCLog() hclog.Logger {
+func (o *logger) NewHashicorpHCLog() hclog.Logger {
 	return &_hclog{
-		l: l,
+		l: o,
 	}
 }

@@ -42,6 +42,13 @@ type Return interface {
 	AddParent(code int, msg string, file string, line int)
 }
 
+type ReturnGin interface {
+	Return
+
+	GinTonicAbort(ctx *gin.Context, httpCode int)
+	GinTonicErrorAbort(ctx *gin.Context, httpCode int)
+}
+
 type DefaultReturn struct {
 	Code    string
 	Message string

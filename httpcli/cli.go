@@ -48,6 +48,8 @@ const (
 	ClientNetworkUDP = "udp"
 )
 
+type FctHttpClient func() *http.Client
+
 func GetClient(serverName string) *http.Client {
 	c, e := GetClientTimeout(serverName, true, 0)
 

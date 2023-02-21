@@ -27,29 +27,38 @@
 package log
 
 import (
+	"sync"
+
 	libcfg "github.com/nabbar/golib/config"
+	cfgtps "github.com/nabbar/golib/config/types"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 )
 
 const (
-	DefaultLevel  = liblog.InfoLevel
-	ComponentType = "log"
+	DefaultLevel = liblog.InfoLevel
 )
 
 type ComponentLog interface {
-	libcfg.Component
+	cfgtps.Component
 
 	Log() liblog.Logger
 
 	SetLevel(lvl liblog.Level)
+	GetLevel() liblog.Level
+
 	SetField(fields liblog.Fields)
+	GetField() liblog.Fields
+
 	SetOptions(opt *liblog.Options) liberr.Error
+	GetOptions() *liblog.Options
 }
 
-func New(lvl liblog.Level, defLogger func() liblog.Logger) ComponentLog {
+func New(ctx libctx.FuncContext, lvl liblog.Level) ComponentLog {
 	return &componentLog{
-		d: defLogger,
+		m: sync.RWMutex{},
+		x: libctx.NewConfig[uint8](ctx),
 		l: nil,
 		v: lvl,
 	}
@@ -59,11 +68,11 @@ func Register(cfg libcfg.Config, key string, cpt ComponentLog) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, key string, lvl liblog.Level, defLogger func() liblog.Logger) {
-	cfg.ComponentSet(key, New(lvl, defLogger))
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, lvl liblog.Level) {
+	cfg.ComponentSet(key, New(ctx, lvl))
 }
 
-func Load(getCpt libcfg.FuncComponentGet, key string) ComponentLog {
+func Load(getCpt cfgtps.FuncCptGet, key string) ComponentLog {
 	if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentLog); !ok {

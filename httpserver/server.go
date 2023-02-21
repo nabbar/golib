@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,243 +27,152 @@
 package httpserver
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"net"
 	"net/http"
-	"runtime"
-	"strings"
-	"sync/atomic"
 	"time"
 
-	"github.com/nabbar/golib/status/config"
-
-	liblog "github.com/nabbar/golib/logger"
-
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status"
+	srvtps "github.com/nabbar/golib/httpserver/types"
+	liblog "github.com/nabbar/golib/logger"
 )
 
-const (
-	timeoutShutdown = 10 * time.Second
-)
-
-type server struct {
-	log *atomic.Value
-	run *atomic.Value
-	cfg *atomic.Value
-}
-
-type Server interface {
-	SetLogger(log liblog.FuncLog)
-
-	GetConfig() *ServerConfig
-	SetConfig(cfg *ServerConfig) bool
-
-	GetName() string
-	GetBindable() string
-	GetExpose() string
-	GetHandlerKey() string
-
-	IsRunning() bool
-	IsTLS() bool
-	WaitNotify()
-	Merge(srv Server) bool
-
-	Listen(handler http.Handler) liberr.Error
-	Restart()
-	Shutdown()
-
-	StatusInfo() (name string, release string, hash string)
-	StatusHealth() error
-	StatusComponent(key string) libsts.Component
-}
-
-func NewServer(cfg *ServerConfig) Server {
-	c := new(atomic.Value)
-	c.Store(cfg.Clone())
-
-	return &server{
-		log: new(atomic.Value),
-		cfg: c,
-		run: new(atomic.Value),
-	}
-}
-
-func (s *server) SetLogger(log liblog.FuncLog) {
-	s.log.Store(log)
-}
-
-func (s *server) GetLogger() liblog.FuncLog {
-	if i := s.log.Load(); i == nil {
-		return nil
-	} else if f, ok := i.(liblog.FuncLog); ok {
-		return f
+func (o *srv) Start(ctx context.Context) error {
+	ssl := o.cfgGetTLS()
+	if ssl == nil && o.IsTLS() {
+		return ErrorServerValidate.ErrorParent(fmt.Errorf("TLS Config is not well defined"))
 	}
 
-	return nil
-}
-
-func (s *server) GetConfig() *ServerConfig {
-	if s.cfg == nil {
-		return nil
-	} else if i := s.cfg.Load(); i == nil {
-		return nil
-	} else if c, ok := i.(ServerConfig); !ok {
-		return nil
-	} else {
-		return &c
-	}
-}
-
-func (s *server) IsDisabled() bool {
-	if c := s.GetConfig(); c != nil {
-		return c.Disabled
+	bind := o.GetBindable()
+	name := o.GetName()
+	if name == "" {
+		name = bind
 	}
 
-	return true
-}
-
-func (s *server) SetConfig(cfg *ServerConfig) bool {
-	if cfg == nil {
-		return false
+	s := &http.Server{
+		Addr:     bind,
+		ErrorLog: o.logger().GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds),
+		Handler:  o.HandlerLoadFct(),
 	}
 
-	if s.cfg == nil {
-		s.cfg = new(atomic.Value)
+	if ssl != nil && ssl.LenCertificatePair() > 0 {
+		s.TLSConfig = ssl.TlsConfig("")
 	}
 
-	c := cfg.Clone()
-
-	if c.Name == "" {
-		c.Name = c.GetListen().Host
-	}
-
-	s.cfg.Store(cfg.Clone())
-	return true
-}
-
-func (s *server) getRun() run {
-	if s.run == nil {
-		return newRun(s.GetLogger())
-	} else if i := s.run.Load(); i == nil {
-		return newRun(s.GetLogger())
-	} else if r, ok := i.(run); !ok {
-		return newRun(s.GetLogger())
-	} else {
-		return r
-	}
-}
-
-func (s *server) setRun(r run) {
-	s.run.Store(r)
-}
-
-func (s *server) getErr() error {
-	if r := s.getRun(); r == nil {
-		return nil
-	} else {
-		return r.GetError()
-	}
-}
-
-func (s server) GetName() string {
-	return s.GetConfig().Name
-}
-
-func (s *server) GetBindable() string {
-	return s.GetConfig().GetListen().Host
-}
-
-func (s *server) GetExpose() string {
-	return s.GetConfig().GetExpose().String()
-}
-
-func (s *server) GetHandlerKey() string {
-	return s.GetConfig().GetHandlerKey()
-}
-
-func (s *server) IsRunning() bool {
-	return s.getRun().IsRunning()
-}
-
-func (s *server) IsTLS() bool {
-	return s.GetConfig().IsTLS()
-}
-
-func (s *server) Listen(handler http.Handler) liberr.Error {
-	if s.IsDisabled() && !s.IsRunning() {
-		return nil
-	} else if s.IsDisabled() {
-		s.Shutdown()
-		return nil
-	}
-
-	r := s.getRun()
-	e := r.Listen(s.GetConfig(), handler)
-	s.setRun(r)
-
-	runtime.GC()
-
-	return e
-}
-
-func (s *server) WaitNotify() {
-	r := s.getRun()
-	r.WaitNotify()
-}
-
-func (s *server) Restart() {
-	_ = s.Listen(nil)
-}
-
-func (s *server) Shutdown() {
-	if s.IsDisabled() && !s.IsRunning() {
-		return
-	}
-
-	r := s.getRun()
-	r.Shutdown()
-	s.setRun(r)
-}
-
-func (s *server) Merge(srv Server) bool {
-	if x, ok := srv.(*server); !ok {
-		return false
-	} else {
-		return s.SetConfig(x.GetConfig())
-	}
-}
-
-func (s *server) StatusInfo() (name string, release string, hash string) {
-	vers := strings.TrimLeft(runtime.Version(), "go")
-	vers = strings.TrimLeft(vers, "Go")
-	vers = strings.TrimLeft(vers, "GO")
-
-	return fmt.Sprintf("%s [%s]", s.GetName(), s.GetBindable()), runtime.Version()[2:], ""
-}
-
-func (s *server) StatusHealth() error {
-	if !s.IsDisabled() && s.IsRunning() {
-		return nil
-	} else if s.IsDisabled() {
-		return ErrorServerDisabled.Error(nil)
-	} else if e := s.getErr(); e != nil {
+	if e := o.cfgGetServer().initServer(s); e != nil {
 		return e
-	} else {
-		return ErrorServerOffline.Error(nil)
 	}
+
+	if o.IsRunning() {
+		_ = o.Stop(ctx)
+	}
+
+	for i := 0; i < 5; i++ {
+		if e := o.PortInUse(o.GetBindable()); e != nil {
+			_ = o.Stop(ctx)
+		} else {
+			break
+		}
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	o.r.SetServer(s, o.logger, ssl != nil)
+
+	if e := o.r.Start(ctx); e != nil {
+		return e
+	}
+
+	for i := 0; i < 5; i++ {
+		ok := false
+		ts := time.Now()
+
+		for {
+			time.Sleep(100 * time.Millisecond)
+			ok = o.r.IsRunning()
+
+			if ok {
+				break
+			} else if time.Since(ts) > 10*time.Second {
+				break
+			}
+		}
+
+		if !ok {
+			_ = o.r.Restart(ctx)
+		} else {
+			ts = time.Now()
+
+			for {
+				time.Sleep(100 * time.Millisecond)
+
+				if e := o.PortInUse(o.GetBindable()); e != nil {
+					return nil
+				} else if time.Since(ts) > 10*time.Second {
+					break
+				}
+			}
+
+			_ = o.r.Restart(ctx)
+		}
+	}
+
+	_ = o.r.Stop(ctx)
+	return ErrorServerStart.Error(nil)
 }
 
-func (s *server) StatusComponent(key string) libsts.Component {
-	if cfg := s.GetConfig(); cfg == nil {
-		cnf := config.ConfigStatus{
-			Mandatory:          true,
-			MessageOK:          "",
-			MessageKO:          "",
-			CacheTimeoutInfo:   30 * time.Second,
-			CacheTimeoutHealth: 5 * time.Second,
+func (o *srv) Stop(ctx context.Context) error {
+	o.m.RLock()
+	defer o.m.RUnlock()
+	return o.r.Stop(ctx)
+}
+
+func (o *srv) Restart(ctx context.Context) error {
+	_ = o.Stop(ctx)
+	return o.Start(ctx)
+}
+
+func (o *srv) IsRunning() bool {
+	o.m.RLock()
+	defer o.m.RUnlock()
+	return o.r.IsRunning()
+}
+
+func (o *srv) PortInUse(listen string) liberr.Error {
+	var (
+		dia = net.Dialer{}
+		con net.Conn
+		err error
+		ctx context.Context
+		cnl context.CancelFunc
+	)
+
+	defer func() {
+		if cnl != nil {
+			cnl()
 		}
-		return cnf.Component(key, s.StatusInfo, s.StatusHealth)
-	} else {
-		return cfg.Status.Component(key, s.StatusInfo, s.StatusHealth)
+		if con != nil {
+			_ = con.Close()
+		}
+	}()
+
+	ctx, cnl = context.WithTimeout(context.TODO(), srvtps.TimeoutWaitingPortFreeing)
+	con, err = dia.DialContext(ctx, "tcp", listen)
+
+	if con != nil {
+		_ = con.Close()
+		con = nil
 	}
+
+	cnl()
+	cnl = nil
+
+	if err != nil {
+		return nil
+	}
+
+	return ErrorPortUse.Error(nil)
 }

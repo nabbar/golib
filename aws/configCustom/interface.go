@@ -111,6 +111,7 @@ func (c *awsModel) GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Con
 	cfg.Credentials = sdkcrd.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, "")
 	cfg.Retryer = c.retryer
 	cfg.EndpointResolver = sdkaws.EndpointResolverFunc(c.ResolveEndpoint)
+	cfg.EndpointResolverWithOptions = sdkaws.EndpointResolverWithOptionsFunc(c.ResolveEndpointWithOptions)
 	cfg.Region = c.Region
 
 	if cli != nil {

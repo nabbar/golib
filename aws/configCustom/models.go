@@ -32,12 +32,13 @@ import (
 	"net/url"
 	"strings"
 
+	moncfg "github.com/nabbar/golib/monitor/types"
+
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
 	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
 	liblog "github.com/nabbar/golib/logger"
-	libsts "github.com/nabbar/golib/status/config"
 )
 
 type Model struct {
@@ -49,8 +50,9 @@ type Model struct {
 }
 
 type ModelStatus struct {
-	Config Model               `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required,dive"`
-	Status libsts.ConfigStatus `json:"status" yaml:"status" toml:"status" mapstructure:"status" validate:"required,dive"`
+	Config     Model          `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required,dive"`
+	HTTPClient libhtc.Options `json:"http-client" yaml:"http-client" toml:"http-client" mapstructure:"http-client" validate:"required,dive"`
+	Monitor    moncfg.Config  `json:"monitor" yaml:"monitor" toml:"monitor" mapstructure:"monitor" validate:"required,dive"`
 }
 
 type awsModel struct {
@@ -220,11 +222,15 @@ func (c *awsModel) SetEndpoint(endpoint *url.URL) {
 	c.Endpoint = strings.TrimSuffix(c.endpoint.String(), "/")
 }
 
-func (c awsModel) GetEndpoint() *url.URL {
+func (c *awsModel) GetEndpoint() *url.URL {
 	return c.endpoint
 }
 
 func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, error) {
+	return c.ResolveEndpointWithOptions(service, region)
+}
+
+func (c *awsModel) ResolveEndpointWithOptions(service, region string, options ...interface{}) (sdkaws.Endpoint, error) {
 	if e, ok := c.mapRegion[region]; ok {
 		return sdkaws.Endpoint{
 			URL:           strings.TrimSuffix(e.String(), "/"),
@@ -245,6 +251,14 @@ func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, err
 	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
 }
 
+func (c *awsModel) GetDisableHTTPS() bool {
+	return false
+}
+
+func (c *awsModel) GetResolvedRegion() string {
+	return c.GetRegion()
+}
+
 func (c *awsModel) IsHTTPs() bool {
 	return strings.HasSuffix(strings.ToLower(c.endpoint.Scheme), "s")
 }
@@ -253,7 +267,7 @@ func (c *awsModel) SetRetryer(retryer func() sdkaws.Retryer) {
 	c.retryer = retryer
 }
 
-func (c awsModel) Check(ctx context.Context) liberr.Error {
+func (c *awsModel) Check(ctx context.Context) liberr.Error {
 	var (
 		cfg *sdkaws.Config
 		con net.Conn
@@ -269,7 +283,7 @@ func (c awsModel) Check(ctx context.Context) liberr.Error {
 		ctx = context.Background()
 	}
 
-	if _, err = cfg.EndpointResolver.ResolveEndpoint("s3", c.GetRegion()); err != nil {
+	if _, err = cfg.EndpointResolverWithOptions.ResolveEndpoint("s3", c.GetRegion()); err != nil {
 		return ErrorEndpointInvalid.ErrorParent(err)
 	}
 

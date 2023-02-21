@@ -33,91 +33,48 @@ import (
 	"sync"
 	"syscall"
 
+	liblog "github.com/nabbar/golib/logger"
+
+	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status"
+	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
-	spfvpr "github.com/spf13/viper"
 )
 
-type FuncContext func() context.Context
-type FuncRouteStatus func() libsts.RouteStatus
-type FuncComponentGet func(key string) Component
-type FuncComponentViper func() *spfvpr.Viper
-type FuncComponentConfigGet func(key string, model interface{}) liberr.Error
+type FuncEvent func() liberr.Error
 
 type Config interface {
 	/*
 		// Section Context : github.com/nabbar/golib/context
 	*/
 
-	// Context return the current context pointer
-	Context() context.Context
+	// Context return the config context instance
+	Context() libctx.Config[string]
 
-	// ContextMerge trigger the golib/context/config interface
-	// and will merge the stored context value into current context
-	ContextMerge(ctx libctx.Config) bool
-
-	// ContextStore trigger the golib/context/config interface
-	// and will store a context value into current context
-	ContextStore(key string, cfg interface{})
-
-	// ContextLoad trigger the golib/context/config interface
-	// and will restore a context value or nil
-	ContextLoad(key string) interface{}
-
-	// ContextSetCancel allow to register a custom function called on cancel context.
+	// CancelAdd allow to register a slice of custom function called on cancel context.
 	// On context cancel event or signal kill, term... this function will be called
 	// before config stop and main context cancel function
-	ContextSetCancel(fct func())
+	CancelAdd(fct ...func())
+
+	// CancelClean allow clear the all Cancel func registered into slice
+	CancelClean()
 
 	/*
-		// Section Event : github.com/nabbar/golib/config
+		// Section Manage : github.com/nabbar/golib/config
 	*/
-
-	// RegisterFuncViper is used to expose golib Viper instance to all config component.
-	// With this function, the component can load his own config part and start or reload.
-	RegisterFuncViper(fct func() libvpr.Viper)
-
-	// RegisterFuncRouteStatus is used to expose golib Status Router instance to all config component.
-	// With this function, the component can register component status for router status and expose his own health.
-	RegisterFuncRouteStatus(fct FuncRouteStatus)
 
 	// Start will trigger the start function of all registered component.
 	// If any component return an error, this func will stop the start
 	// process and return the error.
 	Start() liberr.Error
 
-	// RegisterFuncStartBefore allow to register a func to be call when the config Start
-	// is trigger. This func is call before the start sequence.
-	RegisterFuncStartBefore(fct func() liberr.Error)
-
-	// RegisterFuncStartAfter allow to register a func to be call when the config Start
-	// is trigger. This func is call after the start sequence.
-	RegisterFuncStartAfter(fct func() liberr.Error)
-
 	// Reload triggers the Reload function of each registered Component.
 	Reload() liberr.Error
-
-	// RegisterFuncReloadBefore allow to register a func to be call when the config Reload
-	// is trigger. This func is call before the reload sequence.
-	RegisterFuncReloadBefore(fct func() liberr.Error)
-
-	// RegisterFuncReloadAfter allow to register a func to be call when the config Reload
-	// is trigger. This func is call after the reload sequence.
-	RegisterFuncReloadAfter(fct func() liberr.Error)
 
 	// Stop will trigger the stop function of all registered component.
 	// All component must stop cleanly.
 	Stop()
-
-	// RegisterFuncStopBefore allow to register a func to be call when the config Stop
-	// is trigger. This func is call before the stop sequence.
-	RegisterFuncStopBefore(fct func())
-
-	// RegisterFuncStopAfter allow to register a func to be call when the config Stop
-	// is trigger. This func is call after the stop sequence.
-	RegisterFuncStopAfter(fct func())
 
 	// Shutdown will trigger all stop function.
 	// This function will call the Stop function and the private function cancel.
@@ -126,9 +83,46 @@ type Config interface {
 	Shutdown(code int)
 
 	/*
+		// Section Events : github.com/nabbar/golib/config
+	*/
+
+	// RegisterFuncViper is used to expose golib Viper instance to all config component.
+	// With this function, the component can load his own config part and start or reload.
+	RegisterFuncViper(fct libvpr.FuncViper)
+
+	// RegisterFuncStartBefore allow to register a func to be call when the config Start
+	// is trigger. This func is call before the start sequence.
+	RegisterFuncStartBefore(fct FuncEvent)
+
+	// RegisterFuncStartAfter allow to register a func to be call when the config Start
+	// is trigger. This func is call after the start sequence.
+	RegisterFuncStartAfter(fct FuncEvent)
+
+	// RegisterFuncReloadBefore allow to register a func to be call when the config Reload
+	// is trigger. This func is call before the reload sequence.
+	RegisterFuncReloadBefore(fct FuncEvent)
+
+	// RegisterFuncReloadAfter allow to register a func to be call when the config Reload
+	// is trigger. This func is call after the reload sequence.
+	RegisterFuncReloadAfter(fct FuncEvent)
+
+	// RegisterFuncStopBefore allow to register a func to be call when the config Stop
+	// is trigger. This func is call before the stop sequence.
+	RegisterFuncStopBefore(fct FuncEvent)
+
+	// RegisterFuncStopAfter allow to register a func to be call when the config Stop
+	// is trigger. This func is call after the stop sequence.
+	RegisterFuncStopAfter(fct FuncEvent)
+
+	// RegisterDefaultLogger allow to register a func to return a default logger.
+	// This logger can be used by component to extend config ot to log message.
+	RegisterDefaultLogger(fct liblog.FuncLog)
+
+	/*
 		// Section Component : github.com/nabbar/golib/config
 	*/
-	ComponentList
+	cfgtps.ComponentList
+	cfgtps.ComponentMonitor
 }
 
 var (
@@ -138,30 +132,42 @@ var (
 
 func init() {
 	ctx, cnl = context.WithCancel(context.Background())
-
-	go func() {
-		// Wait for interrupt signal to gracefully shutdown the server with
-		// a timeout of 5 seconds.
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT)
-		signal.Notify(quit, syscall.SIGTERM)
-		signal.Notify(quit, syscall.SIGQUIT)
-
-		select {
-		case <-quit:
-			cnl()
-		case <-ctx.Done():
-			cnl()
-		}
-	}()
 }
 
-func New() Config {
-	c := &configModel{
-		m:   sync.Mutex{},
-		ctx: libctx.NewConfig(ctx),
-		cpt: newComponentList(),
+func Shutdown() {
+	cnl()
+}
+
+func WaitNotify() {
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT)
+	signal.Notify(quit, syscall.SIGTERM)
+	signal.Notify(quit, syscall.SIGQUIT)
+
+	select {
+	case <-quit:
+		cnl()
+	case <-ctx.Done():
+		cnl()
 	}
+}
+
+func New(vrs libver.Version) Config {
+	fct := func() context.Context {
+		return ctx
+	}
+
+	c := &configModel{
+		m:    sync.RWMutex{},
+		ctx:  libctx.NewConfig[string](fct),
+		cpt:  libctx.NewConfig[string](fct),
+		fct:  libctx.NewConfig[uint8](fct),
+		fcnl: nil,
+	}
+
+	c.RegisterVersion(vrs)
 
 	go func() {
 		select {

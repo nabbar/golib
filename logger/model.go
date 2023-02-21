@@ -30,22 +30,28 @@ package logger
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
 	"path"
 	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-
+	iotclo "github.com/nabbar/golib/ioutils/mapCloser"
 	"github.com/sirupsen/logrus"
 )
 
 const (
+	keyContext = iota
+	KeyCancel
+	keyLevel
+	keyOptions
+	keyLogrus
+	keyWriter
+
 	_TraceFilterMod    = "/pkg/mod/"
 	_TraceFilterVendor = "/vendor/"
 )
@@ -53,15 +59,10 @@ const (
 var _selfPackage = path.Base(reflect.TypeOf(logger{}).PkgPath())
 
 type logger struct {
-	x context.Context
-	n context.CancelFunc
-	m sync.Locker
-	l *atomic.Value //current level set for this logger
-	o *atomic.Value //options
-	s *atomic.Value //logrus logger
-	f *atomic.Value //defaults fields
-	w *atomic.Value //io writer level
-	c _Closer       // closer
+	m sync.RWMutex
+	x libctx.Config[uint8] // cf const key...
+	f Fields               // fields map
+	c iotclo.Closer
 }
 
 func defaultFormatter() logrus.TextFormatter {
@@ -84,7 +85,7 @@ func defaultFormatter() logrus.TextFormatter {
 	}
 }
 
-func (l *logger) defaultFormatter(opt *Options) logrus.Formatter {
+func (o *logger) defaultFormatter(opt *Options) logrus.Formatter {
 	f := defaultFormatter()
 
 	if opt != nil && opt.DisableColor {
@@ -99,7 +100,7 @@ func (l *logger) defaultFormatter(opt *Options) logrus.Formatter {
 	return &f
 }
 
-func (l *logger) defaultFormatterNoColor() logrus.Formatter {
+func (o *logger) defaultFormatterNoColor() logrus.Formatter {
 	f := defaultFormatter()
 	f.ForceColors = false
 	f.EnvironmentOverrideColors = false
@@ -107,315 +108,109 @@ func (l *logger) defaultFormatterNoColor() logrus.Formatter {
 	return &f
 }
 
-func (l *logger) Clone() (Logger, error) {
-	c := &logger{
-		x: l.contextGet(),
-		n: nil,
-		m: &sync.Mutex{},
-		l: new(atomic.Value),
-		o: new(atomic.Value),
-		s: new(atomic.Value),
-		f: new(atomic.Value),
-		w: new(atomic.Value),
-		c: _NewCloser(),
-	}
-
-	c.setLoggerMutex(l.GetLevel())
-	c.SetIOWriterLevel(l.GetIOWriterLevel())
-	c.SetFields(l.GetFields())
-
-	if err := c.SetOptions(l.GetOptions()); err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
-
-func (l *logger) contextGet() context.Context {
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.x == nil {
-		l.x = context.Background()
-	}
-
-	return l.x
-}
-
-func (l *logger) contextNew() context.Context {
-	ctx, cnl := context.WithCancel(l.contextGet())
-
-	l.m.Lock()
-	l.n = cnl
-	l.m.Unlock()
+func (o *logger) contextNew() context.Context {
+	ctx, cnl := context.WithCancel(o.x.GetContext())
+	o.x.Store(KeyCancel, cnl)
 
 	return ctx
 }
 
-func (l *logger) cancelCall() {
-	l.m.Lock()
-	defer l.m.Unlock()
+func (o *logger) cancelCall() {
+	if i, l := o.x.LoadAndDelete(KeyCancel); !l {
+		return
+	} else if i == nil {
+		return
+	} else if c, k := i.(context.CancelFunc); !k {
+		return
+	} else {
+		c()
+	}
+}
 
-	if l.n == nil {
+func (o *logger) optionsMerge(opt *Options) {
+	if !opt.InheritDefault {
 		return
 	}
 
-	l.n()
-	l.n = nil
-}
+	var no Options
 
-func (l *logger) cancelClear() {
-	l.m.Lock()
-
-	if l.n == nil {
-		l.m.Unlock()
+	if opt.opts != nil {
+		no = *opt.opts()
+	} else if i, l := o.x.Load(keyOptions); !l {
 		return
-	}
-
-	l.n()
-	l.m.Unlock()
-}
-
-func (l *logger) setLoggerMutex(lvl Level) {
-	if l == nil {
+	} else if v, k := i.(*Options); !k {
 		return
+	} else if v.opts != nil {
+		no = *v.opts()
+	} else {
+		no = *v
 	}
 
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.l == nil {
-		l.l = new(atomic.Value)
+	if opt.DisableStandard {
+		no.DisableStandard = true
 	}
 
-	l.l.Store(lvl)
+	if opt.DisableStack {
+		no.DisableStack = true
+	}
+
+	if opt.DisableTimestamp {
+		no.DisableTimestamp = true
+	}
+
+	if opt.EnableTrace {
+		no.EnableTrace = true
+	}
+
+	if len(opt.TraceFilter) > 0 {
+		no.TraceFilter = opt.TraceFilter
+	}
+
+	if opt.DisableColor {
+		no.DisableColor = true
+	}
+
+	if opt.EnableAccessLog {
+		no.EnableAccessLog = true
+	}
+
+	if opt.LogFileExtend {
+		no.LogFile = append(no.LogFile, opt.LogFile...)
+	} else {
+		no.LogFile = opt.LogFile
+	}
+
+	if opt.LogSyslogExtend {
+		no.LogSyslog = append(no.LogSyslog, opt.LogSyslog...)
+	} else {
+		no.LogSyslog = opt.LogSyslog
+	}
+
+	*opt = no
 }
 
-func (l *logger) SetLevel(lvl Level) {
-	l.setLoggerMutex(lvl)
-	l.setLogrusLevel(l.GetLevel())
-
-	if opt := l.GetOptions(); opt.change != nil {
-		opt.change(l)
-	}
-}
-
-func (l *logger) GetLevel() Level {
-	if l == nil {
-		return NilLevel
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.l == nil {
-		l.l = new(atomic.Value)
-	}
-
-	if i := l.l.Load(); i == nil {
-		return NilLevel
-	} else if o, ok := i.(Level); ok {
-		return o
-	}
-
-	return NilLevel
-}
-
-func (l *logger) SetFields(field Fields) {
-	if l == nil {
+func (o *logger) setLogrusLevel(lvl Level) {
+	if i, l := o.x.Load(keyLogrus); !l {
 		return
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.f == nil {
-		l.f = new(atomic.Value)
-	}
-
-	l.f.Store(field)
-}
-
-func (l *logger) GetFields() Fields {
-	if l == nil {
-		return NewFields()
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.f == nil {
-		l.f = new(atomic.Value)
-	}
-
-	if i := l.f.Load(); i == nil {
-		return NewFields()
-	} else if o, ok := i.(Fields); ok {
-		return o
-	}
-
-	return NewFields()
-}
-
-func (l *logger) setOptionsMutex(opt *Options) error {
-	lvl := l.GetLevel()
-
-	go func() {
-		var ctx = l.contextNew()
-
-		defer func() {
-			l.cancelClear()
-		}()
-
-		select {
-		case <-ctx.Done():
-			_ = l.Close()
-			return
-		}
-	}()
-
-	obj := logrus.New()
-	obj.SetLevel(lvl.Logrus())
-	obj.SetFormatter(l.defaultFormatter(opt))
-	obj.SetOutput(ioutil.Discard) // Send all logs to nowhere by default
-	clo := _NewCloser()
-
-	if !opt.DisableStandard {
-		obj.AddHook(NewHookStandard(*opt, StdOut, []logrus.Level{
-			logrus.InfoLevel,
-			logrus.DebugLevel,
-			logrus.TraceLevel,
-		}))
-
-		obj.AddHook(NewHookStandard(*opt, StdErr, []logrus.Level{
-			logrus.PanicLevel,
-			logrus.FatalLevel,
-			logrus.ErrorLevel,
-			logrus.WarnLevel,
-		}))
-	}
-
-	if len(opt.LogFile) > 0 {
-		for _, fopt := range opt.LogFile {
-			if hook, err := NewHookFile(fopt, l.defaultFormatterNoColor()); err != nil {
-				return err
-			} else {
-				clo.Add(hook)
-				hook.RegisterHook(obj)
-			}
-		}
-	}
-
-	if len(opt.LogSyslog) > 0 {
-		for _, lopt := range opt.LogSyslog {
-			if hook, err := NewHookSyslog(lopt, l.defaultFormatterNoColor()); err != nil {
-				return err
-			} else {
-				clo.Add(hook)
-				hook.RegisterHook(obj)
-			}
-		}
-	}
-
-	l.setOptions(opt)
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	_ = l.c.Close()
-	l.c = clo
-
-	l.s = new(atomic.Value)
-	l.s.Store(obj)
-
-	return nil
-}
-
-func (l *logger) SetOptions(opt *Options) error {
-	if err := l.setOptionsMutex(opt); err != nil {
-		return err
-	}
-
-	if opt.init != nil {
-		opt.init(l)
-	}
-
-	return nil
-}
-
-func (l *logger) GetOptions() *Options {
-	if l == nil {
-		return &Options{}
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.o == nil {
-		l.o = new(atomic.Value)
-	}
-
-	if i := l.o.Load(); i == nil {
-		return &Options{}
-	} else if o, ok := i.(*Options); ok {
-		return o
-	}
-
-	return &Options{}
-}
-
-func (l *logger) setOptions(opt *Options) {
-	if l == nil {
+	} else if v, k := i.(*logrus.Logger); !k {
 		return
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.o == nil {
-		l.o = new(atomic.Value)
-	}
-
-	l.o.Store(opt)
-}
-
-func (l *logger) setLogrusLevel(lvl Level) {
-	if _log := l.getLog(); _log != nil {
-		_log.SetLevel(lvl.Logrus())
-
-		l.m.Lock()
-		defer l.m.Unlock()
-
-		if l.s == nil {
-			return
-		}
-
-		l.s.Store(_log)
+	} else {
+		v.SetLevel(lvl.Logrus())
+		o.x.Store(keyLogrus, v)
 	}
 }
 
-func (l *logger) getLog() *logrus.Logger {
-	if l == nil {
+func (o *logger) getLogrus() *logrus.Logger {
+	if i, l := o.x.Load(keyLogrus); !l {
 		return nil
-	}
-
-	l.m.Lock()
-	defer l.m.Unlock()
-
-	if l.s == nil {
-		l.s = new(atomic.Value)
-	}
-
-	if i := l.s.Load(); i == nil {
-		return nil
-	} else if o, ok := i.(*logrus.Logger); !ok {
+	} else if v, k := i.(*logrus.Logger); !k {
 		return nil
 	} else {
-		return o
+		return v
 	}
 }
 
-func (l *logger) getStack() uint64 {
+func (o *logger) getStack() uint64 {
 	b := make([]byte, 64)
 
 	b = b[:runtime.Stack(b, false)]
@@ -429,7 +224,7 @@ func (l *logger) getStack() uint64 {
 	return n
 }
 
-func (l *logger) getCaller() runtime.Frame {
+func (o *logger) getCaller() runtime.Frame {
 	// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need.
 	programCounters := make([]uintptr, 10, 255)
 	n := runtime.Callers(1, programCounters)
@@ -453,7 +248,7 @@ func (l *logger) getCaller() runtime.Frame {
 	return runtime.Frame{Function: "unknown", File: "unknown", Line: 0}
 }
 
-func (l *logger) filterPath(pathname string) string {
+func (o *logger) filterPath(pathname string) string {
 	pathname = liberr.ConvPathFromLocal(pathname)
 
 	if i := strings.LastIndex(pathname, _TraceFilterMod); i != -1 {
@@ -466,7 +261,7 @@ func (l *logger) filterPath(pathname string) string {
 		pathname = pathname[i:]
 	}
 
-	opt := l.GetOptions()
+	opt := o.GetOptions()
 
 	if opt.TraceFilter != "" {
 		if i := strings.LastIndex(pathname, opt.TraceFilter); i != -1 {

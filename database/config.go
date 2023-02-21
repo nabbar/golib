@@ -27,14 +27,14 @@
 package database
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
-	libsts "github.com/nabbar/golib/status/config"
+	moncfg "github.com/nabbar/golib/monitor/types"
 
 	libval "github.com/go-playground/validator/v10"
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	gormdb "gorm.io/gorm"
@@ -98,10 +98,12 @@ type Config struct {
 	// Disabled allow to disable a database connection without clean his configuration.
 	Disabled bool `mapstructure:"disabled" json:"disabled" yaml:"disabled" toml:"disabled"`
 
-	// Status defined the router status configuration
-	Status libsts.ConfigStatus `mapstructure:"status" json:"status" yaml:"status" toml:"status"`
+	// Monitor defined the monitoring configuration
+	Monitor moncfg.Config `mapstructure:"monitor" json:"monitor" yaml:"monitor" toml:"monitor"`
 
-	ctx  func() context.Context
+	//@TODO : implement logger options with new logger
+
+	ctx  libctx.FuncContext
 	flog func() gorlog.Interface
 }
 
@@ -133,11 +135,11 @@ func (c *Config) RegisterLogger(fct func() liblog.Logger, ignoreRecordNotFoundEr
 	}
 }
 
-func (c *Config) RegisterGORMLogger(fct func() gorlog.Interface) {
+func (c *Config) RegisterGORMLogger(fct FuncGormLog) {
 	c.flog = fct
 }
 
-func (c *Config) RegisterContext(fct func() context.Context) {
+func (c *Config) RegisterContext(fct libctx.FuncContext) {
 	c.ctx = fct
 }
 

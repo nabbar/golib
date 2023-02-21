@@ -86,6 +86,8 @@ type errors struct {
 	t runtime.Frame
 }
 
+type FuncMap func(e Error) bool
+
 type Error interface {
 	//IsCodeError check if the given error code is matching with the current Error
 	IsCodeError(code CodeError) bool
@@ -102,6 +104,10 @@ type Error interface {
 	HasError(err error) bool
 	//HasParent check if the current Error has any valid parent
 	HasParent() bool
+	//GetParent return a slice of Error interface for each parent error with or without the first error.
+	GetParent(withMainError bool) []Error
+	//Map run a function on each func and parent. If the function return false, the loop stop.
+	Map(fct FuncMap) bool
 
 	//AddParent will add all no empty given error into parent of the current Error pointer
 	AddParent(parent ...error)
@@ -359,9 +365,44 @@ func (e *errors) HasParent() bool {
 	return len(e.p) > 0
 }
 
+func (e *errors) GetParent(withMainError bool) []Error {
+	var res = make([]Error, 0)
+
+	if withMainError {
+		res = append(res, &errors{
+			c: e.c,
+			e: e.e,
+			p: nil,
+			t: e.t,
+		})
+	}
+
+	if len(e.p) > 0 {
+		for _, er := range e.p {
+			res = append(res, er.GetParent(true)...)
+		}
+	}
+
+	return res
+}
+
 func (e *errors) SetParent(parent ...error) {
 	e.p = make([]Error, 0)
 	e.AddParent(parent...)
+}
+
+func (e *errors) Map(fct FuncMap) bool {
+	if !fct(e) {
+		return false
+	} else if len(e.p) > 0 {
+		for _, er := range e.p {
+			if !er.Map(fct) {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func (e *errors) AddParentError(parent ...Error) {
@@ -538,7 +579,7 @@ func (e *errors) Return(r Return) {
 	e.ReturnParent(r.AddParent)
 }
 
-func (e errors) ReturnError(f ReturnError) {
+func (e *errors) ReturnError(f ReturnError) {
 	if e.t.File != "" {
 		f(int(e.c), e.e, e.t.File, e.t.Line)
 	} else {
@@ -546,7 +587,7 @@ func (e errors) ReturnError(f ReturnError) {
 	}
 }
 
-func (e errors) ReturnParent(f ReturnError) {
+func (e *errors) ReturnParent(f ReturnError) {
 	for _, p := range e.p {
 		p.ReturnError(f)
 		p.ReturnParent(f)

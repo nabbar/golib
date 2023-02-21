@@ -34,6 +34,7 @@ import (
 
 const (
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgRouter
+	ErrorConfigValidator
 	ErrorHeaderAuth
 	ErrorHeaderAuthMissing
 	ErrorHeaderAuthEmpty
@@ -52,6 +53,8 @@ func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:
 		return "given parameters is empty"
+	case ErrorConfigValidator:
+		return "invalid config, validation error"
 	case ErrorHeaderAuthMissing:
 		return "missing authorization header"
 	case ErrorHeaderAuthEmpty:

@@ -28,23 +28,18 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
-	libcfg "github.com/nabbar/golib/config"
-	liblog "github.com/nabbar/golib/logger"
-	gorlog "gorm.io/gorm/logger"
-
+	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	libsts "github.com/nabbar/golib/status"
+	liblog "github.com/nabbar/golib/logger"
 	gormdb "gorm.io/gorm"
+	gorlog "gorm.io/gorm/logger"
 )
 
 const unknown = "unknown"
@@ -155,41 +150,6 @@ func (d *database) CheckConn() liberr.Error {
 	return nil
 }
 
-func (d *database) StatusInfo() (name string, release string, hash string) {
-	hash = ""
-	release = strings.TrimLeft(strings.ToLower(runtime.Version()), "go")
-
-	cfg := d.getConfig()
-	if cfg == nil {
-		name = unknown
-	} else {
-		name = fmt.Sprintf("%s (%s)", cfg.Name, cfg.Driver.String())
-	}
-
-	return name, release, hash
-}
-
-func (d *database) StatusHealth() error {
-	return d.CheckConn()
-}
-
-func (d *database) StatusRouter(sts libsts.RouteStatus, prefix string) liberr.Error {
-	cfg := d.getConfig()
-	if cfg == nil {
-		return ErrorDatabaseNotInitialized.Error(nil)
-	}
-
-	if prefix != "" {
-		prefix = fmt.Sprintf("%s - %s (%s)", prefix, cfg.Name, cfg.Driver.String())
-	} else {
-		prefix = fmt.Sprintf("%s (%s)", cfg.Name, cfg.Driver.String())
-	}
-
-	cfg.Status.RegisterStatus(sts, prefix, d.StatusInfo, d.StatusHealth)
-
-	return nil
-}
-
 func (d *database) Config() *gormdb.Config {
 	cfg := d.getConfig()
 	if cfg == nil {
@@ -199,7 +159,7 @@ func (d *database) Config() *gormdb.Config {
 	return cfg.Config()
 }
 
-func (d *database) RegisterContext(fct libcfg.FuncContext) {
+func (d *database) RegisterContext(fct libctx.FuncContext) {
 	cfg := d.getConfig()
 	if cfg == nil {
 		return
