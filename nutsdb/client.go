@@ -40,8 +40,8 @@ import (
 	"github.com/lni/dragonboat/v3/statemachine"
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
-	"github.com/xujiajun/nutsdb"
-	"github.com/xujiajun/nutsdb/ds/zset"
+	"github.com/nutsdb/nutsdb"
+	"github.com/nutsdb/nutsdb/ds/zset"
 )
 
 type Client interface {

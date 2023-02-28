@@ -41,7 +41,7 @@ import (
 
 	dgbstm "github.com/lni/dragonboat/v3/statemachine"
 	liberr "github.com/nabbar/golib/errors"
-	"github.com/xujiajun/nutsdb"
+	"github.com/nutsdb/nutsdb"
 )
 
 const (

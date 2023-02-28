@@ -36,8 +36,8 @@ import (
 	"io"
 
 	libsh "github.com/nabbar/golib/shell"
-	"github.com/xujiajun/nutsdb"
-	"github.com/xujiajun/nutsdb/ds/zset"
+	"github.com/nutsdb/nutsdb"
+	"github.com/nutsdb/nutsdb/ds/zset"
 )
 
 type shellCommand struct {
