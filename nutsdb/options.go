@@ -42,7 +42,7 @@ import (
 	"time"
 
 	liberr "github.com/nabbar/golib/errors"
-	"github.com/xujiajun/nutsdb"
+	"github.com/nutsdb/nutsdb"
 	"github.com/xujiajun/utils/filesystem"
 )
 

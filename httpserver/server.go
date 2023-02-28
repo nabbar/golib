@@ -41,7 +41,8 @@ import (
 
 func (o *srv) Start(ctx context.Context) error {
 	ssl := o.cfgGetTLS()
-	if ssl == nil && o.IsTLS() {
+
+	if o.IsTLS() && ssl == nil {
 		return ErrorServerValidate.ErrorParent(fmt.Errorf("TLS Config is not well defined"))
 	}
 
@@ -62,6 +63,9 @@ func (o *srv) Start(ctx context.Context) error {
 	}
 
 	if e := o.cfgGetServer().initServer(s); e != nil {
+		ent := o.logger().Entry(liblog.ErrorLevel, "init http2 server")
+		ent.ErrorAdd(true, e)
+		ent.Log()
 		return e
 	}
 

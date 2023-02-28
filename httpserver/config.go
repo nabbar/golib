@@ -251,9 +251,9 @@ func (c *Config) GetTLS() (libtls.TLSConfig, liberr.Error) {
 }
 
 func (c *Config) CheckTLS() (libtls.TLSConfig, liberr.Error) {
-	if ssl, err := c.GetTLS(); err == nil {
+	if ssl, err := c.GetTLS(); err != nil {
 		return nil, err
-	} else if ssl != nil && ssl.LenCertificatePair() > 0 {
+	} else if ssl == nil || ssl.LenCertificatePair() < 1 {
 		return nil, ErrorServerValidate.ErrorParent(fmt.Errorf("not certificates defined"))
 	} else {
 		return ssl, nil

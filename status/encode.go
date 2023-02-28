@@ -97,12 +97,6 @@ func (e *encodeModel) GinRender(c *ginsdk.Context, isText bool, isShort bool) {
 	}
 }
 
-func (e *encodeModel) cleanString(str string) string {
-	str = strings.Replace(str, "\n", " ", -1)
-	str = strings.Replace(str, "\r", "", -1)
-	return str
-}
-
 func (e *encodeModel) stringName() string {
 	var inf []string
 
@@ -146,7 +140,7 @@ func (e *encodeModel) String() string {
 		buf.Write(p)
 	}
 
-	return e.cleanString(buf.String())
+	return buf.String()
 }
 
 func (e *encodeModel) Bytes() []byte {
