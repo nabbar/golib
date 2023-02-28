@@ -38,7 +38,7 @@ import (
 	libval "github.com/go-playground/validator/v10"
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
-	"github.com/xujiajun/nutsdb"
+	"github.com/nutsdb/nutsdb"
 )
 
 type Config struct {

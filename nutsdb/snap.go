@@ -38,7 +38,7 @@ import (
 	"github.com/nabbar/golib/archive"
 	liberr "github.com/nabbar/golib/errors"
 	"github.com/nabbar/golib/ioutils"
-	"github.com/xujiajun/nutsdb"
+	"github.com/nutsdb/nutsdb"
 )
 
 type Snapshot interface {

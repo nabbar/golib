@@ -35,7 +35,7 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	liberr "github.com/nabbar/golib/errors"
-	nutsdb "github.com/xujiajun/nutsdb"
+	nutsdb "github.com/nutsdb/nutsdb"
 )
 
 type NutsDBOptions struct {

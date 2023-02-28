@@ -39,7 +39,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
-	"github.com/xujiajun/nutsdb"
+	"github.com/nutsdb/nutsdb"
 )
 
 const (
