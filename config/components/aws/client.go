@@ -29,6 +29,9 @@ package aws
 import (
 	"net/http"
 
+	libhtc "github.com/nabbar/golib/httpcli"
+	libreq "github.com/nabbar/golib/request"
+
 	libaws "github.com/nabbar/golib/aws"
 	libtls "github.com/nabbar/golib/certificates"
 	cfgtps "github.com/nabbar/golib/config/types"
@@ -172,35 +175,77 @@ func (o *componentAws) _runFct(fct func(cpt cfgtps.Component) liberr.Error) libe
 }
 
 func (o *componentAws) _runCli() liberr.Error {
-	var prt = ErrorComponentReload
+	var (
+		e error
+
+		err liberr.Error
+		cli libaws.AWS
+		cfg libaws.Config
+		mon *libreq.OptionsHealth
+		htc *libhtc.Options
+		opt *libreq.Options
+		req libreq.Request
+		prt = ErrorComponentReload
+	)
 
 	if !o.IsStarted() {
 		prt = ErrorComponentStart
 	}
 
-	if cfg, mon, htc, err := o._getConfig(); err != nil {
+	if cfg, mon, htc, err = o._getConfig(); err != nil {
 		return prt.Error(err)
-	} else if cli, er := libaws.New(o.x.GetContext(), cfg, o._getHttpClient()); er != nil {
-		return prt.Error(er)
-	} else {
-		o.m.Lock()
-		o.a = cli
-		o.m.Unlock()
+	} else if cli, err = libaws.New(o.x.GetContext(), cfg, o._getHttpClient()); err != nil {
+		return prt.Error(err)
+	}
 
-		if htc != nil {
-			o.RegisterHTTPClient(func() *http.Client {
-				if c, e := htc.GetClient(o._getTLS(), ""); e == nil {
-					return c
-				}
+	if htc != nil {
+		o.RegisterHTTPClient(func() *http.Client {
+			if c, e := htc.GetClient(o._getTLS(), ""); e == nil {
+				return c
+			}
 
-				return &http.Client{}
-			})
+			return &http.Client{}
+		})
+	}
+
+	if mon != nil && mon.Enable {
+		opt = &libreq.Options{
+			Endpoint:   "",
+			HttpClient: *htc,
+			Auth:       libreq.OptionsAuth{},
+			Health:     *mon,
 		}
 
-		if e := o._registerMonitor(mon, cfg); e != nil {
+		opt.SetDefaultTLS(o._getTLS)
+		opt.SetDefaultLog(o.getLogger)
+
+		o.m.Lock()
+		req = o.r
+		o.m.Unlock()
+
+		if req != nil {
+			req.RegisterDefaultLogger(o.getLogger)
+			if req, e = opt.Update(o.x.GetContext, req); e != nil {
+				return prt.ErrorParent(e)
+			}
+		} else if req, e = libreq.New(o.x.GetContext, opt); e != nil {
+			return prt.ErrorParent(e)
+		}
+
+		o.m.Lock()
+		o.r = req
+		o.m.Unlock()
+	}
+
+	if mon != nil {
+		if e = o._registerMonitor(mon, cfg); e != nil {
 			return prt.ErrorParent(e)
 		}
 	}
+
+	o.m.Lock()
+	o.a = cli
+	o.m.Unlock()
 
 	return nil
 }
