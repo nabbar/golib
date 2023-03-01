@@ -60,7 +60,7 @@ type OptionsAuth struct {
 
 type OptionsHealth struct {
 	Enable   bool                `json:"enable" yaml:"enable" toml:"enable" mapstructure:"enable"`
-	Endpoint string              `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"required,url"`
+	Endpoint string              `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"url"`
 	Auth     OptionsAuth         `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:"required,dive"`
 	Result   OptionsHealthResult `json:"result" yaml:"result" toml:"result" mapstructure:"result" validate:"required,dive"`
 	Monitor  moncfg.Config       `json:"monitor" yaml:"monitor" toml:"monitor" mapstructure:"monitor" validate:"required,dive"`
@@ -84,6 +84,27 @@ type Options struct {
 }
 
 func (o *Options) Validate() liberr.Error {
+	var e = ErrorValidatorError.Error(nil)
+
+	if err := libval.New().Struct(o); err != nil {
+		if er, ok := err.(*libval.InvalidValidationError); ok {
+			e.AddParent(er)
+		}
+
+		for _, er := range err.(libval.ValidationErrors) {
+			//nolint #goerr113
+			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
+		}
+	}
+
+	if !e.HasParent() {
+		e = nil
+	}
+
+	return e
+}
+
+func (o *OptionsHealth) Validate() liberr.Error {
 	var e = ErrorValidatorError.Error(nil)
 
 	if err := libval.New().Struct(o); err != nil {

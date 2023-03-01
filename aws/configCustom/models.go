@@ -32,7 +32,7 @@ import (
 	"net/url"
 	"strings"
 
-	moncfg "github.com/nabbar/golib/monitor/types"
+	libreq "github.com/nabbar/golib/request"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
@@ -50,9 +50,9 @@ type Model struct {
 }
 
 type ModelStatus struct {
-	Config     Model          `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required,dive"`
-	HTTPClient libhtc.Options `json:"http-client" yaml:"http-client" toml:"http-client" mapstructure:"http-client" validate:"required,dive"`
-	Monitor    moncfg.Config  `json:"monitor" yaml:"monitor" toml:"monitor" mapstructure:"monitor" validate:"required,dive"`
+	Config     Model                `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required,dive"`
+	HTTPClient libhtc.Options       `json:"http-client" yaml:"http-client" toml:"http-client" mapstructure:"http-client" validate:"required,dive"`
+	Monitor    libreq.OptionsHealth `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:"required,dive"`
 }
 
 type awsModel struct {

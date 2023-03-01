@@ -30,6 +30,8 @@ import (
 	"net/http"
 	"sync"
 
+	libreq "github.com/nabbar/golib/request"
+
 	libaws "github.com/nabbar/golib/aws"
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
@@ -45,6 +47,7 @@ type componentAws struct {
 	c func() *http.Client
 	t libtls.FctTLSDefault
 	a libaws.AWS
+	r libreq.Request
 }
 
 func (o *componentAws) RegisterHTTPClient(fct func() *http.Client) {
