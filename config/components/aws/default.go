@@ -46,7 +46,7 @@ var _defaultConfigStandard = []byte(`{
 var _defaultConfigStandardWithStatus = []byte(`{
   "config":` + string(DefaultConfigStandard(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
   "http-client":` + string(libhtc.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
-  "monitor":` + string(montps.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `
+  "health":` + string(montps.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `
 }`)
 
 var _defaultConfigCustom = []byte(`{
@@ -60,7 +60,7 @@ var _defaultConfigCustom = []byte(`{
 var _defaultConfigCustomWithStatus = []byte(`{
   "config":` + string(DefaultConfigCustom(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
   "http-client":` + string(libhtc.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
-  "monitor":` + string(montps.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `
+  "health":` + string(montps.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `
 }`)
 
 var _defaultConfig = _defaultConfigCustom

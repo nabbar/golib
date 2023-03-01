@@ -117,6 +117,7 @@ type Request interface {
 	DoParse(model interface{}, validStatus ...int) liberr.Error
 
 	Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error)
+	HealthCheck(ctx context.Context) error
 }
 
 func New(ctx libctx.FuncContext, opt *Options) (Request, error) {

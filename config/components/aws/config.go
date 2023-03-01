@@ -32,7 +32,7 @@ import (
 	cfgcus "github.com/nabbar/golib/aws/configCustom"
 	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
-	libmon "github.com/nabbar/golib/monitor/types"
+	libreq "github.com/nabbar/golib/request"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -111,12 +111,12 @@ func (o *componentAws) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentAws) _getConfig() (libaws.Config, *libmon.Config, *libhtc.Options, liberr.Error) {
+func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libhtc.Options, liberr.Error) {
 	var (
 		key string
 		cfg libaws.Config
 		flg = o._getFlagUpdate()
-		mon *libmon.Config
+		mon *libreq.OptionsHealth
 		htc *libhtc.Options
 		vpr *spfvpr.Viper
 		err liberr.Error
@@ -192,6 +192,18 @@ func (o *componentAws) _getConfig() (libaws.Config, *libmon.Config, *libhtc.Opti
 
 	if err = cfg.Validate(); err != nil {
 		return nil, nil, nil, ErrorConfigInvalid.Error(err)
+	}
+
+	if mon != nil {
+		if err = mon.Validate(); err != nil {
+			return nil, nil, nil, ErrorConfigInvalid.Error(err)
+		}
+	}
+
+	if htc != nil {
+		if err = htc.Validate(); err != nil {
+			return nil, nil, nil, ErrorConfigInvalid.Error(err)
+		}
 	}
 
 	return cfg, mon, htc, nil

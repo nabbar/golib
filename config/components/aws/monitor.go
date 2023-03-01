@@ -31,6 +31,8 @@ import (
 	"fmt"
 	"runtime"
 
+	libreq "github.com/nabbar/golib/request"
+
 	libaws "github.com/nabbar/golib/aws"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
@@ -61,7 +63,7 @@ func (o *componentAws) _getMonitorPool() montps.Pool {
 	}
 }
 
-func (o *componentAws) _registerMonitor(cfg *montps.Config, aws libaws.Config) error {
+func (o *componentAws) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Config) error {
 	var (
 		e   error
 		key = o._getKey()
@@ -75,7 +77,7 @@ func (o *componentAws) _registerMonitor(cfg *montps.Config, aws libaws.Config) e
 		return nil
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
-	} else if cfg == nil {
+	} else if opt == nil {
 		return nil
 	} else if aws == nil {
 		return ErrorConfigInvalid.Error(nil)
@@ -89,6 +91,7 @@ func (o *componentAws) _registerMonitor(cfg *montps.Config, aws libaws.Config) e
 		res["date"] = vrs.GetDate()
 		res["endpoint"] = aws.GetEndpoint().Host
 		res["region"] = aws.GetRegion()
+		res["health"] = o._getEndpoint(opt, aws)
 	}
 
 	if inf, e = moninf.New(defaultNameMonitor); e != nil {
@@ -110,7 +113,7 @@ func (o *componentAws) _registerMonitor(cfg *montps.Config, aws libaws.Config) e
 		}
 	}
 
-	if e = mon.SetConfig(o.x.GetContext, *cfg); e != nil {
+	if e = mon.SetConfig(o.x.GetContext, opt.Monitor); e != nil {
 		return e
 	}
 
@@ -123,6 +126,17 @@ func (o *componentAws) _registerMonitor(cfg *montps.Config, aws libaws.Config) e
 	}
 
 	return nil
+}
+
+func (o *componentAws) _getEndpoint(opt *libreq.OptionsHealth, aws libaws.Config) string {
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if o.r != nil && len(opt.Endpoint) > 0 {
+		return opt.Endpoint
+	} else {
+		return aws.GetEndpoint().Host
+	}
 }
 
 func (o *componentAws) _newMonitor(inf montps.Info) (montps.Monitor, error) {
@@ -172,7 +186,9 @@ func (o *componentAws) HealthCheck(ctx context.Context) error {
 
 	if !o.IsStarted() {
 		return fmt.Errorf("component not started")
-	} else {
+	} else if o.r == nil {
 		return o.a.Config().Check(ctx)
+	} else {
+		return o.r.HealthCheck(ctx)
 	}
 }
