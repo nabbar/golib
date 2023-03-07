@@ -27,7 +27,11 @@
 package pool
 
 import (
+	"context"
 	"sync"
+	"time"
+
+	liblog "github.com/nabbar/golib/logger"
 
 	libctx "github.com/nabbar/golib/context"
 	libprm "github.com/nabbar/golib/prometheus"
@@ -36,7 +40,27 @@ import (
 type pool struct {
 	m  sync.RWMutex
 	fp libprm.FuncGetPrometheus
+	fl liblog.FuncLog
 	p  libctx.Config[string]
+}
+
+func (o *pool) getLog() liblog.Logger {
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if o.fl == nil {
+		return liblog.GetDefault()
+	} else if l := o.fl(); l != nil {
+		return l
+	}
+
+	return liblog.GetDefault()
+}
+
+func (o *pool) InitMetrics(prm libprm.FuncGetPrometheus, log liblog.FuncLog) error {
+	o.RegisterFctProm(prm)
+	o.RegisterFctLogger(log)
+	return o.createMetrics()
 }
 
 func (o *pool) RegisterFctProm(prm libprm.FuncGetPrometheus) {
@@ -44,4 +68,30 @@ func (o *pool) RegisterFctProm(prm libprm.FuncGetPrometheus) {
 	defer o.m.Unlock()
 
 	o.fp = prm
+}
+
+func (o *pool) RegisterFctLogger(log liblog.FuncLog) {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	o.fl = log
+}
+
+func (o *pool) TriggerCollectMetrics(ctx context.Context, dur time.Duration) {
+	var tck *time.Ticker
+
+	tck = time.NewTicker(dur)
+	defer tck.Stop()
+
+	for {
+		select {
+		case <-tck.C:
+			if p := o.getProm(); p != nil {
+				p.CollectMetrics(ctx)
+			}
+
+		case <-ctx.Done():
+			return
+		}
+	}
 }

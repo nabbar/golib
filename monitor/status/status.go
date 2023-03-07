@@ -46,6 +46,10 @@ func (s Status) Int() int64 {
 	return int64(s)
 }
 
+func (s Status) Float() float64 {
+	return float64(s)
+}
+
 func (s Status) MarshalJSON() ([]byte, error) {
 	b := make([]byte, 0, len(s.String())+2)
 	b = append(b, '"')

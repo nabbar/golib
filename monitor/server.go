@@ -167,23 +167,17 @@ func (o *mon) check(ctx context.Context, cfg *runCfg) {
 	var fct types.HealthCheck
 
 	if fct = o.getFct(); fct == nil {
-		_ = o.setStatus(ErrorMissingHealthCheck.Error(nil), cfg)
+		l := o.getLastCheck()
+		l.setStatus(ErrorMissingHealthCheck.Error(nil), 0, cfg)
+		o.x.Store(keyLastRun, l)
 	} else if cfg == nil {
-		_ = o.setStatus(ErrorValidatorError.Error(nil), cfg)
+		l := o.getLastCheck()
+		l.setStatus(ErrorValidatorError.Error(nil), 0, cfg)
+		o.x.Store(keyLastRun, l)
 	}
 
 	m := newMiddleware(cfg, fct)
-	m.Add(o.setLatency)
 	m.Add(o.mdlStatus)
-	// add here other part to run
-
-	m.Add(o.setUpTime)
-	m.Add(o.setDownTime)
-	m.Add(o.setRiseTime)
-	m.Add(o.setFallTime)
-
-	// no add after this
-	m.Add(o.setLastCheck)
 	m.Run(ctx)
 
 	// store metrics to prometheus exporter
