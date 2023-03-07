@@ -83,7 +83,7 @@ type MonitorMetrics interface {
 	CollectDownTime() time.Duration
 	CollectRiseTime() time.Duration
 	CollectFallTime() time.Duration
-	CollectStatus() (sts string, rise bool, fall bool)
+	CollectStatus() (sts monsts.Status, rise bool, fall bool)
 }
 
 type MonitorInfo interface {

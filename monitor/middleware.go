@@ -78,7 +78,7 @@ func (m *mdl) Run(ctx context.Context) {
 	m.ctx, cnl = context.WithTimeout(ctx, m.cfg.checkTimeout)
 	defer cnl()
 
-	m.crs = len(m.mdl) - 1
+	m.crs = len(m.mdl)
 	_ = m.Next()
 }
 

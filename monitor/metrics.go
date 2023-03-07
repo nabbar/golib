@@ -65,57 +65,27 @@ func (o *mon) RegisterCollectMetrics(fct libprm.FuncCollectMetrics) {
 }
 
 func (o *mon) CollectLatency() time.Duration {
-	if i, l := o.x.LoadAndDelete(keyMetricLatency); !l {
-		return 0
-	} else if v, k := i.(time.Duration); !k {
-		return 0
-	} else {
-		return v
-	}
+	return o.Latency()
 }
 
 func (o *mon) CollectUpTime() time.Duration {
-	if i, l := o.x.LoadAndDelete(keyMetricUpTime); !l {
-		return 0
-	} else if v, k := i.(time.Duration); !k {
-		return 0
-	} else {
-		return v
-	}
+	return o.Uptime()
 }
 
 func (o *mon) CollectDownTime() time.Duration {
-	if i, l := o.x.LoadAndDelete(keyMetricDownTime); !l {
-		return 0
-	} else if v, k := i.(time.Duration); !k {
-		return 0
-	} else {
-		return v
-	}
+	return o.Downtime()
 }
 
 func (o *mon) CollectRiseTime() time.Duration {
-	if i, l := o.x.LoadAndDelete(keyMetricRiseTime); !l {
-		return 0
-	} else if v, k := i.(time.Duration); !k {
-		return 0
-	} else {
-		return v
-	}
+	return o.getLastCheck().RiseTime()
 }
 
 func (o *mon) CollectFallTime() time.Duration {
-	if i, l := o.x.LoadAndDelete(keyMetricFallTime); !l {
-		return 0
-	} else if v, k := i.(time.Duration); !k {
-		return 0
-	} else {
-		return v
-	}
+	return o.getLastCheck().FallTime()
 }
 
-func (o *mon) CollectStatus() (sts string, rise bool, fall bool) {
-	return o.Status().String(), o.IsRise(), o.IsFall()
+func (o *mon) CollectStatus() (sts monsts.Status, rise bool, fall bool) {
+	return o.Status(), o.IsRise(), o.IsFall()
 }
 
 func (o *mon) collectMetrics(ctx context.Context) {
@@ -145,74 +115,4 @@ func (o *mon) collectMetrics(ctx context.Context) {
 	}
 
 	f(ctx, n...)
-}
-
-func (o *mon) setLatency(m middleWare) error {
-	var ts = time.Now()
-
-	ret := m.Next()
-	d := time.Since(ts)
-
-	o.x.Store(keyMetricLatency, d)
-
-	return ret
-}
-
-func (o *mon) setUpTime(m middleWare) error {
-	ret := m.Next()
-
-	if o.Status() != monsts.OK {
-		return ret
-	}
-
-	last := o.getLastCheck()
-
-	if last.status != monsts.OK {
-		return ret
-	}
-
-	d := time.Since(last.runtime) + o.Uptime()
-	o.x.Store(keyMetricUpTime, d)
-	return ret
-}
-
-func (o *mon) setDownTime(m middleWare) error {
-	ret := m.Next()
-
-	if o.Status() != monsts.KO {
-		return ret
-	}
-
-	last := o.getLastCheck()
-	if last.status != monsts.KO {
-		return ret
-	}
-
-	d := time.Since(last.runtime) + o.Downtime()
-	o.x.Store(keyMetricDownTime, d)
-	return ret
-}
-
-func (o *mon) setRiseTime(m middleWare) error {
-	ret := m.Next()
-
-	if !o.IsRise() {
-		return ret
-	}
-
-	last := o.getLastCheck()
-	o.x.Store(keyMetricRiseTime, o.CollectRiseTime()+time.Since(last.runtime))
-	return ret
-}
-
-func (o *mon) setFallTime(m middleWare) error {
-	ret := m.Next()
-
-	if !o.IsFall() {
-		return ret
-	}
-
-	last := o.getLastCheck()
-	o.x.Store(keyMetricFallTime, o.CollectFallTime()+time.Since(last.runtime))
-	return ret
 }

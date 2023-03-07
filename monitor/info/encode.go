@@ -48,11 +48,11 @@ func (e *encodingModel) stringInfo() string {
 		buf = bytes.NewBuffer(make([]byte, 0))
 	)
 
-	for _, i := range e.Info {
-		buf.WriteString(fmt.Sprintf("%v", i))
+	for n, i := range e.Info {
+		buf.WriteString(fmt.Sprintf("%s: %v,", n, i))
 	}
 
-	return buf.String()
+	return strings.Trim(strings.TrimSpace(buf.String()), ",")
 }
 
 func (e *encodingModel) stringClean(str string) string {
