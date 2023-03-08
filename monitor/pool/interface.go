@@ -27,7 +27,11 @@
 package pool
 
 import (
+	"context"
 	"sync"
+	"time"
+
+	liblog "github.com/nabbar/golib/logger"
 
 	libsrv "github.com/nabbar/golib/server"
 
@@ -40,7 +44,10 @@ type Pool interface {
 	montps.Pool
 	libsrv.Server
 
+	InitMetrics(prm libprm.FuncGetPrometheus, log liblog.FuncLog) error
 	RegisterFctProm(prm libprm.FuncGetPrometheus)
+	RegisterFctLogger(log liblog.FuncLog)
+	TriggerCollectMetrics(ctx context.Context, dur time.Duration)
 }
 
 func New(ctx libctx.FuncContext) Pool {
