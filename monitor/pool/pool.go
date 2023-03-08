@@ -39,10 +39,6 @@ func (o *pool) MonitorAdd(mon montps.Monitor) error {
 		return fmt.Errorf("monitor name cannot be empty")
 	}
 
-	if e := o.createMetrics(mon); e != nil {
-		return e
-	}
-
 	if o.IsRunning() && !mon.IsRunning() {
 		if e := mon.Start(o.p.GetContext()); e != nil {
 			return e
@@ -81,12 +77,8 @@ func (o *pool) MonitorSet(mon montps.Monitor) error {
 func (o *pool) MonitorDel(name string) {
 	if len(name) < 1 {
 		return
-	} else if i, l := o.p.LoadAndDelete(name); !l {
-		return
-	} else if v, k := i.(montps.Monitor); !k {
-		return
 	} else {
-		o.deleteMetrics(v)
+		o.p.Delete(name)
 	}
 }
 

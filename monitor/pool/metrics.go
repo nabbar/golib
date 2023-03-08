@@ -30,6 +30,8 @@ import (
 	"context"
 	"strings"
 
+	liblog "github.com/nabbar/golib/logger"
+
 	montps "github.com/nabbar/golib/monitor/types"
 	libprm "github.com/nabbar/golib/prometheus"
 	libmet "github.com/nabbar/golib/prometheus/metrics"
@@ -41,9 +43,11 @@ const (
 	metricLatency   = "latency"
 	metricUptime    = "uptime"
 	metricDowntime  = "downtime"
-	metricRisetime  = "risetime"
-	metricFalltime  = "falltime"
+	metricRiseTime  = "risetime"
+	metricFallTime  = "falltime"
 	metricStatus    = "status"
+	metricRise      = "rise"
+	metricFall      = "fall"
 	metricBoolTrue  = "true"
 	metricBoolFalse = "false"
 )
@@ -62,11 +66,10 @@ func (o *pool) normalizeName(name string) string {
 	return name
 }
 
-func (o *pool) getMetricName(monitor, metric string) string {
+func (o *pool) getMetricName(metric string) string {
 	part := make([]string, 0)
 	part = append(part, o.normalizeName(metricBaseName))
 	part = append(part, o.normalizeName(metric))
-	part = append(part, o.normalizeName(monitor))
 	return strings.Join(part, "_")
 }
 
@@ -83,139 +86,352 @@ func (o *pool) getProm() libprm.Prometheus {
 	return nil
 }
 
-func (o *pool) createMetrics(mon montps.Monitor) error {
-	var prm libprm.Prometheus
+func (o *pool) createMetricsLatency() error {
+	var (
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
+	)
 
 	if prm = o.getProm(); prm == nil {
 		return nil
 	}
 
+	mnm = o.getMetricName(metricLatency)
+	met = libmet.NewMetrics(mnm, prmtps.Histogram)
+	met.SetDesc("the time monitor took to check components' health")
+	met.AddLabel(metricBaseName)
+	met.AddBuckets([]float64{0.0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 10}...)
+	met.SetCollect(o.collectMetricLatency)
+
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricLatency(ctx context.Context, m libmet.Metric) {
+	var log = o.getLog()
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		if e := m.Observe([]string{name}, val.CollectLatency().Seconds()); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
+
+		return true
+	})
+}
+
+func (o *pool) createMetricsUptime() error {
 	var (
-		name = mon.Name()
-		met  libmet.Metric
-		mnm  string
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
 	)
 
-	mnm = o.getMetricName(name, metricLatency)
-	mon.RegisterMetricsAddName(mnm)
-	met = libmet.NewMetrics(mnm, prmtps.Histogram)
-	met.SetDesc("the time monitor took to check the health of '" + name + "' component")
-	met.AddLabel(metricBaseName)
-	met.AddBuckets(prm.GetDuration()...)
-	met.SetCollect(func(ctx context.Context, m libmet.Metric) {
-		_ = m.Observe([]string{name}, mon.CollectLatency().Seconds())
-	})
-
-	if e := prm.AddMetric(false, met); e != nil {
-		return e
+	if prm = o.getProm(); prm == nil {
+		return nil
 	}
 
-	mnm = o.getMetricName(name, metricUptime)
-	mon.RegisterMetricsAddName(mnm)
-	met = libmet.NewMetrics(mnm, prmtps.Histogram)
-	met.SetDesc("the total time during which the '" + name + "' component is up")
+	mnm = o.getMetricName(metricUptime)
+	met = libmet.NewMetrics(mnm, prmtps.Gauge)
+	met.SetDesc("the total seconds during the component are up")
 	met.AddLabel(metricBaseName)
-	met.AddBuckets(prm.GetDuration()...)
-	met.SetCollect(func(ctx context.Context, m libmet.Metric) {
-		_ = m.Observe([]string{name}, mon.CollectUpTime().Seconds())
-	})
+	met.SetCollect(o.collectMetricUptime)
 
-	if e := prm.AddMetric(false, met); e != nil {
-		return e
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricUptime(ctx context.Context, m libmet.Metric) {
+	var log = o.getLog()
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		if e := m.SetGaugeValue([]string{name}, val.CollectUpTime().Seconds()); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
+
+		return true
+	})
+}
+
+func (o *pool) createMetricsDowntime() error {
+	var (
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
+	)
+
+	if prm = o.getProm(); prm == nil {
+		return nil
 	}
 
-	mnm = o.getMetricName(name, metricDowntime)
-	mon.RegisterMetricsAddName(mnm)
-	met = libmet.NewMetrics(mnm, prmtps.Histogram)
-	met.SetDesc("the total time during which the '" + name + "' component is down")
+	mnm = o.getMetricName(metricDowntime)
+	met = libmet.NewMetrics(mnm, prmtps.Gauge)
+	met.SetDesc("the total time during the components are down")
 	met.AddLabel(metricBaseName)
-	met.AddBuckets(prm.GetDuration()...)
-	met.SetCollect(func(ctx context.Context, m libmet.Metric) {
-		_ = m.Observe([]string{name}, mon.CollectDownTime().Seconds())
-	})
+	met.SetCollect(o.collectMetricDowntime)
 
-	if e := prm.AddMetric(false, met); e != nil {
-		return e
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricDowntime(ctx context.Context, m libmet.Metric) {
+	var log = o.getLog()
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		if e := m.SetGaugeValue([]string{name}, val.CollectDownTime().Seconds()); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
+
+		return true
+	})
+}
+
+func (o *pool) createMetricsRiseTime() error {
+	var (
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
+	)
+
+	if prm = o.getProm(); prm == nil {
+		return nil
 	}
 
-	mnm = o.getMetricName(name, metricRisetime)
-	mon.RegisterMetricsAddName(mnm)
-	met = libmet.NewMetrics(mnm, prmtps.Histogram)
-	met.SetDesc("the total time during which the '" + name + "' component is rising")
+	mnm = o.getMetricName(metricRiseTime)
+	met = libmet.NewMetrics(mnm, prmtps.Gauge)
+	met.SetDesc("the total time during the components are rising")
 	met.AddLabel(metricBaseName)
-	met.AddBuckets(prm.GetDuration()...)
-	met.SetCollect(func(ctx context.Context, m libmet.Metric) {
-		_ = m.Observe([]string{name}, mon.CollectRiseTime().Seconds())
-	})
+	met.SetCollect(o.collectMetricRiseTime)
 
-	if e := prm.AddMetric(false, met); e != nil {
-		return e
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricRiseTime(ctx context.Context, m libmet.Metric) {
+	var log = o.getLog()
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		if e := m.SetGaugeValue([]string{name}, val.CollectRiseTime().Seconds()); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
+
+		return true
+	})
+}
+
+func (o *pool) createMetricsFallTime() error {
+	var (
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
+	)
+
+	if prm = o.getProm(); prm == nil {
+		return nil
 	}
 
-	mnm = o.getMetricName(name, metricFalltime)
-	mon.RegisterMetricsAddName(mnm)
-	met = libmet.NewMetrics(mnm, prmtps.Histogram)
-	met.SetDesc("the total time during which the '" + name + "' component is falling")
+	mnm = o.getMetricName(metricFallTime)
+	met = libmet.NewMetrics(mnm, prmtps.Gauge)
+	met.SetDesc("the total time during the components are falling")
 	met.AddLabel(metricBaseName)
-	met.AddBuckets(prm.GetDuration()...)
-	met.SetCollect(func(ctx context.Context, m libmet.Metric) {
-		_ = m.Observe([]string{name}, mon.CollectFallTime().Seconds())
-	})
+	met.SetCollect(o.collectMetricFallTime)
 
-	if e := prm.AddMetric(false, met); e != nil {
-		return e
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricFallTime(ctx context.Context, m libmet.Metric) {
+	var log = o.getLog()
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		if e := m.SetGaugeValue([]string{name}, val.CollectFallTime().Seconds()); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
+
+		return true
+	})
+}
+
+func (o *pool) createMetricsStatus() error {
+	var (
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
+	)
+
+	if prm = o.getProm(); prm == nil {
+		return nil
 	}
 
-	mnm = o.getMetricName(name, metricStatus)
-	mon.RegisterMetricsAddName(mnm)
-	met = libmet.NewMetrics(mnm, prmtps.Counter)
-	met.SetDesc("the total time during which the '" + name + "' component is falling")
-	met.AddLabel(metricBaseName, "status", "rise", "fall")
-	met.SetCollect(func(ctx context.Context, m libmet.Metric) {
+	mnm = o.getMetricName(metricStatus)
+	met = libmet.NewMetrics(mnm, prmtps.Gauge)
+	met.SetDesc("the instant status of components")
+	met.AddLabel(metricBaseName)
+	met.SetCollect(o.collectMetricStatus)
+
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricStatus(ctx context.Context, m libmet.Metric) {
+	var log = o.getLog()
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
 		var (
-			s, r, f = mon.CollectStatus()
-			rs, fs  string
+			s, _, _ = val.CollectStatus()
+		)
+
+		if e := m.SetGaugeValue([]string{name}, s.Float()); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
+		return true
+	})
+}
+
+func (o *pool) createMetricsRising() error {
+	var (
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
+	)
+
+	if prm = o.getProm(); prm == nil {
+		return nil
+	}
+
+	mnm = o.getMetricName(metricRise)
+	met = libmet.NewMetrics(mnm, prmtps.Gauge)
+	met.SetDesc("the status rising value of components")
+	met.AddLabel(metricBaseName)
+	met.SetCollect(o.collectMetricRising)
+
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricRising(ctx context.Context, m libmet.Metric) {
+	var log = o.getLog()
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		var (
+			_, r, _ = val.CollectStatus()
+			s       float64
 		)
 
 		if r {
-			rs = metricBoolTrue
+			s = 1
 		} else {
-			rs = metricBoolFalse
+			s = 0
 		}
+
+		if e := m.SetGaugeValue([]string{name}, s); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
+
+		return true
+	})
+}
+
+func (o *pool) createMetricsFalling() error {
+	var (
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
+	)
+
+	if prm = o.getProm(); prm == nil {
+		return nil
+	}
+
+	mnm = o.getMetricName(metricFall)
+	met = libmet.NewMetrics(mnm, prmtps.Gauge)
+	met.SetDesc("the status falling value of components")
+	met.AddLabel(metricBaseName)
+	met.SetCollect(o.collectMetricFalling)
+
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricFalling(ctx context.Context, m libmet.Metric) {
+	var log = o.getLog()
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		var (
+			_, _, f = val.CollectStatus()
+			s       float64
+		)
 
 		if f {
-			fs = metricBoolTrue
+			s = 1
 		} else {
-			fs = metricBoolFalse
+			s = 0
 		}
 
-		_ = m.Inc([]string{name, s, rs, fs})
-	})
+		if e := m.SetGaugeValue([]string{name}, s); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
 
-	if e := prm.AddMetric(false, met); e != nil {
+		return true
+	})
+}
+
+func (o *pool) createMetrics() error {
+	if e := o.createMetricsLatency(); e != nil {
 		return e
 	}
 
-	mon.RegisterCollectMetrics(prm.CollectMetrics)
-
-	return nil
-}
-
-func (o *pool) deleteMetrics(mon montps.Monitor) {
-	var prm libprm.Prometheus
-
-	if prm = o.getProm(); prm == nil {
-		return
+	if e := o.createMetricsUptime(); e != nil {
+		return e
 	}
 
-	var (
-		name = mon.Name()
-	)
+	if e := o.createMetricsDowntime(); e != nil {
+		return e
+	}
 
-	prm.DelMetric(o.getMetricName(name, metricLatency))
-	prm.DelMetric(o.getMetricName(name, metricUptime))
-	prm.DelMetric(o.getMetricName(name, metricDowntime))
-	prm.DelMetric(o.getMetricName(name, metricRisetime))
-	prm.DelMetric(o.getMetricName(name, metricFalltime))
-	prm.DelMetric(o.getMetricName(name, metricStatus))
+	if e := o.createMetricsRiseTime(); e != nil {
+		return e
+	}
+
+	if e := o.createMetricsFallTime(); e != nil {
+		return e
+	}
+
+	if e := o.createMetricsStatus(); e != nil {
+		return e
+	}
+
+	if e := o.createMetricsRising(); e != nil {
+		return e
+	}
+
+	if e := o.createMetricsFalling(); e != nil {
+		return e
+	}
+
+	return nil
 }

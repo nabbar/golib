@@ -66,163 +66,44 @@ func (o *mon) InfoUpd(inf montps.Info) {
 }
 
 func (o *mon) Status() monsts.Status {
-	if i, l := o.x.Load(keyStatus); !l {
-		return monsts.KO
-	} else if v, k := i.(monsts.Status); !k {
-		return monsts.KO
-	} else {
-		return v
-	}
+	return o.getLastCheck().Status()
 }
 
 func (o *mon) Message() string {
-	if i, l := o.x.Load(keyMessage); !l {
-		return ""
-	} else if v, k := i.(error); !k {
-		return ""
-	} else if v == nil {
-		return ""
-	} else {
-		return v.Error()
+	if err := o.getLastCheck().Error(); err != nil {
+		return err.Error()
 	}
+
+	return ""
 }
 
 func (o *mon) IsRise() bool {
-	if sts := o.Status(); sts == monsts.OK {
-		return false
-	} else {
-		return o.riseGet() > 0
-	}
+	return o.getLastCheck().IsRise()
 }
 
 func (o *mon) IsFall() bool {
-	if sts := o.Status(); sts == monsts.KO {
-		return false
-	} else {
-		return o.fallGet() > 0
-	}
+	return o.getLastCheck().IsFall()
 }
 
 func (o *mon) Latency() time.Duration {
-	if i, l := o.x.Load(keyMetricLatency); !l {
-		return 0
-	} else if v, k := i.(time.Duration); !k {
-		return 0
-	} else {
-		return v
-	}
+	return o.getLastCheck().Latency()
 }
 
 func (o *mon) Uptime() time.Duration {
-	if i, l := o.x.Load(keyMetricUpTime); !l {
-		return 0
-	} else if v, k := i.(time.Duration); !k {
-		return 0
-	} else {
-		return v
-	}
+	return o.getLastCheck().UpTime()
 }
 
 func (o *mon) Downtime() time.Duration {
-	if i, l := o.x.Load(keyMetricDownTime); !l {
-		return 0
-	} else if v, k := i.(time.Duration); !k {
-		return 0
-	} else {
-		return v
-	}
-}
-
-func (o *mon) riseInc() uint8 {
-	i := o.riseGet() + 1
-	o.x.Store(keyRise, i)
-	return i
-}
-
-func (o *mon) riseReset() {
-	o.x.Delete(keyRise)
-}
-
-func (o *mon) riseGet() uint8 {
-	if i, l := o.x.Load(keyRise); !l {
-		return 0
-	} else if v, k := i.(uint8); !k {
-		return 0
-	} else {
-		return v
-	}
-}
-
-func (o *mon) fallInc() uint8 {
-	i := o.fallGet() + 1
-	o.x.Store(keyFall, i)
-	return i
-}
-
-func (o *mon) fallReset() {
-	o.x.Delete(keyFall)
-}
-
-func (o *mon) fallGet() uint8 {
-	if i, l := o.x.Load(keyFall); !l {
-		return 0
-	} else if v, k := i.(uint8); !k {
-		return 0
-	} else {
-		return v
-	}
-}
-
-func (o *mon) setStatus(err error, cfg *runCfg) error {
-	if err != nil {
-		o.x.Store(keyMessage, err)
-		o.setStatusFall(cfg)
-	} else {
-		o.x.Delete(keyMessage)
-		o.setStatusRise(cfg)
-	}
-
-	return err
+	return o.getLastCheck().DownTime()
 }
 
 func (o *mon) mdlStatus(m middleWare) error {
-	return o.setStatus(m.Next(), m.Config())
-}
+	ts := time.Now()
+	err := m.Next()
 
-func (o *mon) setStatusFall(cfg *runCfg) {
-	sts := o.Status()
+	lst := o.getLastCheck()
+	lst.setStatus(err, time.Since(ts), m.Config())
+	o.setLastCheck(lst)
 
-	if sts == monsts.KO || cfg == nil {
-		return
-	}
-
-	o.riseReset()
-	i := o.fallInc()
-
-	if i > cfg.fallCountKO {
-		o.x.Store(keyStatus, monsts.KO)
-	} else if i > cfg.fallCountWarn {
-		o.x.Store(keyStatus, monsts.Warn)
-	} else {
-		o.x.Store(keyStatus, monsts.OK)
-	}
-}
-
-func (o *mon) setStatusRise(cfg *runCfg) {
-	sts := o.Status()
-
-	if sts == monsts.OK || cfg == nil {
-		return
-	}
-
-	o.fallReset()
-	i := o.riseInc()
-
-	if i >= cfg.riseCountWarn {
-		o.x.Store(keyStatus, monsts.OK)
-	} else if i >= cfg.riseCountKO {
-		o.x.Store(keyStatus, monsts.Warn)
-	} else {
-		o.x.Store(keyStatus, monsts.KO)
-	}
+	return err
 }

@@ -33,8 +33,6 @@ import (
 
 	"github.com/nabbar/golib/monitor/types"
 
-	monsts "github.com/nabbar/golib/monitor/status"
-
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 )
@@ -264,32 +262,14 @@ func (o *mon) getFct() types.HealthCheck {
 
 func (o *mon) getLastCheck() *lastRun {
 	if i, l := o.x.Load(keyLastRun); !l {
-		return &lastRun{
-			status:  monsts.KO,
-			runtime: time.Now(),
-			isRise:  false,
-			isFall:  false,
-		}
+		return newLastRun()
 	} else if v, k := i.(*lastRun); !k {
-		return &lastRun{
-			status:  monsts.KO,
-			runtime: time.Now(),
-			isRise:  false,
-			isFall:  false,
-		}
+		return newLastRun()
 	} else {
 		return v
 	}
 }
 
-func (o *mon) setLastCheck(m middleWare) error {
-	e := m.Next()
-	l := &lastRun{
-		status:  o.Status(),
-		runtime: time.Now(),
-		isRise:  o.IsRise(),
-		isFall:  o.IsFall(),
-	}
+func (o *mon) setLastCheck(l *lastRun) {
 	o.x.Store(keyLastRun, l)
-	return e
 }
