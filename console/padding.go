@@ -26,6 +26,7 @@
 package console
 
 import (
+	"math"
 	"strings"
 	"unicode/utf8"
 )
@@ -43,6 +44,14 @@ func PadLeft(str string, len int, pad string) string {
 
 func PadRight(str string, len int, pad string) string {
 	return str + padTimes(pad, len-utf8.RuneCountInString(str))
+}
+
+func PadCenter(str string, len int, pad string) string {
+	nbr := len - utf8.RuneCountInString(str)
+	lft := int(math.Floor(float64(nbr) / 2))
+	rgt := nbr - lft
+
+	return padTimes(pad, lft) + str + padTimes(pad, rgt)
 }
 
 func PrintTabf(tablLevel int, format string, args ...interface{}) {
