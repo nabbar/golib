@@ -434,7 +434,23 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 	)
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
-		cur = val.CollectDownTime().Seconds() / val.CollectUpTime().Seconds()
+		up := val.CollectUpTime().Seconds()
+		dw := val.CollectDownTime().Seconds()
+
+		if up > 0 && dw > 0 {
+			cur = 1 - (val.CollectDownTime().Seconds() / val.CollectUpTime().Seconds())
+		} else if dw > 0 {
+			cur = 0
+		} else if up > 0 {
+			cur = 100
+		}
+
+		if cur < 0 {
+			cur = 0
+		} else if cur >= 100 {
+			cur = 0.999999999999
+		}
+
 		sum += cur
 		cnt++
 
@@ -456,16 +472,18 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 		return true
 	})
 
-	mns := 1 - (sum / float64(cnt))
-	min = 1 - min
-	max = 1 - max
+	mns := sum / float64(cnt)
+	min = min
+	max = max
 
 	if mns < 0 {
 		mns = 0
 	}
+
 	if min < 0 {
 		min = 0
 	}
+
 	if max < 0 {
 		max = 0
 	}
