@@ -442,12 +442,12 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 		} else if dw > 0 {
 			cur = 0
 		} else if up > 0 {
-			cur = 100
+			cur = 1
 		}
 
 		if cur < 0 {
 			cur = 0
-		} else if cur >= 100 {
+		} else if cur >= 1 {
 			cur = 0.999999999999
 		}
 
