@@ -39,17 +39,20 @@ import (
 )
 
 const (
-	metricBaseName  = "monitor"
-	metricLatency   = "latency"
-	metricUptime    = "uptime"
-	metricDowntime  = "downtime"
-	metricRiseTime  = "risetime"
-	metricFallTime  = "falltime"
-	metricStatus    = "status"
-	metricRise      = "rise"
-	metricFall      = "fall"
-	metricBoolTrue  = "true"
-	metricBoolFalse = "false"
+	metricBaseName = "monitor"
+	metricLatency  = "latency"
+	metricUptime   = "uptime"
+	metricDowntime = "downtime"
+	metricRiseTime = "risetime"
+	metricFallTime = "falltime"
+	metricStatus   = "status"
+	metricRise     = "rise"
+	metricFall     = "fall"
+	metricSLis     = "sli"
+
+	monitorMeans = "mean"
+	monitorMin   = "min"
+	monitorMax   = "max"
 )
 
 func (o *pool) normalizeName(name string) string {
@@ -400,6 +403,98 @@ func (o *pool) collectMetricFalling(ctx context.Context, m libmet.Metric) {
 	})
 }
 
+func (o *pool) createMetricsSLis() error {
+	var (
+		prm libprm.Prometheus
+		met libmet.Metric
+		mnm string
+	)
+
+	if prm = o.getProm(); prm == nil {
+		return nil
+	}
+
+	mnm = o.getMetricName(metricSLis)
+	met = libmet.NewMetrics(mnm, prmtps.Gauge)
+	met.SetDesc("the SLIs rate of each component")
+	met.AddLabel(metricBaseName)
+	met.SetCollect(o.collectMetricSLis)
+
+	return prm.AddMetric(false, met)
+}
+
+func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
+	var (
+		log         = o.getLog()
+		min float64 = 1
+		max float64 = 0
+		cur float64 = 0
+		cnt int     = 0
+		sum float64 = 0
+	)
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		cur = val.CollectDownTime().Seconds() / val.CollectUpTime().Seconds()
+		sum += cur
+		cnt++
+
+		if cur < min {
+			min = cur
+		}
+		if cur > max {
+			max = cur
+		}
+
+		if e := m.SetGaugeValue([]string{name}, cur); e != nil {
+			ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+			ent.FieldAdd("monitor", name)
+			ent.FieldAdd("metric", val.Name())
+			ent.ErrorAdd(true, e)
+			ent.Log()
+		}
+
+		return true
+	})
+
+	mns := 1 - (sum / float64(cnt))
+	min = 1 - min
+	max = 1 - max
+
+	if mns < 0 {
+		mns = 0
+	}
+	if min < 0 {
+		min = 0
+	}
+	if max < 0 {
+		max = 0
+	}
+
+	if e := m.SetGaugeValue([]string{monitorMeans}, mns); e != nil {
+		ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+		ent.FieldAdd("monitor", monitorMeans)
+		ent.FieldAdd("metric", metricSLis)
+		ent.ErrorAdd(true, e)
+		ent.Log()
+	}
+
+	if e := m.SetGaugeValue([]string{monitorMin}, min); e != nil {
+		ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+		ent.FieldAdd("monitor", monitorMin)
+		ent.FieldAdd("metric", metricSLis)
+		ent.ErrorAdd(true, e)
+		ent.Log()
+	}
+
+	if e := m.SetGaugeValue([]string{monitorMax}, max); e != nil {
+		ent := log.Entry(liblog.ErrorLevel, "failed to collect metrics", nil)
+		ent.FieldAdd("monitor", monitorMax)
+		ent.FieldAdd("metric", metricSLis)
+		ent.ErrorAdd(true, e)
+		ent.Log()
+	}
+}
+
 func (o *pool) createMetrics() error {
 	if e := o.createMetricsLatency(); e != nil {
 		return e
@@ -430,6 +525,10 @@ func (o *pool) createMetrics() error {
 	}
 
 	if e := o.createMetricsFalling(); e != nil {
+		return e
+	}
+
+	if e := o.createMetricsSLis(); e != nil {
 		return e
 	}
 
