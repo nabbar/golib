@@ -32,6 +32,8 @@ import (
 	"fmt"
 	"io"
 
+	"golang.org/x/exp/slices"
+
 	_const "github.com/nabbar/golib/config/const"
 
 	cfgtps "github.com/nabbar/golib/config/types"
@@ -80,6 +82,10 @@ func (c *configModel) ComponentSet(key string, cpt cfgtps.Component) {
 	c.cpt.Store(key, cpt)
 }
 
+func (c *configModel) componentUpdate(key string, cpt cfgtps.Component) {
+	c.cpt.Store(key, cpt)
+}
+
 func (c *configModel) ComponentList() map[string]cfgtps.Component {
 	var res = make(map[string]cfgtps.Component, 0)
 	c.cpt.Walk(func(key string, val interface{}) bool {
@@ -109,53 +115,24 @@ func (c *configModel) ComponentKeys() []string {
 func (c *configModel) ComponentStart() liberr.Error {
 	var err = ErrorComponentStart.Error(nil)
 
-	c.cpt.Walk(func(key string, val interface{}) bool {
-
-		if v, k := val.(cfgtps.Component); !k {
-			c.cpt.Delete(key)
-		} else if v == nil {
-			c.cpt.Delete(key)
-		} else if e := c.startComponent(key, v); e != nil {
-			err.AddParent(e)
+	for _, key := range c.ComponentDependencies() {
+		if len(key) < 1 {
+			continue
+		} else if cpt := c.ComponentGet(key); cpt == nil {
+			continue
+		} else {
+			e := cpt.Start()
+			c.componentUpdate(key, cpt)
+			if e != nil {
+				err.AddParent(e)
+			} else if !cpt.IsStarted() {
+				err.AddParent(fmt.Errorf("component '%s' has been call to start, but is not started", key))
+			}
 		}
-
-		return true
-	})
+	}
 
 	if err.HasParent() {
 		return err
-	}
-
-	return nil
-}
-
-func (c *configModel) startComponent(key string, cpt cfgtps.Component) liberr.Error {
-	if cpt.IsStarted() {
-		return nil
-	} else if err := c.startDependencies(cpt.Dependencies()); err != nil {
-		return err
-	} else if err = cpt.Start(); err != nil {
-		return err
-	} else {
-		c.cpt.Store(key, cpt)
-	}
-
-	return nil
-}
-
-func (c *configModel) startDependencies(list []string) liberr.Error {
-	if len(list) < 1 {
-		return nil
-	}
-
-	for _, d := range list {
-		if cpt := c.ComponentGet(d); cpt == nil {
-			return ErrorComponentNotFound.ErrorParent(fmt.Errorf("cvomponent '%s' not found", d))
-		} else if cpt.IsStarted() {
-			continue
-		} else if err := c.startComponent(d, cpt); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -183,52 +160,24 @@ func (c *configModel) ComponentIsStarted() bool {
 func (c *configModel) ComponentReload() liberr.Error {
 	var err = ErrorComponentReload.Error(nil)
 
-	c.cpt.Walk(func(key string, val interface{}) bool {
-		if v, k := val.(cfgtps.Component); !k {
-			c.cpt.Delete(key)
-		} else if v == nil {
-			c.cpt.Delete(key)
-		} else if e := c.reloadComponent(key, v); e != nil {
-			err.AddParent(e)
+	for _, key := range c.ComponentDependencies() {
+		if len(key) < 1 {
+			continue
+		} else if cpt := c.ComponentGet(key); cpt == nil {
+			continue
+		} else {
+			e := cpt.Reload()
+			c.componentUpdate(key, cpt)
+			if e != nil {
+				err.AddParent(e)
+			} else if !cpt.IsStarted() {
+				err.AddParent(fmt.Errorf("component '%s' has been call to reload, but is not started", key))
+			}
 		}
-
-		return true
-	})
+	}
 
 	if err.HasParent() {
 		return err
-	}
-
-	return nil
-}
-
-func (c *configModel) reloadComponent(key string, cpt cfgtps.Component) liberr.Error {
-	if cpt.IsStarted() {
-		return nil
-	} else if err := c.reloadDependencies(cpt.Dependencies()); err != nil {
-		return err
-	} else if err = cpt.Start(); err != nil {
-		return err
-	} else {
-		c.cpt.Store(key, cpt)
-	}
-
-	return nil
-}
-
-func (c *configModel) reloadDependencies(list []string) liberr.Error {
-	if len(list) < 1 {
-		return nil
-	}
-
-	for _, d := range list {
-		if cpt := c.ComponentGet(d); cpt == nil {
-			return ErrorComponentNotFound.ErrorParent(fmt.Errorf("cvomponent '%s' not found", d))
-		} else if cpt.IsStarted() {
-			continue
-		} else if err := c.startComponent(d, cpt); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -276,6 +225,60 @@ func (c *configModel) ComponentIsRunning(atLeast bool) bool {
 	})
 
 	return isOk
+}
+
+func (c *configModel) ComponentDependencies() []string {
+	var (
+		list = make(map[string][]string, 0)
+		keys = make([]string, 0)
+	)
+
+	c.cpt.Walk(func(key string, val interface{}) bool {
+
+		if v, k := val.(cfgtps.Component); !k {
+			c.cpt.Delete(key)
+		} else if v == nil {
+			c.cpt.Delete(key)
+		} else {
+			list[key] = v.Dependencies()
+			keys = append(keys, key)
+		}
+
+		return true
+	})
+
+	return c.orderDependencies(list, keys)
+}
+
+func (c *configModel) orderDependencies(list map[string][]string, dep []string) []string {
+	var res = make([]string, 0)
+
+	if len(list) < 1 || len(dep) < 1 {
+		return res
+	}
+
+	for _, d := range dep {
+		if _, ok := list[d]; !ok {
+			continue
+		}
+
+		if len(list[d]) > 0 {
+			for _, j := range c.orderDependencies(list, list[d]) {
+				if len(j) < 1 {
+					continue
+				} else if slices.Contains(res, j) {
+					continue
+				}
+				res = append(res, j)
+			}
+		}
+
+		if !slices.Contains(res, d) {
+			res = append(res, d)
+		}
+	}
+
+	return res
 }
 
 func (c *configModel) DefaultConfig() io.Reader {
