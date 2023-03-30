@@ -46,24 +46,30 @@ func (o *sRun) StartWaitNotify(ctx context.Context) {
 	signal.Notify(quit, syscall.SIGQUIT)
 
 	o.initChan()
-	select {
-	case <-quit:
-		_ = o.Stop(ctx)
-		return
-	case <-o.getContext().Done():
-		if o.IsRunning() {
+	defer o.delChan()
+
+	for {
+		select {
+		case <-quit:
 			_ = o.Stop(ctx)
+			return
+		case <-o.getContext().Done():
+			if o.IsRunning() {
+				_ = o.Stop(ctx)
+			}
+			return
+		case <-o.getChan():
+			return
 		}
-		return
-	case <-o.getChan():
-		return
 	}
 }
 
 func (o *sRun) StopWaitNotify() {
-	o.m.Lock()
-	defer o.m.Unlock()
-	o.chn <- struct{}{}
+	o.m.RLock()
+	defer o.m.RUnlock()
+	if o.chn != nil {
+		o.chn <- struct{}{}
+	}
 }
 
 func (o *sRun) initChan() {
@@ -76,4 +82,13 @@ func (o *sRun) getChan() <-chan struct{} {
 	o.m.RLock()
 	defer o.m.RUnlock()
 	return o.chn
+}
+
+func (o *sRun) delChan() {
+	o.m.Lock()
+	defer o.m.Unlock()
+	if o.chn != nil {
+		close(o.chn)
+	}
+	o.chn = nil
 }
