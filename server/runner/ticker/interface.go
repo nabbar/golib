@@ -24,45 +24,28 @@
  *
  */
 
-package monitor
+package ticker
 
 import (
-	"fmt"
+	"context"
+	"sync"
+	"time"
 
 	liberr "github.com/nabbar/golib/errors"
+	libsrv "github.com/nabbar/golib/server"
 )
 
-const (
-	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgMonitor
-	ErrorMissingHealthCheck
-	ErrorValidatorError
-	ErrorLoggerError
-	ErrorTimeout
-	ErrorInvalid
-)
-
-func init() {
-	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision with package golib/logger"))
-	}
-	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
+type Ticker interface {
+	libsrv.Server
+	liberr.Errors
 }
 
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case ErrorParamEmpty:
-		return "given parameters is empty"
-	case ErrorMissingHealthCheck:
-		return "missing healthcheck"
-	case ErrorValidatorError:
-		return "invalid config"
-	case ErrorLoggerError:
-		return "cannot initialize logger"
-	case ErrorTimeout:
-		return "timeout error"
-	case ErrorInvalid:
-		return "invalid instance"
+func New(tick time.Duration, fct func(ctx context.Context, tck *time.Ticker) error) Ticker {
+	return &run{
+		m: sync.RWMutex{},
+		e: make([]error, 0),
+		f: fct,
+		d: tick,
+		c: nil,
 	}
-
-	return liberr.NullMessage
 }

@@ -24,96 +24,78 @@
  *
  */
 
-package run
+package startStop
 
-import (
-	"context"
-	"net"
-	"net/http"
-	"sync"
+var closeChan = make(chan struct{})
 
-	liblog "github.com/nabbar/golib/logger"
-)
-
-type sRun struct {
-	m   sync.RWMutex
-	err error
-	chn chan struct{}
-	ctx context.Context
-	cnl context.CancelFunc
-	log liblog.FuncLog
-	srv *http.Server
-	run bool
-	tls bool
+func init() {
+	close(closeChan)
 }
 
-func (o *sRun) logger() liblog.Logger {
+func (o *run) IsRunning() bool {
+	if e := o.checkMe(); e != nil {
+		return false
+	}
+
 	o.m.RLock()
 	defer o.m.RUnlock()
 
-	if o.log == nil {
-		return liblog.GetDefault()
-	} else if l := o.log(); l == nil {
-		return liblog.GetDefault()
-	} else {
-		return l
+	if o.c == nil || o.c == closeChan {
+		return false
+	}
+
+	select {
+	case <-o.c:
+		return false
+	default:
+		return true
 	}
 }
 
-func (o *sRun) SetServer(srv *http.Server, log liblog.FuncLog, tls bool) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	srv.BaseContext = func(listener net.Listener) context.Context {
-		return o.getContext()
+func (o *run) chanInit() {
+	if e := o.checkMe(); e != nil {
+		return
 	}
 
-	o.srv = srv
-	o.log = log
-	o.tls = tls
-}
-
-func (o *sRun) getServer() *http.Server {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	return o.srv
-}
-
-func (o *sRun) delServer() {
 	o.m.Lock()
 	defer o.m.Unlock()
-	if o.srv != nil {
-		o.logger().Entry(liblog.ErrorLevel, "closing server").ErrorAdd(true, o.srv.Close()).Check(liblog.NilLevel)
-		o.srv = nil
+
+	o.c = make(chan struct{})
+}
+
+func (o *run) chanDone() <-chan struct{} {
+	if e := o.checkMe(); e != nil {
+		return nil
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	return o.c
+}
+
+func (o *run) chanSend() {
+	if e := o.checkMe(); e != nil {
+		return
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if o.c != nil && o.c != closeChan {
+		o.c <- struct{}{}
 	}
 }
 
-func (o *sRun) getContext() context.Context {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	return o.ctx
-}
+func (o *run) chanClose() {
+	if e := o.checkMe(); e != nil {
+		return
+	}
 
-func (o *sRun) getCancel() context.CancelFunc {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	return o.cnl
-}
-
-func (o *sRun) isTLS() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	return o.tls
-}
-
-func (o *sRun) GetError() error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	return o.err
-}
-
-func (o *sRun) setError(err error) {
 	o.m.Lock()
 	defer o.m.Unlock()
-	o.err = err
+
+	if o.c != nil && o.c != closeChan {
+		o.c = closeChan
+	}
 }

@@ -27,7 +27,11 @@
 
 package logger
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"strings"
+)
 
 func (o *logger) Close() error {
 	if o == nil {
@@ -49,7 +53,13 @@ func (o *logger) Write(p []byte) (n int, err error) {
 		return
 	}
 
-	o.newEntry(o.GetIOWriterLevel(), string(p), nil, o.GetFields(), nil).Log()
+	val := strings.TrimSpace(string(o.IOWriterFilter(p)))
+
+	if len(val) < 1 {
+		return len(p), nil
+	}
+
+	o.newEntry(o.GetIOWriterLevel(), val, nil, o.GetFields(), nil).Log()
 	return len(p), nil
 }
 
@@ -62,7 +72,6 @@ func (o *logger) SetIOWriterLevel(lvl Level) {
 
 	o.x.Store(keyWriter, lvl)
 }
-
 func (o *logger) GetIOWriterLevel() Level {
 	if o == nil {
 		return NilLevel
@@ -74,5 +83,31 @@ func (o *logger) GetIOWriterLevel() Level {
 		return NilLevel
 	} else {
 		return v
+	}
+}
+
+func (o *logger) SetIOWriterFilter(pattern string) {
+	if o == nil {
+		return
+	} else if o.x == nil {
+		return
+	}
+
+	o.x.Store(keyFilter, []byte(pattern))
+}
+
+func (o *logger) IOWriterFilter(p []byte) []byte {
+	if o == nil {
+		return p
+	} else if o.x == nil {
+		return p
+	} else if i, l := o.x.Load(keyFilter); !l {
+		return p
+	} else if v, k := i.([]byte); !k {
+		return p
+	} else if bytes.Contains(p, v) {
+		return make([]byte, 0)
+	} else {
+		return p
 	}
 }

@@ -50,6 +50,6 @@ func New(ctx libctx.FuncContext, info montps.Info) (montps.Monitor, error) {
 		m: sync.RWMutex{},
 		i: info,
 		x: libctx.NewConfig[string](ctx),
-		s: make(chan struct{}),
+		r: nil,
 	}, nil
 }

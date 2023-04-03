@@ -51,6 +51,7 @@ const (
 	keyOptions
 	keyLogrus
 	keyWriter
+	keyFilter
 
 	_TraceFilterMod    = "/pkg/mod/"
 	_TraceFilterVendor = "/vendor/"

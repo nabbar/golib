@@ -175,6 +175,14 @@ type Error interface {
 	ReturnParent(f ReturnError)
 }
 
+type Errors interface {
+	// ErrorsLast return the last registered error
+	ErrorsLast() error
+
+	// ErrorsList return a slice of all registered errors
+	ErrorsList() []error
+}
+
 func MakeErrorIfError(err ...Error) Error {
 	var e Error = nil
 
