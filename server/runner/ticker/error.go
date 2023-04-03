@@ -24,24 +24,59 @@
  *
  */
 
-package pool
+package ticker
 
-import (
-	"context"
+func (o *run) ErrorsLast() error {
+	if o == nil {
+		return ErrInvalid
+	}
 
-	libhtp "github.com/nabbar/golib/httpserver"
-)
+	o.m.RLock()
+	defer o.m.RUnlock()
 
-func (o *pool) StartWaitNotify(ctx context.Context) {
-	o.Walk(func(bindAddress string, srv libhtp.Server) bool {
-		srv.StartWaitNotify(ctx)
-		return true
-	})
+	if len(o.e) > 0 {
+		return o.e[len(o.e)-1]
+	}
+
+	return nil
 }
 
-func (o *pool) StopWaitNotify() {
-	o.Walk(func(bindAddress string, srv libhtp.Server) bool {
-		srv.StopWaitNotify()
-		return true
-	})
+func (o *run) ErrorsList() []error {
+	var res = make([]error, 0)
+
+	if o == nil {
+		res = append(res, ErrInvalid)
+		return res
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if len(o.e) > 0 {
+		return o.e
+	}
+
+	return res
+}
+
+func (o *run) errorsAdd(e error) {
+	if o == nil {
+		return
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	o.e = append(o.e, e)
+}
+
+func (o *run) errorsClean() {
+	if o == nil {
+		return
+	}
+
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	o.e = make([]error, 0)
 }

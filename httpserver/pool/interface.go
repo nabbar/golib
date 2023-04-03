@@ -65,7 +65,6 @@ type Filter interface {
 
 type Pool interface {
 	libsrv.Server
-	libsrv.WaitNotify
 
 	Manage
 	Filter

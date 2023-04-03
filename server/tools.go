@@ -24,30 +24,53 @@
  *
  */
 
-package run
+package server
 
 import (
-	"net/http"
-	"sync"
-
-	liblog "github.com/nabbar/golib/logger"
-	libsrv "github.com/nabbar/golib/server"
+	"context"
+	"time"
 )
 
-type Run interface {
-	libsrv.Server
-	libsrv.WaitNotify
+type FunCheck func() bool
+type FunRun func()
 
-	GetError() error
-	SetServer(srv *http.Server, log liblog.FuncLog, tls bool)
+func RunNbr(max uint8, chk FunCheck, run FunRun) bool {
+	var i uint8
+
+	for i = 0; i < max; i++ {
+		if chk() {
+			return true
+		}
+
+		run()
+	}
+
+	return chk()
 }
 
-func New() Run {
-	return &sRun{
-		m:   sync.RWMutex{},
-		ctx: nil,
-		cnl: nil,
-		log: nil,
-		srv: nil,
+func RunTick(ctx context.Context, tick, max time.Duration, chk FunCheck, run FunRun) bool {
+	var (
+		s = time.Now()
+		t = time.NewTicker(tick)
+	)
+
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+
+		case <-t.C:
+			if chk() {
+				return true
+			}
+
+			run()
+
+			if time.Since(s) >= max {
+				return chk()
+			}
+		}
 	}
 }

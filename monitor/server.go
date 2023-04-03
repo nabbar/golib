@@ -30,71 +30,58 @@ import (
 	"context"
 	"time"
 
-	"github.com/nabbar/golib/monitor/types"
+	montps "github.com/nabbar/golib/monitor/types"
+	librun "github.com/nabbar/golib/server/runner/ticker"
 )
 
-func (o *mon) setChan() {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.s = make(chan struct{})
-}
-
-func (o *mon) getChan() <-chan struct{} {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.s
-}
-
-func (o *mon) sendChan() {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	o.s <- struct{}{}
-}
+const (
+	MaxPoolStart  = 15 * time.Second
+	MaxTickPooler = 500 * time.Millisecond
+)
 
 func (o *mon) Start(ctx context.Context) error {
 	if o.IsRunning() {
 		_ = o.Stop(ctx)
 	}
 
-	o.setChan()
-	go o.ticker(ctx)
-
-	if o.IsRunning() {
-		return nil
+	if o == nil {
+		return ErrorInvalid.Error(nil)
 	}
 
-	t := time.Now()
-	for {
-		if time.Since(t) > 15*time.Second {
-			return ErrorTimeout.Error(nil)
-		} else if o.IsRunning() {
-			return nil
-		}
+	o.setRunner(ctx)
 
-		time.Sleep(100 * time.Millisecond)
+	o.m.RLock()
+	defer o.m.RUnlock()
+	if o.r == nil {
+		return ErrorInvalid.Error(nil)
+	}
+
+	if e := o.r.Start(ctx); e != nil {
+		return e
+	} else {
+		return o.poolIsRunning(ctx)
 	}
 }
 
 func (o *mon) Stop(ctx context.Context) error {
-	if !o.IsRunning() {
+	defer o.delRunner(ctx)
+
+	if o == nil {
+		return ErrorInvalid.Error(nil)
+	} else if !o.IsRunning() {
 		return nil
 	}
 
-	t := time.Now()
+	o.m.RLock()
+	defer o.m.RUnlock()
 
-	for {
-		o.sendChan()
-		time.Sleep(100 * time.Millisecond)
-
-		if time.Since(t) > 15*time.Second {
-			return ErrorTimeout.Error(nil)
-		} else if !o.IsRunning() {
-			return nil
-		}
+	if o.r == nil {
+		return ErrorInvalid.Error(nil)
+	} else if e := o.r.Stop(ctx); e != nil {
+		return e
 	}
+
+	return nil
 }
 
 func (o *mon) Restart(ctx context.Context) error {
@@ -108,63 +95,104 @@ func (o *mon) Restart(ctx context.Context) error {
 }
 
 func (o *mon) IsRunning() bool {
-	if i, l := o.x.Load(keyRun); !l {
+	if o == nil {
 		return false
-	} else if v, k := i.(bool); !k {
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if o.r == nil {
 		return false
 	} else {
-		return v
+		return o.r.IsRunning()
 	}
 }
 
-func (o *mon) setRunning(state bool) {
-	if state {
-		o.x.Store(keyRun, state)
-	} else {
-		o.x.Delete(keyRun)
+func (o *mon) poolIsRunning(ctx context.Context) error {
+	if o == nil {
+		return ErrorInvalid.Error(nil)
+	} else if o.IsRunning() {
+		return nil
 	}
-}
 
-func (o *mon) ticker(ctx context.Context) {
 	var (
-		cfg = o.getCfg()
-		chg = false
-		tck *time.Ticker
+		tck = time.NewTicker(MaxTickPooler)
+		tms = time.Now()
 	)
-
-	tck = time.NewTicker(cfg.intervalCheck)
-	defer tck.Stop()
-
-	o.setRunning(true)
-	defer o.setRunning(false)
 
 	for {
 		select {
 		case <-tck.C:
-			o.check(ctx, cfg)
-
-			if o.IsRise() {
-				tck.Reset(cfg.intervalRise)
-				chg = true
-			} else if o.IsFall() {
-				tck.Reset(cfg.intervalFall)
-				chg = true
-			} else if chg {
-				tck.Reset(cfg.intervalCheck)
-				chg = false
+			if time.Since(tms) >= MaxPoolStart {
+				return ErrorTimeout.Error(nil)
+			} else if o.IsRunning() {
+				return nil
 			}
-
 		case <-ctx.Done():
-			return
-
-		case <-o.getChan():
-			return
+			return ctx.Err()
 		}
 	}
 }
 
+func (o *mon) setRunner(ctx context.Context) {
+	if o == nil {
+		return
+	}
+
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	if o.r != nil {
+		_ = o.r.Stop(ctx)
+	}
+
+	var (
+		cfg = o.getCfg()
+	)
+
+	o.r = librun.New(cfg.intervalCheck, o.runFunc)
+}
+
+func (o *mon) delRunner(ctx context.Context) {
+	if o == nil {
+		return
+	}
+
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	if o.r != nil {
+		_ = o.r.Stop(ctx)
+	}
+
+	o.r = nil
+}
+
+func (o *mon) runFunc(ctx context.Context, tck *time.Ticker) error {
+	var (
+		cfg = o.getCfg()
+		chg = false
+	)
+
+	o.check(ctx, cfg)
+
+	if o.IsRise() {
+		tck.Reset(cfg.intervalRise)
+		chg = true
+	} else if o.IsFall() {
+		tck.Reset(cfg.intervalFall)
+		chg = true
+	} else if chg {
+		tck.Reset(cfg.intervalCheck)
+		chg = false
+	}
+
+	return nil
+}
+
 func (o *mon) check(ctx context.Context, cfg *runCfg) {
-	var fct types.HealthCheck
+	var fct montps.HealthCheck
 
 	if fct = o.getFct(); fct == nil {
 		l := o.getLastCheck()

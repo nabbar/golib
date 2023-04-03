@@ -59,6 +59,9 @@ type Logger interface {
 	//GetIOWriterLevel return the minimal level of log message for io.WriterCloser interface
 	GetIOWriterLevel() Level
 
+	// SetIOWriterFilter allow to filter message that contained the given pattern. If the pattern is found, the log is drop.
+	SetIOWriterFilter(pattern string)
+
 	//SetOptions allow to set or update the options for the logger
 	SetOptions(opt *Options) error
 

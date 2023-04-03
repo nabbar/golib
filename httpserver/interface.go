@@ -32,7 +32,6 @@ import (
 	liblog "github.com/nabbar/golib/logger"
 
 	libctx "github.com/nabbar/golib/context"
-	srvrun "github.com/nabbar/golib/httpserver/run"
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	montps "github.com/nabbar/golib/monitor/types"
 	libsrv "github.com/nabbar/golib/server"
@@ -50,7 +49,6 @@ type Info interface {
 
 type Server interface {
 	libsrv.Server
-	libsrv.WaitNotify
 
 	Info
 
@@ -74,8 +72,6 @@ func New(cfg Config, defLog liblog.FuncLog) (Server, error) {
 
 	if e := s.SetConfig(cfg, defLog); e != nil {
 		return nil, e
-	} else {
-		s.r = srvrun.New()
 	}
 
 	return s, nil

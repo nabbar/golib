@@ -115,6 +115,7 @@ type Request interface {
 
 	Do() (*http.Response, liberr.Error)
 	DoParse(model interface{}, validStatus ...int) liberr.Error
+	DoParseRetry(retry int, model interface{}, validStatus ...int) liberr.Error
 
 	Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error)
 	HealthCheck(ctx context.Context) error
