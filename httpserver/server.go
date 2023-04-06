@@ -28,109 +28,126 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
-	"time"
 
 	liberr "github.com/nabbar/golib/errors"
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	liblog "github.com/nabbar/golib/logger"
+	libsrv "github.com/nabbar/golib/server"
 )
 
-func (o *srv) Start(ctx context.Context) error {
-	ssl := o.cfgGetTLS()
+var errInvalid = errors.New("invalid instance")
 
-	if o.IsTLS() && ssl == nil {
-		return ErrorServerValidate.ErrorParent(fmt.Errorf("TLS Config is not well defined"))
+func (o *srv) getServer() *http.Server {
+	if o == nil {
+		return nil
 	}
 
-	bind := o.GetBindable()
-	name := o.GetName()
-	if name == "" {
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	return o.s
+}
+
+func (o *srv) delServer() {
+	if o == nil {
+		return
+	}
+
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	o.s = nil
+}
+
+func (o *srv) setServer(ctx context.Context) error {
+	if o == nil {
+		return errInvalid
+	}
+
+	var (
+		ssl  = o.cfgGetTLS()
+		bind = o.GetBindable()
+		name = o.GetName()
+
+		fctStop = func() {
+			_ = o.Stop(ctx)
+		}
+	)
+
+	if o.IsTLS() && ssl == nil {
+		err := ErrorServerValidate.ErrorParent(fmt.Errorf("TLS Config is not well defined"))
+		ent := o.logger().Entry(liblog.ErrorLevel, "starting http server")
+		ent.ErrorAdd(true, err)
+		ent.Log()
+		return err
+	} else if name == "" {
 		name = bind
 	}
 
+	var stdlog = o.logger()
+
 	s := &http.Server{
-		Addr:     bind,
-		ErrorLog: o.logger().GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds),
-		Handler:  o.HandlerLoadFct(),
+		Addr:    bind,
+		Handler: o.HandlerLoadFct(),
 	}
 
 	if ssl != nil && ssl.LenCertificatePair() > 0 {
 		s.TLSConfig = ssl.TlsConfig("")
-	}
-
-	if e := o.cfgGetServer().initServer(s); e != nil {
+		stdlog.SetIOWriterFilter("http: TLS handshake error from 127.0.0.1")
+	} else if e := o.cfgGetServer().initServer(s); e != nil {
 		ent := o.logger().Entry(liblog.ErrorLevel, "init http2 server")
 		ent.ErrorAdd(true, e)
 		ent.Log()
 		return e
 	}
 
-	if o.IsRunning() {
-		_ = o.Stop(ctx)
-	}
+	s.ErrorLog = stdlog.GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds)
 
-	for i := 0; i < 5; i++ {
-		if e := o.PortInUse(o.GetBindable()); e != nil {
-			_ = o.Stop(ctx)
-		} else {
-			break
-		}
-	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	o.r.SetServer(s, o.logger, ssl != nil)
-
-	if e := o.r.Start(ctx); e != nil {
+	if e := o.RunIfPortInUse(ctx, o.GetBindable(), 5, fctStop); e != nil {
 		return e
 	}
 
-	for i := 0; i < 5; i++ {
-		ok := false
-		ts := time.Now()
+	o.m.Lock()
+	o.s = s
+	o.m.Unlock()
 
-		for {
-			time.Sleep(100 * time.Millisecond)
-			ok = o.r.IsRunning()
+	return nil
+}
 
-			if ok {
-				break
-			} else if time.Since(ts) > 10*time.Second {
-				break
-			}
-		}
-
-		if !ok {
-			_ = o.r.Restart(ctx)
-		} else {
-			ts = time.Now()
-
-			for {
-				time.Sleep(100 * time.Millisecond)
-
-				if e := o.PortInUse(o.GetBindable()); e != nil {
-					return nil
-				} else if time.Since(ts) > 10*time.Second {
-					break
-				}
-			}
-
-			_ = o.r.Restart(ctx)
+func (o *srv) Start(ctx context.Context) error {
+	// Register Server to runner
+	if o.getServer() != nil {
+		if e := o.Stop(ctx); e != nil {
+			return e
 		}
 	}
 
-	_ = o.r.Stop(ctx)
-	return ErrorServerStart.Error(nil)
+	if e := o.newRun(ctx); e != nil {
+		return e
+	} else if e = o.runStart(ctx); e != nil {
+		return e
+	}
+
+	return nil
 }
 
 func (o *srv) Stop(ctx context.Context) error {
+	if o == nil {
+		return errInvalid
+	}
+
 	o.m.RLock()
 	defer o.m.RUnlock()
+
+	if o.r == nil {
+		return nil
+	}
+
 	return o.r.Stop(ctx)
 }
 
@@ -140,17 +157,25 @@ func (o *srv) Restart(ctx context.Context) error {
 }
 
 func (o *srv) IsRunning() bool {
+	if o == nil {
+		return false
+	}
+
 	o.m.RLock()
 	defer o.m.RUnlock()
+
+	if o.r == nil {
+		return false
+	}
+
 	return o.r.IsRunning()
 }
 
-func (o *srv) PortInUse(listen string) liberr.Error {
+func (o *srv) PortInUse(ctx context.Context, listen string) liberr.Error {
 	var (
 		dia = net.Dialer{}
 		con net.Conn
 		err error
-		ctx context.Context
 		cnl context.CancelFunc
 	)
 
@@ -163,7 +188,7 @@ func (o *srv) PortInUse(listen string) liberr.Error {
 		}
 	}()
 
-	ctx, cnl = context.WithTimeout(context.TODO(), srvtps.TimeoutWaitingPortFreeing)
+	ctx, cnl = context.WithTimeout(ctx, srvtps.TimeoutWaitingPortFreeing)
 	con, err = dia.DialContext(ctx, "tcp", listen)
 
 	if con != nil {
@@ -179,4 +204,38 @@ func (o *srv) PortInUse(listen string) liberr.Error {
 	}
 
 	return ErrorPortUse.Error(nil)
+}
+
+func (o *srv) PortNotUse(ctx context.Context, listen string) error {
+	var (
+		err error
+
+		cnl context.CancelFunc
+		con net.Conn
+		dia = net.Dialer{}
+	)
+
+	ctx, cnl = context.WithTimeout(context.TODO(), srvtps.TimeoutWaitingPortFreeing)
+	defer cnl()
+
+	con, err = dia.DialContext(ctx, "tcp", listen)
+	defer func() {
+		if con != nil {
+			_ = con.Close()
+		}
+	}()
+
+	return err
+}
+
+func (o *srv) RunIfPortInUse(ctx context.Context, listen string, nbr uint8, fct func()) liberr.Error {
+	chk := func() bool {
+		return o.PortInUse(ctx, listen) == nil
+	}
+
+	if !libsrv.RunNbr(nbr, chk, fct) {
+		return ErrorPortUse.Error(nil)
+	}
+
+	return nil
 }

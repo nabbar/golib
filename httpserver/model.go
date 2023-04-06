@@ -27,12 +27,13 @@
 package httpserver
 
 import (
+	"net/http"
 	"sync"
 
 	libctx "github.com/nabbar/golib/context"
-	srvrun "github.com/nabbar/golib/httpserver/run"
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	liblog "github.com/nabbar/golib/logger"
+	librun "github.com/nabbar/golib/server/runner/startStop"
 )
 
 type srv struct {
@@ -40,7 +41,8 @@ type srv struct {
 	h srvtps.FuncHandler
 	l liblog.FuncLog
 	c libctx.Config[string]
-	r srvrun.Run
+	r librun.StartStop
+	s *http.Server
 }
 
 func (o *srv) Merge(s Server, def liblog.FuncLog) error {

@@ -27,10 +27,10 @@
 package cobra
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,46 +87,49 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 	}
 
 	var (
-		fs *os.File
+		fs  *os.File
+		ext string
+		buf io.Reader
+		nbr int64
+		err error
 	)
 
-	defer func() {
-		if fs != nil {
-			_ = fs.Close()
-		}
-	}()
+	ext = strings.ToLower(filepath.Ext(cfgFile))
 
-	buf, err := ioutil.ReadAll(defaultConfig())
-	if err != nil {
-		return err
-	}
-
-	if len(filepath.Ext(cfgFile)) > 0 && strings.ToLower(filepath.Ext(cfgFile)) != ".json" {
-		var mod = make(map[string]interface{}, 0)
-
-		err = json.Unmarshal(buf, &mod)
-		if err != nil {
+	switch ext {
+	case ".toml", ".tml":
+		if buf, err = c.jsonToToml(defaultConfig()); err != nil {
 			return err
 		}
-
-		switch strings.ToLower(filepath.Ext(cfgFile)) {
-		case ".toml":
-			buf, err = toml.Marshal(mod)
-		case ".yml", ".yaml":
-			buf, err = yaml.Marshal(mod)
-		default:
-			return fmt.Errorf("extension file '%s' not compatible", filepath.Ext(cfgFile))
+	case ".yaml", ".yml":
+		if buf, err = c.jsonToYaml(defaultConfig()); err != nil {
+			return err
 		}
+	default:
+		buf = defaultConfig()
+		cfgFile = strings.TrimRight(cfgFile, ext) + ".json"
 	}
 
 	fs, err = os.OpenFile(cfgFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
+	} else {
+		defer func() {
+			if fs != nil {
+				_ = fs.Close()
+			}
+		}()
 	}
 
-	_, err = fs.Write(buf)
-	if err != nil {
+	if nbr, err = io.Copy(fs, buf); err != nil {
 		return err
+	} else if nbr < 1 {
+		return fmt.Errorf("error wrting 0 byte to config file")
+	} else if err = fs.Close(); err != nil {
+		fs = nil
+		return err
+	} else {
+		fs = nil
 	}
 
 	err = os.Chmod(cfgFile, 0600)
@@ -138,6 +141,46 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 	println("\t>> To explicitly specify this config file when you call this tool, use the '-c' flag like this: ")
 	println(fmt.Sprintf("\t\t\t %s -c %s <cmd>...\n", pkg, cfgFile))
 	return nil
+}
+
+func (c *cobra) jsonToToml(r io.Reader) (io.Reader, error) {
+	var (
+		e   error
+		p   = make([]byte, 0)
+		buf = bytes.NewBuffer(p)
+		mod = make(map[string]interface{}, 0)
+	)
+
+	if p, e = io.ReadAll(r); e != nil {
+		return nil, e
+	} else if e = json.Unmarshal(p, &mod); e != nil {
+		return nil, e
+	} else if p, e = toml.Marshal(mod); e != nil {
+		return nil, e
+	} else {
+		buf.Write(p)
+		return buf, nil
+	}
+}
+
+func (c *cobra) jsonToYaml(r io.Reader) (io.Reader, error) {
+	var (
+		e   error
+		p   = make([]byte, 0)
+		buf = bytes.NewBuffer(p)
+		mod = make(map[string]interface{}, 0)
+	)
+
+	if p, e = io.ReadAll(r); e != nil {
+		return nil, e
+	} else if e = json.Unmarshal(p, &mod); e != nil {
+		return nil, e
+	} else if p, e = yaml.Marshal(mod); e != nil {
+		return nil, e
+	} else {
+		buf.Write(p)
+		return buf, nil
+	}
 }
 
 func (c *cobra) AddCommandConfigure(basename string, defaultConfig func() io.Reader) {

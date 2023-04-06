@@ -26,7 +26,11 @@
 
 package server
 
-import "context"
+import (
+	"context"
+)
+
+type Action func(ctx context.Context) error
 
 type Server interface {
 	// Start is used to start the server

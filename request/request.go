@@ -213,3 +213,19 @@ func (r *request) DoParse(model interface{}, validStatus ...int) liberr.Error {
 
 	return nil
 }
+
+func (r *request) DoParseRetry(retry int, model interface{}, validStatus ...int) liberr.Error {
+	var e liberr.Error
+
+	for i := 0; i < retry; i++ {
+		if e = r.DoParse(model, validStatus...); e != nil {
+			continue
+		} else if r.IsError() {
+			continue
+		} else {
+			return nil
+		}
+	}
+
+	return e
+}

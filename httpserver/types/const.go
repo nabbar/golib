@@ -29,7 +29,7 @@ package types
 import "time"
 
 const (
-	TimeoutWaitingPortFreeing = 500 * time.Microsecond
-	TimeoutWaitingStop        = 10 * time.Second
+	TimeoutWaitingPortFreeing = 100 * time.Microsecond
+	TimeoutWaitingStop        = 5 * time.Second
 	BadHandlerName            = "no handler"
 )
