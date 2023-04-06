@@ -28,6 +28,7 @@ package httpserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 
@@ -41,19 +42,36 @@ const (
 	defaultNameMonitor = "HTTP Server"
 )
 
+var (
+	errNotRunning = errors.New("server is not running")
+)
+
 func (o *srv) HealthCheck(ctx context.Context) error {
 	o.m.RLock()
 	defer o.m.RUnlock()
 
 	if o.r == nil {
-		return fmt.Errorf("server is not running")
-	} else if o.r.IsRunning() {
-		return nil
-	} else if e := o.r.GetError(); e != nil {
+		return errNotRunning
+	} else if e := o.runAndHealthy(ctx); e != nil {
+		return e
+	} else if e = o.r.ErrorsLast(); e != nil {
 		return e
 	} else {
-		return fmt.Errorf("server is not running")
+		return errNotRunning
 	}
+}
+
+func (o *srv) runAndHealthy(ctx context.Context) error {
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if !o.r.IsRunning() {
+		return errNotRunning
+	} else if e := o.PortNotUse(ctx, o.GetBindable()); e != nil {
+		return e
+	}
+
+	return nil
 }
 
 func (o *srv) Monitor(vrs libver.Version) (montps.Monitor, error) {

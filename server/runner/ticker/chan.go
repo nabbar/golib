@@ -24,71 +24,78 @@
  *
  */
 
-package run
+package ticker
 
-import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
-)
+var closeChan = make(chan struct{})
 
-func (o *sRun) StartWaitNotify(ctx context.Context) {
-	if !o.IsRunning() {
+func init() {
+	close(closeChan)
+}
+
+func (o *run) IsRunning() bool {
+	if e := o.checkMe(); e != nil {
+		return false
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if o.c == nil || o.c == closeChan {
+		return false
+	}
+
+	select {
+	case <-o.c:
+		return false
+	default:
+		return true
+	}
+}
+
+func (o *run) chanInit() {
+	if e := o.checkMe(); e != nil {
 		return
 	}
 
-	// Wait for interrupt signal to gracefully shutdown the server with
-	// a timeout of 5 seconds.
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT)
-	signal.Notify(quit, syscall.SIGTERM)
-	signal.Notify(quit, syscall.SIGQUIT)
-
-	o.initChan()
-	defer o.delChan()
-
-	for {
-		select {
-		case <-quit:
-			_ = o.Stop(ctx)
-			return
-		case <-o.getContext().Done():
-			if o.IsRunning() {
-				_ = o.Stop(ctx)
-			}
-			return
-		case <-o.getChan():
-			return
-		}
-	}
-}
-
-func (o *sRun) StopWaitNotify() {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	if o.chn != nil {
-		o.chn <- struct{}{}
-	}
-}
-
-func (o *sRun) initChan() {
 	o.m.Lock()
 	defer o.m.Unlock()
-	o.chn = make(chan struct{})
+
+	o.c = make(chan struct{})
 }
 
-func (o *sRun) getChan() <-chan struct{} {
+func (o *run) chanDone() <-chan struct{} {
+	if e := o.checkMe(); e != nil {
+		return nil
+	}
+
 	o.m.RLock()
 	defer o.m.RUnlock()
-	return o.chn
+
+	return o.c
 }
 
-func (o *sRun) delChan() {
+func (o *run) chanSend() {
+	if e := o.checkMe(); e != nil {
+		return
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if o.c != nil && o.c != closeChan {
+		o.c <- struct{}{}
+	}
+}
+
+func (o *run) chanClose() {
+	if e := o.checkMe(); e != nil {
+		return
+	}
+
 	o.m.Lock()
 	defer o.m.Unlock()
-	if o.chn != nil {
-		close(o.chn)
+
+	if o.c != nil && o.c != closeChan {
+		o.c = closeChan
 	}
-	o.chn = nil
 }

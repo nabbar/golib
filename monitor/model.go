@@ -33,6 +33,7 @@ import (
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	montps "github.com/nabbar/golib/monitor/types"
+	librun "github.com/nabbar/golib/server/runner/ticker"
 )
 
 const (
@@ -64,7 +65,7 @@ type mon struct {
 	m sync.RWMutex
 	i montps.Info
 	x libctx.Config[string]
-	s chan struct{}
+	r librun.Ticker
 }
 
 func (o *mon) SetHealthCheck(fct montps.HealthCheck) {

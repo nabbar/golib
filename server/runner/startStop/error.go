@@ -24,18 +24,59 @@
  *
  */
 
-package httpserver
+package startStop
 
-import "context"
+func (o *run) ErrorsLast() error {
+	if o == nil {
+		return ErrInvalid
+	}
 
-func (o *srv) StartWaitNotify(ctx context.Context) {
 	o.m.RLock()
 	defer o.m.RUnlock()
-	go o.r.StartWaitNotify(ctx)
+
+	if len(o.e) > 0 {
+		return o.e[len(o.e)-1]
+	}
+
+	return nil
 }
 
-func (o *srv) StopWaitNotify() {
+func (o *run) ErrorsList() []error {
+	var res = make([]error, 0)
+
+	if o == nil {
+		res = append(res, ErrInvalid)
+		return res
+	}
+
 	o.m.RLock()
 	defer o.m.RUnlock()
-	go o.r.StopWaitNotify()
+
+	if len(o.e) > 0 {
+		return o.e
+	}
+
+	return res
+}
+
+func (o *run) errorsAdd(e error) {
+	if o == nil {
+		return
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	o.e = append(o.e, e)
+}
+
+func (o *run) errorsClean() {
+	if o == nil {
+		return
+	}
+
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	o.e = make([]error, 0)
 }
