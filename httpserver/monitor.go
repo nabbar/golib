@@ -57,7 +57,7 @@ func (o *srv) HealthCheck(ctx context.Context) error {
 	} else if e = o.r.ErrorsLast(); e != nil {
 		return e
 	} else {
-		return errNotRunning
+		return nil
 	}
 }
 
