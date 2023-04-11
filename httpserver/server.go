@@ -33,6 +33,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 
 	liberr "github.com/nabbar/golib/errors"
 	srvtps "github.com/nabbar/golib/httpserver/types"
@@ -188,17 +190,27 @@ func (o *srv) PortInUse(ctx context.Context, listen string) liberr.Error {
 		}
 	}()
 
-	ctx, cnl = context.WithTimeout(ctx, srvtps.TimeoutWaitingPortFreeing)
-	con, err = dia.DialContext(ctx, "tcp", listen)
+	if strings.Contains(listen, ":") {
+		uri := &url.URL{
+			Host: listen,
+		}
 
-	if con != nil {
-		_ = con.Close()
-		con = nil
+		if h := uri.Hostname(); h == "0.0.0.0" || h == "::1" {
+			listen = "127.0.0.1:" + uri.Port()
+		}
 	}
 
-	cnl()
-	cnl = nil
+	if _, ok := ctx.Deadline(); !ok {
+		ctx, cnl = context.WithTimeout(ctx, srvtps.TimeoutWaitingPortFreeing)
+		defer cnl()
+	}
 
+	con, err = dia.DialContext(ctx, "tcp", listen)
+	defer func() {
+		if con != nil {
+			_ = con.Close()
+		}
+	}()
 	if err != nil {
 		return nil
 	}
@@ -215,8 +227,20 @@ func (o *srv) PortNotUse(ctx context.Context, listen string) error {
 		dia = net.Dialer{}
 	)
 
-	ctx, cnl = context.WithTimeout(context.TODO(), srvtps.TimeoutWaitingPortFreeing)
-	defer cnl()
+	if strings.Contains(listen, ":") {
+		uri := &url.URL{
+			Host: listen,
+		}
+
+		if h := uri.Hostname(); h == "0.0.0.0" || h == "::1" {
+			listen = "127.0.0.1:" + uri.Port()
+		}
+	}
+
+	if _, ok := ctx.Deadline(); !ok {
+		ctx, cnl = context.WithTimeout(ctx, srvtps.TimeoutWaitingPortFreeing)
+		defer cnl()
+	}
 
 	con, err = dia.DialContext(ctx, "tcp", listen)
 	defer func() {
