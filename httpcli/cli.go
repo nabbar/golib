@@ -30,6 +30,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -97,8 +98,16 @@ func GetClientTls(serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalT
 }
 
 func GetClientTlsForceIp(netw Network, ip string, serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
+	u := &url.URL{
+		Host: ip,
+	}
+
 	fctDial := func(ctx context.Context, network, address string) (net.Conn, error) {
-		dl := &net.Dialer{}
+		dl := &net.Dialer{
+			LocalAddr: &net.TCPAddr{
+				IP: net.ParseIP(u.Hostname()),
+			},
+		}
 		return dl.DialContext(ctx, netw.Code(), ip)
 	}
 
