@@ -37,39 +37,37 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	ctx context.Context
-	cnl context.CancelFunc
-)
-
 /*
 	Using https://onsi.github.io/ginkgo/
 	Running with $> ginkgo -cover .
 */
-
-func TestGolibHttpCliHelper(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Logger Helper Suite")
-}
 
 var srv = &http.Server{
 	Addr:    ":8080",
 	Handler: Hello(),
 }
 
-var _ = BeforeSuite(func() {
+func TestGolibHttpCliHelper(t *testing.T) {
+	defer func() {
+		_ = srv.Shutdown(context.Background())
+	}()
 	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			if !errors.Is(err, http.ErrServerClosed) {
-				panic(err)
+		if e := srv.ListenAndServe(); e != nil {
+			if !errors.Is(e, http.ErrServerClosed) {
+				panic(e)
 			}
 		}
 	}()
 	time.Sleep(500 * time.Millisecond)
+
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "HTTP Cli Helper Suite")
+}
+
+var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	_ = srv.Shutdown(context.Background())
 })
 
 func Hello() http.HandlerFunc {
