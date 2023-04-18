@@ -194,8 +194,6 @@ func (o *componentAws) _runCli() liberr.Error {
 
 	if cfg, mon, htc, err = o._getConfig(); err != nil {
 		return prt.Error(err)
-	} else if cli, err = libaws.New(o.x.GetContext(), cfg, o._getHttpClient()); err != nil {
-		return prt.Error(err)
 	}
 
 	if htc != nil {
@@ -206,6 +204,10 @@ func (o *componentAws) _runCli() liberr.Error {
 
 			return &http.Client{}
 		})
+	}
+
+	if cli, err = libaws.New(o.x.GetContext(), cfg, o._getHttpClient()); err != nil {
+		return prt.Error(err)
 	}
 
 	if mon != nil && mon.Enable {
