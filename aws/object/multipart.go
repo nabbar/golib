@@ -34,6 +34,8 @@ import (
 	"mime"
 	"path/filepath"
 
+	libsiz "github.com/nabbar/golib/size"
+
 	//nolint #gci
 	"os"
 
@@ -45,7 +47,7 @@ import (
 	libiou "github.com/nabbar/golib/ioutils"
 )
 
-const DefaultPartSize = 5 * libhlp.SizeMegaBytes
+const DefaultPartSize = 5 * libsiz.SizeMega
 
 // MultipartList implement the ListMultipartUploads.
 // See docs for more infos : https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListMultipartUploads.html
@@ -75,7 +77,7 @@ func (cli *client) MultipartPut(object string, body io.Reader) liberr.Error {
 	return cli.MultipartPutCustom(DefaultPartSize, object, body)
 }
 
-func (cli *client) MultipartPutCustom(partSize libhlp.PartSize, object string, body io.Reader) liberr.Error {
+func (cli *client) MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) liberr.Error {
 	var (
 		tmp libiou.FileProgress
 		rio libhlp.ReaderPartSize

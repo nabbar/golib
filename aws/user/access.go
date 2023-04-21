@@ -33,8 +33,14 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) AccessListAll() ([]sdktps.AccessKeyMetadata, liberr.Error) {
+func (cli *client) AccessListAll(username string) ([]sdktps.AccessKeyMetadata, liberr.Error) {
 	var req = &sdkiam.ListAccessKeysInput{}
+
+	if username != "" {
+		req = &sdkiam.ListAccessKeysInput{
+			UserName: sdkaws.String(username),
+		}
+	}
 
 	out, err := cli.iam.ListAccessKeys(cli.GetContext(), req)
 

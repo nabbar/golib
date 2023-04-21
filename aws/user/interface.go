@@ -59,7 +59,7 @@ type User interface {
 	LoginCreate(username, password string) liberr.Error
 	LoginDelete(username string) liberr.Error
 
-	AccessListAll() ([]sdktps.AccessKeyMetadata, liberr.Error)
+	AccessListAll(username string) ([]sdktps.AccessKeyMetadata, liberr.Error)
 	AccessList(username string) (map[string]bool, liberr.Error)
 	AccessCreate(username string) (string, string, liberr.Error)
 	AccessDelete(username, accessKey string) liberr.Error

@@ -30,6 +30,8 @@ import (
 	"io"
 	"time"
 
+	libsiz "github.com/nabbar/golib/size"
+
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -66,7 +68,7 @@ type Object interface {
 
 	MultipartList(keyMarker, markerId string) (uploads []sdktps.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e liberr.Error)
 	MultipartPut(object string, body io.Reader) liberr.Error
-	MultipartPutCustom(partSize libhlp.PartSize, object string, body io.Reader) liberr.Error
+	MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) liberr.Error
 	MultipartCancel(uploadId, key string) liberr.Error
 
 	UpdateMetadata(meta *sdksss.CopyObjectInput) liberr.Error
