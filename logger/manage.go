@@ -37,6 +37,13 @@ import (
 )
 
 func (o *logger) Clone() Logger {
+	if o == nil {
+		return nil
+	}
+
+	o.m.RLock()
+	defer o.m.RUnlock()
+
 	return &logger{
 		x: o.x.Clone(nil),
 		m: sync.RWMutex{},
@@ -71,12 +78,12 @@ func (o *logger) GetLevel() Level {
 func (o *logger) SetFields(field Fields) {
 	if o == nil {
 		return
-	} else {
-		o.f.Clean()
 	}
 
 	if field != nil {
-		o.f.Merge(field)
+		o.m.Lock()
+		defer o.m.Unlock()
+		o.f = field
 	}
 }
 
@@ -85,7 +92,9 @@ func (o *logger) GetFields() Fields {
 		return NewFields(context.Background)
 	}
 
-	return o.f
+	o.m.RLock()
+	defer o.m.RUnlock()
+	return o.f.FieldsClone(nil)
 }
 
 func (o *logger) SetOptions(opt *Options) error {
