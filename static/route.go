@@ -40,6 +40,7 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	librtr "github.com/nabbar/golib/router"
+	_ "github.com/ugorji/go/codec"
 )
 
 func (s *staticHandler) _makeRoute(group, route string) string {
