@@ -52,8 +52,8 @@ import (
 	libpgb "github.com/nabbar/golib/progress"
 	libsh "github.com/nabbar/golib/shell"
 	libvrs "github.com/nabbar/golib/version"
-	"github.com/vbauerster/mpb/v5"
 	"github.com/nutsdb/nutsdb"
+	"github.com/vbauerster/mpb/v5"
 )
 
 const (
