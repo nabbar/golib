@@ -67,6 +67,8 @@ type FileProgress interface {
 	FileStat() (os.FileInfo, liberr.Error)
 
 	SizeToEOF() (size int64, err liberr.Error)
+	Truncate(size int64) liberr.Error
+	Sync() liberr.Error
 
 	NewFilePathMode(filepath string, mode int, perm os.FileMode) (FileProgress, liberr.Error)
 	NewFilePathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, liberr.Error)
@@ -123,12 +125,14 @@ func NewFileProgressPathMode(filepath string, mode int, perm os.FileMode) (FileP
 }
 
 func NewFileProgressPathWrite(filepath string, create, overwrite bool, perm os.FileMode) (FileProgress, liberr.Error) {
-	mode := os.O_RDWR | os.O_TRUNC
+	var mode = os.O_RDWR
 
 	if _, err := os.Stat(filepath); err != nil && os.IsNotExist(err) && create {
-		mode = os.O_RDWR | os.O_CREATE | os.O_TRUNC
+		mode = os.O_RDWR | os.O_CREATE
 	} else if err != nil {
 		return nil, ErrorIOFileStat.ErrorParent(err)
+	} else if err == nil && overwrite {
+		mode = os.O_RDWR | os.O_TRUNC
 	}
 
 	return NewFileProgressPathMode(filepath, mode, perm)
@@ -269,6 +273,32 @@ func (f *fileProgress) SizeToEOF() (size int64, err liberr.Error) {
 	} else {
 		return b - a, nil
 	}
+}
+
+func (f *fileProgress) Truncate(size int64) liberr.Error {
+	if f == nil {
+		return ErrorNilPointer.Error(nil)
+	}
+
+	if e := f.fs.Truncate(size); e != nil {
+		return ErrorIOFileTruncate.ErrorParent(e)
+	}
+
+	f.reset(0)
+
+	return nil
+}
+
+func (f *fileProgress) Sync() liberr.Error {
+	if f == nil {
+		return ErrorNilPointer.Error(nil)
+	}
+
+	if e := f.fs.Sync(); e != nil {
+		return ErrorIOFileSync.ErrorParent(e)
+	}
+
+	return nil
 }
 
 func (f *fileProgress) SetIncrement(increment func(size int64)) {

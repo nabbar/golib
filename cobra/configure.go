@@ -79,7 +79,7 @@ func (c *cobra) ConfigureCheckArgs(basename string, args []string) error {
 	return nil
 }
 
-func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Reader) error {
+func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Reader, printMsg func(pkg, file string)) error {
 	pkg := c.getPackageName()
 
 	if basename == "" && pkg != "" {
@@ -137,9 +137,14 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 		return err
 	}
 
-	println(fmt.Sprintf("\n\t>> Config File '%s' has been created and file permission have been set.", cfgFile))
-	println("\t>> To explicitly specify this config file when you call this tool, use the '-c' flag like this: ")
-	println(fmt.Sprintf("\t\t\t %s -c %s <cmd>...\n", pkg, cfgFile))
+	if printMsg == nil {
+		println(fmt.Sprintf("\n\t>> Config File '%s' has been created and file permission have been set.", cfgFile))
+		println("\t>> To explicitly specify this config file when you call this tool, use the '-c' flag like this: ")
+		println(fmt.Sprintf("\t\t\t %s -c %s <cmd>...\n", pkg, cfgFile))
+	} else {
+		printMsg(pkg, cfgFile)
+	}
+
 	return nil
 }
 
@@ -198,7 +203,7 @@ func (c *cobra) AddCommandConfigure(basename string, defaultConfig func() io.Rea
 override by passed flag in command line and completed with default for non existing values.`,
 
 		RunE: func(cmd *spfcbr.Command, args []string) error {
-			return c.ConfigureWriteConfig(basename, defaultConfig)
+			return c.ConfigureWriteConfig(basename, defaultConfig, nil)
 		},
 
 		Args: func(cmd *spfcbr.Command, args []string) error {
