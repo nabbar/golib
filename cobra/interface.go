@@ -65,7 +65,7 @@ type Cobra interface {
 	Cobra() *spfcbr.Command
 
 	ConfigureCheckArgs(basename string, args []string) error
-	ConfigureWriteConfig(basename string, defaultConfig func() io.Reader) error
+	ConfigureWriteConfig(basename string, defaultConfig func() io.Reader, printMsg func(pkg, file string)) error
 }
 
 func New() Cobra {

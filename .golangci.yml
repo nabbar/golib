@@ -82,7 +82,7 @@ linters:
   disable:
 #    - bodyclose
 #    - contextcheck
-#    - cyclop
+    - cyclop
     - deadcode
 #    - errname
 #    - errorlint
@@ -90,12 +90,12 @@ linters:
     - exhaustivestruct
     - exhaustruct
 #    - forbidigo
-#    - funlen
+    - funlen
 #    - gci
 #    - gochecknoglobals
 #    - gochecknoinits
 #    - gocognit
-#    - gocritic
+    - gocritic
 #    - gocyclo
 #    - godot
 #    - godox
@@ -106,16 +106,16 @@ linters:
     - ifshort
 #    - interfacebloat
     - interfacer
-#    - ireturn
+    - ireturn
 #    - lll
     - maligned
 #    - nakedret
-#    - nestif
+    - nestif
 #    - nilerr
 #    - nlreturn
 #    - noctx
-#    - nolintlint
-#    - nonamedreturns
+    - nolintlint
+    - nonamedreturns
     - nosnakecase
 #    - revive
 #    - rowserrcheck
@@ -129,5 +129,5 @@ linters:
     - varnamelen
 #    - wastedassign
 #    - whitespace
-#    - wrapcheck
-#    - wsl
+    - wrapcheck
+    - wsl

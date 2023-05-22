@@ -33,12 +33,15 @@ type Network uint8
 const (
 	NetworkTCP Network = iota
 	NetworkUDP
+	NetworkUnix
 )
 
 func GetNetworkFromString(str string) Network {
-	switch strings.ToLower(str) {
-	case NetworkUDP.Code():
+	switch {
+	case strings.EqualFold(NetworkUDP.Code(), str):
 		return NetworkUDP
+	case strings.EqualFold(NetworkUnix.Code(), str):
+		return NetworkUnix
 	default:
 		return NetworkTCP
 	}
@@ -48,6 +51,8 @@ func (n Network) String() string {
 	switch n {
 	case NetworkUDP:
 		return "UDP"
+	case NetworkUnix:
+		return "unix"
 	default:
 		return "TCP"
 	}

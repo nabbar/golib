@@ -38,6 +38,8 @@ const (
 	ErrorSyscallRLimitSet
 	ErrorIOFileStat
 	ErrorIOFileSeek
+	ErrorIOFileTruncate
+	ErrorIOFileSync
 	ErrorIOFileOpen
 	ErrorIOFileTempNew
 	ErrorIOFileTempClose
@@ -64,6 +66,10 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "error occur while trying to get stat of file"
 	case ErrorIOFileSeek:
 		return "error occur while trying seek into file"
+	case ErrorIOFileTruncate:
+		return "error occur while trying truncate file"
+	case ErrorIOFileSync:
+		return "error occur while trying to sync file"
 	case ErrorIOFileOpen:
 		return "error occur while trying to open file"
 	case ErrorIOFileTempNew:
