@@ -28,6 +28,8 @@ package aws_test
 import (
 	"bytes"
 
+	libsiz "github.com/nabbar/golib/size"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -70,7 +72,7 @@ var _ = Describe("Object", func() {
 
 	Context("Multipart Put object", func() {
 		It("Must fail as the bucket doesn't exists - 5", func() {
-			err := cli.Object().MultipartPut("object", randContent(4*1024))
+			err := cli.Object().MultipartPut("object", randContent(10*libsiz.SizeMega))
 			Expect(err).To(HaveOccurred())
 		})
 	})

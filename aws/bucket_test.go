@@ -26,6 +26,7 @@
 package aws_test
 
 import (
+	libsiz "github.com/nabbar/golib/size"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -52,7 +53,7 @@ var _ = Describe("Bucket", func() {
 			It("Must succeed", func() {
 				var (
 					err error
-					rnd = randContent(64 * 1024)
+					rnd = randContent(10 * libsiz.SizeMega)
 				)
 
 				err = cli.Object().MultipartPut("object", rnd)

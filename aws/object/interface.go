@@ -30,6 +30,8 @@ import (
 	"io"
 	"time"
 
+	libmpu "github.com/nabbar/golib/aws/multipart"
+
 	libsiz "github.com/nabbar/golib/size"
 
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
@@ -67,6 +69,7 @@ type Object interface {
 	GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, liberr.Error)
 
 	MultipartList(keyMarker, markerId string) (uploads []sdktps.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e liberr.Error)
+	MultipartNew(partSize libsiz.Size, object string) libmpu.MultiPart
 	MultipartPut(object string, body io.Reader) liberr.Error
 	MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) liberr.Error
 	MultipartCancel(uploadId, key string) liberr.Error

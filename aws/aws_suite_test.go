@@ -31,6 +31,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	libsiz "github.com/nabbar/golib/size"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -240,8 +241,8 @@ func WaitMinio(host string) bool {
 	return err == nil
 }
 
-func randContent(size int) *bytes.Buffer {
-	p := make([]byte, size)
+func randContent(size libsiz.Size) *bytes.Buffer {
+	p := make([]byte, size.Int64())
 
 	_, err := rand.Read(p)
 
