@@ -26,8 +26,8 @@
 package console
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 
 	"github.com/fatih/color"
 	"github.com/nabbar/golib/errors"
@@ -89,7 +89,7 @@ func (c colorType) Print(text string) {
 	}
 }
 
-func (c colorType) BuffPrintf(buff *bufio.ReadWriter, format string, args ...interface{}) (n int, err errors.Error) {
+func (c colorType) BuffPrintf(buff io.Writer, format string, args ...interface{}) (n int, err errors.Error) {
 	if colorList[c] != nil && buff != nil {
 
 		//nolint #nosec
