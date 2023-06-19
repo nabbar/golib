@@ -28,11 +28,13 @@
  *
  **********************************************************************************************************************/
 
-package logger
+package hooksyslog
 
 import (
 	"fmt"
 	"log/syslog"
+
+	libptc "github.com/nabbar/golib/network/protocol"
 )
 
 func makePriority(severity SyslogSeverity, facility SyslogFacility) syslog.Priority {
@@ -111,7 +113,7 @@ type _Syslog struct {
 	w *syslog.Writer
 }
 
-func newSyslog(net NetworkType, host, tag string, fac SyslogFacility) (syslogWrapper, error) {
+func newSyslog(net libptc.NetworkProtocol, host, tag string, fac SyslogFacility) (Wrapper, error) {
 	var (
 		err error
 	)
@@ -128,7 +130,7 @@ func newSyslog(net NetworkType, host, tag string, fac SyslogFacility) (syslogWra
 	return obj, nil
 }
 
-func (o *_Syslog) openSyslogSev(net NetworkType, host, tag string, prio syslog.Priority) (*syslog.Writer, error) {
+func (o *_Syslog) openSyslogSev(net libptc.NetworkProtocol, host, tag string, prio syslog.Priority) (*syslog.Writer, error) {
 	return syslog.Dial(net.String(), host, prio, tag)
 }
 
@@ -138,7 +140,7 @@ func (o *_Syslog) Write(p []byte) (n int, err error) {
 
 func (o *_Syslog) WriteSev(sev SyslogSeverity, p []byte) (n int, err error) {
 	if o.w == nil {
-		return 0, fmt.Errorf("logrus.hooksyslog: connection not setup")
+		return 0, fmt.Errorf("hooksyslog: connection not setup")
 	}
 
 	switch sev {

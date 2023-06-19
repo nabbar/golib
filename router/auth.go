@@ -29,9 +29,11 @@ import (
 	"net/http"
 	"strings"
 
+	liblog "github.com/nabbar/golib/logger"
+
 	ginsdk "github.com/gin-gonic/gin"
 	liberr "github.com/nabbar/golib/errors"
-	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
 type AuthCode uint8
@@ -71,6 +73,7 @@ func AuthForbidden(c *ginsdk.Context, err error) {
 }
 
 type authorization struct {
+	log      liblog.FuncLog
 	check    func(AuthHeader string) (AuthCode, liberr.Error)
 	router   []ginsdk.HandlerFunc
 	authType string
@@ -82,8 +85,9 @@ type Authorization interface {
 	Append(router ...ginsdk.HandlerFunc)
 }
 
-func NewAuthorization(HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, liberr.Error)) Authorization {
+func NewAuthorization(log liblog.FuncLog, HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, liberr.Error)) Authorization {
 	return &authorization{
+		log:      log,
 		check:    authCheckFunc,
 		authType: HeadAuthType,
 		router:   make([]ginsdk.HandlerFunc, 0),
@@ -99,7 +103,13 @@ func (a *authorization) Append(router ...ginsdk.HandlerFunc) {
 	a.router = append(a.router, router...)
 }
 
-func (a authorization) Handler(c *ginsdk.Context) {
+func (a *authorization) logDebug(msg string, args ...interface{}) {
+	if a.log != nil {
+		a.log().Entry(loglvl.DebugLevel, msg, args...)
+	}
+}
+
+func (a *authorization) Handler(c *ginsdk.Context) {
 	// Search user in the slice of allowed credentials
 	auth := c.Request.Header.Get(HEAD_AUTH_SEND)
 
@@ -126,7 +136,7 @@ func (a authorization) Handler(c *ginsdk.Context) {
 		switch code {
 		case AUTH_CODE_SUCCESS:
 			for _, r := range a.router {
-				liblog.DebugLevel.Logf("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
+				a.logDebug("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
 				r(c)
 			}
 		case AUTH_CODE_REQUIRE:

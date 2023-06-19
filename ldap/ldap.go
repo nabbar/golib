@@ -37,6 +37,8 @@ import (
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	logent "github.com/nabbar/golib/logger/entry"
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
 type FuncLogger liblog.FuncLog
@@ -75,27 +77,47 @@ func (lc *HelperLDAP) SetLogger(fct liblog.FuncLog) {
 	lc.log = fct
 }
 
-func (lc HelperLDAP) getLogEntry(lvl liblog.Level, msg string, args ...interface{}) *liblog.Entry {
+func (lc *HelperLDAP) getLogDefault() liblog.Logger {
+	return liblog.New(func() context.Context {
+		return lc.ctx
+	})
+}
+
+func (lc *HelperLDAP) getLogEntry(lvl loglvl.Level, msg string, args ...interface{}) logent.Entry {
 	var log liblog.Logger
 	if lc.log == nil {
-		log = liblog.GetDefault()
-	} else if l := lc.log(); l == nil {
-		log = liblog.GetDefault()
-	} else {
+		log = lc.getLogDefault()
+		lc.log = func() liblog.Logger {
+			return log
+		}
+	}
+
+	if l := lc.log(); l != nil {
 		log = l
+	}
+
+	if log == nil {
+		return logent.New(lvl)
 	}
 
 	return log.Entry(lvl, msg, args...).FieldAdd("ldap.host", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS)).FieldAdd("ldap.tlsMode", lc.tlsMode.String())
 }
 
-func (lc HelperLDAP) getLogEntryErr(lvlKO liblog.Level, err error, msg string, args ...interface{}) *liblog.Entry {
+func (lc *HelperLDAP) getLogEntryErr(lvlKO loglvl.Level, err error, msg string, args ...interface{}) logent.Entry {
 	var log liblog.Logger
 	if lc.log == nil {
-		log = liblog.GetDefault()
-	} else if l := lc.log(); l == nil {
-		log = liblog.GetDefault()
-	} else {
+		log = lc.getLogDefault()
+		lc.log = func() liblog.Logger {
+			return log
+		}
+	}
+
+	if l := lc.log(); l != nil {
 		log = l
+	}
+
+	if log == nil {
+		return logent.New(lvlKO).ErrorAdd(true, err)
 	}
 
 	return log.Entry(lvlKO, msg, args...).FieldAdd("ldap.host", lc.config.ServerAddr(lc.tlsMode == TLSModeTLS)).ErrorAdd(true, err)
@@ -227,7 +249,7 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 	if lc.config.Portldaps != 0 {
 		l, err = lc.dialTLS()
 
-		lc.getLogEntryErr(liblog.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeTLS.String()).Check(liblog.DebugLevel)
+		lc.getLogEntryErr(loglvl.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeTLS.String()).Check(loglvl.DebugLevel)
 
 		if err == nil {
 			return TLSModeTLS, nil
@@ -239,14 +261,14 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 	}
 
 	l, err = lc.dial()
-	lc.getLogEntryErr(liblog.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeNone.String()).Check(liblog.DebugLevel)
+	lc.getLogEntryErr(loglvl.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeNone.String()).Check(loglvl.DebugLevel)
 
 	if err != nil {
 		return _TLSModeInit, err
 	}
 
 	err = lc.starttls(l)
-	lc.getLogEntryErr(liblog.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeStarttls.String()).Check(liblog.DebugLevel)
+	lc.getLogEntryErr(loglvl.DebugLevel, err, "connecting ldap with tls mode '%s'", TLSModeStarttls.String()).Check(loglvl.DebugLevel)
 
 	if err == nil {
 		return TLSModeStarttls, nil
@@ -310,7 +332,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			}
 		}
 
-		lc.getLogEntry(liblog.DebugLevel, "ldap connected").Log()
+		lc.getLogEntry(loglvl.DebugLevel, "ldap connected").Log()
 		lc.conn = l
 	}
 
@@ -381,7 +403,7 @@ func (lc *HelperLDAP) Connect() liberr.Error {
 		return err
 	}
 
-	lc.getLogEntry(liblog.DebugLevel, "ldap bind success").FieldAdd("bind.dn", lc.bindDN).Log()
+	lc.getLogEntry(loglvl.DebugLevel, "ldap bind success").FieldAdd("bind.dn", lc.bindDN).Log()
 	return nil
 }
 
@@ -411,7 +433,7 @@ func (lc *HelperLDAP) runSearch(filter string, attributes []string) (*ldap.Searc
 		return nil, ErrorLDAPSearch.ErrorParent(err)
 	}
 
-	lc.getLogEntry(liblog.DebugLevel, "ldap search success").FieldAdd("ldap.filter", filter).FieldAdd("ldap.attributes", attributes).Log()
+	lc.getLogEntry(loglvl.DebugLevel, "ldap search success").FieldAdd("ldap.filter", filter).FieldAdd("ldap.attributes", attributes).Log()
 	return src, nil
 }
 
@@ -480,7 +502,7 @@ func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) 
 		userRes["DN"] = src.Entries[0].DN
 	}
 
-	lc.getLogEntry(liblog.DebugLevel, "ldap user find success").FieldAdd("ldap.user", username).FieldAdd("ldap.map", userRes).Log()
+	lc.getLogEntry(loglvl.DebugLevel, "ldap user find success").FieldAdd("ldap.user", username).FieldAdd("ldap.map", userRes).Log()
 	return userRes, nil
 }
 
@@ -513,7 +535,7 @@ func (lc *HelperLDAP) GroupInfoByField(groupname string, fieldForUnicValue strin
 		}
 	}
 
-	lc.getLogEntry(liblog.DebugLevel, "ldap group find success").FieldAdd("ldap.group", groupname).FieldAdd("ldap.map", grpInfo).Log()
+	lc.getLogEntry(loglvl.DebugLevel, "ldap group find success").FieldAdd("ldap.group", groupname).FieldAdd("ldap.map", grpInfo).Log()
 	return grpInfo, nil
 }
 
@@ -538,13 +560,13 @@ func (lc *HelperLDAP) UserMemberOf(username string) ([]string, liberr.Error) {
 
 	for _, entry := range src.Entries {
 		for _, mmb := range entry.GetAttributeValues("memberOf") {
-			lc.getLogEntry(liblog.DebugLevel, "ldap find user group list building").FieldAdd("ldap.user", username).FieldAdd("ldap.raw.groups", mmb).Log()
+			lc.getLogEntry(loglvl.DebugLevel, "ldap find user group list building").FieldAdd("ldap.user", username).FieldAdd("ldap.raw.groups", mmb).Log()
 			mmo := lc.ParseEntries(mmb)
 			grp = append(grp, mmo["cn"]...)
 		}
 	}
 
-	lc.getLogEntry(liblog.DebugLevel, "ldap user group list success").FieldAdd("ldap.user", username).FieldAdd("ldap.grouplist", grp).Log()
+	lc.getLogEntry(loglvl.DebugLevel, "ldap user group list success").FieldAdd("ldap.user", username).FieldAdd("ldap.grouplist", grp).Log()
 	return grp, nil
 }
 
@@ -594,12 +616,12 @@ func (lc *HelperLDAP) UsersOfGroup(groupname string) ([]string, liberr.Error) {
 		}
 	}
 
-	lc.getLogEntry(liblog.DebugLevel, "ldap group user list success").FieldAdd("ldap.group", groupname).FieldAdd("ldap.userlist", grp).Log()
+	lc.getLogEntry(loglvl.DebugLevel, "ldap group user list success").FieldAdd("ldap.group", groupname).FieldAdd("ldap.userlist", grp).Log()
 	return grp, nil
 }
 
 // ParseEntries used to clean attributes of an object class.
-func (lc HelperLDAP) ParseEntries(entry string) map[string][]string {
+func (lc *HelperLDAP) ParseEntries(entry string) map[string][]string {
 	var listEntries = make(map[string][]string)
 
 	for _, ent := range strings.Split(entry, ",") {

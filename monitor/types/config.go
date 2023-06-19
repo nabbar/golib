@@ -32,13 +32,10 @@ import (
 	"fmt"
 	"time"
 
-	cptlog "github.com/nabbar/golib/logger/config"
-
-	cfgtps "github.com/nabbar/golib/config/const"
-
 	libval "github.com/go-playground/validator/v10"
+	cfgtps "github.com/nabbar/golib/config/const"
 	liberr "github.com/nabbar/golib/errors"
-	liblog "github.com/nabbar/golib/logger"
+	logcfg "github.com/nabbar/golib/logger/config"
 )
 
 var _defaultConfig = []byte(`{
@@ -51,7 +48,7 @@ var _defaultConfig = []byte(`{
   "fall-count-warn": "",
   "rise-count-ko": "",
   "rise-count-warn": "",
-  "logger": ` + string(cptlog.DefaultConfig(cfgtps.JSONIndent+cfgtps.JSONIndent)) + `
+  "logger": ` + string(logcfg.DefaultConfig(cfgtps.JSONIndent+cfgtps.JSONIndent)) + `
 }`)
 
 func SetDefaultConfig(cfg []byte) {
@@ -96,7 +93,7 @@ type Config struct {
 	RiseCountWarn uint8 `json:"rise-count-warn" yaml:"rise-count-warn" toml:"rise-count-warn" mapstructure:"rise-count-warn"`
 
 	// Logger define the logger options for current monitor log
-	Logger liblog.Options `json:"logger" yaml:"logger" toml:"logger" mapstructure:"logger"`
+	Logger logcfg.Options `json:"logger" yaml:"logger" toml:"logger" mapstructure:"logger"`
 }
 
 func (o Config) Validate() liberr.Error {

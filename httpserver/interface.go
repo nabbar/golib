@@ -59,6 +59,7 @@ type Server interface {
 	SetConfig(cfg Config, defLog liblog.FuncLog) error
 
 	Monitor(vrs libver.Version) (montps.Monitor, error)
+	MonitorName() string
 }
 
 func New(cfg Config, defLog liblog.FuncLog) (Server, error) {

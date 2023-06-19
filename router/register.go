@@ -37,6 +37,7 @@ import (
 	ginsdk "github.com/gin-gonic/gin"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
 const (
@@ -124,12 +125,6 @@ func GinAccessLog(log liblog.FuncLog) ginsdk.HandlerFunc {
 		} else if l := log(); l == nil {
 			return
 		} else {
-			defer func() {
-				if l != nil {
-					_ = l.Close()
-				}
-			}()
-
 			sttm := time.Unix(0, c.GetInt64(GinContextStartUnixNanoTime))
 			path := c.GetString(GinContextRequestPath)
 			user := c.GetString(GinContextRequestUser)
@@ -192,23 +187,17 @@ func GinErrorLog(log liblog.FuncLog) ginsdk.HandlerFunc {
 			} else if l := log(); l == nil {
 				return
 			} else {
-				defer func() {
-					if l != nil {
-						_ = l.Close()
-					}
-				}()
-
 				if len(c.Errors) > 0 {
 					for _, e := range c.Errors {
-						ent := l.Entry(liblog.ErrorLevel, "error on request \"%s %s %s\"", c.Request.Method, path, c.Request.Proto)
+						ent := l.Entry(loglvl.ErrorLevel, "error on request \"%s %s %s\"", c.Request.Method, path, c.Request.Proto)
 						ent.ErrorAdd(true, e)
-						ent.Check(liblog.NilLevel)
+						ent.Check(loglvl.NilLevel)
 					}
 				}
 				if rec != nil {
-					ent := l.Entry(liblog.ErrorLevel, "error on request \"%s %s %s\"", c.Request.Method, path, c.Request.Proto)
+					ent := l.Entry(loglvl.ErrorLevel, "error on request \"%s %s %s\"", c.Request.Method, path, c.Request.Proto)
 					ent.ErrorAdd(true, rec)
-					ent.Check(liblog.NilLevel)
+					ent.Check(loglvl.NilLevel)
 				}
 			}
 		}()

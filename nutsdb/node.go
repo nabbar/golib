@@ -31,6 +31,7 @@
 package nutsdb
 
 import (
+	"context"
 	"errors"
 	"io"
 	"strings"
@@ -94,7 +95,12 @@ func (n *nutsNode) GetLogger() liblog.Logger {
 		return n.l()
 	}
 
-	return liblog.GetDefault()
+	var l = liblog.New(context.Background)
+	n.l = func() liblog.Logger {
+		return l
+	}
+
+	return l
 }
 
 func (n *nutsNode) setRunning(state bool) {

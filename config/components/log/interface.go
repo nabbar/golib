@@ -34,10 +34,13 @@ import (
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	logcfg "github.com/nabbar/golib/logger/config"
+	logfld "github.com/nabbar/golib/logger/fields"
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
 const (
-	DefaultLevel = liblog.InfoLevel
+	DefaultLevel = loglvl.InfoLevel
 )
 
 type ComponentLog interface {
@@ -45,17 +48,17 @@ type ComponentLog interface {
 
 	Log() liblog.Logger
 
-	SetLevel(lvl liblog.Level)
-	GetLevel() liblog.Level
+	SetLevel(lvl loglvl.Level)
+	GetLevel() loglvl.Level
 
-	SetField(fields liblog.Fields)
-	GetField() liblog.Fields
+	SetField(fields logfld.Fields)
+	GetField() logfld.Fields
 
-	SetOptions(opt *liblog.Options) liberr.Error
-	GetOptions() *liblog.Options
+	SetOptions(opt *logcfg.Options) liberr.Error
+	GetOptions() *logcfg.Options
 }
 
-func New(ctx libctx.FuncContext, lvl liblog.Level) ComponentLog {
+func New(ctx libctx.FuncContext, lvl loglvl.Level) ComponentLog {
 	return &componentLog{
 		m: sync.RWMutex{},
 		x: libctx.NewConfig[uint8](ctx),
@@ -68,7 +71,7 @@ func Register(cfg libcfg.Config, key string, cpt ComponentLog) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, lvl liblog.Level) {
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, lvl loglvl.Level) {
 	cfg.ComponentSet(key, New(ctx, lvl))
 }
 

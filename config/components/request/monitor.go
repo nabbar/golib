@@ -89,6 +89,10 @@ func (o *componentRequest) _registerMonitor(cfg *libreq.Options) error {
 
 	mon.RegisterLoggerDefault(o.getLogger)
 
+	if cfg.Health.Monitor.Name != key {
+		cfg.Health.Monitor.Name = key
+	}
+
 	if e = mon.SetConfig(o.x.GetContext, cfg.Health.Monitor); e != nil {
 		return e
 	}

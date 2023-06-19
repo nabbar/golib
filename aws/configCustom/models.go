@@ -32,13 +32,11 @@ import (
 	"net/url"
 	"strings"
 
-	libreq "github.com/nabbar/golib/request"
-
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
 	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
-	liblog "github.com/nabbar/golib/logger"
+	libreq "github.com/nabbar/golib/request"
 )
 
 type Model struct {
@@ -247,7 +245,6 @@ func (c *awsModel) ResolveEndpointWithOptions(service, region string, options ..
 		}, nil
 	}
 
-	liblog.DebugLevel.Logf("Called ResolveEndpoint for service '%s' / region '%s' with nil endpoint", service, region)
 	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
 }
 

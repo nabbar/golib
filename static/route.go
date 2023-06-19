@@ -38,7 +38,7 @@ import (
 	ginsdk "github.com/gin-gonic/gin"
 	ginrdr "github.com/gin-gonic/gin/render"
 	liberr "github.com/nabbar/golib/errors"
-	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 	librtr "github.com/nabbar/golib/router"
 	_ "github.com/ugorji/go/codec"
 )
@@ -118,7 +118,7 @@ func (s *staticHandler) Get(c *ginsdk.Context) {
 
 	if inf, buf, err = s._fileGet(calledFile); err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
-		ent := s._getLogger().Entry(liblog.ErrorLevel, "get file info")
+		ent := s._getLogger().Entry(loglvl.ErrorLevel, "get file info")
 		ent.FieldAdd("filePath", calledFile)
 		ent.FieldAdd("requestPath", c.Request.URL.Path)
 		ent.ErrorAdd(true, err)

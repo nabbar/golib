@@ -29,21 +29,13 @@ package logger
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
+
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
 func (o *logger) Close() error {
-	if o == nil {
-		return fmt.Errorf("not initialized")
-	} else if o.c == nil {
-		return fmt.Errorf("not initialized")
-	}
-
-	_ = o.c.Close()
-	o.c.Clean()
-
-	return nil
+	return o.switchCloser(o.newCloser()).Close()
 }
 
 func (o *logger) Write(p []byte) (n int, err error) {
@@ -63,7 +55,7 @@ func (o *logger) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (o *logger) SetIOWriterLevel(lvl Level) {
+func (o *logger) SetIOWriterLevel(lvl loglvl.Level) {
 	if o == nil {
 		return
 	} else if o.x == nil {
@@ -72,15 +64,15 @@ func (o *logger) SetIOWriterLevel(lvl Level) {
 
 	o.x.Store(keyWriter, lvl)
 }
-func (o *logger) GetIOWriterLevel() Level {
+func (o *logger) GetIOWriterLevel() loglvl.Level {
 	if o == nil {
-		return NilLevel
+		return loglvl.NilLevel
 	} else if o.x == nil {
-		return NilLevel
+		return loglvl.NilLevel
 	} else if i, l := o.x.Load(keyWriter); !l {
-		return NilLevel
-	} else if v, k := i.(Level); !k {
-		return NilLevel
+		return loglvl.NilLevel
+	} else if v, k := i.(loglvl.Level); !k {
+		return loglvl.NilLevel
 	} else {
 		return v
 	}

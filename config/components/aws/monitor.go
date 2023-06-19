@@ -113,6 +113,10 @@ func (o *componentAws) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Co
 		}
 	}
 
+	if opt.Monitor.Name != key {
+		opt.Monitor.Name = key
+	}
+
 	if e = mon.SetConfig(o.x.GetContext, opt.Monitor); e != nil {
 		return e
 	}

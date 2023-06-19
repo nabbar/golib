@@ -31,6 +31,11 @@ import (
 	"io"
 	"sync/atomic"
 
+	logent "github.com/nabbar/golib/logger/entry"
+	loglvl "github.com/nabbar/golib/logger/level"
+
+	liblog "github.com/nabbar/golib/logger"
+
 	libhom "github.com/mitchellh/go-homedir"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
@@ -53,6 +58,7 @@ type viperRemote struct {
 type viper struct {
 	v *spfvpr.Viper
 	i *atomic.Uint32
+	l liblog.FuncLog
 	h libctx.Config[uint8]
 
 	base string
@@ -128,4 +134,8 @@ func (v *viper) SetConfigFile(fileConfig string) liberr.Error {
 
 func (v *viper) Viper() *spfvpr.Viper {
 	return v.v
+}
+
+func (v *viper) logEntry(lvl loglvl.Level, msg string, args ...interface{}) logent.Entry {
+	return v.l().Entry(lvl, msg, args...)
 }

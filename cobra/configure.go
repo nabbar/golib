@@ -36,7 +36,7 @@ import (
 	"strings"
 
 	"github.com/mitchellh/go-homedir"
-	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 	"github.com/pelletier/go-toml"
 	spfcbr "github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -49,7 +49,7 @@ func (c *cobra) getDefaultPath(baseName string) (string, error) {
 
 	// Find home directory.
 	home, err := homedir.Dir()
-	c.getLog().CheckError(liblog.WarnLevel, liblog.InfoLevel, "Loading home dir", err)
+	c.getLog().CheckError(loglvl.WarnLevel, loglvl.InfoLevel, "Loading home dir", err)
 
 	// set configname based on package name
 	if baseName == "" {
