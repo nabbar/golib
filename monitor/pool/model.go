@@ -31,9 +31,8 @@ import (
 	"sync"
 	"time"
 
-	liblog "github.com/nabbar/golib/logger"
-
 	libctx "github.com/nabbar/golib/context"
+	liblog "github.com/nabbar/golib/logger"
 	libprm "github.com/nabbar/golib/prometheus"
 )
 
@@ -44,17 +43,31 @@ type pool struct {
 	p  libctx.Config[string]
 }
 
+func (o *pool) setDefaultLog() {
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	lg := liblog.New(o.p.GetContext)
+	o.fl = func() liblog.Logger {
+		return lg
+	}
+}
+
 func (o *pool) getLog() liblog.Logger {
 	o.m.RLock()
 	defer o.m.RUnlock()
 
-	if o.fl == nil {
-		return liblog.GetDefault()
-	} else if l := o.fl(); l != nil {
-		return l
+	if o.fl != nil {
+		if l := o.fl(); l != nil {
+			return l
+		}
 	}
 
-	return liblog.GetDefault()
+	o.m.RUnlock()
+	o.setDefaultLog()
+	o.m.RLock()
+
+	return o.fl()
 }
 
 func (o *pool) InitMetrics(prm libprm.FuncGetPrometheus, log liblog.FuncLog) error {

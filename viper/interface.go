@@ -30,10 +30,12 @@ import (
 	"io"
 	"sync/atomic"
 
+	liblog "github.com/nabbar/golib/logger"
+
 	libmap "github.com/mitchellh/mapstructure"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 	spfvpr "github.com/spf13/viper"
 )
 
@@ -54,9 +56,9 @@ type Viper interface {
 	SetDefaultConfig(fct func() io.Reader)
 	SetConfigFile(fileConfig string) liberr.Error
 
-	Config(logLevelRemoteKO, logLevelRemoteOK liblog.Level) liberr.Error
+	Config(logLevelRemoteKO, logLevelRemoteOK loglvl.Level) liberr.Error
 	Viper() *spfvpr.Viper
-	WatchFS(logLevelFSInfo liblog.Level)
+	WatchFS(logLevelFSInfo loglvl.Level)
 	Unset(key ...string) error
 
 	HookRegister(hook libmap.DecodeHookFunc)
@@ -67,10 +69,17 @@ type Viper interface {
 	UnmarshalExact(rawVal interface{}) error
 }
 
-func New(ctx libctx.FuncContext) Viper {
+func New(ctx libctx.FuncContext, log liblog.FuncLog) Viper {
+	if log == nil {
+		l := liblog.New(ctx)
+		log = func() liblog.Logger {
+			return l
+		}
+	}
 	v := &viper{
 		v: spfvpr.New(),
 		i: new(atomic.Uint32),
+		l: log,
 		h: libctx.NewConfig[uint8](ctx),
 	}
 

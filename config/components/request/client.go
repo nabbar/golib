@@ -197,7 +197,6 @@ func (o *componentRequest) _runCli() liberr.Error {
 	cfg.SetDefaultLog(o.getLogger)
 
 	if req != nil {
-		req.RegisterDefaultLogger(o.getLogger)
 		if req, e = cfg.Update(o.x.GetContext, req); err != nil {
 			return prt.ErrorParent(e)
 		}

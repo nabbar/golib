@@ -31,6 +31,7 @@
 package nutsdb
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"runtime"
@@ -39,6 +40,7 @@ import (
 	"github.com/fxamacker/cbor/v2"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 	"github.com/nutsdb/nutsdb"
 )
 
@@ -103,7 +105,13 @@ func (c *CommandRequest) GetLogger() liblog.Logger {
 		return c.l()
 	}
 
-	return liblog.GetDefault()
+	var log = liblog.New(context.Background)
+
+	c.l = func() liblog.Logger {
+		return log
+	}
+
+	return log
 }
 
 func (c *CommandRequest) InitParams(num int) {
@@ -179,7 +187,7 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 	params := make([]reflect.Value, nbPrm)
 	for i := 0; i < nbPrm; i++ {
 		v := reflect.ValueOf(c.Params[i])
-		liblog.DebugLevel.Logf("Param %d : type %s - Val %v", i, v.Type().Name(), v.Interface())
+		c.GetLogger().Entry(loglvl.DebugLevel, "Param %d : type %s - Val %v", i, v.Type().Name(), v.Interface()).Log()
 
 		if v.Type().Kind() == method.Type().In(i).Kind() {
 			params[i] = v
@@ -231,7 +239,7 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 			params[i] = reflect.ValueOf(v.String())
 		}
 
-		liblog.DebugLevel.Logf("Change Param %d : type %s to %v", i, v.Type().Name(), params[i].Type().Name())
+		c.GetLogger().Entry(loglvl.DebugLevel, "Change Param %d : type %s to %v", i, v.Type().Name(), params[i].Type().Name()).Log()
 	}
 
 	resp := method.Call(params)

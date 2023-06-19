@@ -157,7 +157,16 @@ func (o *Options) New(ctx libctx.FuncContext) (Request, error) {
 	if n, e := New(ctx, o); e != nil {
 		return nil, e
 	} else {
-		n.RegisterDefaultLogger(o.log)
+		if o.log != nil {
+			l := o.log()
+			n.RegisterDefaultLogger(o.log)
+			if e = l.SetOptions(&o.Health.Monitor.Logger); e != nil {
+				return nil, e
+			}
+			n.RegisterDefaultLogger(func() liblog.Logger {
+				return l
+			})
+		}
 		n.RegisterHTTPClient(o.ClientHTTPTLS)
 		return n, nil
 	}
@@ -180,6 +189,19 @@ func (o *Options) Update(ctx libctx.FuncContext, req Request) (Request, error) {
 	if e = n.SetOption(o); e != nil {
 		return nil, e
 	}
+
+	if o.log != nil {
+		l := o.log()
+		n.RegisterDefaultLogger(o.log)
+		if e = l.SetOptions(&o.Health.Monitor.Logger); e != nil {
+			return nil, e
+		}
+		n.RegisterDefaultLogger(func() liblog.Logger {
+			return l
+		})
+	}
+
+	n.RegisterHTTPClient(o.ClientHTTPTLS)
 
 	return n, nil
 }

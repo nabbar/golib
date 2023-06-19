@@ -31,15 +31,20 @@
 package cluster
 
 import (
+	"context"
+
 	dgblog "github.com/lni/dragonboat/v3/logger"
 	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
 const LogLib = "DragonBoat"
 
 func SetLoggerFactory(log liblog.FuncLog) {
 	if log == nil {
-		log = liblog.GetDefault
+		log = func() liblog.Logger {
+			return liblog.New(context.Background)
+		}
 	}
 
 	dgblog.SetLoggerFactory(func(pkgName string) dgblog.ILogger {
@@ -62,42 +67,44 @@ func (l *logDragonBoat) SetLevel(level dgblog.LogLevel) {
 
 	switch level {
 	case dgblog.CRITICAL:
-		l.log().SetLevel(liblog.FatalLevel)
+		l.log().SetLevel(loglvl.FatalLevel)
 	case dgblog.ERROR:
-		l.log().SetLevel(liblog.ErrorLevel)
+		l.log().SetLevel(loglvl.ErrorLevel)
 	case dgblog.WARNING:
-		l.log().SetLevel(liblog.WarnLevel)
+		l.log().SetLevel(loglvl.WarnLevel)
 	case dgblog.INFO:
-		l.log().SetLevel(liblog.InfoLevel)
+		l.log().SetLevel(loglvl.InfoLevel)
 	case dgblog.DEBUG:
-		l.log().SetLevel(liblog.DebugLevel)
+		l.log().SetLevel(loglvl.DebugLevel)
 	}
 }
 
-func (l *logDragonBoat) logMsg(lvl liblog.Level, message string, args ...interface{}) {
+func (l *logDragonBoat) logMsg(lvl loglvl.Level, message string, args ...interface{}) {
 	if l.log == nil {
-		l.log = liblog.GetDefault
+		l.log = func() liblog.Logger {
+			return liblog.New(context.Background)
+		}
 	}
 
 	l.log().Entry(lvl, message, args...).FieldAdd("lib", LogLib).FieldAdd("pkg", l.pkg).Log()
 }
 
 func (l *logDragonBoat) Debugf(format string, args ...interface{}) {
-	l.logMsg(liblog.DebugLevel, format, args...)
+	l.logMsg(loglvl.DebugLevel, format, args...)
 }
 
 func (l *logDragonBoat) Infof(format string, args ...interface{}) {
-	l.logMsg(liblog.InfoLevel, format, args...)
+	l.logMsg(loglvl.InfoLevel, format, args...)
 }
 
 func (l *logDragonBoat) Warningf(format string, args ...interface{}) {
-	l.logMsg(liblog.WarnLevel, format, args...)
+	l.logMsg(loglvl.WarnLevel, format, args...)
 }
 
 func (l *logDragonBoat) Errorf(format string, args ...interface{}) {
-	l.logMsg(liblog.ErrorLevel, format, args...)
+	l.logMsg(loglvl.ErrorLevel, format, args...)
 }
 
 func (l *logDragonBoat) Panicf(format string, args ...interface{}) {
-	l.logMsg(liblog.FatalLevel, format, args...)
+	l.logMsg(loglvl.FatalLevel, format, args...)
 }

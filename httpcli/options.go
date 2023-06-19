@@ -33,6 +33,8 @@ import (
 	"net/http"
 	"time"
 
+	libptc "github.com/nabbar/golib/network/protocol"
+
 	cmptls "github.com/nabbar/golib/config/components/tls"
 	cfgcst "github.com/nabbar/golib/config/const"
 
@@ -112,7 +114,7 @@ func (o Options) GetClient(def libtls.TLSConfig, servername string) (*http.Clien
 	}
 
 	if o.ForceIP.Enable {
-		return GetClientTlsForceIp(GetNetworkFromString(o.ForceIP.Net), o.ForceIP.IP, servername, tls, o.Http2, o.Timeout)
+		return GetClientTlsForceIp(libptc.Parse(o.ForceIP.Net), o.ForceIP.IP, servername, tls, o.Http2, o.Timeout)
 	} else {
 		return GetClientTls(servername, tls, o.Http2, o.Timeout)
 	}

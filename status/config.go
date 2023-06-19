@@ -82,7 +82,7 @@ func (o *sts) SetConfig(cfg Config) {
 	if len(cfg.MandatoryComponent) < 1 {
 		o.x.Store(keyConfigMandatory, make([]string, 0))
 	} else {
-		o.x.Store(keyConfigMandatory, cfg.ReturnCode)
+		o.x.Store(keyConfigMandatory, cfg.MandatoryComponent)
 	}
 }
 

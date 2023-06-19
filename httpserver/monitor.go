@@ -32,6 +32,9 @@ import (
 	"fmt"
 	"runtime"
 
+	logent "github.com/nabbar/golib/logger/entry"
+	loglvl "github.com/nabbar/golib/logger/level"
+
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
@@ -39,7 +42,7 @@ import (
 )
 
 const (
-	defaultNameMonitor = "HTTP Server"
+	DefaultNameMonitor = "HTTP Server"
 )
 
 var (
@@ -47,16 +50,34 @@ var (
 )
 
 func (o *srv) HealthCheck(ctx context.Context) error {
+	var ent logent.Entry
+
+	if l := o.logger(); l != nil {
+		ent = l.Entry(loglvl.ErrorLevel, "Healthcheck")
+	}
+
 	o.m.RLock()
 	defer o.m.RUnlock()
 
 	if o.r == nil {
+		if ent != nil {
+			ent.ErrorAdd(true, errNotRunning).Check(loglvl.InfoLevel)
+		}
 		return errNotRunning
 	} else if e := o.runAndHealthy(ctx); e != nil {
+		if ent != nil {
+			ent.ErrorAdd(true, e).Check(loglvl.InfoLevel)
+		}
 		return e
 	} else if e = o.r.ErrorsLast(); e != nil {
+		if ent != nil {
+			ent.ErrorAdd(true, e).Check(loglvl.InfoLevel)
+		}
 		return e
 	} else {
+		if ent != nil {
+			ent.Check(loglvl.InfoLevel)
+		}
 		return nil
 	}
 }
@@ -72,6 +93,10 @@ func (o *srv) runAndHealthy(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (o *srv) MonitorName() string {
+	return fmt.Sprintf("%s [%s]", DefaultNameMonitor, o.GetBindable())
 }
 
 func (o *srv) Monitor(vrs libver.Version) (montps.Monitor, error) {
@@ -93,11 +118,11 @@ func (o *srv) Monitor(vrs libver.Version) (montps.Monitor, error) {
 	res["date"] = vrs.GetDate()
 	res["handler"] = o.HandlerGetValidKey()
 
-	if inf, e = moninf.New(defaultNameMonitor); e != nil {
+	if inf, e = moninf.New(DefaultNameMonitor); e != nil {
 		return nil, e
 	} else {
 		inf.RegisterName(func() (string, error) {
-			return fmt.Sprintf("%s [%s]", defaultNameMonitor, o.GetBindable()), nil
+			return o.MonitorName(), nil
 		})
 		inf.RegisterInfo(func() (map[string]interface{}, error) {
 			return res, nil

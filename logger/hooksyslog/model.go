@@ -25,98 +25,65 @@
  *
  **********************************************************************************************************************/
 
-package logger
+package hooksyslog
 
 import (
-	"fmt"
-	"io"
-	"os"
 	"strings"
+	"sync/atomic"
 
-	"github.com/mattn/go-colorable"
+	libptc "github.com/nabbar/golib/network/protocol"
+
+	logtps "github.com/nabbar/golib/logger/types"
 
 	"github.com/sirupsen/logrus"
 )
 
-type StdWriter uint8
+type ohks struct {
+	format           logrus.Formatter
+	levels           []logrus.Level
+	disableStack     bool
+	disableTimestamp bool
+	enableTrace      bool
+	enableAccessLog  bool
 
-const (
-	StdOut StdWriter = iota
-	StdErr
-)
+	network  libptc.NetworkProtocol
+	endpoint string
 
-type HookStandard interface {
-	logrus.Hook
-	io.WriteCloser
-	RegisterHook(log *logrus.Logger)
+	tag string
+	fac SyslogFacility
+	//	Sev SyslogSeverity
 }
 
-type _HookStd struct {
-	w io.Writer
-	l []logrus.Level
-	s bool // Disable Stack
-	d bool // Disable Timestamp
-	t bool // Disable Trace
-	a bool // Enable AccessLog
+type hks struct {
+	s *atomic.Value // channel stop struct{}
+	d *atomic.Value // channel data []byte
+	o ohks          // config data
 }
 
-func NewHookStandard(opt Options, s StdWriter, lvls []logrus.Level) HookStandard {
-	if len(lvls) < 1 {
-		lvls = logrus.AllLevels
-	}
-
-	var w io.Writer
-
-	if opt.DisableColor {
-		switch s {
-		case StdErr:
-			w = os.Stderr
-		default:
-			w = os.Stdout
-		}
-	} else {
-		switch s {
-		case StdErr:
-			w = colorable.NewColorableStderr()
-		default:
-			w = colorable.NewColorableStderr()
-		}
-	}
-
-	return &_HookStd{
-		w: w,
-		l: lvls,
-		s: opt.DisableStack,
-		d: opt.DisableTimestamp,
-		t: opt.EnableTrace,
-		a: opt.EnableAccessLog,
-	}
+func (o *hks) Levels() []logrus.Level {
+	return o.getLevel()
 }
 
-func (o *_HookStd) RegisterHook(log *logrus.Logger) {
+func (o *hks) RegisterHook(log *logrus.Logger) {
 	log.AddHook(o)
 }
 
-func (o *_HookStd) Levels() []logrus.Level {
-	return o.l
-}
-
-func (o *_HookStd) Fire(entry *logrus.Entry) error {
+func (o *hks) Fire(entry *logrus.Entry) error {
 	ent := entry.Dup()
 	ent.Level = entry.Level
 
-	if o.s {
-		ent.Data = o.filterKey(ent.Data, FieldStack)
+	if o.getDisableStack() {
+		ent.Data = o.filterKey(ent.Data, logtps.FieldStack)
 	}
 
-	if o.d {
-		ent.Data = o.filterKey(ent.Data, FieldTime)
+	if o.getDisableTimestamp() {
+		ent.Data = o.filterKey(ent.Data, logtps.FieldTime)
 	}
 
-	if !o.t {
-		ent.Data = o.filterKey(ent.Data, FieldCaller)
-		ent.Data = o.filterKey(ent.Data, FieldFile)
-		ent.Data = o.filterKey(ent.Data, FieldLine)
+	if !o.getEnableTrace() {
+		ent.Data = o.filterKey(ent.Data, logtps.FieldCaller)
+		ent.Data = o.filterKey(ent.Data, logtps.FieldFile)
+		ent.Data = o.filterKey(ent.Data, logtps.FieldLine)
 	}
 
 	var (
@@ -124,7 +91,7 @@ func (o *_HookStd) Fire(entry *logrus.Entry) error {
 		e error
 	)
 
-	if o.a {
+	if o.getEnableAccessLog() {
 		if len(entry.Message) > 0 {
 			if !strings.HasSuffix(entry.Message, "\n") {
 				entry.Message += "\n"
@@ -136,31 +103,43 @@ func (o *_HookStd) Fire(entry *logrus.Entry) error {
 	} else {
 		if len(ent.Data) < 1 {
 			return nil
-		} else if p, e = ent.Bytes(); e != nil {
+		}
+
+		if f := o.getFormatter(); f != nil {
+			p, e = f.Format(ent)
+		} else {
+			p, e = ent.Bytes()
+		}
+
+		if e != nil {
 			return e
 		}
 	}
 
-	if _, e = o.Write(p); e != nil {
+	switch ent.Level {
+	case logrus.PanicLevel:
+		_, e = o.WriteSev(SyslogSeverityAlert, p)
+	case logrus.FatalLevel:
+		_, e = o.WriteSev(SyslogSeverityCrit, p)
+	case logrus.ErrorLevel:
+		_, e = o.WriteSev(SyslogSeverityErr, p)
+	case logrus.WarnLevel:
+		_, e = o.WriteSev(SyslogSeverityWarning, p)
+	case logrus.InfoLevel:
+		_, e = o.WriteSev(SyslogSeverityInfo, p)
+	case logrus.DebugLevel:
+		_, e = o.WriteSev(SyslogSeverityDebug, p)
+	default:
+		_, e = o.Write(p)
+	}
+	if e != nil {
 		return e
 	}
 
 	return nil
 }
 
-func (o *_HookStd) Write(p []byte) (n int, err error) {
-	if o.w == nil {
-		return 0, fmt.Errorf("logrus.hookstd: writer not setup")
-	}
-
-	return o.w.Write(p)
-}
-
-func (o *_HookStd) Close() error {
-	return nil
-}
-
-func (o *_HookStd) filterKey(f logrus.Fields, key string) logrus.Fields {
+func (o *hks) filterKey(f logrus.Fields, key string) logrus.Fields {
 	if len(f) < 1 {
 		return f
 	}
@@ -171,16 +150,4 @@ func (o *_HookStd) filterKey(f logrus.Fields, key string) logrus.Fields {
 		delete(f, key)
 		return f
 	}
-	/*
-		var res = make(map[string]interface{}, 0)
-
-		for k, v := range f {
-			if k == key {
-				continue
-			}
-			res[k] = v
-		}
-
-		return res
-	*/
 }

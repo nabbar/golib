@@ -28,7 +28,7 @@ package log
 
 import (
 	liberr "github.com/nabbar/golib/errors"
-	liblog "github.com/nabbar/golib/logger"
+	logcfg "github.com/nabbar/golib/logger/config"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -70,10 +70,10 @@ func (o *componentLog) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentLog) _getConfig() (*liblog.Options, liberr.Error) {
+func (o *componentLog) _getConfig() (*logcfg.Options, liberr.Error) {
 	var (
 		key string
-		cfg liblog.Options
+		cfg logcfg.Options
 		vpr *spfvpr.Viper
 		err liberr.Error
 	)
@@ -88,20 +88,24 @@ func (o *componentLog) _getConfig() (*liblog.Options, liberr.Error) {
 		return nil, ErrorParamInvalid.ErrorParent(e)
 	}
 
+	if cfg.Stdout == nil {
+		cfg.Stdout = &logcfg.OptionsStd{}
+	}
+
 	if val := vpr.GetBool(key + "disableStandard"); val {
-		cfg.DisableStandard = true
+		cfg.Stdout.DisableStandard = true
 	}
 
 	if val := vpr.GetBool(key + "disableStack"); val {
-		cfg.DisableStack = true
+		cfg.Stdout.DisableStack = true
 	}
 
 	if val := vpr.GetBool(key + "disableTimestamp"); val {
-		cfg.DisableTimestamp = true
+		cfg.Stdout.DisableTimestamp = true
 	}
 
 	if val := vpr.GetBool(key + "enableTrace"); val {
-		cfg.EnableTrace = true
+		cfg.Stdout.EnableTrace = true
 	}
 
 	if val := vpr.GetString(key + "traceFilter"); val != "" {
@@ -109,7 +113,7 @@ func (o *componentLog) _getConfig() (*liblog.Options, liberr.Error) {
 	}
 
 	if val := vpr.GetBool(key + "disableColor"); val {
-		cfg.DisableColor = true
+		cfg.Stdout.DisableColor = true
 	}
 
 	if err = cfg.Validate(); err != nil {

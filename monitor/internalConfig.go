@@ -30,11 +30,10 @@ import (
 	"time"
 
 	libctx "github.com/nabbar/golib/context"
-
-	"github.com/nabbar/golib/monitor/types"
-
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	logcfg "github.com/nabbar/golib/logger/config"
+	montps "github.com/nabbar/golib/monitor/types"
 )
 
 type runCfg struct {
@@ -101,7 +100,7 @@ func (o *mon) getLoggerDefault() liblog.Logger {
 	}
 }
 
-func (o *mon) SetConfig(ctx libctx.FuncContext, cfg types.Config) liberr.Error {
+func (o *mon) SetConfig(ctx libctx.FuncContext, cfg montps.Config) liberr.Error {
 	if ctx == nil {
 		ctx = o.x.GetContext
 	}
@@ -175,17 +174,12 @@ func (o *mon) SetConfig(ctx libctx.FuncContext, cfg types.Config) liberr.Error {
 
 	f := n.GetFields()
 	n.SetFields(f.Add(LogFieldProcess, LogValueProcess).Add(LogFieldName, cfg.Name))
-	n.SetLevel(liblog.GetCurrentLevel())
-
-	if l := o.getLog(); l != nil {
-		_ = l.Close()
-	}
 
 	o.x.Store(keyLogger, n)
 	return nil
 }
 
-func (o *mon) GetConfig() types.Config {
+func (o *mon) GetConfig() montps.Config {
 	cfg := o.getCfg()
 	if cfg == nil {
 		cfg = &runCfg{}
@@ -193,10 +187,10 @@ func (o *mon) GetConfig() types.Config {
 
 	opt := o.getLogger().GetOptions()
 	if opt == nil {
-		opt = &liblog.Options{}
+		opt = &logcfg.Options{}
 	}
 
-	return types.Config{
+	return montps.Config{
 		Name:          o.getName(),
 		CheckTimeout:  cfg.checkTimeout,
 		IntervalCheck: cfg.intervalCheck,
@@ -244,16 +238,16 @@ func (o *mon) getLogger() liblog.Logger {
 	i := o.getLog()
 
 	if i == nil {
-		return liblog.GetDefault()
+		return liblog.New(o.x.GetContext)
 	} else {
 		return i
 	}
 }
 
-func (o *mon) getFct() types.HealthCheck {
+func (o *mon) getFct() montps.HealthCheck {
 	if i, l := o.x.Load(keyHealthCheck); !l {
 		return nil
-	} else if v, k := i.(types.HealthCheck); !k {
+	} else if v, k := i.(montps.HealthCheck); !k {
 		return nil
 	} else {
 		return v

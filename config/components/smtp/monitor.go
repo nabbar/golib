@@ -85,6 +85,10 @@ func (o *componentSmtp) _registerMonitor(cfg *montps.Config) error {
 
 	mon.RegisterLoggerDefault(o.getLogger)
 
+	if cfg.Name != key {
+		cfg.Name = key
+	}
+
 	if e = mon.SetConfig(o.x.GetContext, *cfg); e != nil {
 		return e
 	}

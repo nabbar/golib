@@ -66,13 +66,34 @@ func (s *staticHandler) _getLogger() liblog.Logger {
 	s.m.RLock()
 	defer s.m.RUnlock()
 
+	var log liblog.Logger
+
 	if s.l == nil {
-		return liblog.GetDefault()
-	} else if log := s.l(); log == nil {
-		return liblog.GetDefault()
+		s.m.RUnlock()
+		log = s._getDefaultLogger()
+		s.m.RLock()
+		return log
+	} else if log = s.l(); log == nil {
+		s.m.RUnlock()
+		log = s._getDefaultLogger()
+		s.m.RLock()
+		return log
 	} else {
 		return log
 	}
+}
+
+func (s *staticHandler) _getDefaultLogger() liblog.Logger {
+	s.m.Lock()
+	defer s.m.Unlock()
+
+	var log = liblog.New(s.d.GetContext)
+
+	s.l = func() liblog.Logger {
+		return log
+	}
+
+	return log
 }
 
 func (s *staticHandler) RegisterLogger(log func() liblog.Logger) {

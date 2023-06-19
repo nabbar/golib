@@ -31,68 +31,64 @@ import (
 	"io"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	libctx "github.com/nabbar/golib/context"
 	iotclo "github.com/nabbar/golib/ioutils/mapCloser"
 
-	"github.com/hashicorp/go-hclog"
-
+	libctx "github.com/nabbar/golib/context"
+	logcfg "github.com/nabbar/golib/logger/config"
+	logent "github.com/nabbar/golib/logger/entry"
+	logfld "github.com/nabbar/golib/logger/fields"
+	loglvl "github.com/nabbar/golib/logger/level"
 	jww "github.com/spf13/jwalterweatherman"
 )
 
 type FuncLog func() Logger
-type FuncOpt func() *Options
 
 type Logger interface {
 	io.WriteCloser
 
 	//SetLevel allow to change the minimal level of log message
-	SetLevel(lvl Level)
+	SetLevel(lvl loglvl.Level)
 
 	//GetLevel return the minimal level of log message
-	GetLevel() Level
+	GetLevel() loglvl.Level
 
 	//SetIOWriterLevel allow to change the minimal level of log message for io.WriterCloser interface
-	SetIOWriterLevel(lvl Level)
+	SetIOWriterLevel(lvl loglvl.Level)
 
 	//GetIOWriterLevel return the minimal level of log message for io.WriterCloser interface
-	GetIOWriterLevel() Level
+	GetIOWriterLevel() loglvl.Level
 
 	// SetIOWriterFilter allow to filter message that contained the given pattern. If the pattern is found, the log is drop.
 	SetIOWriterFilter(pattern string)
 
 	//SetOptions allow to set or update the options for the logger
-	SetOptions(opt *Options) error
+	SetOptions(opt *logcfg.Options) error
 
 	//GetOptions return the options for the logger
-	GetOptions() *Options
+	GetOptions() *logcfg.Options
 
 	//SetFields allow to set or update the default fields for all logger entry
 	// Fields are custom information added into log message
-	SetFields(field Fields)
+	SetFields(field logfld.Fields)
 
 	//GetFields return the default fields for all logger entry
 	// Fields are custom information added into log message
-	GetFields() Fields
+	GetFields() logfld.Fields
 
 	//Clone allow to duplicate the logger with a copy of the logger
 	Clone() Logger
 
 	//SetSPF13Level allow to plus spf13 logger (jww) to this logger
-	SetSPF13Level(lvl Level, log *jww.Notepad)
+	SetSPF13Level(lvl loglvl.Level, log *jww.Notepad)
 
 	//GetStdLogger return a golang log.logger instance linked with this main logger.
-	GetStdLogger(lvl Level, logFlags int) *log.Logger
+	GetStdLogger(lvl loglvl.Level, logFlags int) *log.Logger
 
 	//SetStdLogger force the default golang log.logger instance linked with this main logger.
-	SetStdLogger(lvl Level, logFlags int)
-
-	//SetHashicorpHCLog force mapping default Hshicorp logger hclog to current logger
-	SetHashicorpHCLog()
-
-	//NewHashicorpHCLog return a new Hshicorp logger hclog mapped current logger
-	NewHashicorpHCLog() hclog.Logger
+	SetStdLogger(lvl loglvl.Level, logFlags int)
 
 	//Debug add an entry with DebugLevel to the logger
 	Debug(message string, data interface{}, args ...interface{})
@@ -115,17 +111,17 @@ type Logger interface {
 	Panic(message string, data interface{}, args ...interface{})
 
 	//LogDetails add an entry to the logger
-	LogDetails(lvl Level, message string, data interface{}, err []error, fields Fields, args ...interface{})
+	LogDetails(lvl loglvl.Level, message string, data interface{}, err []error, fields logfld.Fields, args ...interface{})
 
 	//CheckError will check if a not nil error is given and if yes, will add an entry to the logger.
 	// Othwise if the lvlOK is given (and not NilLevel) the function will add entry and said ok
-	CheckError(lvlKO, lvlOK Level, message string, err ...error) bool
+	CheckError(lvlKO, lvlOK loglvl.Level, message string, err ...error) bool
 
 	//Entry will return an entry struct to manage it (set gin context, add fields, log the entry...)
-	Entry(lvl Level, message string, args ...interface{}) *Entry
+	Entry(lvl loglvl.Level, message string, args ...interface{}) logent.Entry
 
 	//Access will return an entry struct to store info level access log message
-	Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) *Entry
+	Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) logent.Entry
 }
 
 // New return a new logger interface pointer
@@ -133,11 +129,12 @@ func New(ctx libctx.FuncContext) Logger {
 	l := &logger{
 		m: sync.RWMutex{},
 		x: libctx.NewConfig[uint8](ctx),
-		f: NewFields(ctx),
-		c: iotclo.New(ctx),
+		f: logfld.New(ctx),
+		c: new(atomic.Value),
 	}
 
-	l.SetLevel(InfoLevel)
+	l.c.Store(iotclo.New(ctx))
+	l.SetLevel(loglvl.InfoLevel)
 
 	return l
 }

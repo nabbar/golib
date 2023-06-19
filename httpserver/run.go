@@ -33,7 +33,7 @@ import (
 	"net/http"
 
 	srvtps "github.com/nabbar/golib/httpserver/types"
-	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 	librun "github.com/nabbar/golib/server/runner/startStop"
 )
 
@@ -141,11 +141,11 @@ func (o *srv) runFuncStart(ctx context.Context) (err error) {
 
 	defer func() {
 		if tls {
-			ent := o.logger().Entry(liblog.InfoLevel, "TLS HTTP Server stopped")
+			ent := o.logger().Entry(loglvl.InfoLevel, "TLS HTTP Server stopped")
 			ent.ErrorAdd(true, err)
 			ent.Log()
 		} else {
-			ent := o.logger().Entry(liblog.InfoLevel, "HTTP Server stopped")
+			ent := o.logger().Entry(loglvl.InfoLevel, "HTTP Server stopped")
 			ent.ErrorAdd(true, err)
 			ent.Log()
 		}
@@ -153,13 +153,13 @@ func (o *srv) runFuncStart(ctx context.Context) (err error) {
 
 	if ser = o.getServer(); ser == nil {
 		if err = o.setServer(ctx); err != nil {
-			ent := o.logger().Entry(liblog.ErrorLevel, "starting http server")
+			ent := o.logger().Entry(loglvl.ErrorLevel, "starting http server")
 			ent.ErrorAdd(true, err)
 			ent.Log()
 			return err
 		} else if ser = o.getServer(); ser == nil {
 			err = ErrorServerStart.ErrorParent(fmt.Errorf("cannot create new server, cannot retrieve server"))
-			ent := o.logger().Entry(liblog.ErrorLevel, "starting http server")
+			ent := o.logger().Entry(loglvl.ErrorLevel, "starting http server")
 			ent.ErrorAdd(true, err)
 			ent.Log()
 			return err
@@ -175,10 +175,10 @@ func (o *srv) runFuncStart(ctx context.Context) (err error) {
 	}
 
 	if tls {
-		o.logger().Entry(liblog.InfoLevel, "TLS HTTP Server is starting").Log()
+		o.logger().Entry(loglvl.InfoLevel, "TLS HTTP Server is starting").Log()
 		err = ser.ListenAndServeTLS("", "")
 	} else {
-		o.logger().Entry(liblog.InfoLevel, "HTTP Server is starting").Log()
+		o.logger().Entry(loglvl.InfoLevel, "HTTP Server is starting").Log()
 		err = ser.ListenAndServe()
 	}
 
@@ -197,11 +197,11 @@ func (o *srv) runFuncStop(ctx context.Context) (err error) {
 	defer func() {
 		o.delServer()
 		if tls {
-			ent := o.logger().Entry(liblog.InfoLevel, "Shutdown of TLS HTTP Server has been called")
+			ent := o.logger().Entry(loglvl.InfoLevel, "Shutdown of TLS HTTP Server has been called")
 			ent.ErrorAdd(true, err)
 			ent.Log()
 		} else {
-			ent := o.logger().Entry(liblog.InfoLevel, "Shutdown of HTTP Server has been called")
+			ent := o.logger().Entry(loglvl.InfoLevel, "Shutdown of HTTP Server has been called")
 			ent.ErrorAdd(true, err)
 			ent.Log()
 		}
@@ -209,7 +209,7 @@ func (o *srv) runFuncStop(ctx context.Context) (err error) {
 
 	if ser = o.getServer(); ser == nil {
 		err = ErrorServerStart.ErrorParent(fmt.Errorf("cannot retrieve server"))
-		ent := o.logger().Entry(liblog.ErrorLevel, "starting http server")
+		ent := o.logger().Entry(loglvl.ErrorLevel, "starting http server")
 		ent.ErrorAdd(true, err)
 		ent.Log()
 		return err
@@ -218,9 +218,9 @@ func (o *srv) runFuncStop(ctx context.Context) (err error) {
 	}
 
 	if tls {
-		o.logger().Entry(liblog.InfoLevel, "Calling TLS HTTP Server shutdown").Log()
+		o.logger().Entry(loglvl.InfoLevel, "Calling TLS HTTP Server shutdown").Log()
 	} else {
-		o.logger().Entry(liblog.InfoLevel, "Calling HTTP Server shutdown").Log()
+		o.logger().Entry(loglvl.InfoLevel, "Calling HTTP Server shutdown").Log()
 	}
 
 	err = ser.Shutdown(x)

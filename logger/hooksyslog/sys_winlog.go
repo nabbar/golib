@@ -28,11 +28,13 @@
  *
  **********************************************************************************************************************/
 
-package logger
+package hooksyslog
 
 import (
 	"sync/atomic"
 	"time"
+
+	libptc "github.com/nabbar/golib/network/protocol"
 
 	"golang.org/x/sys/windows/svc/eventlog"
 )
@@ -125,13 +127,13 @@ type _WinLog struct {
 	w *eventlog.Log
 }
 
-func newSyslog(net NetworkType, host, tag string, facility SyslogFacility) (syslogWrapper, error) {
+func newSyslog(net libptc.NetworkProtocol, host, tag string, facility SyslogFacility) (Wrapper, error) {
 	var (
 		sys *eventlog.Log
 		err error
 	)
 
-	if net != NetworkEmpty {
+	if net != libptc.NetworkEmpty {
 		sys, err = eventlog.OpenRemote(host, tag)
 	} else {
 		if err = windowsRegister(tag); err != nil {
@@ -146,7 +148,7 @@ func newSyslog(net NetworkType, host, tag string, facility SyslogFacility) (sysl
 	}
 
 	return &_WinLog{
-		r: net != NetworkEmpty,
+		r: net != libptc.NetworkEmpty,
 		s: tag,
 		w: sys,
 	}, nil
