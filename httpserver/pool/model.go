@@ -108,6 +108,17 @@ func (o *pool) context() context.Context {
 	return o.p.GetContext()
 }
 
+func (o *pool) MonitorNames() []string {
+	var res = make([]string, 0)
+
+	o.Walk(func(bindAddress string, srv libhtp.Server) bool {
+		res = append(res, srv.MonitorName())
+		return true
+	})
+
+	return res
+}
+
 func (o *pool) Monitor(vrs libver.Version) ([]montps.Monitor, liberr.Error) {
 	var (
 		res = make([]montps.Monitor, 0)

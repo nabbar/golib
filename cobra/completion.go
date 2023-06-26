@@ -31,7 +31,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 	spfcbr "github.com/spf13/cobra"
 )
 
@@ -57,37 +57,37 @@ func (c *cobra) AddCommandCompletion() {
 			var file string
 
 			if len(args) < 1 {
-				c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "missing args", cmd.Usage())
+				c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "missing args", cmd.Usage())
 				os.Exit(1)
 			} else if len(args) >= 2 {
 				file = filepath.Clean(args[1])
-				c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "create file path", os.MkdirAll(filepath.Dir(file), 0755))
+				c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "create file path", os.MkdirAll(filepath.Dir(file), 0755))
 			}
 
 			switch strings.ToLower(args[0]) {
 			case "bash":
 				if file == "" {
-					c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "generating bash completion", c.c.GenBashCompletionV2(os.Stdout, true))
+					c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "generating bash completion", c.c.GenBashCompletionV2(os.Stdout, true))
 				} else {
-					c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "generating bash completion", c.c.GenBashCompletionFileV2(file, true))
+					c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "generating bash completion", c.c.GenBashCompletionFileV2(file, true))
 				}
 			case "fish":
 				if file == "" {
-					c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "generating bash completion", c.c.GenFishCompletion(os.Stdout, true))
+					c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "generating bash completion", c.c.GenFishCompletion(os.Stdout, true))
 				} else {
-					c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "generating bash completion", c.c.GenFishCompletionFile(file, true))
+					c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "generating bash completion", c.c.GenFishCompletionFile(file, true))
 				}
 			case "powershell":
 				if file == "" {
-					c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "generating bash completion", c.c.GenPowerShellCompletionWithDesc(os.Stdout))
+					c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "generating bash completion", c.c.GenPowerShellCompletionWithDesc(os.Stdout))
 				} else {
-					c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "generating bash completion", c.c.GenPowerShellCompletionFileWithDesc(file))
+					c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "generating bash completion", c.c.GenPowerShellCompletionFileWithDesc(file))
 				}
 			case "zsh":
 				if file == "" {
-					c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "generating bash completion", c.c.GenZshCompletion(os.Stdout))
+					c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "generating bash completion", c.c.GenZshCompletion(os.Stdout))
 				} else {
-					c.getLog().CheckError(liblog.ErrorLevel, liblog.NilLevel, "generating bash completion", c.c.GenZshCompletionFile(file))
+					c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "generating bash completion", c.c.GenZshCompletionFile(file))
 				}
 			}
 		},

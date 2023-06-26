@@ -30,6 +30,7 @@ import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	logcfg "github.com/nabbar/golib/logger/config"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 	spfvbr "github.com/spf13/viper"
@@ -151,7 +152,7 @@ func (o *componentLog) _runCli() liberr.Error {
 		e   error
 		err liberr.Error
 		prt = ErrorReloadLog
-		cfg *liblog.Options
+		cfg *logcfg.Options
 	)
 
 	if !o.IsStarted() {

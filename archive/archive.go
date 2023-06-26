@@ -37,7 +37,6 @@ import (
 	libzip "github.com/nabbar/golib/archive/zip"
 	liberr "github.com/nabbar/golib/errors"
 	libiot "github.com/nabbar/golib/ioutils"
-	liblog "github.com/nabbar/golib/logger"
 )
 
 type ArchiveType uint8
@@ -125,33 +124,22 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 		return ErrorFileOpen.Error(err)
 	}
 
-	liblog.DebugLevel.Log("try BZ2...")
 	if err = libbz2.GetFile(src, tmp); err == nil {
-		liblog.DebugLevel.Log("try another archive...")
 		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
 	} else if !err.IsCodeError(libbz2.ErrorIOCopy) {
-		liblog.DebugLevel.Logf("error found on BZ2 : %v", err)
 		return err
-	} else {
-		liblog.DebugLevel.Logf("not a BZ2 : %v", err)
 	}
 
-	liblog.DebugLevel.Log("try GZIP...")
 	if err = libgzp.GetFile(src, tmp); err == nil {
-		liblog.DebugLevel.Log("try another archive...")
 		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
 	} else if !err.IsCodeError(libgzp.ErrorGZReader) {
-		liblog.DebugLevel.Logf("error found on GZIP : %v", err)
 		return err
-	} else {
-		liblog.DebugLevel.Logf("not a GZIP : %v", err)
 	}
 
 	if tmp != nil {
 		_ = tmp.Close()
 	}
 
-	liblog.DebugLevel.Log("prepare output...")
 	if i, e := os.Stat(outputPath); e != nil && os.IsNotExist(e) {
 		//nolint #nosec
 		/* #nosec */
@@ -164,29 +152,18 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 		return ErrorDirNotDir.Error(nil)
 	}
 
-	liblog.DebugLevel.Log("try tar...")
 	if err = libtar.GetAll(src, outputPath, defaultDirPerm); err == nil {
-		liblog.DebugLevel.Log("extracting TAR finished...")
 		return nil
 	} else if !err.IsCodeError(libtar.ErrorTarNext) {
-		liblog.DebugLevel.Logf("error found on TAR : %v", err)
 		return err
-	} else {
-		liblog.DebugLevel.Logf("not a TAR : %v", err)
 	}
 
-	liblog.DebugLevel.Log("try zip...")
 	if err = libzip.GetAll(src, outputPath, defaultDirPerm); err == nil {
-		liblog.DebugLevel.Log("extracting ZIP finished...")
 		return nil
 	} else if !err.IsCodeError(libzip.ErrorZipOpen) {
-		liblog.DebugLevel.Logf("error found on ZIP : %v", err)
 		return err
-	} else {
-		liblog.DebugLevel.Logf("not a ZIP : %v", err)
 	}
 
-	liblog.DebugLevel.Log("writing original file...")
 	if dst, err = src.NewFilePathWrite(filepath.Join(outputPath, originalName), true, true, 0664); err != nil {
 		return ErrorFileOpen.Error(err)
 	}

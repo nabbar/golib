@@ -36,11 +36,14 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	iotclo "github.com/nabbar/golib/ioutils/mapCloser"
+	logcfg "github.com/nabbar/golib/logger/config"
+	logfld "github.com/nabbar/golib/logger/fields"
+	loglvl "github.com/nabbar/golib/logger/level"
 	"github.com/sirupsen/logrus"
 )
 
@@ -52,6 +55,8 @@ const (
 	keyLogrus
 	keyWriter
 	keyFilter
+	keyFctUpdLog
+	keyFctUpdLvl
 
 	_TraceFilterMod    = "/pkg/mod/"
 	_TraceFilterVendor = "/vendor/"
@@ -62,8 +67,8 @@ var _selfPackage = path.Base(reflect.TypeOf(logger{}).PkgPath())
 type logger struct {
 	m sync.RWMutex
 	x libctx.Config[uint8] // cf const key...
-	f Fields               // fields map
-	c iotclo.Closer
+	f logfld.Fields        // fields map
+	c *atomic.Value        // closer
 }
 
 func defaultFormatter() logrus.TextFormatter {
@@ -86,7 +91,7 @@ func defaultFormatter() logrus.TextFormatter {
 	}
 }
 
-func (o *logger) defaultFormatter(opt *Options) logrus.Formatter {
+func (o *logger) defaultFormatter(opt *logcfg.OptionsStd) logrus.Formatter {
 	f := defaultFormatter()
 
 	if opt != nil && opt.DisableColor {
@@ -128,69 +133,22 @@ func (o *logger) cancelCall() {
 	}
 }
 
-func (o *logger) optionsMerge(opt *Options) {
-	if !opt.InheritDefault {
+func (o *logger) optionsMerge(opt *logcfg.Options) {
+	var oo logcfg.Options
+
+	if i, l := o.x.Load(keyOptions); !l {
 		return
-	}
-
-	var no Options
-
-	if opt.opts != nil {
-		no = *opt.opts()
-	} else if i, l := o.x.Load(keyOptions); !l {
+	} else if v, k := i.(*logcfg.Options); !k {
 		return
-	} else if v, k := i.(*Options); !k {
-		return
-	} else if v.opts != nil {
-		no = *v.opts()
 	} else {
-		no = *v
+		oo = *v
 	}
 
-	if opt.DisableStandard {
-		no.DisableStandard = true
-	}
-
-	if opt.DisableStack {
-		no.DisableStack = true
-	}
-
-	if opt.DisableTimestamp {
-		no.DisableTimestamp = true
-	}
-
-	if opt.EnableTrace {
-		no.EnableTrace = true
-	}
-
-	if len(opt.TraceFilter) > 0 {
-		no.TraceFilter = opt.TraceFilter
-	}
-
-	if opt.DisableColor {
-		no.DisableColor = true
-	}
-
-	if opt.EnableAccessLog {
-		no.EnableAccessLog = true
-	}
-
-	if opt.LogFileExtend {
-		no.LogFile = append(no.LogFile, opt.LogFile...)
-	} else {
-		no.LogFile = opt.LogFile
-	}
-
-	if opt.LogSyslogExtend {
-		no.LogSyslog = append(no.LogSyslog, opt.LogSyslog...)
-	} else {
-		no.LogSyslog = opt.LogSyslog
-	}
-
-	*opt = no
+	oo.Merge(opt)
+	*opt = oo
 }
 
-func (o *logger) setLogrusLevel(lvl Level) {
+func (o *logger) setLogrusLevel(lvl loglvl.Level) {
 	if i, l := o.x.Load(keyLogrus); !l {
 		return
 	} else if v, k := i.(*logrus.Logger); !k {

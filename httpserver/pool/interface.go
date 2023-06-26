@@ -54,6 +54,8 @@ type Manage interface {
 
 	StoreNew(cfg libhtp.Config, defLog liblog.FuncLog) error
 	LoadAndDelete(bindAddress string) (val libhtp.Server, loaded bool)
+
+	MonitorNames() []string
 }
 
 type Filter interface {

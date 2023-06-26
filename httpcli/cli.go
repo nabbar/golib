@@ -33,6 +33,8 @@ import (
 	"net/url"
 	"time"
 
+	libptc "github.com/nabbar/golib/network/protocol"
+
 	"golang.org/x/net/http2"
 
 	libtls "github.com/nabbar/golib/certificates"
@@ -97,7 +99,7 @@ func GetClientTls(serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalT
 	return getclient(tr, http2Tr, GlobalTimeout)
 }
 
-func GetClientTlsForceIp(netw Network, ip string, serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
+func GetClientTlsForceIp(netw libptc.NetworkProtocol, ip string, serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
 	u := &url.URL{
 		Host: ip,
 	}

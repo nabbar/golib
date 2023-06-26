@@ -25,82 +25,49 @@
  *
  **********************************************************************************************************************/
 
-package logger
+package hookstdout
 
 import (
 	"io"
-	"log"
+	"os"
 
-	"github.com/hashicorp/go-hclog"
-	jww "github.com/spf13/jwalterweatherman"
+	"github.com/mattn/go-colorable"
+	logcfg "github.com/nabbar/golib/logger/config"
+	logtps "github.com/nabbar/golib/logger/types"
+	"github.com/sirupsen/logrus"
 )
 
-func (o *logger) GetStdLogger(lvl Level, logFlags int) *log.Logger {
-	o.SetIOWriterLevel(lvl)
-	return log.New(o, "", logFlags)
+type HookStdOut interface {
+	logtps.Hook
 }
 
-func (o *logger) SetStdLogger(lvl Level, logFlags int) {
-	o.SetIOWriterLevel(lvl)
-	log.SetOutput(o)
-	log.SetPrefix("")
-	log.SetFlags(logFlags)
-}
+func New(opt *logcfg.OptionsStd, lvls []logrus.Level, f logrus.Formatter) (HookStdOut, error) {
+	if opt == nil || opt.DisableStandard {
+		return nil, nil
+	}
 
-func (o *logger) SetSPF13Level(lvl Level, log *jww.Notepad) {
-	var (
-		fOutLog func(handle io.Writer)
-		fLvl    func(threshold jww.Threshold)
-	)
+	if len(lvls) < 1 {
+		lvls = logrus.AllLevels
+	}
 
-	if log == nil {
-		jww.SetStdoutOutput(io.Discard)
-		fOutLog = jww.SetLogOutput
-		fLvl = jww.SetLogThreshold
+	var w io.Writer
+
+	if opt.DisableColor {
+		w = os.Stdout
 	} else {
-		fOutLog = log.SetLogOutput
-		fLvl = log.SetLogThreshold
+		w = colorable.NewColorableStdout()
 	}
 
-	switch lvl {
-	case NilLevel:
-		fOutLog(io.Discard)
-		fLvl(jww.LevelCritical)
-
-	case DebugLevel:
-		fOutLog(o)
-		if opt := o.GetOptions(); opt.EnableTrace {
-			fLvl(jww.LevelTrace)
-		} else {
-			fLvl(jww.LevelDebug)
-		}
-
-	case InfoLevel:
-		fOutLog(o)
-		fLvl(jww.LevelInfo)
-	case WarnLevel:
-		fOutLog(o)
-		fLvl(jww.LevelWarn)
-	case ErrorLevel:
-		fOutLog(o)
-		fLvl(jww.LevelError)
-	case FatalLevel:
-		fOutLog(o)
-		fLvl(jww.LevelFatal)
-	case PanicLevel:
-		fOutLog(o)
-		fLvl(jww.LevelCritical)
+	n := &hkstd{
+		w: w,
+		l: lvls,
+		f: f,
+		s: opt.DisableStack,
+		d: opt.DisableTimestamp,
+		t: opt.EnableTrace,
+		c: opt.DisableColor,
+		a: opt.EnableAccessLog,
 	}
-}
 
-func (o *logger) SetHashicorpHCLog() {
-	hclog.SetDefault(&_hclog{
-		l: o,
-	})
-}
-
-func (o *logger) NewHashicorpHCLog() hclog.Logger {
-	return &_hclog{
-		l: o,
-	}
+	return n, nil
 }

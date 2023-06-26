@@ -38,7 +38,7 @@ import (
 
 	liberr "github.com/nabbar/golib/errors"
 	srvtps "github.com/nabbar/golib/httpserver/types"
-	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 	libsrv "github.com/nabbar/golib/server"
 )
 
@@ -83,7 +83,7 @@ func (o *srv) setServer(ctx context.Context) error {
 
 	if o.IsTLS() && ssl == nil {
 		err := ErrorServerValidate.ErrorParent(fmt.Errorf("TLS Config is not well defined"))
-		ent := o.logger().Entry(liblog.ErrorLevel, "starting http server")
+		ent := o.logger().Entry(loglvl.ErrorLevel, "starting http server")
 		ent.ErrorAdd(true, err)
 		ent.Log()
 		return err
@@ -102,13 +102,13 @@ func (o *srv) setServer(ctx context.Context) error {
 		s.TLSConfig = ssl.TlsConfig("")
 		stdlog.SetIOWriterFilter("http: TLS handshake error from 127.0.0.1")
 	} else if e := o.cfgGetServer().initServer(s); e != nil {
-		ent := o.logger().Entry(liblog.ErrorLevel, "init http2 server")
+		ent := o.logger().Entry(loglvl.ErrorLevel, "init http2 server")
 		ent.ErrorAdd(true, e)
 		ent.Log()
 		return e
 	}
 
-	s.ErrorLog = stdlog.GetStdLogger(liblog.ErrorLevel, log.LstdFlags|log.Lmicroseconds)
+	s.ErrorLog = stdlog.GetStdLogger(loglvl.ErrorLevel, log.LstdFlags|log.Lmicroseconds)
 
 	if e := o.RunIfPortInUse(ctx, o.GetBindable(), 5, fctStop); e != nil {
 		return e

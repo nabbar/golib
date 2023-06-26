@@ -31,12 +31,12 @@ import (
 	"fmt"
 	"time"
 
-	moncfg "github.com/nabbar/golib/monitor/types"
-
 	libval "github.com/go-playground/validator/v10"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	loggrm "github.com/nabbar/golib/logger/gorm"
+	moncfg "github.com/nabbar/golib/monitor/types"
 	gormdb "gorm.io/gorm"
 	gorcls "gorm.io/gorm/clause"
 	gorlog "gorm.io/gorm/logger"
@@ -131,7 +131,7 @@ func (c *Config) Validate() liberr.Error {
 
 func (c *Config) RegisterLogger(fct func() liblog.Logger, ignoreRecordNotFoundError bool, slowThreshold time.Duration) {
 	c.flog = func() gorlog.Interface {
-		return liblog.NewGormLogger(fct, ignoreRecordNotFoundError, slowThreshold)
+		return loggrm.New(fct, ignoreRecordNotFoundError, slowThreshold)
 	}
 }
 

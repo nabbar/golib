@@ -34,15 +34,14 @@ import (
 	"strings"
 	"time"
 
-	srvtps "github.com/nabbar/golib/httpserver/types"
-
-	moncfg "github.com/nabbar/golib/monitor/types"
-
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
+	srvtps "github.com/nabbar/golib/httpserver/types"
 	liblog "github.com/nabbar/golib/logger"
+	logcfg "github.com/nabbar/golib/logger/config"
+	moncfg "github.com/nabbar/golib/monitor/types"
 )
 
 const (
@@ -183,7 +182,7 @@ type Config struct {
 	DisableKeepAlive bool `mapstructure:"disable_keep_alive" json:"disable_keep_alive" yaml:"disable_keep_alive" toml:"disable_keep_alive"`
 
 	// Logger is used to define the logger options.
-	Logger liblog.Options `mapstructure:"logger" json:"logger" yaml:"logger" toml:"logger"`
+	Logger logcfg.Options `mapstructure:"logger" json:"logger" yaml:"logger" toml:"logger"`
 }
 
 func (c *Config) Clone() Config {
@@ -414,11 +413,16 @@ func (o *srv) SetConfig(cfg Config, defLog liblog.FuncLog) error {
 	return nil
 }
 
-func (o *srv) setLogger(def liblog.FuncLog, opt liblog.Options) error {
+func (o *srv) setLogger(def liblog.FuncLog, opt logcfg.Options) error {
 	o.m.Lock()
 	defer o.m.Unlock()
 
-	var l liblog.Logger
+	var (
+		l liblog.Logger
+		f = func() liblog.Logger {
+			return liblog.New(o.c.GetContext)
+		}
+	)
 
 	if def != nil {
 		if n := def(); n != nil {
@@ -427,7 +431,7 @@ func (o *srv) setLogger(def liblog.FuncLog, opt liblog.Options) error {
 	}
 
 	if l == nil {
-		l = liblog.GetDefault()
+		l = f()
 	}
 
 	if e := l.SetOptions(&opt); e == nil {
@@ -436,7 +440,9 @@ func (o *srv) setLogger(def liblog.FuncLog, opt liblog.Options) error {
 		}
 		return nil
 	} else if o.l == nil {
-		o.l = liblog.GetDefault
+		o.l = func() liblog.Logger {
+			return l
+		}
 		return e
 	} else {
 		return e
@@ -451,10 +457,18 @@ func (o *srv) logger() liblog.Logger {
 
 	if o.l != nil {
 		log = o.l()
-	}
+	} else {
+		log = liblog.New(o.c.GetContext)
 
-	if log == nil {
-		log = liblog.GetDefault()
+		o.m.RUnlock()
+		o.m.Lock()
+
+		o.l = func() liblog.Logger {
+			return log
+		}
+
+		o.m.Unlock()
+		o.m.RLock()
 	}
 
 	log.SetFields(log.GetFields().Add("bind", o.GetBindable()))

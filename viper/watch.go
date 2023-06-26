@@ -30,10 +30,10 @@ import (
 	"time"
 
 	libnot "github.com/fsnotify/fsnotify"
-	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
-func (v *viper) initWatchRemote(logLevelRemoteKO, logLevelRemoteOK liblog.Level) {
+func (v *viper) initWatchRemote(logLevelRemoteKO, logLevelRemoteOK loglvl.Level) {
 	// open a goroutine to watch remote changes forever
 	go func() {
 		// unstopped for loop
@@ -42,20 +42,21 @@ func (v *viper) initWatchRemote(logLevelRemoteKO, logLevelRemoteOK liblog.Level)
 			time.Sleep(time.Second * 5)
 
 			if v.remote.provider == RemoteETCD {
-				if logLevelRemoteKO.LogErrorCtxf(logLevelRemoteOK, "Remote config watching", v.v.WatchRemoteConfig()) {
+				if v.logEntry(logLevelRemoteKO, "Remote config watching").ErrorAdd(true, v.v.WatchRemoteConfig()).Check(logLevelRemoteOK) {
 					// skip error and try next time
 					continue
 				}
 			} else {
 				// reading remote config
-				if logLevelRemoteKO.LogErrorCtxf(logLevelRemoteOK, "Remote config loading", v.v.ReadRemoteConfig()) {
+
+				if v.logEntry(logLevelRemoteKO, "Remote config loading").ErrorAdd(true, v.v.ReadRemoteConfig()).Check(logLevelRemoteOK) {
 					// skip error and try next time
 					continue
 				}
 			}
 
 			// add config model
-			if logLevelRemoteKO.LogErrorCtxf(logLevelRemoteOK, "Remote config parsing", v.v.Unmarshal(v.remote.model)) {
+			if v.logEntry(logLevelRemoteKO, "Remote config parsing").ErrorAdd(true, v.v.Unmarshal(v.remote.model)).Check(logLevelRemoteOK) {
 				// skip error and try next time
 				continue
 			}
@@ -63,13 +64,13 @@ func (v *viper) initWatchRemote(logLevelRemoteKO, logLevelRemoteOK liblog.Level)
 	}()
 }
 
-func (v *viper) WatchFS(logLevelFSInfo liblog.Level) {
+func (v *viper) WatchFS(logLevelFSInfo loglvl.Level) {
 	v.v.WatchConfig()
 	v.v.OnConfigChange(func(e libnot.Event) {
 		if v.remote.fct != nil {
-			logLevelFSInfo.Logf("Reloading local config file '%s'...", e.Name)
+			v.logEntry(logLevelFSInfo, "Reloading local config file '%s'...", e.Name).Log()
 			v.remote.fct()
-			logLevelFSInfo.Logf("local config file '%s' has been reloaded.", e.Name)
+			v.logEntry(logLevelFSInfo, "local config file '%s' has been reloaded.", e.Name).Log()
 		}
 	})
 }

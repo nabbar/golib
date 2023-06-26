@@ -226,11 +226,10 @@ func (o *componentAws) _runCli() liberr.Error {
 		o.m.Unlock()
 
 		if req != nil {
-			req.RegisterDefaultLogger(o.getLogger)
 			if req, e = opt.Update(o.x.GetContext, req); e != nil {
 				return prt.ErrorParent(e)
 			}
-		} else if req, e = libreq.New(o.x.GetContext, opt); e != nil {
+		} else if req, e = opt.New(o.x.GetContext); e != nil {
 			return prt.ErrorParent(e)
 		}
 

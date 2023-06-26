@@ -102,7 +102,12 @@ func (n *ndb) GetLogger() liblog.Logger {
 		return n.l()
 	}
 
-	return liblog.GetDefault()
+	var l = liblog.New(context.Background)
+	n.l = func() liblog.Logger {
+		return l
+	}
+
+	return l
 }
 
 func (n *ndb) SetLogger(l liblog.FuncLog) {

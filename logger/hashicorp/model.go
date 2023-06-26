@@ -25,13 +25,16 @@
  *
  **********************************************************************************************************************/
 
-package logger
+package hashicorp
 
 import (
 	"io"
 	"log"
 
 	"github.com/hashicorp/go-hclog"
+	liblog "github.com/nabbar/golib/logger"
+	logcfg "github.com/nabbar/golib/logger/config"
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
 const (
@@ -40,7 +43,7 @@ const (
 )
 
 type _hclog struct {
-	l Logger
+	l liblog.Logger
 }
 
 func (o *_hclog) Log(level hclog.Level, msg string, args ...interface{}) {
@@ -81,23 +84,29 @@ func (o *_hclog) Error(msg string, args ...interface{}) {
 }
 
 func (o *_hclog) IsTrace() bool {
-	return o.l.GetOptions().EnableTrace
+	if opt := o.l.GetOptions(); opt == nil {
+		return false
+	} else if opt.Stdout == nil {
+		return false
+	} else {
+		return opt.Stdout.EnableTrace
+	}
 }
 
 func (o *_hclog) IsDebug() bool {
-	return o.l.GetLevel() >= DebugLevel
+	return o.l.GetLevel() >= loglvl.DebugLevel
 }
 
 func (o *_hclog) IsInfo() bool {
-	return o.l.GetLevel() >= InfoLevel
+	return o.l.GetLevel() >= loglvl.InfoLevel
 }
 
 func (o *_hclog) IsWarn() bool {
-	return o.l.GetLevel() >= WarnLevel
+	return o.l.GetLevel() >= loglvl.WarnLevel
 }
 
 func (o *_hclog) IsError() bool {
-	return o.l.GetLevel() >= ErrorLevel
+	return o.l.GetLevel() >= loglvl.ErrorLevel
 }
 
 func (o *_hclog) ImpliedArgs() []interface{} {
@@ -142,39 +151,41 @@ func (o *_hclog) ResetNamed(name string) hclog.Logger {
 func (o *_hclog) SetLevel(level hclog.Level) {
 	switch level {
 	case hclog.NoLevel, hclog.Off:
-		o.l.SetLevel(NilLevel)
+		o.l.SetLevel(loglvl.NilLevel)
 	case hclog.Trace:
 		opt := o.l.GetOptions()
-		opt.EnableTrace = true
+		if opt.Stdout == nil {
+			opt.Stdout = &logcfg.OptionsStd{}
+		}
+		opt.Stdout.EnableTrace = true
 		_ = o.l.SetOptions(opt)
-		o.l.SetLevel(DebugLevel)
+		o.l.SetLevel(loglvl.DebugLevel)
 	case hclog.Debug:
-		o.l.SetLevel(DebugLevel)
+		o.l.SetLevel(loglvl.DebugLevel)
 	case hclog.Info:
-		o.l.SetLevel(InfoLevel)
+		o.l.SetLevel(loglvl.InfoLevel)
 	case hclog.Warn:
-		o.l.SetLevel(WarnLevel)
+		o.l.SetLevel(loglvl.WarnLevel)
 	case hclog.Error:
-		o.l.SetLevel(ErrorLevel)
+		o.l.SetLevel(loglvl.ErrorLevel)
 	}
 }
 
 func (o *_hclog) GetLevel() hclog.Level {
 	switch o.l.GetLevel() {
-	case NilLevel:
+	case loglvl.NilLevel:
 		return hclog.NoLevel
-	case DebugLevel:
-		opt := o.l.GetOptions()
-		if opt.EnableTrace {
+	case loglvl.DebugLevel:
+		if o.IsTrace() {
 			return hclog.Trace
 		} else {
 			return hclog.Debug
 		}
-	case InfoLevel:
+	case loglvl.InfoLevel:
 		return hclog.Info
-	case WarnLevel:
+	case loglvl.WarnLevel:
 		return hclog.Warn
-	case ErrorLevel:
+	case loglvl.ErrorLevel:
 		return hclog.Error
 	default:
 		return hclog.Off
@@ -182,20 +193,20 @@ func (o *_hclog) GetLevel() hclog.Level {
 }
 
 func (o *_hclog) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
-	var lvl Level
+	var lvl loglvl.Level
 	switch opts.ForceLevel {
 	case hclog.NoLevel, hclog.Off:
-		lvl = NilLevel
+		lvl = loglvl.NilLevel
 	case hclog.Trace:
-		lvl = DebugLevel
+		lvl = loglvl.DebugLevel
 	case hclog.Debug:
-		lvl = DebugLevel
+		lvl = loglvl.DebugLevel
 	case hclog.Info:
-		lvl = InfoLevel
+		lvl = loglvl.InfoLevel
 	case hclog.Warn:
-		lvl = WarnLevel
+		lvl = loglvl.WarnLevel
 	case hclog.Error:
-		lvl = ErrorLevel
+		lvl = loglvl.ErrorLevel
 	}
 
 	return o.l.GetStdLogger(lvl, 0)

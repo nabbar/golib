@@ -30,6 +30,8 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/nabbar/golib/logger/level"
+
 	"github.com/gin-gonic/gin"
 	liblog "github.com/nabbar/golib/logger"
 )
@@ -41,7 +43,7 @@ type ctxGinTonic struct {
 	c context.CancelFunc
 }
 
-func NewGinTonic(c *gin.Context) GinTonic {
+func NewGinTonic(c *gin.Context, log liblog.FuncLog) GinTonic {
 	if c == nil {
 		c = &gin.Context{
 			Request:  nil,
@@ -65,7 +67,7 @@ func NewGinTonic(c *gin.Context) GinTonic {
 	}
 
 	return &ctxGinTonic{
-		l: liblog.GetDefault,
+		l: log,
 		g: c,
 		x: x,
 		c: l,
@@ -76,11 +78,15 @@ func (c *ctxGinTonic) SetLogger(fct liblog.FuncLog) {
 	c.l = fct
 }
 
-func (c *ctxGinTonic) log(lvl liblog.Level, msg string, args ...interface{}) {
+func (c *ctxGinTonic) log(lvl level.Level, msg string, args ...interface{}) {
 	if c.l != nil {
 		c.l().Entry(lvl, msg, args...).Log()
 	} else {
-		liblog.GetDefault().Entry(lvl, msg, args...).Log()
+		l := liblog.New(func() context.Context {
+			return c
+		})
+
+		l.Entry(lvl, msg, args...).Log()
 	}
 }
 
@@ -91,11 +97,11 @@ func (c *ctxGinTonic) CancelOnSignal(s ...os.Signal) {
 
 		select {
 		case <-sc:
-			c.log(liblog.InfoLevel, "OS Signal received, calling context cancel !")
+			c.log(level.InfoLevel, "OS Signal received, calling context cancel !")
 			c.c()
 			return
 		case <-c.Done():
-			c.log(liblog.InfoLevel, "Context has been closed !")
+			c.log(level.InfoLevel, "Context has been closed !")
 			return
 		}
 	}()
