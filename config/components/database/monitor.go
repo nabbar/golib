@@ -79,6 +79,10 @@ func (o *componentDatabase) _registerMonitor(cfg *libdbs.Config) error {
 		}
 	}
 
+	if cfg.Monitor.Name != key {
+		cfg.Monitor.Name = key
+	}
+
 	if e = mon.SetConfig(o.x.GetContext, cfg.Monitor); e != nil {
 		return e
 	}

@@ -25,41 +25,30 @@
  *
  **********************************************************************************************************************/
 
-package logger
+package entry
 
 import (
 	"os"
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-
-	liberr "github.com/nabbar/golib/errors"
+	ginsdk "github.com/gin-gonic/gin"
+	logfld "github.com/nabbar/golib/logger/fields"
+	loglvl "github.com/nabbar/golib/logger/level"
+	logtps "github.com/nabbar/golib/logger/types"
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	FieldTime    = "time"
-	FieldLevel   = "level"
-	FieldStack   = "stack"
-	FieldCaller  = "caller"
-	FieldFile    = "file"
-	FieldLine    = "line"
-	FieldMessage = "message"
-	FieldError   = "error"
-	FieldData    = "data"
-)
-
-type Entry struct {
+type entry struct {
 	log   func() *logrus.Logger
-	gin   *gin.Context
+	gin   *ginsdk.Context
 	clean bool
 
 	//Time is the time of the event (can be empty time if disabled timestamp)
 	Time time.Time `json:"time"`
 
 	//Level define the level of the entry (cannot be empty or nil)
-	Level Level `json:"level"`
+	Level loglvl.Level `json:"level"`
 
 	//Stack define the process goroutine number (can be 0 if disabled)
 	Stack uint64 `json:"stack"`
@@ -71,7 +60,7 @@ type Entry struct {
 	File string `json:"file"`
 
 	//Caller define the line in file caller of the entry (can be 0 if trace disabled, not found or anonymous function)
-	Line uint32 `json:"line"`
+	Line uint64 `json:"line"`
 
 	//Message define the main message of the entry (can be empty)
 	Message string `json:"message"`
@@ -83,74 +72,46 @@ type Entry struct {
 	Data interface{} `json:"data"`
 
 	//Fields are a list of custom information to add to log entry (can be nil or can overwrite Entry values)
-	Fields Fields `json:"fields"`
+	Fields logfld.Fields `json:"fields"`
+}
+
+func (e *entry) SetEntryContext(etime time.Time, stack uint64, caller, file string, line uint64, msg string) Entry {
+	e.Time = etime
+	e.Stack = stack
+	e.Caller = caller
+	e.File = file
+	e.Line = line
+	e.Message = msg
+	return e
+}
+
+func (e *entry) SetMessageOnly(flag bool) Entry {
+	e.clean = flag
+	return e
+}
+
+func (e *entry) SetLevel(lvl loglvl.Level) Entry {
+	e.Level = lvl
+	return e
+}
+
+func (e *entry) SetLogger(fct func() *logrus.Logger) Entry {
+	e.log = fct
+	return e
 }
 
 // SetGinContext allow to register a gin context pointer to register the errors of the current entry intro gin Context Error Slice.
-func (e *Entry) SetGinContext(ctx *gin.Context) *Entry {
+func (e *entry) SetGinContext(ctx *ginsdk.Context) Entry {
 	e.gin = ctx
 	return e
 }
 
-// FieldAdd allow to add one couple key/val as type string/interface into the custom field of the entry.
-func (e *Entry) FieldAdd(key string, val interface{}) *Entry {
-	e.Fields.Add(key, val)
-	return e
-}
-
-// FieldMerge allow to merge a Field pointer into the custom field of the entry.
-func (e *Entry) FieldMerge(fields Fields) *Entry {
-	e.Fields.Merge(fields)
-	return e
-}
-
-// FieldSet allow to change the custom field of the entry with the given Fields in parameter.
-func (e *Entry) FieldSet(fields Fields) *Entry {
-	e.Fields = fields
-	return e
-}
-
-func (e *Entry) FieldClean(keys ...string) *Entry {
-	for _, k := range keys {
-		e.Fields.Delete(k)
-	}
-
-	return e
-}
-
-func (e *Entry) DataSet(data interface{}) *Entry {
+func (e *entry) DataSet(data interface{}) Entry {
 	e.Data = data
 	return e
 }
 
-func (e *Entry) ErrorClean() *Entry {
-	e.Error = make([]error, 0)
-	return e
-}
-
-func (e *Entry) ErrorSet(err []error) *Entry {
-	e.Error = err
-	return e
-}
-
-func (e *Entry) ErrorAdd(cleanNil bool, err ...error) *Entry {
-	for _, er := range err {
-		if cleanNil && er == nil {
-			continue
-		}
-		e.Error = append(e.Error, er)
-	}
-	return e
-}
-
-func (e *Entry) ErrorAddLib(cleanNil bool, err ...liberr.Error) *Entry {
-	for _, er := range err {
-		e.ErrorAdd(cleanNil, er.GetErrorSlice()...)
-	}
-	return e
-}
-
-func (e *Entry) Check(lvlNoErr Level) bool {
+func (e *entry) Check(lvlNoErr loglvl.Level) bool {
 	var found = false
 	if len(e.Error) > 0 {
 		for _, er := range e.Error {
@@ -171,21 +132,7 @@ func (e *Entry) Check(lvlNoErr Level) bool {
 	return found
 }
 
-func (e *Entry) _logClean() {
-	var (
-		log *logrus.Logger
-	)
-
-	if e.log == nil {
-		return
-	} else if log = e.log(); log == nil {
-		return
-	} else {
-		log.Info(e.Message)
-	}
-}
-
-func (e *Entry) Log() {
+func (e *entry) Log() {
 	if e == nil {
 		return
 	} else if e.Fields == nil {
@@ -201,36 +148,36 @@ func (e *Entry) Log() {
 		}
 	}
 
-	if e.Level == NilLevel {
+	if e.Level == loglvl.NilLevel {
 		return
 	}
 
 	var (
 		ent *logrus.Entry
-		tag = NewFields(e.Fields.GetContext).Add(FieldLevel, e.Level.String())
+		tag = logfld.New(e.Fields.GetContext).Add(logtps.FieldLevel, e.Level.String())
 		log *logrus.Logger
 	)
 
 	if !e.Time.IsZero() {
-		tag = tag.Add(FieldTime, e.Time.Format(time.RFC3339Nano))
+		tag = tag.Add(logtps.FieldTime, e.Time.Format(time.RFC3339Nano))
 	}
 
 	if e.Stack > 0 {
-		tag = tag.Add(FieldStack, e.Stack)
+		tag = tag.Add(logtps.FieldStack, e.Stack)
 	}
 
 	if e.Caller != "" {
-		tag = tag.Add(FieldCaller, e.Caller)
+		tag = tag.Add(logtps.FieldCaller, e.Caller)
 	} else if e.File != "" {
-		tag = tag.Add(FieldFile, e.File)
+		tag = tag.Add(logtps.FieldFile, e.File)
 	}
 
 	if e.Line > 0 {
-		tag = tag.Add(FieldLine, e.Line)
+		tag = tag.Add(logtps.FieldLine, e.Line)
 	}
 
 	if e.Message != "" {
-		tag = tag.Add(FieldMessage, e.Message)
+		tag = tag.Add(logtps.FieldMessage, e.Message)
 	}
 
 	if len(e.Error) > 0 {
@@ -243,11 +190,11 @@ func (e *Entry) Log() {
 			msg = append(msg, er.Error())
 		}
 
-		tag = tag.Add(FieldError, strings.Join(msg, ", "))
+		tag = tag.Add(logtps.FieldError, strings.Join(msg, ", "))
 	}
 
 	if e.Data != nil {
-		tag = tag.Add(FieldData, e.Data)
+		tag = tag.Add(logtps.FieldData, e.Data)
 	}
 
 	tag.Merge(e.Fields)
@@ -262,7 +209,22 @@ func (e *Entry) Log() {
 
 	ent.Log(e.Level.Logrus())
 
-	if e.Level <= FatalLevel {
+	if e.Level <= loglvl.FatalLevel {
 		os.Exit(1)
+	}
+}
+
+func (e *entry) _logClean() {
+	var (
+		log *logrus.Logger
+	)
+
+	if e.log == nil {
+		return
+	} else if log = e.log(); log == nil {
+		return
+	} else {
+		//log.SetLevel(logrus.InfoLevel)
+		log.Info(e.Message)
 	}
 }

@@ -27,9 +27,9 @@
 package log
 
 import (
-	logdef "github.com/nabbar/golib/logger/config"
+	logcfg "github.com/nabbar/golib/logger/config"
 )
 
 func (o *componentLog) DefaultConfig(indent string) []byte {
-	return logdef.DefaultConfig(indent)
+	return logcfg.DefaultConfig(indent)
 }

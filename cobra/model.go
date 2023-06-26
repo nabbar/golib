@@ -27,6 +27,7 @@
 package cobra
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -138,7 +139,7 @@ func (c *cobra) getLog() liblog.Logger {
 		return l
 	}
 
-	return liblog.GetDefault()
+	return liblog.New(context.Background)
 }
 
 func (c *cobra) getPackageName() string {

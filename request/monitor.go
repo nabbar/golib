@@ -35,6 +35,10 @@ import (
 	"net/url"
 	"runtime"
 
+	logent "github.com/nabbar/golib/logger/entry"
+
+	loglvl "github.com/nabbar/golib/logger/level"
+
 	liberr "github.com/nabbar/golib/errors"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
@@ -47,8 +51,15 @@ const (
 )
 
 func (r *request) HealthCheck(ctx context.Context) error {
-	opts := r.GetOption()
-	ednp := r.GetFullUrl()
+	var (
+		opts = r.GetOption()
+		ednp = r.GetFullUrl()
+		ent  logent.Entry
+	)
+
+	if log := r._getDefaultLogger(); log != nil {
+		ent = log.Entry(loglvl.ErrorLevel, "healthcheck")
+	}
 
 	r.s.Lock()
 	defer r.s.Unlock()
@@ -75,47 +86,81 @@ func (r *request) HealthCheck(ctx context.Context) error {
 	}
 
 	var (
-		e error
-
+		e   error
 		err liberr.Error
 		buf *bytes.Buffer
 		req *http.Request
 		rsp *http.Response
 	)
 
+	if ent != nil {
+		ent.FieldAdd("endpoint", ednp)
+		ent.FieldAdd("method", http.MethodGet)
+	}
+
 	req, err = r._MakeRequest(ctx, ednp, http.MethodGet, nil, head, nil)
 
 	if err != nil {
+		if ent != nil {
+			ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+		}
 		return err
 	}
 
 	rsp, e = r.client().Do(req)
 	if e != nil {
-		return ErrorSendRequest.ErrorParent(e)
+		err = ErrorSendRequest.ErrorParent(e)
+		if ent != nil {
+			ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+		}
+		return err
 	}
 
 	if buf, err = r._CheckResponse(rsp); err != nil {
+		if ent != nil {
+			ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+		}
 		return err
 	}
 
 	if len(opts.Health.Result.ValidHTTPCode) > 0 {
 		if !r._IsValidCode(opts.Health.Result.ValidHTTPCode, rsp.StatusCode) {
-			return ErrorResponseStatus.ErrorParent(fmt.Errorf("status: %s", rsp.Status))
+			err = ErrorResponseStatus.ErrorParent(fmt.Errorf("status: %s", rsp.Status))
+			if ent != nil {
+				ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+			}
+			return err
 		}
 	} else if len(opts.Health.Result.InvalidHTTPCode) > 0 {
 		if r._IsValidCode(opts.Health.Result.InvalidHTTPCode, rsp.StatusCode) {
-			return ErrorResponseStatus.ErrorParent(fmt.Errorf("status: %s", rsp.Status))
+			err = ErrorResponseStatus.ErrorParent(fmt.Errorf("status: %s", rsp.Status))
+			if ent != nil {
+				ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+			}
+			return err
 		}
 	}
 
 	if len(opts.Health.Result.Contain) > 0 {
 		if !r._IsValidContents(opts.Health.Result.Contain, buf) {
-			return ErrorResponseContainsNotFound.Error(nil)
+			err = ErrorResponseContainsNotFound.Error(nil)
+			if ent != nil {
+				ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+			}
+			return err
 		}
 	} else if len(opts.Health.Result.NotContain) > 0 {
 		if r._IsValidContents(opts.Health.Result.NotContain, buf) {
-			return ErrorResponseNotContainsFound.Error(nil)
+			err = ErrorResponseNotContainsFound.Error(nil)
+			if ent != nil {
+				ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+			}
+			return err
 		}
+	}
+
+	if ent != nil {
+		ent.ErrorClean().Check(loglvl.InfoLevel)
 	}
 
 	return nil

@@ -25,85 +25,57 @@
  *
  **********************************************************************************************************************/
 
-package logger
+package level
 
 import (
-	"context"
-	"encoding/json"
+	"math"
 
-	libctx "github.com/nabbar/golib/context"
 	"github.com/sirupsen/logrus"
 )
 
-type Fields interface {
-	libctx.Config[string]
-	json.Marshaler
-	json.Unmarshaler
-
-	FieldsClone(ctx context.Context) Fields
-	Add(key string, val interface{}) Fields
-	Logrus() logrus.Fields
-	Map(fct func(key string, val interface{}) interface{}) Fields
+// Uint8 Convert the current Level type to a uint8 value. E.g. FatalLevel becomes 1.
+func (l Level) Uint8() uint8 {
+	return uint8(l)
 }
 
-func NewFields(ctx libctx.FuncContext) Fields {
-	return &fldModel{
-		libctx.NewConfig[string](ctx),
-	}
-}
-
-type fldModel struct {
-	libctx.Config[string]
-}
-
-func (o *fldModel) Add(key string, val interface{}) Fields {
-	o.Store(key, val)
-	return o
-}
-
-func (o *fldModel) Logrus() logrus.Fields {
-	var res = make(logrus.Fields, 0)
-	o.Walk(func(key string, val interface{}) bool {
-		res[key] = val
-		return true
-	})
-	return res
-}
-
-func (o *fldModel) Map(fct func(key string, val interface{}) interface{}) Fields {
-	o.Walk(func(key string, val interface{}) bool {
-		o.Store(key, fct(key, val))
-		return true
-	})
-	return o
-}
-
-func (o *fldModel) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.Logrus())
-}
-
-func (o *fldModel) UnmarshalJSON(bytes []byte) error {
-	var l = make(logrus.Fields)
-
-	if e := json.Unmarshal(bytes, &l); e != nil {
-		return e
-	} else if len(l) > 0 {
-		for k, v := range l {
-			o.Store(k, v)
-		}
+// String Convert the current Level type to a string. E.g. PanicLevel becomes "Critical Error".
+func (l Level) String() string {
+	//nolint exhaustive
+	switch l {
+	case DebugLevel:
+		return "Debug"
+	case InfoLevel:
+		return "Info"
+	case WarnLevel:
+		return "Warning"
+	case ErrorLevel:
+		return "Error"
+	case FatalLevel:
+		return "Fatal"
+	case PanicLevel:
+		return "Critical"
+	case NilLevel:
+		return ""
 	}
 
-	return nil
+	return "unknown"
 }
 
-func (o *fldModel) FieldsClone(ctx context.Context) Fields {
-	if o == nil {
-		return nil
-	} else if o.Config == nil {
-		return nil
-	} else {
-		return &fldModel{
-			o.Config.Clone(ctx),
-		}
+func (l Level) Logrus() logrus.Level {
+	switch l {
+	case DebugLevel:
+		return logrus.DebugLevel
+	case InfoLevel:
+		return logrus.InfoLevel
+	case WarnLevel:
+		return logrus.WarnLevel
+	case ErrorLevel:
+		return logrus.ErrorLevel
+	case FatalLevel:
+		return logrus.FatalLevel
+	case PanicLevel:
+		return logrus.PanicLevel
+	default:
+		return math.MaxInt32
 	}
 }

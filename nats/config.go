@@ -36,13 +36,13 @@ import (
 	"strings"
 	"time"
 
-	moncfg "github.com/nabbar/golib/monitor/types"
-
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
 	libiot "github.com/nabbar/golib/ioutils"
 	liblog "github.com/nabbar/golib/logger"
+	loglvl "github.com/nabbar/golib/logger/level"
+	moncfg "github.com/nabbar/golib/monitor/types"
 	natjwt "github.com/nats-io/jwt/v2"
 	natsrv "github.com/nats-io/nats-server/v2/server"
 )
@@ -128,7 +128,7 @@ func (c Config) LogConfigJson() liberr.Error {
 	return nil
 }
 
-func (c Config) NatsOption(defaultTls libtls.TLSConfig) (*natsrv.Options, liberr.Error) {
+func (c Config) NatsOption(defaultTls libtls.TLSConfig, log liblog.Logger) (*natsrv.Options, liberr.Error) {
 	cfg := &natsrv.Options{
 		CheckConfig: false,
 	}
@@ -137,7 +137,7 @@ func (c Config) NatsOption(defaultTls libtls.TLSConfig) (*natsrv.Options, liberr
 		return nil, e
 	}
 
-	if e := c.Logs.makeOpt(cfg); e != nil {
+	if e := c.Logs.makeOpt(log, cfg); e != nil {
 		return nil, e
 	}
 
@@ -472,7 +472,7 @@ func (c ConfigPermissionResponse) makeOpt() *natsrv.ResponsePermission {
 	return res
 }
 
-func (c ConfigLogger) makeOpt(cfg *natsrv.Options) liberr.Error {
+func (c ConfigLogger) makeOpt(log liblog.Logger, cfg *natsrv.Options) liberr.Error {
 	if cfg == nil {
 		return ErrorParamsInvalid.Error(nil)
 	}
@@ -521,19 +521,14 @@ func (c ConfigLogger) makeOpt(cfg *natsrv.Options) liberr.Error {
 		cfg.ReconnectErrorReports = c.ReconnectErrorReports
 	}
 
-	if liblog.IsTimeStamp() {
-		cfg.Logtime = true
-	}
+	cfg.Logtime = true
+	cfg.Trace = true
 
-	if liblog.IsFileTrace() {
-		cfg.Trace = true
-	}
-
-	switch liblog.GetCurrentLevel() {
-	case liblog.DebugLevel:
+	switch log.GetLevel() {
+	case loglvl.DebugLevel:
 		cfg.Debug = true
 		cfg.NoLog = false
-	case liblog.NilLevel:
+	case loglvl.NilLevel:
 		cfg.Debug = false
 		cfg.NoLog = true
 	default:

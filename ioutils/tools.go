@@ -29,6 +29,7 @@ package ioutils
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -36,21 +37,28 @@ import (
 func PathCheckCreate(isFile bool, path string, permFile os.FileMode, permDir os.FileMode) error {
 	if inf, err := os.Stat(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
-	} else if err == nil {
-		if inf.IsDir() {
+	} else if err == nil && inf.IsDir() {
+		if isFile {
+			return fmt.Errorf("path '%s' still exising but is a directory", path)
+		}
+		if inf.Mode() != permDir {
 			_ = os.Chmod(path, permDir)
-		} else {
+		}
+		return nil
+	} else if err == nil && !inf.IsDir() {
+		if !isFile {
+			return fmt.Errorf("path '%s' still exising but is not a directory", path)
+		}
+		if inf.Mode() != permFile {
 			_ = os.Chmod(path, permFile)
 		}
 		return nil
-	}
-
-	if !isFile {
+	} else if !isFile {
 		return os.MkdirAll(path, permDir)
-	} else if e := PathCheckCreate(false, filepath.Dir(path), permFile, permDir); e != nil {
-		return e
-	} else if hf, err := os.Create(path); err != nil {
+	} else if err = PathCheckCreate(false, filepath.Dir(path), permFile, permDir); err != nil {
 		return err
+	} else if hf, e := os.Create(path); e != nil {
+		return e
 	} else {
 		_ = hf.Close()
 	}

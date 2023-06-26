@@ -32,6 +32,9 @@ import (
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
+	logcfg "github.com/nabbar/golib/logger/config"
+	logfld "github.com/nabbar/golib/logger/fields"
+	loglvl "github.com/nabbar/golib/logger/level"
 )
 
 type componentLog struct {
@@ -39,7 +42,7 @@ type componentLog struct {
 	x libctx.Config[uint8]
 
 	l liblog.Logger
-	v liblog.Level
+	v loglvl.Level
 }
 
 func (o *componentLog) Log() liblog.Logger {
@@ -53,7 +56,7 @@ func (o *componentLog) Log() liblog.Logger {
 	return nil
 }
 
-func (o *componentLog) SetLevel(lvl liblog.Level) {
+func (o *componentLog) SetLevel(lvl loglvl.Level) {
 	o.m.Lock()
 	defer o.m.Unlock()
 
@@ -66,14 +69,14 @@ func (o *componentLog) SetLevel(lvl liblog.Level) {
 	o.l.SetLevel(lvl)
 }
 
-func (o *componentLog) GetLevel() liblog.Level {
+func (o *componentLog) GetLevel() loglvl.Level {
 	o.m.RLock()
 	defer o.m.RUnlock()
 
 	return o.v
 }
 
-func (o *componentLog) SetField(fields liblog.Fields) {
+func (o *componentLog) SetField(fields logfld.Fields) {
 	o.m.Lock()
 	defer o.m.Unlock()
 
@@ -84,7 +87,7 @@ func (o *componentLog) SetField(fields liblog.Fields) {
 	o.l.SetFields(fields)
 }
 
-func (o *componentLog) GetField() liblog.Fields {
+func (o *componentLog) GetField() logfld.Fields {
 	o.m.RLock()
 	defer o.m.RUnlock()
 
@@ -95,7 +98,7 @@ func (o *componentLog) GetField() liblog.Fields {
 	return o.l.GetFields()
 }
 
-func (o *componentLog) GetOptions() *liblog.Options {
+func (o *componentLog) GetOptions() *logcfg.Options {
 	o.m.RLock()
 	defer o.m.RUnlock()
 
@@ -106,7 +109,7 @@ func (o *componentLog) GetOptions() *liblog.Options {
 	return o.l.GetOptions()
 }
 
-func (o *componentLog) SetOptions(opt *liblog.Options) liberr.Error {
+func (o *componentLog) SetOptions(opt *logcfg.Options) liberr.Error {
 	o.m.Lock()
 	defer o.m.Unlock()
 
