@@ -40,6 +40,14 @@ import (
 
 const sizeBuffer = 32 * 1024
 
+func (o *hkf) newBuffer(size int) *bytes.Buffer {
+	if size > 0 {
+		return bytes.NewBuffer(make([]byte, 0, size))
+	}
+
+	return bytes.NewBuffer(make([]byte, 0, sizeBuffer))
+}
+
 func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 	var (
 		e error
@@ -48,6 +56,7 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 		m = o.getFileMode()
 		n = o.getPathMode()
 		f = o.getFlags()
+		b = o.newBuffer(0)
 	)
 
 	if o.getCreatePath() {
@@ -57,6 +66,9 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 	}
 
 	defer func() {
+		if rec := recover(); rec != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+		}
 		if h != nil {
 			_ = h.Close()
 		}
@@ -68,32 +80,37 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 		return e
 	} else if _, e = h.Write(buf.Bytes()); e != nil {
 		return e
-	} else if e = h.Close(); e != nil {
-		h = nil
-		buf.Reset()
-		return e
-	} else {
-		h = nil
 	}
 
-	buf.Reset()
-	return nil
+	*buf = *b
+	e = h.Close()
+	h = nil
+
+	return e
 }
 
 func (o *hkf) freeBuffer(buf *bytes.Buffer, size int) *bytes.Buffer {
-	var a = bytes.NewBuffer(buf.Bytes()[size:])
-	a.Grow(size)
+	defer func() {
+		if rec := recover(); rec != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+		}
+	}()
+	var a = o.newBuffer(buf.Cap())
+	a.WriteString(buf.String()[size:])
 	return a
 }
 
 func (o *hkf) Run(ctx context.Context) {
 	var (
-		b = bytes.NewBuffer(make([]byte, sizeBuffer))
+		b = o.newBuffer(0)
 		t = time.NewTicker(time.Second)
 		e error
 	)
 
 	defer func() {
+		if rec := recover(); rec != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+		}
 		//flush buffer before exit function
 		if b.Len() > 0 {
 			if e = o.writeBuffer(b); e != nil {
@@ -123,9 +140,11 @@ func (o *hkf) Run(ctx context.Context) {
 
 		case p := <-o.Data():
 			// prevent buffer overflow
-			if b.Len()+len(p) >= sizeBuffer {
-				b = o.freeBuffer(b, len(p))
-				b.Write(p)
+			if b.Len()+len(p) >= b.Cap() {
+				if a := o.freeBuffer(b, len(p)); a != nil {
+					b = a
+					b.Write(p)
+				}
 			} else {
 				_, _ = b.Write(p)
 			}
