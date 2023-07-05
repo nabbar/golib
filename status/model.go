@@ -49,6 +49,7 @@ type sts struct {
 	p montps.FuncPool
 	r func() liberr.ReturnGin
 	x libctx.Config[string]
+	c ch
 
 	fn fctGetName
 	fr fctGetRelease
@@ -61,6 +62,10 @@ func (o *sts) checkFunc() bool {
 	defer o.m.RUnlock()
 
 	return o.fn != nil && o.fr != nil && o.fh != nil && o.fd != nil
+}
+
+func (o *sts) IsCacheHealthy() bool {
+	return o.c.IsCache()
 }
 
 func (o *sts) IsHealthy(name ...string) bool {

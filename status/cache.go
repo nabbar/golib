@@ -27,67 +27,40 @@
 package status
 
 import (
-	"context"
-	"sync"
 	"sync/atomic"
-
-	liberr "github.com/nabbar/golib/errors"
-
-	montps "github.com/nabbar/golib/monitor/types"
-
-	libctx "github.com/nabbar/golib/context"
-
-	libver "github.com/nabbar/golib/version"
-
-	ginsdk "github.com/gin-gonic/gin"
+	"time"
 )
 
-type Route interface {
-	Expose(ctx context.Context)
-	MiddleWare(c *ginsdk.Context)
-	SetErrorReturn(f func() liberr.ReturnGin)
+const timeCache = 3 * time.Second
+
+type ch struct {
+	t *atomic.Value
+	c *atomic.Bool
+	f func() bool
 }
 
-type Info interface {
-	SetInfo(name, release, hash string)
-	SetVersion(vers libver.Version)
+func (o *ch) Time() time.Time {
+	if t := o.t.Load(); t != nil {
+		return t.(time.Time)
+	} else {
+		return time.Time{}
+	}
 }
 
-type Pool interface {
-	montps.Pool
-	RegisterPool(fct montps.FuncPool)
-}
-
-type Status interface {
-	Route
-	Info
-	Pool
-
-	SetConfig(cfg Config)
-	IsHealthy(name ...string) bool
-	IsCacheHealthy() bool
-}
-
-func New(ctx libctx.FuncContext) Status {
-	s := &sts{
-		m: sync.RWMutex{},
-		p: nil,
-		r: nil,
-		x: libctx.NewConfig[string](ctx),
-		c: ch{
-			t: new(atomic.Value),
-			c: new(atomic.Bool),
-			f: nil,
-		},
-		fn: nil,
-		fr: nil,
-		fh: nil,
-		fd: nil,
+func (o *ch) IsCache() bool {
+	if t := o.Time(); !t.IsZero() && time.Since(t) < timeCache {
+		return o.c.Load()
 	}
 
-	s.c.f = func() bool {
-		return s.IsHealthy()
+	if o.f != nil {
+		c := o.f()
+		o.c.Store(c)
+
+		t := time.Now()
+		o.t.Store(t)
+
+		return c
 	}
 
-	return s
+	return false
 }
