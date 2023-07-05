@@ -30,6 +30,7 @@ package hooksyslog
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 )
@@ -42,6 +43,9 @@ func (o *hks) Run(ctx context.Context) {
 	)
 
 	defer func() {
+		if rec := recover(); rec != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+		}
 		if s != nil {
 			w.Wait()
 			_ = s.Close()
@@ -78,7 +82,12 @@ func (o *hks) Run(ctx context.Context) {
 func (o *hks) writeWrapper(w Wrapper, d data, done func()) {
 	var err error
 
-	defer done()
+	defer func() {
+		if rec := recover(); rec != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+		}
+		done()
+	}()
 
 	if w == nil {
 		return
