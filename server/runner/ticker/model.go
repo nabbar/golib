@@ -29,6 +29,8 @@ package ticker
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 )
@@ -98,6 +100,9 @@ func (o *run) Start(ctx context.Context) error {
 		)
 
 		defer func() {
+			if rec := recover(); rec != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+			}
 			if n != nil {
 				n()
 			}
@@ -113,7 +118,15 @@ func (o *run) Start(ctx context.Context) error {
 		for {
 			select {
 			case <-tck.C:
-				if e := fct(x, tck); e != nil {
+				f := func(ctx context.Context, tck *time.Ticker) error {
+					defer func() {
+						if rec := recover(); rec != nil {
+							_, _ = fmt.Fprintf(os.Stderr, "recovering panic calling function.\n%v\n", rec)
+						}
+					}()
+					return fct(ctx, tck)
+				}
+				if e := f(x, tck); e != nil {
 					o.errorsAdd(e)
 				}
 			case <-con.Done():
