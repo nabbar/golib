@@ -43,6 +43,9 @@ const (
 	NetworkUDP
 	NetworkUDP4
 	NetworkUDP6
+	NetworkIP
+	NetworkIP4
+	NetworkIP6
 )
 
 func Parse(str string) NetworkProtocol {
@@ -66,7 +69,7 @@ func ParseBytes(p []byte) NetworkProtocol {
 	return Parse(string(p))
 }
 
-func SizeFromInt64(val int64) NetworkProtocol {
+func ParseInt64(val int64) NetworkProtocol {
 	if val > int64(math.MaxUint8) {
 		return NetworkProtocol(math.MaxUint8)
 	}

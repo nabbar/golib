@@ -32,7 +32,9 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	monsts "github.com/nabbar/golib/monitor/status"
-	"golang.org/x/exp/slices"
+	stsctr "github.com/nabbar/golib/status/control"
+	stslmd "github.com/nabbar/golib/status/listmandatory"
+	stsmdt "github.com/nabbar/golib/status/mandatory"
 )
 
 const (
@@ -42,7 +44,12 @@ const (
 
 type Config struct {
 	ReturnCode         map[monsts.Status]int
-	MandatoryComponent []string
+	MandatoryComponent stslmd.ListMandatory
+}
+
+type Mandatory struct {
+	Mode stsctr.Mode
+	Keys []string
 }
 
 func (o Config) Validate() error {
@@ -98,22 +105,37 @@ func (o *sts) cfgGetReturnCode(s monsts.Status) int {
 	}
 }
 
-func (o *sts) cfgIsMandatory(name string) bool {
-	if i, l := o.x.Load(keyConfigMandatory); !l {
-		return false
-	} else if v, k := i.([]string); !k {
-		return false
-	} else {
-		return slices.Contains(v, name)
-	}
-}
-
-func (o *sts) cfgGetMandatory() []string {
+func (o *sts) cfgGetMandatory() stslmd.ListMandatory {
 	if i, l := o.x.Load(keyConfigMandatory); !l {
 		return nil
-	} else if v, k := i.([]string); !k {
+	} else if v, k := i.(stslmd.ListMandatory); !k {
 		return nil
 	} else {
 		return v
+	}
+}
+
+func (o *sts) cfgGetMode(key string) stsctr.Mode {
+	if l := o.cfgGetMandatory(); len(l) < 1 {
+		return stsctr.Ignore
+	} else {
+		return l.GetMode(key)
+	}
+}
+
+func (o *sts) cfgGetOne(key string) []string {
+	if l := o.cfgGetMandatory(); len(l) < 1 {
+		return make([]string, 0)
+	} else {
+		var r []string
+		l.Walk(func(m stsmdt.Mandatory) bool {
+			if m.KeyHas(key) {
+				r = m.KeyList()
+				return false
+			}
+
+			return true
+		})
+		return r
 	}
 }

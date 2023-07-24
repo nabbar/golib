@@ -33,11 +33,11 @@ import (
 	"sync"
 	"syscall"
 
-	liblog "github.com/nabbar/golib/logger"
-
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
+	shlcmd "github.com/nabbar/golib/shell/command"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 )
@@ -123,6 +123,11 @@ type Config interface {
 	*/
 	cfgtps.ComponentList
 	cfgtps.ComponentMonitor
+
+	/*
+		// Section Shell Command : github.com/nabbar/golib/shell
+	*/
+	GetShellCommand() []shlcmd.Command
 }
 
 var (

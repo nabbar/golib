@@ -24,66 +24,43 @@
  *
  */
 
-package status
+package control
 
 import (
-	"context"
-	"sync"
-	"sync/atomic"
-
-	ginsdk "github.com/gin-gonic/gin"
-	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
-	montps "github.com/nabbar/golib/monitor/types"
-	libver "github.com/nabbar/golib/version"
+	"math"
+	"strings"
 )
 
-type Route interface {
-	Expose(ctx context.Context)
-	MiddleWare(c *ginsdk.Context)
-	SetErrorReturn(f func() liberr.ReturnGin)
-}
+type Mode uint8
 
-type Info interface {
-	SetInfo(name, release, hash string)
-	SetVersion(vers libver.Version)
-}
+const (
+	Ignore Mode = iota
+	Should
+	Must
+	One
+)
 
-type Pool interface {
-	montps.PoolStatus
-	RegisterPool(fct montps.FuncPool)
-}
-
-type Status interface {
-	Route
-	Info
-	Pool
-
-	SetConfig(cfg Config)
-	IsHealthy(name ...string) bool
-	IsCacheHealthy() bool
-}
-
-func New(ctx libctx.FuncContext) Status {
-	s := &sts{
-		m: sync.RWMutex{},
-		p: nil,
-		r: nil,
-		x: libctx.NewConfig[string](ctx),
-		c: ch{
-			t: new(atomic.Value),
-			c: new(atomic.Bool),
-			f: nil,
-		},
-		fn: nil,
-		fr: nil,
-		fh: nil,
-		fd: nil,
+func Parse(s string) Mode {
+	switch {
+	case strings.EqualFold(Must.Code(), s):
+		return Must
+	case strings.EqualFold(One.Code(), s):
+		return One
+	case strings.EqualFold(Should.Code(), s):
+		return Should
 	}
 
-	s.c.f = func() bool {
-		return s.IsHealthy()
+	return Ignore
+}
+
+func ParseBytes(p []byte) Mode {
+	return Parse(string(p))
+}
+
+func ParseInt64(val int64) Mode {
+	if val > int64(math.MaxUint8) {
+		return Mode(math.MaxUint8)
 	}
 
-	return s
+	return Mode(uint8(val))
 }

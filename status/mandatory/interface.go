@@ -24,66 +24,33 @@
  *
  */
 
-package status
+package mandatory
 
 import (
-	"context"
-	"sync"
 	"sync/atomic"
 
-	ginsdk "github.com/gin-gonic/gin"
-	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
-	montps "github.com/nabbar/golib/monitor/types"
-	libver "github.com/nabbar/golib/version"
+	stsctr "github.com/nabbar/golib/status/control"
 )
 
-type Route interface {
-	Expose(ctx context.Context)
-	MiddleWare(c *ginsdk.Context)
-	SetErrorReturn(f func() liberr.ReturnGin)
+type Mandatory interface {
+	SetMode(m stsctr.Mode)
+	GetMode() stsctr.Mode
+
+	KeyHas(key string) bool
+	KeyAdd(keys ...string)
+	KeyDel(keys ...string)
+	KeyList() []string
 }
 
-type Info interface {
-	SetInfo(name, release, hash string)
-	SetVersion(vers libver.Version)
-}
+func New() Mandatory {
+	m := new(atomic.Value)
+	m.Store(stsctr.Ignore)
 
-type Pool interface {
-	montps.PoolStatus
-	RegisterPool(fct montps.FuncPool)
-}
+	k := new(atomic.Value)
+	k.Store(make([]string, 0))
 
-type Status interface {
-	Route
-	Info
-	Pool
-
-	SetConfig(cfg Config)
-	IsHealthy(name ...string) bool
-	IsCacheHealthy() bool
-}
-
-func New(ctx libctx.FuncContext) Status {
-	s := &sts{
-		m: sync.RWMutex{},
-		p: nil,
-		r: nil,
-		x: libctx.NewConfig[string](ctx),
-		c: ch{
-			t: new(atomic.Value),
-			c: new(atomic.Bool),
-			f: nil,
-		},
-		fn: nil,
-		fr: nil,
-		fh: nil,
-		fd: nil,
+	return &model{
+		Mode: m,
+		Keys: k,
 	}
-
-	s.c.f = func() bool {
-		return s.IsHealthy()
-	}
-
-	return s
 }

@@ -40,7 +40,7 @@ import (
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
-	libsh "github.com/nabbar/golib/shell"
+	shlcmd "github.com/nabbar/golib/shell/command"
 )
 
 type ndb struct {
@@ -265,9 +265,9 @@ func (n *ndb) Client(ctx context.Context, tickSync time.Duration) Client {
 	}
 }
 
-func (n *ndb) ShellCommand(ctx func() context.Context, tickSync time.Duration) []libsh.Command {
+func (n *ndb) ShellCommand(ctx func() context.Context, tickSync time.Duration) []shlcmd.Command {
 	var (
-		res = make([]libsh.Command, 0)
+		res = make([]shlcmd.Command, 0)
 		cli func() Client
 	)
 

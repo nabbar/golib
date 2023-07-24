@@ -61,7 +61,7 @@ func (o *hks) WriteSev(s SyslogSeverity, p []byte) (n int, err error) {
 }
 
 func (o *hks) Close() error {
-	fmt.Printf("closing hook for log syslog '%s'\n", o.getSyslogInfo())
+	//fmt.Printf("closing hook for log syslog '%s'\n", o.getSyslogInfo())
 
 	o.d.Store(closeByte)
 	time.Sleep(10 * time.Millisecond)

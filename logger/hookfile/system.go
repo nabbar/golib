@@ -121,7 +121,7 @@ func (o *hkf) Run(ctx context.Context) {
 	}()
 
 	o.prepareChan()
-	fmt.Printf("starting hook for log file '%s'\n", o.getFilepath())
+	//fmt.Printf("starting hook for log file '%s'\n", o.getFilepath())
 
 	for {
 		select {

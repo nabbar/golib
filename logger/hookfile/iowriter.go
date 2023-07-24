@@ -47,7 +47,7 @@ func (o *hkf) Write(p []byte) (n int, err error) {
 }
 
 func (o *hkf) Close() error {
-	fmt.Printf("closing hook for log file '%s'\n", o.getFilepath())
+	//fmt.Printf("closing hook for log file '%s'\n", o.getFilepath())
 
 	o.d.Store(closeByte)
 	time.Sleep(10 * time.Millisecond)

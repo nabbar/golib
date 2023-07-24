@@ -60,8 +60,9 @@ const (
 	MinPkgSMTPConfig     = 3050
 	MinPkgStatic         = 3100
 	MinPkgStatus         = 3200
-	MinPkgVersion        = 3300
-	MinPkgViper          = 3400
+	MinPkgSocket         = 3300
+	MinPkgVersion        = 3400
+	MinPkgViper          = 3500
 
 	MinAvailable = 4000
 

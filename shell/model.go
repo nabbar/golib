@@ -32,10 +32,11 @@ import (
 	"io"
 
 	liberr "github.com/nabbar/golib/errors"
+	shlcmd "github.com/nabbar/golib/shell/command"
 )
 
 type shell struct {
-	c map[string]Command
+	c map[string]shlcmd.Command
 }
 
 func (s *shell) Run(buf io.Writer, err io.Writer, args []string) {
@@ -55,7 +56,7 @@ func (s *shell) Run(buf io.Writer, err io.Writer, args []string) {
 	}
 }
 
-func (s *shell) Walk(fct func(name string, item Command) (Command, liberr.Error)) liberr.Error {
+func (s *shell) Walk(fct func(name string, item shlcmd.Command) (shlcmd.Command, liberr.Error)) liberr.Error {
 	if fct == nil {
 		return nil
 	}
@@ -77,9 +78,9 @@ func (s *shell) Walk(fct func(name string, item Command) (Command, liberr.Error)
 	return nil
 }
 
-func (s *shell) Add(prefix string, cmd ...Command) {
+func (s *shell) Add(prefix string, cmd ...shlcmd.Command) {
 	if len(s.c) == 0 {
-		s.c = make(map[string]Command)
+		s.c = make(map[string]shlcmd.Command)
 	}
 
 	for i := 0; i < len(cmd); i++ {
@@ -98,10 +99,10 @@ func (s *shell) Add(prefix string, cmd ...Command) {
 	}
 }
 
-func (s *shell) Get(cmd string) []Command {
-	var res = make([]Command, 0)
+func (s *shell) Get(cmd string) []shlcmd.Command {
+	var res = make([]shlcmd.Command, 0)
 
-	_ = s.Walk(func(name string, item Command) (Command, liberr.Error) {
+	_ = s.Walk(func(name string, item shlcmd.Command) (shlcmd.Command, liberr.Error) {
 		if len(cmd) == 0 || name == cmd {
 			res = append(res, item)
 		}
@@ -115,7 +116,7 @@ func (s *shell) Get(cmd string) []Command {
 func (s *shell) Desc(cmd string) map[string]string {
 	var res = make(map[string]string)
 
-	_ = s.Walk(func(name string, item Command) (Command, liberr.Error) {
+	_ = s.Walk(func(name string, item shlcmd.Command) (shlcmd.Command, liberr.Error) {
 		if len(cmd) == 0 || name == cmd {
 			res[name] = item.Describe()
 		}

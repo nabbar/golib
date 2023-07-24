@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * MIT License
  *
@@ -24,66 +27,54 @@
  *
  */
 
-package status
+package socket
 
 import (
 	"context"
-	"sync"
+	"io"
+	"os"
 	"sync/atomic"
-
-	ginsdk "github.com/gin-gonic/gin"
-	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
-	montps "github.com/nabbar/golib/monitor/types"
-	libver "github.com/nabbar/golib/version"
+	"time"
 )
 
-type Route interface {
-	Expose(ctx context.Context)
-	MiddleWare(c *ginsdk.Context)
-	SetErrorReturn(f func() liberr.ReturnGin)
+type FuncError func(e error)
+type Handler func(request io.Reader, response io.Writer)
+
+type Server interface {
+	RegisterFuncError(f FuncError)
+	SetReadTimeout(d time.Duration)
+	SetWriteTimeout(d time.Duration)
+
+	Listen(ctx context.Context, unixFile string, perm os.FileMode)
+	Shutdown()
+	Done() <-chan struct{}
 }
 
-type Info interface {
-	SetInfo(name, release, hash string)
-	SetVersion(vers libver.Version)
-}
+func New(h Handler, sizeBuffRead, sizeBuffWrite int32) Server {
+	c := new(atomic.Value)
+	c.Store(make(chan []byte))
 
-type Pool interface {
-	montps.PoolStatus
-	RegisterPool(fct montps.FuncPool)
-}
+	s := new(atomic.Value)
+	s.Store(make(chan struct{}))
 
-type Status interface {
-	Route
-	Info
-	Pool
+	f := new(atomic.Value)
+	f.Store(h)
 
-	SetConfig(cfg Config)
-	IsHealthy(name ...string) bool
-	IsCacheHealthy() bool
-}
+	sr := new(atomic.Int32)
+	sr.Store(sizeBuffRead)
 
-func New(ctx libctx.FuncContext) Status {
-	s := &sts{
-		m: sync.RWMutex{},
-		p: nil,
-		r: nil,
-		x: libctx.NewConfig[string](ctx),
-		c: ch{
-			t: new(atomic.Value),
-			c: new(atomic.Bool),
-			f: nil,
-		},
-		fn: nil,
-		fr: nil,
-		fh: nil,
-		fd: nil,
+	sw := new(atomic.Int32)
+	sw.Store(sizeBuffWrite)
+
+	return &srv{
+		l:  nil,
+		h:  f,
+		c:  c,
+		s:  s,
+		f:  new(atomic.Value),
+		tr: new(atomic.Value),
+		tw: new(atomic.Value),
+		sr: sr,
+		sw: sw,
 	}
-
-	s.c.f = func() bool {
-		return s.IsHealthy()
-	}
-
-	return s
 }
