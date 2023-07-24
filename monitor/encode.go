@@ -32,9 +32,8 @@ import (
 	"strings"
 	"time"
 
-	moninf "github.com/nabbar/golib/monitor/types"
-
 	monsts "github.com/nabbar/golib/monitor/status"
+	moninf "github.com/nabbar/golib/monitor/types"
 )
 
 const (

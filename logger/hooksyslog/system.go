@@ -62,7 +62,7 @@ func (o *hks) Run(ctx context.Context) {
 	}
 
 	o.prepareChan()
-	fmt.Printf("starting hook for log syslog '%s'\n", o.getSyslogInfo())
+	//fmt.Printf("starting hook for log syslog '%s'\n", o.getSyslogInfo())
 
 	for {
 		select {

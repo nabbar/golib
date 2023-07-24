@@ -29,7 +29,7 @@ package monitor
 import (
 	"context"
 
-	"github.com/nabbar/golib/monitor/types"
+	montps "github.com/nabbar/golib/monitor/types"
 )
 
 type fctMiddleWare func(m middleWare) error
@@ -49,7 +49,7 @@ type mdl struct {
 	mdl []fctMiddleWare
 }
 
-func newMiddleware(cfg *runCfg, fct types.HealthCheck) middleWare {
+func newMiddleware(cfg *runCfg, fct montps.HealthCheck) middleWare {
 	o := &mdl{
 		ctx: nil,
 		cfg: cfg,

@@ -35,7 +35,7 @@ import (
 	"fmt"
 	"io"
 
-	libsh "github.com/nabbar/golib/shell"
+	shlcmd "github.com/nabbar/golib/shell/command"
 	"github.com/nutsdb/nutsdb"
 	"github.com/nutsdb/nutsdb/ds/zset"
 )
@@ -45,7 +45,7 @@ type shellCommand struct {
 	c func() Client
 }
 
-func newShellCommand(code CmdCode, cli func() Client) libsh.Command {
+func newShellCommand(code CmdCode, cli func() Client) shlcmd.Command {
 	if code == CmdUnknown {
 		return nil
 	}

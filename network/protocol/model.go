@@ -27,7 +27,12 @@
 
 package protocol
 
-import "strings"
+import (
+	"reflect"
+	"strings"
+
+	libmap "github.com/mitchellh/mapstructure"
+)
 
 func (n NetworkProtocol) String() string {
 	switch n {
@@ -45,6 +50,12 @@ func (n NetworkProtocol) String() string {
 		return "udp4"
 	case NetworkUDP6:
 		return "udp6"
+	case NetworkIP:
+		return "ip"
+	case NetworkIP4:
+		return "ip4"
+	case NetworkIP6:
+		return "ip6"
 	default:
 		return ""
 	}
@@ -52,4 +63,33 @@ func (n NetworkProtocol) String() string {
 
 func (n NetworkProtocol) Code() string {
 	return strings.ToLower(n.String())
+}
+
+func ViperDecoderHook() libmap.DecodeHookFuncType {
+	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+		var (
+			z = NetworkProtocol(0)
+			t string
+			k bool
+		)
+
+		// Check if the data type matches the expected one
+		if from.Kind() != reflect.String {
+			return data, nil
+		} else if t, k = data.(string); !k {
+			return data, nil
+		}
+
+		// Check if the target type matches the expected one
+		if to != reflect.TypeOf(z) {
+			return data, nil
+		}
+
+		// Format/decode/parse the data and return the new value
+		if e := z.unmarshall([]byte(t)); e != nil {
+			return nil, e
+		} else {
+			return z, nil
+		}
+	}
 }

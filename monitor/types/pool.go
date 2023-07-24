@@ -27,24 +27,35 @@
 package types
 
 import (
+	"context"
 	"encoding"
 	"encoding/json"
+
+	shlcmd "github.com/nabbar/golib/shell/command"
 )
 
 type FuncPool func() Pool
 
-type PoolStatus interface {
-	encoding.TextMarshaler
-	json.Marshaler
-}
-
-type Pool interface {
-	PoolStatus
-
+type PoolManage interface {
 	MonitorAdd(mon Monitor) error
 	MonitorGet(name string) Monitor
 	MonitorSet(mon Monitor) error
 	MonitorDel(name string)
 	MonitorList() []string
 	MonitorWalk(fct func(name string, val Monitor) bool, validName ...string)
+}
+
+type PoolStatus interface {
+	encoding.TextMarshaler
+	json.Marshaler
+	PoolManage
+}
+
+type PoolShell interface {
+	GetShellCommand(ctx context.Context) []shlcmd.Command
+}
+
+type Pool interface {
+	PoolStatus
+	PoolShell
 }
