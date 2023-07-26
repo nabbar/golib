@@ -24,66 +24,57 @@
  *
  */
 
-package status
+package control
 
 import (
-	"context"
-	"sync"
-	"sync/atomic"
+	"reflect"
+	"strings"
 
-	ginsdk "github.com/gin-gonic/gin"
-	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
-	montps "github.com/nabbar/golib/monitor/types"
-	libver "github.com/nabbar/golib/version"
+	libmap "github.com/mitchellh/mapstructure"
 )
 
-type Route interface {
-	Expose(ctx context.Context)
-	MiddleWare(c *ginsdk.Context)
-	SetErrorReturn(f func() liberr.ReturnGin)
-}
-
-type Info interface {
-	SetInfo(name, release, hash string)
-	SetVersion(vers libver.Version)
-}
-
-type Pool interface {
-	montps.PoolStatus
-	RegisterPool(fct montps.FuncPool)
-}
-
-type Status interface {
-	Route
-	Info
-	Pool
-
-	SetConfig(cfg Config)
-	IsHealthy(name ...string) bool
-	IsCacheHealthy() bool
-}
-
-func New(ctx libctx.FuncContext) Status {
-	s := &sts{
-		m: sync.RWMutex{},
-		p: nil,
-		r: nil,
-		x: libctx.NewConfig[string](ctx),
-		c: ch{
-			t: new(atomic.Value),
-			c: new(atomic.Bool),
-			f: nil,
-		},
-		fn: nil,
-		fr: nil,
-		fh: nil,
-		fd: nil,
+func (c Mode) String() string {
+	switch c {
+	case Must:
+		return "Must"
+	case One:
+		return "One"
+	case Should:
+		return "Should"
 	}
 
-	s.c.f = func() bool {
-		return s.IsHealthy()
-	}
+	return ""
+}
 
-	return s
+func (c Mode) Code() string {
+	return strings.ToLower(c.String())
+}
+
+func ViperDecoderHook() libmap.DecodeHookFuncType {
+	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+		var (
+			z = Mode(0)
+			t string
+			k bool
+		)
+
+		// Check if the data type matches the expected one
+		if from.Kind() != reflect.String {
+			return data, nil
+		} else if t, k = data.(string); !k {
+			return data, nil
+		}
+
+		// Check if the target type matches the expected one
+		if to != reflect.TypeOf(z) {
+			return data, nil
+		}
+
+		// Format/decode/parse the data and return the new value
+		if e := z.unmarshall([]byte(t)); e != nil {
+			return nil, e
+		} else {
+			return z, nil
+		}
+	}
 }

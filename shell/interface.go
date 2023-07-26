@@ -30,30 +30,24 @@ package shell
 import (
 	"io"
 
-	"github.com/c-bata/go-prompt"
-
+	libshl "github.com/c-bata/go-prompt"
 	liberr "github.com/nabbar/golib/errors"
+	shlcmd "github.com/nabbar/golib/shell/command"
 )
-
-type Command interface {
-	Name() string
-	Describe() string
-	Run(buf io.Writer, err io.Writer, args []string)
-}
 
 type Shell interface {
 	Run(buf io.Writer, err io.Writer, args []string)
-	Add(prefix string, cmd ...Command)
-	Get(cmd string) []Command
+	Add(prefix string, cmd ...shlcmd.Command)
+	Get(cmd string) []shlcmd.Command
 	Desc(cmd string) map[string]string
-	Walk(fct func(name string, item Command) (Command, liberr.Error)) liberr.Error
+	Walk(fct func(name string, item shlcmd.Command) (shlcmd.Command, liberr.Error)) liberr.Error
 
 	//go prompt
-	RunPrompt(out, err io.Writer, opt ...prompt.Option)
+	RunPrompt(out, err io.Writer, opt ...libshl.Option)
 }
 
 func New() Shell {
 	return &shell{
-		c: make(map[string]Command),
+		c: make(map[string]shlcmd.Command),
 	}
 }

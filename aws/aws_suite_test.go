@@ -43,19 +43,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-uuid"
-	"github.com/nabbar/golib/aws"
-	"github.com/nabbar/golib/aws/configCustom"
-	"github.com/nabbar/golib/httpcli"
-	"github.com/nabbar/golib/password"
+	lbuuid "github.com/hashicorp/go-uuid"
+	libaws "github.com/nabbar/golib/aws"
+	awscfg "github.com/nabbar/golib/aws/configCustom"
+	libhtc "github.com/nabbar/golib/httpcli"
+	libpwd "github.com/nabbar/golib/password"
 	libsiz "github.com/nabbar/golib/size"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var (
-	cli       aws.AWS
-	cfg       aws.Config
+	cli       libaws.AWS
+	cfg       libaws.Config
 	ctx       context.Context
 	cnl       context.CancelFunc
 	filename  = "./config.json"
@@ -88,14 +88,15 @@ var _ = BeforeSuite(func() {
 				Host:   "localhost:" + strconv.Itoa(GetFreePort()),
 			}
 
-			accessKey = password.Generate(20)
-			secretKey = password.Generate(64)
+			accessKey = libpwd.Generate(20)
+			secretKey = libpwd.Generate(64)
 		)
 
-		htp = httpcli.GetClient(uri.Hostname())
+		htp, err = libhtc.GetClient(libhtc.GetTransport(false, false, false), true, libhtc.ClientTimeout30Sec)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(htp).NotTo(BeNil())
 
-		cfg = configCustom.NewConfig("", accessKey, secretKey, uri, "us-east-1")
+		cfg = awscfg.NewConfig("", accessKey, secretKey, uri, "us-east-1")
 		Expect(cfg).NotTo(BeNil())
 
 		cfg.SetRegion("us-east-1")
@@ -114,13 +115,13 @@ var _ = BeforeSuite(func() {
 		println("Minio is waiting on : " + uri.Host)
 	}
 
-	cli, err = aws.New(ctx, cfg, htp)
+	cli, err = libaws.New(ctx, cfg, htp)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cli).NotTo(BeNil())
 
 	cli.ForcePathStyle(ctx, true)
 
-	name, err = uuid.GenerateUUID()
+	name, err = lbuuid.GenerateUUID()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(name).ToNot(BeEmpty())
 	cli.Config().SetBucketName(name)
@@ -144,7 +145,7 @@ func loadConfig() error {
 		return err
 	}
 
-	if cfg, err = configCustom.NewConfigJsonUnmashal(cnfByt); err != nil {
+	if cfg, err = awscfg.NewConfigJsonUnmashal(cnfByt); err != nil {
 		return err
 	}
 

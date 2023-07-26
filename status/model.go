@@ -30,12 +30,11 @@ import (
 	"sync"
 	"time"
 
-	liberr "github.com/nabbar/golib/errors"
-
-	montps "github.com/nabbar/golib/monitor/types"
-
 	libctx "github.com/nabbar/golib/context"
+	liberr "github.com/nabbar/golib/errors"
 	monsts "github.com/nabbar/golib/monitor/status"
+	montps "github.com/nabbar/golib/monitor/types"
+	stsctr "github.com/nabbar/golib/status/control"
 	"golang.org/x/exp/slices"
 )
 
@@ -74,28 +73,60 @@ func (o *sts) IsHealthy(name ...string) bool {
 }
 
 func (o *sts) getStatus(keys ...string) (monsts.Status, string) {
-	if len(keys) < 1 {
-		keys = o.cfgGetMandatory()
-	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	s := monsts.OK
-	m := ""
+	stt := monsts.OK
+	msg := ""
+	ign := make([]string, 0)
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
-		if !slices.Contains(keys, name) {
+		if len(keys) > 0 && !slices.Contains(keys, name) {
+			return true
+		} else if len(ign) > 0 && slices.Contains(ign, name) {
 			return true
 		}
 
-		if v := val.Status(); s > v {
-			s = v
-			m = val.Message()
+		v := val.Status()
+
+		if c := o.cfgGetMode(name); c == stsctr.Ignore {
+			return true
+		} else if c == stsctr.Should && v < monsts.Warn {
+			if stt > monsts.Warn {
+				stt = monsts.Warn
+				msg = val.Message()
+			}
+		} else if c == stsctr.One {
+			lst := o.cfgGetOne(name)
+			sta := monsts.KO
+			res := ""
+
+			o.MonitorWalk(func(nme string, val montps.Monitor) bool {
+				if !slices.Contains(lst, nme) {
+					return true
+				}
+
+				ign = append(ign, nme)
+
+				w := val.Status()
+
+				if w > sta {
+					sta = w
+				} else if w == sta && len(res) < 1 {
+					res = val.Message()
+				}
+
+				return true
+			})
+
+			if stt > sta {
+				stt = sta
+				msg = res
+			}
+		} else if stt > v {
+			stt = v
+			msg = val.Message()
 		}
 
 		return true
 	})
 
-	return s, m
+	return stt, msg
 }

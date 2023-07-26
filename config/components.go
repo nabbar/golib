@@ -32,13 +32,11 @@ import (
 	"fmt"
 	"io"
 
-	"golang.org/x/exp/slices"
-
-	_const "github.com/nabbar/golib/config/const"
-
+	cfgcst "github.com/nabbar/golib/config/const"
 	cfgtps "github.com/nabbar/golib/config/types"
 	liberr "github.com/nabbar/golib/errors"
 	spfcbr "github.com/spf13/cobra"
+	"golang.org/x/exp/slices"
 )
 
 func (c *configModel) ComponentHas(key string) bool {
@@ -184,17 +182,19 @@ func (c *configModel) ComponentReload() liberr.Error {
 }
 
 func (c *configModel) ComponentStop() {
-	c.cpt.Walk(func(key string, val interface{}) bool {
-		if v, k := val.(cfgtps.Component); !k {
-			c.cpt.Delete(key)
-		} else if v == nil {
-			c.cpt.Delete(key)
-		} else if v.IsStarted() {
-			v.Stop()
-		}
+	lst := c.ComponentDependencies()
 
-		return true
-	})
+	for i := len(lst) - 1; i >= 0; i-- {
+		key := lst[i]
+
+		if len(key) < 1 {
+			continue
+		} else if cpt := c.ComponentGet(key); cpt == nil {
+			continue
+		} else {
+			cpt.Stop()
+		}
+	}
 }
 
 func (c *configModel) ComponentIsRunning(atLeast bool) bool {
@@ -300,12 +300,12 @@ func (c *configModel) DefaultConfig() io.Reader {
 			return true
 		}
 
-		if p := v.DefaultConfig(_const.JSONIndent); len(p) > 0 {
+		if p := v.DefaultConfig(cfgcst.JSONIndent); len(p) > 0 {
 			if buffer.Len() > n {
 				buffer.WriteString(",")
 				buffer.WriteString("\n")
 			}
-			buffer.WriteString(fmt.Sprintf("%s\"%s\": ", _const.JSONIndent, key))
+			buffer.WriteString(fmt.Sprintf("%s\"%s\": ", cfgcst.JSONIndent, key))
 			buffer.Write(p)
 		}
 
@@ -322,7 +322,7 @@ func (c *configModel) DefaultConfig() io.Reader {
 
 	if err := json.Compact(cmp, buffer.Bytes()); err != nil {
 		return buffer
-	} else if err = json.Indent(ind, cmp.Bytes(), "", _const.JSONIndent); err != nil {
+	} else if err = json.Indent(ind, cmp.Bytes(), "", cfgcst.JSONIndent); err != nil {
 		return buffer
 	}
 

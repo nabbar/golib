@@ -30,11 +30,9 @@ import (
 	"context"
 	"time"
 
-	"golang.org/x/exp/slices"
-
-	libprm "github.com/nabbar/golib/prometheus"
-
 	monsts "github.com/nabbar/golib/monitor/status"
+	libprm "github.com/nabbar/golib/prometheus"
+	"golang.org/x/exp/slices"
 )
 
 func (o *mon) RegisterMetricsName(names ...string) {

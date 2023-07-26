@@ -32,6 +32,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
@@ -174,4 +175,188 @@ func (c *cobra) getPackageDescShort() string {
 
 func (c *cobra) getPackageDescLong() string {
 	return c.s.GetDescription()
+}
+
+func (c *cobra) AddFlagString(persistent bool, p *string, name, shorthand string, value string, usage string) {
+	if persistent {
+		c.c.PersistentFlags().StringVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().StringVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagCount(persistent bool, p *int, name, shorthand string, usage string) {
+	if persistent {
+		c.c.PersistentFlags().CountVarP(p, name, shorthand, usage)
+	} else {
+		c.c.Flags().CountVarP(p, name, shorthand, usage)
+	}
+}
+
+func (c *cobra) AddFlagBool(persistent bool, p *bool, name, shorthand string, value bool, usage string) {
+	if persistent {
+		c.c.PersistentFlags().BoolVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().BoolVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagDuration(persistent bool, p *time.Duration, name, shorthand string, value time.Duration, usage string) {
+	if persistent {
+		c.c.PersistentFlags().DurationVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().DurationVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagFloat32(persistent bool, p *float32, name, shorthand string, value float32, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Float32VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Float32VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagFloat64(persistent bool, p *float64, name, shorthand string, value float64, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Float64VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Float64VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagInt(persistent bool, p *int, name, shorthand string, value int, usage string) {
+	if persistent {
+		c.c.PersistentFlags().IntVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().IntVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagInt8(persistent bool, p *int8, name, shorthand string, value int8, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Int8VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Int8VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagInt16(persistent bool, p *int16, name, shorthand string, value int16, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Int16VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Int16VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagInt32(persistent bool, p *int32, name, shorthand string, value int32, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Int32VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Int32VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagInt32Slice(persistent bool, p *[]int32, name, shorthand string, value []int32, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Int32SliceVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Int32SliceVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagInt64(persistent bool, p *int64, name, shorthand string, value int64, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Int64VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Int64VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagInt64Slice(persistent bool, p *[]int64, name, shorthand string, value []int64, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Int64SliceVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Int64SliceVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagUint(persistent bool, p *uint, name, shorthand string, value uint, usage string) {
+	if persistent {
+		c.c.PersistentFlags().UintVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().UintVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagUintSlice(persistent bool, p *[]uint, name, shorthand string, value []uint, usage string) {
+	if persistent {
+		c.c.PersistentFlags().UintSliceVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().UintSliceVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagUint8(persistent bool, p *uint8, name, shorthand string, value uint8, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Uint8VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Uint8VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagUint16(persistent bool, p *uint16, name, shorthand string, value uint16, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Uint16VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Uint16VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagUint32(persistent bool, p *uint32, name, shorthand string, value uint32, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Uint32VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Uint32VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagUint64(persistent bool, p *uint64, name, shorthand string, value uint64, usage string) {
+	if persistent {
+		c.c.PersistentFlags().Uint64VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().Uint64VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagStringArray(persistent bool, p *[]string, name, shorthand string, value []string, usage string) {
+	if persistent {
+		c.c.PersistentFlags().StringArrayVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().StringArrayVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagStringToInt(persistent bool, p *map[string]int, name, shorthand string, value map[string]int, usage string) {
+	if persistent {
+		c.c.PersistentFlags().StringToIntVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().StringToIntVarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagStringToInt64(persistent bool, p *map[string]int64, name, shorthand string, value map[string]int64, usage string) {
+	if persistent {
+		c.c.PersistentFlags().StringToInt64VarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().StringToInt64VarP(p, name, shorthand, value, usage)
+	}
+}
+
+func (c *cobra) AddFlagStringToString(persistent bool, p *map[string]string, name, shorthand string, value map[string]string, usage string) {
+	if persistent {
+		c.c.PersistentFlags().StringToStringVarP(p, name, shorthand, value, usage)
+	} else {
+		c.c.Flags().StringToStringVarP(p, name, shorthand, value, usage)
+	}
 }

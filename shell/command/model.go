@@ -1,6 +1,3 @@
-//go:build !386 && !arm && !mips && !mipsle
-// +build !386,!arm,!mips,!mipsle
-
 /***********************************************************************************************************************
  *
  *   MIT License
@@ -28,51 +25,38 @@
  *
  **********************************************************************************************************************/
 
-package nutsdb
+package command
 
 import (
-	"context"
-	"sync/atomic"
-	"time"
-
-	libclu "github.com/nabbar/golib/cluster"
-	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
-	liblog "github.com/nabbar/golib/logger"
-	montps "github.com/nabbar/golib/monitor/types"
-	shlcmd "github.com/nabbar/golib/shell/command"
-	libver "github.com/nabbar/golib/version"
+	"io"
 )
 
-const LogLib = "NutsDB"
-
-type NutsDB interface {
-	Listen() liberr.Error
-	Restart() liberr.Error
-	Shutdown() liberr.Error
-
-	ForceRestart()
-	ForceShutdown()
-
-	IsRunning() bool
-	IsReady(ctx context.Context) bool
-	IsReadyTimeout(parent context.Context, dur time.Duration) bool
-	WaitReady(ctx context.Context, tick time.Duration)
-
-	GetLogger() liblog.Logger
-	SetLogger(l liblog.FuncLog)
-
-	Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error)
-
-	Cluster() libclu.Cluster
-	Client(ctx context.Context, tickSync time.Duration) Client
-	ShellCommand(ctx func() context.Context, tickSync time.Duration) []shlcmd.Command
+type model struct {
+	n string
+	d string
+	r FuncRun
 }
 
-func New(c Config) NutsDB {
-	return &ndb{
-		c: c,
-		t: new(atomic.Value),
-		r: new(atomic.Value),
+func (o *model) Name() string {
+	if o == nil {
+		return ""
 	}
+
+	return o.n
+}
+
+func (o *model) Describe() string {
+	if o == nil {
+		return ""
+	}
+
+	return o.d
+}
+
+func (o *model) Run(buf io.Writer, err io.Writer, args []string) {
+	if o == nil || o.r == nil {
+		return
+	}
+
+	o.r(buf, err, args)
 }

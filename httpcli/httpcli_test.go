@@ -29,6 +29,8 @@ import (
 	"io"
 	"net/http"
 
+	libptc "github.com/nabbar/golib/network/protocol"
+
 	libtls "github.com/nabbar/golib/certificates"
 	"github.com/nabbar/golib/httpcli"
 	. "github.com/onsi/ginkgo/v2"
@@ -59,7 +61,7 @@ var _ = Describe("HttpCli", func() {
 				},
 				ForceIP: httpcli.OptionForceIP{
 					Enable: true,
-					Net:    "tcp",
+					Net:    libptc.NetworkTCP,
 					IP:     "127.0.0.1:8080",
 				},
 			}

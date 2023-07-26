@@ -33,12 +33,10 @@ import (
 	"net/url"
 	"time"
 
-	libptc "github.com/nabbar/golib/network/protocol"
-
-	"golang.org/x/net/http2"
-
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
+	libptc "github.com/nabbar/golib/network/protocol"
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -53,78 +51,57 @@ const (
 
 type FctHttpClient func() *http.Client
 
-func GetClient(serverName string) *http.Client {
-	c, e := GetClientTimeout(serverName, true, 0)
-
-	if e != nil {
-		c, _ = GetClientTimeout(serverName, false, 0)
-	}
-
-	return c
-}
-
-func GetClientError(serverName string) (*http.Client, liberr.Error) {
-	return GetClientTimeout(serverName, true, 0)
-}
-
-func GetClientTimeout(serverName string, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
-	dl := &net.Dialer{}
-
-	tr := &http.Transport{
+func GetTransport(DisableKeepAlive, DisableCompression, ForceHTTP2 bool) *http.Transport {
+	return &http.Transport{
 		Proxy:              http.ProxyFromEnvironment,
-		DialContext:        dl.DialContext,
-		DisableCompression: true,
-		//nolint #staticcheck
-		TLSClientConfig: libtls.GetTLSConfig(serverName),
+		DialContext:        nil,
+		DialTLSContext:     nil,
+		TLSClientConfig:    nil,
+		DisableKeepAlives:  DisableKeepAlive,
+		DisableCompression: DisableCompression,
+		ForceAttemptHTTP2:  ForceHTTP2,
 	}
-
-	return getclient(tr, http2Tr, GlobalTimeout)
 }
 
-func GetClientCustom(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
-	return getclient(tr, http2Tr, GlobalTimeout)
+func SetTransportTLS(tr *http.Transport, tls libtls.TLSConfig, servername string) {
+	tr.TLSClientConfig = tls.TlsConfig(servername)
 }
 
-func GetClientTls(serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
-	dl := &net.Dialer{}
-
-	tr := &http.Transport{
-		Proxy:              http.ProxyFromEnvironment,
-		DialContext:        dl.DialContext,
-		DisableCompression: true,
-		//nolint #staticcheck
-		TLSClientConfig: tls.TlsConfig(serverName),
-	}
-
-	return getclient(tr, http2Tr, GlobalTimeout)
+func SetTransportProxy(tr *http.Transport, proxyUrl *url.URL) {
+	tr.Proxy = http.ProxyURL(proxyUrl)
 }
 
-func GetClientTlsForceIp(netw libptc.NetworkProtocol, ip string, serverName string, tls libtls.TLSConfig, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
-	u := &url.URL{
-		Host: ip,
-	}
+func SetTransportDial(tr *http.Transport, forceIp bool, netw libptc.NetworkProtocol, ip, local string) {
+	var (
+		fctDial func(ctx context.Context, network, address string) (net.Conn, error)
+	)
 
-	fctDial := func(ctx context.Context, network, address string) (net.Conn, error) {
-		dl := &net.Dialer{
-			LocalAddr: &net.TCPAddr{
-				IP: net.ParseIP(u.Hostname()),
-			},
+	if forceIp && len(local) > 0 {
+		u := &url.URL{
+			Host: local,
 		}
-		return dl.DialContext(ctx, netw.Code(), ip)
+		fctDial = func(ctx context.Context, network, address string) (net.Conn, error) {
+			dl := &net.Dialer{
+				LocalAddr: &net.TCPAddr{
+					IP: net.ParseIP(u.Hostname()),
+				},
+			}
+			return dl.DialContext(ctx, netw.Code(), ip)
+		}
+	} else if forceIp {
+		fctDial = func(ctx context.Context, network, address string) (net.Conn, error) {
+			dl := &net.Dialer{}
+			return dl.DialContext(ctx, netw.Code(), ip)
+		}
+	} else {
+		dl := &net.Dialer{}
+		fctDial = dl.DialContext
 	}
 
-	tr := &http.Transport{
-		Proxy:              http.ProxyFromEnvironment,
-		DialContext:        fctDial,
-		DisableCompression: true,
-		//nolint #staticcheck
-		TLSClientConfig: tls.TlsConfig(serverName),
-	}
-
-	return getclient(tr, http2Tr, GlobalTimeout)
+	tr.DialContext = fctDial
 }
 
-func getclient(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
+func GetClient(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
 	if http2Tr {
 		if e := http2.ConfigureTransport(tr); e != nil {
 			return nil, ErrorClientTransportHttp2.ErrorParent(e)

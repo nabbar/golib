@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * MIT License
  *
@@ -24,66 +27,29 @@
  *
  */
 
-package status
+package client
 
 import (
 	"context"
-	"sync"
+	"io"
 	"sync/atomic"
 
-	ginsdk "github.com/gin-gonic/gin"
-	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
-	montps "github.com/nabbar/golib/monitor/types"
-	libver "github.com/nabbar/golib/version"
+	libsck "github.com/nabbar/golib/socket"
 )
 
-type Route interface {
-	Expose(ctx context.Context)
-	MiddleWare(c *ginsdk.Context)
-	SetErrorReturn(f func() liberr.ReturnGin)
+type Client interface {
+	RegisterFuncError(f libsck.FuncError)
+	Connection(ctx context.Context, request io.Reader) (io.Reader, error)
 }
 
-type Info interface {
-	SetInfo(name, release, hash string)
-	SetVersion(vers libver.Version)
-}
+func New(unixfile string) Client {
+	u := new(atomic.Value)
+	u.Store(unixfile)
 
-type Pool interface {
-	montps.PoolStatus
-	RegisterPool(fct montps.FuncPool)
-}
-
-type Status interface {
-	Route
-	Info
-	Pool
-
-	SetConfig(cfg Config)
-	IsHealthy(name ...string) bool
-	IsCacheHealthy() bool
-}
-
-func New(ctx libctx.FuncContext) Status {
-	s := &sts{
-		m: sync.RWMutex{},
-		p: nil,
-		r: nil,
-		x: libctx.NewConfig[string](ctx),
-		c: ch{
-			t: new(atomic.Value),
-			c: new(atomic.Bool),
-			f: nil,
-		},
-		fn: nil,
-		fr: nil,
-		fh: nil,
-		fd: nil,
+	return &clt{
+		u:  u,
+		f:  new(atomic.Value),
+		tr: new(atomic.Value),
+		tw: new(atomic.Value),
 	}
-
-	s.c.f = func() bool {
-		return s.IsHealthy()
-	}
-
-	return s
 }

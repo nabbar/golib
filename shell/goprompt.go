@@ -33,12 +33,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/c-bata/go-prompt"
+	libshl "github.com/c-bata/go-prompt"
 	liberr "github.com/nabbar/golib/errors"
+	shlcmd "github.com/nabbar/golib/shell/command"
 )
 
-func (s *shell) RunPrompt(out, err io.Writer, opt ...prompt.Option) {
-	p := prompt.New(
+func (s *shell) RunPrompt(out, err io.Writer, opt ...libshl.Option) {
+	p := libshl.New(
 		func(inputLine string) {
 			if out == nil {
 				out = os.Stdout
@@ -59,11 +60,11 @@ func (s *shell) RunPrompt(out, err io.Writer, opt ...prompt.Option) {
 
 			s.Run(out, err, strings.Fields(inputLine))
 		},
-		func(document prompt.Document) []prompt.Suggest {
-			var res = make([]prompt.Suggest, 0)
+		func(document libshl.Document) []libshl.Suggest {
+			var res = make([]libshl.Suggest, 0)
 
-			_ = s.Walk(func(name string, item Command) (Command, liberr.Error) {
-				res = append(res, prompt.Suggest{
+			_ = s.Walk(func(name string, item shlcmd.Command) (shlcmd.Command, liberr.Error) {
+				res = append(res, libshl.Suggest{
 					Text:        name,
 					Description: item.Describe(),
 				})

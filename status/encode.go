@@ -35,12 +35,10 @@ import (
 	"strings"
 	"time"
 
-	monpol "github.com/nabbar/golib/monitor/pool"
-
 	ginsdk "github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/render"
+	ginrdr "github.com/gin-gonic/gin/render"
 	liberr "github.com/nabbar/golib/errors"
-
+	monpol "github.com/nabbar/golib/monitor/pool"
 	monsts "github.com/nabbar/golib/monitor/status"
 	montps "github.com/nabbar/golib/monitor/types"
 )
@@ -88,7 +86,7 @@ func (e *encodeModel) GinRender(c *ginsdk.Context, isText bool, isShort bool) {
 	}
 
 	if isText {
-		c.Render(e.code, render.Data{
+		c.Render(e.code, ginrdr.Data{
 			ContentType: ginsdk.MIMEPlain,
 			Data:        e.Bytes(),
 		})

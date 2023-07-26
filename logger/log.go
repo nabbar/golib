@@ -37,34 +37,66 @@ import (
 )
 
 func (o *logger) Debug(message string, data interface{}, args ...interface{}) {
+	if o == nil {
+		return
+	}
+
 	o.newEntry(loglvl.DebugLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
 func (o *logger) Info(message string, data interface{}, args ...interface{}) {
+	if o == nil {
+		return
+	}
+
 	o.newEntry(loglvl.InfoLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
 func (o *logger) Warning(message string, data interface{}, args ...interface{}) {
+	if o == nil {
+		return
+	}
+
 	o.newEntry(loglvl.WarnLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
 func (o *logger) Error(message string, data interface{}, args ...interface{}) {
+	if o == nil {
+		return
+	}
+
 	o.newEntry(loglvl.ErrorLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
 func (o *logger) Fatal(message string, data interface{}, args ...interface{}) {
+	if o == nil {
+		return
+	}
+
 	o.newEntry(loglvl.FatalLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
 func (o *logger) Panic(message string, data interface{}, args ...interface{}) {
+	if o == nil {
+		return
+	}
+
 	o.newEntry(loglvl.PanicLevel, fmt.Sprintf(message, args...), nil, nil, data).Log()
 }
 
 func (o *logger) LogDetails(lvl loglvl.Level, message string, data interface{}, err []error, fields logfld.Fields, args ...interface{}) {
+	if o == nil {
+		return
+	}
+
 	o.newEntry(lvl, fmt.Sprintf(message, args...), err, fields, data).Log()
 }
 
 func (o *logger) CheckError(lvlKO, lvlOK loglvl.Level, message string, err ...error) bool {
+	if o == nil {
+		return false
+	}
+
 	ent := o.newEntry(lvlKO, message, err, nil, nil)
 	return ent.Check(lvlOK)
 }
@@ -79,21 +111,37 @@ func (o *logger) Access(remoteAddr, remoteUser string, localtime time.Time, late
 }
 
 func (o *logger) newEntry(lvl loglvl.Level, message string, err []error, fields logfld.Fields, data interface{}) logent.Entry {
+	if o == nil {
+		return logent.New(loglvl.NilLevel)
+	}
+
 	var (
+		fct = o.getLogrus
 		ent = logent.New(lvl)
 		frm = o.getCaller()
+		stk = o.getStack()
+		fld = o.GetFields()
 	)
 
+	if o == nil {
+		return logent.New(loglvl.NilLevel)
+	} else if fld != nil {
+		ent.FieldSet(fld.FieldsClone(nil))
+	}
+
 	ent.ErrorSet(err)
-	ent.FieldSet(o.GetFields().FieldsClone(nil))
 	ent.DataSet(data)
-	ent.SetLogger(o.getLogrus)
-	ent.SetEntryContext(time.Now(), o.getStack(), frm.Function, frm.File, uint64(frm.Line), message)
+	ent.SetLogger(fct)
+	ent.SetEntryContext(time.Now(), stk, frm.Function, frm.File, uint64(frm.Line), message)
 	ent.FieldMerge(fields)
 
 	return ent
 }
 
 func (o *logger) newEntryClean(message string) logent.Entry {
+	if o == nil {
+		return logent.New(loglvl.NilLevel)
+	}
+
 	return o.newEntry(loglvl.InfoLevel, message, nil, nil, nil).SetMessageOnly(true)
 }

@@ -31,23 +31,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
-	libptc "github.com/nabbar/golib/network/protocol"
-
+	libval "github.com/go-playground/validator/v10"
+	libtls "github.com/nabbar/golib/certificates"
 	cmptls "github.com/nabbar/golib/config/components/tls"
 	cfgcst "github.com/nabbar/golib/config/const"
-
-	libval "github.com/go-playground/validator/v10"
-
-	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
+	libptc "github.com/nabbar/golib/network/protocol"
 )
 
 type OptionForceIP struct {
-	Enable bool   `json:"enable" yaml:"enable" toml:"enable" mapstructure:"enable"`
-	Net    string `json:"net,omitempty" yaml:"net,omitempty" toml:"net,omitempty" mapstructure:"net,omitempty"`
-	IP     string `json:"ip,omitempty" yaml:"ip,omitempty" toml:"ip,omitempty" mapstructure:"ip,omitempty"`
+	Enable bool                   `json:"enable" yaml:"enable" toml:"enable" mapstructure:"enable"`
+	Net    libptc.NetworkProtocol `json:"net,omitempty" yaml:"net,omitempty" toml:"net,omitempty" mapstructure:"net,omitempty"`
+	IP     string                 `json:"ip,omitempty" yaml:"ip,omitempty" toml:"ip,omitempty" mapstructure:"ip,omitempty"`
+	Local  string                 `json:"local,omitempty" yaml:"local,omitempty" toml:"local,omitempty" mapstructure:"local,omitempty"`
 }
 
 type OptionTLS struct {
@@ -55,11 +54,19 @@ type OptionTLS struct {
 	Config libtls.Config `json:"tls" yaml:"tls" toml:"tls" mapstructure:"tls"`
 }
 
+type OptionProxy struct {
+	Enable   bool     `json:"enable" yaml:"enable" toml:"enable" mapstructure:"enable"`
+	Endpoint *url.URL `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint"`
+	Username string   `json:"username" yaml:"username" toml:"username" mapstructure:"username"`
+	Password string   `json:"password" yaml:"password" toml:"password" mapstructure:"password"`
+}
+
 type Options struct {
 	Timeout time.Duration `json:"timeout" yaml:"timeout" toml:"timeout" mapstructure:"timeout"`
 	Http2   bool          `json:"http2" yaml:"http2" toml:"http2" mapstructure:"http2"`
 	TLS     OptionTLS     `json:"tls" yaml:"tls" toml:"tls" mapstructure:"tls"`
 	ForceIP OptionForceIP `json:"force_ip" yaml:"force_ip" toml:"force_ip" mapstructure:"force_ip"`
+	Proxy   OptionProxy   `json:"proxy" yaml:"proxy" toml:"proxy" mapstructure:"proxy"`
 }
 
 func DefaultConfig(indent string) []byte {
@@ -72,7 +79,14 @@ func DefaultConfig(indent string) []byte {
        "force_ip": {
          "enable": false,
          "net":"tcp",
-         "ip":"127.0.0.1:8080"
+         "ip":"127.0.0.1:8080",
+         "local":"127.0.0.1"
+       },
+       "proxy": {
+         "enable": false,
+         "endpoint":"http://example.com",
+         "username":"example",
+         "password":"example"
        }
 }`)
 	)
@@ -113,11 +127,47 @@ func (o Options) GetClient(def libtls.TLSConfig, servername string) (*http.Clien
 		tls = t
 	}
 
-	if o.ForceIP.Enable {
-		return GetClientTlsForceIp(libptc.Parse(o.ForceIP.Net), o.ForceIP.IP, servername, tls, o.Http2, o.Timeout)
-	} else {
-		return GetClientTls(servername, tls, o.Http2, o.Timeout)
+	var tr *http.Transport
+
+	tr = GetTransport(false, false, o.Http2)
+	SetTransportTLS(tr, tls, "")
+	SetTransportDial(tr, o.ForceIP.Enable, o.ForceIP.Net, o.ForceIP.IP, o.ForceIP.Local)
+
+	if o.Proxy.Enable && o.Proxy.Endpoint != nil {
+		var edp *url.URL
+
+		edp = &url.URL{
+			Scheme:      o.Proxy.Endpoint.Scheme,
+			Opaque:      o.Proxy.Endpoint.Opaque,
+			User:        nil,
+			Host:        o.Proxy.Endpoint.Host,
+			Path:        o.Proxy.Endpoint.Path,
+			RawPath:     o.Proxy.Endpoint.RawPath,
+			OmitHost:    o.Proxy.Endpoint.OmitHost,
+			ForceQuery:  o.Proxy.Endpoint.ForceQuery,
+			RawQuery:    o.Proxy.Endpoint.RawQuery,
+			Fragment:    o.Proxy.Endpoint.Fragment,
+			RawFragment: o.Proxy.Endpoint.RawFragment,
+		}
+
+		if len(o.Proxy.Password) > 0 {
+			edp.User = url.UserPassword(o.Proxy.Username, o.Proxy.Password)
+		} else if len(o.Proxy.Username) > 0 {
+			edp.User = url.User(o.Proxy.Username)
+		} else if o.Proxy.Endpoint.User != nil {
+			if p, k := o.Proxy.Endpoint.User.Password(); k {
+				edp.User = url.UserPassword(o.Proxy.Endpoint.User.Username(), p)
+			} else {
+				edp.User = url.User(o.Proxy.Endpoint.User.Username())
+			}
+		}
+
+		if edp != nil && len(edp.String()) > 0 {
+			SetTransportProxy(tr, edp)
+		}
 	}
+
+	return GetClient(tr, o.Http2, o.Timeout)
 }
 
 func (o Options) _GetTLS(def libtls.TLSConfig) (libtls.TLSConfig, liberr.Error) {
