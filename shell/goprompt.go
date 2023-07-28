@@ -39,6 +39,19 @@ import (
 )
 
 func (s *shell) RunPrompt(out, err io.Writer, opt ...libshl.Option) {
+	var (
+		cmp = make([]libshl.Suggest, 0)
+	)
+
+	_ = s.Walk(func(name string, item shlcmd.Command) (shlcmd.Command, liberr.Error) {
+		cmp = append(cmp, libshl.Suggest{
+			Text:        name,
+			Description: item.Describe(),
+		})
+
+		return nil, nil
+	})
+
 	p := libshl.New(
 		func(inputLine string) {
 			if out == nil {
@@ -61,18 +74,7 @@ func (s *shell) RunPrompt(out, err io.Writer, opt ...libshl.Option) {
 			s.Run(out, err, strings.Fields(inputLine))
 		},
 		func(document libshl.Document) []libshl.Suggest {
-			var res = make([]libshl.Suggest, 0)
-
-			_ = s.Walk(func(name string, item shlcmd.Command) (shlcmd.Command, liberr.Error) {
-				res = append(res, libshl.Suggest{
-					Text:        name,
-					Description: item.Describe(),
-				})
-
-				return nil, nil
-			})
-
-			return res
+			return libshl.FilterHasPrefix(cmp, document.GetWordBeforeCursor(), true)
 		},
 		opt...,
 	)
