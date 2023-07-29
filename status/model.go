@@ -64,10 +64,19 @@ func (o *sts) checkFunc() bool {
 }
 
 func (o *sts) IsCacheHealthy() bool {
-	return o.c.IsCache()
+	return o.c.IsCache() >= monsts.Warn
+}
+
+func (o *sts) IsCacheStrictlyHealthy() bool {
+	return o.c.IsCache() == monsts.OK
 }
 
 func (o *sts) IsHealthy(name ...string) bool {
+	s, _ := o.getStatus(name...)
+	return s >= monsts.Warn
+}
+
+func (o *sts) IsStrictlyHealthy(name ...string) bool {
 	s, _ := o.getStatus(name...)
 	return s == monsts.OK
 }

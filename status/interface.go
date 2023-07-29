@@ -31,6 +31,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	monsts "github.com/nabbar/golib/monitor/status"
+
 	ginsdk "github.com/gin-gonic/gin"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
@@ -60,8 +62,12 @@ type Status interface {
 	Pool
 
 	SetConfig(cfg Config)
+
 	IsHealthy(name ...string) bool
+	IsStrictlyHealthy(name ...string) bool
+
 	IsCacheHealthy() bool
+	IsCacheStrictlyHealthy() bool
 }
 
 func New(ctx libctx.FuncContext) Status {
@@ -71,8 +77,9 @@ func New(ctx libctx.FuncContext) Status {
 		r: nil,
 		x: libctx.NewConfig[string](ctx),
 		c: ch{
+			m: new(atomic.Int32),
 			t: new(atomic.Value),
-			c: new(atomic.Bool),
+			c: new(atomic.Int64),
 			f: nil,
 		},
 		fn: nil,
@@ -81,8 +88,9 @@ func New(ctx libctx.FuncContext) Status {
 		fd: nil,
 	}
 
-	s.c.f = func() bool {
-		return s.IsHealthy()
+	s.c.f = func() monsts.Status {
+		r, _ := s.getStatus()
+		return r
 	}
 
 	return s

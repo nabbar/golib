@@ -29,14 +29,25 @@ package status
 import (
 	"sync/atomic"
 	"time"
+
+	monsts "github.com/nabbar/golib/monitor/status"
 )
 
 const timeCache = 3 * time.Second
 
 type ch struct {
+	m *atomic.Int32
 	t *atomic.Value
-	c *atomic.Bool
-	f func() bool
+	c *atomic.Int64
+	f func() monsts.Status
+}
+
+func (o *ch) Max() time.Duration {
+	if m := o.m.Load(); m > 0 {
+		return time.Duration(m) * time.Second
+	} else {
+		return timeCache
+	}
 }
 
 func (o *ch) Time() time.Time {
@@ -47,14 +58,15 @@ func (o *ch) Time() time.Time {
 	}
 }
 
-func (o *ch) IsCache() bool {
-	if t := o.Time(); !t.IsZero() && time.Since(t) < timeCache {
-		return o.c.Load()
+func (o *ch) IsCache() monsts.Status {
+	if t := o.Time(); !t.IsZero() && time.Since(t) < o.Max() {
+		r := o.c.Load()
+		return monsts.NewFromInt(r)
 	}
 
 	if o.f != nil {
 		c := o.f()
-		o.c.Store(c)
+		o.c.Store(c.Int())
 
 		t := time.Now()
 		o.t.Store(t)
@@ -62,5 +74,5 @@ func (o *ch) IsCache() bool {
 		return c
 	}
 
-	return false
+	return monsts.KO
 }
