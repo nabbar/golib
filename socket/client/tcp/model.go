@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
  * MIT License
  *
@@ -27,100 +24,143 @@
  *
  */
 
-package client
+package tcp
 
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"os"
 	"sync/atomic"
 
+	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
 
-type clt struct {
-	u  *atomic.Value // unixfile
-	f  *atomic.Value // function error
+type cltt struct {
+	a  *atomic.Value // address: hostname + port
+	s  *atomic.Int32 // buffer size
+	e  *atomic.Value // function error
+	i  *atomic.Value // function info
 	tr *atomic.Value // connection read timeout
 	tw *atomic.Value // connection write timeout
 }
 
-func (o *clt) RegisterFuncError(f libsck.FuncError) {
+func (o *cltt) RegisterFuncError(f libsck.FuncError) {
 	if o == nil {
 		return
 	}
 
-	o.f.Store(f)
+	o.e.Store(f)
 }
 
-func (o *clt) fctError(e error) {
+func (o *cltt) RegisterFuncInfo(f libsck.FuncInfo) {
 	if o == nil {
 		return
 	}
 
-	v := o.f.Load()
+	o.i.Store(f)
+}
+
+func (o *cltt) fctError(e error) {
+	if o == nil {
+		return
+	}
+
+	v := o.e.Load()
 	if v != nil {
 		v.(libsck.FuncError)(e)
 	}
 }
 
-func (o *clt) dial(ctx context.Context) (net.Conn, error) {
+func (o *cltt) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 	if o == nil {
-		return nil, fmt.Errorf("invalid instance")
+		return
 	}
 
-	v := o.u.Load()
+	v := o.i.Load()
+	if v != nil {
+		v.(libsck.FuncInfo)(local, remote, state)
+	}
+}
+
+func (o *cltt) buffRead() *bytes.Buffer {
+	v := o.s.Load()
+	if v > 0 {
+		return bytes.NewBuffer(make([]byte, 0, int(v)))
+	}
+
+	return bytes.NewBuffer(make([]byte, 0, libsck.DefaultBufferSize))
+}
+
+func (o *cltt) dial(ctx context.Context) (net.Conn, error) {
+	if o == nil {
+		return nil, ErrInstance
+	}
+
+	v := o.a.Load()
 	if v == nil {
-		return nil, fmt.Errorf("invalid unix file")
+		return nil, ErrAddress
 	} else if _, e := os.Stat(v.(string)); e != nil {
 		return nil, e
 	} else {
 		d := net.Dialer{}
-		return d.DialContext(ctx, "unix", v.(string))
+		return d.DialContext(ctx, libptc.NetworkTCP.Code(), v.(string))
 	}
 }
 
-func (o *clt) Connection(ctx context.Context, request io.Reader) (io.Reader, error) {
+func (o *cltt) Do(ctx context.Context, request io.Reader) (io.Reader, error) {
 	if o == nil {
-		return nil, fmt.Errorf("invalid instance")
+		return nil, ErrInstance
 	}
 
 	var (
 		e error
 
+		lc net.Addr
+		rm net.Addr
+
 		cnn net.Conn
+		buf = o.buffRead()
 	)
 
+	o.fctInfo(nil, nil, libsck.ConnectionDial)
 	if cnn, e = o.dial(ctx); e != nil {
 		o.fctError(e)
 		return nil, e
 	}
 
-	defer cnn.Close()
+	defer o.fctError(cnn.Close())
+
+	lc = cnn.LocalAddr()
+	rm = cnn.RemoteAddr()
+
+	defer o.fctInfo(lc, rm, libsck.ConnectionClose)
+	o.fctInfo(lc, rm, libsck.ConnectionNew)
 
 	if request != nil {
+		o.fctInfo(lc, rm, libsck.ConnectionWrite)
 		if _, e = io.Copy(cnn, request); e != nil {
 			o.fctError(e)
 			return nil, e
 		}
 	}
 
-	if e = cnn.(*net.UnixConn).CloseWrite(); e != nil {
+	o.fctInfo(lc, rm, libsck.ConnectionCloseWrite)
+	if e = cnn.(*net.TCPConn).CloseWrite(); e != nil {
 		o.fctError(e)
 		return nil, e
 	}
 
-	var buf = bytes.NewBuffer(make([]byte, 0, 32*1024))
-
+	o.fctInfo(lc, rm, libsck.ConnectionRead)
 	if _, e = io.Copy(buf, cnn); e != nil {
 		o.fctError(e)
 		return nil, e
 	}
 
-	_ = cnn.(*net.UnixConn).CloseRead()
+	o.fctInfo(lc, rm, libsck.ConnectionCloseRead)
+	o.fctError(cnn.(*net.TCPConn).CloseRead())
 
 	return buf, nil
 }

@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
  * MIT License
  *
@@ -27,29 +24,45 @@
  *
  */
 
-package client
+package udp
 
 import (
-	"context"
-	"io"
+	"net/url"
+	"strconv"
 	"sync/atomic"
 
 	libsck "github.com/nabbar/golib/socket"
 )
 
-type Client interface {
-	RegisterFuncError(f libsck.FuncError)
-	Connection(ctx context.Context, request io.Reader) (io.Reader, error)
+type ClientUDP interface {
+	libsck.Client
 }
 
-func New(unixfile string) Client {
-	u := new(atomic.Value)
-	u.Store(unixfile)
+func New(address string) (ClientUDP, error) {
+	var (
+		a = new(atomic.Value)
+		u = &url.URL{
+			Host: address,
+		}
+	)
 
-	return &clt{
-		u:  u,
-		f:  new(atomic.Value),
+	if len(u.Hostname()) < 1 {
+		return nil, ErrHostName
+	} else if len(u.Port()) < 1 {
+		return nil, ErrHostPort
+	} else if i, e := strconv.Atoi(u.Port()); e != nil {
+		return nil, e
+	} else if i < 1 || i > 65534 {
+		return nil, ErrHostPort
+	} else {
+		a.Store(u)
+	}
+
+	return &cltu{
+		a:  a,
+		e:  new(atomic.Value),
+		i:  new(atomic.Value),
 		tr: new(atomic.Value),
 		tw: new(atomic.Value),
-	}
+	}, nil
 }

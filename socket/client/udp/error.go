@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
  * MIT License
  *
@@ -27,54 +24,15 @@
  *
  */
 
-package socket
+package udp
 
-import (
-	"context"
-	"io"
-	"os"
-	"sync/atomic"
-	"time"
+import "fmt"
+
+var (
+	ErrInstance      = fmt.Errorf("invalid instance")
+	ErrAddress       = fmt.Errorf("invalid dial address")
+	ErrHostName      = fmt.Errorf("invalid dial host name")
+	ErrHostPort      = fmt.Errorf("invalid dial host port")
+	ErrContextClosed = fmt.Errorf("context closed")
+	ErrClientClosed  = fmt.Errorf("server closed")
 )
-
-type FuncError func(e error)
-type Handler func(request io.Reader, response io.Writer)
-
-type Server interface {
-	RegisterFuncError(f FuncError)
-	SetReadTimeout(d time.Duration)
-	SetWriteTimeout(d time.Duration)
-
-	Listen(ctx context.Context, unixFile string, perm os.FileMode)
-	Shutdown()
-	Done() <-chan struct{}
-}
-
-func New(h Handler, sizeBuffRead, sizeBuffWrite int32) Server {
-	c := new(atomic.Value)
-	c.Store(make(chan []byte))
-
-	s := new(atomic.Value)
-	s.Store(make(chan struct{}))
-
-	f := new(atomic.Value)
-	f.Store(h)
-
-	sr := new(atomic.Int32)
-	sr.Store(sizeBuffRead)
-
-	sw := new(atomic.Int32)
-	sw.Store(sizeBuffWrite)
-
-	return &srv{
-		l:  nil,
-		h:  f,
-		c:  c,
-		s:  s,
-		f:  new(atomic.Value),
-		tr: new(atomic.Value),
-		tw: new(atomic.Value),
-		sr: sr,
-		sw: sw,
-	}
-}

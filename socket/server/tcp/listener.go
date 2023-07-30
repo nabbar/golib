@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
  * MIT License
  *
@@ -27,20 +24,18 @@
  *
  */
 
-package socket
+package tcp
 
 import (
 	"bytes"
 	"context"
-	"errors"
-	"fmt"
 	"io"
-	"io/fs"
 	"net"
-	"os"
-	"path/filepath"
-	"syscall"
+	"net/url"
 	"time"
+
+	libptc "github.com/nabbar/golib/network/protocol"
+	libsck "github.com/nabbar/golib/socket"
 )
 
 func (o *srv) timeoutRead() time.Time {
@@ -67,7 +62,7 @@ func (o *srv) buffRead() *bytes.Buffer {
 		return bytes.NewBuffer(make([]byte, 0, int(v)))
 	}
 
-	return bytes.NewBuffer(make([]byte, 0, 32*1024))
+	return bytes.NewBuffer(make([]byte, 0, libsck.DefaultBufferSize))
 }
 
 func (o *srv) buffWrite() *bytes.Buffer {
@@ -76,77 +71,50 @@ func (o *srv) buffWrite() *bytes.Buffer {
 		return bytes.NewBuffer(make([]byte, 0, int(v)))
 	}
 
-	return bytes.NewBuffer(make([]byte, 0, 32*1024))
+	return bytes.NewBuffer(make([]byte, 0, libsck.DefaultBufferSize))
 }
 
-func (o *srv) checkFile(unixFile string) (string, error) {
-	if len(unixFile) < 1 {
-		return unixFile, fmt.Errorf("missing socket file path")
-	} else {
-		unixFile = filepath.Join(filepath.Dir(unixFile), filepath.Base(unixFile))
+func (o *srv) getAddress() *url.URL {
+	f := o.ad.Load()
+	if f != nil {
+		return f.(*url.URL)
 	}
 
-	if _, e := os.Stat(unixFile); e != nil && !errors.Is(e, os.ErrNotExist) {
-		return unixFile, e
-	} else if e != nil {
-		return unixFile, nil
-	} else if e = os.Remove(unixFile); e != nil {
-		return unixFile, e
-	}
-
-	return unixFile, nil
+	return nil
 }
 
-func (o *srv) Listen(ctx context.Context, unixFile string, perm os.FileMode) {
+func (o *srv) Listen(ctx context.Context) error {
 	var (
 		e error
-		i fs.FileInfo
 		l net.Listener
-		p = syscall.Umask(int(perm))
+		a = o.getAddress()
 	)
 
-	if unixFile, e = o.checkFile(unixFile); e != nil {
-		o.fctError(e)
-		return
-	} else if l, e = net.Listen("unix", unixFile); e != nil {
-		o.fctError(e)
-		return
-	} else if i, e = os.Stat(unixFile); e != nil {
-		o.fctError(e)
-		return
+	if a == nil {
+		return ErrInvalidAddress
+	} else if l, e = net.Listen(libptc.NetworkTCP.Code(), a.Host); e != nil {
+		return e
 	}
-
-	syscall.Umask(p)
 
 	var fctClose = func() {
 		if l != nil {
 			o.fctError(l.Close())
 		}
-
-		if i, e = os.Stat(unixFile); e == nil {
-			o.fctError(os.Remove(unixFile))
-		}
 	}
 
 	defer fctClose()
-
-	if i.Mode() != perm {
-		if e = os.Chmod(unixFile, perm); e != nil {
-			o.fctError(e)
-		}
-	}
 
 	// Accept new connection or stop if context or shutdown trigger
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ErrContextClosed
 		case <-o.Done():
-			return
+			return nil
 		default:
 			// Accept an incoming connection.
 			if l == nil {
-				return
+				return ErrServerClosed
 			} else if co, ce := l.Accept(); ce != nil {
 				o.fctError(ce)
 			} else {
@@ -157,14 +125,19 @@ func (o *srv) Listen(ctx context.Context, unixFile string, perm os.FileMode) {
 }
 
 func (o *srv) Conn(conn net.Conn) {
-	defer conn.Close()
+	defer o.fctError(conn.Close())
 
 	var (
+		lc = conn.LocalAddr()
+		rm = conn.RemoteAddr()
 		tr = o.timeoutRead()
 		tw = o.timeoutWrite()
 		br = o.buffRead()
 		bw = o.buffWrite()
 	)
+
+	defer o.fctInfo(lc, rm, libsck.ConnectionClose)
+	o.fctInfo(lc, rm, libsck.ConnectionNew)
 
 	if !tr.IsZero() {
 		if e := conn.SetReadDeadline(tr); e != nil {
@@ -180,23 +153,32 @@ func (o *srv) Conn(conn net.Conn) {
 		}
 	}
 
+	o.fctInfo(lc, rm, libsck.ConnectionRead)
 	if _, e := io.Copy(br, conn); e != nil {
 		o.fctError(e)
 		return
-	} else if e = conn.(*net.UnixConn).CloseRead(); e != nil {
+	}
+
+	o.fctInfo(lc, rm, libsck.ConnectionCloseRead)
+	if e := conn.(*net.TCPConn).CloseRead(); e != nil {
 		o.fctError(e)
 		return
 	}
 
 	if h := o.handler(); h != nil {
+		o.fctInfo(lc, rm, libsck.ConnectionHandler)
 		h(br, bw)
 	}
 
-	if _, e := io.Copy(conn, bw); e != nil {
+	if bw.Len() > 0 {
+		o.fctInfo(lc, rm, libsck.ConnectionWrite)
+		if _, e := io.Copy(conn, bw); e != nil {
+			o.fctError(e)
+		}
+	}
+
+	o.fctInfo(lc, rm, libsck.ConnectionCloseWrite)
+	if e := conn.(*net.TCPConn).CloseWrite(); e != nil {
 		o.fctError(e)
-		return
-	} else if e = conn.(*net.UnixConn).CloseWrite(); e != nil {
-		o.fctError(e)
-		return
 	}
 }

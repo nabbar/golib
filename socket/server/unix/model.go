@@ -27,17 +27,15 @@
  *
  */
 
-package socket
+package unix
 
 import (
 	"net"
+	"os"
 	"sync/atomic"
 	"time"
-)
 
-const (
-	defaultTimeoutRead  = time.Second
-	defaultTimeoutWrite = 5 * time.Second
+	libsck "github.com/nabbar/golib/socket"
 )
 
 var (
@@ -55,12 +53,15 @@ type srv struct {
 	h *atomic.Value // handler
 	c *atomic.Value // chan []byte
 	s *atomic.Value // chan struct{}
-	f *atomic.Value // function error
+	e *atomic.Value // function error
+	i *atomic.Value // function info
 
 	tr *atomic.Value // connection read timeout
 	tw *atomic.Value // connection write timeout
 	sr *atomic.Int32 // read buffer size
 	sw *atomic.Int32 // write buffer size
+	fs *atomic.Value // file unix socket
+	fp *atomic.Int64 // file unix perm
 }
 
 func (o *srv) Done() <-chan struct{} {
@@ -83,12 +84,20 @@ func (o *srv) Shutdown() {
 	}
 }
 
-func (o *srv) RegisterFuncError(f FuncError) {
+func (o *srv) RegisterFuncError(f libsck.FuncError) {
 	if o == nil {
 		return
 	}
 
-	o.f.Store(f)
+	o.e.Store(f)
+}
+
+func (o *srv) RegisterFuncInfo(f libsck.FuncInfo) {
+	if o == nil {
+		return
+	}
+
+	o.i.Store(f)
 }
 
 func (o *srv) SetReadTimeout(d time.Duration) {
@@ -107,25 +116,41 @@ func (o *srv) SetWriteTimeout(d time.Duration) {
 	o.tw.Store(d)
 }
 
+func (o *srv) RegisterSocket(unixFile string, perm os.FileMode) {
+	o.fs.Store(unixFile)
+	o.fp.Store(int64(perm))
+}
+
 func (o *srv) fctError(e error) {
 	if o == nil {
 		return
 	}
 
-	v := o.f.Load()
+	v := o.e.Load()
 	if v != nil {
-		v.(FuncError)(e)
+		v.(libsck.FuncError)(e)
 	}
 }
 
-func (o *srv) handler() Handler {
+func (o *srv) fctInfo(local, remote net.Addr, state libsck.ConnState) {
+	if o == nil {
+		return
+	}
+
+	v := o.i.Load()
+	if v != nil {
+		v.(libsck.FuncInfo)(local, remote, state)
+	}
+}
+
+func (o *srv) handler() libsck.Handler {
 	if o == nil {
 		return nil
 	}
 
 	v := o.h.Load()
 	if v != nil {
-		return v.(Handler)
+		return v.(libsck.Handler)
 	}
 
 	return nil

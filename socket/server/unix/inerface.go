@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * MIT License
  *
@@ -24,4 +27,54 @@
  *
  */
 
-package client
+package unix
+
+import (
+	"os"
+	"sync/atomic"
+
+	libsck "github.com/nabbar/golib/socket"
+)
+
+type ServerUnix interface {
+	libsck.Server
+	RegisterSocket(unixFile string, perm os.FileMode)
+}
+
+func New(h libsck.Handler, sizeBuffRead, sizeBuffWrite int32) ServerUnix {
+	c := new(atomic.Value)
+	c.Store(make(chan []byte))
+
+	s := new(atomic.Value)
+	s.Store(make(chan struct{}))
+
+	f := new(atomic.Value)
+	f.Store(h)
+
+	sr := new(atomic.Int32)
+	sr.Store(sizeBuffRead)
+
+	sw := new(atomic.Int32)
+	sw.Store(sizeBuffWrite)
+
+	fp := new(atomic.Value)
+	fp.Store("")
+
+	pe := new(atomic.Int64)
+	pe.Store(0)
+
+	return &srv{
+		l:  nil,
+		h:  f,
+		c:  c,
+		s:  s,
+		e:  new(atomic.Value),
+		i:  new(atomic.Value),
+		tr: new(atomic.Value),
+		tw: new(atomic.Value),
+		sr: sr,
+		sw: sw,
+		fs: fp,
+		fp: pe,
+	}
+}
