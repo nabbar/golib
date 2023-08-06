@@ -26,12 +26,34 @@
 
 package listmandatory
 
-import stsmdt "github.com/nabbar/golib/status/mandatory"
+import (
+	"sync"
+	"sync/atomic"
 
-type ListMandatory []stsmdt.Mandatory
+	stsctr "github.com/nabbar/golib/status/control"
+	stsmdt "github.com/nabbar/golib/status/mandatory"
+)
+
+type ListMandatory interface {
+	Len() int
+	Walk(fct func(m stsmdt.Mandatory) bool)
+	Add(m ...stsmdt.Mandatory)
+	Del(m stsmdt.Mandatory)
+	GetMode(key string) stsctr.Mode
+	SetMode(key string, mod stsctr.Mode)
+}
 
 func New(m ...stsmdt.Mandatory) ListMandatory {
-	res := make([]stsmdt.Mandatory, 0)
-	copy(res, m)
-	return res
+	var o = &model{
+		l: sync.Map{},
+		k: new(atomic.Int32),
+	}
+
+	o.k.Store(0)
+
+	for _, i := range m {
+		o.l.Store(o.inc(), i)
+	}
+
+	return o
 }

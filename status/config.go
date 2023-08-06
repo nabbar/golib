@@ -42,14 +42,14 @@ const (
 	keyConfigMandatory  = "cfgMandatory"
 )
 
-type Config struct {
-	ReturnCode         map[monsts.Status]int
-	MandatoryComponent stslmd.ListMandatory
-}
-
 type Mandatory struct {
 	Mode stsctr.Mode
 	Keys []string
+}
+
+type Config struct {
+	ReturnCode         map[monsts.Status]int
+	MandatoryComponent []Mandatory
 }
 
 func (o Config) Validate() error {
@@ -75,7 +75,6 @@ func (o Config) Validate() error {
 
 func (o *sts) SetConfig(cfg Config) {
 	if len(cfg.ReturnCode) < 1 {
-
 		var def = make(map[monsts.Status]int, 0)
 		def[monsts.KO] = http.StatusInternalServerError
 		def[monsts.Warn] = http.StatusMultiStatus
@@ -86,11 +85,18 @@ func (o *sts) SetConfig(cfg Config) {
 		o.x.Store(keyConfigReturnCode, cfg.ReturnCode)
 	}
 
-	if len(cfg.MandatoryComponent) < 1 {
-		o.x.Store(keyConfigMandatory, make([]string, 0))
-	} else {
-		o.x.Store(keyConfigMandatory, cfg.MandatoryComponent)
+	var lst = stslmd.New()
+
+	if len(cfg.MandatoryComponent) > 0 {
+		for _, i := range cfg.MandatoryComponent {
+			var m = stsmdt.New()
+			m.SetMode(i.Mode)
+			m.KeyAdd(i.Keys...)
+			lst.Add(m)
+		}
 	}
+
+	o.x.Store(keyConfigMandatory, lst)
 }
 
 func (o *sts) cfgGetReturnCode(s monsts.Status) int {
@@ -116,7 +122,7 @@ func (o *sts) cfgGetMandatory() stslmd.ListMandatory {
 }
 
 func (o *sts) cfgGetMode(key string) stsctr.Mode {
-	if l := o.cfgGetMandatory(); len(l) < 1 {
+	if l := o.cfgGetMandatory(); l == nil {
 		return stsctr.Ignore
 	} else {
 		return l.GetMode(key)
@@ -124,7 +130,7 @@ func (o *sts) cfgGetMode(key string) stsctr.Mode {
 }
 
 func (o *sts) cfgGetOne(key string) []string {
-	if l := o.cfgGetMandatory(); len(l) < 1 {
+	if l := o.cfgGetMandatory(); l == nil {
 		return make([]string, 0)
 	} else {
 		var r []string

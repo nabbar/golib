@@ -27,100 +27,149 @@
 package listmandatory
 
 import (
+	"sort"
+	"sync"
+	"sync/atomic"
+
 	stsctr "github.com/nabbar/golib/status/control"
 	stsmdt "github.com/nabbar/golib/status/mandatory"
+	"golang.org/x/exp/slices"
 )
 
-func (l *ListMandatory) Walk(fct func(m stsmdt.Mandatory) bool) {
-	if l == nil {
-		return
-	} else if len(*l) < 1 {
-		return
-	}
-
-	var (
-		k bool
-		m stsmdt.Mandatory
-		n = *l
-	)
-
-	for i := range n {
-		m = n[i]
-		k = fct(m)
-		n[i] = m
-
-		if !k {
-			break
-		}
-	}
-
-	*l = n
+type model struct {
+	l sync.Map
+	k *atomic.Int32
 }
 
-func (l *ListMandatory) Add(m ...stsmdt.Mandatory) {
-	if l == nil {
-		return
-	}
-
-	var n = *l
-
-	if len(n) < 1 {
-		n = make([]stsmdt.Mandatory, 0)
-	}
-
-	*l = append(n, m...)
+func (o *model) inc() int32 {
+	i := o.k.Load()
+	i++
+	o.k.Store(i)
+	return i
 }
 
-func (l *ListMandatory) Del(m stsmdt.Mandatory) {
-	if l == nil {
-		return
-	}
+func (o *model) Len() int {
+	var l int
 
-	var (
-		n = *l
-		r = make([]stsmdt.Mandatory, 0)
-	)
+	o.l.Range(func(key, value any) bool {
+		var k bool
 
-	if len(n) < 1 {
-		*l = make([]stsmdt.Mandatory, 0)
-		return
-	}
-
-	for i := range n {
-		if n[i] != m {
-			r = append(r, n[i])
+		if _, k = key.(int32); !k {
+			o.l.Delete(key)
+			return true
+		} else if _, k = value.(stsmdt.Mandatory); !k {
+			o.l.Delete(key)
+			return true
 		}
-	}
 
-	*l = r
+		l++
+		return true
+	})
+
+	return l
 }
 
-func (l ListMandatory) GetMode(key string) stsctr.Mode {
-	if len(l) < 1 {
-		return stsctr.Ignore
-	}
+func (o *model) Walk(fct func(m stsmdt.Mandatory) bool) {
+	o.l.Range(func(key, value any) bool {
+		var (
+			k bool
+			v stsmdt.Mandatory
+		)
 
-	for i := range l {
-		if l[i].KeyHas(key) {
-			return l[i].GetMode()
+		if _, k = key.(int32); !k {
+			o.l.Delete(key)
+			return true
+		} else if v, k = value.(stsmdt.Mandatory); !k {
+			o.l.Delete(key)
+			return true
+		} else {
+			k = fct(v)
+			o.l.Store(k, v)
+			return k
 		}
-	}
-
-	return stsctr.Ignore
+	})
 }
 
-func (l *ListMandatory) SetMode(key string, mod stsctr.Mode) {
-	if len(*l) < 1 {
-		return
+func (o *model) Add(m ...stsmdt.Mandatory) {
+	for _, v := range m {
+		o.l.Store(o.inc(), v)
 	}
+}
 
-	var n = *l
+func (o *model) Del(m stsmdt.Mandatory) {
+	o.l.Range(func(key, value any) bool {
+		var (
+			k bool
+			v stsmdt.Mandatory
+		)
 
-	for i := range n {
-		if n[i].KeyHas(key) {
-			n[i].SetMode(mod)
-			*l = n
-			return
+		if _, k = key.(int32); !k {
+			o.l.Delete(key)
+			return true
+		} else if v, k = value.(stsmdt.Mandatory); !k {
+			o.l.Delete(key)
+			return true
+		} else {
+			u := v.KeyList()
+			sort.Strings(u)
+
+			n := m.KeyList()
+			sort.Strings(n)
+
+			if slices.Compare(u, n) != 0 {
+				return true
+			}
+
+			o.l.Delete(key)
+			return true
 		}
-	}
+	})
+}
+
+func (o *model) GetMode(key string) stsctr.Mode {
+	var res = stsctr.Ignore
+
+	o.l.Range(func(ref, value any) bool {
+		var (
+			k bool
+			v stsmdt.Mandatory
+		)
+
+		if _, k = ref.(int32); !k {
+			o.l.Delete(ref)
+			return true
+		} else if v, k = value.(stsmdt.Mandatory); !k {
+			o.l.Delete(ref)
+			return true
+		} else if v.KeyHas(key) {
+			res = v.GetMode()
+			return false
+		} else {
+			return true
+		}
+	})
+
+	return res
+}
+
+func (o *model) SetMode(key string, mod stsctr.Mode) {
+	o.l.Range(func(ref, value any) bool {
+		var (
+			k bool
+			v stsmdt.Mandatory
+		)
+
+		if _, k = ref.(int32); !k {
+			o.l.Delete(ref)
+			return true
+		} else if v, k = value.(stsmdt.Mandatory); !k {
+			o.l.Delete(ref)
+			return true
+		} else if v.KeyHas(key) {
+			v.SetMode(mod)
+			return false
+		} else {
+			return true
+		}
+	})
 }
