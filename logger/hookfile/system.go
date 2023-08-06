@@ -106,6 +106,7 @@ func (o *hkf) Run(ctx context.Context) {
 		t = time.NewTicker(time.Second)
 		e error
 	)
+	defer t.Stop()
 
 	defer func() {
 		if rec := recover(); rec != nil {

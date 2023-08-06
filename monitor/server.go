@@ -121,6 +121,8 @@ func (o *mon) poolIsRunning(ctx context.Context) error {
 		tms = time.Now()
 	)
 
+	defer tck.Stop()
+
 	for {
 		select {
 		case <-tck.C:

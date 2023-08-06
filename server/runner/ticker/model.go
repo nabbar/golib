@@ -68,7 +68,6 @@ func (o *run) Stop(ctx context.Context) error {
 	}
 
 	var t = time.NewTicker(pollStop)
-
 	defer t.Stop()
 
 	for {
