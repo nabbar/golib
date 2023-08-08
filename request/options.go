@@ -54,15 +54,15 @@ type OptionsToken struct {
 }
 
 type OptionsAuth struct {
-	Basic  OptionsCredentials `json:"basic" yaml:"basic" toml:"basic" mapstructure:"basic" validate:"required,dive"`
-	Bearer OptionsToken       `json:"bearer" yaml:"bearer" toml:"bearer" mapstructure:"bearer" validate:"required,dive"`
+	Basic  OptionsCredentials `json:"basic" yaml:"basic" toml:"basic" mapstructure:"basic" validate:"dive"`
+	Bearer OptionsToken       `json:"bearer" yaml:"bearer" toml:"bearer" mapstructure:"bearer" validate:"dive"`
 }
 
 type OptionsHealth struct {
 	Enable   bool                `json:"enable" yaml:"enable" toml:"enable" mapstructure:"enable"`
 	Endpoint string              `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"url"`
-	Auth     OptionsAuth         `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:"required,dive"`
-	Result   OptionsHealthResult `json:"result" yaml:"result" toml:"result" mapstructure:"result" validate:"required,dive"`
+	Auth     OptionsAuth         `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:"dive"`
+	Result   OptionsHealthResult `json:"result" yaml:"result" toml:"result" mapstructure:"result" validate:"dive"`
 	Monitor  moncfg.Config       `json:"monitor" yaml:"monitor" toml:"monitor" mapstructure:"monitor" validate:"required,dive"`
 }
 
@@ -74,10 +74,10 @@ type OptionsHealthResult struct {
 }
 
 type Options struct {
-	Endpoint   string         `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"required,url"`
-	HttpClient libhtc.Options `json:"http_client" yaml:"http_client" toml:"http_client" mapstructure:"http_client" validate:"required,dive"`
-	Auth       OptionsAuth    `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:"required,dive"`
-	Health     OptionsHealth  `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:"required,dive"`
+	Endpoint   string         `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"url"`
+	HttpClient libhtc.Options `json:"http_client" yaml:"http_client" toml:"http_client" mapstructure:"http_client" validate:"dive"`
+	Auth       OptionsAuth    `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:"dive"`
+	Health     OptionsHealth  `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:"dive"`
 
 	tls libtls.FctTLSDefault
 	log liblog.FuncLog
