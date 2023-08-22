@@ -23,6 +23,10 @@ go.sum
 .idea/*
 .idea/**/*
 
+# remove minio from aws package
+aws/minio
+
+# other
 /scripts
 /test-*
 

@@ -337,9 +337,9 @@ func (n *nutsNode) PrepareSnapshot() (interface{}, error) {
 
 func (n *nutsNode) SaveSnapshot(i interface{}, writer io.Writer, c <-chan struct{}) error {
 	if i == nil {
-		return ErrorParamsEmpty.Error(nil)
+		return ErrorParamEmpty.Error(nil)
 	} else if sh, ok := snapCast(i); !ok {
-		return ErrorParamsMismatching.Error(nil)
+		return ErrorParamMismatching.Error(nil)
 	} else if opt := n.getOptions(); opt == nil {
 		return ErrorValidateConfig.Error(nil)
 	} else if err := sh.Save(opt, writer); err != nil {

@@ -24,56 +24,15 @@
  *
  */
 
-package archive
+package progress
 
-import (
-	"fmt"
-
-	arcmod "github.com/nabbar/golib/archive/archive"
-	liberr "github.com/nabbar/golib/errors"
-)
-
-const pkgName = "golib/archive"
-
-const (
-	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchive
-	ErrorFileSeek
-	ErrorFileOpen
-	ErrorFileClose
-	ErrorDirCreate
-	ErrorDirStat
-	ErrorDirNotDir
-	ErrorIOCopy
-)
-
-func init() {
-	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision %s", pkgName))
-	}
-	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
-}
-
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case liberr.UnknownError:
-		return liberr.NullMessage
-	case ErrorParamEmpty:
-		return "given parameters is empty"
-	case ErrorFileSeek:
-		return "cannot seek into file"
-	case ErrorFileOpen:
-		return "cannot open file"
-	case ErrorFileClose:
-		return "closing file occurs error"
-	case ErrorDirCreate:
-		return "make directory occurs error"
-	case ErrorDirStat:
-		return "checking directory occurs error"
-	case ErrorDirNotDir:
-		return "directory given is not a directory"
-	case ErrorIOCopy:
-		return "error occurs when io copy"
+func (o *progress) Seek(offset int64, whence int) (int64, error) {
+	if o == nil || o.fos == nil {
+		return 0, ErrorNilPointer.Error(nil)
 	}
 
-	return liberr.NullMessage
+	n, err := o.fos.Seek(offset, whence)
+	o.reset()
+
+	return n, err
 }

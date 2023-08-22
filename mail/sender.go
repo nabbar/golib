@@ -32,7 +32,7 @@ import (
 	"io"
 
 	liberr "github.com/nabbar/golib/errors"
-	libiot "github.com/nabbar/golib/ioutils"
+	libfpg "github.com/nabbar/golib/file/progress"
 	libsmtp "github.com/nabbar/golib/smtp"
 	simple "github.com/xhit/go-simple-mail"
 )
@@ -48,7 +48,7 @@ type Sender interface {
 }
 
 type sender struct {
-	data libiot.FileProgress
+	data libfpg.Progress
 	from string
 	rcpt []string
 }
@@ -56,7 +56,7 @@ type sender struct {
 // nolint #gocognit
 func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	e := simple.NewMSG()
-	f := make([]libiot.FileProgress, 0)
+	f := make([]libfpg.Progress, 0)
 
 	switch m.GetPriority() {
 	case PriorityHigh:
@@ -145,11 +145,11 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 
 	if len(m.attach) > 0 {
 		for _, i := range m.attach {
-			if t, er := libiot.NewFileProgressTemp(); er != nil {
-				return nil, er
+			if t, er := libfpg.Temp(""); er != nil {
+				return nil, ErrorFileOpenCreate.ErrorParent(er)
 			} else if _, er := t.ReadFrom(i.data); er != nil {
 				return nil, ErrorMailIORead.ErrorParent(er)
-			} else if e.AddAttachment(t.FilePath(), i.name); e.Error != nil {
+			} else if e.AddAttachment(t.Path(), i.name); e.Error != nil {
 				return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 			} else {
 				f = append(f, t)
@@ -159,11 +159,11 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 
 	if len(m.inline) > 0 {
 		for _, i := range m.inline {
-			if t, er := libiot.NewFileProgressTemp(); er != nil {
-				return nil, er
+			if t, er := libfpg.Temp(""); er != nil {
+				return nil, ErrorFileOpenCreate.ErrorParent(er)
 			} else if _, er := t.ReadFrom(i.data); er != nil {
 				return nil, ErrorMailIORead.ErrorParent(er)
-			} else if e.AddInline(t.FilePath(), i.name); e.Error != nil {
+			} else if e.AddInline(t.Path(), i.name); e.Error != nil {
 				return nil, ErrorMailSenderInit.ErrorParent(e.Error)
 			} else {
 				f = append(f, t)
@@ -209,9 +209,9 @@ func (m *mail) Sender() (snd Sender, err liberr.Error) {
 	s.rcpt = append(s.rcpt, m.Email().GetRecipients(RecipientCC)...)
 	s.rcpt = append(s.rcpt, m.Email().GetRecipients(RecipientBCC)...)
 
-	if tmp, err := libiot.NewFileProgressTemp(); err != nil {
-		return nil, err
-	} else if _, er := tmp.WriteString(e.GetMessage()); er != nil {
+	if tmp, er := libfpg.Temp(""); er != nil {
+		return nil, ErrorFileOpenCreate.ErrorParent(er)
+	} else if _, er = tmp.WriteString(e.GetMessage()); er != nil {
 		return nil, ErrorMailIOWrite.ErrorParent(er)
 	} else if e.Error != nil {
 		return nil, ErrorMailSenderInit.ErrorParent(e.Error)

@@ -29,19 +29,19 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/artifact/client"
-	"github.com/nabbar/golib/aws"
-	"github.com/nabbar/golib/errors"
+	libart "github.com/nabbar/golib/artifact"
+	artcli "github.com/nabbar/golib/artifact/client"
+	libaws "github.com/nabbar/golib/aws"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func NewS3AWS(ctx context.Context, cfg aws.Config, httpcli *http.Client, forceModePath bool, releaseRegex string, releaseGroup int) (cli artifact.Client, err errors.Error) {
+func NewS3AWS(ctx context.Context, cfg libaws.Config, httpcli *http.Client, forceModePath bool, releaseRegex string, releaseGroup int) (cli libart.Client, err liberr.Error) {
 	var (
-		c aws.AWS
-		e errors.Error
+		c libaws.AWS
+		e liberr.Error
 	)
 
-	if c, e = aws.New(ctx, cfg, httpcli); e != nil {
+	if c, e = libaws.New(ctx, cfg, httpcli); e != nil {
 		return nil, ErrorClientInit.Error(e)
 	}
 
@@ -56,7 +56,7 @@ func NewS3AWS(ctx context.Context, cfg aws.Config, httpcli *http.Client, forceMo
 	}
 
 	o := &s3awsModel{
-		ClientHelper: client.ClientHelper{},
+		ClientHelper: artcli.ClientHelper{},
 		c:            c,
 		x:            ctx,
 		regex:        releaseRegex,

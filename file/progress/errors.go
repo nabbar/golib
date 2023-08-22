@@ -24,55 +24,63 @@
  *
  */
 
-package archive
+package progress
 
 import (
 	"fmt"
 
-	arcmod "github.com/nabbar/golib/archive/archive"
 	liberr "github.com/nabbar/golib/errors"
 )
 
-const pkgName = "golib/archive"
-
+const pkgName = "golib/file/progress"
 const (
-	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchive
-	ErrorFileSeek
-	ErrorFileOpen
-	ErrorFileClose
-	ErrorDirCreate
-	ErrorDirStat
-	ErrorDirNotDir
-	ErrorIOCopy
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgFileProgress
+	ErrorSyscallRLimitGet
+	ErrorSyscallRLimitSet
+	ErrorIOFileStat
+	ErrorIOFileSeek
+	ErrorIOFileTruncate
+	ErrorIOFileSync
+	ErrorIOFileOpen
+	ErrorIOFileTempNew
+	ErrorIOFileTempClose
+	ErrorIOFileTempRemove
+	ErrorNilPointer
 )
 
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision %s", pkgName))
+		panic(fmt.Errorf("error code collision with package %s", pkgName))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case liberr.UnknownError:
-		return liberr.NullMessage
 	case ErrorParamEmpty:
 		return "given parameters is empty"
-	case ErrorFileSeek:
-		return "cannot seek into file"
-	case ErrorFileOpen:
-		return "cannot open file"
-	case ErrorFileClose:
-		return "closing file occurs error"
-	case ErrorDirCreate:
-		return "make directory occurs error"
-	case ErrorDirStat:
-		return "checking directory occurs error"
-	case ErrorDirNotDir:
-		return "directory given is not a directory"
-	case ErrorIOCopy:
-		return "error occurs when io copy"
+	case ErrorSyscallRLimitGet:
+		return "error on retrieve value in syscall rlimit"
+	case ErrorSyscallRLimitSet:
+		return "error on changing value in syscall rlimit"
+	case ErrorIOFileStat:
+		return "error occur while trying to get stat of file"
+	case ErrorIOFileSeek:
+		return "error occur while trying seek into file"
+	case ErrorIOFileTruncate:
+		return "error occur while trying truncate file"
+	case ErrorIOFileSync:
+		return "error occur while trying to sync file"
+	case ErrorIOFileOpen:
+		return "error occur while trying to open file"
+	case ErrorIOFileTempNew:
+		return "error occur while trying to create new temporary file"
+	case ErrorIOFileTempClose:
+		return "closing temporary file occurs error"
+	case ErrorIOFileTempRemove:
+		return "error occurs on removing temporary file"
+	case ErrorNilPointer:
+		return "cannot call function for a nil pointer"
 	}
 
 	return liberr.NullMessage

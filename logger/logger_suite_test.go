@@ -32,7 +32,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/nabbar/golib/ioutils"
+	libfpg "github.com/nabbar/golib/file/progress"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -66,16 +66,18 @@ func GetContext() context.Context {
 }
 
 func GetTempFile() (string, error) {
-	hdf, err := ioutils.NewFileProgressTemp()
+	hdf, err := libfpg.Temp("")
 	if err != nil {
 		return "", err
 	}
 
 	defer func() {
-		_ = hdf.Close()
+		if hdf != nil {
+			_ = hdf.CloseDelete()
+		}
 	}()
 
-	return hdf.FilePath(), nil
+	return hdf.Path(), nil
 }
 
 func DelTempFile(filepath string) error {

@@ -33,12 +33,13 @@ import (
 	"runtime"
 	"strings"
 
+	libfpg "github.com/nabbar/golib/file/progress"
+
 	libarc "github.com/nabbar/golib/archive/archive"
 	liberr "github.com/nabbar/golib/errors"
-	libiot "github.com/nabbar/golib/ioutils"
 )
 
-func GetFile(src, dst libiot.FileProgress, filenameContain, filenameRegex string) liberr.Error {
+func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) liberr.Error {
 
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.ErrorParent(e)
@@ -102,8 +103,10 @@ func GetAll(src io.ReadSeeker, outputFolder string, defaultDirPerm os.FileMode) 
 
 func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.FileMode) (err liberr.Error) {
 	var (
+		e error
+
 		inf = h.FileInfo()
-		dst libiot.FileProgress
+		dst libfpg.Progress
 	)
 
 	if e := dirIsExistOrCreate(filepath.Dir(out), defaultDirPerm); e != nil {
@@ -130,9 +133,9 @@ func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.File
 		return createLink(out, libarc.CleanPath(h.Linkname), true)
 	}
 
-	if dst, err = libiot.NewFileProgressPathWrite(out, true, true, inf.Mode()); err != nil {
-		return ErrorFileOpen.Error(err)
-	} else if _, e := io.Copy(dst, r); e != nil {
+	if dst, e = libfpg.New(out, os.O_RDWR|os.O_CREATE|os.O_TRUNC, inf.Mode()); e != nil {
+		return ErrorFileOpen.ErrorParent(e)
+	} else if _, e = io.Copy(dst, r); e != nil {
 		return ErrorIOCopy.ErrorParent(e)
 	} else if e = dst.Close(); e != nil {
 		return ErrorFileClose.ErrorParent(e)

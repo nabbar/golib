@@ -33,6 +33,8 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+const pkgName = "golib/archive/bz2"
+
 const (
 	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchiveBZ2
 	ErrorFileSeek
@@ -41,13 +43,15 @@ const (
 
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision golib/archive/bz2"))
+		panic(fmt.Errorf("error code collision %s", pkgName))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
+	case liberr.UnknownError:
+		return liberr.NullMessage
 	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorFileSeek:

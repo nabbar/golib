@@ -96,93 +96,93 @@ func (c *clientNutDB) strToType(dest reflect.Type, val string) (interface{}, lib
 	switch dest.Kind() {
 	case reflect.Bool:
 		if v, e := strconv.ParseBool(val); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return v, nil
 		}
 	case reflect.Int:
 		if v, e := strconv.ParseInt(val, 10, 64); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return int(v), nil
 		}
 	case reflect.Int8:
 		if v, e := strconv.ParseInt(val, 10, 8); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return int8(v), nil
 		}
 	case reflect.Int16:
 		if v, e := strconv.ParseInt(val, 10, 16); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return int16(v), nil
 		}
 	case reflect.Int32:
 		if v, e := strconv.ParseInt(val, 10, 32); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return int32(v), nil
 		}
 	case reflect.Int64:
 		if v, e := strconv.ParseInt(val, 10, 64); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return v, nil
 		}
 	case reflect.Uint:
 		if v, e := strconv.ParseUint(val, 10, 64); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return uint(v), nil
 		}
 	case reflect.Uint8:
 		if v, e := strconv.ParseUint(val, 10, 8); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return uint8(v), nil
 		}
 	case reflect.Uint16:
 		if v, e := strconv.ParseUint(val, 10, 16); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return uint16(v), nil
 		}
 	case reflect.Uint32:
 		if v, e := strconv.ParseUint(val, 10, 32); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return uint32(v), nil
 		}
 	case reflect.Uint64:
 		if v, e := strconv.ParseUint(val, 10, 64); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return v, nil
 		}
 	case reflect.Uintptr:
-		return nil, ErrorParamsInvalid.ErrorParent(fmt.Errorf("cannot convert int UintPtr"))
+		return nil, ErrorParamInvalid.ErrorParent(fmt.Errorf("cannot convert int UintPtr"))
 	case reflect.Float32:
 		if v, e := strconv.ParseFloat(val, 32); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return float32(v), nil
 		}
 	case reflect.Float64:
 		if v, e := strconv.ParseFloat(val, 64); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return v, nil
 		}
 	case reflect.Complex64:
 		if v, e := strconv.ParseComplex(val, 64); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return complex64(v), nil
 		}
 	case reflect.Complex128:
 		if v, e := strconv.ParseComplex(val, 128); e != nil {
-			return nil, ErrorParamsMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.ErrorParent(e)
 		} else {
 			return v, nil
 		}
@@ -190,12 +190,12 @@ func (c *clientNutDB) strToType(dest reflect.Type, val string) (interface{}, lib
 		if dest == sliceByte.Type() {
 			return []byte(val), nil
 		} else {
-			return nil, ErrorParamsInvalid.Error(nil)
+			return nil, ErrorParamInvalid.Error(nil)
 		}
 	case reflect.String:
 		return val, nil
 	default:
-		return nil, ErrorParamsInvalid.Error(nil)
+		return nil, ErrorParamInvalid.Error(nil)
 	}
 }
 
@@ -206,15 +206,15 @@ func (c *clientNutDB) Run(cmd CmdCode, args []string) (*CommandResponse, liberr.
 	switch cmd {
 	case CmdZCount:
 		if len(args) < 3 || len(args) > 6 {
-			return nil, ErrorParamsInvalidNumber.Error(nil)
+			return nil, ErrorParamInvalidNumber.Error(nil)
 		}
 	case CmdZRangeByScore:
 		if len(args) < 3 || len(args) > 6 {
-			return nil, ErrorParamsInvalidNumber.Error(nil)
+			return nil, ErrorParamInvalidNumber.Error(nil)
 		}
 	default:
 		if len(args) != nbPrm {
-			return nil, ErrorParamsInvalidNumber.Error(nil)
+			return nil, ErrorParamInvalidNumber.Error(nil)
 		}
 	}
 
@@ -235,7 +235,7 @@ func (c *clientNutDB) Run(cmd CmdCode, args []string) (*CommandResponse, liberr.
 				} else if v == nil {
 					opt.Limit = 0
 				} else if vv, ok := v.(int); !ok {
-					return nil, ErrorParamsMismatching.Error(nil)
+					return nil, ErrorParamMismatching.Error(nil)
 				} else {
 					opt.Limit = vv
 				}
@@ -245,7 +245,7 @@ func (c *clientNutDB) Run(cmd CmdCode, args []string) (*CommandResponse, liberr.
 				} else if v == nil {
 					opt.ExcludeStart = false
 				} else if vv, ok := v.(bool); !ok {
-					return nil, ErrorParamsMismatching.Error(nil)
+					return nil, ErrorParamMismatching.Error(nil)
 				} else {
 					opt.ExcludeStart = vv
 				}
@@ -255,12 +255,12 @@ func (c *clientNutDB) Run(cmd CmdCode, args []string) (*CommandResponse, liberr.
 				} else if v == nil {
 					opt.ExcludeEnd = false
 				} else if vv, ok := v.(bool); !ok {
-					return nil, ErrorParamsMismatching.Error(nil)
+					return nil, ErrorParamMismatching.Error(nil)
 				} else {
 					opt.ExcludeEnd = vv
 				}
 			default:
-				return nil, ErrorParamsInvalid.Error(nil)
+				return nil, ErrorParamInvalid.Error(nil)
 			}
 		default:
 			if v, e := c.strToType(method.Type().In(i), args[i]); e != nil {

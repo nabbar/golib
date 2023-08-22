@@ -27,12 +27,17 @@
 package jfrog
 
 import (
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/errors"
+	"errors"
+	"fmt"
+
+	libart "github.com/nabbar/golib/artifact"
+	liberr "github.com/nabbar/golib/errors"
 )
 
+const pkgName = "golib/artifact/jfrog"
+
 const (
-	ErrorParamsEmpty errors.CodeError = iota + artifact.MIN_ARTIFACT_JFORG
+	ErrorParamEmpty liberr.CodeError = iota + libart.MinArtifactJfrog
 	ErrorURLParse
 	ErrorRequestInit
 	ErrorRequestDo
@@ -41,24 +46,25 @@ const (
 	ErrorRequestResponseBodyDecode
 	ErrorArtifactoryNotFound
 	ErrorArtifactoryDownload
+	ErrorDestinationSize
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
+var (
+	errMisMatchingSize = errors.New("destination size and contentLength header are not matching")
+)
 
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package %s", pkgName))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case liberr.UnknownError:
+		return liberr.NullMessage
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorURLParse:
 		return "endpoint of JFrog Artifactory seems to be not valid"
@@ -78,5 +84,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "error on downloading artifact"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

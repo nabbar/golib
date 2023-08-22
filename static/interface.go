@@ -33,10 +33,11 @@ import (
 	"sync"
 	"sync/atomic"
 
+	libfpg "github.com/nabbar/golib/file/progress"
+
 	ginsdk "github.com/gin-gonic/gin"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	libiot "github.com/nabbar/golib/ioutils"
 	liblog "github.com/nabbar/golib/logger"
 	montps "github.com/nabbar/golib/monitor/types"
 	librtr "github.com/nabbar/golib/router"
@@ -66,7 +67,7 @@ type Static interface {
 	List(rootPath string) ([]string, liberr.Error)
 	Find(pathFile string) (io.ReadCloser, liberr.Error)
 	Info(pathFile string) (os.FileInfo, liberr.Error)
-	Temp(pathFile string) (libiot.FileProgress, liberr.Error)
+	Temp(pathFile string) (libfpg.Progress, liberr.Error)
 
 	Map(func(pathFile string, inf os.FileInfo) error) liberr.Error
 	UseTempForFileSize(size int64)

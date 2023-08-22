@@ -29,17 +29,16 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"os"
 	"sort"
 	"strings"
 
-	"github.com/hashicorp/go-retryablehttp"
-	"github.com/hashicorp/go-version"
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/artifact/client"
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils"
-	"github.com/xanzy/go-gitlab"
+	hschtc "github.com/hashicorp/go-retryablehttp"
+	hscvrs "github.com/hashicorp/go-version"
+	libart "github.com/nabbar/golib/artifact"
+	artcli "github.com/nabbar/golib/artifact/client"
+	liberr "github.com/nabbar/golib/errors"
+	libfpg "github.com/nabbar/golib/file/progress"
+	gitlab "github.com/xanzy/go-gitlab"
 )
 
 const (
@@ -47,14 +46,14 @@ const (
 )
 
 type gitlabModel struct {
-	client.ClientHelper
+	artcli.ClientHelper
 
 	c *gitlab.Client
 	x context.Context
 	p int
 }
 
-func (g *gitlabModel) ListReleases() (releases version.Collection, err errors.Error) {
+func (g *gitlabModel) ListReleases() (releases hscvrs.Collection, err liberr.Error) {
 	var (
 		e    error
 		lopt = &gitlab.ListReleasesOptions{
@@ -76,9 +75,9 @@ func (g *gitlabModel) ListReleases() (releases version.Collection, err errors.Er
 		}
 
 		for _, r := range rels {
-			v, _ := version.NewVersion(r.TagName)
+			v, _ := hscvrs.NewVersion(r.TagName)
 
-			if artifact.ValidatePreRelease(v) {
+			if libart.ValidatePreRelease(v) {
 				releases = append(releases, v)
 			}
 		}
@@ -92,7 +91,7 @@ func (g *gitlabModel) ListReleases() (releases version.Collection, err errors.Er
 	}
 }
 
-func (g *gitlabModel) GetArtifact(containName string, regexName string, release *version.Version) (link string, err errors.Error) {
+func (g *gitlabModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error) {
 	var (
 		vers *gitlab.Release
 		e    error
@@ -105,7 +104,7 @@ func (g *gitlabModel) GetArtifact(containName string, regexName string, release 
 	for _, l := range vers.Assets.Links {
 		if containName != "" && strings.Contains(l.Name, containName) {
 			return l.URL, nil
-		} else if regexName != "" && artifact.CheckRegex(regexName, l.Name) {
+		} else if regexName != "" && libart.CheckRegex(regexName, l.Name) {
 			return l.URL, nil
 		}
 	}
@@ -113,14 +112,14 @@ func (g *gitlabModel) GetArtifact(containName string, regexName string, release 
 	return "", ErrorGitlabNotFound.Error(nil)
 }
 
-func (g *gitlabModel) Download(dst ioutils.FileProgress, containName string, regexName string, release *version.Version) errors.Error {
+func (g *gitlabModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error {
 	var (
 		uri string
-		inf os.FileInfo
 		rsp *gitlab.Response
-		req *retryablehttp.Request
+		req *hschtc.Request
 		err error
-		e   errors.Error
+		e   liberr.Error
+		n   int64
 	)
 
 	defer func() {
@@ -144,11 +143,13 @@ func (g *gitlabModel) Download(dst ioutils.FileProgress, containName string, reg
 		return ErrorGitlabResponse.ErrorParent(errResponseContents)
 	} else if rsp.Body == nil {
 		return ErrorGitlabResponse.ErrorParent(errResponseBodyEmpty)
-	} else if _, err = io.Copy(dst, rsp.Body); err != nil {
+	} else {
+		dst.Reset(rsp.ContentLength)
+	}
+
+	if n, err = io.Copy(dst, rsp.Body); err != nil {
 		return ErrorGitlabIOCopy.ErrorParent(err)
-	} else if inf, err = dst.FileStat(); err != nil {
-		return ErrorDestinationStat.ErrorParent(err)
-	} else if inf.Size() != rsp.ContentLength {
+	} else if n != rsp.ContentLength {
 		return ErrorDestinationSize.ErrorParent(errMisMatchingSize)
 	}
 

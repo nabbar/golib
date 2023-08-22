@@ -26,16 +26,16 @@
 package client
 
 import (
-	"github.com/hashicorp/go-version"
-	"github.com/nabbar/golib/errors"
+	hscvrs "github.com/hashicorp/go-version"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 type ArtifactManagement interface {
-	ListReleasesOrder() (releases map[int]map[int]version.Collection, err errors.Error)
-	ListReleasesMajor(major int) (releases version.Collection, err errors.Error)
-	ListReleasesMinor(major, minor int) (releases version.Collection, err errors.Error)
+	ListReleasesOrder() (releases map[int]map[int]hscvrs.Collection, err liberr.Error)
+	ListReleasesMajor(major int) (releases hscvrs.Collection, err liberr.Error)
+	ListReleasesMinor(major, minor int) (releases hscvrs.Collection, err liberr.Error)
 
-	GetLatest() (release *version.Version, err errors.Error)
-	GetLatestMajor(major int) (release *version.Version, err errors.Error)
-	GetLatestMinor(major, minor int) (release *version.Version, err errors.Error)
+	GetLatest() (release *hscvrs.Version, err liberr.Error)
+	GetLatestMajor(major int) (release *hscvrs.Version, err liberr.Error)
+	GetLatestMinor(major, minor int) (release *hscvrs.Version, err liberr.Error)
 }

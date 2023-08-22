@@ -28,37 +28,36 @@ package s3aws
 import (
 	"context"
 	"io"
-	"os"
 	"regexp"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/hashicorp/go-version"
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/artifact/client"
-	"github.com/nabbar/golib/aws"
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	hscvrs "github.com/hashicorp/go-version"
+	libart "github.com/nabbar/golib/artifact"
+	artcli "github.com/nabbar/golib/artifact/client"
+	libaws "github.com/nabbar/golib/aws"
+	liberr "github.com/nabbar/golib/errors"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 type s3awsModel struct {
-	client.ClientHelper
+	artcli.ClientHelper
 
-	c     aws.AWS
+	c     libaws.AWS
 	x     context.Context
 	regex string
 	group int
 }
 
-func (s *s3awsModel) ListReleases() (releases version.Collection, err errors.Error) {
+func (s *s3awsModel) ListReleases() (releases hscvrs.Collection, err liberr.Error) {
 	var (
-		e errors.Error
+		e liberr.Error
 		r *regexp.Regexp
 		l []string
 	)
 
 	if s.regex == "" {
-		return nil, ErrorParamsEmpty.Error(nil)
+		return nil, ErrorParamEmpty.Error(nil)
 	}
 
 	if l, e = s.c.Object().Find(s.regex); e != nil {
@@ -74,9 +73,9 @@ func (s *s3awsModel) ListReleases() (releases version.Collection, err errors.Err
 			return nil, ErrorS3AWSRegex.ErrorParent(getError(errRegexGroup, s.regex, len(grp), s.group))
 		}
 
-		if v, e := version.NewVersion(grp[s.group]); e != nil {
+		if v, e := hscvrs.NewVersion(grp[s.group]); e != nil {
 			continue
-		} else if !artifact.ValidatePreRelease(v) {
+		} else if !libart.ValidatePreRelease(v) {
 			continue
 		} else {
 			var found bool
@@ -95,19 +94,21 @@ func (s *s3awsModel) ListReleases() (releases version.Collection, err errors.Err
 	return releases, nil
 }
 
-func (s *s3awsModel) GetArtifact(containName string, regexName string, release *version.Version) (link string, err errors.Error) {
+func (s *s3awsModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error) {
 	var (
-		e errors.Error
-		r *regexp.Regexp
+		e error
+		k bool
 		l []string
+		r *regexp.Regexp
+		v *hscvrs.Version
 	)
 
 	if s.regex == "" {
-		return "", ErrorParamsEmpty.Error(e)
+		return "", ErrorParamEmpty.Error(nil)
 	}
 
-	if l, e = s.c.Object().Find(s.regex); e != nil {
-		return "", ErrorS3AWSFind.Error(e)
+	if l, err = s.c.Object().Find(s.regex); err != nil {
+		return "", ErrorS3AWSFind.Error(err)
 	}
 
 	r = regexp.MustCompile(s.regex)
@@ -119,7 +120,7 @@ func (s *s3awsModel) GetArtifact(containName string, regexName string, release *
 			return "", ErrorS3AWSRegex.ErrorParent(getError(errRegexGroup, s.regex, len(grp), s.group))
 		}
 
-		if v, e := version.NewVersion(grp[s.group]); e != nil {
+		if v, e = hscvrs.NewVersion(grp[s.group]); e != nil {
 			return "", ErrorS3AWSNewVers.ErrorParent(getError(errVersion, grp[s.group]), e)
 		} else if v.Equal(release) {
 			uri := s.c.Config().GetEndpoint()
@@ -131,7 +132,7 @@ func (s *s3awsModel) GetArtifact(containName string, regexName string, release *
 			}
 
 			if regexName != "" {
-				if ok, e := regexp.MatchString(regexName, o); e == nil && ok {
+				if k, e = regexp.MatchString(regexName, o); e == nil && k {
 					return uri.String(), nil
 				}
 			}
@@ -145,19 +146,23 @@ func (s *s3awsModel) GetArtifact(containName string, regexName string, release *
 	return "", ErrorS3AWSNotFound.ErrorParent(getError(errVersRequest, release.String()))
 }
 
-func (s *s3awsModel) Download(dst ioutils.FileProgress, containName string, regexName string, release *version.Version) errors.Error {
+func (s *s3awsModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error {
 	var (
-		e errors.Error
+		e error
 		r *regexp.Regexp
 		l []string
+		v *hscvrs.Version
+		k bool
+
+		err liberr.Error
 	)
 
 	if s.regex == "" {
-		return ErrorParamsEmpty.Error(e)
+		return ErrorParamEmpty.Error(nil)
 	}
 
-	if l, e = s.c.Object().Find(s.regex); e != nil {
-		return ErrorS3AWSFind.Error(e)
+	if l, err = s.c.Object().Find(s.regex); e != nil {
+		return ErrorS3AWSFind.Error(err)
 	}
 
 	r = regexp.MustCompile(s.regex)
@@ -169,7 +174,7 @@ func (s *s3awsModel) Download(dst ioutils.FileProgress, containName string, rege
 			return ErrorS3AWSRegex.ErrorParent(getError(errRegexGroup, s.regex, len(grp), s.group))
 		}
 
-		if v, e := version.NewVersion(grp[s.group]); e != nil {
+		if v, e = hscvrs.NewVersion(grp[s.group]); e != nil {
 			return ErrorS3AWSNewVers.ErrorParent(getError(errVersion, grp[s.group]), e)
 		} else if v.Equal(release) {
 			if containName != "" && strings.Contains(o, containName) {
@@ -177,12 +182,8 @@ func (s *s3awsModel) Download(dst ioutils.FileProgress, containName string, rege
 			}
 
 			if regexName != "" {
-				if ok, e := regexp.MatchString(regexName, o); e == nil && ok {
+				if k, e = regexp.MatchString(regexName, o); e == nil && k {
 					return s.downloadObject(dst, o)
-				} else if e != nil {
-					println(e)
-				} else {
-					println("regex " + regexName + " => KO - " + o)
 				}
 			}
 
@@ -195,12 +196,14 @@ func (s *s3awsModel) Download(dst ioutils.FileProgress, containName string, rege
 	return ErrorS3AWSNotFound.ErrorParent(getError(errVersRequest, release.String()))
 }
 
-func (s *s3awsModel) downloadObject(dst ioutils.FileProgress, object string) errors.Error {
+func (s *s3awsModel) downloadObject(dst libfpg.Progress, object string) liberr.Error {
 	var (
-		r *s3.GetObjectOutput
-		e errors.Error
-		i os.FileInfo
+		r *sdksss.GetObjectOutput
+		e error
 		j int64
+		n int64
+
+		err liberr.Error
 	)
 
 	defer func() {
@@ -209,29 +212,25 @@ func (s *s3awsModel) downloadObject(dst ioutils.FileProgress, object string) err
 		}
 	}()
 
-	if j, e = s.c.Object().Size(object); e != nil {
-		err := ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object))
-		err.AddParentError(e)
+	if j, err = s.c.Object().Size(object); err != nil {
+		err = ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object))
+		err.AddParentError(err)
 		return err
 	} else if j < 1 {
 		return ErrorS3AWSDownloadError.ErrorParent(getError(errObjectEmpty, object))
+	} else {
+		dst.Reset(j)
 	}
 
-	dst.ResetMax(j)
-
-	if r, e = s.c.Object().Get(object); e != nil {
-		err := ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object))
-		err.AddParentError(e)
+	if r, err = s.c.Object().Get(object); err != nil {
+		err = ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object))
+		err.AddParentError(err)
 		return err
 	} else if r.Body == nil {
 		return ErrorS3AWSIOReaderError.ErrorParent(getError(errObject, object))
-	} else if _, err := io.Copy(dst, r.Body); err != nil {
-		return ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object), err)
-	} else if i, e = dst.FileStat(); e != nil {
-		err := ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object))
-		err.AddParentError(e)
-		return err
-	} else if i.Size() != j {
+	} else if n, e = io.Copy(dst, r.Body); e != nil {
+		return ErrorS3AWSDownloadError.ErrorParent(getError(errObject, object), e)
+	} else if n != j {
 		return ErrorS3AWSDownloadError.ErrorParent(getError(errObjectSize, object))
 	}
 

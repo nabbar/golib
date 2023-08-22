@@ -36,10 +36,15 @@ import (
 	libtar "github.com/nabbar/golib/archive/tar"
 	libzip "github.com/nabbar/golib/archive/zip"
 	liberr "github.com/nabbar/golib/errors"
-	libiot "github.com/nabbar/golib/ioutils"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 type ArchiveType uint8
+
+const (
+	permDir  = os.FileMode(0775)
+	permFile = os.FileMode(0664)
+)
 
 const (
 	TypeTar = iota + 1
@@ -48,17 +53,27 @@ const (
 	TypeZip
 )
 
-func ExtractFile(src, dst libiot.FileProgress, fileNameContain, fileNameRegex string) liberr.Error {
+func ExtractFile(src, dst libfpg.Progress, fileNameContain, fileNameRegex string) liberr.Error {
 	var (
-		tmp libiot.FileProgress
+		e error
+
+		tmp libfpg.Progress
 		err liberr.Error
 	)
 
-	if tmp, err = dst.NewFileTemp(); err != nil {
-		return err
+	defer func() {
+		if tmp != nil {
+			_ = tmp.CloseDelete()
+		}
+	}()
+
+	if tmp, e = libfpg.Temp(""); e != nil {
+		return ErrorFileOpen.ErrorParent(e)
+	} else {
+		dst.SetRegisterProgress(tmp)
 	}
 
-	if _, e := src.Seek(0, io.SeekStart); e != nil {
+	if _, e = src.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.ErrorParent(e)
 		// #nosec
 	}
@@ -91,9 +106,7 @@ func ExtractFile(src, dst libiot.FileProgress, fileNameContain, fileNameRegex st
 		return err
 	}
 
-	_ = tmp.Close()
-
-	if _, e := dst.ReadFrom(src); e != nil {
+	if _, e = dst.ReadFrom(src); e != nil {
 		//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "reopening file", err)
 		return ErrorIOCopy.ErrorParent(e)
 	}
@@ -101,10 +114,13 @@ func ExtractFile(src, dst libiot.FileProgress, fileNameContain, fileNameRegex st
 	return nil
 }
 
-func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaultDirPerm os.FileMode) liberr.Error {
+func ExtractAll(src libfpg.Progress, originalName, outputPath string, defaultDirPerm os.FileMode) liberr.Error {
 	var (
-		tmp libiot.FileProgress
-		dst libiot.FileProgress
+		e error
+		i os.FileInfo
+
+		tmp libfpg.Progress
+		dst libfpg.Progress
 		err liberr.Error
 	)
 
@@ -116,12 +132,14 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 			_ = dst.Close()
 		}
 		if tmp != nil {
-			_ = tmp.Close()
+			_ = tmp.CloseDelete()
 		}
 	}()
 
-	if tmp, err = src.NewFileTemp(); err != nil {
-		return ErrorFileOpen.Error(err)
+	if tmp, e = libfpg.Temp(""); e != nil {
+		return ErrorFileOpen.ErrorParent(e)
+	} else {
+		src.SetRegisterProgress(tmp)
 	}
 
 	if err = libbz2.GetFile(src, tmp); err == nil {
@@ -140,10 +158,10 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 		_ = tmp.Close()
 	}
 
-	if i, e := os.Stat(outputPath); e != nil && os.IsNotExist(e) {
+	if i, e = os.Stat(outputPath); e != nil && os.IsNotExist(e) {
 		//nolint #nosec
 		/* #nosec */
-		if e := os.MkdirAll(outputPath, 0775); e != nil {
+		if e = os.MkdirAll(outputPath, permDir); e != nil {
 			return ErrorDirCreate.ErrorParent(e)
 		}
 	} else if e != nil {
@@ -164,20 +182,22 @@ func ExtractAll(src libiot.FileProgress, originalName, outputPath string, defaul
 		return err
 	}
 
-	if dst, err = src.NewFilePathWrite(filepath.Join(outputPath, originalName), true, true, 0664); err != nil {
-		return ErrorFileOpen.Error(err)
+	if dst, e = libfpg.New(filepath.Join(outputPath, originalName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, permFile); e != nil {
+		return ErrorFileOpen.ErrorParent(e)
+	} else {
+		src.SetRegisterProgress(dst)
 	}
 
-	if _, e := src.Seek(0, io.SeekStart); e != nil {
+	if _, e = src.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.ErrorParent(e)
-	} else if _, e := dst.ReadFrom(src); e != nil {
+	} else if _, e = dst.ReadFrom(src); e != nil {
 		return ErrorIOCopy.ErrorParent(e)
 	}
 
 	return nil
 }
 
-func CreateArchive(archiveType ArchiveType, archive libiot.FileProgress, stripPath string, comment string, pathContent ...string) (created bool, err liberr.Error) {
+func CreateArchive(archiveType ArchiveType, archive libfpg.Progress, stripPath string, comment string, pathContent ...string) (created bool, err liberr.Error) {
 	if len(pathContent) < 1 {
 		//nolint #goerr113
 		return false, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathContent is empty"))

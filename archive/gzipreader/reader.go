@@ -24,56 +24,74 @@
  *
  */
 
-package archive
+package gzipreader
 
 import (
-	"fmt"
-
-	arcmod "github.com/nabbar/golib/archive/archive"
-	liberr "github.com/nabbar/golib/errors"
+	"bytes"
+	"compress/gzip"
+	"errors"
+	"io"
 )
 
-const pkgName = "golib/archive"
-
-const (
-	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchive
-	ErrorFileSeek
-	ErrorFileOpen
-	ErrorFileClose
-	ErrorDirCreate
-	ErrorDirStat
-	ErrorDirNotDir
-	ErrorIOCopy
-)
-
-func init() {
-	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision %s", pkgName))
-	}
-	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
+type gzr struct {
+	r  io.Reader
+	b  *bytes.Buffer
+	z  *gzip.Writer
+	nc int64
+	nu int64
 }
 
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case liberr.UnknownError:
-		return liberr.NullMessage
-	case ErrorParamEmpty:
-		return "given parameters is empty"
-	case ErrorFileSeek:
-		return "cannot seek into file"
-	case ErrorFileOpen:
-		return "cannot open file"
-	case ErrorFileClose:
-		return "closing file occurs error"
-	case ErrorDirCreate:
-		return "make directory occurs error"
-	case ErrorDirStat:
-		return "checking directory occurs error"
-	case ErrorDirNotDir:
-		return "directory given is not a directory"
-	case ErrorIOCopy:
-		return "error occurs when io copy"
+func (o *gzr) Read(p []byte) (n int, err error) {
+	var (
+		s []byte
+
+		er error
+		nr int
+
+		ew error
+		nw int
+	)
+
+	if i := cap(p); i > o.b.Cap() || i < 1 {
+		s = make([]byte, 0, o.b.Cap())
+	} else {
+		s = make([]byte, 0, i)
 	}
 
-	return liberr.NullMessage
+	nr, er = o.r.Read(s)
+	o.nu += int64(nr)
+
+	if er != nil && !errors.Is(er, io.EOF) {
+		return 0, err
+	} else if nr > 0 {
+		nw, ew = o.z.Write(s)
+	}
+
+	if ew != nil {
+		return 0, ew
+	} else if nw != nr {
+		return 0, errors.New("invalid write buffer")
+	} else if er != nil && errors.Is(er, io.EOF) {
+		if ew = o.z.Close(); ew != nil {
+			return 0, ew
+		}
+	}
+
+	copy(p, o.b.Bytes())
+	o.b.Reset()
+	o.nc += int64(len(p))
+
+	return len(p), er
+}
+
+func (o *gzr) LenCompressed() int64 {
+	return o.nc
+}
+
+func (o *gzr) LenUnCompressed() int64 {
+	return o.nu
+}
+
+func (o *gzr) Rate() float64 {
+	return 1 - float64(o.nc/o.nu)
 }

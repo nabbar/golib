@@ -29,6 +29,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -38,11 +39,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-version"
+	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
 	liberr "github.com/nabbar/golib/errors"
-	libiot "github.com/nabbar/golib/ioutils"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 type artifactoryModel struct {
@@ -187,12 +188,12 @@ func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.E
 
 	if a.regex == "" {
 		//nolint #goerr113
-		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("regex is empty: %s", a.regex))
+		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("regex is empty: %s", a.regex))
 	}
 
 	if a.group < 1 {
 		//nolint #goerr113
-		return nil, ErrorParamsEmpty.ErrorParent(fmt.Errorf("group extracted from regex is empty: %s - %v", a.regex, a.group))
+		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("group extracted from regex is empty: %s - %v", a.regex, a.group))
 	}
 
 	if err = a.request("", &lst); err != nil {
@@ -231,7 +232,7 @@ func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.E
 	return sto, nil
 }
 
-func (a *artifactoryModel) releasesAppendNotExist(releases version.Collection, vers *version.Version) version.Collection {
+func (a *artifactoryModel) releasesAppendNotExist(releases hscvrs.Collection, vers *hscvrs.Version) hscvrs.Collection {
 	for _, k := range releases {
 		if k.Equal(vers) {
 			return releases
@@ -241,7 +242,7 @@ func (a *artifactoryModel) releasesAppendNotExist(releases version.Collection, v
 	return append(releases, vers)
 }
 
-func (a *artifactoryModel) ListReleases() (releases version.Collection, err liberr.Error) {
+func (a *artifactoryModel) ListReleases() (releases hscvrs.Collection, err liberr.Error) {
 	var (
 		reg = regexp.MustCompile(a.regex)
 		sto []ResponseStorage
@@ -258,7 +259,7 @@ func (a *artifactoryModel) ListReleases() (releases version.Collection, err libe
 			continue
 		}
 
-		if v, e := version.NewVersion(grp[a.group]); e != nil {
+		if v, e := hscvrs.NewVersion(grp[a.group]); e != nil {
 			continue
 		} else if !libart.ValidatePreRelease(v) {
 			continue
@@ -270,7 +271,7 @@ func (a *artifactoryModel) ListReleases() (releases version.Collection, err libe
 	return releases, nil
 }
 
-func (a *artifactoryModel) getArtifact(containName string, regexName string, release *version.Version) (art *ResponseStorage, err liberr.Error) {
+func (a *artifactoryModel) getArtifact(containName string, regexName string, release *hscvrs.Version) (art *ResponseStorage, err liberr.Error) {
 	var (
 		reg = regexp.MustCompile(a.regex)
 		rg2 *regexp.Regexp
@@ -293,7 +294,7 @@ func (a *artifactoryModel) getArtifact(containName string, regexName string, rel
 			continue
 		}
 
-		if v, e := version.NewVersion(grp[a.group]); e != nil {
+		if v, e := hscvrs.NewVersion(grp[a.group]); e != nil {
 			continue
 		} else if !libart.ValidatePreRelease(v) {
 			continue
@@ -311,7 +312,7 @@ func (a *artifactoryModel) getArtifact(containName string, regexName string, rel
 	return nil, ErrorArtifactoryNotFound.Error(nil)
 }
 
-func (a *artifactoryModel) GetArtifact(containName string, regexName string, release *version.Version) (link string, err liberr.Error) {
+func (a *artifactoryModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error) {
 	if art, err := a.getArtifact(containName, regexName, release); err != nil {
 		return "", err
 	} else {
@@ -319,9 +320,10 @@ func (a *artifactoryModel) GetArtifact(containName string, regexName string, rel
 	}
 }
 
-func (a *artifactoryModel) Download(dst libiot.FileProgress, containName string, regexName string, release *version.Version) liberr.Error {
+func (a *artifactoryModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error {
 	var (
 		e error
+		n int64
 
 		art *ResponseStorage
 		err liberr.Error
@@ -341,9 +343,9 @@ func (a *artifactoryModel) Download(dst libiot.FileProgress, containName string,
 
 	if art, err = a.getArtifact(containName, regexName, release); err != nil {
 		return err
+	} else {
+		dst.Reset(art.size)
 	}
-
-	dst.ResetMax(art.size)
 
 	if req, e = http.NewRequestWithContext(a.ctx, http.MethodGet, art.DownloadUri, nil); e != nil {
 		return ErrorRequestInit.ErrorParent(e)
@@ -355,8 +357,12 @@ func (a *artifactoryModel) Download(dst libiot.FileProgress, containName string,
 	} else if rsp.Body == nil {
 		//nolint #goerr113
 		return ErrorRequestResponseBodyEmpty.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
-	} else if _, e := dst.ReadFrom(rsp.Body); e != nil {
+	} else if n, e = io.Copy(dst, rsp.Body); e != nil {
 		return ErrorArtifactoryDownload.ErrorParent(e)
+	} else if n != art.size {
+		return ErrorDestinationSize.ErrorParent(errMisMatchingSize)
+	} else if n != rsp.ContentLength {
+		return ErrorDestinationSize.ErrorParent(errMisMatchingSize)
 	}
 
 	return nil

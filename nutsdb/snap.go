@@ -35,9 +35,10 @@ import (
 	"os"
 	"path/filepath"
 
+	libfpg "github.com/nabbar/golib/file/progress"
+
 	"github.com/nabbar/golib/archive"
 	liberr "github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils"
 	"github.com/nutsdb/nutsdb"
 )
 
@@ -84,39 +85,32 @@ func (s *snap) Prepare(opt Options, db *nutsdb.DB) liberr.Error {
 
 func (s *snap) Save(opt Options, writer io.Writer) liberr.Error {
 	var (
-		tar string
-		err error
+		e error
 
-		t ioutils.FileProgress
-		e liberr.Error
+		tmp libfpg.Progress
+		err liberr.Error
 	)
 
-	if tar, e = opt.NewTempFile("tar"); e != nil {
-		return e
-	}
-
 	defer func() {
-		_ = os.Remove(tar)
+		if tmp != nil {
+			_ = tmp.CloseDelete()
+		}
 	}()
 
-	if t, e = ioutils.NewFileProgressPathWrite(tar, false, true, 0664); e != nil {
-		return e
+	if tmp, e = libfpg.Unique(opt.GetTempDir(), opt.NewTempFilePattern("tar")); e != nil {
+		return ErrorFileTemp.ErrorParent(e)
 	}
 
-	defer func() {
-		_ = t.Close()
-	}()
-
-	if _, e = archive.CreateArchive(archive.TypeTarGzip, t, s.path, s.path); e != nil {
-		return ErrorFolderArchive.Error(e)
+	if _, err = archive.CreateArchive(archive.TypeTarGzip, tmp, s.path, s.path); err != nil {
+		return ErrorFolderArchive.Error(err)
 	}
 
-	if _, err = t.Seek(0, io.SeekStart); err != nil {
-		return ErrorDatabaseSnapshot.ErrorParent(err)
+	if _, e = tmp.Seek(0, io.SeekStart); e != nil {
+		return ErrorDatabaseSnapshot.ErrorParent(e)
 	}
 
-	if _, err = t.WriteTo(writer); err != nil {
-		return ErrorDatabaseSnapshot.ErrorParent(err)
+	if _, e = tmp.WriteTo(writer); e != nil {
+		return ErrorDatabaseSnapshot.ErrorParent(e)
 	}
 
 	return nil
@@ -124,43 +118,37 @@ func (s *snap) Save(opt Options, writer io.Writer) liberr.Error {
 
 func (s *snap) Load(opt Options, reader io.Reader) liberr.Error {
 	var (
-		arc string
-		out string
-		err error
+		a string
+		o string
+		e error
 
-		a ioutils.FileProgress
-		e liberr.Error
+		tmp libfpg.Progress
+		err liberr.Error
 	)
 
-	if arc, e = opt.NewTempFile("tar.gz"); e != nil {
-		return e
-	}
-
 	defer func() {
-		_ = os.Remove(arc)
+		if tmp != nil {
+			_ = tmp.CloseDelete()
+		}
 	}()
 
-	if a, e = ioutils.NewFileProgressPathWrite(arc, false, true, 0664); e != nil {
-		return e
+	if tmp, e = libfpg.Unique(opt.GetTempDir(), opt.NewTempFilePattern("tar.gz")); e != nil {
+		return ErrorFileTemp.ErrorParent(e)
 	}
 
-	defer func() {
-		_ = a.Close()
-	}()
-
-	if _, err = a.ReadFrom(reader); err != nil {
-		return ErrorDatabaseSnapshot.ErrorParent(err)
+	if _, e = tmp.ReadFrom(reader); e != nil {
+		return ErrorDatabaseSnapshot.ErrorParent(e)
 	}
 
-	if out, e = opt.NewTempFolder(); e != nil {
-		return e
+	if o, err = opt.NewTempFolder(); err != nil {
+		return err
 	}
 
-	if e = archive.ExtractAll(a, filepath.Base(arc), out, opt.Permission()); e != nil {
-		return ErrorFolderExtract.Error(e)
+	if err = archive.ExtractAll(tmp, filepath.Base(a), o, opt.Permission()); err != nil {
+		return ErrorFolderExtract.Error(err)
 	}
 
-	s.path = out
+	s.path = o
 
 	return nil
 }

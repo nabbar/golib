@@ -29,12 +29,14 @@ package s3aws
 import (
 	"fmt"
 
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/errors"
+	libart "github.com/nabbar/golib/artifact"
+	liberr "github.com/nabbar/golib/errors"
 )
 
+const pkgName = "golib/artifact/s3aws"
+
 const (
-	ErrorParamsEmpty errors.CodeError = iota + artifact.MIN_ARTIFACT_S3AWS
+	ErrorParamEmpty liberr.CodeError = iota + libart.MinArtifactS3AWS
 	ErrorClientInit
 	ErrorS3AWSRegex
 	ErrorS3AWSFind
@@ -45,7 +47,6 @@ const (
 )
 
 var (
-	isCodeError    = false
 	errRegexGroup  = "regex '%s' has only '%d' group extracted and given group to use '%d'"
 	errVersion     = "error with version '%s'"
 	errVersRequest = "version requested '%s'"
@@ -59,20 +60,18 @@ func getError(code string, args ...interface{}) error {
 	return fmt.Errorf(code, args...)
 }
 
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package %s", pkgName))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case liberr.UnknownError:
+		return liberr.NullMessage
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorClientInit:
 		return "initialization of gitlab client failed"
@@ -90,5 +89,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "return io reader is empty"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

@@ -33,7 +33,6 @@ package nutsdb
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -42,8 +41,8 @@ import (
 	"time"
 
 	liberr "github.com/nabbar/golib/errors"
-	"github.com/nutsdb/nutsdb"
-	"github.com/xujiajun/utils/filesystem"
+	nutsdb "github.com/nutsdb/nutsdb"
+	xujufs "github.com/xujiajun/utils/filesystem"
 )
 
 type Options interface {
@@ -53,7 +52,8 @@ type Options interface {
 	NewBackupTemp(db *nutsdb.DB) (string, liberr.Error)
 
 	NewTempFolder() (string, liberr.Error)
-	NewTempFile(extension string) (string, liberr.Error)
+	NewTempFilePattern(extension string) string
+	GetTempDir() string
 
 	CleanBackup() liberr.Error
 	Permission() os.FileMode
@@ -132,7 +132,7 @@ func (o options) NewBackupTemp(db *nutsdb.DB) (string, liberr.Error) {
 }
 
 func (o options) NewTempFolder() (string, liberr.Error) {
-	if p, e := ioutil.TempDir(o.dirs.temp, o.getTempPrefix()); e != nil {
+	if p, e := os.MkdirTemp(o.dirs.temp, o.getTempPrefix()); e != nil {
 		return "", ErrorFolderCreate.ErrorParent(e)
 	} else {
 		_ = os.Chmod(p, o.perm)
@@ -140,21 +140,18 @@ func (o options) NewTempFolder() (string, liberr.Error) {
 	}
 }
 
-func (o options) NewTempFile(extension string) (string, liberr.Error) {
+func (o options) NewTempFilePattern(extension string) string {
 	pattern := o.getTempPrefix() + "-*"
 
 	if extension != "" {
 		pattern = pattern + "." + extension
 	}
 
-	if file, e := ioutil.TempFile(o.dirs.temp, pattern); e != nil {
-		return "", ErrorFolderCreate.ErrorParent(e)
-	} else {
-		p := file.Name()
-		_ = file.Close()
+	return pattern
+}
 
-		return p, nil
-	}
+func (o options) GetTempDir() string {
+	return o.dirs.temp
 }
 
 func (o options) CleanBackup() liberr.Error {
@@ -168,7 +165,7 @@ func (o options) Permission() os.FileMode {
 func (o options) RestoreBackup(dir string) liberr.Error {
 	if err := os.RemoveAll(o.dirs.data); err != nil {
 		return ErrorFolderDelete.ErrorParent(err)
-	} else if err = filesystem.CopyDir(dir, o.dirs.data); err != nil {
+	} else if err = xujufs.CopyDir(dir, o.dirs.data); err != nil {
 		return ErrorFolderCopy.ErrorParent(err)
 	} else {
 		_ = os.Chmod(o.dirs.data, o.perm)

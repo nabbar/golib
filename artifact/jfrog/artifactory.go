@@ -30,17 +30,17 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/artifact/client"
-	"github.com/nabbar/golib/errors"
+	libart "github.com/nabbar/golib/artifact"
+	artcli "github.com/nabbar/golib/artifact/client"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Response, error), uri, releaseRegex string, releaseGroup int, reposPath ...string) (artifact.Client, errors.Error) {
+func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Response, error), uri, releaseRegex string, releaseGroup int, reposPath ...string) (libart.Client, liberr.Error) {
 	if u, e := url.Parse(uri); e != nil {
 		return nil, ErrorURLParse.ErrorParent(e)
 	} else {
 		a := &artifactoryModel{
-			ClientHelper: client.ClientHelper{},
+			ClientHelper: artcli.ClientHelper{},
 			Do:           Do,
 			ctx:          ctx,
 			endpoint:     u,

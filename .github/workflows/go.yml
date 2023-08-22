@@ -73,6 +73,8 @@ jobs:
           max_attempts: 3
           timeout_minutes: 15
           command: |
+            wget --quiet --output-document="aws/minio" "https://dl.min.io/server/minio/release/linux-amd64/minio" 
+            chmod -v +x "aws/minio"
             go version
             ginkgo version
             for PKG in $(find $(pwd) -type f -name "*_suite_test.go" | sort -u );

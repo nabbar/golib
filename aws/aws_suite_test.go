@@ -149,7 +149,7 @@ func loadConfig() error {
 		return err
 	}
 
-	if err := cfg.Validate(); err != nil {
+	if err = cfg.Validate(); err != nil {
 		return err
 	}
 

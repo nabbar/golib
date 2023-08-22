@@ -24,56 +24,31 @@
  *
  */
 
-package archive
+package gzipreader
 
 import (
-	"fmt"
-
-	arcmod "github.com/nabbar/golib/archive/archive"
-	liberr "github.com/nabbar/golib/errors"
+	"bytes"
+	"compress/gzip"
+	"io"
 )
 
-const pkgName = "golib/archive"
+type GZipReader interface {
+	io.Reader
 
-const (
-	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchive
-	ErrorFileSeek
-	ErrorFileOpen
-	ErrorFileClose
-	ErrorDirCreate
-	ErrorDirStat
-	ErrorDirNotDir
-	ErrorIOCopy
-)
+	LenCompressed() int64
+	LenUnCompressed() int64
 
-func init() {
-	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision %s", pkgName))
-	}
-	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
+	Rate() float64
 }
 
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case liberr.UnknownError:
-		return liberr.NullMessage
-	case ErrorParamEmpty:
-		return "given parameters is empty"
-	case ErrorFileSeek:
-		return "cannot seek into file"
-	case ErrorFileOpen:
-		return "cannot open file"
-	case ErrorFileClose:
-		return "closing file occurs error"
-	case ErrorDirCreate:
-		return "make directory occurs error"
-	case ErrorDirStat:
-		return "checking directory occurs error"
-	case ErrorDirNotDir:
-		return "directory given is not a directory"
-	case ErrorIOCopy:
-		return "error occurs when io copy"
-	}
+// GzipReader is used to GZIP a io.reader on fly.
+// The given io.reader is not a gzip reader but the result is a GZipped reader
+func GzipReader(r io.Reader) GZipReader {
+	b := bytes.NewBuffer(make([]byte, 0, 32*1024))
 
-	return liberr.NullMessage
+	return &gzr{
+		r: r,
+		b: b,
+		z: gzip.NewWriter(b),
+	}
 }

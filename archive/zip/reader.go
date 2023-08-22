@@ -31,12 +31,13 @@ import (
 	"os"
 	"path/filepath"
 
+	libfpg "github.com/nabbar/golib/file/progress"
+
 	arcmod "github.com/nabbar/golib/archive/archive"
 	liberr "github.com/nabbar/golib/errors"
-	libiot "github.com/nabbar/golib/ioutils"
 )
 
-func GetFile(src, dst libiot.FileProgress, filenameContain, filenameRegex string) liberr.Error {
+func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) liberr.Error {
 	var (
 		arc *zip.Reader
 		inf os.FileInfo
@@ -47,7 +48,7 @@ func GetFile(src, dst libiot.FileProgress, filenameContain, filenameRegex string
 		return ErrorFileSeek.ErrorParent(err)
 	} else if _, err = dst.Seek(0, io.SeekStart); err != nil {
 		return ErrorFileSeek.ErrorParent(err)
-	} else if inf, err = src.FileStat(); err != nil {
+	} else if inf, err = src.Stat(); err != nil {
 		return ErrorFileStat.ErrorParent(err)
 	} else if arc, err = zip.NewReader(src, inf.Size()); err != nil {
 		return ErrorZipOpen.ErrorParent(err)
@@ -98,7 +99,7 @@ func GetFile(src, dst libiot.FileProgress, filenameContain, filenameRegex string
 	return nil
 }
 
-func GetAll(src libiot.FileProgress, outputFolder string, defaultDirPerm os.FileMode) liberr.Error {
+func GetAll(src libfpg.Progress, outputFolder string, defaultDirPerm os.FileMode) liberr.Error {
 	var (
 		r *zip.Reader
 		i os.FileInfo
@@ -107,7 +108,7 @@ func GetAll(src libiot.FileProgress, outputFolder string, defaultDirPerm os.File
 
 	if _, e = src.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.ErrorParent(e)
-	} else if i, e = src.FileStat(); e != nil {
+	} else if i, e = src.Stat(); e != nil {
 		return ErrorFileStat.ErrorParent(e)
 	} else if r, e = zip.NewReader(src, i.Size()); e != nil {
 		return ErrorZipOpen.ErrorParent(e)
@@ -130,7 +131,7 @@ func GetAll(src libiot.FileProgress, outputFolder string, defaultDirPerm os.File
 
 func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err liberr.Error) {
 	var (
-		dst libiot.FileProgress
+		dst libfpg.Progress
 		inf = f.FileInfo()
 
 		r io.ReadCloser
@@ -164,9 +165,13 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err libe
 		return
 	}
 
-	if dst, err = libiot.NewFileProgressPathWrite(out, true, true, inf.Mode()); err != nil {
-		return ErrorFileOpen.Error(err)
-	} else if r, e = f.Open(); e != nil {
+	if dst, e = libfpg.New(out, os.O_RDWR|os.O_CREATE|os.O_TRUNC, inf.Mode()); e != nil {
+		return ErrorFileOpen.ErrorParent(e)
+	} else {
+
+	}
+
+	if r, e = f.Open(); e != nil {
 		return ErrorZipFileOpen.ErrorParent(e)
 	}
 

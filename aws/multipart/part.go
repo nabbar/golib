@@ -30,6 +30,7 @@ import (
 	//nolint #nosec
 	"crypto/md5"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -37,7 +38,7 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktyp "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	libiot "github.com/nabbar/golib/ioutils"
+	libfpg "github.com/nabbar/golib/file/progress"
 	libsiz "github.com/nabbar/golib/size"
 )
 
@@ -109,40 +110,45 @@ func (m *mpu) AddPart(r io.Reader) (n int64, e error) {
 	var (
 		cli *sdksss.Client
 		res *sdksss.UploadPartOutput
-		tmp libiot.FileProgress
+		tmp libfpg.Progress
 		ctx = m.getContext()
 		obj = m.getObject()
 		bck = m.getBucket()
 		mid = m.getMultipartID()
+		hss string
 
 		/* #nosec */
 		//nolint #nosec
 		hsh = md5.New()
 	)
 
+	defer func() {
+		if tmp != nil {
+			_ = tmp.CloseDelete()
+		}
+	}()
+
 	if cli = m.getClient(); cli == nil {
 		return 0, ErrInvalidClient
-	} else if tmp, e = libiot.NewFileProgressTemp(); e != nil {
+	} else if tmp, e = libfpg.Temp(""); e != nil {
 		return 0, e
 	} else if tmp == nil {
 		return 0, ErrInvalidTMPFile
-	} else {
-		defer func() {
-			if tmp != nil {
-				_ = tmp.Close()
-			}
-		}()
 	}
 
-	if n, e = io.Copy(tmp, r); e != nil || n < 1 {
+	if n, e = io.Copy(tmp, r); e != nil && !errors.Is(e, io.EOF) {
+		return n, e
+	} else if n < 1 {
 		return n, e
 	} else if _, e = tmp.Seek(0, io.SeekStart); e != nil {
 		return 0, e
-	} else if _, e = tmp.WriteTo(hsh); e != nil {
+	} else if _, e = tmp.WriteTo(hsh); e != nil && !errors.Is(e, io.EOF) {
 		return 0, e
 	} else if _, e = tmp.Seek(0, io.SeekStart); e != nil {
 		return 0, e
 	}
+
+	hss = base64.StdEncoding.EncodeToString(hsh.Sum(nil))
 
 	res, e = cli.UploadPart(ctx, &sdksss.UploadPartInput{
 		Bucket:        sdkaws.String(bck),
@@ -152,7 +158,7 @@ func (m *mpu) AddPart(r io.Reader) (n int64, e error) {
 		ContentLength: n,
 		Body:          tmp,
 		RequestPayer:  sdktyp.RequestPayerRequester,
-		ContentMD5:    sdkaws.String(base64.StdEncoding.EncodeToString(hsh.Sum(nil))),
+		ContentMD5:    sdkaws.String(hss),
 	})
 
 	if e != nil {
@@ -172,7 +178,7 @@ func (m *mpu) AddPart(r io.Reader) (n int64, e error) {
 
 func (m *mpu) AddToPart(p []byte) (n int, e error) {
 	var (
-		tmp libiot.FileProgress
+		tmp libfpg.Progress
 	)
 
 	if tmp, e = m.getWorkingFile(); e != nil {
@@ -191,7 +197,7 @@ func (m *mpu) AddToPart(p []byte) (n int, e error) {
 
 		if _, e = tmp.Seek(0, io.SeekStart); e != nil {
 			return n, e
-		} else if s, e = tmp.SizeToEOF(); e != nil {
+		} else if s, e = tmp.SizeEOF(); e != nil {
 			return n, e
 		} else if _, e = tmp.Seek(0, io.SeekEnd); e != nil {
 			return n, e
@@ -234,7 +240,7 @@ func (m *mpu) CurrentSizePart() int64 {
 	var (
 		e   error
 		s   int64
-		tmp libiot.FileProgress
+		tmp libfpg.Progress
 	)
 
 	if tmp, e = m.getWorkingFile(); e != nil {
@@ -244,7 +250,7 @@ func (m *mpu) CurrentSizePart() int64 {
 	} else if _, e = tmp.Seek(0, io.SeekStart); e != nil {
 		return 0
 	} else {
-		s, e = tmp.SizeToEOF()
+		s, e = tmp.SizeEOF()
 		_, _ = tmp.Seek(0, io.SeekEnd)
 		return s
 	}
@@ -255,7 +261,7 @@ func (m *mpu) CheckSend(force, close bool) error {
 		err error
 		siz int64
 		prt = m.getPartSize()
-		tmp libiot.FileProgress
+		tmp libfpg.Progress
 	)
 
 	if tmp, err = m.getWorkingFile(); err != nil {
@@ -264,7 +270,7 @@ func (m *mpu) CheckSend(force, close bool) error {
 		return ErrInvalidTMPFile
 	} else if _, err = tmp.Seek(0, io.SeekStart); err != nil {
 		return err
-	} else if siz, err = tmp.SizeToEOF(); err != nil {
+	} else if siz, err = tmp.SizeEOF(); err != nil {
 		return err
 	} else if siz < prt.Int64() && !force {
 		return nil

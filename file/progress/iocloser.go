@@ -24,56 +24,41 @@
  *
  */
 
-package archive
+package progress
 
-import (
-	"fmt"
+import "os"
 
-	arcmod "github.com/nabbar/golib/archive/archive"
-	liberr "github.com/nabbar/golib/errors"
-)
-
-const pkgName = "golib/archive"
-
-const (
-	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchive
-	ErrorFileSeek
-	ErrorFileOpen
-	ErrorFileClose
-	ErrorDirCreate
-	ErrorDirStat
-	ErrorDirNotDir
-	ErrorIOCopy
-)
-
-func init() {
-	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision %s", pkgName))
+func (o *progress) clean(e error) error {
+	if o == nil {
+		return nil
 	}
-	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
+
+	o.fos = nil
+	return e
 }
 
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case liberr.UnknownError:
-		return liberr.NullMessage
-	case ErrorParamEmpty:
-		return "given parameters is empty"
-	case ErrorFileSeek:
-		return "cannot seek into file"
-	case ErrorFileOpen:
-		return "cannot open file"
-	case ErrorFileClose:
-		return "closing file occurs error"
-	case ErrorDirCreate:
-		return "make directory occurs error"
-	case ErrorDirStat:
-		return "checking directory occurs error"
-	case ErrorDirNotDir:
-		return "directory given is not a directory"
-	case ErrorIOCopy:
-		return "error occurs when io copy"
+func (o *progress) Close() error {
+	if o == nil || o.fos == nil {
+		return nil
 	}
 
-	return liberr.NullMessage
+	return o.clean(o.fos.Close())
+}
+
+func (o *progress) CloseDelete() error {
+	if o == nil || o.fos == nil {
+		return nil
+	}
+
+	n := o.Path()
+
+	if e := o.clean(o.fos.Close()); e != nil {
+		return e
+	}
+
+	if len(n) < 1 {
+		return nil
+	}
+
+	return os.Remove(n)
 }

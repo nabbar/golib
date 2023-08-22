@@ -32,6 +32,8 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+const pkgName = "golib/mail"
+
 const (
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgMail
 	ErrorMailConfigInvalid
@@ -40,11 +42,12 @@ const (
 	ErrorMailDateParsing
 	ErrorMailSmtpClient
 	ErrorMailSenderInit
+	ErrorFileOpenCreate
 )
 
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision with package golib/mail"))
+		panic(fmt.Errorf("error code collision with package %s", pkgName))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
@@ -65,6 +68,8 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "error occurs while to checking connection with SMTP server"
 	case ErrorMailSenderInit:
 		return "error occurs while to preparing SMTP Email sender"
+	case ErrorFileOpenCreate:
+		return "cannot open/create file"
 	}
 
 	return liberr.NullMessage

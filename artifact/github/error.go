@@ -27,14 +27,17 @@
 package github
 
 import (
-	err2 "errors"
+	"errors"
+	"fmt"
 
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/errors"
+	libart "github.com/nabbar/golib/artifact"
+	liberr "github.com/nabbar/golib/errors"
 )
 
+const pkgName = "golib/artifact/github"
+
 const (
-	ErrorParamsEmpty errors.CodeError = iota + artifact.MIN_ARTIFACT_GITHUB
+	ErrorParamEmpty liberr.CodeError = iota + libart.MinArtifactGithub
 	ErrorURLParse
 	ErrorClientInit
 	ErrorGithubList
@@ -49,27 +52,24 @@ const (
 )
 
 var (
-	isCodeError          = false
-	errResponseCode      = err2.New("response status code %s")
-	errResponseContents  = err2.New("response contents is empty")
-	errResponseBodyEmpty = err2.New("empty body response")
-	errMisMatchingSize   = err2.New("destination size and contentLenght header are not matching")
+	errResponseCode      = errors.New("response status code %s")
+	errResponseContents  = errors.New("response contents is empty")
+	errResponseBodyEmpty = errors.New("empty body response")
+	errMisMatchingSize   = errors.New("destination size and contentLength header are not matching")
 )
 
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package %s", pkgName))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case liberr.UnknownError:
+		return liberr.NullMessage
+	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorURLParse:
 		return "github endpoint seems to be not valid"
@@ -95,5 +95,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "mismatching size between downloaded contents and github http response header"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

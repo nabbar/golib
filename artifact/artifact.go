@@ -30,26 +30,27 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hashicorp/go-version"
-	"github.com/nabbar/golib/artifact/client"
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils"
+	hscvrs "github.com/hashicorp/go-version"
+	artcli "github.com/nabbar/golib/artifact/client"
+	liberr "github.com/nabbar/golib/errors"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
+const subUp = 20
+
 const (
-	MIN_ARTIFACT_ARTIFAC = errors.MinPkgArtifact + 10
-	MIN_ARTIFACT_GITLAB  = errors.MinPkgArtifact + 20
-	MIN_ARTIFACT_GITHUB  = errors.MinPkgArtifact + 40
-	MIN_ARTIFACT_JFORG   = errors.MinPkgArtifact + 60
-	MIN_ARTIFACT_S3AWS   = errors.MinPkgArtifact + 80
+	MinArtifactGitlab = subUp + liberr.MinPkgArtifact
+	MinArtifactGithub = subUp + MinArtifactGitlab
+	MinArtifactJfrog  = subUp + MinArtifactGithub
+	MinArtifactS3AWS  = subUp + MinArtifactJfrog
 )
 
 type Client interface {
-	client.ArtifactManagement
+	artcli.ArtifactManagement
 
-	ListReleases() (releases version.Collection, err errors.Error)
-	GetArtifact(containName string, regexName string, release *version.Version) (link string, err errors.Error)
-	Download(dst ioutils.FileProgress, containName string, regexName string, release *version.Version) errors.Error
+	ListReleases() (releases hscvrs.Collection, err liberr.Error)
+	GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error)
+	Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error
 }
 
 func CheckRegex(name, regex string) bool {
@@ -60,25 +61,29 @@ func CheckRegex(name, regex string) bool {
 	return false
 }
 
-func DownloadRelease(link string) (file os.File, err errors.Error) {
+func DownloadRelease(link string) (file os.File, err liberr.Error) {
 	panic("not implemented")
 }
 
-func ValidatePreRelease(version *version.Version) bool {
-	p := strings.ToLower(version.Prerelease())
+func ValidatePreRelease(version *hscvrs.Version) bool {
+	var (
+		p = strings.ToLower(version.Prerelease())
+		s = []string{
+			"a", "alpha",
+			"b", "beta",
+			"rc",
+			"dev",
+			"test",
+			"draft",
+			"master",
+			"main",
+		}
+	)
 
-	if strings.Contains(p, "alpha") {
-		return false
-	} else if strings.Contains(p, "beta") {
-		return false
-	} else if strings.Contains(p, "rc") {
-		return false
-	} else if strings.Contains(p, "dev") {
-		return false
-	} else if strings.Contains(p, "test") {
-		return false
-	} else if strings.Contains(p, "master") {
-		return false
+	for _, i := range s {
+		if strings.Contains(p, i) {
+			return false
+		}
 	}
 
 	return true

@@ -26,50 +26,59 @@
 
 package errors
 
+const baseSub = 10
+const baseInc = baseSub * baseSub
+
 const (
-	MinPkgArchive        = 100
-	MinPkgArtifact       = 200
-	MinPkgCertificate    = 300
-	MinPkgCluster        = 400
-	MinPkgConfig         = 500
-	MinPkgConsole        = 800
-	MinPkgCrypt          = 900
-	MinPkgDatabaseGorm   = 1000
-	MinPkgDatabaseKVDrv  = 1010
-	MinPkgDatabaseKVMap  = 1020
-	MinPkgDatabaseKVTbl  = 1030
-	MinPkgDatabaseKVItm  = 1040
-	MinPkgFTPClient      = 1100
-	MinPkgHttpCli        = 1200
-	MinPkgHttpServer     = 1300
-	MinPkgHttpServerPool = 1320
-	MinPkgIOUtils        = 1400
-	MinPkgLDAP           = 1500
-	MinPkgLogger         = 1600
-	MinPkgMail           = 1700
-	MinPkgMailer         = 1800
-	MinPkgMailPooler     = 1900
-	MinPkgMonitor        = 2000
-	MinPkgMonitorCfg     = 2020
-	MinPkgMonitorPool    = 2100
-	MinPkgNetwork        = 2200
-	MinPkgNats           = 2300
-	MinPkgNutsDB         = 2400
-	MinPkgOAuth          = 2500
-	MinPkgAws            = 2600
-	MinPkgRequest        = 2700
-	MinPkgRouter         = 2800
-	MinPkgSemaphore      = 2900
-	MinPkgSMTP           = 3000
-	MinPkgSMTPConfig     = 3050
-	MinPkgStatic         = 3100
-	MinPkgStatus         = 3200
-	MinPkgSocket         = 3300
-	MinPkgVersion        = 3400
-	MinPkgViper          = 3500
+	MinPkgArchive     = baseInc + iota
+	MinPkgArtifact    = baseInc + MinPkgArchive
+	MinPkgCertificate = baseInc + MinPkgArtifact
+	MinPkgCluster     = baseInc + MinPkgCertificate
+	MinPkgConfig      = baseInc + MinPkgCluster
+	MinPkgConsole     = baseInc + MinPkgConfig
+	MinPkgCrypt       = baseInc + MinPkgConsole
 
-	MinAvailable = 4000
+	MinPkgDatabaseGorm  = baseInc + MinPkgCrypt
+	MinPkgDatabaseKVDrv = baseSub + MinPkgDatabaseGorm
+	MinPkgDatabaseKVMap = baseSub + MinPkgDatabaseKVDrv
+	MinPkgDatabaseKVTbl = baseSub + MinPkgDatabaseKVMap
+	MinPkgDatabaseKVItm = baseSub + MinPkgDatabaseKVTbl
 
-	// MIN_AVAILABLE @Deprecated use MinAvailable constant
-	MIN_AVAILABLE = MinAvailable
+	MinPkgFileProgress = baseInc + MinPkgDatabaseGorm
+	MinPkgFTPClient    = baseInc + MinPkgFileProgress
+	MinPkgHttpCli      = baseInc + MinPkgFTPClient
+
+	MinPkgHttpServer     = baseInc + MinPkgHttpCli
+	MinPkgHttpServerPool = baseSub + MinPkgHttpServer
+
+	MinPkgIOUtils    = baseInc + MinPkgHttpServer
+	MinPkgLDAP       = baseInc + MinPkgIOUtils
+	MinPkgLogger     = baseInc + MinPkgLDAP
+	MinPkgMail       = baseInc + MinPkgLogger
+	MinPkgMailer     = baseInc + MinPkgMail
+	MinPkgMailPooler = baseInc + MinPkgMailer
+
+	MinPkgMonitor     = baseInc + MinPkgMailPooler
+	MinPkgMonitorCfg  = baseSub + MinPkgMonitor
+	MinPkgMonitorPool = baseSub + MinPkgMonitorCfg
+
+	MinPkgNetwork   = baseInc + MinPkgMonitor
+	MinPkgNats      = baseInc + MinPkgNetwork
+	MinPkgNutsDB    = baseInc + MinPkgNats
+	MinPkgOAuth     = baseInc + MinPkgNutsDB
+	MinPkgAws       = baseInc + MinPkgOAuth
+	MinPkgRequest   = baseInc + MinPkgAws
+	MinPkgRouter    = baseInc + MinPkgRequest
+	MinPkgSemaphore = baseInc + MinPkgRouter
+
+	MinPkgSMTP       = baseInc + MinPkgSemaphore
+	MinPkgSMTPConfig = baseInc + MinPkgSMTP
+
+	MinPkgStatic  = baseInc + MinPkgSMTPConfig
+	MinPkgStatus  = baseInc + MinPkgStatic
+	MinPkgSocket  = baseInc + MinPkgStatus
+	MinPkgVersion = baseInc + MinPkgSocket
+	MinPkgViper   = baseInc + MinPkgVersion
+
+	MinAvailable = baseInc + MinPkgViper
 )

@@ -30,10 +30,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/go-github/v33/github"
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/artifact/client"
-	"github.com/nabbar/golib/errors"
+	github "github.com/google/go-github/v33/github"
+	libart "github.com/nabbar/golib/artifact"
+	artcli "github.com/nabbar/golib/artifact/client"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 func getOrgProjectFromRepos(repos string) (owner string, project string) {
@@ -45,11 +45,11 @@ func getOrgProjectFromRepos(repos string) (owner string, project string) {
 	return lst[0], lst[1]
 }
 
-func NewGithub(ctx context.Context, httpcli *http.Client, repos string) (cli artifact.Client, err errors.Error) {
+func NewGithub(ctx context.Context, httpcli *http.Client, repos string) (cli libart.Client, err liberr.Error) {
 	o, p := getOrgProjectFromRepos(repos)
 
 	a := &githubModel{
-		ClientHelper: client.ClientHelper{},
+		ClientHelper: artcli.ClientHelper{},
 		c:            github.NewClient(httpcli),
 		x:            ctx,
 		o:            o,
@@ -61,11 +61,11 @@ func NewGithub(ctx context.Context, httpcli *http.Client, repos string) (cli art
 	return a, err
 }
 
-func NewGithubWithTokenOAuth(ctx context.Context, repos string, oauth2client *http.Client) (cli artifact.Client, err errors.Error) {
+func NewGithubWithTokenOAuth(ctx context.Context, repos string, oauth2client *http.Client) (cli libart.Client, err liberr.Error) {
 	o, p := getOrgProjectFromRepos(repos)
 
 	a := &githubModel{
-		ClientHelper: client.ClientHelper{},
+		ClientHelper: artcli.ClientHelper{},
 		c:            github.NewClient(oauth2client),
 		x:            ctx,
 		o:            o,

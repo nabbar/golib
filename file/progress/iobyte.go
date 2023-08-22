@@ -24,56 +24,51 @@
  *
  */
 
-package archive
+package progress
 
 import (
-	"fmt"
-
-	arcmod "github.com/nabbar/golib/archive/archive"
-	liberr "github.com/nabbar/golib/errors"
+	"errors"
+	"io"
 )
 
-const pkgName = "golib/archive"
+func (o *progress) ReadByte() (byte, error) {
+	var (
+		p = make([]byte, 0, 1)
+		i int64
+		n int
+		e error
+	)
 
-const (
-	ErrorParamEmpty liberr.CodeError = iota + arcmod.MinPkgArchive
-	ErrorFileSeek
-	ErrorFileOpen
-	ErrorFileClose
-	ErrorDirCreate
-	ErrorDirStat
-	ErrorDirNotDir
-	ErrorIOCopy
-)
-
-func init() {
-	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision %s", pkgName))
+	if i, e = o.fos.Seek(0, io.SeekCurrent); e != nil && !errors.Is(e, io.EOF) {
+		return 0, e
+	} else if n, e = o.fos.Read(p); e != nil && !errors.Is(e, io.EOF) {
+		return 0, e
+	} else if n > 1 {
+		if _, e = o.fos.Seek(i+1, io.SeekStart); e != nil && !errors.Is(e, io.EOF) {
+			return 0, e
+		}
 	}
-	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
+
+	return p[0], nil
 }
 
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case liberr.UnknownError:
-		return liberr.NullMessage
-	case ErrorParamEmpty:
-		return "given parameters is empty"
-	case ErrorFileSeek:
-		return "cannot seek into file"
-	case ErrorFileOpen:
-		return "cannot open file"
-	case ErrorFileClose:
-		return "closing file occurs error"
-	case ErrorDirCreate:
-		return "make directory occurs error"
-	case ErrorDirStat:
-		return "checking directory occurs error"
-	case ErrorDirNotDir:
-		return "directory given is not a directory"
-	case ErrorIOCopy:
-		return "error occurs when io copy"
+func (o *progress) WriteByte(c byte) error {
+	var (
+		p = append(make([]byte, 0, 1), c)
+		i int64
+		n int
+		e error
+	)
+
+	if i, e = o.fos.Seek(0, io.SeekCurrent); e != nil && !errors.Is(e, io.EOF) {
+		return e
+	} else if n, e = o.fos.Write(p); e != nil && !errors.Is(e, io.EOF) {
+		return e
+	} else if n > 1 {
+		if _, e = o.fos.Seek(i+1, io.SeekStart); e != nil && !errors.Is(e, io.EOF) {
+			return e
+		}
 	}
 
-	return liberr.NullMessage
+	return nil
 }

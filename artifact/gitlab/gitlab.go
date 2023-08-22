@@ -31,10 +31,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/artifact/client"
-	"github.com/nabbar/golib/errors"
-	"github.com/xanzy/go-gitlab"
+	libart "github.com/nabbar/golib/artifact"
+	artcli "github.com/nabbar/golib/artifact/client"
+	liberr "github.com/nabbar/golib/errors"
+	gitlab "github.com/xanzy/go-gitlab"
 )
 
 const (
@@ -42,7 +42,7 @@ const (
 	GitlabAPIVersion = "/v4"
 )
 
-func getGitlbaOptions(baseUrl string, httpcli *http.Client) (opt []gitlab.ClientOptionFunc, err errors.Error) {
+func getGitlbaOptions(baseUrl string, httpcli *http.Client) (opt []gitlab.ClientOptionFunc, err liberr.Error) {
 	var (
 		u *url.URL
 		e error
@@ -71,9 +71,9 @@ func getGitlbaOptions(baseUrl string, httpcli *http.Client) (opt []gitlab.Client
 	return
 }
 
-func newGitlab(ctx context.Context, c *gitlab.Client, projectId int) artifact.Client {
+func newGitlab(ctx context.Context, c *gitlab.Client, projectId int) libart.Client {
 	a := &gitlabModel{
-		ClientHelper: client.ClientHelper{},
+		ClientHelper: artcli.ClientHelper{},
 		c:            c,
 		x:            ctx,
 		p:            projectId,
@@ -84,7 +84,7 @@ func newGitlab(ctx context.Context, c *gitlab.Client, projectId int) artifact.Cl
 	return a
 }
 
-func NewGitlabAuthUser(ctx context.Context, httpcli *http.Client, user, pass, baseUrl string, projectId int) (cli artifact.Client, err errors.Error) {
+func NewGitlabAuthUser(ctx context.Context, httpcli *http.Client, user, pass, baseUrl string, projectId int) (cli libart.Client, err liberr.Error) {
 	var (
 		o []gitlab.ClientOptionFunc
 		c *gitlab.Client
@@ -102,7 +102,7 @@ func NewGitlabAuthUser(ctx context.Context, httpcli *http.Client, user, pass, ba
 	return newGitlab(ctx, c, projectId), err
 }
 
-func NewGitlabOAuth(ctx context.Context, httpcli *http.Client, oAuthToken, baseUrl string, projectId int) (cli artifact.Client, err errors.Error) {
+func NewGitlabOAuth(ctx context.Context, httpcli *http.Client, oAuthToken, baseUrl string, projectId int) (cli libart.Client, err liberr.Error) {
 	var (
 		o []gitlab.ClientOptionFunc
 		c *gitlab.Client
@@ -120,7 +120,7 @@ func NewGitlabOAuth(ctx context.Context, httpcli *http.Client, oAuthToken, baseU
 	return newGitlab(ctx, c, projectId), err
 }
 
-func NewGitlabPrivateToken(ctx context.Context, httpcli *http.Client, token, baseUrl string, projectId int) (cli artifact.Client, err errors.Error) {
+func NewGitlabPrivateToken(ctx context.Context, httpcli *http.Client, token, baseUrl string, projectId int) (cli libart.Client, err liberr.Error) {
 	var (
 		o []gitlab.ClientOptionFunc
 		c *gitlab.Client

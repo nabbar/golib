@@ -29,16 +29,15 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"os"
 	"sort"
 	"strings"
 
-	"github.com/google/go-github/v33/github"
-	"github.com/hashicorp/go-version"
-	"github.com/nabbar/golib/artifact"
-	"github.com/nabbar/golib/artifact/client"
-	"github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils"
+	github "github.com/google/go-github/v33/github"
+	hscvrs "github.com/hashicorp/go-version"
+	libart "github.com/nabbar/golib/artifact"
+	artcli "github.com/nabbar/golib/artifact/client"
+	liberr "github.com/nabbar/golib/errors"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 const (
@@ -46,7 +45,7 @@ const (
 )
 
 type githubModel struct {
-	client.ClientHelper
+	artcli.ClientHelper
 
 	c *github.Client
 	x context.Context
@@ -54,7 +53,7 @@ type githubModel struct {
 	p string
 }
 
-func (g *githubModel) ListReleases() (releases version.Collection, err errors.Error) {
+func (g *githubModel) ListReleases() (releases hscvrs.Collection, err liberr.Error) {
 	var (
 		e    error
 		lopt = &github.ListOptions{
@@ -77,9 +76,9 @@ func (g *githubModel) ListReleases() (releases version.Collection, err errors.Er
 		}
 
 		for _, r := range rels {
-			v, _ := version.NewVersion(*r.TagName)
+			v, _ := hscvrs.NewVersion(*r.TagName)
 
-			if artifact.ValidatePreRelease(v) {
+			if libart.ValidatePreRelease(v) {
 				releases = append(releases, v)
 			}
 		}
@@ -93,7 +92,7 @@ func (g *githubModel) ListReleases() (releases version.Collection, err errors.Er
 	}
 }
 
-func (g *githubModel) GetArtifact(containName string, regexName string, release *version.Version) (link string, err errors.Error) {
+func (g *githubModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error) {
 	var (
 		rels *github.RepositoryRelease
 		e    error
@@ -106,7 +105,7 @@ func (g *githubModel) GetArtifact(containName string, regexName string, release 
 	for _, a := range rels.Assets {
 		if containName != "" && strings.Contains(*a.Name, containName) {
 			return *a.BrowserDownloadURL, nil
-		} else if regexName != "" && artifact.CheckRegex(regexName, *a.Name) {
+		} else if regexName != "" && libart.CheckRegex(regexName, *a.Name) {
 			return *a.BrowserDownloadURL, nil
 		}
 	}
@@ -114,14 +113,14 @@ func (g *githubModel) GetArtifact(containName string, regexName string, release 
 	return "", ErrorGithubNotFound.Error(nil)
 }
 
-func (g *githubModel) Download(dst ioutils.FileProgress, containName string, regexName string, release *version.Version) errors.Error {
+func (g *githubModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error {
 	var (
 		uri string
-		inf os.FileInfo
 		rsp *github.Response
 		req *http.Request
 		err error
-		e   errors.Error
+		e   liberr.Error
+		n   int64
 	)
 
 	defer func() {
@@ -145,11 +144,13 @@ func (g *githubModel) Download(dst ioutils.FileProgress, containName string, reg
 		return ErrorGithubResponse.ErrorParent(errResponseContents)
 	} else if rsp.Body == nil {
 		return ErrorGithubResponse.ErrorParent(errResponseBodyEmpty)
-	} else if _, err = io.Copy(dst, rsp.Body); err != nil {
+	} else {
+		dst.Reset(rsp.ContentLength)
+	}
+
+	if n, err = io.Copy(dst, rsp.Body); err != nil {
 		return ErrorGithubIOCopy.ErrorParent(err)
-	} else if inf, err = dst.FileStat(); err != nil {
-		return ErrorDestinationStat.ErrorParent(err)
-	} else if inf.Size() != rsp.ContentLength {
+	} else if n != rsp.ContentLength {
 		return ErrorDestinationSize.ErrorParent(errMisMatchingSize)
 	}
 

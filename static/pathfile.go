@@ -36,6 +36,7 @@ import (
 	"path"
 
 	liberr "github.com/nabbar/golib/errors"
+	libfpg "github.com/nabbar/golib/file/progress"
 	libiot "github.com/nabbar/golib/ioutils"
 )
 
@@ -87,7 +88,7 @@ func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
 }
 
 func (s *staticHandler) _fileGet(pathFile string) (fs.FileInfo, io.ReadCloser, liberr.Error) {
-	if pathFile == "" {
+	if len(pathFile) < 1 {
 		return nil, nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
 	}
 
@@ -153,7 +154,7 @@ func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error)
 	}
 }
 
-func (s *staticHandler) _fileTemp(pathFile string) (libiot.FileProgress, liberr.Error) {
+func (s *staticHandler) _fileTemp(pathFile string) (libfpg.Progress, liberr.Error) {
 	if pathFile == "" {
 		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
 	}
@@ -161,7 +162,7 @@ func (s *staticHandler) _fileTemp(pathFile string) (libiot.FileProgress, liberr.
 	s.m.RLock()
 	defer s.m.RUnlock()
 
-	var tmp libiot.FileProgress
+	var tmp libfpg.Progress
 	obj, err := s.c.Open(pathFile)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
@@ -174,7 +175,7 @@ func (s *staticHandler) _fileTemp(pathFile string) (libiot.FileProgress, liberr.
 		_ = obj.Close()
 	}()
 
-	tmp, err = libiot.NewFileProgressTemp()
+	tmp, err = libfpg.Temp("")
 	if err != nil {
 		return nil, ErrorFiletemp.ErrorParent(err)
 	}
@@ -256,7 +257,7 @@ func (s *staticHandler) Info(pathFile string) (os.FileInfo, liberr.Error) {
 	return s._fileInfo(pathFile)
 }
 
-func (s *staticHandler) Temp(pathFile string) (libiot.FileProgress, liberr.Error) {
+func (s *staticHandler) Temp(pathFile string) (libfpg.Progress, liberr.Error) {
 	return s._fileTemp(pathFile)
 }
 

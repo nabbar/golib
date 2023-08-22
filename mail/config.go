@@ -32,7 +32,7 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	liberr "github.com/nabbar/golib/errors"
-	libiot "github.com/nabbar/golib/ioutils"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 type Config struct {
@@ -169,8 +169,8 @@ func (c Config) NewMailer() (Mail, liberr.Error) {
 
 	if len(c.Attach) > 0 {
 		for _, f := range c.Attach {
-			if h, e := libiot.NewFileProgressPathRead(f.Path, 0); e != nil {
-				return nil, e
+			if h, e := libfpg.Open(f.Path); e != nil {
+				return nil, ErrorFileOpenCreate.ErrorParent(e)
 			} else {
 				m.AddAttachment(f.Name, f.Mime, h, false)
 			}
@@ -179,8 +179,8 @@ func (c Config) NewMailer() (Mail, liberr.Error) {
 
 	if len(c.Inline) > 0 {
 		for _, f := range c.Inline {
-			if h, e := libiot.NewFileProgressPathRead(f.Path, 0); e != nil {
-				return nil, e
+			if h, e := libfpg.Open(f.Path); e != nil {
+				return nil, ErrorFileOpenCreate.ErrorParent(e)
 			} else {
 				m.AddAttachment(f.Name, f.Mime, h, true)
 			}

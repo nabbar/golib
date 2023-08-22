@@ -31,7 +31,7 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktyp "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	libiot "github.com/nabbar/golib/ioutils"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 func (m *mpu) StopMPU(abort bool) error {
@@ -43,6 +43,17 @@ func (m *mpu) StopMPU(abort bool) error {
 		err error
 		lst = m.getPartList()
 	)
+
+	defer func() {
+		m.m.Lock()
+		if m.w != nil {
+			if i, e := m.w.Stat(); e == nil && i.Size() < 1 {
+				_ = m.w.CloseDelete()
+				m.w = nil
+			}
+		}
+		m.m.Unlock()
+	}()
 
 	if !abort {
 		if err = m.CheckSend(true, true); err != nil {
@@ -90,7 +101,7 @@ func (m *mpu) SendObject() error {
 		err error
 		cli *sdksss.Client
 		res *sdksss.PutObjectOutput
-		tmp libiot.FileProgress
+		tmp libfpg.Progress
 
 		ctx = m.getContext()
 		obj = m.getObject()

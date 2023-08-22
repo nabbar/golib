@@ -28,17 +28,17 @@ package client
 import (
 	"sort"
 
-	"github.com/hashicorp/go-version"
-	"github.com/nabbar/golib/errors"
+	hscvrs "github.com/hashicorp/go-version"
+	liberr "github.com/nabbar/golib/errors"
 )
 
 type ClientHelper struct {
-	F func() (releases version.Collection, err errors.Error)
+	F func() (releases hscvrs.Collection, err liberr.Error)
 }
 
-func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]version.Collection, err errors.Error) {
+func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]hscvrs.Collection, err liberr.Error) {
 	var (
-		vers version.Collection
+		vers hscvrs.Collection
 	)
 
 	if vers, err = g.F(); err != nil {
@@ -49,7 +49,7 @@ func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]version.Collec
 		s := v.Segments()
 
 		if releases == nil {
-			releases = make(map[int]version.Collection)
+			releases = make(map[int]hscvrs.Collection)
 		}
 
 		releases[s[0]] = append(releases[s[0]], v)
@@ -58,9 +58,9 @@ func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]version.Collec
 	return
 }
 
-func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]version.Collection, err errors.Error) {
+func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]hscvrs.Collection, err liberr.Error) {
 	var (
-		vers map[int]version.Collection
+		vers map[int]hscvrs.Collection
 	)
 
 	if vers, err = g.listReleasesOrderMajor(); err != nil {
@@ -72,11 +72,11 @@ func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]version.Col
 			s := v.Segments()
 
 			if releases == nil {
-				releases = make(map[int]map[int]version.Collection)
+				releases = make(map[int]map[int]hscvrs.Collection)
 			}
 
 			if releases[major] == nil || len(releases[major]) == 0 {
-				releases[major] = make(map[int]version.Collection)
+				releases[major] = make(map[int]hscvrs.Collection)
 			}
 
 			releases[major][s[1]] = append(releases[major][s[1]], v)
@@ -86,9 +86,9 @@ func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]version.Col
 	return
 }
 
-func (g *ClientHelper) ListReleasesMajor(major int) (releases version.Collection, err errors.Error) {
+func (g *ClientHelper) ListReleasesMajor(major int) (releases hscvrs.Collection, err liberr.Error) {
 	var (
-		vers map[int]version.Collection
+		vers map[int]hscvrs.Collection
 	)
 
 	if vers, err = g.listReleasesOrderMajor(); err != nil {
@@ -106,9 +106,9 @@ func (g *ClientHelper) ListReleasesMajor(major int) (releases version.Collection
 	return
 }
 
-func (g *ClientHelper) ListReleasesMinor(major, minor int) (releases version.Collection, err errors.Error) {
+func (g *ClientHelper) ListReleasesMinor(major, minor int) (releases hscvrs.Collection, err liberr.Error) {
 	var (
-		vers map[int]map[int]version.Collection
+		vers map[int]map[int]hscvrs.Collection
 	)
 
 	if vers, err = g.ListReleasesOrder(); err != nil {
@@ -130,9 +130,9 @@ func (g *ClientHelper) ListReleasesMinor(major, minor int) (releases version.Col
 	return
 }
 
-func (g *ClientHelper) GetLatest() (release *version.Version, err errors.Error) {
+func (g *ClientHelper) GetLatest() (release *hscvrs.Version, err liberr.Error) {
 	var (
-		vers  map[int]map[int]version.Collection
+		vers  map[int]map[int]hscvrs.Collection
 		major int
 		minor int
 	)
@@ -156,9 +156,9 @@ func (g *ClientHelper) GetLatest() (release *version.Version, err errors.Error) 
 	return g.GetLatestMinor(major, minor)
 }
 
-func (g *ClientHelper) GetLatestMajor(major int) (release *version.Version, err errors.Error) {
+func (g *ClientHelper) GetLatestMajor(major int) (release *hscvrs.Version, err liberr.Error) {
 	var (
-		vers  map[int]map[int]version.Collection
+		vers  map[int]map[int]hscvrs.Collection
 		minor int
 	)
 
@@ -179,9 +179,9 @@ func (g *ClientHelper) GetLatestMajor(major int) (release *version.Version, err 
 	return g.GetLatestMinor(major, minor)
 }
 
-func (g *ClientHelper) GetLatestMinor(major, minor int) (release *version.Version, err errors.Error) {
+func (g *ClientHelper) GetLatestMinor(major, minor int) (release *hscvrs.Version, err liberr.Error) {
 	var (
-		vers version.Collection
+		vers hscvrs.Collection
 	)
 
 	if vers, err = g.ListReleasesMinor(major, minor); err != nil {

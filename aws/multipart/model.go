@@ -27,14 +27,13 @@ package multipart
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"sync"
 
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktyp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libctx "github.com/nabbar/golib/context"
-	libiot "github.com/nabbar/golib/ioutils"
+	libfpg "github.com/nabbar/golib/file/progress"
 	libsiz "github.com/nabbar/golib/size"
 )
 
@@ -48,7 +47,7 @@ type mpu struct {
 	o string                 // object name
 	n int32                  // part counter
 	l []sdktyp.CompletedPart // slice of sent part to prepare complete MPU
-	w libiot.FileProgress    // working file or temporary file
+	w libfpg.Progress        // working file or temporary file
 
 	// trigger function
 	fc func(nPart int, obj string, e error) // on complete
@@ -156,7 +155,7 @@ func (m *mpu) RegisterWorkingFile(file string, truncate bool) error {
 		m.w = nil
 	}
 
-	m.w, e = libiot.NewFileProgressPathWrite(filepath.Clean(file), true, truncate, 0600)
+	m.w, e = libfpg.Create(filepath.Clean(file))
 
 	if e != nil {
 		return e
@@ -167,7 +166,7 @@ func (m *mpu) RegisterWorkingFile(file string, truncate bool) error {
 	return nil
 }
 
-func (m *mpu) getWorkingFile() (libiot.FileProgress, error) {
+func (m *mpu) getWorkingFile() (libfpg.Progress, error) {
 	if m == nil {
 		return nil, ErrInvalidInstance
 	}
@@ -201,7 +200,11 @@ func (m *mpu) setTempWorkingFile() error {
 	defer m.m.Unlock()
 
 	var e error
-	m.w, e = libiot.NewFileProgressTemp()
+	m.w, e = libfpg.Temp("")
+	if e != nil {
+		_ = m.w.CloseDelete()
+	}
+
 	return e
 }
 
@@ -219,17 +222,10 @@ func (m *mpu) closeWorkingFile() error {
 
 	var e error
 
-	e = m.w.Truncate(0)
-
-	if er := m.w.Close(); er != nil {
-		if e != nil {
-			e = fmt.Errorf("%v, %v", e, er)
-		} else {
-			e = er
-		}
-	}
-
+	_ = m.w.Truncate(0)
+	e = m.w.CloseDelete()
 	m.w = nil
+
 	return e
 }
 

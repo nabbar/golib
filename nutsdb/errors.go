@@ -31,18 +31,23 @@
 package nutsdb
 
 import (
+	"fmt"
+
 	liberr "github.com/nabbar/golib/errors"
 )
 
+const pkgName = "golib/nutsdb"
+
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgNutsDB
-	ErrorParamsMissing
-	ErrorParamsMismatching
-	ErrorParamsInvalid
-	ErrorParamsInvalidNumber
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgNutsDB
+	ErrorParamMissing
+	ErrorParamMismatching
+	ErrorParamInvalid
+	ErrorParamInvalidNumber
 	ErrorValidateConfig
 	ErrorValidateNutsDB
 	ErrorClusterInit
+	ErrorFileTemp
 	ErrorFolderCheck
 	ErrorFolderCreate
 	ErrorFolderCopy
@@ -72,30 +77,26 @@ const (
 	ErrorClientCommandResponseInvalid
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
-	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision %s", pkgName))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case liberr.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
+	case liberr.UnknownError:
+		return liberr.NullMessage
+	case ErrorParamEmpty:
 		return "at least one given parameter is empty"
-	case ErrorParamsMissing:
+	case ErrorParamMissing:
 		return "at least one given parameter is missing"
-	case ErrorParamsMismatching:
+	case ErrorParamMismatching:
 		return "at least one given parameter does not match the awaiting type"
-	case ErrorParamsInvalid:
+	case ErrorParamInvalid:
 		return "at least one given parameter is invalid"
-	case ErrorParamsInvalidNumber:
+	case ErrorParamInvalidNumber:
 		return "the number of parameters is not matching the awaiting number"
 	case ErrorValidateConfig:
 		return "config seems to be invalid"
@@ -103,6 +104,8 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "database config seems to be invalid"
 	case ErrorClusterInit:
 		return "cannot start or join cluster"
+	case ErrorFileTemp:
+		return "error while trying to create new temp file"
 	case ErrorFolderCheck:
 		return "error while trying to check or stat folder"
 	case ErrorFolderCreate:
@@ -157,5 +160,5 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "response of requested client command seems to be invalid"
 	}
 
-	return ""
+	return liberr.NullMessage
 }
