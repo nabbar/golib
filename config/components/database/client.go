@@ -29,8 +29,9 @@ package database
 import (
 	"context"
 
+	"github.com/nabbar/golib/database/gorm"
+
 	cfgtps "github.com/nabbar/golib/config/types"
-	libdbs "github.com/nabbar/golib/database"
 	liberr "github.com/nabbar/golib/errors"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -159,8 +160,8 @@ func (o *componentDatabase) _runCli() liberr.Error {
 	var (
 		err liberr.Error
 		prt = ErrorComponentReload
-		dbo libdbs.Database
-		cfg *libdbs.Config
+		dbo gorm.Database
+		cfg *gorm.Config
 	)
 
 	if !o.IsStarted() {
@@ -171,7 +172,7 @@ func (o *componentDatabase) _runCli() liberr.Error {
 		return prt.Error(err)
 	}
 
-	if dbo, err = libdbs.New(cfg); err != nil {
+	if dbo, err = gorm.New(cfg); err != nil {
 		return prt.Error(err)
 	}
 

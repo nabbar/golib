@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,51 +24,27 @@
  *
  */
 
-package database
+package kvdriver
 
-import (
-	"sync"
-	"time"
+type FctWalk[K comparable, M any] func(key K, model M) bool
 
-	libdbs "github.com/nabbar/golib/database/gorm"
-
-	libcfg "github.com/nabbar/golib/config"
-	cfgtps "github.com/nabbar/golib/config/types"
-	libctx "github.com/nabbar/golib/context"
-)
-
-type ComponentDatabase interface {
-	cfgtps.Component
-
-	SetLogOptions(ignoreRecordNotFoundError bool, slowThreshold time.Duration)
-	GetDatabase() libdbs.Database
-	SetDatabase(db libdbs.Database)
+type KVDriver[K comparable, M any] interface {
+	Get(key K, model *M) error
+	Set(key K, model M) error
+	List() ([]K, error)
+	Walk(fct FctWalk[K, M]) error
 }
 
-func New(ctx libctx.FuncContext) ComponentDatabase {
-	return &componentDatabase{
-		m:  sync.RWMutex{},
-		x:  libctx.NewConfig[uint8](ctx),
-		li: false,
-		ls: 0,
-		d:  nil,
-	}
-}
+type FuncGet[K comparable, M any] func(key K) (M, error)
+type FuncSet[K comparable, M any] func(key K, model M) error
+type FuncList[K comparable, M any] func() ([]K, error)
+type FuncWalk[K comparable, M any] func(fct FctWalk[K, M]) error
 
-func Register(cfg libcfg.Config, key string, cpt ComponentDatabase) {
-	cfg.ComponentSet(key, cpt)
-}
+type Driver[K comparable, M any] struct {
+	KVDriver[K, M]
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
-	cfg.ComponentSet(key, New(ctx))
-}
-
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentDatabase {
-	if c := getCpt(key); c == nil {
-		return nil
-	} else if h, ok := c.(ComponentDatabase); !ok {
-		return nil
-	} else {
-		return h
-	}
+	FctGet  FuncGet[K, M]
+	FctSet  FuncSet[K, M]
+	FctList FuncList[K, M]
+	FctWalk FuncWalk[K, M] // optional
 }

@@ -24,51 +24,55 @@
  *
  */
 
-package database
+package gorm
 
 import (
+	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	libdbs "github.com/nabbar/golib/database/gorm"
-
-	libcfg "github.com/nabbar/golib/config"
-	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
+	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
+	montps "github.com/nabbar/golib/monitor/types"
+	libver "github.com/nabbar/golib/version"
+	gormdb "gorm.io/gorm"
+	gorlog "gorm.io/gorm/logger"
 )
 
-type ComponentDatabase interface {
-	cfgtps.Component
+type FuncGormLog func() gorlog.Interface
 
-	SetLogOptions(ignoreRecordNotFoundError bool, slowThreshold time.Duration)
-	GetDatabase() libdbs.Database
-	SetDatabase(db libdbs.Database)
+type Database interface {
+	GetDB() *gormdb.DB
+	SetDb(db *gormdb.DB)
+	Close()
+
+	WaitNotify(ctx context.Context, cancel context.CancelFunc)
+	CheckConn() liberr.Error
+	Config() *gormdb.Config
+
+	RegisterContext(fct libctx.FuncContext)
+	RegisterLogger(fct func() liblog.Logger, ignoreRecordNotFoundError bool, slowThreshold time.Duration)
+	RegisterGORMLogger(fct func() gorlog.Interface)
+
+	Monitor(vrs libver.Version) (montps.Monitor, error)
 }
 
-func New(ctx libctx.FuncContext) ComponentDatabase {
-	return &componentDatabase{
-		m:  sync.RWMutex{},
-		x:  libctx.NewConfig[uint8](ctx),
-		li: false,
-		ls: 0,
-		d:  nil,
-	}
-}
-
-func Register(cfg libcfg.Config, key string, cpt ComponentDatabase) {
-	cfg.ComponentSet(key, cpt)
-}
-
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
-	cfg.ComponentSet(key, New(ctx))
-}
-
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentDatabase {
-	if c := getCpt(key); c == nil {
-		return nil
-	} else if h, ok := c.(ComponentDatabase); !ok {
-		return nil
+func New(cfg *Config) (Database, liberr.Error) {
+	if d, e := cfg.New(nil); e != nil {
+		return nil, e
 	} else {
-		return h
+		v := new(atomic.Value)
+		v.Store(d)
+
+		c := new(atomic.Value)
+		c.Store(cfg)
+
+		return &database{
+			m: sync.Mutex{},
+			v: v,
+			c: c,
+		}, nil
 	}
 }

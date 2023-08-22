@@ -1,5 +1,5 @@
-//go:build !arm && !arm64
-// +build !arm,!arm64
+//go:build arm || arm64
+// +build arm arm64
 
 /*
  * MIT License
@@ -27,7 +27,7 @@
  *
  */
 
-package database
+package gorm
 
 import (
 	"strings"
@@ -35,7 +35,6 @@ import (
 	drvclk "gorm.io/driver/clickhouse"
 	drvmys "gorm.io/driver/mysql"
 	drvpsq "gorm.io/driver/postgres"
-	drvsql "gorm.io/driver/sqlite"
 	drvsrv "gorm.io/driver/sqlserver"
 	gormdb "gorm.io/gorm"
 )
@@ -44,7 +43,6 @@ const (
 	DriverNone       = ""
 	DriverMysql      = "mysql"
 	DriverPostgreSQL = "psql"
-	DriverSQLite     = "sqlite"
 	DriverSQLServer  = "sqlserver"
 	DriverClikHouse  = "clickhouse"
 )
@@ -59,9 +57,6 @@ func DriverFromString(drv string) Driver {
 
 	case strings.ToLower(DriverPostgreSQL):
 		return DriverPostgreSQL
-
-	case strings.ToLower(DriverSQLite):
-		return DriverSQLite
 
 	case strings.ToLower(DriverSQLServer):
 		return DriverSQLServer
@@ -86,9 +81,6 @@ func (d Driver) Dialector(dsn string) gormdb.Dialector {
 
 	case DriverPostgreSQL:
 		return drvpsq.Open(dsn)
-
-	case DriverSQLite:
-		return drvsql.Open(dsn)
 
 	case DriverSQLServer:
 		return drvsrv.Open(dsn)

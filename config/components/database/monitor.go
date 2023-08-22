@@ -27,7 +27,7 @@
 package database
 
 import (
-	libdbs "github.com/nabbar/golib/database"
+	libdbs "github.com/nabbar/golib/database/gorm"
 	libmon "github.com/nabbar/golib/monitor"
 	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"

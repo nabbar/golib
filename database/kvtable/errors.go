@@ -24,55 +24,37 @@
  *
  */
 
-package database
+package kvtable
 
 import (
-	"context"
-	"sync"
-	"sync/atomic"
-	"time"
+	"fmt"
 
-	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
-	liblog "github.com/nabbar/golib/logger"
-	montps "github.com/nabbar/golib/monitor/types"
-	libver "github.com/nabbar/golib/version"
-	gormdb "gorm.io/gorm"
-	gorlog "gorm.io/gorm/logger"
 )
 
-type FuncGormLog func() gorlog.Interface
+const pkgName = "golib/database/kvtable"
 
-type Database interface {
-	GetDB() *gormdb.DB
-	SetDb(db *gormdb.DB)
-	Close()
+const (
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgDatabaseKVTbl
+	ErrorBadDriver
+)
 
-	WaitNotify(ctx context.Context, cancel context.CancelFunc)
-	CheckConn() liberr.Error
-	Config() *gormdb.Config
-
-	RegisterContext(fct libctx.FuncContext)
-	RegisterLogger(fct func() liblog.Logger, ignoreRecordNotFoundError bool, slowThreshold time.Duration)
-	RegisterGORMLogger(fct func() gorlog.Interface)
-
-	Monitor(vrs libver.Version) (montps.Monitor, error)
+func init() {
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package %s", pkgName))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func New(cfg *Config) (Database, liberr.Error) {
-	if d, e := cfg.New(nil); e != nil {
-		return nil, e
-	} else {
-		v := new(atomic.Value)
-		v.Store(d)
-
-		c := new(atomic.Value)
-		c.Store(cfg)
-
-		return &database{
-			m: sync.Mutex{},
-			v: v,
-			c: c,
-		}, nil
+func getMessage(code liberr.CodeError) (message string) {
+	switch code {
+	case liberr.UnknownError:
+		return liberr.NullMessage
+	case ErrorParamEmpty:
+		return "given parameters is empty"
+	case ErrorBadDriver:
+		return "bad driver of " + pkgName
 	}
+
+	return liberr.NullMessage
 }

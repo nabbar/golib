@@ -24,7 +24,7 @@
  *
  */
 
-package database
+package gorm
 
 import (
 	"database/sql"

@@ -24,51 +24,40 @@
  *
  */
 
-package database
+package kvitem
 
 import (
-	"sync"
-	"time"
+	"fmt"
 
-	libdbs "github.com/nabbar/golib/database/gorm"
-
-	libcfg "github.com/nabbar/golib/config"
-	cfgtps "github.com/nabbar/golib/config/types"
-	libctx "github.com/nabbar/golib/context"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-type ComponentDatabase interface {
-	cfgtps.Component
+const pkgName = "golib/database/kvitem"
 
-	SetLogOptions(ignoreRecordNotFoundError bool, slowThreshold time.Duration)
-	GetDatabase() libdbs.Database
-	SetDatabase(db libdbs.Database)
-}
+const (
+	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgDatabaseKVItm
+	ErrorLoadFunction
+	ErrorStoreFunction
+)
 
-func New(ctx libctx.FuncContext) ComponentDatabase {
-	return &componentDatabase{
-		m:  sync.RWMutex{},
-		x:  libctx.NewConfig[uint8](ctx),
-		li: false,
-		ls: 0,
-		d:  nil,
+func init() {
+	if liberr.ExistInMapMessage(ErrorParamEmpty) {
+		panic(fmt.Errorf("error code collision with package %s", pkgName))
 	}
+	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentDatabase) {
-	cfg.ComponentSet(key, cpt)
-}
-
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
-	cfg.ComponentSet(key, New(ctx))
-}
-
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentDatabase {
-	if c := getCpt(key); c == nil {
-		return nil
-	} else if h, ok := c.(ComponentDatabase); !ok {
-		return nil
-	} else {
-		return h
+func getMessage(code liberr.CodeError) (message string) {
+	switch code {
+	case liberr.UnknownError:
+		return liberr.NullMessage
+	case ErrorParamEmpty:
+		return "given parameters is empty"
+	case ErrorLoadFunction:
+		return "missing load function of " + pkgName
+	case ErrorStoreFunction:
+		return "missing store function of " + pkgName
 	}
+
+	return liberr.NullMessage
 }

@@ -29,7 +29,8 @@ package database
 import (
 	"time"
 
-	libdbs "github.com/nabbar/golib/database"
+	"github.com/nabbar/golib/database/gorm"
+
 	liberr "github.com/nabbar/golib/errors"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
@@ -107,10 +108,10 @@ func (o *componentDatabase) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentDatabase) _getConfig() (*libdbs.Config, liberr.Error) {
+func (o *componentDatabase) _getConfig() (*gorm.Config, liberr.Error) {
 	var (
 		key string
-		cfg libdbs.Config
+		cfg gorm.Config
 		vpr *spfvpr.Viper
 		err liberr.Error
 	)
@@ -129,7 +130,7 @@ func (o *componentDatabase) _getConfig() (*libdbs.Config, liberr.Error) {
 	cfg.RegisterContext(o.x.GetContext)
 
 	if val := vpr.GetString(key + ".driver"); val != "" {
-		cfg.Driver = libdbs.DriverFromString(val)
+		cfg.Driver = gorm.DriverFromString(val)
 	}
 	if val := vpr.GetString(key + ".name"); val != "" {
 		cfg.Name = val

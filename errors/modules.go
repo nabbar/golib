@@ -34,7 +34,11 @@ const (
 	MinPkgConfig         = 500
 	MinPkgConsole        = 800
 	MinPkgCrypt          = 900
-	MinPkgDatabase       = 1000
+	MinPkgDatabaseGorm   = 1000
+	MinPkgDatabaseKVDrv  = 1010
+	MinPkgDatabaseKVMap  = 1020
+	MinPkgDatabaseKVTbl  = 1030
+	MinPkgDatabaseKVItm  = 1040
 	MinPkgFTPClient      = 1100
 	MinPkgHttpCli        = 1200
 	MinPkgHttpServer     = 1300

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,50 +24,42 @@
  *
  */
 
-package database
+package kvitem
 
-import "github.com/nabbar/golib/errors"
+import "sync/atomic"
 
-const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgDatabase
-	ErrorDatabaseOpen
-	ErrorDatabaseOpenPool
-	ErrorValidatorError
-	ErrorDatabaseNotInitialized
-	ErrorDatabaseCannotSQLDB
-	ErrorDatabasePing
-)
+type FuncLoad[K comparable, M any] func(key K, model *M) error
+type FuncStore[K comparable, M any] func(key K, model M) error
 
-var isCodeError = false
+type KVItem[K comparable, M any] interface {
+	Set(model M)
+	Get() M
 
-func IsCodeError() bool {
-	return isCodeError
+	Load() error
+	Store(force bool) error
+	Clean()
+
+	HasChange() bool
+
+	RegisterFctLoad(fct FuncLoad[K, M])
+	RegisterFctStore(fct FuncStore[K, M])
 }
 
-func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
-}
+func New[K comparable, M any](key K) KVItem[K, M] {
+	var (
+		ml = new(atomic.Value)
+		mw = new(atomic.Value)
+	)
 
-func getMessage(code errors.CodeError) (message string) {
-	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
-		return "given parameters is empty"
-	case ErrorDatabaseOpen:
-		return "database : start connection to dsn"
-	case ErrorDatabaseOpenPool:
-		return "database : cannot configure pool db"
-	case ErrorValidatorError:
-		return "database : invalid config"
-	case ErrorDatabaseNotInitialized:
-		return "database : not initialized"
-	case ErrorDatabaseCannotSQLDB:
-		return "database : cannot call SQL DB"
-	case ErrorDatabasePing:
-		return "database : ping error"
+	ml.Store(nil)
+	mw.Store(nil)
+
+	return &itm[K, M]{
+		k:  key,
+		ml: ml,
+		ms: mw,
+		fl: nil,
+		fs: nil,
 	}
 
-	return ""
 }
