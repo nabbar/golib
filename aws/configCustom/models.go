@@ -41,7 +41,7 @@ import (
 
 type Model struct {
 	Region    string `mapstructure:"region" json:"region" yaml:"region" toml:"region" validate:"required,hostname"`
-	Endpoint  string `mapstructure:"endpoint" json:"endpoint" yaml:"endpoint" toml:"endpoint" validate:"required,url"`
+	Endpoint  string `mapstructure:"endpoint" json:"endpoint" yaml:"endpoint" toml:"endpoint" validate:"url"`
 	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"required,printascii"`
 	SecretKey string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey" toml:"secretkey" validate:"required,printascii"`
 	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket" toml:"bucket" validate:"omitempty,hostname"`
@@ -49,8 +49,8 @@ type Model struct {
 
 type ModelStatus struct {
 	Config     Model                `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required,dive"`
-	HTTPClient libhtc.Options       `json:"http-client" yaml:"http-client" toml:"http-client" mapstructure:"http-client" validate:"required,dive"`
-	Monitor    libreq.OptionsHealth `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:"required,dive"`
+	HTTPClient libhtc.Options       `json:"http-client" yaml:"http-client" toml:"http-client" mapstructure:"http-client" validate:"dive"`
+	Monitor    libreq.OptionsHealth `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:"dive"`
 }
 
 type awsModel struct {

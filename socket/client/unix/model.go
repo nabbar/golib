@@ -134,7 +134,10 @@ func (o *cltx) Do(ctx context.Context, request io.Reader) (io.Reader, error) {
 		return nil, e
 	}
 
-	defer o.fctError(cnn.Close())
+	defer func() {
+		e := cnn.Close()
+		o.fctError(e)
+	}()
 
 	lc = cnn.LocalAddr()
 	rm = cnn.RemoteAddr()

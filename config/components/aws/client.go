@@ -29,13 +29,12 @@ package aws
 import (
 	"net/http"
 
-	libhtc "github.com/nabbar/golib/httpcli"
-	libreq "github.com/nabbar/golib/request"
-
 	libaws "github.com/nabbar/golib/aws"
 	libtls "github.com/nabbar/golib/certificates"
 	cfgtps "github.com/nabbar/golib/config/types"
 	liberr "github.com/nabbar/golib/errors"
+	libhtc "github.com/nabbar/golib/httpcli"
+	libreq "github.com/nabbar/golib/request"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 	spfvbr "github.com/spf13/viper"
@@ -197,9 +196,10 @@ func (o *componentAws) _runCli() liberr.Error {
 	}
 
 	if htc != nil {
+		var h = *htc
 		o.RegisterHTTPClient(func() *http.Client {
-			if c, e := htc.GetClient(o._getTLS(), ""); e == nil {
-				return c
+			if cl, er := h.GetClient(o._getTLS(), ""); er == nil {
+				return cl
 			}
 
 			return &http.Client{}

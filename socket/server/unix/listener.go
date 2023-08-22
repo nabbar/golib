@@ -48,7 +48,11 @@ import (
 
 func (o *srv) timeoutRead() time.Time {
 	v := o.tr.Load()
-	if v != nil {
+	if v == nil {
+		return time.Time{}
+	} else if d, k := v.(time.Duration); !k {
+		return time.Time{}
+	} else if d > 0 {
 		return time.Now().Add(v.(time.Duration))
 	}
 
@@ -57,7 +61,11 @@ func (o *srv) timeoutRead() time.Time {
 
 func (o *srv) timeoutWrite() time.Time {
 	v := o.tw.Load()
-	if v != nil {
+	if v == nil {
+		return time.Time{}
+	} else if d, k := v.(time.Duration); !k {
+		return time.Time{}
+	} else if d > 0 {
 		return time.Now().Add(v.(time.Duration))
 	}
 
@@ -179,7 +187,10 @@ func (o *srv) Listen(ctx context.Context) error {
 }
 
 func (o *srv) Conn(conn net.Conn) {
-	defer o.fctError(conn.Close())
+	defer func() {
+		e := conn.Close()
+		o.fctError(e)
+	}()
 
 	var (
 		lc = conn.LocalAddr()
