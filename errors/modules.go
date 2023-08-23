@@ -28,6 +28,7 @@ package errors
 
 const baseSub = 10
 const baseInc = baseSub * baseSub
+const moreInc = 2 * baseInc
 
 const (
 	MinPkgArchive     = baseInc + iota
@@ -35,7 +36,7 @@ const (
 	MinPkgCertificate = baseInc + MinPkgArtifact
 	MinPkgCluster     = baseInc + MinPkgCertificate
 	MinPkgConfig      = baseInc + MinPkgCluster
-	MinPkgConsole     = baseInc + MinPkgConfig
+	MinPkgConsole     = moreInc + MinPkgConfig
 	MinPkgCrypt       = baseInc + MinPkgConsole
 
 	MinPkgDatabaseGorm  = baseInc + MinPkgCrypt
