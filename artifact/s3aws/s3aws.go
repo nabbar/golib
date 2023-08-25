@@ -32,13 +32,12 @@ import (
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
 	libaws "github.com/nabbar/golib/aws"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func NewS3AWS(ctx context.Context, cfg libaws.Config, httpcli *http.Client, forceModePath bool, releaseRegex string, releaseGroup int) (cli libart.Client, err liberr.Error) {
+func NewS3AWS(ctx context.Context, cfg libaws.Config, httpcli *http.Client, forceModePath bool, releaseRegex string, releaseGroup int) (cli libart.Client, err error) {
 	var (
 		c libaws.AWS
-		e liberr.Error
+		e error
 	)
 
 	if c, e = libaws.New(ctx, cfg, httpcli); e != nil {

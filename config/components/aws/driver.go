@@ -32,7 +32,6 @@ import (
 	libaws "github.com/nabbar/golib/aws"
 	cfgstd "github.com/nabbar/golib/aws/configAws"
 	cfgcus "github.com/nabbar/golib/aws/configCustom"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type ConfigDriver uint8
@@ -70,7 +69,7 @@ func (a ConfigDriver) String() string {
 	}
 }
 
-func (a ConfigDriver) Unmarshal(p []byte) (libaws.Config, liberr.Error) {
+func (a ConfigDriver) Unmarshal(p []byte) (libaws.Config, error) {
 	switch a {
 	case ConfigCustom:
 		return cfgcus.NewConfigJsonUnmashal(p)
@@ -107,7 +106,7 @@ func (a ConfigDriver) Model() interface{} {
 	}
 }
 
-func (a ConfigDriver) NewFromModel(i interface{}) (libaws.Config, liberr.Error) {
+func (a ConfigDriver) NewFromModel(i interface{}) (libaws.Config, error) {
 	switch a {
 	case ConfigCustomStatus:
 		if o, ok := i.(cfgcus.ModelStatus); !ok {
@@ -126,7 +125,7 @@ func (a ConfigDriver) NewFromModel(i interface{}) (libaws.Config, liberr.Error) 
 			return nil, ErrorConfigInvalid.Error(nil)
 		} else {
 			if edp, err := url.Parse(o.Endpoint); err != nil {
-				return nil, ErrorConfigInvalid.ErrorParent(err)
+				return nil, ErrorConfigInvalid.Error(err)
 			} else {
 				cfg := cfgcus.NewConfig(o.Bucket, o.AccessKey, o.SecretKey, edp, o.Region)
 

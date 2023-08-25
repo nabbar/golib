@@ -152,12 +152,12 @@ func (c Client) Validate() liberr.Error {
 
 	if er := libval.New().Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
-			err.AddParent(e)
+			err.Add(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
 		}
 	}
 
@@ -282,7 +282,7 @@ func (c Client) NewClient(defTls libtls.TLSConfig) (*natcli.Conn, liberr.Error) 
 	}
 
 	if n, e := opts.Connect(); e != nil {
-		return nil, ErrorClientConnect.ErrorParent(e)
+		return nil, ErrorClientConnect.Error(e)
 	} else {
 		return n, nil
 	}

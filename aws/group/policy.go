@@ -29,10 +29,9 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) PolicyList(groupName string) (map[string]string, liberr.Error) {
+func (cli *client) PolicyList(groupName string) (map[string]string, error) {
 	out, _, err := cli.PolicyAttachedList(groupName, "")
 
 	if err != nil {
@@ -48,7 +47,7 @@ func (cli *client) PolicyList(groupName string) (map[string]string, liberr.Error
 	}
 }
 
-func (cli *client) PolicyAttach(groupName, polArn string) liberr.Error {
+func (cli *client) PolicyAttach(groupName, polArn string) error {
 	_, err := cli.iam.AttachGroupPolicy(cli.GetContext(), &sdkiam.AttachGroupPolicyInput{
 		GroupName: sdkaws.String(groupName),
 		PolicyArn: sdkaws.String(polArn),
@@ -57,7 +56,7 @@ func (cli *client) PolicyAttach(groupName, polArn string) liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) PolicyDetach(groupName, polArn string) liberr.Error {
+func (cli *client) PolicyDetach(groupName, polArn string) error {
 	_, err := cli.iam.DetachGroupPolicy(cli.GetContext(), &sdkiam.DetachGroupPolicyInput{
 		GroupName: sdkaws.String(groupName),
 		PolicyArn: sdkaws.String(polArn),
@@ -66,7 +65,7 @@ func (cli *client) PolicyDetach(groupName, polArn string) liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) PolicyAttachedList(groupName, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error) {
+func (cli *client) PolicyAttachedList(groupName, marker string) ([]sdktps.AttachedPolicy, string, error) {
 	in := &sdkiam.ListAttachedGroupPoliciesInput{
 		GroupName: sdkaws.String(groupName),
 		MaxItems:  sdkaws.Int32(1000),
@@ -89,7 +88,7 @@ func (cli *client) PolicyAttachedList(groupName, marker string) ([]sdktps.Attach
 	}
 }
 
-func (cli *client) PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) liberr.Error {
+func (cli *client) PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) error {
 	var m *string
 
 	in := &sdkiam.ListAttachedGroupPoliciesInput{
@@ -112,7 +111,7 @@ func (cli *client) PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) li
 			return nil
 		}
 
-		var e liberr.Error
+		var e error
 		for _, p := range lst.AttachedPolicies {
 			e = fct(e, p)
 		}

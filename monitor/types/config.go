@@ -101,12 +101,12 @@ func (o Config) Validate() liberr.Error {
 
 	if err := libval.New().Struct(o); err != nil {
 		if er, ok := err.(*libval.InvalidValidationError); ok {
-			e.AddParent(er)
+			e.Add(er)
 		}
 
 		for _, er := range err.(libval.ValidationErrors) {
 			//nolint #goerr113
-			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
+			e.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}
 	}
 

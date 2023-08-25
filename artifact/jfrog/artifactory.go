@@ -32,12 +32,11 @@ import (
 
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Response, error), uri, releaseRegex string, releaseGroup int, reposPath ...string) (libart.Client, liberr.Error) {
+func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Response, error), uri, releaseRegex string, releaseGroup int, reposPath ...string) (libart.Client, error) {
 	if u, e := url.Parse(uri); e != nil {
-		return nil, ErrorURLParse.ErrorParent(e)
+		return nil, ErrorURLParse.Error(e)
 	} else {
 		a := &artifactoryModel{
 			ClientHelper: artcli.ClientHelper{},

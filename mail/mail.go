@@ -31,8 +31,6 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"time"
-
-	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
@@ -101,9 +99,9 @@ func (m *mail) GetDateTime() time.Time {
 	return m.date
 }
 
-func (m *mail) SetDateString(layout, datetime string) liberr.Error {
+func (m *mail) SetDateString(layout, datetime string) error {
 	if t, e := time.Parse(layout, datetime); e != nil {
-		return ErrorMailDateParsing.ErrorParent(e)
+		return ErrorMailDateParsing.Error(e)
 	} else {
 		m.date = t
 	}

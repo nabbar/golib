@@ -68,7 +68,7 @@ func (c *cRaft) SyncPropose(parent context.Context, session *dgbcli.Session, cmd
 	r, e := c.nodeHost.SyncPropose(ctx, session, cmd)
 
 	if e != nil {
-		return r, ErrorCommandSync.ErrorParent(c.getErrorCommand("Propose"), e)
+		return r, ErrorCommandSync.Error(c.getErrorCommand("Propose"), e)
 	}
 
 	return r, nil
@@ -81,7 +81,7 @@ func (c *cRaft) SyncRead(parent context.Context, query interface{}) (interface{}
 	r, e := c.nodeHost.SyncRead(ctx, c.config.ClusterID, query)
 
 	if e != nil {
-		return r, ErrorCommandSync.ErrorParent(c.getErrorCluster(), c.getErrorCommand("Read"), e)
+		return r, ErrorCommandSync.Error(c.getErrorCluster(), c.getErrorCommand("Read"), e)
 	}
 
 	return r, nil
@@ -94,7 +94,7 @@ func (c *cRaft) SyncGetClusterMembership(parent context.Context) (*dgbclt.Member
 	r, e := c.nodeHost.SyncGetClusterMembership(ctx, c.config.ClusterID)
 
 	if e != nil {
-		return r, ErrorCommandSync.ErrorParent(c.getErrorCluster(), c.getErrorCommand("GetClusterMembership"), e)
+		return r, ErrorCommandSync.Error(c.getErrorCluster(), c.getErrorCommand("GetClusterMembership"), e)
 	}
 
 	return r, nil
@@ -107,7 +107,7 @@ func (c *cRaft) SyncGetSession(parent context.Context) (*dgbcli.Session, liberr.
 	r, e := c.nodeHost.SyncGetSession(ctx, c.config.ClusterID)
 
 	if e != nil {
-		return r, ErrorCommandSync.ErrorParent(c.getErrorCluster(), c.getErrorCommand("GetSession"), e)
+		return r, ErrorCommandSync.Error(c.getErrorCluster(), c.getErrorCommand("GetSession"), e)
 	}
 
 	return r, nil
@@ -120,7 +120,7 @@ func (c *cRaft) SyncCloseSession(parent context.Context, cs *dgbcli.Session) lib
 	e := c.nodeHost.SyncCloseSession(ctx, cs)
 
 	if e != nil {
-		return ErrorCommandSync.ErrorParent(c.getErrorCommand("CloseSession"), e)
+		return ErrorCommandSync.Error(c.getErrorCommand("CloseSession"), e)
 	}
 
 	return nil
@@ -133,7 +133,7 @@ func (c *cRaft) SyncRequestSnapshot(parent context.Context, opt dgbclt.SnapshotO
 	r, e := c.nodeHost.SyncRequestSnapshot(ctx, c.config.ClusterID, opt)
 
 	if e != nil {
-		return r, ErrorCommandSync.ErrorParent(c.getErrorCluster(), c.getErrorCommand("RequestSnapshot"), e)
+		return r, ErrorCommandSync.Error(c.getErrorCluster(), c.getErrorCommand("RequestSnapshot"), e)
 	}
 
 	return r, nil
@@ -154,7 +154,7 @@ func (c *cRaft) SyncRequestDeleteNode(parent context.Context, nodeID uint64, con
 	e := c.nodeHost.SyncRequestDeleteNode(ctx, c.config.ClusterID, nodeID, configChangeIndex)
 
 	if e != nil {
-		return ErrorCommandSync.ErrorParent(c.getErrorCluster(), en, c.getErrorCommand("RequestDeleteNode"), e)
+		return ErrorCommandSync.Error(c.getErrorCluster(), en, c.getErrorCommand("RequestDeleteNode"), e)
 	}
 
 	return nil
@@ -176,7 +176,7 @@ func (c *cRaft) SyncRequestAddNode(parent context.Context, nodeID uint64, target
 	e := c.nodeHost.SyncRequestAddNode(ctx, c.config.ClusterID, nodeID, target, configChangeIndex)
 
 	if e != nil {
-		return ErrorCommandSync.ErrorParent(c.getErrorCluster(), en, c.getErrorCommand("RequestAddNode"), e)
+		return ErrorCommandSync.Error(c.getErrorCluster(), en, c.getErrorCommand("RequestAddNode"), e)
 	}
 
 	return nil
@@ -198,7 +198,7 @@ func (c *cRaft) SyncRequestAddObserver(parent context.Context, nodeID uint64, ta
 	e := c.nodeHost.SyncRequestAddObserver(ctx, c.config.ClusterID, nodeID, target, configChangeIndex)
 
 	if e != nil {
-		return ErrorCommandSync.ErrorParent(c.getErrorCluster(), en, c.getErrorCommand("RequestAddObserver"), e)
+		return ErrorCommandSync.Error(c.getErrorCluster(), en, c.getErrorCommand("RequestAddObserver"), e)
 	}
 
 	return nil
@@ -220,7 +220,7 @@ func (c *cRaft) SyncRequestAddWitness(parent context.Context, nodeID uint64, tar
 	e := c.nodeHost.SyncRequestAddWitness(ctx, c.config.ClusterID, nodeID, target, configChangeIndex)
 
 	if e != nil {
-		return ErrorCommandSync.ErrorParent(c.getErrorCluster(), en, c.getErrorCommand("RequestAddWitness"), e)
+		return ErrorCommandSync.Error(c.getErrorCluster(), en, c.getErrorCommand("RequestAddWitness"), e)
 	}
 
 	return nil
@@ -241,7 +241,7 @@ func (c *cRaft) SyncRemoveData(parent context.Context, nodeID uint64) liberr.Err
 	e := c.nodeHost.SyncRemoveData(ctx, c.config.ClusterID, nodeID)
 
 	if e != nil {
-		return ErrorCommandSync.ErrorParent(c.getErrorCluster(), en, c.getErrorCommand("RemoveData"), e)
+		return ErrorCommandSync.Error(c.getErrorCluster(), en, c.getErrorCommand("RemoveData"), e)
 	}
 
 	return nil

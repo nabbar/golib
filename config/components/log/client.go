@@ -28,7 +28,6 @@ package log
 
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
 	libver "github.com/nabbar/golib/version"
@@ -139,7 +138,7 @@ func (o *componentLog) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentLog) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentLog) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -147,10 +146,10 @@ func (o *componentLog) _runFct(fct func(cpt cfgtps.Component) liberr.Error) libe
 	return nil
 }
 
-func (o *componentLog) _runCli() liberr.Error {
+func (o *componentLog) _runCli() error {
 	var (
 		e   error
-		err liberr.Error
+		err error
 		prt = ErrorReloadLog
 		cfg *logcfg.Options
 	)
@@ -174,13 +173,13 @@ func (o *componentLog) _runCli() liberr.Error {
 	defer o.m.RUnlock()
 
 	if e = o.l.SetOptions(cfg); e != nil {
-		return prt.ErrorParent(e)
+		return prt.Error(e)
 	}
 
 	return nil
 }
 
-func (o *componentLog) _run() liberr.Error {
+func (o *componentLog) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

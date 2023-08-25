@@ -36,7 +36,6 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	liberr "github.com/nabbar/golib/errors"
 	libfpg "github.com/nabbar/golib/file/progress"
 	gitlab "github.com/xanzy/go-gitlab"
 )
@@ -53,7 +52,7 @@ type gitlabModel struct {
 	p int
 }
 
-func (g *gitlabModel) ListReleases() (releases hscvrs.Collection, err liberr.Error) {
+func (g *gitlabModel) ListReleases() (releases hscvrs.Collection, err error) {
 	var (
 		e    error
 		lopt = &gitlab.ListReleasesOptions{
@@ -71,7 +70,7 @@ func (g *gitlabModel) ListReleases() (releases hscvrs.Collection, err liberr.Err
 		)
 
 		if rels, resp, e = g.c.Releases.ListReleases(g.p, lopt, gitlab.WithContext(g.x)); e != nil {
-			return nil, ErrorGitlabList.ErrorParent(e)
+			return nil, ErrorGitlabList.Error(e)
 		}
 
 		for _, r := range rels {
@@ -91,14 +90,14 @@ func (g *gitlabModel) ListReleases() (releases hscvrs.Collection, err liberr.Err
 	}
 }
 
-func (g *gitlabModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error) {
+func (g *gitlabModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error) {
 	var (
 		vers *gitlab.Release
 		e    error
 	)
 
 	if vers, _, e = g.c.Releases.GetRelease(g.p, release.Original(), gitlab.WithContext(g.x)); e != nil {
-		return "", ErrorGitlabGetRelease.ErrorParent(e)
+		return "", ErrorGitlabGetRelease.Error(e)
 	}
 
 	for _, l := range vers.Assets.Links {
@@ -112,13 +111,13 @@ func (g *gitlabModel) GetArtifact(containName string, regexName string, release 
 	return "", ErrorGitlabNotFound.Error(nil)
 }
 
-func (g *gitlabModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error {
+func (g *gitlabModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error {
 	var (
 		uri string
 		rsp *gitlab.Response
 		req *hschtc.Request
 		err error
-		e   liberr.Error
+		e   error
 		n   int64
 	)
 
@@ -134,23 +133,23 @@ func (g *gitlabModel) Download(dst libfpg.Progress, containName string, regexNam
 	if uri, e = g.GetArtifact(containName, regexName, release); e != nil {
 		return e
 	} else if req, err = g.c.NewRequest(http.MethodGet, uri, nil, nil); err != nil {
-		return ErrorGitlabRequestNew.ErrorParent(err)
+		return ErrorGitlabRequestNew.Error(err)
 	} else if rsp, err = g.c.Do(req, nil); err != nil {
-		return ErrorGitlabRequestRun.ErrorParent(err)
+		return ErrorGitlabRequestRun.Error(err)
 	} else if rsp.StatusCode < 200 || rsp.StatusCode > 299 {
-		return ErrorGitlabResponse.ErrorParent(errResponseCode)
+		return ErrorGitlabResponse.Error(errResponseCode)
 	} else if rsp.ContentLength < 1 {
-		return ErrorGitlabResponse.ErrorParent(errResponseContents)
+		return ErrorGitlabResponse.Error(errResponseContents)
 	} else if rsp.Body == nil {
-		return ErrorGitlabResponse.ErrorParent(errResponseBodyEmpty)
+		return ErrorGitlabResponse.Error(errResponseBodyEmpty)
 	} else {
 		dst.Reset(rsp.ContentLength)
 	}
 
 	if n, err = io.Copy(dst, rsp.Body); err != nil {
-		return ErrorGitlabIOCopy.ErrorParent(err)
+		return ErrorGitlabIOCopy.Error(err)
 	} else if n != rsp.ContentLength {
-		return ErrorDestinationSize.ErrorParent(errMisMatchingSize)
+		return ErrorDestinationSize.Error(errMisMatchingSize)
 	}
 
 	return nil

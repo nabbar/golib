@@ -35,7 +35,6 @@ import (
 	libaws "github.com/nabbar/golib/aws"
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
@@ -64,7 +63,7 @@ func (o *componentAws) RegisterTLS(fct libtls.FctTLSDefault) {
 	o.t = fct
 }
 
-func (o *componentAws) GetAws() (libaws.AWS, liberr.Error) {
+func (o *componentAws) GetAws() (libaws.AWS, error) {
 	o.m.RLock()
 	defer o.m.RUnlock()
 

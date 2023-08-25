@@ -26,14 +26,13 @@
 package role
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	"github.com/nabbar/golib/errors"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
-func (cli *client) List() ([]types.Role, errors.Error) {
-	out, err := cli.iam.ListRoles(cli.GetContext(), &iam.ListRolesInput{})
+func (cli *client) List() ([]iamtps.Role, error) {
+	out, err := cli.iam.ListRoles(cli.GetContext(), &sdkiam.ListRolesInput{})
 
 	if err != nil {
 		return nil, cli.GetError(err)
@@ -42,9 +41,9 @@ func (cli *client) List() ([]types.Role, errors.Error) {
 	}
 }
 
-func (cli *client) Check(name string) (string, errors.Error) {
-	out, err := cli.iam.GetRole(cli.GetContext(), &iam.GetRoleInput{
-		RoleName: aws.String(name),
+func (cli *client) Check(name string) (string, error) {
+	out, err := cli.iam.GetRole(cli.GetContext(), &sdkiam.GetRoleInput{
+		RoleName: sdkaws.String(name),
 	})
 
 	if err != nil {
@@ -54,10 +53,10 @@ func (cli *client) Check(name string) (string, errors.Error) {
 	return *out.Role.Arn, nil
 }
 
-func (cli *client) Add(name, role string) (string, errors.Error) {
-	out, err := cli.iam.CreateRole(cli.GetContext(), &iam.CreateRoleInput{
-		AssumeRolePolicyDocument: aws.String(role),
-		RoleName:                 aws.String(name),
+func (cli *client) Add(name, role string) (string, error) {
+	out, err := cli.iam.CreateRole(cli.GetContext(), &sdkiam.CreateRoleInput{
+		AssumeRolePolicyDocument: sdkaws.String(role),
+		RoleName:                 sdkaws.String(name),
 	})
 
 	if err != nil {
@@ -67,9 +66,9 @@ func (cli *client) Add(name, role string) (string, errors.Error) {
 	}
 }
 
-func (cli *client) Delete(roleName string) errors.Error {
-	_, err := cli.iam.DeleteRole(cli.GetContext(), &iam.DeleteRoleInput{
-		RoleName: aws.String(roleName),
+func (cli *client) Delete(roleName string) error {
+	_, err := cli.iam.DeleteRole(cli.GetContext(), &sdkiam.DeleteRoleInput{
+		RoleName: sdkaws.String(roleName),
 	})
 
 	return cli.GetError(err)

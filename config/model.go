@@ -30,7 +30,6 @@ import (
 	"sync"
 
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
@@ -56,13 +55,13 @@ type configModel struct {
 	fcnl []func()
 }
 
-func (c *configModel) _ComponentGetConfig(key string, model interface{}) liberr.Error {
+func (c *configModel) _ComponentGetConfig(key string, model interface{}) error {
 	if vpr := c.getViper(); vpr == nil {
 		return ErrorConfigMissingViper.Error(nil)
 	} else if vip := vpr.Viper(); vip == nil {
 		return ErrorConfigMissingViper.Error(nil)
 	} else if err := vpr.Viper().UnmarshalKey(key, model); err != nil {
-		return ErrorComponentConfigError.ErrorParent(err)
+		return ErrorComponentConfigError.Error(err)
 	}
 
 	return nil

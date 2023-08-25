@@ -33,13 +33,12 @@ import (
 	sdktyp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
 	libmpu "github.com/nabbar/golib/aws/multipart"
-	liberr "github.com/nabbar/golib/errors"
 	libsiz "github.com/nabbar/golib/size"
 )
 
 // MultipartList implement the ListMultipartUploads.
 // See docs for more infos : https://docs.aws.amazon.com/AmazonS3/latest/API/API_ListMultipartUploads.html
-func (cli *client) MultipartList(keyMarker, markerId string) (uploads []sdktyp.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e liberr.Error) {
+func (cli *client) MultipartList(keyMarker, markerId string) (uploads []sdktyp.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e error) {
 	in := &sdksss.ListMultipartUploadsInput{
 		Bucket:     sdkaws.String(cli.GetBucketName()),
 		MaxUploads: 1000,
@@ -71,11 +70,11 @@ func (cli *client) MultipartNew(partSize libsiz.Size, object string) libmpu.Mult
 	return m
 }
 
-func (cli *client) MultipartPut(object string, body io.Reader) liberr.Error {
+func (cli *client) MultipartPut(object string, body io.Reader) error {
 	return cli.MultipartPutCustom(libmpu.DefaultPartSize, object, body)
 }
 
-func (cli *client) MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) liberr.Error {
+func (cli *client) MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) error {
 	var (
 		e error
 		m = cli.MultipartNew(partSize, object)
@@ -100,7 +99,7 @@ func (cli *client) MultipartPutCustom(partSize libsiz.Size, object string, body 
 	return nil
 }
 
-func (cli *client) MultipartCancel(uploadId, key string) liberr.Error {
+func (cli *client) MultipartCancel(uploadId, key string) error {
 	res, err := cli.s3.AbortMultipartUpload(cli.GetContext(), &sdksss.AbortMultipartUploadInput{
 		Bucket:   sdkaws.String(cli.GetBucketName()),
 		UploadId: sdkaws.String(uploadId),

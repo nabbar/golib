@@ -27,7 +27,6 @@
 package config
 
 import (
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"
@@ -79,7 +78,7 @@ func (c *configModel) RegisterFuncStartBefore(fct FuncEvent) {
 	c.fct.Store(fctStartBefore, fct)
 }
 
-func (c *configModel) runFuncStartBefore() liberr.Error {
+func (c *configModel) runFuncStartBefore() error {
 	if i, l := c.fct.Load(fctStartBefore); !l {
 		return nil
 	} else if v, k := i.(FuncEvent); !k {
@@ -95,7 +94,7 @@ func (c *configModel) RegisterFuncStartAfter(fct FuncEvent) {
 	c.fct.Store(fctStartAfter, fct)
 }
 
-func (c *configModel) runFuncStartAfter() liberr.Error {
+func (c *configModel) runFuncStartAfter() error {
 	if i, l := c.fct.Load(fctStartAfter); !l {
 		return nil
 	} else if v, k := i.(FuncEvent); !k {
@@ -111,7 +110,7 @@ func (c *configModel) RegisterFuncReloadBefore(fct FuncEvent) {
 	c.fct.Store(fctReloadBefore, fct)
 }
 
-func (c *configModel) runFuncReloadBefore() liberr.Error {
+func (c *configModel) runFuncReloadBefore() error {
 	if i, l := c.fct.Load(fctReloadBefore); !l {
 		return nil
 	} else if v, k := i.(FuncEvent); !k {
@@ -127,7 +126,7 @@ func (c *configModel) RegisterFuncReloadAfter(fct FuncEvent) {
 	c.fct.Store(fctReloadAfter, fct)
 }
 
-func (c *configModel) runFuncReloadAfter() liberr.Error {
+func (c *configModel) runFuncReloadAfter() error {
 	if i, l := c.fct.Load(fctReloadAfter); !l {
 		return nil
 	} else if v, k := i.(FuncEvent); !k {
@@ -143,7 +142,7 @@ func (c *configModel) RegisterFuncStopBefore(fct FuncEvent) {
 	c.fct.Store(fctStopBefore, fct)
 }
 
-func (c *configModel) runFuncStopBefore() liberr.Error {
+func (c *configModel) runFuncStopBefore() error {
 	if i, l := c.fct.Load(fctStopBefore); !l {
 		return nil
 	} else if v, k := i.(FuncEvent); !k {
@@ -159,7 +158,7 @@ func (c *configModel) RegisterFuncStopAfter(fct FuncEvent) {
 	c.fct.Store(fctStopAfter, fct)
 }
 
-func (c *configModel) runFuncStopAfter() liberr.Error {
+func (c *configModel) runFuncStopAfter() error {
 	if i, l := c.fct.Load(fctStopAfter); !l {
 		return nil
 	} else if v, k := i.(FuncEvent); !k {

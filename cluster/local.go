@@ -39,7 +39,7 @@ func (c *cRaft) LocalReadNode(rs *dgbclt.RequestState, query interface{}) (inter
 	i, e := c.nodeHost.ReadLocalNode(rs, query)
 
 	if e != nil {
-		return i, ErrorCommandLocal.ErrorParent(c.getErrorCommand("ReadNode"), e)
+		return i, ErrorCommandLocal.Error(c.getErrorCommand("ReadNode"), e)
 	}
 
 	return i, nil
@@ -49,7 +49,7 @@ func (c *cRaft) LocalNAReadNode(rs *dgbclt.RequestState, query []byte) ([]byte, 
 	r, e := c.nodeHost.NAReadLocalNode(rs, query)
 
 	if e != nil {
-		return r, ErrorCommandLocal.ErrorParent(c.getErrorCommand("ReadNode"), e)
+		return r, ErrorCommandLocal.Error(c.getErrorCommand("ReadNode"), e)
 	}
 
 	return r, nil

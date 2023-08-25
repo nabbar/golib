@@ -35,7 +35,7 @@ func (v *viper) Config(logLevelRemoteKO, logLevelRemoteOK loglvl.Level) liberr.E
 	if err := v.initAddRemote(); err == nil {
 		v.initWatchRemote(logLevelRemoteKO, logLevelRemoteOK)
 		return nil
-	} else if !err.IsCodeError(ErrorParamMissing) {
+	} else if !err.IsCode(ErrorParamMissing) {
 		return err
 	}
 
@@ -48,11 +48,11 @@ func (v *viper) Config(logLevelRemoteKO, logLevelRemoteOK loglvl.Level) liberr.E
 	if v.deft != nil {
 		v.v.SetConfigType("json")
 		if err = v.v.ReadConfig(v.deft()); err != nil {
-			return ErrorConfigReadDefault.ErrorParent(err)
+			return ErrorConfigReadDefault.Error(err)
 		}
 
 		return ErrorConfigIsDefault.Error(nil)
 	}
 
-	return ErrorConfigRead.ErrorParent(err)
+	return ErrorConfigRead.Error(err)
 }

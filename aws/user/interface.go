@@ -32,7 +32,6 @@ import (
 	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
@@ -41,28 +40,28 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type PoliciesWalkFunc func(err liberr.Error, pol sdktps.AttachedPolicy) liberr.Error
+type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
 
 type User interface {
-	List() (map[string]string, liberr.Error)
-	Get(username string) (*sdktps.User, liberr.Error)
-	Create(username string) liberr.Error
-	Delete(username string) liberr.Error
+	List() (map[string]string, error)
+	Get(username string) (*sdktps.User, error)
+	Create(username string) error
+	Delete(username string) error
 
-	PolicyPut(policyDocument, policyName, username string) liberr.Error
-	PolicyAttach(policyARN, username string) liberr.Error
-	PolicyDetach(policyARN, username string) liberr.Error
-	PolicyAttachedList(username, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error)
-	PolicyAttachedWalk(username string, fct PoliciesWalkFunc) liberr.Error
+	PolicyPut(policyDocument, policyName, username string) error
+	PolicyAttach(policyARN, username string) error
+	PolicyDetach(policyARN, username string) error
+	PolicyAttachedList(username, marker string) ([]sdktps.AttachedPolicy, string, error)
+	PolicyAttachedWalk(username string, fct PoliciesWalkFunc) error
 
-	LoginCheck(username string) liberr.Error
-	LoginCreate(username, password string) liberr.Error
-	LoginDelete(username string) liberr.Error
+	LoginCheck(username string) error
+	LoginCreate(username, password string) error
+	LoginDelete(username string) error
 
-	AccessListAll(username string) ([]sdktps.AccessKeyMetadata, liberr.Error)
-	AccessList(username string) (map[string]bool, liberr.Error)
-	AccessCreate(username string) (string, string, liberr.Error)
-	AccessDelete(username, accessKey string) liberr.Error
+	AccessListAll(username string) ([]sdktps.AccessKeyMetadata, error)
+	AccessList(username string) (map[string]bool, error)
+	AccessCreate(username string) (string, string, error)
+	AccessDelete(username, accessKey string) error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) User {

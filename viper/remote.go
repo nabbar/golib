@@ -37,10 +37,10 @@ func (v *viper) initAddRemote() liberr.Error {
 
 	if v.remote.secure != "" {
 		if err := v.v.AddSecureRemoteProvider(v.remote.provider, v.remote.endpoint, v.remote.path, v.remote.secure); err != nil {
-			return ErrorRemoteProviderSecure.ErrorParent(err)
+			return ErrorRemoteProviderSecure.Error(err)
 		}
 	} else if err := v.v.AddRemoteProvider(v.remote.provider, v.remote.endpoint, v.remote.path); err != nil {
-		return ErrorRemoteProvider.ErrorParent(err)
+		return ErrorRemoteProvider.Error(err)
 	}
 
 	return v.initSetRemote()
@@ -50,11 +50,11 @@ func (v *viper) initSetRemote() liberr.Error {
 	v.v.SetConfigType("json")
 
 	if err := v.v.ReadRemoteConfig(); err != nil {
-		return ErrorRemoteProviderRead.ErrorParent(err)
+		return ErrorRemoteProviderRead.Error(err)
 	}
 
 	if err := v.v.Unmarshal(v.remote.model); err != nil {
-		return ErrorRemoteProviderMarshall.ErrorParent(err)
+		return ErrorRemoteProviderMarshall.Error(err)
 	}
 
 	return nil

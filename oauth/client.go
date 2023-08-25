@@ -70,7 +70,7 @@ func ConfigExchangeCode(oa *oauth2.Config, ctx context.Context, httpcli *http.Cl
 	}
 
 	if tok, err := oa.Exchange(ctx, code); err != nil {
-		return nil, ErrorOAuthExchange.ErrorParent(err)
+		return nil, ErrorOAuthExchange.Error(err)
 	} else {
 		return oa.Client(ctx, tok), nil
 	}

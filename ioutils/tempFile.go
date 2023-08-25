@@ -34,7 +34,7 @@ import (
 
 func NewTempFile() (*os.File, Error) {
 	f, e := os.CreateTemp(os.TempDir(), "")
-	return f, ErrorIOFileTempNew.Iferror(e)
+	return f, ErrorIOFileTempNew.IfError(e)
 }
 
 func GetTempFilePath(f *os.File) string {
@@ -53,10 +53,10 @@ func DelTempFile(f *os.File) Error {
 	n := GetTempFilePath(f)
 
 	a := f.Close()
-	e1 := ErrorIOFileTempClose.Iferror(a)
+	e1 := ErrorIOFileTempClose.IfError(a)
 
 	b := os.Remove(n)
-	e2 := ErrorIOFileTempRemove.Iferror(b)
+	e2 := ErrorIOFileTempRemove.IfError(b)
 
-	return MakeErrorIfError(e2, e1)
+	return MakeIfError(e2, e1)
 }

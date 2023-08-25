@@ -30,7 +30,6 @@ import (
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -103,11 +102,11 @@ func (o *componentHttp) IsRunning() bool {
 	return o.s.IsRunning()
 }
 
-func (o *componentHttp) Start() liberr.Error {
+func (o *componentHttp) Start() error {
 	return o._run()
 }
 
-func (o *componentHttp) Reload() liberr.Error {
+func (o *componentHttp) Reload() error {
 	return o._run()
 }
 
@@ -145,7 +144,7 @@ func (o *componentHttp) Dependencies() []string {
 	}
 }
 
-func (o *componentHttp) SetDependencies(d []string) liberr.Error {
+func (o *componentHttp) SetDependencies(d []string) error {
 	o.m.RLock()
 	defer o.m.RUnlock()
 

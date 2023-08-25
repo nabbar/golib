@@ -32,7 +32,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
@@ -42,19 +41,19 @@ type client struct {
 }
 
 type Policy interface {
-	List() (map[string]string, liberr.Error)
+	List() (map[string]string, error)
 
-	Get(arn string) (*types.Policy, liberr.Error)
-	Add(name, desc, policy string) (string, liberr.Error)
-	Update(polArn, polContents string) liberr.Error
-	Delete(polArn string) liberr.Error
+	Get(arn string) (*types.Policy, error)
+	Add(name, desc, policy string) (string, error)
+	Update(polArn, polContents string) error
+	Delete(polArn string) error
 
-	VersionList(arn string, maxItem int32, noDefaultVersion bool) (map[string]string, liberr.Error)
-	VersionGet(arn string, vers string) (*types.PolicyVersion, liberr.Error)
-	VersionAdd(arn string, doc string) liberr.Error
-	VersionDel(arn string, vers string) liberr.Error
+	VersionList(arn string, maxItem int32, noDefaultVersion bool) (map[string]string, error)
+	VersionGet(arn string, vers string) (*types.PolicyVersion, error)
+	VersionAdd(arn string, doc string) error
+	VersionDel(arn string, vers string) error
 
-	CompareUpdate(arn string, doc string) (upd bool, err liberr.Error)
+	CompareUpdate(arn string, doc string) (upd bool, err error)
 }
 
 func New(ctx context.Context, bucket, region string, iam *iam.Client, s3 *s3.Client) Policy {

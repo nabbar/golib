@@ -30,7 +30,6 @@ import (
 	"sync"
 
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
 	logfld "github.com/nabbar/golib/logger/fields"
@@ -109,7 +108,7 @@ func (o *componentLog) GetOptions() *logcfg.Options {
 	return o.l.GetOptions()
 }
 
-func (o *componentLog) SetOptions(opt *logcfg.Options) liberr.Error {
+func (o *componentLog) SetOptions(opt *logcfg.Options) error {
 	o.m.Lock()
 	defer o.m.Unlock()
 
@@ -118,7 +117,7 @@ func (o *componentLog) SetOptions(opt *logcfg.Options) liberr.Error {
 	}
 
 	if e := o.l.SetOptions(opt); e != nil {
-		return ErrorConfigInvalid.ErrorParent(e)
+		return ErrorConfigInvalid.Error(e)
 	}
 
 	return nil

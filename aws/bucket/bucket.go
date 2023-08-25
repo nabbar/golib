@@ -31,10 +31,9 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) Check() liberr.Error {
+func (cli *client) Check() error {
 	out, err := cli.s3.HeadBucket(cli.GetContext(), &sdksss.HeadBucketInput{
 		Bucket: cli.GetBucketAws(),
 	})
@@ -43,21 +42,21 @@ func (cli *client) Check() liberr.Error {
 		return cli.GetError(err)
 	} else if out == nil {
 		//nolint #goerr113
-		return libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
+		return libhlp.ErrorBucketNotFound.Error(fmt.Errorf("bucket: %s", cli.GetBucketName()))
 	}
 
 	return nil
 }
 
-func (cli *client) Create(RegionConstraint string) liberr.Error {
+func (cli *client) Create(RegionConstraint string) error {
 	return cli._create(RegionConstraint, false)
 }
 
-func (cli *client) CreateWithLock(RegionConstraint string) liberr.Error {
+func (cli *client) CreateWithLock(RegionConstraint string) error {
 	return cli._create(RegionConstraint, true)
 }
 
-func (cli *client) _create(RegionConstraint string, lockEnable bool) liberr.Error {
+func (cli *client) _create(RegionConstraint string, lockEnable bool) error {
 	in := &sdksss.CreateBucketInput{
 		Bucket:                    cli.GetBucketAws(),
 		CreateBucketConfiguration: &sdkstp.CreateBucketConfiguration{},
@@ -83,7 +82,7 @@ func (cli *client) _create(RegionConstraint string, lockEnable bool) liberr.Erro
 
 }
 
-func (cli *client) Delete() liberr.Error {
+func (cli *client) Delete() error {
 	_, err := cli.s3.DeleteBucket(cli.GetContext(), &sdksss.DeleteBucketInput{
 		Bucket: cli.GetBucketAws(),
 	})
@@ -91,7 +90,7 @@ func (cli *client) Delete() liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) List() ([]sdkstp.Bucket, liberr.Error) {
+func (cli *client) List() ([]sdkstp.Bucket, error) {
 	out, err := cli.s3.ListBuckets(cli.GetContext(), nil)
 
 	if err != nil {
@@ -103,7 +102,7 @@ func (cli *client) List() ([]sdkstp.Bucket, liberr.Error) {
 	return out.Buckets, nil
 }
 
-func (cli *client) Walk(f WalkFunc) liberr.Error {
+func (cli *client) Walk(f WalkFunc) error {
 	out, err := cli.s3.ListBuckets(cli.GetContext(), nil)
 
 	if err != nil {
@@ -112,7 +111,7 @@ func (cli *client) Walk(f WalkFunc) liberr.Error {
 		return libhlp.ErrorAwsEmpty.Error(nil)
 	}
 
-	var e liberr.Error
+	var e error
 	for _, b := range out.Buckets {
 		if b.Name == nil || b.CreationDate == nil || len(*b.Name) < 3 || b.CreationDate.IsZero() {
 			continue

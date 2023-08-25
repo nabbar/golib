@@ -60,7 +60,7 @@ func GetAllInterfaces(ctx context.Context, onlyPhysical, hasAddr bool, atLeastMT
 	var res = make([]string, 0)
 
 	if l, e := netlib.InterfacesWithContext(ctx); e != nil {
-		return nil, ErrorNetInterface.ErrorParent(e)
+		return nil, ErrorNetInterface.Error(e)
 	} else {
 		for _, f := range l {
 			if onlyPhysical && f.HardwareAddr == "" {
@@ -103,7 +103,7 @@ func NewInterface(ctx context.Context, name, physical string) (Interface, errors
 	)
 
 	if l, e := netlib.InterfacesWithContext(ctx); e != nil {
-		return nil, ErrorNetInterface.ErrorParent(e)
+		return nil, ErrorNetInterface.Error(e)
 	} else {
 		for _, f := range l {
 			if (name != "" && f.Name == name) || (physical != "" && physical == f.HardwareAddr) {
@@ -118,7 +118,7 @@ func NewInterface(ctx context.Context, name, physical string) (Interface, errors
 	}
 
 	if l, e := netlib.IOCountersWithContext(ctx, true); e != nil {
-		return nil, ErrorNetCounter.ErrorParent(e)
+		return nil, ErrorNetCounter.Error(e)
 	} else {
 		for _, f := range l {
 			if f.Name == ifs.Name {

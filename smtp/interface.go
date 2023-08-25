@@ -33,7 +33,6 @@ import (
 	"sync"
 
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	montps "github.com/nabbar/golib/monitor/types"
 	smtpcf "github.com/nabbar/golib/smtp/config"
 	libver "github.com/nabbar/golib/version"
@@ -45,9 +44,9 @@ type SMTP interface {
 
 	UpdConfig(cfg smtpcf.SMTP, tslConfig *tls.Config)
 
-	Client(ctx context.Context) (*smtp.Client, liberr.Error)
-	Check(ctx context.Context) liberr.Error
-	Send(ctx context.Context, from string, to []string, data io.WriterTo) liberr.Error
+	Client(ctx context.Context) (*smtp.Client, error)
+	Check(ctx context.Context) error
+	Send(ctx context.Context, from string, to []string, data io.WriterTo) error
 
 	Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error)
 }
@@ -57,7 +56,7 @@ type SMTP interface {
 //   - params available are : ServerName (string), SkipVerify (boolean).
 //   - tls mode acceptable are :  starttls, tls, <any other value to no tls/startls>.
 //   - net acceptable are : tcp4, tcp6, unix.
-func New(cfg smtpcf.SMTP, tlsConfig *tls.Config) (SMTP, liberr.Error) {
+func New(cfg smtpcf.SMTP, tlsConfig *tls.Config) (SMTP, error) {
 	if tlsConfig == nil {
 		/* #nosec */
 		//nolint #nosec

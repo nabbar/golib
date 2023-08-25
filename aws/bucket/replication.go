@@ -30,10 +30,9 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) LoadReplication() (*sdkstp.ReplicationConfiguration, liberr.Error) {
+func (cli *client) LoadReplication() (*sdkstp.ReplicationConfiguration, error) {
 	in := sdksss.GetBucketReplicationInput{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -49,7 +48,7 @@ func (cli *client) LoadReplication() (*sdkstp.ReplicationConfiguration, liberr.E
 	}
 }
 
-func (cli *client) EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) liberr.Error {
+func (cli *client) EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) error {
 	var status sdkstp.ReplicationRuleStatus = libhlp.STATE_ENABLED
 
 	_, err := cli.s3.PutBucketReplication(cli.GetContext(), &sdksss.PutBucketReplicationInput{
@@ -71,7 +70,7 @@ func (cli *client) EnableReplication(srcRoleARN, dstRoleARN, dstBucketName strin
 	return cli.GetError(err)
 }
 
-func (cli *client) DeleteReplication() liberr.Error {
+func (cli *client) DeleteReplication() error {
 	_, err := cli.s3.DeleteBucketReplication(cli.GetContext(), &sdksss.DeleteBucketReplicationInput{
 		Bucket: cli.GetBucketAws(),
 	})

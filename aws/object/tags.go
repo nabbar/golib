@@ -29,10 +29,9 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) GetTags(object, version string) ([]sdktps.Tag, liberr.Error) {
+func (cli *client) GetTags(object, version string) ([]sdktps.Tag, error) {
 	in := sdksss.GetObjectTaggingInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
@@ -51,7 +50,7 @@ func (cli *client) GetTags(object, version string) ([]sdktps.Tag, liberr.Error) 
 	return out.TagSet, nil
 }
 
-func (cli *client) SetTags(object, version string, tags ...sdktps.Tag) liberr.Error {
+func (cli *client) SetTags(object, version string, tags ...sdktps.Tag) error {
 	in := sdksss.PutObjectTaggingInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),

@@ -118,7 +118,7 @@ func NewCluster(cfg Config, fctCreate interface{}) (Cluster, liberr.Error) {
 	}
 
 	if n, e := dgbclt.NewNodeHost(cfg.GetDGBConfigNode()); e != nil {
-		return nil, ErrorNodeHostNew.ErrorParent(e)
+		return nil, ErrorNodeHostNew.Error(e)
 	} else {
 		c.nodeHost = n
 	}

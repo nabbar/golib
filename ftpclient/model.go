@@ -121,7 +121,7 @@ func (f *ftpClient) Connect() liberr.Error {
 	}
 
 	if e = cli.NoOp(); e != nil {
-		return ErrorFTPConnectionCheck.ErrorParent(e)
+		return ErrorFTPConnectionCheck.Error(e)
 	}
 
 	f.setClient(cli)
@@ -142,7 +142,7 @@ func (f *ftpClient) Check() liberr.Error {
 	}
 
 	if e := cli.NoOp(); e != nil {
-		return ErrorFTPConnectionCheck.ErrorParent(e)
+		return ErrorFTPConnectionCheck.Error(e)
 	}
 	return nil
 }
@@ -159,7 +159,7 @@ func (f *ftpClient) NameList(path string) ([]string, liberr.Error) {
 	}
 
 	if r, e := f.getClient().NameList(path); e != nil {
-		return nil, ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "NameList", "NLST"))
+		return nil, ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "NameList", "NLST"))
 	} else {
 		return r, nil
 	}
@@ -171,7 +171,7 @@ func (f *ftpClient) List(path string) ([]*libftp.Entry, liberr.Error) {
 	}
 
 	if r, e := f.getClient().List(path); e != nil {
-		return nil, ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "List", "MLSD/LIST"))
+		return nil, ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "List", "MLSD/LIST"))
 	} else {
 		return r, nil
 	}
@@ -183,7 +183,7 @@ func (f *ftpClient) ChangeDir(path string) liberr.Error {
 	}
 
 	if e := f.getClient().ChangeDir(path); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "ChangeDir", "CWD"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "ChangeDir", "CWD"))
 	} else {
 		return nil
 	}
@@ -195,7 +195,7 @@ func (f *ftpClient) CurrentDir() (string, liberr.Error) {
 	}
 
 	if r, e := f.getClient().CurrentDir(); e != nil {
-		return "", ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "CurrentDir", "PWD"))
+		return "", ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "CurrentDir", "PWD"))
 	} else {
 		return r, nil
 	}
@@ -207,7 +207,7 @@ func (f *ftpClient) FileSize(path string) (int64, liberr.Error) {
 	}
 
 	if r, e := f.getClient().FileSize(path); e != nil {
-		return 0, ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "FileSize", "SIZE"))
+		return 0, ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "FileSize", "SIZE"))
 	} else {
 		return r, nil
 	}
@@ -219,7 +219,7 @@ func (f *ftpClient) GetTime(path string) (time.Time, liberr.Error) {
 	}
 
 	if r, e := f.getClient().GetTime(path); e != nil {
-		return time.Time{}, ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "GetTime", "MDTM"))
+		return time.Time{}, ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "GetTime", "MDTM"))
 	} else {
 		return r, nil
 	}
@@ -231,7 +231,7 @@ func (f *ftpClient) SetTime(path string, t time.Time) liberr.Error {
 	}
 
 	if e := f.getClient().SetTime(path, t); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "SetTime", "MFMT/MDTM"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "SetTime", "MFMT/MDTM"))
 	} else {
 		return nil
 	}
@@ -243,7 +243,7 @@ func (f *ftpClient) Retr(path string) (*libftp.Response, liberr.Error) {
 	}
 
 	if r, e := f.getClient().Retr(path); e != nil {
-		return nil, ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "Retr", "RETR"))
+		return nil, ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "Retr", "RETR"))
 	} else {
 		return r, nil
 	}
@@ -255,7 +255,7 @@ func (f *ftpClient) RetrFrom(path string, offset uint64) (*libftp.Response, erro
 	}
 
 	if r, e := f.getClient().RetrFrom(path, offset); e != nil {
-		return nil, ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "RetrFrom", "RETR"))
+		return nil, ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "RetrFrom", "RETR"))
 	} else {
 		return r, nil
 	}
@@ -267,7 +267,7 @@ func (f *ftpClient) Stor(path string, r io.Reader) liberr.Error {
 	}
 
 	if e := f.getClient().Stor(path, r); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "Stor", "STOR"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "Stor", "STOR"))
 	} else {
 		return nil
 	}
@@ -279,7 +279,7 @@ func (f *ftpClient) StorFrom(path string, r io.Reader, offset uint64) liberr.Err
 	}
 
 	if e := f.getClient().StorFrom(path, r, offset); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "StorFrom", "STOR"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "StorFrom", "STOR"))
 	} else {
 		return nil
 	}
@@ -291,7 +291,7 @@ func (f *ftpClient) Append(path string, r io.Reader) liberr.Error {
 	}
 
 	if e := f.getClient().Append(path, r); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "Append", "APPE"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "Append", "APPE"))
 	} else {
 		return nil
 	}
@@ -303,7 +303,7 @@ func (f *ftpClient) Rename(from, to string) liberr.Error {
 	}
 
 	if e := f.getClient().Rename(from, to); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "Rename", "RNFR/RNTO"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "Rename", "RNFR/RNTO"))
 	} else {
 		return nil
 	}
@@ -315,7 +315,7 @@ func (f *ftpClient) Delete(path string) liberr.Error {
 	}
 
 	if e := f.getClient().Delete(path); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "Delete", "DELE"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "Delete", "DELE"))
 	} else {
 		return nil
 	}
@@ -327,7 +327,7 @@ func (f *ftpClient) RemoveDirRecur(path string) liberr.Error {
 	}
 
 	if e := f.getClient().RemoveDirRecur(path); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "RemoveDirRecur", "DELE/RMD"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "RemoveDirRecur", "DELE/RMD"))
 	} else {
 		return nil
 	}
@@ -339,7 +339,7 @@ func (f *ftpClient) MakeDir(path string) liberr.Error {
 	}
 
 	if e := f.getClient().MakeDir(path); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "MakeDir", "MKD"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "MakeDir", "MKD"))
 	} else {
 		return nil
 	}
@@ -351,7 +351,7 @@ func (f *ftpClient) RemoveDir(path string) liberr.Error {
 	}
 
 	if e := f.getClient().RemoveDir(path); e != nil {
-		return ErrorFTPCommand.ErrorParent(e, fmt.Errorf("command : %s = %s", "MakeDir", "RMD"))
+		return ErrorFTPCommand.Error(e, fmt.Errorf("command : %s = %s", "MakeDir", "RMD"))
 	} else {
 		return nil
 	}

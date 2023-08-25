@@ -31,7 +31,6 @@ import (
 	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
@@ -53,24 +52,12 @@ func New(ctx context.Context, bucket, region string) Helper {
 	}
 }
 
-func (cli Helper) GetError(err ...error) liberr.Error {
-	var er = ErrorAws.Error(nil)
-
-	for _, e := range err {
-		if e == nil {
-			continue
-		}
-		if n, ok := e.(liberr.Error); ok {
-			er.AddParentError(n)
-		} else {
-			er.AddParent(e)
-		}
+func (cli Helper) GetError(err ...error) error {
+	var e = ErrorAws.Error()
+	e.Add(err...)
+	if e.HasParent() {
+		return e
 	}
-
-	if er.HasParent() {
-		return er
-	}
-
 	return nil
 }
 

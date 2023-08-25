@@ -29,7 +29,6 @@ package tls
 import (
 	libtls "github.com/nabbar/golib/certificates"
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 	spfvbr "github.com/spf13/viper"
@@ -138,7 +137,7 @@ func (o *componentTls) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentTls) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentTls) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -146,9 +145,9 @@ func (o *componentTls) _runFct(fct func(cpt cfgtps.Component) liberr.Error) libe
 	return nil
 }
 
-func (o *componentTls) _runCli() liberr.Error {
+func (o *componentTls) _runCli() error {
 	var (
-		err liberr.Error
+		err error
 		prt = ErrorComponentReload
 		tls libtls.TLSConfig
 		cfg *libtls.Config
@@ -173,7 +172,7 @@ func (o *componentTls) _runCli() liberr.Error {
 	return nil
 }
 
-func (o *componentTls) _run() liberr.Error {
+func (o *componentTls) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

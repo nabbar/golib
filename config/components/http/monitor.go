@@ -52,7 +52,7 @@ func (o *componentHttp) _getMonitorPool() montps.Pool {
 	}
 }
 
-func (o *componentHttp) _registerMonitor(err liberr.CodeError) liberr.Error {
+func (o *componentHttp) _registerMonitor(err liberr.CodeError) error {
 	var (
 		e   error
 		key = o._getKey()
@@ -70,7 +70,7 @@ func (o *componentHttp) _registerMonitor(err liberr.CodeError) liberr.Error {
 	}
 
 	if mon, e = o._newMonitor(vrs); e != nil {
-		return err.ErrorParent(e)
+		return err.Error(e)
 	} else if mon == nil {
 		return nil
 	}
@@ -84,9 +84,9 @@ func (o *componentHttp) _registerMonitor(err liberr.CodeError) liberr.Error {
 		}
 
 		if e = m.Restart(ctx()); e != nil {
-			return err.ErrorParent(e)
+			return err.Error(e)
 		} else if e = o._setMonitor(m); e != nil {
-			return err.ErrorParent(e)
+			return err.Error(e)
 		}
 	}
 

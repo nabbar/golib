@@ -40,7 +40,6 @@ import (
 
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	libver "github.com/nabbar/golib/version"
 )
 
@@ -113,9 +112,9 @@ type Request interface {
 	Error() Error
 	IsError() bool
 
-	Do() (*http.Response, liberr.Error)
-	DoParse(model interface{}, validStatus ...int) liberr.Error
-	DoParseRetry(retry int, model interface{}, validStatus ...int) liberr.Error
+	Do() (*http.Response, error)
+	DoParse(model interface{}, validStatus ...int) error
+	DoParseRetry(retry int, model interface{}, validStatus ...int) error
 
 	Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error)
 	HealthCheck(ctx context.Context) error

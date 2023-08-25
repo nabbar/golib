@@ -33,10 +33,9 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) GetLifeCycle() ([]sdkstp.LifecycleRule, liberr.Error) {
+func (cli *client) GetLifeCycle() ([]sdkstp.LifecycleRule, error) {
 	out, err := cli.s3.GetBucketLifecycleConfiguration(cli.GetContext(), &sdksss.GetBucketLifecycleConfigurationInput{
 		Bucket: cli.GetBucketAws(),
 	})
@@ -45,13 +44,13 @@ func (cli *client) GetLifeCycle() ([]sdkstp.LifecycleRule, liberr.Error) {
 		return nil, cli.GetError(err)
 	} else if out == nil {
 		//nolint #goerr113
-		return nil, libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
+		return nil, libhlp.ErrorBucketNotFound.Error(fmt.Errorf("bucket: %s", cli.GetBucketName()))
 	}
 
 	return out.Rules, nil
 }
 
-func (cli *client) SetLifeCycle(rules ...sdkstp.LifecycleRule) liberr.Error {
+func (cli *client) SetLifeCycle(rules ...sdkstp.LifecycleRule) error {
 	out, err := cli.s3.PutBucketLifecycleConfiguration(cli.GetContext(), &sdksss.PutBucketLifecycleConfigurationInput{
 		Bucket: cli.GetBucketAws(),
 		LifecycleConfiguration: &sdkstp.BucketLifecycleConfiguration{
@@ -63,13 +62,13 @@ func (cli *client) SetLifeCycle(rules ...sdkstp.LifecycleRule) liberr.Error {
 		return cli.GetError(err)
 	} else if out == nil {
 		//nolint #goerr113
-		return libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
+		return libhlp.ErrorBucketNotFound.Error(fmt.Errorf("bucket: %s", cli.GetBucketName()))
 	}
 
 	return nil
 }
 
-func (cli *client) GetLock() (*sdkstp.ObjectLockConfiguration, liberr.Error) {
+func (cli *client) GetLock() (*sdkstp.ObjectLockConfiguration, error) {
 	out, err := cli.s3.GetObjectLockConfiguration(cli.GetContext(), &sdksss.GetObjectLockConfigurationInput{
 		Bucket: cli.GetBucketAws(),
 	})
@@ -78,13 +77,13 @@ func (cli *client) GetLock() (*sdkstp.ObjectLockConfiguration, liberr.Error) {
 		return nil, cli.GetError(err)
 	} else if out == nil {
 		//nolint #goerr113
-		return nil, libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
+		return nil, libhlp.ErrorBucketNotFound.Error(fmt.Errorf("bucket: %s", cli.GetBucketName()))
 	}
 
 	return out.ObjectLockConfiguration, nil
 }
 
-func (cli *client) SetLock(cfg sdkstp.ObjectLockConfiguration, token string) liberr.Error {
+func (cli *client) SetLock(cfg sdkstp.ObjectLockConfiguration, token string) error {
 	in := &sdksss.PutObjectLockConfigurationInput{
 		Bucket:                  cli.GetBucketAws(),
 		ObjectLockConfiguration: &cfg,
@@ -100,7 +99,7 @@ func (cli *client) SetLock(cfg sdkstp.ObjectLockConfiguration, token string) lib
 		return cli.GetError(err)
 	} else if out == nil {
 		//nolint #goerr113
-		return libhlp.ErrorBucketNotFound.ErrorParent(fmt.Errorf("bucket: %s", cli.GetBucketName()))
+		return libhlp.ErrorBucketNotFound.Error(fmt.Errorf("bucket: %s", cli.GetBucketName()))
 	}
 
 	return nil

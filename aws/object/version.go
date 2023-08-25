@@ -32,10 +32,9 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) VersionList(prefix, keyMarker, markerId string) (version []sdktps.ObjectVersion, delMarker []sdktps.DeleteMarkerEntry, nextKeyMarker, nextMarkerId string, count int64, err liberr.Error) {
+func (cli *client) VersionList(prefix, keyMarker, markerId string) (version []sdktps.ObjectVersion, delMarker []sdktps.DeleteMarkerEntry, nextKeyMarker, nextMarkerId string, count int64, err error) {
 	in := sdksss.ListObjectVersionsInput{
 		Bucket:  cli.GetBucketAws(),
 		MaxKeys: 1000,
@@ -61,11 +60,11 @@ func (cli *client) VersionList(prefix, keyMarker, markerId string) (version []sd
 	}
 }
 
-func (cli *client) VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) liberr.Error {
+func (cli *client) VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) error {
 	return cli.VersionWalkPrefix("", fv, fd)
 }
 
-func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) liberr.Error {
+func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) error {
 	in := sdksss.ListObjectVersionsInput{
 		Bucket:  cli.GetBucketAws(),
 		MaxKeys: 1000,
@@ -76,7 +75,7 @@ func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMa
 	}
 
 	var (
-		e  liberr.Error
+		e  error
 		km = sdkaws.String("")
 		mi = sdkaws.String("")
 	)
@@ -126,7 +125,7 @@ func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMa
 	}
 }
 
-func (cli *client) VersionGet(object, version string) (*sdksss.GetObjectOutput, liberr.Error) {
+func (cli *client) VersionGet(object, version string) (*sdksss.GetObjectOutput, error) {
 	in := sdksss.GetObjectInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
@@ -153,7 +152,7 @@ func (cli *client) VersionGet(object, version string) (*sdksss.GetObjectOutput, 
 
 }
 
-func (cli *client) VersionHead(object, version string) (*sdksss.HeadObjectOutput, liberr.Error) {
+func (cli *client) VersionHead(object, version string) (*sdksss.HeadObjectOutput, error) {
 	in := sdksss.HeadObjectInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
@@ -174,7 +173,7 @@ func (cli *client) VersionHead(object, version string) (*sdksss.HeadObjectOutput
 	}
 }
 
-func (cli *client) VersionSize(object, version string) (size int64, err liberr.Error) {
+func (cli *client) VersionSize(object, version string) (size int64, err error) {
 	var (
 		h *sdksss.HeadObjectOutput
 	)
@@ -186,7 +185,7 @@ func (cli *client) VersionSize(object, version string) (size int64, err liberr.E
 	}
 }
 
-func (cli *client) VersionDelete(check bool, object, version string) liberr.Error {
+func (cli *client) VersionDelete(check bool, object, version string) error {
 	if check {
 		if _, err := cli.VersionHead(object, version); err != nil {
 			return err

@@ -32,7 +32,6 @@ import (
 	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	awshlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
@@ -41,23 +40,23 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type PoliciesWalkFunc func(err liberr.Error, pol sdktps.AttachedPolicy) liberr.Error
+type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
 
 type Group interface {
-	UserList(username string) ([]string, liberr.Error)
-	UserCheck(username, groupName string) (liberr.Error, bool)
-	UserAdd(username, groupName string) liberr.Error
-	UserRemove(username, groupName string) liberr.Error
+	UserList(username string) ([]string, error)
+	UserCheck(username, groupName string) (error, bool)
+	UserAdd(username, groupName string) error
+	UserRemove(username, groupName string) error
 
-	List() (map[string]string, liberr.Error)
-	Add(groupName string) liberr.Error
-	Remove(groupName string) liberr.Error
+	List() (map[string]string, error)
+	Add(groupName string) error
+	Remove(groupName string) error
 
-	PolicyList(groupName string) (map[string]string, liberr.Error)
-	PolicyAttach(groupName, polArn string) liberr.Error
-	PolicyDetach(groupName, polArn string) liberr.Error
-	PolicyAttachedList(groupName, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error)
-	PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) liberr.Error
+	PolicyList(groupName string) (map[string]string, error)
+	PolicyAttach(groupName, polArn string) error
+	PolicyDetach(groupName, polArn string) error
+	PolicyAttachedList(groupName, marker string) ([]sdktps.AttachedPolicy, string, error)
+	PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Group {

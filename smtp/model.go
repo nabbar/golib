@@ -32,7 +32,6 @@ import (
 	"strings"
 	"sync"
 
-	liberr "github.com/nabbar/golib/errors"
 	smtpcf "github.com/nabbar/golib/smtp/config"
 )
 
@@ -44,7 +43,7 @@ type smtpClient struct {
 	cfg smtpcf.SMTP
 }
 
-func (s *smtpClient) _ValidateLine(line string) liberr.Error {
+func (s *smtpClient) _ValidateLine(line string) error {
 	if strings.ContainsAny(line, "\n\r") {
 		return ErrorSMTPLineCRLF.Error(nil)
 	}

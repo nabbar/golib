@@ -28,7 +28,6 @@ package types
 
 import (
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"
@@ -37,7 +36,7 @@ import (
 )
 
 type FuncCptGet func(key string) Component
-type FuncCptEvent func(cpt Component) liberr.Error
+type FuncCptEvent func(cpt Component) error
 
 type ComponentEvent interface {
 	// RegisterFuncStart is called to register the function to be called before and after the start function.
@@ -59,12 +58,12 @@ type ComponentEvent interface {
 	// Start is called by the Config interface when the global configuration as been started
 	// This function can be usefull to start server in go routine with a configuration stored
 	// itself.
-	Start() liberr.Error
+	Start() error
 
 	// Reload is called by the Config interface when the global configuration as been updated
 	// It receives a func as param to grab a config model by sending a model structure.
 	// It must configure itself, and stop / start his server if possible or return an error.
-	Reload() liberr.Error
+	Reload() error
 
 	// Stop is called by the Config interface when global context is done.
 	// The context done can arrive by stopping the application or by received a signal KILL/TERM.
@@ -103,7 +102,7 @@ type Component interface {
 	// SetDependencies allow to customize the dependencies for the current component.
 	// The custom dependencies will replace the default dependencies.
 	// Take care to be sure to include the default dependencies into the custom given as params.
-	SetDependencies(d []string) liberr.Error
+	SetDependencies(d []string) error
 
 	ComponentViper
 	ComponentEvent

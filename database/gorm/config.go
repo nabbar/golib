@@ -113,12 +113,12 @@ func (c *Config) Validate() liberr.Error {
 
 	if err := libval.New().Struct(c); err != nil {
 		if er, ok := err.(*libval.InvalidValidationError); ok {
-			e.AddParent(er)
+			e.Add(er)
 		}
 
 		for _, er := range err.(libval.ValidationErrors) {
 			//nolint #goerr113
-			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
+			e.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}
 	}
 
@@ -179,7 +179,7 @@ func (c *Config) New(cfg *gormdb.Config) (*gormdb.DB, liberr.Error) {
 	o, e := gormdb.Open(c.Driver.Dialector(c.DSN), cfg)
 
 	if e != nil {
-		return nil, ErrorDatabaseOpen.ErrorParent(e)
+		return nil, ErrorDatabaseOpen.Error(e)
 	}
 
 	if c.ctx != nil {
@@ -190,7 +190,7 @@ func (c *Config) New(cfg *gormdb.Config) (*gormdb.DB, liberr.Error) {
 		var db *sql.DB
 
 		if db, e = o.DB(); e != nil {
-			return nil, ErrorDatabaseOpenPool.ErrorParent(e)
+			return nil, ErrorDatabaseOpenPool.Error(e)
 		}
 
 		if c.PoolMaxIdleConns > 0 {

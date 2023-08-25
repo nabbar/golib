@@ -35,14 +35,13 @@ import (
 
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	shlcmd "github.com/nabbar/golib/shell/command"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 )
 
-type FuncEvent func() liberr.Error
+type FuncEvent func() error
 
 type Config interface {
 	/*
@@ -67,10 +66,10 @@ type Config interface {
 	// Start will trigger the start function of all registered component.
 	// If any component return an error, this func will stop the start
 	// process and return the error.
-	Start() liberr.Error
+	Start() error
 
 	// Reload triggers the Reload function of each registered Component.
-	Reload() liberr.Error
+	Reload() error
 
 	// Stop will trigger the stop function of all registered component.
 	// All component must stop cleanly.

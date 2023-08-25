@@ -72,22 +72,12 @@ func (c CodeError) GetMessage() string {
 	return UnknownMessage
 }
 
-func (c CodeError) Error(p Error) Error {
-	return NewError(c.GetUint16(), c.GetMessage(), p)
+func (c CodeError) Error(p ...error) Error {
+	return New(c.GetUint16(), c.GetMessage(), p...)
 }
 
-func (c CodeError) ErrorParent(p ...error) Error {
-	e := c.Error(nil)
-	e.AddParent(p...)
-	return e
-}
-
-func (c CodeError) IfError(e Error) Error {
-	return NewErrorIfError(c.GetUint16(), c.GetMessage(), e)
-}
-
-func (c CodeError) Iferror(e error) Error {
-	return NewErrorIferror(c.GetUint16(), c.GetMessage(), e)
+func (c CodeError) IfError(e error) Error {
+	return IfError(c.GetUint16(), c.GetMessage(), e)
 }
 
 func GetCodePackages(rootPackage string) map[CodeError]string {

@@ -65,7 +65,7 @@ func (s *smtpClient) dial(ctx context.Context, addr string) (con net.Conn, err l
 	d := net.Dialer{}
 
 	if con, e = d.DialContext(ctx, s.cfg.GetNet().String(), addr); e != nil {
-		return con, ErrorSMTPDial.ErrorParent(e)
+		return con, ErrorSMTPDial.Error(e)
 	}
 
 	return
@@ -97,14 +97,14 @@ func (s *smtpClient) client(ctx context.Context, addr string, tlsConfig *tls.Con
 		if con, err = s.dialTLS(ctx, addr, tlsConfig); err != nil {
 			return
 		} else if cli, e = smtp.NewClient(con, addr); e != nil {
-			err = ErrorSMTPClientInit.ErrorParent(e)
+			err = ErrorSMTPClientInit.Error(e)
 			return
 		}
 	} else {
 		if con, err = s.dial(ctx, addr); err != nil {
 			return
 		} else if cli, e = smtp.NewClient(con, addr); e != nil {
-			err = ErrorSMTPClientInit.ErrorParent(e)
+			err = ErrorSMTPClientInit.Error(e)
 			return
 		}
 
@@ -112,7 +112,7 @@ func (s *smtpClient) client(ctx context.Context, addr string, tlsConfig *tls.Con
 
 		if s.cfg.GetTlsMode() == smtptl.TLSStartTLS || try {
 			if e = cli.StartTLS(tlsConfig); e != nil && !try {
-				err = ErrorSMTPClientStartTLS.ErrorParent(e)
+				err = ErrorSMTPClientStartTLS.Error(e)
 				return
 			} else if e == nil && try {
 				s.cfg.SetTlsMode(smtptl.TLSStartTLS)
@@ -151,13 +151,13 @@ func (s *smtpClient) auth(cli *smtp.Client, addr string) liberr.Error {
 	}
 	/*
 		if e := cli.Auth(smtp.CRAMMD5Auth(usr, pwd)); e != nil {
-			err.AddParent(e)
+			err.Add(e)
 		} else {
 			return nil
 		}
 	*/
 	if e := cli.Auth(smtp.PlainAuth("", usr, pwd, addr)); e != nil {
-		err.AddParent(e)
+		err.Add(e)
 	} else {
 		return nil
 	}

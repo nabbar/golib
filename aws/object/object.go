@@ -35,14 +35,13 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int64, liberr.Error) {
+func (cli *client) List(continuationToken string) ([]sdktps.Object, string, int64, error) {
 	return cli.ListPrefix(continuationToken, "")
 }
 
-func (cli *client) ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, liberr.Error) {
+func (cli *client) ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, error) {
 	in := sdksss.ListObjectsV2Input{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -66,11 +65,11 @@ func (cli *client) ListPrefix(continuationToken string, prefix string) ([]sdktps
 	}
 }
 
-func (cli *client) Walk(f WalkFunc) liberr.Error {
+func (cli *client) Walk(f WalkFunc) error {
 	return cli.WalkPrefix("", f)
 }
 
-func (cli *client) WalkPrefix(prefix string, f WalkFunc) liberr.Error {
+func (cli *client) WalkPrefix(prefix string, f WalkFunc) error {
 	in := sdksss.ListObjectsV2Input{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -80,7 +79,7 @@ func (cli *client) WalkPrefix(prefix string, f WalkFunc) liberr.Error {
 	}
 
 	var (
-		e liberr.Error
+		e error
 		t = sdkaws.String("")
 	)
 
@@ -113,23 +112,23 @@ func (cli *client) WalkPrefix(prefix string, f WalkFunc) liberr.Error {
 	}
 }
 
-func (cli *client) Get(object string) (*sdksss.GetObjectOutput, liberr.Error) {
+func (cli *client) Get(object string) (*sdksss.GetObjectOutput, error) {
 	return cli.VersionGet(object, "")
 }
 
-func (cli *client) Head(object string) (*sdksss.HeadObjectOutput, liberr.Error) {
+func (cli *client) Head(object string) (*sdksss.HeadObjectOutput, error) {
 	return cli.VersionHead(object, "")
 }
 
-func (cli *client) Size(object string) (size int64, err liberr.Error) {
+func (cli *client) Size(object string) (size int64, err error) {
 	return cli.VersionSize(object, "")
 }
 
-func (cli *client) Delete(check bool, object string) liberr.Error {
+func (cli *client) Delete(check bool, object string) error {
 	return cli.VersionDelete(check, object, "")
 }
 
-func (cli *client) Put(object string, body io.Reader) liberr.Error {
+func (cli *client) Put(object string, body io.Reader) error {
 	var tpe *string
 
 	if t := mime.TypeByExtension(filepath.Ext(object)); t == "" {
@@ -154,7 +153,7 @@ func (cli *client) Put(object string, body io.Reader) liberr.Error {
 	return nil
 }
 
-func (cli *client) DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, liberr.Error) {
+func (cli *client) DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, error) {
 	in := sdksss.DeleteObjectsInput{
 		Bucket: cli.GetBucketAws(),
 		Delete: objects,
@@ -171,7 +170,7 @@ func (cli *client) DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, li
 	}
 }
 
-func (cli *client) GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, liberr.Error) {
+func (cli *client) GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, error) {
 	in := sdksss.GetObjectAttributesInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),

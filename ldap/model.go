@@ -119,12 +119,12 @@ func (cnf Config) Validate() errors.Error {
 
 	if err := validator.New().Struct(cnf); err != nil {
 		if er, ok := err.(*validator.InvalidValidationError); ok {
-			e.AddParent(er)
+			e.Add(er)
 		}
 
 		for _, er := range err.(validator.ValidationErrors) {
 			//nolint #goerr113
-			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
+			e.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}
 	}
 

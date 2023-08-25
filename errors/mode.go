@@ -26,6 +26,11 @@
 
 package errors
 
+import (
+	"fmt"
+	"strings"
+)
+
 var modeError = Default
 
 func SetModeReturnError(mode ErrorMode) {
@@ -76,27 +81,27 @@ func (m ErrorMode) String() string {
 	return Default.String()
 }
 
-func (m ErrorMode) error(e *errors) string {
+func (m ErrorMode) error(e *ers) string {
 	//nolint exhaustive
 	switch m {
 	case Default:
 		return e.StringError()
 	case ErrorReturnCode:
-		return e.Code()
+		return fmt.Sprintf("%v", e.Code())
 	case ErrorReturnCodeFull:
-		return e.CodeFull("")
+		return fmt.Sprintf("%v", e.CodeSlice())
 	case ErrorReturnCodeError:
 		return e.CodeError("")
 	case ErrorReturnCodeErrorFull:
-		return e.CodeErrorFull("", "")
+		return strings.Join(e.CodeErrorSlice(""), ", ")
 	case ErrorReturnCodeErrorTrace:
 		return e.CodeErrorTrace("")
 	case ErrorReturnCodeErrorTraceFull:
-		return e.CodeErrorTraceFull("", "")
+		return strings.Join(e.CodeErrorTraceSlice(""), ", ")
 	case ErrorReturnStringError:
 		return e.StringError()
 	case ErrorReturnStringErrorFull:
-		return e.StringErrorFull("")
+		return strings.Join(e.StringErrorSlice(), ", ")
 	}
 
 	return Default.error(e)

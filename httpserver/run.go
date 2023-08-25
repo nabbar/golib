@@ -158,7 +158,7 @@ func (o *srv) runFuncStart(ctx context.Context) (err error) {
 			ent.Log()
 			return err
 		} else if ser = o.getServer(); ser == nil {
-			err = ErrorServerStart.ErrorParent(fmt.Errorf("cannot create new server, cannot retrieve server"))
+			err = ErrorServerStart.Error(fmt.Errorf("cannot create new server, cannot retrieve server"))
 			ent := o.logger().Entry(loglvl.ErrorLevel, "starting http server")
 			ent.ErrorAdd(true, err)
 			ent.Log()
@@ -208,7 +208,7 @@ func (o *srv) runFuncStop(ctx context.Context) (err error) {
 	}()
 
 	if ser = o.getServer(); ser == nil {
-		err = ErrorServerStart.ErrorParent(fmt.Errorf("cannot retrieve server"))
+		err = ErrorServerStart.Error(fmt.Errorf("cannot retrieve server"))
 		ent := o.logger().Entry(loglvl.ErrorLevel, "starting http server")
 		ent.ErrorAdd(true, err)
 		ent.Log()

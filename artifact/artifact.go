@@ -48,9 +48,9 @@ const (
 type Client interface {
 	artcli.ArtifactManagement
 
-	ListReleases() (releases hscvrs.Collection, err liberr.Error)
-	GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error)
-	Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error
+	ListReleases() (releases hscvrs.Collection, err error)
+	GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error)
+	Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error
 }
 
 func CheckRegex(name, regex string) bool {
@@ -61,7 +61,7 @@ func CheckRegex(name, regex string) bool {
 	return false
 }
 
-func DownloadRelease(link string) (file os.File, err liberr.Error) {
+func DownloadRelease(link string) (file os.File, err error) {
 	panic("not implemented")
 }
 

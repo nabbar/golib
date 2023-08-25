@@ -28,7 +28,6 @@ package head
 
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 	spfvbr "github.com/spf13/viper"
@@ -137,7 +136,7 @@ func (o *componentHead) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentHead) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentHead) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -145,7 +144,7 @@ func (o *componentHead) _runFct(fct func(cpt cfgtps.Component) liberr.Error) lib
 	return nil
 }
 
-func (o *componentHead) _runCli() liberr.Error {
+func (o *componentHead) _runCli() error {
 	if cfg, err := o._getConfig(); err != nil {
 		return ErrorParamInvalid.Error(err)
 	} else {
@@ -157,7 +156,7 @@ func (o *componentHead) _runCli() liberr.Error {
 	}
 }
 
-func (o *componentHead) _run() liberr.Error {
+func (o *componentHead) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

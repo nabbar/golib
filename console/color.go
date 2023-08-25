@@ -97,7 +97,7 @@ func (c colorType) BuffPrintf(buff io.Writer, format string, args ...interface{}
 		i, e := colorList[c].Fprintf(buff, format, args...)
 
 		if e != nil {
-			return i, ErrorColorIOFprintf.ErrorParent(e)
+			return i, ErrorColorIOFprintf.Error(e)
 		}
 
 		return i, nil
@@ -107,7 +107,7 @@ func (c colorType) BuffPrintf(buff io.Writer, format string, args ...interface{}
 		i, e := buff.Write([]byte(fmt.Sprintf(format, args...)))
 
 		if e != nil {
-			return i, ErrorColorBufWrite.ErrorParent(e)
+			return i, ErrorColorBufWrite.Error(e)
 		}
 
 		return i, nil

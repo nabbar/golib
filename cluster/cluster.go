@@ -152,14 +152,14 @@ func (c *cRaft) ClusterStart(join bool) liberr.Error {
 	}
 
 	if f, ok := c.fctCreate.(dgbstm.CreateStateMachineFunc); ok {
-		err.AddParent(c.nodeHost.StartCluster(c.memberInit, join, f, c.config))
+		err.Add(c.nodeHost.StartCluster(c.memberInit, join, f, c.config))
 	} else if f, ok := c.fctCreate.(dgbstm.CreateConcurrentStateMachineFunc); ok {
-		err.AddParent(c.nodeHost.StartConcurrentCluster(c.memberInit, join, f, c.config))
+		err.Add(c.nodeHost.StartConcurrentCluster(c.memberInit, join, f, c.config))
 	} else if f, ok := c.fctCreate.(dgbstm.CreateOnDiskStateMachineFunc); ok {
-		err.AddParent(c.nodeHost.StartOnDiskCluster(c.memberInit, join, f, c.config))
+		err.Add(c.nodeHost.StartOnDiskCluster(c.memberInit, join, f, c.config))
 	} else {
 		//nolint #goerr113
-		return ErrorParamsMismatching.ErrorParent(fmt.Errorf("create function is not one of type of CreateStateMachineFunc, CreateConcurrentStateMachineFunc, CreateOnDiskStateMachineFunc"))
+		return ErrorParamsMismatching.Error(fmt.Errorf("create function is not one of type of CreateStateMachineFunc, CreateConcurrentStateMachineFunc, CreateOnDiskStateMachineFunc"))
 	}
 
 	if err.HasParent() {
@@ -173,7 +173,7 @@ func (c *cRaft) ClusterStop(force bool) liberr.Error {
 	e := c.nodeHost.StopCluster(c.config.ClusterID)
 
 	if e != nil && !force {
-		return ErrorNodeHostStop.ErrorParent(c.getErrorCluster(), e)
+		return ErrorNodeHostStop.Error(c.getErrorCluster(), e)
 	}
 
 	c.nodeHost.Stop()
@@ -200,7 +200,7 @@ func (c *cRaft) NodeStop(target uint64) liberr.Error {
 	e := c.nodeHost.StopNode(c.config.ClusterID, target)
 
 	if e != nil {
-		return ErrorNodeHostStop.ErrorParent(c.getErrorCluster(), en, e)
+		return ErrorNodeHostStop.Error(c.getErrorCluster(), en, e)
 	}
 
 	return nil
@@ -211,7 +211,7 @@ func (c *cRaft) NodeRestart(force bool) liberr.Error {
 
 	if l, ok, err := c.GetLeaderID(); err == nil && ok && l == c.config.NodeID {
 		join = true
-		var sErr = ErrorNodeHostRestart.ErrorParent(c.getErrorCluster(), c.getErrorNode())
+		var sErr = ErrorNodeHostRestart.Error(c.getErrorCluster(), c.getErrorNode())
 		for id, nd := range c.memberInit {
 			if id == c.config.NodeID {
 				continue
@@ -220,7 +220,7 @@ func (c *cRaft) NodeRestart(force bool) liberr.Error {
 				continue
 			}
 			if err = c.RequestLeaderTransfer(id); err == nil {
-				sErr.AddParentError(err)
+				sErr.Add(err)
 				break
 			}
 		}
@@ -247,7 +247,7 @@ func (c *cRaft) GetLeaderID() (leader uint64, valid bool, err liberr.Error) {
 	leader, valid, e = c.nodeHost.GetLeaderID(c.config.ClusterID)
 
 	if e != nil {
-		err = ErrorLeader.ErrorParent(c.getErrorCluster(), e)
+		err = ErrorLeader.Error(c.getErrorCluster(), e)
 	}
 
 	return
@@ -261,7 +261,7 @@ func (c *cRaft) GetNodeUser() (dgbclt.INodeUser, liberr.Error) {
 	r, e := c.nodeHost.GetNodeUser(c.config.ClusterID)
 
 	if e != nil {
-		return nil, ErrorNodeUser.ErrorParent(c.getErrorCluster())
+		return nil, ErrorNodeUser.Error(c.getErrorCluster())
 	}
 
 	return r, nil
@@ -287,7 +287,7 @@ func (c *cRaft) RequestLeaderTransfer(targetNodeID uint64) liberr.Error {
 	e := c.nodeHost.RequestLeaderTransfer(c.config.ClusterID, targetNodeID)
 
 	if e != nil {
-		return ErrorLeaderTransfer.ErrorParent(c.getErrorCluster(), c.getErrorNodeTarget(targetNodeID), e)
+		return ErrorLeaderTransfer.Error(c.getErrorCluster(), c.getErrorNodeTarget(targetNodeID), e)
 	}
 
 	return nil

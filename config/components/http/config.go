@@ -29,7 +29,6 @@ package http
 import (
 	"fmt"
 
-	liberr "github.com/nabbar/golib/errors"
 	htpool "github.com/nabbar/golib/httpserver/pool"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
@@ -39,12 +38,12 @@ func (o *componentHttp) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentHttp) _getConfig() (*htpool.Config, liberr.Error) {
+func (o *componentHttp) _getConfig() (*htpool.Config, error) {
 	var (
 		key string
 		cfg htpool.Config
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -54,7 +53,7 @@ func (o *componentHttp) _getConfig() (*htpool.Config, liberr.Error) {
 	}
 
 	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
-		return nil, ErrorParamInvalid.ErrorParent(e)
+		return nil, ErrorParamInvalid.Error(e)
 	}
 
 	cfg.SetDefaultTLS(o._GetTLS)
@@ -64,9 +63,9 @@ func (o *componentHttp) _getConfig() (*htpool.Config, liberr.Error) {
 	if err = cfg.Validate(); err != nil {
 		return nil, ErrorConfigInvalid.Error(err)
 	} else if o.h == nil {
-		return nil, ErrorComponentNotInitialized.ErrorParent(fmt.Errorf("missing handler"))
+		return nil, ErrorComponentNotInitialized.Error(fmt.Errorf("missing handler"))
 	} else if len(o.h()) < 1 {
-		return nil, ErrorComponentNotInitialized.ErrorParent(fmt.Errorf("missing handler"))
+		return nil, ErrorComponentNotInitialized.Error(fmt.Errorf("missing handler"))
 	}
 
 	return &cfg, nil

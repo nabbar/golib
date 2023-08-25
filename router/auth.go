@@ -26,6 +26,7 @@
 package router
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -114,7 +115,7 @@ func (a *authorization) Handler(c *ginsdk.Context) {
 	auth := c.Request.Header.Get(HEAD_AUTH_SEND)
 
 	if auth == "" {
-		AuthRequire(c, ErrorHeaderAuthMissing.Error(nil).GetErrorFull(""))
+		AuthRequire(c, fmt.Errorf("%v", ErrorHeaderAuthMissing.Error(nil).GetErrorSlice()))
 		return
 	}
 
@@ -128,7 +129,7 @@ func (a *authorization) Handler(c *ginsdk.Context) {
 	}
 
 	if authValue == "" {
-		AuthRequire(c, ErrorHeaderAuthEmpty.Error(nil).GetErrorFull(""))
+		AuthRequire(c, fmt.Errorf("%v", ErrorHeaderAuthEmpty.Error(nil).GetErrorSlice()))
 		return
 	} else {
 		code, err := a.check(authValue)
@@ -140,12 +141,12 @@ func (a *authorization) Handler(c *ginsdk.Context) {
 				r(c)
 			}
 		case AUTH_CODE_REQUIRE:
-			AuthRequire(c, ErrorHeaderAuthRequire.Error(err).GetErrorFull(""))
+			AuthRequire(c, fmt.Errorf("%v", ErrorHeaderAuthRequire.Error(err).GetErrorSlice()))
 		case AUTH_CODE_FORBIDDEN:
-			AuthForbidden(c, ErrorHeaderAuthForbidden.Error(err).GetErrorFull(""))
+			AuthForbidden(c, fmt.Errorf("%v", ErrorHeaderAuthForbidden.Error(err).GetErrorSlice()))
 		default:
 			c.Errors = append(c.Errors, &ginsdk.Error{
-				Err:  ErrorHeaderAuth.Error(err).GetErrorFull(""),
+				Err:  fmt.Errorf("%v", ErrorHeaderAuth.Error(err).GetErrorSlice()),
 				Type: ginsdk.ErrorTypePrivate,
 			})
 			c.AbortWithStatus(http.StatusInternalServerError)

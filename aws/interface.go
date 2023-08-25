@@ -42,18 +42,17 @@ import (
 	awspol "github.com/nabbar/golib/aws/policy"
 	awsrol "github.com/nabbar/golib/aws/role"
 	awsusr "github.com/nabbar/golib/aws/user"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type Config interface {
-	Check(ctx context.Context) liberr.Error
-	Validate() liberr.Error
+	Check(ctx context.Context) error
+	Validate() error
 
 	GetAccessKey() string
 	SetCredentials(accessKey, secretKey string)
 	ResetRegionEndpoint()
-	RegisterRegionEndpoint(region string, endpoint *url.URL) liberr.Error
-	RegisterRegionAws(endpoint *url.URL) liberr.Error
+	RegisterRegionEndpoint(region string, endpoint *url.URL) error
+	RegisterRegionAws(endpoint *url.URL) error
 	SetRegion(region string)
 	GetRegion() string
 	SetEndpoint(endpoint *url.URL)
@@ -66,7 +65,7 @@ type Config interface {
 	GetResolvedRegion() string
 	SetRetryer(retryer func() sdkaws.Retryer)
 
-	GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, liberr.Error)
+	GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, error)
 	JSON() ([]byte, error)
 	Clone() Config
 
@@ -84,10 +83,10 @@ type AWS interface {
 
 	Config() Config
 	HTTPCli() *http.Client
-	Clone(ctx context.Context) (AWS, liberr.Error)
-	NewForConfig(ctx context.Context, cfg Config) (AWS, liberr.Error)
-	ForcePathStyle(ctx context.Context, enabled bool) liberr.Error
-	ForceSignerOptions(ctx context.Context, fct ...func(signer *sdksv4.SignerOptions)) liberr.Error
+	Clone(ctx context.Context) (AWS, error)
+	NewForConfig(ctx context.Context, cfg Config) (AWS, error)
+	ForcePathStyle(ctx context.Context, enabled bool) error
+	ForceSignerOptions(ctx context.Context, fct ...func(signer *sdksv4.SignerOptions)) error
 
 	GetBucketName() string
 	SetBucketName(bucket string)
@@ -98,7 +97,7 @@ type AWS interface {
 	SetClientIam(aws *sdkiam.Client)
 }
 
-func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, liberr.Error) {
+func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, error) {
 	if cfg == nil {
 		return nil, awshlp.ErrorConfigEmpty.Error(nil)
 	}

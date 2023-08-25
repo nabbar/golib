@@ -29,7 +29,6 @@ package mail
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -95,11 +94,11 @@ func (o *componentMail) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentMail) Start() liberr.Error {
+func (o *componentMail) Start() error {
 	return o._run()
 }
 
-func (o *componentMail) Reload() liberr.Error {
+func (o *componentMail) Reload() error {
 	return o._run()
 }
 
@@ -132,7 +131,7 @@ func (o *componentMail) Dependencies() []string {
 	}
 }
 
-func (o *componentMail) SetDependencies(d []string) liberr.Error {
+func (o *componentMail) SetDependencies(d []string) error {
 	o.m.RLock()
 	defer o.m.RUnlock()
 

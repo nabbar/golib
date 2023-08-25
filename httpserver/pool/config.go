@@ -67,7 +67,7 @@ func (p Config) Pool(ctx libctx.FuncContext, hdl srvtps.FuncHandler, defLog libl
 
 	p.Walk(func(cfg libhtp.Config) bool {
 		if err := r.StoreNew(cfg, defLog); err != nil {
-			e.AddParent(err)
+			e.Add(err)
 		}
 		return true
 	})
@@ -98,7 +98,7 @@ func (p Config) Validate() liberr.Error {
 		var err liberr.Error
 
 		if err = cfg.Validate(); err != nil {
-			e.AddParentError(err)
+			e.Add(err)
 		}
 
 		return true

@@ -27,7 +27,6 @@
 package log
 
 import (
-	liberr "github.com/nabbar/golib/errors"
 	logcfg "github.com/nabbar/golib/logger/config"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
@@ -70,12 +69,12 @@ func (o *componentLog) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentLog) _getConfig() (*logcfg.Options, liberr.Error) {
+func (o *componentLog) _getConfig() (*logcfg.Options, error) {
 	var (
 		key string
 		cfg logcfg.Options
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -85,7 +84,7 @@ func (o *componentLog) _getConfig() (*logcfg.Options, liberr.Error) {
 	}
 
 	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
-		return nil, ErrorParamInvalid.ErrorParent(e)
+		return nil, ErrorParamInvalid.Error(e)
 	}
 
 	if cfg.Stdout == nil {

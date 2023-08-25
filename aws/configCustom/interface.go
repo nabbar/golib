@@ -35,17 +35,16 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkcrd "github.com/aws/aws-sdk-go-v2/credentials"
 	libaws "github.com/nabbar/golib/aws"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 func GetConfigModel() interface{} {
 	return Model{}
 }
 
-func NewConfigJsonUnmashal(p []byte) (libaws.Config, liberr.Error) {
+func NewConfigJsonUnmashal(p []byte) (libaws.Config, error) {
 	c := Model{}
 	if err := json.Unmarshal(p, &c); err != nil {
-		return nil, ErrorConfigJsonUnmarshall.ErrorParent(err)
+		return nil, ErrorConfigJsonUnmarshall.Error(err)
 	}
 
 	return &awsModel{
@@ -55,10 +54,10 @@ func NewConfigJsonUnmashal(p []byte) (libaws.Config, liberr.Error) {
 	}, nil
 }
 
-func NewConfigStatusJsonUnmashal(p []byte) (libaws.Config, liberr.Error) {
+func NewConfigStatusJsonUnmashal(p []byte) (libaws.Config, error) {
 	c := ModelStatus{}
 	if err := json.Unmarshal(p, &c); err != nil {
-		return nil, ErrorConfigJsonUnmarshall.ErrorParent(err)
+		return nil, ErrorConfigJsonUnmarshall.Error(err)
 	}
 
 	return &awsModel{
@@ -104,7 +103,7 @@ func (c *awsModel) Clone() libaws.Config {
 	}
 }
 
-func (c *awsModel) GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, liberr.Error) {
+func (c *awsModel) GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, error) {
 
 	cfg := sdkaws.NewConfig()
 

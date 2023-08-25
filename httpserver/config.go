@@ -253,7 +253,7 @@ func (c *Config) CheckTLS() (libtls.TLSConfig, liberr.Error) {
 	if ssl, err := c.GetTLS(); err != nil {
 		return nil, err
 	} else if ssl == nil || ssl.LenCertificatePair() < 1 {
-		return nil, ErrorServerValidate.ErrorParent(fmt.Errorf("not certificates defined"))
+		return nil, ErrorServerValidate.Error(fmt.Errorf("not certificates defined"))
 	} else {
 		return ssl, nil
 	}
@@ -342,12 +342,12 @@ func (c *Config) Validate() liberr.Error {
 
 	if er := libval.New().Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
-			err.AddParent(e)
+			err.Add(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
 		}
 	}
 
@@ -400,7 +400,7 @@ func (o *srv) SetConfig(cfg Config, defLog liblog.FuncLog) error {
 	if o.HandlerHas(cfg.HandlerKey) {
 		o.HandlerStoreFct(cfg.HandlerKey)
 	} else {
-		return ErrorServerValidate.ErrorParent(fmt.Errorf("handler is missing or not existing"))
+		return ErrorServerValidate.Error(fmt.Errorf("handler is missing or not existing"))
 	}
 
 	o.c.Store(cfgName, cfg.Name)

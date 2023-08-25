@@ -42,7 +42,7 @@ import (
 func Create(archive io.WriteSeeker, stripPath string, comment string, content ...string) (bool, liberr.Error) {
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
-		return false, ErrorFileSeek.ErrorParent(err)
+		return false, ErrorFileSeek.Error(err)
 	}
 
 	if ok, err := createTar(archive, stripPath, content...); err != nil || !ok {
@@ -50,7 +50,7 @@ func Create(archive io.WriteSeeker, stripPath string, comment string, content ..
 	}
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
-		return false, ErrorFileSeek.ErrorParent(err)
+		return false, ErrorFileSeek.Error(err)
 	}
 
 	return true, nil
@@ -59,7 +59,7 @@ func Create(archive io.WriteSeeker, stripPath string, comment string, content ..
 func CreateGzip(archive io.WriteSeeker, stripPath string, comment string, content ...string) (bool, liberr.Error) {
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
-		return false, ErrorFileSeek.ErrorParent(err)
+		return false, ErrorFileSeek.Error(err)
 	}
 
 	z := gzip.NewWriter(archive)
@@ -69,11 +69,11 @@ func CreateGzip(archive io.WriteSeeker, stripPath string, comment string, conten
 	}
 
 	if err := z.Close(); err != nil {
-		return false, ErrorGzipCreate.ErrorParent(err)
+		return false, ErrorGzipCreate.Error(err)
 	}
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
-		return false, ErrorFileSeek.ErrorParent(err)
+		return false, ErrorFileSeek.Error(err)
 	}
 
 	return true, nil
@@ -147,7 +147,7 @@ func createTar(w io.Writer, stripPath string, content ...string) (bool, liberr.E
 		})
 
 		if err != nil {
-			lEr.AddParent(err)
+			lEr.Add(err)
 			continue
 		}
 	}
@@ -158,13 +158,13 @@ func createTar(w io.Writer, stripPath string, content ...string) (bool, liberr.E
 		}
 
 		//nolint #goerr113
-		return false, ErrorTarCreate.ErrorParent(fmt.Errorf("no file to add in archive"))
+		return false, ErrorTarCreate.Error(fmt.Errorf("no file to add in archive"))
 	} else if !lEr.HasParent() {
 		lEr = nil
 	}
 
 	if err = t.Close(); err != nil {
-		return false, ErrorTarCreate.ErrorParent(err)
+		return false, ErrorTarCreate.Error(err)
 	}
 
 	return true, lEr

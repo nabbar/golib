@@ -100,7 +100,7 @@ func (e email) generated(f func(h hermes.Hermes, m hermes.Email) (string, error)
 	if p, e := f(h, hermes.Email{
 		Body: *e.b,
 	}); e != nil {
-		return nil, ErrorMailerText.ErrorParent(e)
+		return nil, ErrorMailerText.Error(e)
 	} else {
 		buf.WriteString(p)
 	}

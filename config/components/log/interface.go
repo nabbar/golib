@@ -32,7 +32,6 @@ import (
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
 	logfld "github.com/nabbar/golib/logger/fields"
@@ -54,7 +53,7 @@ type ComponentLog interface {
 	SetField(fields logfld.Fields)
 	GetField() logfld.Fields
 
-	SetOptions(opt *logcfg.Options) liberr.Error
+	SetOptions(opt *logcfg.Options) error
 	GetOptions() *logcfg.Options
 }
 

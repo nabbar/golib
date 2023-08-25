@@ -40,7 +40,7 @@ import (
 func Create(archive io.WriteSeeker, stripPath string, comment string, content ...string) (bool, liberr.Error) {
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
-		return false, ErrorFileSeek.ErrorParent(err)
+		return false, ErrorFileSeek.Error(err)
 	}
 
 	var (
@@ -57,7 +57,7 @@ func Create(archive io.WriteSeeker, stripPath string, comment string, content ..
 
 	if comment != "" {
 		if e := z.SetComment(comment); e != nil {
-			return false, ErrorZipComment.ErrorParent(e)
+			return false, ErrorZipComment.Error(e)
 		}
 	}
 
@@ -66,7 +66,7 @@ func Create(archive io.WriteSeeker, stripPath string, comment string, content ..
 	}
 
 	if _, err := archive.Seek(0, io.SeekStart); err != nil {
-		return false, ErrorFileSeek.ErrorParent(err)
+		return false, ErrorFileSeek.Error(err)
 	}
 
 	return true, nil
@@ -138,7 +138,7 @@ func addFileToZip(z *zip.Writer, stripPath string, content ...string) (bool, lib
 		})
 
 		if err != nil {
-			lEr.AddParent(err)
+			lEr.Add(err)
 			continue
 		}
 	}
@@ -148,13 +148,13 @@ func addFileToZip(z *zip.Writer, stripPath string, content ...string) (bool, lib
 			return false, lEr
 		}
 
-		return false, ErrorZipCreate.ErrorParent(fmt.Errorf("no file to add in archive"))
+		return false, ErrorZipCreate.Error(fmt.Errorf("no file to add in archive"))
 	} else if !lEr.HasParent() {
 		lEr = nil
 	}
 
 	if err = z.Close(); err != nil {
-		return false, ErrorZipCreate.ErrorParent(err)
+		return false, ErrorZipCreate.Error(err)
 	}
 
 	return true, lEr

@@ -70,7 +70,7 @@ func NewCommandByDecode(l liblog.FuncLog, p []byte) (*CommandRequest, liberr.Err
 	d := NewCommand()
 
 	if e := cbor.Unmarshal(p, d); e != nil {
-		return nil, ErrorCommandUnmarshal.ErrorParent(e)
+		return nil, ErrorCommandUnmarshal.Error(e)
 	}
 
 	d.SetLogger(l)
@@ -149,7 +149,7 @@ func (c *CommandRequest) SetParamsInc(num int, val interface{}) int {
 
 func (c *CommandRequest) EncodeRequest() ([]byte, liberr.Error) {
 	if p, e := cbor.Marshal(c); e != nil {
-		return nil, ErrorCommandMarshal.ErrorParent(e)
+		return nil, ErrorCommandMarshal.Error(e)
 	} else {
 		return p, nil
 	}
@@ -159,7 +159,7 @@ func (c *CommandRequest) DecodeResult(p []byte) (*CommandResponse, liberr.Error)
 	res := CommandResponse{}
 
 	if e := cbor.Unmarshal(p, &res); e != nil {
-		return nil, ErrorCommandResultUnmarshal.ErrorParent(e)
+		return nil, ErrorCommandResultUnmarshal.Error(e)
 	} else {
 		return &res, nil
 	}
@@ -181,7 +181,7 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 
 	if len(c.Params) != nbPrm {
 		//nolint #goerr113
-		return nil, ErrorClientCommandParamsBadNumber.ErrorParent(fmt.Errorf("%s need %d parameters", c.Cmd.Name(), nbPrm))
+		return nil, ErrorClientCommandParamsBadNumber.Error(fmt.Errorf("%s need %d parameters", c.Cmd.Name(), nbPrm))
 	}
 
 	params := make([]reflect.Value, nbPrm)
@@ -196,7 +196,7 @@ func (c *CommandRequest) RunLocal(tx *nutsdb.Tx) (*CommandResponse, liberr.Error
 
 		if !v.Type().ConvertibleTo(method.Type().In(i)) {
 			//nolint #goerr113
-			return nil, ErrorClientCommandParamsMismatching.ErrorParent(fmt.Errorf("cmd: %s", mtName), fmt.Errorf("param num: %d", i), fmt.Errorf("param type: %s, avaitting type: %s", v.Type().Kind(), method.Type().In(i).Kind()))
+			return nil, ErrorClientCommandParamsMismatching.Error(fmt.Errorf("cmd: %s", mtName), fmt.Errorf("param num: %d", i), fmt.Errorf("param type: %s, avaitting type: %s", v.Type().Kind(), method.Type().In(i).Kind()))
 		}
 
 		//nolint #exhaustive
@@ -272,7 +272,7 @@ func (c *CommandRequest) Run(tx *nutsdb.Tx) ([]byte, liberr.Error) {
 	if r, err := c.RunLocal(tx); err != nil {
 		return nil, err
 	} else if p, e := cbor.Marshal(r); e != nil {
-		return nil, ErrorCommandResultMarshal.ErrorParent(e)
+		return nil, ErrorCommandResultMarshal.Error(e)
 	} else {
 		return p, nil
 	}

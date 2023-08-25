@@ -45,13 +45,13 @@ func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) li
 	)
 
 	if _, err = src.Seek(0, io.SeekStart); err != nil {
-		return ErrorFileSeek.ErrorParent(err)
+		return ErrorFileSeek.Error(err)
 	} else if _, err = dst.Seek(0, io.SeekStart); err != nil {
-		return ErrorFileSeek.ErrorParent(err)
+		return ErrorFileSeek.Error(err)
 	} else if inf, err = src.Stat(); err != nil {
-		return ErrorFileStat.ErrorParent(err)
+		return ErrorFileStat.Error(err)
 	} else if arc, err = zip.NewReader(src, inf.Size()); err != nil {
-		return ErrorZipOpen.ErrorParent(err)
+		return ErrorZipOpen.Error(err)
 	}
 
 	for _, f := range arc.File {
@@ -73,7 +73,7 @@ func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) li
 
 			if r, e = f.Open(); e != nil {
 				//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "open zipped file reader", err)
-				return ErrorZipFileOpen.ErrorParent(e)
+				return ErrorZipFileOpen.Error(e)
 			}
 
 			defer func() {
@@ -84,12 +84,12 @@ func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) li
 			/* #nosec */
 			if _, e = dst.ReadFrom(r); e != nil {
 				//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "copy buffer from archive reader", err)
-				return ErrorIOCopy.ErrorParent(e)
+				return ErrorIOCopy.Error(e)
 			}
 
 			if _, e = dst.Seek(0, io.SeekStart); e != nil {
 				//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "seeking temp file", err)
-				return ErrorFileSeek.ErrorParent(e)
+				return ErrorFileSeek.Error(e)
 			}
 
 			return nil
@@ -107,11 +107,11 @@ func GetAll(src libfpg.Progress, outputFolder string, defaultDirPerm os.FileMode
 	)
 
 	if _, e = src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	} else if i, e = src.Stat(); e != nil {
-		return ErrorFileStat.ErrorParent(e)
+		return ErrorFileStat.Error(e)
 	} else if r, e = zip.NewReader(src, i.Size()); e != nil {
-		return ErrorZipOpen.ErrorParent(e)
+		return ErrorZipOpen.Error(e)
 	}
 
 	for _, f := range r.File {
@@ -145,8 +145,8 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err libe
 	defer func() {
 		if dst != nil {
 			if e = dst.Close(); e != nil {
-				err = ErrorFileClose.ErrorParent(e)
-				err.AddParentError(err)
+				err = ErrorFileClose.Error(e)
+				err.Add(err)
 			}
 		}
 		if r != nil {
@@ -166,21 +166,21 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err libe
 	}
 
 	if dst, e = libfpg.New(out, os.O_RDWR|os.O_CREATE|os.O_TRUNC, inf.Mode()); e != nil {
-		return ErrorFileOpen.ErrorParent(e)
+		return ErrorFileOpen.Error(e)
 	} else {
 
 	}
 
 	if r, e = f.Open(); e != nil {
-		return ErrorZipFileOpen.ErrorParent(e)
+		return ErrorZipFileOpen.Error(e)
 	}
 
 	//nolint #nosec
 	/* #nosec */
 	if _, e = io.Copy(dst, r); e != nil {
-		return ErrorIOCopy.ErrorParent(e)
+		return ErrorIOCopy.Error(e)
 	} else if e = dst.Close(); e != nil {
-		return ErrorFileClose.ErrorParent(e)
+		return ErrorFileClose.Error(e)
 	}
 
 	return nil
@@ -189,10 +189,10 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err libe
 func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) liberr.Error {
 	if i, e := os.Stat(filepath.Dir(dirname)); e != nil && os.IsNotExist(e) {
 		if e = os.MkdirAll(filepath.Dir(dirname), dirPerm); e != nil {
-			return ErrorDirCreate.ErrorParent(e)
+			return ErrorDirCreate.Error(e)
 		}
 	} else if e != nil {
-		return ErrorDestinationStat.ErrorParent(e)
+		return ErrorDestinationStat.Error(e)
 	} else if !i.IsDir() {
 		return ErrorDestinationIsNotDir.Error(nil)
 	}
@@ -202,12 +202,12 @@ func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) liberr.Error {
 
 func notDirExistCannotClean(filename string) liberr.Error {
 	if i, e := os.Stat(filename); e != nil && !os.IsNotExist(e) {
-		return ErrorDestinationStat.ErrorParent(e)
+		return ErrorDestinationStat.Error(e)
 	} else if e == nil && i.IsDir() {
 		return ErrorDestinationIsDir.Error(nil)
 	} else if e == nil {
 		if e = os.Remove(filename); e != nil {
-			return ErrorDestinationRemove.ErrorParent(e)
+			return ErrorDestinationRemove.Error(e)
 		}
 	}
 	return nil

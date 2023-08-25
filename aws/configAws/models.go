@@ -31,12 +31,10 @@ import (
 	"net"
 	"net/url"
 
-	libreq "github.com/nabbar/golib/request"
-
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
-	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
+	libreq "github.com/nabbar/golib/request"
 )
 
 type Model struct {
@@ -57,17 +55,17 @@ type awsModel struct {
 	retryer func() sdkaws.Retryer
 }
 
-func (c *awsModel) Validate() liberr.Error {
+func (c *awsModel) Validate() error {
 	err := ErrorConfigValidator.Error(nil)
 
 	if er := libval.New().Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
-			err.AddParent(e)
+			err.Add(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
+			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
 		}
 	}
 
@@ -90,11 +88,11 @@ func (c *awsModel) SetCredentials(accessKey, secretKey string) {
 func (c *awsModel) ResetRegionEndpoint() {
 }
 
-func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) liberr.Error {
+func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) error {
 	return nil
 }
 
-func (c *awsModel) RegisterRegionAws(endpoint *url.URL) liberr.Error {
+func (c *awsModel) RegisterRegionAws(endpoint *url.URL) error {
 	return nil
 }
 
@@ -137,14 +135,14 @@ func (c *awsModel) SetRetryer(retryer func() sdkaws.Retryer) {
 	c.retryer = retryer
 }
 
-func (c *awsModel) Check(ctx context.Context) liberr.Error {
+func (c *awsModel) Check(ctx context.Context) error {
 	var (
 		cfg *sdkaws.Config
 		con net.Conn
 		end sdkaws.Endpoint
 		adr *url.URL
 		err error
-		e   liberr.Error
+		e   error
 	)
 
 	if cfg, e = c.GetConfig(ctx, nil); e != nil {
@@ -156,15 +154,15 @@ func (c *awsModel) Check(ctx context.Context) liberr.Error {
 	}
 
 	if end, err = cfg.EndpointResolverWithOptions.ResolveEndpoint("s3", c.GetRegion()); err != nil {
-		return ErrorEndpointInvalid.ErrorParent(err)
+		return ErrorEndpointInvalid.Error(err)
 	}
 
 	if adr, err = url.Parse(end.URL); err != nil {
-		return ErrorEndpointInvalid.ErrorParent(err)
+		return ErrorEndpointInvalid.Error(err)
 	}
 
 	if _, err = cfg.Credentials.Retrieve(ctx); err != nil {
-		return ErrorCredentialsInvalid.ErrorParent(err)
+		return ErrorCredentialsInvalid.Error(err)
 	}
 
 	d := net.Dialer{
@@ -181,7 +179,7 @@ func (c *awsModel) Check(ctx context.Context) liberr.Error {
 	}()
 
 	if err != nil {
-		return ErrorEndpointInvalid.ErrorParent(err)
+		return ErrorEndpointInvalid.Error(err)
 	}
 
 	return nil

@@ -34,7 +34,6 @@ import (
 	libtls "github.com/nabbar/golib/certificates"
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type ComponentAwsClient interface {
@@ -51,7 +50,7 @@ type ComponentAws interface {
 	ComponentAwsClient
 	ComponentAwsAPI
 
-	GetAws() (libaws.AWS, liberr.Error)
+	GetAws() (libaws.AWS, error)
 	SetAws(a libaws.AWS)
 }
 

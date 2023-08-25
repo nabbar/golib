@@ -27,7 +27,6 @@
 package mail
 
 import (
-	liberr "github.com/nabbar/golib/errors"
 	libmail "github.com/nabbar/golib/mail"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
@@ -78,12 +77,12 @@ func (o *componentMail) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentMail) _getConfig() (*libmail.Config, liberr.Error) {
+func (o *componentMail) _getConfig() (*libmail.Config, error) {
 	var (
 		key string
 		cfg libmail.Config
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -93,7 +92,7 @@ func (o *componentMail) _getConfig() (*libmail.Config, liberr.Error) {
 	}
 
 	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
-		return nil, ErrorParamInvalid.ErrorParent(e)
+		return nil, ErrorParamInvalid.Error(e)
 	}
 
 	if len(cfg.Headers) < 1 {

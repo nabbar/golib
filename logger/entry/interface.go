@@ -31,7 +31,6 @@ import (
 	"time"
 
 	ginsdk "github.com/gin-gonic/gin"
-	liberr "github.com/nabbar/golib/errors"
 	logfld "github.com/nabbar/golib/logger/fields"
 	loglvl "github.com/nabbar/golib/logger/level"
 	"github.com/sirupsen/logrus"
@@ -56,7 +55,6 @@ type Entry interface {
 	ErrorClean() Entry
 	ErrorSet(err []error) Entry
 	ErrorAdd(cleanNil bool, err ...error) Entry
-	ErrorAddLib(cleanNil bool, err ...liberr.Error) Entry
 }
 
 func New(lvl loglvl.Level) Entry {

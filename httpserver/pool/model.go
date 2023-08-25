@@ -127,7 +127,7 @@ func (o *pool) Monitor(vrs libver.Version) ([]montps.Monitor, liberr.Error) {
 
 	o.Walk(func(bindAddress string, srv libhtp.Server) bool {
 		if p, e := srv.Monitor(vrs); e != nil {
-			err.AddParent(e)
+			err.Add(e)
 		} else {
 			res = append(res, p)
 		}

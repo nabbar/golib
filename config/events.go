@@ -28,11 +28,9 @@ package config
 
 import (
 	"os"
-
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (c *configModel) Start() liberr.Error {
+func (c *configModel) Start() error {
 	if err := c.runFuncStartBefore(); err != nil {
 		return err
 	}
@@ -48,7 +46,7 @@ func (c *configModel) Start() liberr.Error {
 	return nil
 }
 
-func (c *configModel) Reload() liberr.Error {
+func (c *configModel) Reload() error {
 	if err := c.runFuncReloadBefore(); err != nil {
 		return err
 	}

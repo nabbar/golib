@@ -30,7 +30,6 @@ import (
 	"sync"
 
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	libmail "github.com/nabbar/golib/mail"
 )
 
@@ -40,7 +39,7 @@ type componentMail struct {
 	e libmail.Mail
 }
 
-func (o *componentMail) GetMail() (libmail.Mail, liberr.Error) {
+func (o *componentMail) GetMail() (libmail.Mail, error) {
 	if !o.IsStarted() {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	}
