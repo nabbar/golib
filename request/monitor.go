@@ -39,7 +39,6 @@ import (
 
 	loglvl "github.com/nabbar/golib/logger/level"
 
-	liberr "github.com/nabbar/golib/errors"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
@@ -87,7 +86,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 
 	var (
 		e   error
-		err liberr.Error
+		err error
 		buf *bytes.Buffer
 		req *http.Request
 		rsp *http.Response
@@ -102,40 +101,40 @@ func (r *request) HealthCheck(ctx context.Context) error {
 
 	if err != nil {
 		if ent != nil {
-			ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+			ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
 		}
 		return err
 	}
 
 	rsp, e = r.client().Do(req)
 	if e != nil {
-		err = ErrorSendRequest.ErrorParent(e)
+		err = ErrorSendRequest.Error(e)
 		if ent != nil {
-			ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+			ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
 		}
 		return err
 	}
 
 	if buf, err = r._CheckResponse(rsp); err != nil {
 		if ent != nil {
-			ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+			ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
 		}
 		return err
 	}
 
 	if len(opts.Health.Result.ValidHTTPCode) > 0 {
 		if !r._IsValidCode(opts.Health.Result.ValidHTTPCode, rsp.StatusCode) {
-			err = ErrorResponseStatus.ErrorParent(fmt.Errorf("status: %s", rsp.Status))
+			err = ErrorResponseStatus.Error(fmt.Errorf("status: %s", rsp.Status))
 			if ent != nil {
-				ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
 			}
 			return err
 		}
 	} else if len(opts.Health.Result.InvalidHTTPCode) > 0 {
 		if r._IsValidCode(opts.Health.Result.InvalidHTTPCode, rsp.StatusCode) {
-			err = ErrorResponseStatus.ErrorParent(fmt.Errorf("status: %s", rsp.Status))
+			err = ErrorResponseStatus.Error(fmt.Errorf("status: %s", rsp.Status))
 			if ent != nil {
-				ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
 			}
 			return err
 		}
@@ -145,7 +144,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 		if !r._IsValidContents(opts.Health.Result.Contain, buf) {
 			err = ErrorResponseContainsNotFound.Error(nil)
 			if ent != nil {
-				ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
 			}
 			return err
 		}
@@ -153,7 +152,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 		if r._IsValidContents(opts.Health.Result.NotContain, buf) {
 			err = ErrorResponseNotContainsFound.Error(nil)
 			if ent != nil {
-				ent.ErrorAddLib(true, err).Check(loglvl.NilLevel)
+				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
 			}
 			return err
 		}

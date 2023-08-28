@@ -29,10 +29,9 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) SetVersioning(state bool) liberr.Error {
+func (cli *client) SetVersioning(state bool) error {
 	var status sdkstp.BucketVersioningStatus = libhlp.STATE_ENABLED
 	if !state {
 		status = libhlp.STATE_SUSPENDED
@@ -48,7 +47,7 @@ func (cli *client) SetVersioning(state bool) liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) GetVersioning() (string, liberr.Error) {
+func (cli *client) GetVersioning() (string, error) {
 	out, err := cli.s3.GetBucketVersioning(cli.GetContext(), &sdksss.GetBucketVersioningInput{
 		Bucket: cli.GetBucketAws(),
 	})

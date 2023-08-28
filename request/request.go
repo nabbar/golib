@@ -38,7 +38,7 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func (r *request) _MakeRequest(ctx context.Context, u *url.URL, mtd string, body io.Reader, head url.Values, params url.Values) (*http.Request, liberr.Error) {
+func (r *request) _MakeRequest(ctx context.Context, u *url.URL, mtd string, body io.Reader, head url.Values, params url.Values) (*http.Request, error) {
 	var (
 		req *http.Request
 		err error
@@ -47,7 +47,7 @@ func (r *request) _MakeRequest(ctx context.Context, u *url.URL, mtd string, body
 	req, err = http.NewRequestWithContext(ctx, mtd, u.String(), body)
 
 	if err != nil {
-		return nil, ErrorCreateRequest.ErrorParent(err)
+		return nil, ErrorCreateRequest.Error(err)
 	}
 
 	if len(head) > 0 {
@@ -67,7 +67,7 @@ func (r *request) _MakeRequest(ctx context.Context, u *url.URL, mtd string, body
 	return req, nil
 }
 
-func (r *request) _CheckResponse(rsp *http.Response, validStatus ...int) (*bytes.Buffer, liberr.Error) {
+func (r *request) _CheckResponse(rsp *http.Response, validStatus ...int) (*bytes.Buffer, error) {
 	var (
 		e error
 		b = bytes.NewBuffer(make([]byte, 0))
@@ -85,7 +85,7 @@ func (r *request) _CheckResponse(rsp *http.Response, validStatus ...int) (*bytes
 
 	if rsp.Body != nil {
 		if _, e = io.Copy(b, rsp.Body); e != nil {
-			return b, ErrorResponseLoadBody.ErrorParent(e)
+			return b, ErrorResponseLoadBody.Error(e)
 		}
 	}
 
@@ -126,7 +126,7 @@ func (r *request) _IsValidContents(contains []string, buf *bytes.Buffer) bool {
 	return false
 }
 
-func (r *request) Do() (*http.Response, liberr.Error) {
+func (r *request) Do() (*http.Response, error) {
 	r.s.Lock()
 	defer r.s.Unlock()
 
@@ -138,7 +138,7 @@ func (r *request) Do() (*http.Response, liberr.Error) {
 		e   error
 		req *http.Request
 		rsp *http.Response
-		err liberr.Error
+		err error
 	)
 
 	r.e = &requestError{
@@ -160,18 +160,18 @@ func (r *request) Do() (*http.Response, liberr.Error) {
 
 	if e != nil {
 		r.e.e = e
-		return nil, ErrorSendRequest.ErrorParent(e)
+		return nil, ErrorSendRequest.Error(e)
 	}
 
 	return rsp, nil
 }
 
-func (r *request) DoParse(model interface{}, validStatus ...int) liberr.Error {
+func (r *request) DoParse(model interface{}, validStatus ...int) error {
 	var (
 		e error
 		b = bytes.NewBuffer(make([]byte, 0))
 
-		err liberr.Error
+		err error
 		rsp *http.Response
 	)
 
@@ -196,7 +196,7 @@ func (r *request) DoParse(model interface{}, validStatus ...int) liberr.Error {
 	b, err = r._CheckResponse(rsp, validStatus...)
 	r.e.b = b
 
-	if err != nil && err.HasCodeError(ErrorResponseStatus) {
+	if er := liberr.Get(err); er != nil && er.HasCode(ErrorResponseStatus) {
 		r.e.se = true
 	} else if err != nil {
 		r.e.e = err
@@ -207,15 +207,15 @@ func (r *request) DoParse(model interface{}, validStatus ...int) liberr.Error {
 		if e = json.Unmarshal(b.Bytes(), model); e != nil {
 			r.e.be = true
 			r.e.e = e
-			return ErrorResponseUnmarshall.ErrorParent(e)
+			return ErrorResponseUnmarshall.Error(e)
 		}
 	}
 
 	return nil
 }
 
-func (r *request) DoParseRetry(retry int, model interface{}, validStatus ...int) liberr.Error {
-	var e liberr.Error
+func (r *request) DoParseRetry(retry int, model interface{}, validStatus ...int) error {
+	var e error
 
 	for i := 0; i < retry; i++ {
 		if e = r.DoParse(model, validStatus...); e != nil {

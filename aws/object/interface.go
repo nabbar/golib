@@ -38,7 +38,6 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
@@ -47,52 +46,52 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type WalkFunc func(err liberr.Error, obj sdktps.Object) liberr.Error
-type VersionWalkFunc func(err liberr.Error, obj sdktps.ObjectVersion) liberr.Error
-type DelMakWalkFunc func(err liberr.Error, del sdktps.DeleteMarkerEntry) liberr.Error
+type WalkFunc func(err error, obj sdktps.Object) error
+type VersionWalkFunc func(err error, obj sdktps.ObjectVersion) error
+type DelMakWalkFunc func(err error, del sdktps.DeleteMarkerEntry) error
 
 type Object interface {
-	Find(regex string) ([]string, liberr.Error)
-	Size(object string) (size int64, err liberr.Error)
+	Find(regex string) ([]string, error)
+	Size(object string) (size int64, err error)
 
-	List(continuationToken string) ([]sdktps.Object, string, int64, liberr.Error)
-	Walk(f WalkFunc) liberr.Error
+	List(continuationToken string) ([]sdktps.Object, string, int64, error)
+	Walk(f WalkFunc) error
 
-	ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, liberr.Error)
-	WalkPrefix(prefix string, f WalkFunc) liberr.Error
+	ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, error)
+	WalkPrefix(prefix string, f WalkFunc) error
 
-	Head(object string) (*sdksss.HeadObjectOutput, liberr.Error)
-	Get(object string) (*sdksss.GetObjectOutput, liberr.Error)
-	Put(object string, body io.Reader) liberr.Error
-	Delete(check bool, object string) liberr.Error
-	DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, liberr.Error)
-	GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, liberr.Error)
+	Head(object string) (*sdksss.HeadObjectOutput, error)
+	Get(object string) (*sdksss.GetObjectOutput, error)
+	Put(object string, body io.Reader) error
+	Delete(check bool, object string) error
+	DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, error)
+	GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, error)
 
-	MultipartList(keyMarker, markerId string) (uploads []sdktps.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e liberr.Error)
+	MultipartList(keyMarker, markerId string) (uploads []sdktps.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e error)
 	MultipartNew(partSize libsiz.Size, object string) libmpu.MultiPart
-	MultipartPut(object string, body io.Reader) liberr.Error
-	MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) liberr.Error
-	MultipartCancel(uploadId, key string) liberr.Error
+	MultipartPut(object string, body io.Reader) error
+	MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) error
+	MultipartCancel(uploadId, key string) error
 
-	UpdateMetadata(meta *sdksss.CopyObjectInput) liberr.Error
-	SetWebsite(object, redirect string) liberr.Error
+	UpdateMetadata(meta *sdksss.CopyObjectInput) error
+	SetWebsite(object, redirect string) error
 
-	VersionList(prefix, keyMarker, markerId string) (version []sdktps.ObjectVersion, delMarker []sdktps.DeleteMarkerEntry, nextKeyMarker, nextMarkerId string, count int64, err liberr.Error)
-	VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) liberr.Error
-	VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) liberr.Error
+	VersionList(prefix, keyMarker, markerId string) (version []sdktps.ObjectVersion, delMarker []sdktps.DeleteMarkerEntry, nextKeyMarker, nextMarkerId string, count int64, err error)
+	VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) error
+	VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) error
 
-	VersionGet(object, version string) (*sdksss.GetObjectOutput, liberr.Error)
-	VersionHead(object, version string) (*sdksss.HeadObjectOutput, liberr.Error)
-	VersionSize(object, version string) (size int64, err liberr.Error)
-	VersionDelete(check bool, object, version string) liberr.Error
+	VersionGet(object, version string) (*sdksss.GetObjectOutput, error)
+	VersionHead(object, version string) (*sdksss.HeadObjectOutput, error)
+	VersionSize(object, version string) (size int64, err error)
+	VersionDelete(check bool, object, version string) error
 
-	GetRetention(object, version string) (until time.Time, mode string, err liberr.Error)
-	SetRetention(object, version string, bypass bool, until time.Time, mode string) liberr.Error
-	GetLegalHold(object, version string) (sdktps.ObjectLockLegalHoldStatus, liberr.Error)
-	SetLegalHold(object, version string, flag sdktps.ObjectLockLegalHoldStatus) liberr.Error
+	GetRetention(object, version string) (until time.Time, mode string, err error)
+	SetRetention(object, version string, bypass bool, until time.Time, mode string) error
+	GetLegalHold(object, version string) (sdktps.ObjectLockLegalHoldStatus, error)
+	SetLegalHold(object, version string, flag sdktps.ObjectLockLegalHoldStatus) error
 
-	GetTags(object, version string) ([]sdktps.Tag, liberr.Error)
-	SetTags(object, version string, tags ...sdktps.Tag) liberr.Error
+	GetTags(object, version string) ([]sdktps.Tag, error)
+	SetTags(object, version string, tags ...sdktps.Tag) error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Object {

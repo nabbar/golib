@@ -32,7 +32,6 @@ import (
 	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
@@ -41,19 +40,19 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type PoliciesWalkFunc func(err liberr.Error, pol sdktps.AttachedPolicy) liberr.Error
+type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
 
 type Role interface {
-	List() ([]sdktps.Role, liberr.Error)
-	Check(name string) (string, liberr.Error)
-	Add(name, role string) (string, liberr.Error)
-	Delete(roleName string) liberr.Error
+	List() ([]sdktps.Role, error)
+	Check(name string) (string, error)
+	Add(name, role string) (string, error)
+	Delete(roleName string) error
 
-	PolicyAttach(policyARN, roleName string) liberr.Error
-	PolicyDetach(policyARN, roleName string) liberr.Error
-	PolicyListAttached(roleName string) ([]sdktps.AttachedPolicy, liberr.Error)
-	PolicyAttachedList(roleName, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error)
-	PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) liberr.Error
+	PolicyAttach(policyARN, roleName string) error
+	PolicyDetach(policyARN, roleName string) error
+	PolicyListAttached(roleName string) ([]sdktps.AttachedPolicy, error)
+	PolicyAttachedList(roleName, marker string) ([]sdktps.AttachedPolicy, string, error)
+	PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Role {

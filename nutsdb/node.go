@@ -116,7 +116,7 @@ func (n *nutsNode) newTx(writable bool) (*nutsdb.Tx, liberr.Error) {
 	if db := n.getDb(); db == nil {
 		return nil, ErrorDatabaseClosed.Error(nil)
 	} else if tx, e := db.Begin(writable); e != nil {
-		return nil, ErrorTransactionInit.ErrorParent(e)
+		return nil, ErrorTransactionInit.Error(e)
 	} else {
 		return tx, nil
 	}
@@ -189,9 +189,9 @@ func (n *nutsNode) applyRaftLogIndexLastApplied(idx uint64) error {
 	}()
 
 	if e = tx.Put(_RaftBucket, []byte(_RaftKeyAppliedIndex), n.i64tob(idx), 0); e != nil {
-		return ErrorTransactionPutKey.ErrorParent(e)
+		return ErrorTransactionPutKey.Error(e)
 	} else if e = tx.Commit(); e != nil {
-		return ErrorTransactionCommit.ErrorParent(e)
+		return ErrorTransactionCommit.Error(e)
 	} else {
 		return nil
 	}
@@ -280,7 +280,7 @@ func (n *nutsNode) Update(logEntry []dgbstm.Entry) ([]dgbstm.Entry, error) {
 
 	if e = tx.Commit(); e != nil {
 		_ = tx.Rollback()
-		return logEntry, ErrorTransactionCommit.ErrorParent(e)
+		return logEntry, ErrorTransactionCommit.Error(e)
 	}
 
 	return logEntry, n.applyRaftLogIndexLastApplied(logEntry[len(logEntry)-1].Index)
@@ -329,7 +329,7 @@ func (n *nutsNode) PrepareSnapshot() (interface{}, error) {
 		return nil, ErrorDatabaseClosed.Error(nil)
 	} else if err := sh.Prepare(opt, db); err != nil {
 		sh.Finish()
-		return nil, ErrorDatabaseBackup.ErrorParent(err)
+		return nil, ErrorDatabaseBackup.Error(err)
 	} else {
 		return sh, nil
 	}

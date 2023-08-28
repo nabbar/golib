@@ -162,28 +162,28 @@ func (lc *HelperLDAP) dialTLS() (*ldap.Conn, liberr.Error) {
 			_ = c.Close()
 		}
 
-		return nil, ErrorLDAPServerTLS.ErrorParent(err)
+		return nil, ErrorLDAPServerTLS.Error(err)
 	}
 
 	c = tls.Client(c, lc.tlsConfig)
 
 	if c == nil {
-		return nil, ErrorLDAPServerTLS.ErrorParent(ErrorLDAPServerConnection.Error(nil))
+		return nil, ErrorLDAPServerTLS.Error(ErrorLDAPServerConnection.Error(nil))
 	}
 
 	l := ldap.NewConn(c, true)
 	if l == nil {
-		return nil, ErrorLDAPServerTLS.ErrorParent(ErrorLDAPServerConnection.Error(nil))
+		return nil, ErrorLDAPServerTLS.Error(ErrorLDAPServerConnection.Error(nil))
 	}
 
 	l.Start()
 
 	if l.IsClosing() {
-		return nil, ErrorLDAPServerTLS.ErrorParent(ErrorLDAPServerDialClosing.Error(nil))
+		return nil, ErrorLDAPServerTLS.Error(ErrorLDAPServerDialClosing.Error(nil))
 	}
 
 	if _, tlsOk := l.TLSConnectionState(); !tlsOk {
-		return nil, ErrorLDAPServerTLS.ErrorParent(nil)
+		return nil, ErrorLDAPServerTLS.Error(nil)
 	}
 
 	return l, nil
@@ -199,18 +199,18 @@ func (lc *HelperLDAP) dial() (*ldap.Conn, liberr.Error) {
 			_ = c.Close()
 		}
 
-		return nil, ErrorLDAPServerDial.ErrorParent(err)
+		return nil, ErrorLDAPServerDial.Error(err)
 	}
 
 	l := ldap.NewConn(c, false)
 	if l == nil {
-		return nil, ErrorLDAPServerDial.ErrorParent(ErrorLDAPServerConnection.Error(nil))
+		return nil, ErrorLDAPServerDial.Error(ErrorLDAPServerConnection.Error(nil))
 	}
 
 	l.Start()
 
 	if l.IsClosing() {
-		return nil, ErrorLDAPServerDial.ErrorParent(ErrorLDAPServerDialClosing.Error(nil))
+		return nil, ErrorLDAPServerDial.Error(ErrorLDAPServerDialClosing.Error(nil))
 	}
 
 	return l, nil
@@ -220,11 +220,11 @@ func (lc *HelperLDAP) starttls(l *ldap.Conn) liberr.Error {
 	err := l.StartTLS(lc.tlsConfig)
 
 	if err != nil {
-		return ErrorLDAPServerStartTLS.ErrorParent(err)
+		return ErrorLDAPServerStartTLS.Error(err)
 	}
 
 	if _, tlsOk := l.TLSConnectionState(); !tlsOk {
-		return ErrorLDAPServerStartTLS.ErrorParent(nil)
+		return ErrorLDAPServerStartTLS.Error(nil)
 	}
 
 	return nil
@@ -283,7 +283,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 	}
 
 	if err := lc.ctx.Err(); err != nil {
-		return ErrorLDAPContext.ErrorParent(err)
+		return ErrorLDAPContext.Error(err)
 	}
 
 	if lc.conn == nil {
@@ -390,7 +390,7 @@ func (lc *HelperLDAP) AuthUser(username, password string) liberr.Error {
 
 	err := lc.conn.Bind(username, password)
 
-	return ErrorLDAPBind.Iferror(err)
+	return ErrorLDAPBind.IfError(err)
 }
 
 // Connect used to connect and bind to server.
@@ -430,7 +430,7 @@ func (lc *HelperLDAP) runSearch(filter string, attributes []string) (*ldap.Searc
 	)
 
 	if src, err = lc.conn.Search(searchRequest); err != nil {
-		return nil, ErrorLDAPSearch.ErrorParent(err)
+		return nil, ErrorLDAPSearch.Error(err)
 	}
 
 	lc.getLogEntry(loglvl.DebugLevel, "ldap search success").FieldAdd("ldap.filter", filter).FieldAdd("ldap.attributes", attributes).Log()

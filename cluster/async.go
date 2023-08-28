@@ -40,7 +40,7 @@ func (c *cRaft) AsyncPropose(session *dgbcli.Session, cmd []byte) (*dgbclt.Reque
 	r, e := c.nodeHost.Propose(session, cmd, c.timeoutCmdASync)
 
 	if e != nil {
-		return r, ErrorCommandASync.ErrorParent(c.getErrorCommand("Propose"), e)
+		return r, ErrorCommandASync.Error(c.getErrorCommand("Propose"), e)
 	}
 
 	return r, nil
@@ -50,7 +50,7 @@ func (c *cRaft) AsyncProposeSession(session *dgbcli.Session) (*dgbclt.RequestSta
 	r, e := c.nodeHost.ProposeSession(session, c.timeoutCmdASync)
 
 	if e != nil {
-		return r, ErrorCommandASync.ErrorParent(c.getErrorCommand("ProposeSession"), e)
+		return r, ErrorCommandASync.Error(c.getErrorCommand("ProposeSession"), e)
 	}
 
 	return r, nil
@@ -60,7 +60,7 @@ func (c *cRaft) AsyncReadIndex() (*dgbclt.RequestState, liberr.Error) {
 	r, e := c.nodeHost.ReadIndex(c.config.ClusterID, c.timeoutCmdASync)
 
 	if e != nil {
-		return r, ErrorCommandASync.ErrorParent(c.getErrorCluster(), c.getErrorCommand("ReadIndex"), e)
+		return r, ErrorCommandASync.Error(c.getErrorCluster(), c.getErrorCommand("ReadIndex"), e)
 	}
 
 	return r, nil
@@ -78,7 +78,7 @@ func (c *cRaft) AsyncRequestCompaction(nodeID uint64) (*dgbclt.SysOpState, liber
 	r, e := c.nodeHost.RequestCompaction(c.config.ClusterID, nodeID)
 
 	if e != nil {
-		return r, ErrorCommandASync.ErrorParent(c.getErrorCluster(), er, c.getErrorCommand("RequestCompaction"), e)
+		return r, ErrorCommandASync.Error(c.getErrorCluster(), er, c.getErrorCommand("RequestCompaction"), e)
 	}
 
 	return r, nil

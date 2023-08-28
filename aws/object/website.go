@@ -29,16 +29,15 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) UpdateMetadata(meta *sdksss.CopyObjectInput) liberr.Error {
+func (cli *client) UpdateMetadata(meta *sdksss.CopyObjectInput) error {
 	_, err := cli.s3.CopyObject(cli.GetContext(), meta)
 
 	return cli.GetError(err)
 }
 
-func (cli *client) SetWebsite(object, redirect string) liberr.Error {
+func (cli *client) SetWebsite(object, redirect string) error {
 	var err error
 
 	_, err = cli.s3.PutObjectAcl(cli.GetContext(), &sdksss.PutObjectAclInput{

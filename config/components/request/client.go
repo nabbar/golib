@@ -32,7 +32,6 @@ import (
 	libtls "github.com/nabbar/golib/certificates"
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	libreq "github.com/nabbar/golib/request"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -166,7 +165,7 @@ func (o *componentRequest) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentRequest) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentRequest) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -174,10 +173,10 @@ func (o *componentRequest) _runFct(fct func(cpt cfgtps.Component) liberr.Error) 
 	return nil
 }
 
-func (o *componentRequest) _runCli() liberr.Error {
+func (o *componentRequest) _runCli() error {
 	var (
 		e   error
-		err liberr.Error
+		err error
 		prt = ErrorComponentReload
 		req libreq.Request
 		cfg *libreq.Options
@@ -198,11 +197,11 @@ func (o *componentRequest) _runCli() liberr.Error {
 
 	if req != nil {
 		if req, e = cfg.Update(o.x.GetContext, req); err != nil {
-			return prt.ErrorParent(e)
+			return prt.Error(e)
 		}
 	} else {
 		if req, e = cfg.New(o.x.GetContext); err != nil {
-			return prt.ErrorParent(e)
+			return prt.Error(e)
 		}
 	}
 
@@ -211,13 +210,13 @@ func (o *componentRequest) _runCli() liberr.Error {
 	o.m.Unlock()
 
 	if e = o._registerMonitor(cfg); e != nil {
-		return prt.ErrorParent(e)
+		return prt.Error(e)
 	}
 
 	return nil
 }
 
-func (o *componentRequest) _run() liberr.Error {
+func (o *componentRequest) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

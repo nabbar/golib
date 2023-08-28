@@ -45,21 +45,21 @@ func (c ConfigModel) Validate() liberr.Error {
 
 	if er := libval.New().Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
-			err.AddParent(e)
+			err.Add(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
 		}
 	}
 
 	if c.DSN != "" {
 		if _, er := New(c); er != nil {
-			err.AddParent(er)
+			err.Add(er)
 		}
 	} else {
-		err.AddParent(ErrorConfigInvalidDSN.Error(nil))
+		err.Add(ErrorConfigInvalidDSN.Error(nil))
 	}
 
 	if !err.HasParent() {

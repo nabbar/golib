@@ -65,7 +65,7 @@ func (s *sem) setCompleted(flag bool) {
 
 func (s *sem) NewWorker() liberr.Error {
 	e := s.s.Acquire(s.context(), 1)
-	return ErrorWorkerNew.Iferror(e)
+	return ErrorWorkerNew.IfError(e)
 }
 
 func (s *sem) NewWorkerTry() bool {
@@ -75,7 +75,7 @@ func (s *sem) NewWorkerTry() bool {
 func (s *sem) WaitAll() liberr.Error {
 	e := s.s.Acquire(s.context(), s.i)
 	s.setCompleted(true)
-	return ErrorWorkerWaitAll.Iferror(e)
+	return ErrorWorkerWaitAll.IfError(e)
 }
 
 func (s *sem) DeferWorker() {

@@ -42,7 +42,6 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	liberr "github.com/nabbar/golib/errors"
 	libfpg "github.com/nabbar/golib/file/progress"
 )
 
@@ -97,7 +96,7 @@ type ResponseReposStorage struct {
 	Children     []ResponseReposChildrenStorage
 }
 
-func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.Error {
+func (a *artifactoryModel) request(uri string, bodyResponse interface{}) error {
 	var (
 		ctx context.Context
 		cnl context.CancelFunc
@@ -138,7 +137,7 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.
 	u.Path = path.Clean(u.Path)
 
 	if req, e = http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil); e != nil {
-		return ErrorRequestInit.ErrorParent(e)
+		return ErrorRequestInit.Error(e)
 	}
 
 	defer func() {
@@ -148,7 +147,7 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.
 	}()
 
 	if rsp, e = a.Do(req); e != nil {
-		return ErrorRequestDo.ErrorParent(e)
+		return ErrorRequestDo.Error(e)
 	}
 
 	defer func() {
@@ -159,18 +158,18 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.
 
 	if rsp.StatusCode >= http.StatusBadRequest {
 		//nolint #goerr113
-		return ErrorRequestResponse.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
+		return ErrorRequestResponse.Error(fmt.Errorf("status: %v", rsp.Status))
 	}
 
 	if rsp.Body == nil {
 		//nolint #goerr113
-		return ErrorRequestResponseBodyEmpty.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
+		return ErrorRequestResponseBodyEmpty.Error(fmt.Errorf("status: %v", rsp.Status))
 	}
 
 	if buf, e := ioutil.ReadAll(rsp.Body); e != nil {
-		return ErrorRequestResponseBodyDecode.ErrorParent(e)
+		return ErrorRequestResponseBodyDecode.Error(e)
 	} else if e = json.Unmarshal(buf, bodyResponse); e != nil {
-		return ErrorRequestResponseBodyDecode.ErrorParent(e)
+		return ErrorRequestResponseBodyDecode.Error(e)
 	}
 
 	cnl()
@@ -180,7 +179,7 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) liberr.
 
 }
 
-func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.Error) {
+func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err error) {
 	var (
 		lst = ResponseReposStorage{}
 		reg = regexp.MustCompile(a.regex)
@@ -188,12 +187,12 @@ func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.E
 
 	if a.regex == "" {
 		//nolint #goerr113
-		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("regex is empty: %s", a.regex))
+		return nil, ErrorParamEmpty.Error(fmt.Errorf("regex is empty: %s", a.regex))
 	}
 
 	if a.group < 1 {
 		//nolint #goerr113
-		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("group extracted from regex is empty: %s - %v", a.regex, a.group))
+		return nil, ErrorParamEmpty.Error(fmt.Errorf("group extracted from regex is empty: %s - %v", a.regex, a.group))
 	}
 
 	if err = a.request("", &lst); err != nil {
@@ -223,7 +222,7 @@ func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err liberr.E
 		}
 
 		if res.size, e = strconv.ParseInt(res.Size, 10, 64); e != nil {
-			return nil, ErrorRequestResponseBodyDecode.ErrorParent(e)
+			return nil, ErrorRequestResponseBodyDecode.Error(e)
 		}
 
 		sto = append(sto, res)
@@ -242,7 +241,7 @@ func (a *artifactoryModel) releasesAppendNotExist(releases hscvrs.Collection, ve
 	return append(releases, vers)
 }
 
-func (a *artifactoryModel) ListReleases() (releases hscvrs.Collection, err liberr.Error) {
+func (a *artifactoryModel) ListReleases() (releases hscvrs.Collection, err error) {
 	var (
 		reg = regexp.MustCompile(a.regex)
 		sto []ResponseStorage
@@ -271,7 +270,7 @@ func (a *artifactoryModel) ListReleases() (releases hscvrs.Collection, err liber
 	return releases, nil
 }
 
-func (a *artifactoryModel) getArtifact(containName string, regexName string, release *hscvrs.Version) (art *ResponseStorage, err liberr.Error) {
+func (a *artifactoryModel) getArtifact(containName string, regexName string, release *hscvrs.Version) (art *ResponseStorage, err error) {
 	var (
 		reg = regexp.MustCompile(a.regex)
 		rg2 *regexp.Regexp
@@ -312,7 +311,7 @@ func (a *artifactoryModel) getArtifact(containName string, regexName string, rel
 	return nil, ErrorArtifactoryNotFound.Error(nil)
 }
 
-func (a *artifactoryModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error) {
+func (a *artifactoryModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error) {
 	if art, err := a.getArtifact(containName, regexName, release); err != nil {
 		return "", err
 	} else {
@@ -320,13 +319,13 @@ func (a *artifactoryModel) GetArtifact(containName string, regexName string, rel
 	}
 }
 
-func (a *artifactoryModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error {
+func (a *artifactoryModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error {
 	var (
 		e error
 		n int64
 
 		art *ResponseStorage
-		err liberr.Error
+		err error
 		req *http.Request
 		rsp *http.Response
 	)
@@ -348,21 +347,21 @@ func (a *artifactoryModel) Download(dst libfpg.Progress, containName string, reg
 	}
 
 	if req, e = http.NewRequestWithContext(a.ctx, http.MethodGet, art.DownloadUri, nil); e != nil {
-		return ErrorRequestInit.ErrorParent(e)
+		return ErrorRequestInit.Error(e)
 	} else if rsp, e = a.Do(req); e != nil {
-		return ErrorRequestDo.ErrorParent(e)
+		return ErrorRequestDo.Error(e)
 	} else if rsp.StatusCode >= http.StatusBadRequest {
 		//nolint #goerr113
-		return ErrorRequestResponse.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
+		return ErrorRequestResponse.Error(fmt.Errorf("status: %v", rsp.Status))
 	} else if rsp.Body == nil {
 		//nolint #goerr113
-		return ErrorRequestResponseBodyEmpty.ErrorParent(fmt.Errorf("status: %v", rsp.Status))
+		return ErrorRequestResponseBodyEmpty.Error(fmt.Errorf("status: %v", rsp.Status))
 	} else if n, e = io.Copy(dst, rsp.Body); e != nil {
-		return ErrorArtifactoryDownload.ErrorParent(e)
+		return ErrorArtifactoryDownload.Error(e)
 	} else if n != art.size {
-		return ErrorDestinationSize.ErrorParent(errMisMatchingSize)
+		return ErrorDestinationSize.Error(errMisMatchingSize)
 	} else if n != rsp.ContentLength {
-		return ErrorDestinationSize.ErrorParent(errMisMatchingSize)
+		return ErrorDestinationSize.Error(errMisMatchingSize)
 	}
 
 	return nil

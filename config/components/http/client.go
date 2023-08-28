@@ -33,7 +33,6 @@ import (
 	libtls "github.com/nabbar/golib/certificates"
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	htpool "github.com/nabbar/golib/httpserver/pool"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -178,7 +177,7 @@ func (o *componentHttp) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentHttp) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentHttp) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -186,10 +185,10 @@ func (o *componentHttp) _runFct(fct func(cpt cfgtps.Component) liberr.Error) lib
 	return nil
 }
 
-func (o *componentHttp) _runCli() liberr.Error {
+func (o *componentHttp) _runCli() error {
 	var (
 		e   error
-		err liberr.Error
+		err error
 		prt = ErrorComponentReload
 		pol htpool.Pool
 		cfg *htpool.Config
@@ -207,12 +206,12 @@ func (o *componentHttp) _runCli() liberr.Error {
 	defer o.m.RUnlock()
 
 	if pol, err = cfg.Pool(o.x.GetContext, o._GetHandler, o.getLogger); err != nil {
-		return prt.ErrorParent(err)
+		return prt.Error(err)
 	}
 
 	if o.s != nil && o.s.Len() > 0 {
 		if e = o.s.Merge(pol, o.getLogger); e != nil {
-			return prt.ErrorParent(e)
+			return prt.Error(e)
 		}
 	} else {
 		o.m.RUnlock()
@@ -223,7 +222,7 @@ func (o *componentHttp) _runCli() liberr.Error {
 	}
 
 	if e = o.s.Restart(o.x.GetContext()); e != nil {
-		return prt.ErrorParent(e)
+		return prt.Error(e)
 	}
 
 	// Implement wait notify on main call
@@ -233,7 +232,7 @@ func (o *componentHttp) _runCli() liberr.Error {
 	return o._registerMonitor(prt)
 }
 
-func (o *componentHttp) _run() liberr.Error {
+func (o *componentHttp) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

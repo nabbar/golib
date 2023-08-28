@@ -29,7 +29,6 @@ package types
 import (
 	"io"
 
-	liberr "github.com/nabbar/golib/errors"
 	spfcbr "github.com/spf13/cobra"
 )
 
@@ -68,7 +67,7 @@ type ComponentList interface {
 	// ComponentStart trigger the Start function of each Component.
 	// This function will keep the dependencies of each Component.
 	// This function will stop the Start sequence on any error triggered.
-	ComponentStart() liberr.Error
+	ComponentStart() error
 
 	// ComponentIsStarted will trigger the IsStarted function of all registered component.
 	// If any component return false, this func return false.
@@ -77,7 +76,7 @@ type ComponentList interface {
 	// ComponentReload trigger the Reload function of each Component.
 	// This function will keep the dependencies of each Component.
 	// This function will stop the Reload sequence on any error triggered.
-	ComponentReload() liberr.Error
+	ComponentReload() error
 
 	// ComponentStop trigger the Stop function of each Component.
 	// This function will not keep the dependencies of each Component.

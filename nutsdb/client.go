@@ -96,93 +96,93 @@ func (c *clientNutDB) strToType(dest reflect.Type, val string) (interface{}, lib
 	switch dest.Kind() {
 	case reflect.Bool:
 		if v, e := strconv.ParseBool(val); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return v, nil
 		}
 	case reflect.Int:
 		if v, e := strconv.ParseInt(val, 10, 64); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return int(v), nil
 		}
 	case reflect.Int8:
 		if v, e := strconv.ParseInt(val, 10, 8); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return int8(v), nil
 		}
 	case reflect.Int16:
 		if v, e := strconv.ParseInt(val, 10, 16); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return int16(v), nil
 		}
 	case reflect.Int32:
 		if v, e := strconv.ParseInt(val, 10, 32); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return int32(v), nil
 		}
 	case reflect.Int64:
 		if v, e := strconv.ParseInt(val, 10, 64); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return v, nil
 		}
 	case reflect.Uint:
 		if v, e := strconv.ParseUint(val, 10, 64); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return uint(v), nil
 		}
 	case reflect.Uint8:
 		if v, e := strconv.ParseUint(val, 10, 8); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return uint8(v), nil
 		}
 	case reflect.Uint16:
 		if v, e := strconv.ParseUint(val, 10, 16); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return uint16(v), nil
 		}
 	case reflect.Uint32:
 		if v, e := strconv.ParseUint(val, 10, 32); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return uint32(v), nil
 		}
 	case reflect.Uint64:
 		if v, e := strconv.ParseUint(val, 10, 64); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return v, nil
 		}
 	case reflect.Uintptr:
-		return nil, ErrorParamInvalid.ErrorParent(fmt.Errorf("cannot convert int UintPtr"))
+		return nil, ErrorParamInvalid.Error(fmt.Errorf("cannot convert int UintPtr"))
 	case reflect.Float32:
 		if v, e := strconv.ParseFloat(val, 32); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return float32(v), nil
 		}
 	case reflect.Float64:
 		if v, e := strconv.ParseFloat(val, 64); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return v, nil
 		}
 	case reflect.Complex64:
 		if v, e := strconv.ParseComplex(val, 64); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return complex64(v), nil
 		}
 	case reflect.Complex128:
 		if v, e := strconv.ParseComplex(val, 128); e != nil {
-			return nil, ErrorParamMismatching.ErrorParent(e)
+			return nil, ErrorParamMismatching.Error(e)
 		} else {
 			return v, nil
 		}

@@ -72,7 +72,7 @@ func (o *progress) Stat() (os.FileInfo, error) {
 	}
 
 	if i, e := o.fos.Stat(); e != nil {
-		return i, ErrorIOFileStat.ErrorParent(e)
+		return i, ErrorIOFileStat.Error(e)
 	} else {
 		return i, nil
 	}

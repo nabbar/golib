@@ -26,12 +26,11 @@
 package mailPooler
 
 import (
-	liberr "github.com/nabbar/golib/errors"
 	libsmtp "github.com/nabbar/golib/smtp"
 )
 
 type Pooler interface {
-	Reset() liberr.Error
+	Reset() error
 	NewPooler() Pooler
 
 	libsmtp.SMTP

@@ -27,28 +27,16 @@
 package errors
 
 import (
-	errs "errors"
+	"errors"
 	"fmt"
 	"runtime"
-	"strconv"
 	"strings"
 )
 
 var (
-	defaultGlue         = ", "
 	defaultPattern      = "[Error #%s] %s"
 	defaultPatternTrace = "[Error #%s] %s (%s)"
 )
-
-// SetTracePathFilter define the glue string to be used to join main error with parents'errors.
-func SetDefaultGlue(glue string) {
-	defaultGlue = glue
-}
-
-// GetDefaultGlue return the current glue used to joins errors with parents.
-func GetDefaultGlue() string {
-	return defaultGlue
-}
 
 // GetDefaultPatternTrace define the pattern to be used for string of error with code.
 // The pattern is fmt pattern with 2 inputs in order : code, message.
@@ -79,24 +67,24 @@ func SetTracePathFilter(path string) {
 	filterPkg = path
 }
 
-type errors struct {
+type ers struct {
 	c uint16
 	e string
 	p []Error
 	t runtime.Frame
 }
 
-type FuncMap func(e Error) bool
+type FuncMap func(e error) bool
 
 type Error interface {
-	//IsCodeError check if the given error code is matching with the current Error
-	IsCodeError(code CodeError) bool
-	//HasCodeError check if current error or parent has the given error code
-	HasCodeError(code CodeError) bool
-	//GetCodeError return the CodeError value of the current error
-	GetCodeError() CodeError
-	//GetCodeErrorParent return a slice of CodeError value of all parent Error and the code of the current Error
-	GetCodeErrorParent() []CodeError
+	//IsCode check if the given error code is matching with the current Error
+	IsCode(code CodeError) bool
+	//HasCode check if current error or parent has the given error code
+	HasCode(code CodeError) bool
+	//GetCode return the CodeError value of the current error
+	GetCode() CodeError
+	//GetParentCode return a slice of CodeError value of all parent Error and the code of the current Error
+	GetParentCode() []CodeError
 
 	//IsError check if the given error params is a valid error and not a nil pointer
 	IsError(e error) bool
@@ -105,37 +93,29 @@ type Error interface {
 	//HasParent check if the current Error has any valid parent
 	HasParent() bool
 	//GetParent return a slice of Error interface for each parent error with or without the first error.
-	GetParent(withMainError bool) []Error
+	GetParent(withMainError bool) []error
 	//Map run a function on each func and parent. If the function return false, the loop stop.
 	Map(fct FuncMap) bool
+	//ContainsString return true if any message into the main error or the parent message error contains the given part string
+	ContainsString(s string) bool
 
-	//AddParent will add all no empty given error into parent of the current Error pointer
-	AddParent(parent ...error)
+	//Add will add all no empty given error into parent of the current Error pointer
+	Add(parent ...error)
 	//SetParent will replace all parent with the given error list
 	SetParent(parent ...error)
-	//AddParentError will add all no empty given Error into parent of the current Error pointer
-	AddParentError(parent ...Error)
-	//SetParentError will replace all parent with the given Error list
-	SetParentError(parent ...Error)
 
 	//Code is used to return the code of current Error, as string
-	Code() string
-	//CodeFull is used to return a joint string of code of current Error and code of all parent Error
-	CodeFull(glue string) string
+	Code() uint16
 	//CodeSlice is used to return a slice string of all code of current Error (main and parent)
-	CodeSlice() []string
+	CodeSlice() []uint16
 
 	//CodeError is used to return a composed string of current Error code with message, for current Error and no parent
 	CodeError(pattern string) string
-	//CodeErrorFull is used to return a composed string of couple error code with message, for current Error and all parent
-	CodeErrorFull(pattern, glue string) string
 	//CodeErrorSlice is used to return a composed string slice of couple error code with message, for current Error and all parent
 	CodeErrorSlice(pattern string) []string
 
 	//CodeErrorTrace is used to return a composed string of current Error code with message and trace information, for current Error and no parent
 	CodeErrorTrace(pattern string) string
-	//CodeErrorTraceFull is used to return a composed string of couple error code with message and trace information, for current Error and all parent
-	CodeErrorTraceFull(pattern, glue string) string
 	//CodeErrorTraceSlice is used to return a composed string slice of couple error code with message and trace information, for current Error and all parent
 	CodeErrorTraceSlice(pattern string) []string
 
@@ -145,22 +125,13 @@ type Error interface {
 
 	//StringError is used to return the error message, for current Error and no parent
 	StringError() string
-	//StringErrorFull is used to return the error message, for current Error and all parent
-	StringErrorFull(glue string) string
 	//StringErrorSlice is used to return the error message, for current Error and all parent, as a slice of string
 	StringErrorSlice() []string
 
 	//GetError is used to return a new error interface based of the current error (and no parent)
 	GetError() error
-	//GetErrorFull is used to return a new error interface based of the current error with all parent
-	GetErrorFull(glue string) error
 	//GetErrorSlice is used to return a slice of new error interface, based of the current error and all parent
 	GetErrorSlice() []error
-
-	//GetIError is used to return a Error interface pointer based of current Error
-	GetIError() Error
-	//GetIErrorSlice is used to return a slice of Error interface pointer, based of current Error and all parents
-	GetIErrorSlice() []Error
 
 	//GetTrace will return a comped string for the trace of the current Error
 	GetTrace() string
@@ -183,31 +154,109 @@ type Errors interface {
 	ErrorsList() []error
 }
 
-func MakeErrorIfError(err ...Error) Error {
+func Is(e error) bool {
+	var err Error
+	return errors.As(e, &err)
+}
+
+func Get(e error) Error {
+	var err Error
+
+	if errors.As(e, &err) {
+		return err
+	}
+
+	return nil
+}
+
+func Has(e error, code CodeError) bool {
+	if err := Get(e); err == nil {
+		return false
+	} else {
+		return err.HasCode(code)
+	}
+}
+
+func ContainsString(e error, s string) bool {
+	if e == nil {
+		return false
+	} else if err := Get(e); err == nil {
+		return strings.Contains(e.Error(), s)
+	} else {
+		return err.ContainsString(s)
+	}
+}
+
+func IsCode(e error, code CodeError) bool {
+	if err := Get(e); err == nil {
+		return false
+	} else {
+		return err.IsCode(code)
+	}
+}
+
+func Make(e error) Error {
+	var err Error
+
+	if e == nil {
+		return nil
+	} else if errors.As(e, &err) {
+		return err
+	} else {
+		return &ers{
+			c: 0,
+			e: e.Error(),
+			p: nil,
+			t: getNilFrame(),
+		}
+	}
+}
+
+func MakeIfError(err ...error) Error {
 	var e Error = nil
 
 	for _, p := range err {
 		if p == nil {
 			continue
-		}
-		if e == nil {
-			e = p
+		} else if e == nil {
+			e = Make(p)
 		} else {
-			e.AddParentError(p)
+			e.Add(p)
 		}
 	}
 
 	return e
 }
 
-func NewError(code uint16, message string, parent Error) Error {
-	var p = make([]Error, 0)
+func AddOrNew(errMain, errSub error, parent ...error) Error {
+	var e Error
 
-	if parent != nil {
-		p = parent.GetIErrorSlice()
+	if errMain != nil {
+		if e = Get(errMain); e == nil {
+			e = New(0, errMain.Error())
+		}
+		e.Add(errSub)
+		e.Add(parent...)
+		return e
+	} else if errSub != nil {
+		return New(0, errSub.Error(), parent...)
 	}
 
-	return &errors{
+	return nil
+}
+
+func New(code uint16, message string, parent ...error) Error {
+	var p = make([]Error, 0)
+
+	if len(parent) > 0 {
+		for _, e := range parent {
+			if er := Make(e); er != nil {
+				p = append(p, er)
+			}
+		}
+	}
+
+	return &ers{
 		c: code,
 		e: message,
 		p: p,
@@ -215,14 +264,18 @@ func NewError(code uint16, message string, parent Error) Error {
 	}
 }
 
-func NewErrorTrace(code int, msg string, file string, line int, parent Error) Error {
+func NewErrorTrace(code int, msg string, file string, line int, parent ...error) Error {
 	var p = make([]Error, 0)
 
-	if parent != nil {
-		p = parent.GetIErrorSlice()
+	if len(parent) > 0 {
+		for _, e := range parent {
+			if er := Make(e); er != nil {
+				p = append(p, er)
+			}
+		}
 	}
 
-	return &errors{
+	return &ers{
 		c: uint16(code),
 		e: msg,
 		p: p,
@@ -237,7 +290,7 @@ func NewErrorRecovered(msg string, recovered string, parent ...error) Error {
 	var p = make([]Error, 0)
 
 	if recovered != "" {
-		p = append(p, &errors{
+		p = append(p, &ers{
 			c: 0,
 			e: recovered,
 			p: nil,
@@ -245,16 +298,10 @@ func NewErrorRecovered(msg string, recovered string, parent ...error) Error {
 	}
 
 	if len(parent) > 0 {
-		for _, err := range parent {
-			if err == nil {
-				continue
+		for _, e := range parent {
+			if er := Make(e); er != nil {
+				p = append(p, er)
 			}
-
-			p = append(p, &errors{
-				c: 0,
-				e: err.Error(),
-				p: nil,
-			})
 		}
 	}
 
@@ -265,7 +312,7 @@ func NewErrorRecovered(msg string, recovered string, parent ...error) Error {
 		msg += "\n " + fmt.Sprintf("Fct: %s - File: %s - Line: %d", t.Function, t.File, t.Line)
 	}
 
-	return &errors{
+	return &ers{
 		c: 0,
 		e: msg,
 		p: p,
@@ -273,19 +320,22 @@ func NewErrorRecovered(msg string, recovered string, parent ...error) Error {
 	}
 }
 
-func NewErrorIferror(code uint16, message string, parent error) Error {
-	if parent == nil {
+func IfError(code uint16, message string, parent ...error) Error {
+	p := make([]Error, 0)
+
+	if len(parent) > 0 {
+		for _, e := range parent {
+			if er := Make(e); er != nil {
+				p = append(p, er)
+			}
+		}
+	}
+
+	if len(p) < 1 {
 		return nil
 	}
 
-	p := make([]Error, 0)
-	p = append(p, &errors{
-		c: 0,
-		e: parent.Error(),
-		p: nil,
-	})
-
-	return &errors{
+	return &ers{
 		c: code,
 		e: message,
 		p: p,
@@ -293,46 +343,39 @@ func NewErrorIferror(code uint16, message string, parent error) Error {
 	}
 }
 
-func NewErrorIfError(code uint16, message string, parent Error) Error {
-	if parent == nil {
-		return nil
-	}
-
-	return &errors{
-		c: code,
-		e: message,
-		p: parent.GetIErrorSlice(),
-		t: getFrame(),
-	}
-}
-
-func (e *errors) AddParent(parent ...error) {
+func (e *ers) Add(parent ...error) {
 	for _, v := range parent {
-		if v != nil {
-			e.p = append(e.p, &errors{
+		if v == nil {
+			continue
+		}
+
+		if err, ok := v.(Error); !ok {
+			e.p = append(e.p, &ers{
 				c: 0,
 				e: v.Error(),
 				p: nil,
 			})
+		} else {
+			e.p = append(e.p, err)
 		}
 	}
 }
 
-func (e *errors) IsCodeError(code CodeError) bool {
+func (e *ers) IsCode(code CodeError) bool {
 	return e.c == code.GetUint16()
 }
 
-func (e *errors) IsError(err error) bool {
+func (e *ers) IsError(err error) bool {
 	return e.e == err.Error()
 }
 
-func (e *errors) HasCodeError(code CodeError) bool {
-	if e.IsCodeError(code) {
+func (e *ers) HasCode(code CodeError) bool {
+	if e.IsCode(code) {
 		return true
 	}
 
 	for _, p := range e.p {
-		if p.IsCodeError(code) {
+		if p.IsCode(code) {
 			return true
 		}
 	}
@@ -340,22 +383,22 @@ func (e *errors) HasCodeError(code CodeError) bool {
 	return false
 }
 
-func (e *errors) GetCodeError() CodeError {
+func (e *ers) GetCode() CodeError {
 	return CodeError(e.c)
 }
 
-func (e *errors) GetCodeErrorParent() []CodeError {
+func (e *ers) GetParentCode() []CodeError {
 	var res = make([]CodeError, 0)
 
-	res = append(res, e.GetCodeError())
+	res = append(res, e.GetCode())
 	for _, p := range e.p {
-		res = append(res, p.GetCodeErrorParent()...)
+		res = append(res, p.GetParentCode()...)
 	}
 
 	return unicCodeSlice(res)
 }
 
-func (e *errors) HasError(err error) bool {
+func (e *ers) HasError(err error) bool {
 	if e.IsError(err) {
 		return true
 	}
@@ -369,15 +412,15 @@ func (e *errors) HasError(err error) bool {
 	return false
 }
 
-func (e *errors) HasParent() bool {
+func (e *ers) HasParent() bool {
 	return len(e.p) > 0
 }
 
-func (e *errors) GetParent(withMainError bool) []Error {
-	var res = make([]Error, 0)
+func (e *ers) GetParent(withMainError bool) []error {
+	var res = make([]error, 0)
 
 	if withMainError {
-		res = append(res, &errors{
+		res = append(res, &ers{
 			c: e.c,
 			e: e.e,
 			p: nil,
@@ -394,12 +437,12 @@ func (e *errors) GetParent(withMainError bool) []Error {
 	return res
 }
 
-func (e *errors) SetParent(parent ...error) {
+func (e *ers) SetParent(parent ...error) {
 	e.p = make([]Error, 0)
-	e.AddParent(parent...)
+	e.Add(parent...)
 }
 
-func (e *errors) Map(fct FuncMap) bool {
+func (e *ers) Map(fct FuncMap) bool {
 	if !fct(e) {
 		return false
 	} else if len(e.p) > 0 {
@@ -413,57 +456,45 @@ func (e *errors) Map(fct FuncMap) bool {
 	return true
 }
 
-func (e *errors) AddParentError(parent ...Error) {
-	for _, p := range parent {
-		if p != nil {
-			e.p = append(e.p, p)
+func (e *ers) ContainsString(s string) bool {
+	if strings.Contains(e.e, s) {
+		return true
+	} else {
+		for _, i := range e.p {
+			if i.ContainsString(s) {
+				return true
+			}
 		}
 	}
+
+	return false
 }
 
-func (e *errors) SetParentError(parent ...Error) {
-	e.p = parent
+func (e *ers) Code() uint16 {
+	return e.c
 }
 
-func (e *errors) Code() string {
-	return strconv.Itoa(int(e.c))
-}
-
-func (e *errors) CodeFull(glue string) string {
-	if glue == "" {
-		glue = defaultGlue
-	}
-
-	return strings.Join(e.CodeSlice(), glue)
-}
-
-func (e *errors) CodeSlice() []string {
-	var r = []string{e.Code()}
+func (e *ers) CodeSlice() []uint16 {
+	var r = []uint16{e.Code()}
 
 	for _, v := range e.p {
-		r = append(r, v.Code())
+		if v.Code() > 0 {
+			r = append(r, v.Code())
+		}
 	}
 
 	return r
 }
 
-func (e *errors) Error() string {
+func (e *ers) Error() string {
 	return modeError.error(e)
 }
 
-func (e *errors) StringError() string {
+func (e *ers) StringError() string {
 	return e.e
 }
 
-func (e *errors) StringErrorFull(glue string) string {
-	if glue == "" {
-		glue = defaultGlue
-	}
-
-	return strings.Join(e.StringErrorSlice(), glue)
-}
-
-func (e *errors) StringErrorSlice() []string {
+func (e *ers) StringErrorSlice() []string {
 	var r = []string{e.StringError()}
 
 	for _, v := range e.p {
@@ -473,17 +504,12 @@ func (e *errors) StringErrorSlice() []string {
 	return r
 }
 
-func (e *errors) GetError() error {
+func (e *ers) GetError() error {
 	//nolint goerr113
-	return errs.New(e.e)
+	return fmt.Errorf(e.e)
 }
 
-func (e *errors) GetErrorFull(glue string) error {
-	//nolint goerr113
-	return errs.New(e.StringErrorFull(glue))
-}
-
-func (e *errors) GetErrorSlice() []error {
+func (e *ers) GetErrorSlice() []error {
 	var r = []error{e.GetError()}
 
 	for _, v := range e.p {
@@ -495,21 +521,7 @@ func (e *errors) GetErrorSlice() []error {
 	return r
 }
 
-func (e *errors) GetIError() Error {
-	return e
-}
-
-func (e *errors) GetIErrorSlice() []Error {
-	var r = []Error{e}
-
-	for _, v := range e.p {
-		r = append(r, v.GetIError())
-	}
-
-	return r
-}
-
-func (e *errors) GetTrace() string {
+func (e *ers) GetTrace() string {
 	if e.t.File != "" {
 		return fmt.Sprintf("%s#%d", filterPath(e.t.File), e.t.Line)
 	} else if e.t.Function != "" {
@@ -519,7 +531,7 @@ func (e *errors) GetTrace() string {
 	return ""
 }
 
-func (e *errors) GetTraceSlice() []string {
+func (e *ers) GetTraceSlice() []string {
 	var r = []string{e.GetTrace()}
 
 	for _, v := range e.p {
@@ -531,22 +543,14 @@ func (e *errors) GetTraceSlice() []string {
 	return r
 }
 
-func (e *errors) CodeError(pattern string) string {
+func (e *ers) CodeError(pattern string) string {
 	if pattern == "" {
 		pattern = defaultPattern
 	}
 	return fmt.Sprintf(pattern, e.Code(), e.StringError())
 }
 
-func (e *errors) CodeErrorFull(pattern, glue string) string {
-	if glue == "" {
-		glue = defaultGlue
-	}
-
-	return strings.Join(e.CodeErrorSlice(pattern), glue)
-}
-
-func (e *errors) CodeErrorSlice(pattern string) []string {
+func (e *ers) CodeErrorSlice(pattern string) []string {
 	var r = []string{e.CodeError(pattern)}
 
 	for _, v := range e.p {
@@ -556,7 +560,7 @@ func (e *errors) CodeErrorSlice(pattern string) []string {
 	return r
 }
 
-func (e *errors) CodeErrorTrace(pattern string) string {
+func (e *ers) CodeErrorTrace(pattern string) string {
 	if pattern == "" {
 		pattern = defaultPatternTrace
 	}
@@ -564,15 +568,7 @@ func (e *errors) CodeErrorTrace(pattern string) string {
 	return fmt.Sprintf(pattern, e.Code(), e.StringError(), e.GetTrace())
 }
 
-func (e *errors) CodeErrorTraceFull(pattern, glue string) string {
-	if glue == "" {
-		glue = defaultGlue
-	}
-
-	return strings.Join(e.CodeErrorTraceSlice(pattern), glue)
-}
-
-func (e *errors) CodeErrorTraceSlice(pattern string) []string {
+func (e *ers) CodeErrorTraceSlice(pattern string) []string {
 	var r = []string{e.CodeErrorTrace(pattern)}
 
 	for _, v := range e.p {
@@ -582,12 +578,12 @@ func (e *errors) CodeErrorTraceSlice(pattern string) []string {
 	return r
 }
 
-func (e *errors) Return(r Return) {
+func (e *ers) Return(r Return) {
 	e.ReturnError(r.SetError)
 	e.ReturnParent(r.AddParent)
 }
 
-func (e *errors) ReturnError(f ReturnError) {
+func (e *ers) ReturnError(f ReturnError) {
 	if e.t.File != "" {
 		f(int(e.c), e.e, e.t.File, e.t.Line)
 	} else {
@@ -595,7 +591,7 @@ func (e *errors) ReturnError(f ReturnError) {
 	}
 }
 
-func (e *errors) ReturnParent(f ReturnError) {
+func (e *ers) ReturnParent(f ReturnError) {
 	for _, p := range e.p {
 		p.ReturnError(f)
 		p.ReturnParent(f)

@@ -85,7 +85,7 @@ func (o *mon) Clone(ctx context.Context) (montps.Monitor, liberr.Error) {
 			if err, ok := e.(liberr.Error); ok {
 				return nil, err
 			} else {
-				return nil, ErrorTimeout.ErrorParent(e)
+				return nil, ErrorTimeout.Error(e)
 			}
 		}
 	}

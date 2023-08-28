@@ -111,14 +111,14 @@ func (v *viper) SetConfigFile(fileConfig string) liberr.Error {
 		// Find home directory.
 		home, err := libhom.Dir()
 		if err != nil {
-			return ErrorHomePathNotFound.ErrorParent(err)
+			return ErrorHomePathNotFound.Error(err)
 		}
 
 		// Search config in home directory with name defined in SetConfigName (without extension).
 		v.v.AddConfigPath(home)
 
 		if v.base == "" {
-			return ErrorBasePathNotFound.ErrorParent(fmt.Errorf("base name of config file is empty"))
+			return ErrorBasePathNotFound.Error(fmt.Errorf("base name of config file is empty"))
 		}
 
 		v.v.SetConfigName("." + v.base)

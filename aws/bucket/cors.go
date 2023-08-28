@@ -29,10 +29,9 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) GetCORS() ([]sdkstp.CORSRule, liberr.Error) {
+func (cli *client) GetCORS() ([]sdkstp.CORSRule, error) {
 	out, err := cli.s3.GetBucketCors(cli.GetContext(), &sdksss.GetBucketCorsInput{
 		Bucket: cli.GetBucketAws(),
 	})
@@ -49,7 +48,7 @@ func (cli *client) GetCORS() ([]sdkstp.CORSRule, liberr.Error) {
 	return out.CORSRules, nil
 }
 
-func (cli *client) SetCORS(cors []sdkstp.CORSRule) liberr.Error {
+func (cli *client) SetCORS(cors []sdkstp.CORSRule) error {
 	_, err := cli.s3.PutBucketCors(cli.GetContext(), &sdksss.PutBucketCorsInput{
 		Bucket: cli.GetBucketAws(),
 		CORSConfiguration: &sdkstp.CORSConfiguration{

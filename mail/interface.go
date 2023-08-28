@@ -29,8 +29,6 @@ import (
 	"io"
 	"net/textproto"
 	"time"
-
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type Mail interface {
@@ -50,7 +48,7 @@ type Mail interface {
 
 	SetDateTime(datetime time.Time)
 	GetDateTime() time.Time
-	SetDateString(layout, datetime string) liberr.Error
+	SetDateString(layout, datetime string) error
 	GetDateString() string
 
 	AddHeader(key string, values ...string)
@@ -68,7 +66,7 @@ type Mail interface {
 
 	Email() Email
 
-	Sender() (Sender, liberr.Error)
+	Sender() (Sender, error)
 }
 
 func New() Mail {

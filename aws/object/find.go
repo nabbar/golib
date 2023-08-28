@@ -27,11 +27,9 @@ package object
 
 import (
 	"regexp"
-
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) Find(regex string) ([]string, liberr.Error) {
+func (cli *client) Find(regex string) ([]string, error) {
 	var (
 		result = make([]string, 0)
 		token  = ""

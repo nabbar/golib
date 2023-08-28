@@ -170,7 +170,7 @@ func (o *sts) getEncodeModel() Encode {
 
 func (o *sts) getMarshal() (Encode, liberr.Error) {
 	if !o.checkFunc() {
-		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("missing status info for API"))
+		return nil, ErrorParamEmpty.Error(fmt.Errorf("missing status info for API"))
 	}
 	return o.getEncodeModel(), nil
 }

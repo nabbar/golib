@@ -27,11 +27,9 @@ package mailPooler
 
 import (
 	"time"
-
-	liberr "github.com/nabbar/golib/errors"
 )
 
-type FuncCaller func() liberr.Error
+type FuncCaller func() error
 
 type Config struct {
 	Max  int           `json:"max" yaml:"max" toml:"max" mapstructure:"max"`

@@ -34,9 +34,9 @@ import (
 
 func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	}
 
 	r := bzip2.NewReader(src)
@@ -44,9 +44,9 @@ func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
 	//nolint #nosec
 	/* #nosec */
 	if _, e := io.Copy(dst, r); e != nil {
-		return ErrorIOCopy.ErrorParent(e)
+		return ErrorIOCopy.Error(e)
 	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	} else {
 		return nil
 	}

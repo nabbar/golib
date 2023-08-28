@@ -37,7 +37,7 @@ func (o *pool) Start(ctx context.Context) error {
 
 	o.Walk(func(bindAddress string, srv libhtp.Server) bool {
 		if e := srv.Start(ctx); e != nil {
-			err.AddParent(e)
+			err.Add(e)
 		} else {
 			o.Store(srv)
 		}
@@ -57,7 +57,7 @@ func (o *pool) Stop(ctx context.Context) error {
 
 	o.Walk(func(bindAddress string, srv libhtp.Server) bool {
 		if e := srv.Stop(ctx); e != nil {
-			err.AddParent(e)
+			err.Add(e)
 		} else {
 			o.Store(srv)
 		}
@@ -77,7 +77,7 @@ func (o *pool) Restart(ctx context.Context) error {
 
 	o.Walk(func(bindAddress string, srv libhtp.Server) bool {
 		if e := srv.Restart(ctx); e != nil {
-			err.AddParent(e)
+			err.Add(e)
 		} else {
 			o.Store(srv)
 		}

@@ -26,11 +26,10 @@
 package bucket
 
 import (
-	adkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type ACLHeader uint8
@@ -49,7 +48,7 @@ type ACLHeaders map[ACLHeader]string
 // for GetACL
 // see : https://docs.aws.amazon.com/AmazonS3/latest/API/API_GetBucketAcl.html
 
-func (cli *client) GetACL() (*sdkstp.AccessControlPolicy, liberr.Error) {
+func (cli *client) GetACL() (*sdkstp.AccessControlPolicy, error) {
 	out, err := cli.s3.GetBucketAcl(cli.GetContext(), &sdksss.GetBucketAclInput{
 		Bucket: cli.GetBucketAws(),
 	})
@@ -83,7 +82,7 @@ func (cli *client) GetACL() (*sdkstp.AccessControlPolicy, liberr.Error) {
 //example value : uri="http://acs.amazonaws.com/groups/s3/LogDelivery", emailAddress="xyz@amazon.com"
 // for more info, see : https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketAcl.html#API_PutBucketAcl_RequestSyntax
 
-func (cli *client) SetACL(ACP *sdkstp.AccessControlPolicy, cannedACL sdkstp.BucketCannedACL, header ACLHeaders) liberr.Error {
+func (cli *client) SetACL(ACP *sdkstp.AccessControlPolicy, cannedACL sdkstp.BucketCannedACL, header ACLHeaders) error {
 	in := &sdksss.PutBucketAclInput{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -91,7 +90,7 @@ func (cli *client) SetACL(ACP *sdkstp.AccessControlPolicy, cannedACL sdkstp.Buck
 	return cli.setACLInput(in, ACP, cannedACL, header)
 }
 
-func (cli *client) SetACLPolicy(ACP *sdkstp.AccessControlPolicy) liberr.Error {
+func (cli *client) SetACLPolicy(ACP *sdkstp.AccessControlPolicy) error {
 	in := &sdksss.PutBucketAclInput{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -99,7 +98,7 @@ func (cli *client) SetACLPolicy(ACP *sdkstp.AccessControlPolicy) liberr.Error {
 	return cli.setACLInput(in, ACP, "", nil)
 }
 
-func (cli *client) SetACLHeader(cannedACL sdkstp.BucketCannedACL, header ACLHeaders) liberr.Error {
+func (cli *client) SetACLHeader(cannedACL sdkstp.BucketCannedACL, header ACLHeaders) error {
 	in := &sdksss.PutBucketAclInput{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -107,7 +106,7 @@ func (cli *client) SetACLHeader(cannedACL sdkstp.BucketCannedACL, header ACLHead
 	return cli.setACLInput(in, nil, cannedACL, header)
 }
 
-func (cli *client) setACLInput(in *sdksss.PutBucketAclInput, ACP *sdkstp.AccessControlPolicy, cannedACL sdkstp.BucketCannedACL, header ACLHeaders) liberr.Error {
+func (cli *client) setACLInput(in *sdksss.PutBucketAclInput, ACP *sdkstp.AccessControlPolicy, cannedACL sdkstp.BucketCannedACL, header ACLHeaders) error {
 	if ACP != nil {
 		in.AccessControlPolicy = ACP
 	}
@@ -120,15 +119,15 @@ func (cli *client) setACLInput(in *sdksss.PutBucketAclInput, ACP *sdkstp.AccessC
 		for k, v := range header {
 			switch k {
 			case ACLHeaderFullControl:
-				in.GrantFullControl = adkaws.String(v)
+				in.GrantFullControl = sdkaws.String(v)
 			case ACLHeaderRead:
-				in.GrantRead = adkaws.String(v)
+				in.GrantRead = sdkaws.String(v)
 			case ACLHeaderWrite:
-				in.GrantWrite = adkaws.String(v)
+				in.GrantWrite = sdkaws.String(v)
 			case ACLHeaderReadACP:
-				in.GrantReadACP = adkaws.String(v)
+				in.GrantReadACP = sdkaws.String(v)
 			case ACLHeaderWriteACP:
-				in.GrantWriteACP = adkaws.String(v)
+				in.GrantWriteACP = sdkaws.String(v)
 			}
 		}
 	}

@@ -68,47 +68,47 @@ func ExtractFile(src, dst libfpg.Progress, fileNameContain, fileNameRegex string
 	}()
 
 	if tmp, e = libfpg.Temp(""); e != nil {
-		return ErrorFileOpen.ErrorParent(e)
+		return ErrorFileOpen.Error(e)
 	} else {
 		dst.SetRegisterProgress(tmp)
 	}
 
 	if _, e = src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 		// #nosec
 	}
 
 	if err = libbz2.GetFile(src, tmp); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
-	} else if err.IsCodeError(libbz2.ErrorIOCopy) {
+	} else if err.IsCode(libbz2.ErrorIOCopy) {
 		return err
 	}
 
 	if err = libgzp.GetFile(src, tmp); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
-	} else if !err.IsCodeError(libgzp.ErrorGZReader) {
+	} else if !err.IsCode(libgzp.ErrorGZReader) {
 		return err
 	}
 
 	if err = libtar.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
-	} else if !err.IsCodeError(libtar.ErrorTarNext) {
+	} else if !err.IsCode(libtar.ErrorTarNext) {
 		return err
 	}
 
 	if err = libzip.GetFile(src, tmp, fileNameContain, fileNameRegex); err == nil {
 		//logger.DebugLevel.Log("try another archive...")
 		return ExtractFile(tmp, dst, fileNameContain, fileNameRegex)
-	} else if !err.IsCodeError(libzip.ErrorZipOpen) {
+	} else if !err.IsCode(libzip.ErrorZipOpen) {
 		return err
 	}
 
 	if _, e = dst.ReadFrom(src); e != nil {
 		//logger.ErrorLevel.LogErrorCtx(logger.DebugLevel, "reopening file", err)
-		return ErrorIOCopy.ErrorParent(e)
+		return ErrorIOCopy.Error(e)
 	}
 
 	return nil
@@ -137,20 +137,20 @@ func ExtractAll(src libfpg.Progress, originalName, outputPath string, defaultDir
 	}()
 
 	if tmp, e = libfpg.Temp(""); e != nil {
-		return ErrorFileOpen.ErrorParent(e)
+		return ErrorFileOpen.Error(e)
 	} else {
 		src.SetRegisterProgress(tmp)
 	}
 
 	if err = libbz2.GetFile(src, tmp); err == nil {
 		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
-	} else if !err.IsCodeError(libbz2.ErrorIOCopy) {
+	} else if !err.IsCode(libbz2.ErrorIOCopy) {
 		return err
 	}
 
 	if err = libgzp.GetFile(src, tmp); err == nil {
 		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
-	} else if !err.IsCodeError(libgzp.ErrorGZReader) {
+	} else if !err.IsCode(libgzp.ErrorGZReader) {
 		return err
 	}
 
@@ -162,36 +162,36 @@ func ExtractAll(src libfpg.Progress, originalName, outputPath string, defaultDir
 		//nolint #nosec
 		/* #nosec */
 		if e = os.MkdirAll(outputPath, permDir); e != nil {
-			return ErrorDirCreate.ErrorParent(e)
+			return ErrorDirCreate.Error(e)
 		}
 	} else if e != nil {
-		return ErrorDirStat.ErrorParent(e)
+		return ErrorDirStat.Error(e)
 	} else if !i.IsDir() {
 		return ErrorDirNotDir.Error(nil)
 	}
 
 	if err = libtar.GetAll(src, outputPath, defaultDirPerm); err == nil {
 		return nil
-	} else if !err.IsCodeError(libtar.ErrorTarNext) {
+	} else if !err.IsCode(libtar.ErrorTarNext) {
 		return err
 	}
 
 	if err = libzip.GetAll(src, outputPath, defaultDirPerm); err == nil {
 		return nil
-	} else if !err.IsCodeError(libzip.ErrorZipOpen) {
+	} else if !err.IsCode(libzip.ErrorZipOpen) {
 		return err
 	}
 
 	if dst, e = libfpg.New(filepath.Join(outputPath, originalName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, permFile); e != nil {
-		return ErrorFileOpen.ErrorParent(e)
+		return ErrorFileOpen.Error(e)
 	} else {
 		src.SetRegisterProgress(dst)
 	}
 
 	if _, e = src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	} else if _, e = dst.ReadFrom(src); e != nil {
-		return ErrorIOCopy.ErrorParent(e)
+		return ErrorIOCopy.Error(e)
 	}
 
 	return nil
@@ -200,7 +200,7 @@ func ExtractAll(src libfpg.Progress, originalName, outputPath string, defaultDir
 func CreateArchive(archiveType ArchiveType, archive libfpg.Progress, stripPath string, comment string, pathContent ...string) (created bool, err liberr.Error) {
 	if len(pathContent) < 1 {
 		//nolint #goerr113
-		return false, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathContent is empty"))
+		return false, ErrorParamEmpty.Error(fmt.Errorf("pathContent is empty"))
 	}
 
 	switch archiveType {

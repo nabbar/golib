@@ -70,7 +70,7 @@ func (s *staticHandler) _setBase(base ...string) {
 
 func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
 	if root == "" {
-		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
 	s.m.RLock()
@@ -79,9 +79,9 @@ func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
 	val, err := s.c.ReadDir(root)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
-		return nil, ErrorFileNotFound.ErrorParent(err)
+		return nil, ErrorFileNotFound.Error(err)
 	} else if err != nil {
-		return nil, ErrorFileOpen.ErrorParent(err)
+		return nil, ErrorFileOpen.Error(err)
 	} else {
 		return val, nil
 	}
@@ -89,7 +89,7 @@ func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
 
 func (s *staticHandler) _fileGet(pathFile string) (fs.FileInfo, io.ReadCloser, liberr.Error) {
 	if len(pathFile) < 1 {
-		return nil, nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
 	if inf, err := s._fileInfo(pathFile); err != nil {
@@ -105,7 +105,7 @@ func (s *staticHandler) _fileGet(pathFile string) (fs.FileInfo, io.ReadCloser, l
 
 func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
 	if pathFile == "" {
-		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
 	s.m.RLock()
@@ -115,9 +115,9 @@ func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
 	obj, err := s.c.Open(pathFile)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
-		return nil, ErrorFileNotFound.ErrorParent(err)
+		return nil, ErrorFileNotFound.Error(err)
 	} else if err != nil {
-		return nil, ErrorFileOpen.ErrorParent(err)
+		return nil, ErrorFileOpen.Error(err)
 	}
 
 	defer func() {
@@ -127,9 +127,9 @@ func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
 	inf, err = obj.Stat()
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
-		return nil, ErrorFileNotFound.ErrorParent(err)
+		return nil, ErrorFileNotFound.Error(err)
 	} else if err != nil {
-		return nil, ErrorFileOpen.ErrorParent(err)
+		return nil, ErrorFileOpen.Error(err)
 	}
 
 	return inf, nil
@@ -137,7 +137,7 @@ func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
 
 func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error) {
 	if pathFile == "" {
-		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
 	s.m.RLock()
@@ -146,9 +146,9 @@ func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error)
 	obj, err := s.c.ReadFile(pathFile)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
-		return nil, ErrorFileNotFound.ErrorParent(err)
+		return nil, ErrorFileNotFound.Error(err)
 	} else if err != nil {
-		return nil, ErrorFileOpen.ErrorParent(err)
+		return nil, ErrorFileOpen.Error(err)
 	} else {
 		return libiot.NewBufferReadCloser(bytes.NewBuffer(obj)), nil
 	}
@@ -156,7 +156,7 @@ func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error)
 
 func (s *staticHandler) _fileTemp(pathFile string) (libfpg.Progress, liberr.Error) {
 	if pathFile == "" {
-		return nil, ErrorParamEmpty.ErrorParent(fmt.Errorf("pathfile is empty"))
+		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
 	s.m.RLock()
@@ -166,9 +166,9 @@ func (s *staticHandler) _fileTemp(pathFile string) (libfpg.Progress, liberr.Erro
 	obj, err := s.c.Open(pathFile)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
-		return nil, ErrorFileNotFound.ErrorParent(err)
+		return nil, ErrorFileNotFound.Error(err)
 	} else if err != nil {
-		return nil, ErrorFileOpen.ErrorParent(err)
+		return nil, ErrorFileOpen.Error(err)
 	}
 
 	defer func() {
@@ -177,12 +177,12 @@ func (s *staticHandler) _fileTemp(pathFile string) (libfpg.Progress, liberr.Erro
 
 	tmp, err = libfpg.Temp("")
 	if err != nil {
-		return nil, ErrorFiletemp.ErrorParent(err)
+		return nil, ErrorFiletemp.Error(err)
 	}
 
 	_, e := io.Copy(tmp, obj)
 	if e != nil {
-		return nil, ErrorFiletemp.ErrorParent(e)
+		return nil, ErrorFiletemp.Error(e)
 	}
 
 	return tmp, nil

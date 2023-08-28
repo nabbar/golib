@@ -30,7 +30,6 @@ import (
 	"sync"
 
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	montps "github.com/nabbar/golib/monitor/types"
 	libsmtp "github.com/nabbar/golib/smtp"
 )
@@ -50,7 +49,7 @@ func (o *componentSmtp) SetTLSKey(tlsKey string) {
 	o.t = tlsKey
 }
 
-func (o *componentSmtp) GetSMTP() (libsmtp.SMTP, liberr.Error) {
+func (o *componentSmtp) GetSMTP() (libsmtp.SMTP, error) {
 	if !o.IsStarted() {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	}

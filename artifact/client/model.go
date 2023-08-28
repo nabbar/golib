@@ -29,14 +29,13 @@ import (
 	"sort"
 
 	hscvrs "github.com/hashicorp/go-version"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type ClientHelper struct {
-	F func() (releases hscvrs.Collection, err liberr.Error)
+	F func() (releases hscvrs.Collection, err error)
 }
 
-func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]hscvrs.Collection, err liberr.Error) {
+func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]hscvrs.Collection, err error) {
 	var (
 		vers hscvrs.Collection
 	)
@@ -58,7 +57,7 @@ func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]hscvrs.Collect
 	return
 }
 
-func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]hscvrs.Collection, err liberr.Error) {
+func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]hscvrs.Collection, err error) {
 	var (
 		vers map[int]hscvrs.Collection
 	)
@@ -86,7 +85,7 @@ func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]hscvrs.Coll
 	return
 }
 
-func (g *ClientHelper) ListReleasesMajor(major int) (releases hscvrs.Collection, err liberr.Error) {
+func (g *ClientHelper) ListReleasesMajor(major int) (releases hscvrs.Collection, err error) {
 	var (
 		vers map[int]hscvrs.Collection
 	)
@@ -106,7 +105,7 @@ func (g *ClientHelper) ListReleasesMajor(major int) (releases hscvrs.Collection,
 	return
 }
 
-func (g *ClientHelper) ListReleasesMinor(major, minor int) (releases hscvrs.Collection, err liberr.Error) {
+func (g *ClientHelper) ListReleasesMinor(major, minor int) (releases hscvrs.Collection, err error) {
 	var (
 		vers map[int]map[int]hscvrs.Collection
 	)
@@ -130,7 +129,7 @@ func (g *ClientHelper) ListReleasesMinor(major, minor int) (releases hscvrs.Coll
 	return
 }
 
-func (g *ClientHelper) GetLatest() (release *hscvrs.Version, err liberr.Error) {
+func (g *ClientHelper) GetLatest() (release *hscvrs.Version, err error) {
 	var (
 		vers  map[int]map[int]hscvrs.Collection
 		major int
@@ -156,7 +155,7 @@ func (g *ClientHelper) GetLatest() (release *hscvrs.Version, err liberr.Error) {
 	return g.GetLatestMinor(major, minor)
 }
 
-func (g *ClientHelper) GetLatestMajor(major int) (release *hscvrs.Version, err liberr.Error) {
+func (g *ClientHelper) GetLatestMajor(major int) (release *hscvrs.Version, err error) {
 	var (
 		vers  map[int]map[int]hscvrs.Collection
 		minor int
@@ -179,7 +178,7 @@ func (g *ClientHelper) GetLatestMajor(major int) (release *hscvrs.Version, err l
 	return g.GetLatestMinor(major, minor)
 }
 
-func (g *ClientHelper) GetLatestMinor(major, minor int) (release *hscvrs.Version, err liberr.Error) {
+func (g *ClientHelper) GetLatestMinor(major, minor int) (release *hscvrs.Version, err error) {
 	var (
 		vers hscvrs.Collection
 	)

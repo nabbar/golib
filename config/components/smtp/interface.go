@@ -33,7 +33,6 @@ import (
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	lbsmtp "github.com/nabbar/golib/smtp"
 )
 
@@ -41,7 +40,7 @@ type ComponentSMTP interface {
 	cfgtps.Component
 
 	SetTLSKey(tlsKey string)
-	GetSMTP() (lbsmtp.SMTP, liberr.Error)
+	GetSMTP() (lbsmtp.SMTP, error)
 }
 
 func New(ctx libctx.FuncContext, tlsKey string) ComponentSMTP {

@@ -169,7 +169,7 @@ func (o *mon) SetConfig(ctx libctx.FuncContext, cfg montps.Config) liberr.Error 
 	}
 
 	if e := n.SetOptions(&cfg.Logger); e != nil {
-		return ErrorLoggerError.ErrorParent(e)
+		return ErrorLoggerError.Error(e)
 	}
 
 	f := n.GetFields()

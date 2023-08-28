@@ -29,13 +29,12 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 /*
 @DEPRECATED: PolicyAttachedList
 */
-func (cli *client) PolicyListAttached(roleName string) ([]sdktps.AttachedPolicy, liberr.Error) {
+func (cli *client) PolicyListAttached(roleName string) ([]sdktps.AttachedPolicy, error) {
 	out, _, err := cli.PolicyAttachedList(roleName, "")
 
 	if err != nil {
@@ -45,7 +44,7 @@ func (cli *client) PolicyListAttached(roleName string) ([]sdktps.AttachedPolicy,
 	}
 }
 
-func (cli *client) PolicyAttach(policyARN, roleName string) liberr.Error {
+func (cli *client) PolicyAttach(policyARN, roleName string) error {
 	_, err := cli.iam.AttachRolePolicy(cli.GetContext(), &sdkiam.AttachRolePolicyInput{
 		PolicyArn: sdkaws.String(policyARN),
 		RoleName:  sdkaws.String(roleName),
@@ -54,7 +53,7 @@ func (cli *client) PolicyAttach(policyARN, roleName string) liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) PolicyDetach(policyARN, roleName string) liberr.Error {
+func (cli *client) PolicyDetach(policyARN, roleName string) error {
 	_, err := cli.iam.DetachRolePolicy(cli.GetContext(), &sdkiam.DetachRolePolicyInput{
 		PolicyArn: sdkaws.String(policyARN),
 		RoleName:  sdkaws.String(roleName),
@@ -63,7 +62,7 @@ func (cli *client) PolicyDetach(policyARN, roleName string) liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) PolicyAttachedList(roleName, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error) {
+func (cli *client) PolicyAttachedList(roleName, marker string) ([]sdktps.AttachedPolicy, string, error) {
 	in := &sdkiam.ListAttachedRolePoliciesInput{
 		RoleName: sdkaws.String(roleName),
 		MaxItems: sdkaws.Int32(1000),
@@ -86,7 +85,7 @@ func (cli *client) PolicyAttachedList(roleName, marker string) ([]sdktps.Attache
 	}
 }
 
-func (cli *client) PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) liberr.Error {
+func (cli *client) PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) error {
 	var m *string
 
 	in := &sdkiam.ListAttachedRolePoliciesInput{
@@ -109,7 +108,7 @@ func (cli *client) PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) lib
 			return nil
 		}
 
-		var e liberr.Error
+		var e error
 		for _, p := range lst.AttachedPolicies {
 			e = fct(e, p)
 		}

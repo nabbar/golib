@@ -33,7 +33,6 @@ import (
 	libtls "github.com/nabbar/golib/certificates"
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	moncfg "github.com/nabbar/golib/monitor/types"
 	lbsmtp "github.com/nabbar/golib/smtp"
 	smtpcf "github.com/nabbar/golib/smtp/config"
@@ -177,7 +176,7 @@ func (o *componentSmtp) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentSmtp) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentSmtp) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -185,10 +184,10 @@ func (o *componentSmtp) _runFct(fct func(cpt cfgtps.Component) liberr.Error) lib
 	return nil
 }
 
-func (o *componentSmtp) _runCli() liberr.Error {
+func (o *componentSmtp) _runCli() error {
 	var (
 		e   error
-		err liberr.Error
+		err error
 		prt = ErrorComponentReload
 		obj lbsmtp.SMTP
 		cfg smtpcf.Config
@@ -212,13 +211,13 @@ func (o *componentSmtp) _runCli() liberr.Error {
 	o.m.Unlock()
 
 	if e = o._registerMonitor(mon); e != nil {
-		return prt.ErrorParent(e)
+		return prt.Error(e)
 	}
 
 	return nil
 }
 
-func (o *componentSmtp) _run() liberr.Error {
+func (o *componentSmtp) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

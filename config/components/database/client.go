@@ -32,7 +32,6 @@ import (
 	"github.com/nabbar/golib/database/gorm"
 
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 	spfvbr "github.com/spf13/viper"
@@ -148,7 +147,7 @@ func (o *componentDatabase) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentDatabase) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentDatabase) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -156,9 +155,9 @@ func (o *componentDatabase) _runFct(fct func(cpt cfgtps.Component) liberr.Error)
 	return nil
 }
 
-func (o *componentDatabase) _runCli() liberr.Error {
+func (o *componentDatabase) _runCli() error {
 	var (
-		err liberr.Error
+		err error
 		prt = ErrorComponentReload
 		dbo gorm.Database
 		cfg *gorm.Config
@@ -183,13 +182,13 @@ func (o *componentDatabase) _runCli() liberr.Error {
 	o.m.Unlock()
 
 	if e := o._registerMonitor(cfg); e != nil {
-		return prt.ErrorParent(e)
+		return prt.Error(e)
 	}
 
 	return nil
 }
 
-func (o *componentDatabase) _run() liberr.Error {
+func (o *componentDatabase) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

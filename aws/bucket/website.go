@@ -30,10 +30,9 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) PutWebsite(index, error string) liberr.Error {
+func (cli *client) PutWebsite(index, error string) error {
 	_, err := cli.s3.PutBucketWebsite(cli.GetContext(), &sdksss.PutBucketWebsiteInput{
 		Bucket: cli.GetBucketAws(),
 		WebsiteConfiguration: &sdkstp.WebsiteConfiguration{
@@ -49,7 +48,7 @@ func (cli *client) PutWebsite(index, error string) liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) GetWebsite() (*sdksss.GetBucketWebsiteOutput, liberr.Error) {
+func (cli *client) GetWebsite() (*sdksss.GetBucketWebsiteOutput, error) {
 	out, err := cli.s3.GetBucketWebsite(cli.GetContext(), &sdksss.GetBucketWebsiteInput{
 		Bucket: cli.GetBucketAws(),
 	})

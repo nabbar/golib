@@ -46,15 +46,15 @@ func Create(archive io.WriteSeeker, stripPath string, comment string, content ..
 
 	if len(content) != 1 {
 		//nolint #goerr113
-		return false, ErrorParamMismatching.ErrorParent(fmt.Errorf("content path must be limited to strictly one contents"))
+		return false, ErrorParamMismatching.Error(fmt.Errorf("content path must be limited to strictly one contents"))
 	}
 
 	if _, err = archive.Seek(0, io.SeekStart); err != nil {
-		return false, ErrorFileSeek.ErrorParent(err)
+		return false, ErrorFileSeek.Error(err)
 	}
 
 	if _, err = os.Stat(content[0]); err != nil {
-		return false, ErrorParamEmpty.ErrorParent(err)
+		return false, ErrorParamEmpty.Error(err)
 	}
 
 	w = gzip.NewWriter(archive)
@@ -66,7 +66,7 @@ func Create(archive io.WriteSeeker, stripPath string, comment string, content ..
 	}()
 
 	if f, err = os.Open(content[0]); err != nil {
-		return false, ErrorFileOpen.ErrorParent(err)
+		return false, ErrorFileOpen.Error(err)
 	}
 
 	defer func() {
@@ -76,15 +76,15 @@ func Create(archive io.WriteSeeker, stripPath string, comment string, content ..
 	}()
 
 	if _, err = io.Copy(w, f); err != nil {
-		return false, ErrorIOCopy.ErrorParent(err)
+		return false, ErrorIOCopy.Error(err)
 	}
 
 	if err = w.Close(); err != nil {
-		return false, ErrorGZCreate.ErrorParent(err)
+		return false, ErrorGZCreate.Error(err)
 	}
 
 	if _, err = archive.Seek(0, io.SeekStart); err != nil {
-		return false, ErrorFileSeek.ErrorParent(err)
+		return false, ErrorFileSeek.Error(err)
 	}
 
 	return true, nil

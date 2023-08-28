@@ -42,9 +42,9 @@ import (
 func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) liberr.Error {
 
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	}
 
 	r := tar.NewReader(src)
@@ -54,7 +54,7 @@ func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) li
 		if e != nil && e == io.EOF {
 			return nil
 		} else if e != nil {
-			return ErrorTarNext.ErrorParent(e)
+			return ErrorTarNext.Error(e)
 		}
 
 		if h.FileInfo().Mode()&os.ModeType == os.ModeType {
@@ -67,9 +67,9 @@ func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) li
 		/* #nosec */
 		if f.MatchingFullPath(filenameContain) || f.RegexFullPath(filenameRegex) {
 			if _, e = dst.ReadFrom(r); e != nil {
-				return ErrorIOCopy.ErrorParent(e)
+				return ErrorIOCopy.Error(e)
 			} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-				return ErrorFileSeek.ErrorParent(e)
+				return ErrorFileSeek.Error(e)
 			} else {
 				return nil
 			}
@@ -80,7 +80,7 @@ func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) li
 func GetAll(src io.ReadSeeker, outputFolder string, defaultDirPerm os.FileMode) liberr.Error {
 
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	}
 
 	r := tar.NewReader(src)
@@ -90,7 +90,7 @@ func GetAll(src io.ReadSeeker, outputFolder string, defaultDirPerm os.FileMode) 
 		if e != nil && e == io.EOF {
 			return nil
 		} else if e != nil {
-			return ErrorTarNext.ErrorParent(e)
+			return ErrorTarNext.Error(e)
 		}
 
 		//nolint #nosec
@@ -116,8 +116,8 @@ func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.File
 	defer func() {
 		if dst != nil {
 			if e := dst.Close(); e != nil {
-				err = ErrorFileClose.ErrorParent(e)
-				err.AddParentError(err)
+				err = ErrorFileClose.Error(e)
+				err.Add(err)
 			}
 		}
 	}()
@@ -134,11 +134,11 @@ func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.File
 	}
 
 	if dst, e = libfpg.New(out, os.O_RDWR|os.O_CREATE|os.O_TRUNC, inf.Mode()); e != nil {
-		return ErrorFileOpen.ErrorParent(e)
+		return ErrorFileOpen.Error(e)
 	} else if _, e = io.Copy(dst, r); e != nil {
-		return ErrorIOCopy.ErrorParent(e)
+		return ErrorIOCopy.Error(e)
 	} else if e = dst.Close(); e != nil {
-		return ErrorFileClose.ErrorParent(e)
+		return ErrorFileClose.Error(e)
 	}
 
 	return nil
@@ -147,10 +147,10 @@ func writeContent(r io.Reader, h *tar.Header, out string, defaultDirPerm os.File
 func dirIsExistOrCreate(dirname string, dirPerm os.FileMode) liberr.Error {
 	if i, e := os.Stat(dirname); e != nil && os.IsNotExist(e) {
 		if e = os.MkdirAll(dirname, dirPerm); e != nil {
-			return ErrorDirCreate.ErrorParent(e)
+			return ErrorDirCreate.Error(e)
 		}
 	} else if e != nil {
-		return ErrorDestinationStat.ErrorParent(e)
+		return ErrorDestinationStat.Error(e)
 	} else if !i.IsDir() {
 		return ErrorDestinationIsNotDir.Error(nil)
 	}
@@ -170,7 +170,7 @@ func notDirExistCannotClean(filename string, flag byte, targetLink string) liber
 	if _, e := os.Stat(filename); e != nil && os.IsNotExist(e) {
 		return nil
 	} else if e != nil {
-		return ErrorDestinationStat.ErrorParent(e)
+		return ErrorDestinationStat.Error(e)
 	} else if flag&tar.TypeLink == tar.TypeLink || flag&tar.TypeSymlink == tar.TypeSymlink {
 		if hasFSLink(filename) && compareLinkTarget(filename, targetLink) {
 			return nil
@@ -178,7 +178,7 @@ func notDirExistCannotClean(filename string, flag byte, targetLink string) liber
 	}
 
 	if e := os.Remove(filename); e != nil {
-		err := ErrorDestinationRemove.ErrorParent(e)
+		err := ErrorDestinationRemove.Error(e)
 		return err
 	}
 
@@ -201,7 +201,7 @@ func createLink(link, target string, sym bool) liberr.Error {
 	}
 
 	if _, e := os.Stat(link); e != nil && !os.IsNotExist(e) {
-		return ErrorDestinationStat.ErrorParent(e)
+		return ErrorDestinationStat.Error(e)
 	} else if e == nil {
 		return nil
 	} else if compareLinkTarget(link, target) {
@@ -211,12 +211,12 @@ func createLink(link, target string, sym bool) liberr.Error {
 	if sym {
 		err := os.Symlink(libarc.CleanPath(target), libarc.CleanPath(link))
 		if err != nil {
-			return ErrorLinkCreate.ErrorParent(err)
+			return ErrorLinkCreate.Error(err)
 		}
 	} else {
 		err := os.Link(libarc.CleanPath(target), libarc.CleanPath(link))
 		if err != nil {
-			return ErrorLinkCreate.ErrorParent(err)
+			return ErrorLinkCreate.Error(err)
 		}
 	}
 

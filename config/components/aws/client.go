@@ -32,7 +32,6 @@ import (
 	libaws "github.com/nabbar/golib/aws"
 	libtls "github.com/nabbar/golib/certificates"
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
 	libreq "github.com/nabbar/golib/request"
 	libver "github.com/nabbar/golib/version"
@@ -165,7 +164,7 @@ func (o *componentAws) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentAws) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentAws) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -173,11 +172,9 @@ func (o *componentAws) _runFct(fct func(cpt cfgtps.Component) liberr.Error) libe
 	return nil
 }
 
-func (o *componentAws) _runCli() liberr.Error {
+func (o *componentAws) _runCli() error {
 	var (
-		e error
-
-		err liberr.Error
+		err error
 		cli libaws.AWS
 		cfg libaws.Config
 		mon *libreq.OptionsHealth
@@ -226,11 +223,11 @@ func (o *componentAws) _runCli() liberr.Error {
 		o.m.Unlock()
 
 		if req != nil {
-			if req, e = opt.Update(o.x.GetContext, req); e != nil {
-				return prt.ErrorParent(e)
+			if req, err = opt.Update(o.x.GetContext, req); err != nil {
+				return prt.Error(err)
 			}
-		} else if req, e = opt.New(o.x.GetContext); e != nil {
-			return prt.ErrorParent(e)
+		} else if req, err = opt.New(o.x.GetContext); err != nil {
+			return prt.Error(err)
 		}
 
 		o.m.Lock()
@@ -239,8 +236,8 @@ func (o *componentAws) _runCli() liberr.Error {
 	}
 
 	if mon != nil {
-		if e = o._registerMonitor(mon, cfg); e != nil {
-			return prt.ErrorParent(e)
+		if err = o._registerMonitor(mon, cfg); err != nil {
+			return prt.Error(err)
 		}
 	}
 
@@ -251,7 +248,7 @@ func (o *componentAws) _runCli() liberr.Error {
 	return nil
 }
 
-func (o *componentAws) _run() liberr.Error {
+func (o *componentAws) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

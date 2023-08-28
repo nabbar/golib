@@ -34,14 +34,14 @@ import (
 
 func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	}
 
 	r, e := gz.NewReader(src)
 	if e != nil {
-		return ErrorGZReader.ErrorParent(e)
+		return ErrorGZReader.Error(e)
 	}
 
 	defer func() {
@@ -51,9 +51,9 @@ func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
 	//nolint #nosec
 	/* #nosec */
 	if _, e = io.Copy(dst, r); e != nil {
-		return ErrorIOCopy.ErrorParent(e)
+		return ErrorIOCopy.Error(e)
 	} else if _, e := dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.ErrorParent(e)
+		return ErrorFileSeek.Error(e)
 	} else {
 		return nil
 	}

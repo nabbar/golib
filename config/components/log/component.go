@@ -29,7 +29,6 @@ package log
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -95,11 +94,11 @@ func (o *componentLog) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentLog) Start() liberr.Error {
+func (o *componentLog) Start() error {
 	return o._run()
 }
 
-func (o *componentLog) Reload() liberr.Error {
+func (o *componentLog) Reload() error {
 	return o._run()
 }
 
@@ -133,7 +132,7 @@ func (o *componentLog) Dependencies() []string {
 	}
 }
 
-func (o *componentLog) SetDependencies(d []string) liberr.Error {
+func (o *componentLog) SetDependencies(d []string) error {
 	o.m.RLock()
 	defer o.m.RUnlock()
 

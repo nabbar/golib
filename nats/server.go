@@ -104,7 +104,7 @@ func (s *server) Listen(ctx context.Context) liberr.Error {
 	)
 
 	if o, e = natsrv.NewServer(s.GetOptions()); e != nil {
-		err := ErrorServerStart.ErrorParent(e)
+		err := ErrorServerStart.Error(e)
 		s._SetError(err)
 		return err
 	}

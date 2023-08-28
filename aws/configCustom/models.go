@@ -34,7 +34,6 @@ import (
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
-	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
 	libreq "github.com/nabbar/golib/request"
 )
@@ -61,26 +60,26 @@ type awsModel struct {
 	mapRegion map[string]*url.URL
 }
 
-func (c *awsModel) Validate() liberr.Error {
+func (c *awsModel) Validate() error {
 	err := ErrorConfigValidator.Error(nil)
 
 	if er := libval.New().Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
-			err.AddParent(e)
+			err.Add(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
+			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
 		}
 	}
 
 	if c.Endpoint != "" && c.endpoint == nil {
 		var e error
 		if c.endpoint, e = url.Parse(c.Endpoint); e != nil {
-			err.AddParent(e)
+			err.Add(e)
 		} else if er := c.RegisterRegionAws(c.endpoint); er != nil {
-			err.AddParentError(er)
+			err.Add(er)
 		}
 	} else if !err.HasParent() && c.endpoint != nil && c.Endpoint == "" {
 		c.Endpoint = c.endpoint.String()
@@ -88,7 +87,7 @@ func (c *awsModel) Validate() liberr.Error {
 
 	if !err.HasParent() && c.endpoint != nil && c.Region != "" {
 		if e := c.RegisterRegionEndpoint("", c.endpoint); e != nil {
-			err.AddParentError(e)
+			err.Add(e)
 		}
 	}
 
@@ -112,13 +111,13 @@ func (c *awsModel) ResetRegionEndpoint() {
 	c.mapRegion = make(map[string]*url.URL)
 }
 
-func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) liberr.Error {
+func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) error {
 	if endpoint == nil && c.endpoint != nil {
 		endpoint = c.endpoint
 	} else if endpoint == nil && c.Endpoint != "" {
 		var err error
 		if endpoint, err = url.Parse(c.Endpoint); err != nil {
-			return ErrorEndpointInvalid.ErrorParent(err)
+			return ErrorEndpointInvalid.Error(err)
 		}
 	}
 
@@ -133,9 +132,9 @@ func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) libe
 	val := libval.New()
 
 	if err := val.Var(endpoint, "url,required"); err != nil {
-		return ErrorEndpointInvalid.ErrorParent(err)
+		return ErrorEndpointInvalid.Error(err)
 	} else if err := val.Var(region, "printascii,required"); err != nil {
-		return ErrorRegionInvalid.ErrorParent(err)
+		return ErrorRegionInvalid.Error(err)
 	}
 
 	if c.mapRegion == nil {
@@ -147,13 +146,13 @@ func (c *awsModel) RegisterRegionEndpoint(region string, endpoint *url.URL) libe
 	return nil
 }
 
-func (c *awsModel) RegisterRegionAws(endpoint *url.URL) liberr.Error {
+func (c *awsModel) RegisterRegionAws(endpoint *url.URL) error {
 	if endpoint == nil && c.endpoint != nil {
 		endpoint = c.endpoint
 	} else if endpoint == nil && c.Endpoint != "" {
 		var err error
 		if endpoint, err = url.Parse(c.Endpoint); err != nil {
-			return ErrorEndpointInvalid.ErrorParent(err)
+			return ErrorEndpointInvalid.Error(err)
 		}
 	}
 
@@ -163,7 +162,7 @@ func (c *awsModel) RegisterRegionAws(endpoint *url.URL) liberr.Error {
 
 	val := libval.New()
 	if err := val.Var(endpoint, "url,required"); err != nil {
-		return ErrorEndpointInvalid.ErrorParent(err)
+		return ErrorEndpointInvalid.Error(err)
 	}
 
 	if c.Region == "" {
@@ -264,12 +263,12 @@ func (c *awsModel) SetRetryer(retryer func() sdkaws.Retryer) {
 	c.retryer = retryer
 }
 
-func (c *awsModel) Check(ctx context.Context) liberr.Error {
+func (c *awsModel) Check(ctx context.Context) error {
 	var (
 		cfg *sdkaws.Config
 		con net.Conn
 		err error
-		e   liberr.Error
+		e   error
 	)
 
 	if cfg, e = c.GetConfig(ctx, nil); e != nil {
@@ -281,11 +280,11 @@ func (c *awsModel) Check(ctx context.Context) liberr.Error {
 	}
 
 	if _, err = cfg.EndpointResolverWithOptions.ResolveEndpoint("s3", c.GetRegion()); err != nil {
-		return ErrorEndpointInvalid.ErrorParent(err)
+		return ErrorEndpointInvalid.Error(err)
 	}
 
 	if _, err = cfg.Credentials.Retrieve(ctx); err != nil {
-		return ErrorCredentialsInvalid.ErrorParent(err)
+		return ErrorCredentialsInvalid.Error(err)
 	}
 
 	d := net.Dialer{
@@ -308,7 +307,7 @@ func (c *awsModel) Check(ctx context.Context) liberr.Error {
 	}()
 
 	if err != nil {
-		return ErrorEndpointInvalid.ErrorParent(err)
+		return ErrorEndpointInvalid.Error(err)
 	}
 
 	return nil

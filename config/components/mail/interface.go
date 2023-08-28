@@ -32,14 +32,13 @@ import (
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	libmail "github.com/nabbar/golib/mail"
 )
 
 type ComponentMail interface {
 	cfgtps.Component
 
-	GetMail() (libmail.Mail, liberr.Error)
+	GetMail() (libmail.Mail, error)
 }
 
 func New(ctx libctx.FuncContext) ComponentMail {

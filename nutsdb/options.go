@@ -113,7 +113,7 @@ func (o options) NewBackup(db *nutsdb.DB) (string, liberr.Error) {
 	fld := o.getBackupDirName()
 
 	if e := os.MkdirAll(filepath.Join(o.dirs.backup, fld), o.perm); e != nil {
-		return "", ErrorFolderCreate.ErrorParent(e)
+		return "", ErrorFolderCreate.Error(e)
 	} else if err := o.newBackupDir(fld, db); err != nil {
 		return "", err
 	} else {
@@ -133,7 +133,7 @@ func (o options) NewBackupTemp(db *nutsdb.DB) (string, liberr.Error) {
 
 func (o options) NewTempFolder() (string, liberr.Error) {
 	if p, e := os.MkdirTemp(o.dirs.temp, o.getTempPrefix()); e != nil {
-		return "", ErrorFolderCreate.ErrorParent(e)
+		return "", ErrorFolderCreate.Error(e)
 	} else {
 		_ = os.Chmod(p, o.perm)
 		return p, nil
@@ -164,9 +164,9 @@ func (o options) Permission() os.FileMode {
 
 func (o options) RestoreBackup(dir string) liberr.Error {
 	if err := os.RemoveAll(o.dirs.data); err != nil {
-		return ErrorFolderDelete.ErrorParent(err)
+		return ErrorFolderDelete.Error(err)
 	} else if err = xujufs.CopyDir(dir, o.dirs.data); err != nil {
-		return ErrorFolderCopy.ErrorParent(err)
+		return ErrorFolderCopy.Error(err)
 	} else {
 		_ = os.Chmod(o.dirs.data, o.perm)
 	}
@@ -178,7 +178,7 @@ func (o options) RestoreBackup(dir string) liberr.Error {
 
 func (o options) newBackupDir(dir string, db *nutsdb.DB) liberr.Error {
 	if err := db.Backup(dir); err != nil {
-		return ErrorDatabaseBackup.ErrorParent(err)
+		return ErrorDatabaseBackup.Error(err)
 	}
 
 	return nil

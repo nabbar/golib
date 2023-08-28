@@ -29,10 +29,9 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) PolicyPut(policyDocument, policyName, username string) liberr.Error {
+func (cli *client) PolicyPut(policyDocument, policyName, username string) error {
 	_, err := cli.iam.PutUserPolicy(cli.GetContext(), &sdkiam.PutUserPolicyInput{
 		PolicyDocument: sdkaws.String(policyDocument),
 		PolicyName:     sdkaws.String(policyName),
@@ -42,7 +41,7 @@ func (cli *client) PolicyPut(policyDocument, policyName, username string) liberr
 	return cli.GetError(err)
 }
 
-func (cli *client) PolicyAttachedList(username, marker string) ([]sdktps.AttachedPolicy, string, liberr.Error) {
+func (cli *client) PolicyAttachedList(username, marker string) ([]sdktps.AttachedPolicy, string, error) {
 	in := &sdkiam.ListAttachedUserPoliciesInput{
 		UserName: sdkaws.String(username),
 		MaxItems: sdkaws.Int32(1000),
@@ -65,7 +64,7 @@ func (cli *client) PolicyAttachedList(username, marker string) ([]sdktps.Attache
 	}
 }
 
-func (cli *client) PolicyAttachedWalk(username string, fct PoliciesWalkFunc) liberr.Error {
+func (cli *client) PolicyAttachedWalk(username string, fct PoliciesWalkFunc) error {
 	var m *string
 
 	in := &sdkiam.ListAttachedUserPoliciesInput{
@@ -88,7 +87,7 @@ func (cli *client) PolicyAttachedWalk(username string, fct PoliciesWalkFunc) lib
 			return nil
 		}
 
-		var e liberr.Error
+		var e error
 		for _, p := range lst.AttachedPolicies {
 			e = fct(e, p)
 		}
@@ -105,7 +104,7 @@ func (cli *client) PolicyAttachedWalk(username string, fct PoliciesWalkFunc) lib
 	}
 }
 
-func (cli *client) PolicyAttach(policyARN, username string) liberr.Error {
+func (cli *client) PolicyAttach(policyARN, username string) error {
 	_, err := cli.iam.AttachUserPolicy(cli.GetContext(), &sdkiam.AttachUserPolicyInput{
 		PolicyArn: sdkaws.String(policyARN),
 		UserName:  sdkaws.String(username),
@@ -114,7 +113,7 @@ func (cli *client) PolicyAttach(policyARN, username string) liberr.Error {
 	return cli.GetError(err)
 }
 
-func (cli *client) PolicyDetach(policyARN, username string) liberr.Error {
+func (cli *client) PolicyDetach(policyARN, username string) error {
 	_, err := cli.iam.DetachUserPolicy(cli.GetContext(), &sdkiam.DetachUserPolicyInput{
 		PolicyArn: sdkaws.String(policyARN),
 		UserName:  sdkaws.String(username),

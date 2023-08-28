@@ -33,7 +33,6 @@ import (
 
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	liberr "github.com/nabbar/golib/errors"
 	gitlab "github.com/xanzy/go-gitlab"
 )
 
@@ -42,7 +41,7 @@ const (
 	GitlabAPIVersion = "/v4"
 )
 
-func getGitlbaOptions(baseUrl string, httpcli *http.Client) (opt []gitlab.ClientOptionFunc, err liberr.Error) {
+func getGitlbaOptions(baseUrl string, httpcli *http.Client) (opt []gitlab.ClientOptionFunc, err error) {
 	var (
 		u *url.URL
 		e error
@@ -51,7 +50,7 @@ func getGitlbaOptions(baseUrl string, httpcli *http.Client) (opt []gitlab.Client
 	opt = make([]gitlab.ClientOptionFunc, 0)
 
 	if u, e = url.Parse(baseUrl); e != nil {
-		return opt, ErrorURLParse.ErrorParent(e)
+		return opt, ErrorURLParse.Error(e)
 	}
 
 	if !strings.Contains(u.Path, GitlabAPIBase) {
@@ -84,7 +83,7 @@ func newGitlab(ctx context.Context, c *gitlab.Client, projectId int) libart.Clie
 	return a
 }
 
-func NewGitlabAuthUser(ctx context.Context, httpcli *http.Client, user, pass, baseUrl string, projectId int) (cli libart.Client, err liberr.Error) {
+func NewGitlabAuthUser(ctx context.Context, httpcli *http.Client, user, pass, baseUrl string, projectId int) (cli libart.Client, err error) {
 	var (
 		o []gitlab.ClientOptionFunc
 		c *gitlab.Client
@@ -96,13 +95,13 @@ func NewGitlabAuthUser(ctx context.Context, httpcli *http.Client, user, pass, ba
 	}
 
 	if c, e = gitlab.NewBasicAuthClient(user, pass, o...); e != nil {
-		return nil, ErrorClientInit.ErrorParent(e)
+		return nil, ErrorClientInit.Error(e)
 	}
 
 	return newGitlab(ctx, c, projectId), err
 }
 
-func NewGitlabOAuth(ctx context.Context, httpcli *http.Client, oAuthToken, baseUrl string, projectId int) (cli libart.Client, err liberr.Error) {
+func NewGitlabOAuth(ctx context.Context, httpcli *http.Client, oAuthToken, baseUrl string, projectId int) (cli libart.Client, err error) {
 	var (
 		o []gitlab.ClientOptionFunc
 		c *gitlab.Client
@@ -114,13 +113,13 @@ func NewGitlabOAuth(ctx context.Context, httpcli *http.Client, oAuthToken, baseU
 	}
 
 	if c, e = gitlab.NewOAuthClient(oAuthToken, o...); e != nil {
-		return nil, ErrorClientInit.ErrorParent(e)
+		return nil, ErrorClientInit.Error(e)
 	}
 
 	return newGitlab(ctx, c, projectId), err
 }
 
-func NewGitlabPrivateToken(ctx context.Context, httpcli *http.Client, token, baseUrl string, projectId int) (cli libart.Client, err liberr.Error) {
+func NewGitlabPrivateToken(ctx context.Context, httpcli *http.Client, token, baseUrl string, projectId int) (cli libart.Client, err error) {
 	var (
 		o []gitlab.ClientOptionFunc
 		c *gitlab.Client
@@ -132,7 +131,7 @@ func NewGitlabPrivateToken(ctx context.Context, httpcli *http.Client, token, bas
 	}
 
 	if c, e = gitlab.NewClient(token, o...); e != nil {
-		return nil, ErrorClientInit.ErrorParent(e)
+		return nil, ErrorClientInit.Error(e)
 	}
 
 	return newGitlab(ctx, c, projectId), err

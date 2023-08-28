@@ -85,12 +85,12 @@ func (f NutsDBFolder) Validate() liberr.Error {
 
 	if er := libval.New().Struct(f); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
-			err.AddParent(e)
+			err.Add(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
 		}
 	}
 
@@ -120,7 +120,7 @@ func (f NutsDBFolder) getDirectory(base, dir string) (string, liberr.Error) {
 	}
 
 	if abs, err = filepath.Abs(dir); err != nil {
-		return "", ErrorFolderCheck.ErrorParent(err)
+		return "", ErrorFolderCheck.Error(err)
 	}
 
 	if f.Permission == 0 {
@@ -128,10 +128,10 @@ func (f NutsDBFolder) getDirectory(base, dir string) (string, liberr.Error) {
 	}
 
 	if _, err = os.Stat(abs); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", ErrorFolderCheck.ErrorParent(err)
+		return "", ErrorFolderCheck.Error(err)
 	} else if err != nil {
 		if err = os.MkdirAll(abs, f.Permission); err != nil {
-			return "", ErrorFolderCreate.ErrorParent(err)
+			return "", ErrorFolderCreate.Error(err)
 		}
 	}
 

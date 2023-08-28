@@ -27,7 +27,6 @@
 package smtp
 
 import (
-	liberr "github.com/nabbar/golib/errors"
 	libmon "github.com/nabbar/golib/monitor/types"
 	smtpcf "github.com/nabbar/golib/smtp/config"
 	spfcbr "github.com/spf13/cobra"
@@ -55,12 +54,12 @@ func (o *componentSmtp) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentSmtp) _getConfig() (smtpcf.Config, *libmon.Config, liberr.Error) {
+func (o *componentSmtp) _getConfig() (smtpcf.Config, *libmon.Config, error) {
 	var (
 		key string
 		cfg smtpcf.ConfigModel
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -70,7 +69,7 @@ func (o *componentSmtp) _getConfig() (smtpcf.Config, *libmon.Config, liberr.Erro
 	}
 
 	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
-		return nil, nil, ErrorParamInvalid.ErrorParent(e)
+		return nil, nil, ErrorParamInvalid.Error(e)
 	}
 
 	if val := vpr.GetString(key + "dsn"); val != "" {

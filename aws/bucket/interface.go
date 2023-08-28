@@ -32,7 +32,6 @@ import (
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
@@ -41,41 +40,41 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type WalkFunc func(err liberr.Error, bucket sdkstp.Bucket) liberr.Error
+type WalkFunc func(err error, bucket sdkstp.Bucket) error
 
 type Bucket interface {
-	Check() liberr.Error
+	Check() error
 
-	List() ([]sdkstp.Bucket, liberr.Error)
-	Walk(f WalkFunc) liberr.Error
-	Create(RegionConstraint string) liberr.Error
-	CreateWithLock(RegionConstraint string) liberr.Error
-	Delete() liberr.Error
+	List() ([]sdkstp.Bucket, error)
+	Walk(f WalkFunc) error
+	Create(RegionConstraint string) error
+	CreateWithLock(RegionConstraint string) error
+	Delete() error
 
 	//FindObject(pattern string) ([]string, errors.Error)
 
-	SetVersioning(state bool) liberr.Error
-	GetVersioning() (string, liberr.Error)
+	SetVersioning(state bool) error
+	GetVersioning() (string, error)
 
-	LoadReplication() (*sdkstp.ReplicationConfiguration, liberr.Error)
-	EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) liberr.Error
-	DeleteReplication() liberr.Error
+	LoadReplication() (*sdkstp.ReplicationConfiguration, error)
+	EnableReplication(srcRoleARN, dstRoleARN, dstBucketName string) error
+	DeleteReplication() error
 
-	PutWebsite(index, error string) liberr.Error
-	GetWebsite() (*sdksss.GetBucketWebsiteOutput, liberr.Error)
+	PutWebsite(index, error string) error
+	GetWebsite() (*sdksss.GetBucketWebsiteOutput, error)
 
-	SetCORS(cors []sdkstp.CORSRule) liberr.Error
-	GetCORS() ([]sdkstp.CORSRule, liberr.Error)
+	SetCORS(cors []sdkstp.CORSRule) error
+	GetCORS() ([]sdkstp.CORSRule, error)
 
-	GetACL() (*sdkstp.AccessControlPolicy, liberr.Error)
-	SetACL(ACP *sdkstp.AccessControlPolicy, cannedACL sdkstp.BucketCannedACL, header ACLHeaders) liberr.Error
-	SetACLPolicy(ACP *sdkstp.AccessControlPolicy) liberr.Error
-	SetACLHeader(cannedACL sdkstp.BucketCannedACL, header ACLHeaders) liberr.Error
+	GetACL() (*sdkstp.AccessControlPolicy, error)
+	SetACL(ACP *sdkstp.AccessControlPolicy, cannedACL sdkstp.BucketCannedACL, header ACLHeaders) error
+	SetACLPolicy(ACP *sdkstp.AccessControlPolicy) error
+	SetACLHeader(cannedACL sdkstp.BucketCannedACL, header ACLHeaders) error
 
-	GetLifeCycle() ([]sdkstp.LifecycleRule, liberr.Error)
-	SetLifeCycle(rules ...sdkstp.LifecycleRule) liberr.Error
-	GetLock() (*sdkstp.ObjectLockConfiguration, liberr.Error)
-	SetLock(cfg sdkstp.ObjectLockConfiguration, token string) liberr.Error
+	GetLifeCycle() ([]sdkstp.LifecycleRule, error)
+	SetLifeCycle(rules ...sdkstp.LifecycleRule) error
+	GetLock() (*sdkstp.ObjectLockConfiguration, error)
+	SetLock(cfg sdkstp.ObjectLockConfiguration, token string) error
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Bucket {

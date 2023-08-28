@@ -159,7 +159,7 @@ func New(cfg ConfigModel) (Config, liberr.Error) {
 				if dsn[j] == '?' {
 
 					if val, err := url.ParseQuery(dsn[j+1:]); err != nil {
-						return nil, ErrorConfigInvalidParams.ErrorParent(err)
+						return nil, ErrorConfigInvalidParams.Error(err)
 					} else {
 
 						if val.Get("ServerName") != "" {

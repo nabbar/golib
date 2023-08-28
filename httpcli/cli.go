@@ -104,7 +104,7 @@ func SetTransportDial(tr *http.Transport, forceIp bool, netw libptc.NetworkProto
 func GetClient(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
 	if http2Tr {
 		if e := http2.ConfigureTransport(tr); e != nil {
-			return nil, ErrorClientTransportHttp2.ErrorParent(e)
+			return nil, ErrorClientTransportHttp2.Error(e)
 		}
 	}
 

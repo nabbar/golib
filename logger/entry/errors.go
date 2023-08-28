@@ -27,9 +27,7 @@
 
 package entry
 
-import (
-	liberr "github.com/nabbar/golib/errors"
-)
+import liberr "github.com/nabbar/golib/errors"
 
 func (e *entry) ErrorClean() Entry {
 	e.Error = make([]error, 0)
@@ -53,15 +51,11 @@ func (e *entry) ErrorAdd(cleanNil bool, err ...error) Entry {
 		if cleanNil && er == nil {
 			continue
 		}
-		e.Error = append(e.Error, er)
-	}
-
-	return e
-}
-
-func (e *entry) ErrorAddLib(cleanNil bool, err ...liberr.Error) Entry {
-	for _, er := range err {
-		e.ErrorAdd(cleanNil, er.GetErrorSlice()...)
+		if liberr.Is(er) {
+			e.Error = append(e.Error, liberr.Get(er).GetErrorSlice()...)
+		} else {
+			e.Error = append(e.Error, er)
+		}
 	}
 
 	return e

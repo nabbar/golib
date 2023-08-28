@@ -30,10 +30,9 @@ import (
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	awshlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) AccessListAll(username string) ([]sdktps.AccessKeyMetadata, liberr.Error) {
+func (cli *client) AccessListAll(username string) ([]sdktps.AccessKeyMetadata, error) {
 	var req = &sdkiam.ListAccessKeysInput{}
 
 	if username != "" {
@@ -53,7 +52,7 @@ func (cli *client) AccessListAll(username string) ([]sdktps.AccessKeyMetadata, l
 	}
 }
 
-func (cli *client) AccessList(username string) (map[string]bool, liberr.Error) {
+func (cli *client) AccessList(username string) (map[string]bool, error) {
 	var req = &sdkiam.ListAccessKeysInput{}
 
 	if username != "" {
@@ -84,7 +83,7 @@ func (cli *client) AccessList(username string) (map[string]bool, liberr.Error) {
 	}
 }
 
-func (cli *client) AccessCreate(username string) (string, string, liberr.Error) {
+func (cli *client) AccessCreate(username string) (string, string, error) {
 	var req = &sdkiam.CreateAccessKeyInput{}
 
 	if username != "" {
@@ -104,7 +103,7 @@ func (cli *client) AccessCreate(username string) (string, string, liberr.Error) 
 	}
 }
 
-func (cli *client) AccessDelete(username, accessKey string) liberr.Error {
+func (cli *client) AccessDelete(username, accessKey string) error {
 	var req = &sdkiam.DeleteAccessKeyInput{
 		AccessKeyId: sdkaws.String(accessKey),
 	}

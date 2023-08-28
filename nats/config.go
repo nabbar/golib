@@ -68,12 +68,12 @@ func (c Config) Validate() liberr.Error {
 
 	if er := libval.New().Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
-			err.AddParent(e)
+			err.Add(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
 		}
 	}
 
@@ -101,12 +101,12 @@ func (c Config) LogConfigJson() liberr.Error {
 	}
 
 	if e := libiot.PathCheckCreate(true, c.Logs.LogFile, permFile, permDirs); e != nil {
-		return ErrorConfigInvalidFilePath.ErrorParent(e)
+		return ErrorConfigInvalidFilePath.Error(e)
 	}
 
 	f, e := os.OpenFile(c.Logs.LogFile, os.O_APPEND|os.O_WRONLY, permFile)
 	if e != nil {
-		return ErrorConfigInvalidFilePath.ErrorParent(e)
+		return ErrorConfigInvalidFilePath.Error(e)
 	}
 
 	defer func() {
@@ -116,13 +116,13 @@ func (c Config) LogConfigJson() liberr.Error {
 	}()
 
 	if p, e := json.MarshalIndent(c, "", "  "); e != nil {
-		return ErrorConfigJsonMarshall.ErrorParent(e)
+		return ErrorConfigJsonMarshall.Error(e)
 	} else if _, e := f.WriteString("----\nConfig Node: "); e != nil {
-		return ErrorConfigWriteInFile.ErrorParent(e)
+		return ErrorConfigWriteInFile.Error(e)
 	} else if _, e := f.Write(p); e != nil {
-		return ErrorConfigWriteInFile.ErrorParent(e)
+		return ErrorConfigWriteInFile.Error(e)
 	} else if _, e := f.WriteString("\n---- \n"); e != nil {
-		return ErrorConfigWriteInFile.ErrorParent(e)
+		return ErrorConfigWriteInFile.Error(e)
 	}
 
 	return nil
@@ -250,7 +250,7 @@ func (c ConfigAuth) makeOpt(cfg *natsrv.Options) liberr.Error {
 
 		for _, t := range c.TrustedOperators {
 			if j, e := natsrv.ReadOperatorJWT(t); e != nil {
-				return ErrorConfigInvalidJWTOperator.ErrorParent(e)
+				return ErrorConfigInvalidJWTOperator.Error(e)
 			} else if j != nil {
 				cfg.TrustedOperators = append(cfg.TrustedOperators, j)
 			}
@@ -320,12 +320,12 @@ func (c ConfigNkey) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.NkeyU
 		case natjwt.ConnectionTypeMqtt:
 			t[natjwt.ConnectionTypeMqtt] = struct{}{}
 		default:
-			return nil, ErrorConfigInvalidAllowedConnectionType.ErrorParent(fmt.Errorf("connection type: %s", at))
+			return nil, ErrorConfigInvalidAllowedConnectionType.Error(fmt.Errorf("connection type: %s", at))
 		}
 	}
 
 	if a = auth.findConfigAccount(c.Account); a == nil {
-		return nil, ErrorConfigInvalidAccount.ErrorParent(fmt.Errorf("account: %s", c.Account))
+		return nil, ErrorConfigInvalidAccount.Error(fmt.Errorf("account: %s", c.Account))
 	}
 
 	return &natsrv.NkeyUser{
@@ -377,12 +377,12 @@ func (c ConfigUser) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.User,
 		case natjwt.ConnectionTypeMqtt:
 			t[natjwt.ConnectionTypeMqtt] = struct{}{}
 		default:
-			return nil, ErrorConfigInvalidAllowedConnectionType.ErrorParent(fmt.Errorf("connection type: %s", at))
+			return nil, ErrorConfigInvalidAllowedConnectionType.Error(fmt.Errorf("connection type: %s", at))
 		}
 	}
 
 	if a = auth.findConfigAccount(c.Account); a == nil {
-		return nil, ErrorConfigInvalidAccount.ErrorParent(fmt.Errorf("account: %s", c.Account))
+		return nil, ErrorConfigInvalidAccount.Error(fmt.Errorf("account: %s", c.Account))
 	}
 
 	return &natsrv.User{
@@ -500,7 +500,7 @@ func (c ConfigLogger) makeOpt(log liblog.Logger, cfg *natsrv.Options) liberr.Err
 
 	if c.LogFile != "" {
 		if e := libiot.PathCheckCreate(true, c.LogFile, permFile, permDir); e != nil {
-			return ErrorConfigInvalidFilePath.ErrorParent(e)
+			return ErrorConfigInvalidFilePath.Error(e)
 		}
 		cfg.LogFile = c.LogFile
 	}
@@ -707,7 +707,7 @@ func (c ConfigSrv) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) liberr.
 
 		if c.StoreDir != "" {
 			if e := libiot.PathCheckCreate(false, c.StoreDir, 0644, perm); e != nil {
-				return ErrorConfigInvalidFilePath.ErrorParent(e)
+				return ErrorConfigInvalidFilePath.Error(e)
 			}
 
 			cfg.StoreDir = c.StoreDir

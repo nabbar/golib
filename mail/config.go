@@ -96,12 +96,12 @@ func (c Config) Validate() liberr.Error {
 
 	if er := libval.New().Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
-			err.AddParent(e)
+			err.Add(e)
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
 			//nolint goerr113
-			err.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
+			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.Namespace(), e.ActualTag()))
 		}
 	}
 
@@ -170,7 +170,7 @@ func (c Config) NewMailer() (Mail, liberr.Error) {
 	if len(c.Attach) > 0 {
 		for _, f := range c.Attach {
 			if h, e := libfpg.Open(f.Path); e != nil {
-				return nil, ErrorFileOpenCreate.ErrorParent(e)
+				return nil, ErrorFileOpenCreate.Error(e)
 			} else {
 				m.AddAttachment(f.Name, f.Mime, h, false)
 			}
@@ -180,7 +180,7 @@ func (c Config) NewMailer() (Mail, liberr.Error) {
 	if len(c.Inline) > 0 {
 		for _, f := range c.Inline {
 			if h, e := libfpg.Open(f.Path); e != nil {
-				return nil, ErrorFileOpenCreate.ErrorParent(e)
+				return nil, ErrorFileOpenCreate.Error(e)
 			} else {
 				m.AddAttachment(f.Name, f.Mime, h, true)
 			}

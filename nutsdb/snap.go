@@ -98,7 +98,7 @@ func (s *snap) Save(opt Options, writer io.Writer) liberr.Error {
 	}()
 
 	if tmp, e = libfpg.Unique(opt.GetTempDir(), opt.NewTempFilePattern("tar")); e != nil {
-		return ErrorFileTemp.ErrorParent(e)
+		return ErrorFileTemp.Error(e)
 	}
 
 	if _, err = archive.CreateArchive(archive.TypeTarGzip, tmp, s.path, s.path); err != nil {
@@ -106,11 +106,11 @@ func (s *snap) Save(opt Options, writer io.Writer) liberr.Error {
 	}
 
 	if _, e = tmp.Seek(0, io.SeekStart); e != nil {
-		return ErrorDatabaseSnapshot.ErrorParent(e)
+		return ErrorDatabaseSnapshot.Error(e)
 	}
 
 	if _, e = tmp.WriteTo(writer); e != nil {
-		return ErrorDatabaseSnapshot.ErrorParent(e)
+		return ErrorDatabaseSnapshot.Error(e)
 	}
 
 	return nil
@@ -133,11 +133,11 @@ func (s *snap) Load(opt Options, reader io.Reader) liberr.Error {
 	}()
 
 	if tmp, e = libfpg.Unique(opt.GetTempDir(), opt.NewTempFilePattern("tar.gz")); e != nil {
-		return ErrorFileTemp.ErrorParent(e)
+		return ErrorFileTemp.Error(e)
 	}
 
 	if _, e = tmp.ReadFrom(reader); e != nil {
-		return ErrorDatabaseSnapshot.ErrorParent(e)
+		return ErrorDatabaseSnapshot.Error(e)
 	}
 
 	if o, err = opt.NewTempFolder(); err != nil {

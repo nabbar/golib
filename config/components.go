@@ -34,7 +34,6 @@ import (
 
 	cfgcst "github.com/nabbar/golib/config/const"
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	spfcbr "github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )
@@ -110,7 +109,7 @@ func (c *configModel) ComponentKeys() []string {
 	return res
 }
 
-func (c *configModel) ComponentStart() liberr.Error {
+func (c *configModel) ComponentStart() error {
 	var err = ErrorComponentStart.Error(nil)
 
 	for _, key := range c.ComponentDependencies() {
@@ -122,9 +121,9 @@ func (c *configModel) ComponentStart() liberr.Error {
 			e := cpt.Start()
 			c.componentUpdate(key, cpt)
 			if e != nil {
-				err.AddParent(e)
+				err.Add(e)
 			} else if !cpt.IsStarted() {
-				err.AddParent(fmt.Errorf("component '%s' has been call to start, but is not started", key))
+				err.Add(fmt.Errorf("component '%s' has been call to start, but is not started", key))
 			}
 		}
 	}
@@ -155,7 +154,7 @@ func (c *configModel) ComponentIsStarted() bool {
 	return isOk
 }
 
-func (c *configModel) ComponentReload() liberr.Error {
+func (c *configModel) ComponentReload() error {
 	var err = ErrorComponentReload.Error(nil)
 
 	for _, key := range c.ComponentDependencies() {
@@ -167,9 +166,9 @@ func (c *configModel) ComponentReload() liberr.Error {
 			e := cpt.Reload()
 			c.componentUpdate(key, cpt)
 			if e != nil {
-				err.AddParent(e)
+				err.Add(e)
 			} else if !cpt.IsStarted() {
-				err.AddParent(fmt.Errorf("component '%s' has been call to reload, but is not started", key))
+				err.Add(fmt.Errorf("component '%s' has been call to reload, but is not started", key))
 			}
 		}
 	}
@@ -336,7 +335,7 @@ func (c *configModel) RegisterFlag(Command *spfcbr.Command) error {
 		if cpt := c.ComponentGet(k); cpt == nil {
 			continue
 		} else if e := cpt.RegisterFlag(Command); e != nil {
-			err.AddParent(e)
+			err.Add(e)
 		} else {
 			c.ComponentSet(k, cpt)
 		}

@@ -103,7 +103,7 @@ func (o *optServer) initServer(s *http.Server) liberr.Error {
 	}
 
 	if e := http2.ConfigureServer(s, s2); e != nil {
-		return ErrorHTTP2Configure.ErrorParent(e)
+		return ErrorHTTP2Configure.Error(e)
 	}
 
 	return nil

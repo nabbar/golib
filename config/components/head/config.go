@@ -27,7 +27,6 @@
 package head
 
 import (
-	liberr "github.com/nabbar/golib/errors"
 	librtr "github.com/nabbar/golib/router"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
@@ -37,12 +36,12 @@ func (o *componentHead) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentHead) _getConfig() (*librtr.HeadersConfig, liberr.Error) {
+func (o *componentHead) _getConfig() (*librtr.HeadersConfig, error) {
 	var (
 		key string
 		cfg librtr.HeadersConfig
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -52,7 +51,7 @@ func (o *componentHead) _getConfig() (*librtr.HeadersConfig, liberr.Error) {
 	}
 
 	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
-		return nil, ErrorParamInvalid.ErrorParent(e)
+		return nil, ErrorParamInvalid.Error(e)
 	}
 
 	if err = cfg.Validate(); err != nil {

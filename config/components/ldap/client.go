@@ -28,7 +28,6 @@ package ldap
 
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	lbldap "github.com/nabbar/golib/ldap"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -138,7 +137,7 @@ func (o *componentLDAP) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentLDAP) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentLDAP) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -146,10 +145,10 @@ func (o *componentLDAP) _runFct(fct func(cpt cfgtps.Component) liberr.Error) lib
 	return nil
 }
 
-func (o *componentLDAP) _runCli() liberr.Error {
+func (o *componentLDAP) _runCli() error {
 	var (
 		e   error
-		err liberr.Error
+		err error
 		cli *lbldap.HelperLDAP
 		cfg *lbldap.Config
 	)
@@ -160,7 +159,7 @@ func (o *componentLDAP) _runCli() liberr.Error {
 	if cfg, err = o._getConfig(); err != nil {
 		return ErrorParamInvalid.Error(err)
 	} else if cli, e = lbldap.NewLDAP(o.x.GetContext(), cfg, o.a); e != nil {
-		return ErrorConfigInvalid.ErrorParent(e)
+		return ErrorConfigInvalid.Error(e)
 	} else {
 		cli.SetLogger(o.getLogger)
 	}
@@ -179,7 +178,7 @@ func (o *componentLDAP) _runCli() liberr.Error {
 	return nil
 }
 
-func (o *componentLDAP) _run() liberr.Error {
+func (o *componentLDAP) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

@@ -40,7 +40,6 @@ import (
 	awspol "github.com/nabbar/golib/aws/policy"
 	awsrol "github.com/nabbar/golib/aws/role"
 	awsusr "github.com/nabbar/golib/aws/user"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type client struct {
@@ -54,11 +53,11 @@ type client struct {
 	h *http.Client
 }
 
-func (c *client) _NewClientIAM(ctx context.Context, httpClient *http.Client) (*sdkiam.Client, liberr.Error) {
+func (c *client) _NewClientIAM(ctx context.Context, httpClient *http.Client) (*sdkiam.Client, error) {
 	var (
 		cfg *sdkaws.Config
 		iam *sdkiam.Client
-		err liberr.Error
+		err error
 		ret sdkaws.Retryer
 		sig *sdksv4.Signer
 	)
@@ -97,10 +96,10 @@ func (c *client) _NewClientIAM(ctx context.Context, httpClient *http.Client) (*s
 	return iam, nil
 }
 
-func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sdksss.Client, liberr.Error) {
+func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sdksss.Client, error) {
 	var (
 		sss *sdksss.Client
-		err liberr.Error
+		err error
 		ret sdkaws.Retryer
 		cfg *sdkaws.Config
 		sig *sdksv4.Signer
@@ -141,7 +140,7 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sd
 	return sss, nil
 }
 
-func (c *client) NewForConfig(ctx context.Context, cfg Config) (AWS, liberr.Error) {
+func (c *client) NewForConfig(ctx context.Context, cfg Config) (AWS, error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -171,7 +170,7 @@ func (c *client) NewForConfig(ctx context.Context, cfg Config) (AWS, liberr.Erro
 	return n, nil
 }
 
-func (c *client) Clone(ctx context.Context) (AWS, liberr.Error) {
+func (c *client) Clone(ctx context.Context) (AWS, error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -205,7 +204,7 @@ func (c *client) Clone(ctx context.Context) (AWS, liberr.Error) {
 	return n, nil
 }
 
-func (c *client) ForcePathStyle(ctx context.Context, enabled bool) liberr.Error {
+func (c *client) ForcePathStyle(ctx context.Context, enabled bool) error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -220,7 +219,7 @@ func (c *client) ForcePathStyle(ctx context.Context, enabled bool) liberr.Error 
 	return nil
 }
 
-func (c *client) ForceSignerOptions(ctx context.Context, fct ...func(signer *sdksv4.SignerOptions)) liberr.Error {
+func (c *client) ForceSignerOptions(ctx context.Context, fct ...func(signer *sdksv4.SignerOptions)) error {
 	c.m.Lock()
 	defer c.m.Unlock()
 

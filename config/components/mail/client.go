@@ -30,7 +30,6 @@ import (
 	"context"
 
 	cfgtps "github.com/nabbar/golib/config/types"
-	liberr "github.com/nabbar/golib/errors"
 	libmail "github.com/nabbar/golib/mail"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -147,7 +146,7 @@ func (o *componentMail) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentMail) _runFct(fct func(cpt cfgtps.Component) liberr.Error) liberr.Error {
+func (o *componentMail) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -155,9 +154,9 @@ func (o *componentMail) _runFct(fct func(cpt cfgtps.Component) liberr.Error) lib
 	return nil
 }
 
-func (o *componentMail) _runCli() liberr.Error {
+func (o *componentMail) _runCli() error {
 	var (
-		err liberr.Error
+		err error
 		prt = ErrorComponentReload
 		obj libmail.Mail
 		cfg *libmail.Config
@@ -182,7 +181,7 @@ func (o *componentMail) _runCli() liberr.Error {
 	return nil
 }
 
-func (o *componentMail) _run() liberr.Error {
+func (o *componentMail) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

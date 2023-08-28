@@ -29,7 +29,6 @@ package aws
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -95,11 +94,11 @@ func (o *componentAws) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentAws) Start() liberr.Error {
+func (o *componentAws) Start() error {
 	return o._run()
 }
 
-func (o *componentAws) Reload() liberr.Error {
+func (o *componentAws) Reload() error {
 	return o._run()
 }
 
@@ -132,7 +131,7 @@ func (o *componentAws) Dependencies() []string {
 	}
 }
 
-func (o *componentAws) SetDependencies(d []string) liberr.Error {
+func (o *componentAws) SetDependencies(d []string) error {
 	o.m.RLock()
 	defer o.m.RUnlock()
 

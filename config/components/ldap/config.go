@@ -27,7 +27,6 @@
 package ldap
 
 import (
-	liberr "github.com/nabbar/golib/errors"
 	lbldap "github.com/nabbar/golib/ldap"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
@@ -37,12 +36,12 @@ func (o *componentLDAP) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentLDAP) _getConfig() (*lbldap.Config, liberr.Error) {
+func (o *componentLDAP) _getConfig() (*lbldap.Config, error) {
 	var (
 		key string
 		cfg lbldap.Config
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -52,7 +51,7 @@ func (o *componentLDAP) _getConfig() (*lbldap.Config, liberr.Error) {
 	}
 
 	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
-		return nil, ErrorParamInvalid.ErrorParent(e)
+		return nil, ErrorParamInvalid.Error(e)
 	}
 
 	if err = cfg.Validate(); err != nil {

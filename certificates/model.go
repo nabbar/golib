@@ -57,13 +57,13 @@ func (c *config) checkFile(pemFiles ...string) liberr.Error {
 		}
 
 		if _, e := os.Stat(f); e != nil {
-			return ErrorFileStat.ErrorParent(e)
+			return ErrorFileStat.Error(e)
 		}
 
 		/* #nosec */
 		b, e := ioutil.ReadFile(f)
 		if e != nil {
-			return ErrorFileRead.ErrorParent(e)
+			return ErrorFileRead.Error(e)
 		}
 
 		b = bytes.Trim(b, "\n")
@@ -162,7 +162,7 @@ func (c *config) AddCertificatePairString(key, crt string) liberr.Error {
 
 	p, err := tls.X509KeyPair([]byte(crt), []byte(key))
 	if err != nil {
-		return ErrorCertKeyPairParse.ErrorParent(err)
+		return ErrorCertKeyPairParse.Error(err)
 	}
 
 	c.cert = append(c.cert, p)
@@ -179,7 +179,7 @@ func (c *config) AddCertificatePairFile(keyFile, crtFile string) liberr.Error {
 	}
 
 	if p, e := tls.LoadX509KeyPair(crtFile, keyFile); e != nil {
-		return ErrorCertKeyPairLoad.ErrorParent(e)
+		return ErrorCertKeyPairLoad.Error(e)
 	} else {
 		c.cert = append(c.cert, p)
 		return nil

@@ -28,7 +28,6 @@ package tls
 
 import (
 	libtls "github.com/nabbar/golib/certificates"
-	liberr "github.com/nabbar/golib/errors"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -37,12 +36,12 @@ func (o *componentTls) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentTls) _getConfig() (*libtls.Config, liberr.Error) {
+func (o *componentTls) _getConfig() (*libtls.Config, error) {
 	var (
 		key string
 		cfg libtls.Config
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -52,7 +51,7 @@ func (o *componentTls) _getConfig() (*libtls.Config, liberr.Error) {
 	}
 
 	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
-		return nil, ErrorParamInvalid.ErrorParent(e)
+		return nil, ErrorParamInvalid.Error(e)
 	}
 
 	if err = cfg.Validate(); err != nil {

@@ -35,15 +35,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 const maxItemList int32 = 1000
 
-func (cli *client) VersionList(arn string, maxItem int32, noDefaultVersion bool) (map[string]string, liberr.Error) {
+func (cli *client) VersionList(arn string, maxItem int32, noDefaultVersion bool) (map[string]string, error) {
 	if arn == "" {
 		//nolint #goerr113
-		return nil, libhlp.ErrorParamsEmpty.ErrorParent(fmt.Errorf("arn is empty"))
+		return nil, libhlp.ErrorParamsEmpty.Error(fmt.Errorf("arn is empty"))
 	}
 
 	if maxItem < 1 {
@@ -105,7 +104,7 @@ func (cli *client) VersionList(arn string, maxItem int32, noDefaultVersion bool)
 	return res, nil
 }
 
-func (cli *client) VersionAdd(arn string, doc string) liberr.Error {
+func (cli *client) VersionAdd(arn string, doc string) error {
 	out, err := cli.iam.CreatePolicyVersion(cli.GetContext(), &iam.CreatePolicyVersionInput{
 		PolicyArn:      aws.String(arn),
 		PolicyDocument: aws.String(doc),
@@ -121,7 +120,7 @@ func (cli *client) VersionAdd(arn string, doc string) liberr.Error {
 	return nil
 }
 
-func (cli *client) VersionGet(arn string, vers string) (*types.PolicyVersion, liberr.Error) {
+func (cli *client) VersionGet(arn string, vers string) (*types.PolicyVersion, error) {
 	out, err := cli.iam.GetPolicyVersion(cli.GetContext(), &iam.GetPolicyVersionInput{
 		PolicyArn: aws.String(arn),
 		VersionId: aws.String(vers),
@@ -136,7 +135,7 @@ func (cli *client) VersionGet(arn string, vers string) (*types.PolicyVersion, li
 	}
 }
 
-func (cli *client) VersionDel(arn string, vers string) liberr.Error {
+func (cli *client) VersionDel(arn string, vers string) error {
 	out, err := cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
 		PolicyArn: aws.String(arn),
 		VersionId: aws.String(vers),
@@ -151,7 +150,7 @@ func (cli *client) VersionDel(arn string, vers string) liberr.Error {
 	return nil
 }
 
-func (cli *client) CompareUpdate(arn string, doc string) (upd bool, err liberr.Error) {
+func (cli *client) CompareUpdate(arn string, doc string) (upd bool, err error) {
 	var (
 		e   error
 		pol *types.Policy

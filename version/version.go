@@ -111,17 +111,17 @@ func NewVersion(License license, Package, Description, Date, Build, Release, Aut
 func (v versionModel) CheckGo(RequireGoVersion, RequireGoContraint string) liberr.Error {
 	constraint, err := govers.NewConstraint(RequireGoContraint + RequireGoVersion)
 	if err != nil {
-		return ErrorGoVersionInit.ErrorParent(err)
+		return ErrorGoVersionInit.Error(err)
 	}
 
 	goVersion, err := govers.NewVersion(runtime.Version()[2:])
 	if err != nil {
-		return ErrorGoVersionRuntime.ErrorParent(err)
+		return ErrorGoVersionRuntime.Error(err)
 	}
 
 	if !constraint.Check(goVersion) {
 		//nolint #goerr113
-		return ErrorGoVersionConstraint.ErrorParent(fmt.Errorf("must be compiled with Go version %s (instead of %s)", RequireGoVersion, goVersion))
+		return ErrorGoVersionConstraint.Error(fmt.Errorf("must be compiled with Go version %s (instead of %s)", RequireGoVersion, goVersion))
 	}
 
 	return nil

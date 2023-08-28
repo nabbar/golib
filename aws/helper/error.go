@@ -41,17 +41,11 @@ const (
 	ErrorParamsEmpty
 )
 
-var isErrInit = liberr.ExistInMapMessage(ErrorResponse)
-
 func init() {
 	if liberr.ExistInMapMessage(ErrorResponse) {
 		panic(fmt.Errorf("error code collision with package golib/aws/helpers"))
 	}
 	liberr.RegisterIdFctMessage(ErrorResponse, getMessage)
-}
-
-func IsErrorInit() bool {
-	return isErrInit
 }
 
 func getMessage(code liberr.CodeError) string {

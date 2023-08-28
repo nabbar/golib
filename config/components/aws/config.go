@@ -30,7 +30,6 @@ import (
 	libaws "github.com/nabbar/golib/aws"
 	cfgstd "github.com/nabbar/golib/aws/configAws"
 	cfgcus "github.com/nabbar/golib/aws/configCustom"
-	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
 	libreq "github.com/nabbar/golib/request"
 	spfcbr "github.com/spf13/cobra"
@@ -111,7 +110,7 @@ func (o *componentAws) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libhtc.Options, liberr.Error) {
+func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libhtc.Options, error) {
 	var (
 		key string
 		cfg libaws.Config
@@ -119,7 +118,7 @@ func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libh
 		mon *libreq.OptionsHealth
 		htc *libhtc.Options
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -131,8 +130,8 @@ func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libh
 	switch o.d {
 	case ConfigCustomStatus:
 		cnf := cfgcus.ModelStatus{}
-		if e := vpr.UnmarshalKey(key, &cnf); e != nil {
-			return nil, nil, nil, ErrorParamInvalid.ErrorParent(e)
+		if err = vpr.UnmarshalKey(key, &cnf); err != nil {
+			return nil, nil, nil, ErrorParamInvalid.Error(err)
 		} else {
 			flg.updCustom(&cnf.Config)
 		}
@@ -146,8 +145,8 @@ func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libh
 
 	case ConfigCustom:
 		cnf := cfgcus.Model{}
-		if e := vpr.UnmarshalKey(key, &cnf); e != nil {
-			return nil, nil, nil, ErrorParamInvalid.ErrorParent(e)
+		if err = vpr.UnmarshalKey(key, &cnf); err != nil {
+			return nil, nil, nil, ErrorParamInvalid.Error(err)
 		} else {
 			flg.updCustom(&cnf)
 		}
@@ -161,8 +160,8 @@ func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libh
 
 	case ConfigStandardStatus:
 		cnf := cfgstd.ModelStatus{}
-		if e := vpr.UnmarshalKey(key, &cnf); e != nil {
-			return nil, nil, nil, ErrorParamInvalid.ErrorParent(e)
+		if err = vpr.UnmarshalKey(key, &cnf); err != nil {
+			return nil, nil, nil, ErrorParamInvalid.Error(err)
 		} else {
 			flg.updStandard(&cnf.Config)
 		}
@@ -176,8 +175,8 @@ func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libh
 
 	case ConfigStandard:
 		cnf := cfgstd.Model{}
-		if e := vpr.UnmarshalKey(key, &cnf); e != nil {
-			return nil, nil, nil, ErrorParamInvalid.ErrorParent(e)
+		if err = vpr.UnmarshalKey(key, &cnf); err != nil {
+			return nil, nil, nil, ErrorParamInvalid.Error(err)
 		} else {
 			flg.updStandard(&cnf)
 		}

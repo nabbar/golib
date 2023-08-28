@@ -26,20 +26,19 @@
 package user
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	"github.com/nabbar/golib/aws/helper"
-	"github.com/nabbar/golib/errors"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	awshlp "github.com/nabbar/golib/aws/helper"
 )
 
-func (cli *client) List() (map[string]string, errors.Error) {
-	out, err := cli.iam.ListUsers(cli.GetContext(), &iam.ListUsersInput{})
+func (cli *client) List() (map[string]string, error) {
+	out, err := cli.iam.ListUsers(cli.GetContext(), &sdkiam.ListUsersInput{})
 
 	if err != nil {
 		return nil, cli.GetError(err)
 	} else if out.Users == nil {
-		return nil, helper.ErrorResponse.Error(nil)
+		return nil, awshlp.ErrorResponse.Error(nil)
 	} else {
 		var res = make(map[string]string)
 
@@ -51,9 +50,9 @@ func (cli *client) List() (map[string]string, errors.Error) {
 	}
 }
 
-func (cli *client) Get(username string) (*types.User, errors.Error) {
-	out, err := cli.iam.GetUser(cli.GetContext(), &iam.GetUserInput{
-		UserName: aws.String(username),
+func (cli *client) Get(username string) (*iamtps.User, error) {
+	out, err := cli.iam.GetUser(cli.GetContext(), &sdkiam.GetUserInput{
+		UserName: sdkaws.String(username),
 	})
 
 	if err != nil {
@@ -63,23 +62,23 @@ func (cli *client) Get(username string) (*types.User, errors.Error) {
 	return out.User, nil
 }
 
-func (cli *client) Create(username string) errors.Error {
-	out, err := cli.iam.CreateUser(cli.GetContext(), &iam.CreateUserInput{
-		UserName: aws.String(username),
+func (cli *client) Create(username string) error {
+	out, err := cli.iam.CreateUser(cli.GetContext(), &sdkiam.CreateUserInput{
+		UserName: sdkaws.String(username),
 	})
 
 	if err != nil {
 		return cli.GetError(err)
 	} else if out.User == nil {
-		return helper.ErrorResponse.Error(nil)
+		return awshlp.ErrorResponse.Error(nil)
 	}
 
 	return nil
 }
 
-func (cli *client) Delete(username string) errors.Error {
-	_, err := cli.iam.DeleteUser(cli.GetContext(), &iam.DeleteUserInput{
-		UserName: aws.String(username),
+func (cli *client) Delete(username string) error {
+	_, err := cli.iam.DeleteUser(cli.GetContext(), &sdkiam.DeleteUserInput{
+		UserName: sdkaws.String(username),
 	})
 
 	return cli.GetError(err)

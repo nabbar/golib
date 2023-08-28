@@ -29,7 +29,6 @@ package tls
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -95,11 +94,11 @@ func (o *componentTls) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentTls) Start() liberr.Error {
+func (o *componentTls) Start() error {
 	return o._run()
 }
 
-func (o *componentTls) Reload() liberr.Error {
+func (o *componentTls) Reload() error {
 	return o._run()
 }
 
@@ -132,7 +131,7 @@ func (o *componentTls) Dependencies() []string {
 	}
 }
 
-func (o *componentTls) SetDependencies(d []string) liberr.Error {
+func (o *componentTls) SetDependencies(d []string) error {
 	o.m.RLock()
 	defer o.m.RUnlock()
 

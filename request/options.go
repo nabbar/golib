@@ -38,7 +38,6 @@ import (
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	libhtc "github.com/nabbar/golib/httpcli"
 )
 
@@ -83,17 +82,17 @@ type Options struct {
 	log liblog.FuncLog
 }
 
-func (o *Options) Validate() liberr.Error {
+func (o *Options) Validate() error {
 	var e = ErrorValidatorError.Error(nil)
 
 	if err := libval.New().Struct(o); err != nil {
 		if er, ok := err.(*libval.InvalidValidationError); ok {
-			e.AddParent(er)
+			e.Add(er)
 		}
 
 		for _, er := range err.(libval.ValidationErrors) {
 			//nolint #goerr113
-			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
+			e.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}
 	}
 
@@ -104,17 +103,17 @@ func (o *Options) Validate() liberr.Error {
 	return e
 }
 
-func (o *OptionsHealth) Validate() liberr.Error {
+func (o *OptionsHealth) Validate() error {
 	var e = ErrorValidatorError.Error(nil)
 
 	if err := libval.New().Struct(o); err != nil {
 		if er, ok := err.(*libval.InvalidValidationError); ok {
-			e.AddParent(er)
+			e.Add(er)
 		}
 
 		for _, er := range err.(libval.ValidationErrors) {
 			//nolint #goerr113
-			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
+			e.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}
 	}
 

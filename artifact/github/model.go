@@ -36,7 +36,6 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	liberr "github.com/nabbar/golib/errors"
 	libfpg "github.com/nabbar/golib/file/progress"
 )
 
@@ -53,7 +52,7 @@ type githubModel struct {
 	p string
 }
 
-func (g *githubModel) ListReleases() (releases hscvrs.Collection, err liberr.Error) {
+func (g *githubModel) ListReleases() (releases hscvrs.Collection, err error) {
 	var (
 		e    error
 		lopt = &github.ListOptions{
@@ -70,7 +69,7 @@ func (g *githubModel) ListReleases() (releases hscvrs.Collection, err liberr.Err
 		)
 
 		if rels, resp, e = g.c.Repositories.ListReleases(g.x, g.o, g.p, lopt); e != nil {
-			return nil, ErrorGithubList.ErrorParent(e)
+			return nil, ErrorGithubList.Error(e)
 		} else {
 			curr++
 		}
@@ -92,14 +91,14 @@ func (g *githubModel) ListReleases() (releases hscvrs.Collection, err liberr.Err
 	}
 }
 
-func (g *githubModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err liberr.Error) {
+func (g *githubModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error) {
 	var (
 		rels *github.RepositoryRelease
 		e    error
 	)
 
 	if rels, _, e = g.c.Repositories.GetReleaseByTag(g.x, g.o, g.p, release.Original()); e != nil {
-		return "", ErrorGithubGetRelease.ErrorParent(e)
+		return "", ErrorGithubGetRelease.Error(e)
 	}
 
 	for _, a := range rels.Assets {
@@ -113,13 +112,13 @@ func (g *githubModel) GetArtifact(containName string, regexName string, release 
 	return "", ErrorGithubNotFound.Error(nil)
 }
 
-func (g *githubModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) liberr.Error {
+func (g *githubModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error {
 	var (
 		uri string
 		rsp *github.Response
 		req *http.Request
 		err error
-		e   liberr.Error
+		e   error
 		n   int64
 	)
 
@@ -135,23 +134,23 @@ func (g *githubModel) Download(dst libfpg.Progress, containName string, regexNam
 	if uri, e = g.GetArtifact(containName, regexName, release); e != nil {
 		return e
 	} else if req, err = g.c.NewRequest(http.MethodGet, uri, nil); err != nil {
-		return ErrorGithubRequestNew.ErrorParent(err)
+		return ErrorGithubRequestNew.Error(err)
 	} else if rsp, err = g.c.Do(g.x, req, nil); err != nil {
-		return ErrorGithubRequestRun.ErrorParent(err)
+		return ErrorGithubRequestRun.Error(err)
 	} else if rsp.StatusCode < 200 || rsp.StatusCode > 299 {
-		return ErrorGithubResponse.ErrorParent(errResponseCode)
+		return ErrorGithubResponse.Error(errResponseCode)
 	} else if rsp.ContentLength < 1 {
-		return ErrorGithubResponse.ErrorParent(errResponseContents)
+		return ErrorGithubResponse.Error(errResponseContents)
 	} else if rsp.Body == nil {
-		return ErrorGithubResponse.ErrorParent(errResponseBodyEmpty)
+		return ErrorGithubResponse.Error(errResponseBodyEmpty)
 	} else {
 		dst.Reset(rsp.ContentLength)
 	}
 
 	if n, err = io.Copy(dst, rsp.Body); err != nil {
-		return ErrorGithubIOCopy.ErrorParent(err)
+		return ErrorGithubIOCopy.Error(err)
 	} else if n != rsp.ContentLength {
-		return ErrorDestinationSize.ErrorParent(errMisMatchingSize)
+		return ErrorDestinationSize.Error(errMisMatchingSize)
 	}
 
 	return nil

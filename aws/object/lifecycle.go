@@ -32,10 +32,9 @@ import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	liberr "github.com/nabbar/golib/errors"
 )
 
-func (cli *client) GetRetention(object, version string) (until time.Time, mode string, err liberr.Error) {
+func (cli *client) GetRetention(object, version string) (until time.Time, mode string, err error) {
 	until = time.Time{}
 	mode = ""
 
@@ -66,7 +65,7 @@ func (cli *client) GetRetention(object, version string) (until time.Time, mode s
 	return until, mode, nil
 }
 
-func (cli *client) SetRetention(object, version string, bypass bool, until time.Time, mode string) liberr.Error {
+func (cli *client) SetRetention(object, version string, bypass bool, until time.Time, mode string) error {
 	in := sdksss.PutObjectRetentionInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
@@ -99,7 +98,7 @@ func (cli *client) SetRetention(object, version string, bypass bool, until time.
 	return nil
 }
 
-func (cli *client) GetLegalHold(object, version string) (sdktps.ObjectLockLegalHoldStatus, liberr.Error) {
+func (cli *client) GetLegalHold(object, version string) (sdktps.ObjectLockLegalHoldStatus, error) {
 	in := sdksss.GetObjectLegalHoldInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),
@@ -118,7 +117,7 @@ func (cli *client) GetLegalHold(object, version string) (sdktps.ObjectLockLegalH
 	return out.LegalHold.Status, nil
 }
 
-func (cli *client) SetLegalHold(object, version string, flag sdktps.ObjectLockLegalHoldStatus) liberr.Error {
+func (cli *client) SetLegalHold(object, version string, flag sdktps.ObjectLockLegalHoldStatus) error {
 	in := sdksss.PutObjectLegalHoldInput{
 		Bucket: cli.GetBucketAws(),
 		Key:    sdkaws.String(object),

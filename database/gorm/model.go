@@ -142,9 +142,9 @@ func (d *database) CheckConn() liberr.Error {
 	}
 
 	if v, e := o.DB(); e != nil {
-		return ErrorDatabaseCannotSQLDB.ErrorParent(e)
+		return ErrorDatabaseCannotSQLDB.Error(e)
 	} else if e = v.Ping(); e != nil {
-		return ErrorDatabasePing.ErrorParent(e)
+		return ErrorDatabasePing.Error(e)
 	}
 
 	return nil

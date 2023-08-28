@@ -29,13 +29,11 @@ import (
 	"context"
 	"sync"
 	"time"
-
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type Counter interface {
-	Pool(ctx context.Context) liberr.Error
-	Reset() liberr.Error
+	Pool(ctx context.Context) error
+	Reset() error
 	Clone() Counter
 }
 
@@ -61,7 +59,7 @@ func newCounter(max int, dur time.Duration, fct FuncCaller) Counter {
 	}
 }
 
-func (c *counter) Pool(ctx context.Context) liberr.Error {
+func (c *counter) Pool(ctx context.Context) error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -70,7 +68,7 @@ func (c *counter) Pool(ctx context.Context) liberr.Error {
 	}
 
 	if e := ctx.Err(); e != nil {
-		return ErrorMailPoolerContext.ErrorParent(e)
+		return ErrorMailPoolerContext.Error(e)
 	}
 
 	if c.tim.IsZero() {
@@ -90,7 +88,7 @@ func (c *counter) Pool(ctx context.Context) liberr.Error {
 		c.tim = time.Now()
 
 		if e := ctx.Err(); e != nil {
-			return ErrorMailPoolerContext.ErrorParent(e)
+			return ErrorMailPoolerContext.Error(e)
 		} else if err := c.fct(); err != nil {
 			return err
 		}
@@ -99,7 +97,7 @@ func (c *counter) Pool(ctx context.Context) liberr.Error {
 	return nil
 }
 
-func (c *counter) Reset() liberr.Error {
+func (c *counter) Reset() error {
 	c.m.Lock()
 	defer c.m.Unlock()
 

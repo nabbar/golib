@@ -29,7 +29,6 @@ package database
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -103,11 +102,11 @@ func (o *componentDatabase) IsRunning() bool {
 	return true
 }
 
-func (o *componentDatabase) Start() liberr.Error {
+func (o *componentDatabase) Start() error {
 	return o._run()
 }
 
-func (o *componentDatabase) Reload() liberr.Error {
+func (o *componentDatabase) Reload() error {
 	return o._run()
 }
 
@@ -145,7 +144,7 @@ func (o *componentDatabase) Dependencies() []string {
 	}
 }
 
-func (o *componentDatabase) SetDependencies(d []string) liberr.Error {
+func (o *componentDatabase) SetDependencies(d []string) error {
 	o.m.RLock()
 	defer o.m.RUnlock()
 

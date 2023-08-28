@@ -82,7 +82,7 @@ func (o *srv) setServer(ctx context.Context) error {
 	)
 
 	if o.IsTLS() && ssl == nil {
-		err := ErrorServerValidate.ErrorParent(fmt.Errorf("TLS Config is not well defined"))
+		err := ErrorServerValidate.Error(fmt.Errorf("TLS Config is not well defined"))
 		ent := o.logger().Entry(loglvl.ErrorLevel, "starting http server")
 		ent.ErrorAdd(true, err)
 		ent.Log()

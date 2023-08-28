@@ -49,13 +49,13 @@ func SetKeyHex(key, nonce string) errors.Error {
 	cryptKey, err = hex.DecodeString(key)
 
 	if err != nil {
-		return ErrorHexaKey.ErrorParent(err)
+		return ErrorHexaKey.Error(err)
 	}
 
 	cryptNonce, err = hex.DecodeString(nonce)
 
 	if err != nil {
-		return ErrorHexaNonce.ErrorParent(err)
+		return ErrorHexaNonce.Error(err)
 	}
 
 	return nil
@@ -69,12 +69,12 @@ func SetKeyByte(key [32]byte, nonce [12]byte) {
 func GenKeyByte() ([]byte, []byte, errors.Error) {
 	// Never use more than 2^32 random key with a given key because of the risk of a repeat.
 	if _, err := io.ReadFull(rand.Reader, cryptKey); err != nil {
-		return make([]byte, 32), make([]byte, 12), ErrorByteKeygen.ErrorParent(err)
+		return make([]byte, 32), make([]byte, 12), ErrorByteKeygen.Error(err)
 	}
 
 	// Never use more than 2^32 random nonces with a given key because of the risk of a repeat.
 	if _, err := io.ReadFull(rand.Reader, cryptNonce); err != nil {
-		return make([]byte, 32), make([]byte, 12), ErrorByteNonceGen.ErrorParent(err)
+		return make([]byte, 32), make([]byte, 12), ErrorByteNonceGen.Error(err)
 	}
 
 	return cryptKey, cryptNonce, nil
@@ -84,12 +84,12 @@ func Encrypt(clearValue []byte) (string, errors.Error) {
 	// When decoded the key should be 16 bytes (AES-128) or 32 (AES-256).
 	block, err := aes.NewCipher(cryptKey)
 	if err != nil {
-		return "", ErrorAESBlock.ErrorParent(err)
+		return "", ErrorAESBlock.Error(err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return "", ErrorAESGCM.ErrorParent(err)
+		return "", ErrorAESGCM.Error(err)
 	}
 
 	return hex.EncodeToString(aesgcm.Seal(nil, cryptNonce, clearValue, nil)), nil
@@ -99,21 +99,21 @@ func Decrypt(hexaVal string) ([]byte, errors.Error) {
 	// When decoded the key should be 16 bytes (AES-128) or 32 (AES-256).
 	ciphertext, err := hex.DecodeString(hexaVal)
 	if err != nil {
-		return nil, ErrorHexaDecode.ErrorParent(err)
+		return nil, ErrorHexaDecode.Error(err)
 	}
 
 	block, err := aes.NewCipher(cryptKey)
 	if err != nil {
-		return nil, ErrorAESBlock.ErrorParent(err)
+		return nil, ErrorAESBlock.Error(err)
 	}
 
 	aesgcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, ErrorAESGCM.ErrorParent(err)
+		return nil, ErrorAESGCM.Error(err)
 	}
 
 	if res, err := aesgcm.Open(nil, cryptNonce, ciphertext, nil); err != nil {
-		return res, ErrorAESDecrypt.ErrorParent(err)
+		return res, ErrorAESDecrypt.Error(err)
 	} else {
 		return res, nil
 	}

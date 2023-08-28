@@ -29,7 +29,6 @@ package ldap
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -95,11 +94,11 @@ func (o *componentLDAP) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentLDAP) Start() liberr.Error {
+func (o *componentLDAP) Start() error {
 	return o._run()
 }
 
-func (o *componentLDAP) Reload() liberr.Error {
+func (o *componentLDAP) Reload() error {
 	return o._run()
 }
 
@@ -134,7 +133,7 @@ func (o *componentLDAP) Dependencies() []string {
 	}
 }
 
-func (o *componentLDAP) SetDependencies(d []string) liberr.Error {
+func (o *componentLDAP) SetDependencies(d []string) error {
 	o.m.RLock()
 	defer o.m.RUnlock()
 

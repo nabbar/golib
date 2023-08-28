@@ -86,12 +86,12 @@ func (c *Config) Validate() liberr.Error {
 
 	if err := libval.New().Struct(c); err != nil {
 		if er, ok := err.(*libval.InvalidValidationError); ok {
-			e.AddParent(er)
+			e.Add(er)
 		}
 
 		for _, er := range err.(libval.ValidationErrors) {
 			//nolint #goerr113
-			e.AddParent(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
+			e.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}
 	}
 
@@ -151,11 +151,11 @@ func (c *Config) New() (*libftp.ServerConn, liberr.Error) {
 	}
 
 	if cli, err := libftp.Dial(c.Hostname, opt...); err != nil {
-		return nil, ErrorFTPConnection.ErrorParent(err)
+		return nil, ErrorFTPConnection.Error(err)
 	} else if c.Login == "" && c.Password == "" {
 		return cli, nil
 	} else if err = cli.Login(c.Login, c.Password); err != nil {
-		return cli, ErrorFTPLogin.ErrorParent(err)
+		return cli, ErrorFTPLogin.Error(err)
 	} else {
 		return cli, nil
 	}

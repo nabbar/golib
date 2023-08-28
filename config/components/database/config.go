@@ -31,7 +31,6 @@ import (
 
 	"github.com/nabbar/golib/database/gorm"
 
-	liberr "github.com/nabbar/golib/errors"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -108,12 +107,12 @@ func (o *componentDatabase) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentDatabase) _getConfig() (*gorm.Config, liberr.Error) {
+func (o *componentDatabase) _getConfig() (*gorm.Config, error) {
 	var (
 		key string
 		cfg gorm.Config
 		vpr *spfvpr.Viper
-		err liberr.Error
+		err error
 	)
 
 	if vpr = o._getSPFViper(); vpr == nil {
@@ -123,7 +122,7 @@ func (o *componentDatabase) _getConfig() (*gorm.Config, liberr.Error) {
 	}
 
 	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
-		return nil, ErrorParamInvalid.ErrorParent(e)
+		return nil, ErrorParamInvalid.Error(e)
 	}
 
 	cfg.RegisterLogger(o.getLogger, o.li, o.ls)
