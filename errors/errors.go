@@ -34,8 +34,8 @@ import (
 )
 
 var (
-	defaultPattern      = "[Error #%s] %s"
-	defaultPatternTrace = "[Error #%s] %s (%s)"
+	defaultPattern      = "[Error #%d] %s"
+	defaultPatternTrace = "[Error #%d] %s (%s)"
 )
 
 // GetDefaultPatternTrace define the pattern to be used for string of error with code.

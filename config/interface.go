@@ -146,15 +146,19 @@ func WaitNotify() {
 	// Wait for interrupt signal to gracefully shutdown the server with
 	// a timeout of 5 seconds.
 	quit := make(chan os.Signal, 1)
+	defer func() {
+		close(quit)
+	}()
+
 	signal.Notify(quit, syscall.SIGINT)
 	signal.Notify(quit, syscall.SIGTERM)
 	signal.Notify(quit, syscall.SIGQUIT)
 
 	select {
 	case <-quit:
-		cnl()
+		Shutdown()
 	case <-ctx.Done():
-		cnl()
+		Shutdown()
 	}
 }
 

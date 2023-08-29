@@ -42,10 +42,10 @@ import (
 )
 
 type Config struct {
-	DB        NutsDBOptions `mapstructure:"db" json:"db" yaml:"db" toml:"db" validate:"dive"`
-	Cluster   libclu.Config `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive"`
-	Directory NutsDBFolder  `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" validate:"dive"`
-	Monitor   moncfg.Config `mapstructure:"monitor" json:"monitor" yaml:"monitor" toml:"monitor" validate:"dive"`
+	DB        NutsDBOptions `mapstructure:"db" json:"db" yaml:"db" toml:"db" validate:""`
+	Cluster   libclu.Config `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:""`
+	Directory NutsDBFolder  `mapstructure:"directories" json:"directories" yaml:"directories" toml:"directories" validate:""`
+	Monitor   moncfg.Config `mapstructure:"monitor" json:"monitor" yaml:"monitor" toml:"monitor" validate:""`
 }
 
 func (c Config) GetConfigFolder() NutsDBFolder {

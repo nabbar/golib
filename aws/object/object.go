@@ -128,6 +128,10 @@ func (cli *client) Delete(check bool, object string) error {
 	return cli.VersionDelete(check, object, "")
 }
 
+func (cli *client) Copy(source, destination string) error {
+	return cli.VersionCopy(source, "", destination)
+}
+
 func (cli *client) Put(object string, body io.Reader) error {
 	var tpe *string
 

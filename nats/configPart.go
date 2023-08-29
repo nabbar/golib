@@ -78,22 +78,22 @@ type ConfigUser struct {
 // ConfigPermissionsUser are the allowed subjects on a per publish or subscribe basis.
 type ConfigPermissionsUser struct {
 	//Publish define the scope permission for publisher role.
-	Publish ConfigPermissionSubject `mapstructure:"publish" json:"publish" yaml:"publish" toml:"publish" validate:"dive,required"`
+	Publish ConfigPermissionSubject `mapstructure:"publish" json:"publish" yaml:"publish" toml:"publish" validate:"required"`
 
 	//Subscribe define the scope permission for subscriber role.
-	Subscribe ConfigPermissionSubject `mapstructure:"subscribe" json:"subscribe" yaml:"subscribe" toml:"subscribe" validate:"dive,required"`
+	Subscribe ConfigPermissionSubject `mapstructure:"subscribe" json:"subscribe" yaml:"subscribe" toml:"subscribe" validate:"required"`
 
 	//Response define the scope permission to allow response for a message.
-	Response ConfigPermissionResponse `mapstructure:"response" json:"response" yaml:"response" toml:"response" validate:"dive,required"`
+	Response ConfigPermissionResponse `mapstructure:"response" json:"response" yaml:"response" toml:"response" validate:"required"`
 }
 
 // ConfigPermissionsRoute are similar to user permissions but describe what a server can import/export from and to another server.
 type ConfigPermissionsRoute struct {
 	//Import define the scope permission to import data from the route.
-	Import ConfigPermissionSubject `mapstructure:"import" json:"import" yaml:"import" toml:"import" validate:"dive,required"`
+	Import ConfigPermissionSubject `mapstructure:"import" json:"import" yaml:"import" toml:"import" validate:"required"`
 
 	//Export define the scope permission to export data to the route.
-	Export ConfigPermissionSubject `mapstructure:"export" json:"export" yaml:"export" toml:"export" validate:"dive,required"`
+	Export ConfigPermissionSubject `mapstructure:"export" json:"export" yaml:"export" toml:"export" validate:"required"`
 }
 
 // ConfigPermissionResponse can be used to allow responses to any reply subject that is received on a valid subscription.
@@ -120,7 +120,7 @@ type ConfigAccount struct {
 	//Name define the name of the account.
 	Name string `mapstructure:"name" json:"name" yaml:"name" toml:"name"`
 
-	Permission ConfigPermissionsUser `mapstructure:"permission" json:"permission" yaml:"permission" toml:"permission" validate:"dive,required"`
+	Permission ConfigPermissionsUser `mapstructure:"permission" json:"permission" yaml:"permission" toml:"permission" validate:"required"`
 }
 
 type ConfigAuth struct {
@@ -311,7 +311,7 @@ type ConfigSrv struct {
 	TLSTimeout time.Duration `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
 
 	//TLSConfig Configuration map for tls for client and http monitoring.
-	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:"dive"`
+	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:""`
 }
 
 type ConfigCluster struct {
@@ -346,7 +346,7 @@ type ConfigCluster struct {
 	AuthTimeout time.Duration `mapstructure:"auth_timeout" json:"auth_timeout" yaml:"auth_timeout" toml:"auth_timeout"`
 
 	//Permissions define the scope permission assign to route connections.
-	Permissions ConfigPermissionsRoute `mapstructure:"permissions" json:"permissions" yaml:"permissions" toml:"permissions" validate:"dive"`
+	Permissions ConfigPermissionsRoute `mapstructure:"permissions" json:"permissions" yaml:"permissions" toml:"permissions" validate:""`
 
 	//TLS Enable tls for cluster connection.
 	TLS bool `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
@@ -355,7 +355,7 @@ type ConfigCluster struct {
 	TLSTimeout time.Duration `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
 
 	//TLSConfig define the tls configuration for cluster connection.
-	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:"dive"`
+	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:""`
 }
 
 // ConfigGatewayRemote are options for connecting to a remote gateway
@@ -374,7 +374,7 @@ type ConfigGatewayRemote struct {
 	TLSTimeout time.Duration `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
 
 	//TLSConfig define the tls configuration for the current gateways destination.
-	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:"dive"`
+	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:""`
 }
 
 // ConfigGateway are options for gateways.
@@ -417,7 +417,7 @@ type ConfigGateway struct {
 	TLSTimeout time.Duration `mapstructure:"tls_timeout" json:"tls_timeout" yaml:"tls_timeout" toml:"tls_timeout"`
 
 	//TLSConfig define the tls configuration for gateways connection.
-	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:"dive"`
+	TLSConfig libtls.Config `mapstructure:"tls_config" json:"tls_config" yaml:"tls_config" toml:"tls_config" validate:""`
 }
 
 // ConfigLeaf are options for a given server to accept leaf node connections and/or connect to a remote cluster.

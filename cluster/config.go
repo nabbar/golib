@@ -40,8 +40,8 @@ import (
 )
 
 type Config struct {
-	Node       ConfigNode        `mapstructure:"node" json:"node" yaml:"node" toml:"node" validate:"dive"`
-	Cluster    ConfigCluster     `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:"dive"`
+	Node       ConfigNode        `mapstructure:"node" json:"node" yaml:"node" toml:"node" validate:""`
+	Cluster    ConfigCluster     `mapstructure:"cluster" json:"cluster" yaml:"cluster" toml:"cluster" validate:""`
 	InitMember map[uint64]string `mapstructure:"init_member" json:"init_member" yaml:"init_member" toml:"init_member"`
 }
 

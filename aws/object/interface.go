@@ -63,6 +63,7 @@ type Object interface {
 	Head(object string) (*sdksss.HeadObjectOutput, error)
 	Get(object string) (*sdksss.GetObjectOutput, error)
 	Put(object string, body io.Reader) error
+	Copy(source, destination string) error
 	Delete(check bool, object string) error
 	DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, error)
 	GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, error)
@@ -84,6 +85,8 @@ type Object interface {
 	VersionHead(object, version string) (*sdksss.HeadObjectOutput, error)
 	VersionSize(object, version string) (size int64, err error)
 	VersionDelete(check bool, object, version string) error
+	VersionCopy(source, version, destination string) error
+	VersionDeleteLock(check bool, object, version string, byPassGovernance bool) error
 
 	GetRetention(object, version string) (until time.Time, mode string, err error)
 	SetRetention(object, version string, bypass bool, until time.Time, mode string) error

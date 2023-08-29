@@ -29,10 +29,10 @@ import (
 	"os"
 	"path/filepath"
 
-	. "github.com/nabbar/golib/errors"
+	liberr "github.com/nabbar/golib/errors"
 )
 
-func NewTempFile() (*os.File, Error) {
+func NewTempFile() (*os.File, error) {
 	f, e := os.CreateTemp(os.TempDir(), "")
 	return f, ErrorIOFileTempNew.IfError(e)
 }
@@ -45,7 +45,7 @@ func GetTempFilePath(f *os.File) string {
 	return filepath.Join(os.TempDir(), filepath.Base(f.Name()))
 }
 
-func DelTempFile(f *os.File) Error {
+func DelTempFile(f *os.File) error {
 	if f == nil {
 		return nil
 	}
@@ -58,5 +58,5 @@ func DelTempFile(f *os.File) Error {
 	b := os.Remove(n)
 	e2 := ErrorIOFileTempRemove.IfError(b)
 
-	return MakeIfError(e2, e1)
+	return liberr.MakeIfError(e2, e1)
 }

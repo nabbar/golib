@@ -254,14 +254,14 @@ type ConfigNode struct {
 	// points the local gossip service will try to talk to. The Seed field doesn't
 	// need to include all gossip end points, a few well connected nodes in the
 	// gossip network is enough.
-	Gossip ConfigGossip `mapstructure:"gossip" json:"gossip" yaml:"gossip" toml:"gossip" validate:"omitempty,dive"`
+	Gossip ConfigGossip `mapstructure:"gossip" json:"gossip" yaml:"gossip" toml:"gossip" validate:"omitempty"`
 
 	// Expert contains options for expert users who are familiar with the internals
 	// of Dragonboat. Users are recommended not to use this field unless
 	// absoloutely necessary. It is important to note that any change to this field
 	// may cause an existing instance unable to restart, it may also cause negative
 	// performance impacts.
-	Expert ConfigExpert `mapstructure:"expert" json:"expert" yaml:"expert" toml:"expert" validate:"omitempty,dive"`
+	Expert ConfigExpert `mapstructure:"expert" json:"expert" yaml:"expert" toml:"expert" validate:"omitempty"`
 }
 
 func (c ConfigNode) GetDGBConfigNodeHost() dgbcfg.NodeHostConfig {

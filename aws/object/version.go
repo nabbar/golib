@@ -26,6 +26,7 @@
 package object
 
 import (
+	"path"
 	"strings"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
@@ -186,6 +187,10 @@ func (cli *client) VersionSize(object, version string) (size int64, err error) {
 }
 
 func (cli *client) VersionDelete(check bool, object, version string) error {
+	return cli.VersionDeleteLock(check, object, version, false)
+}
+
+func (cli *client) VersionDeleteLock(check bool, object, version string, byPassGovernance bool) error {
 	if check {
 		if _, err := cli.VersionHead(object, version); err != nil {
 			return err
@@ -201,14 +206,38 @@ func (cli *client) VersionDelete(check bool, object, version string) error {
 		in.VersionId = sdkaws.String(version)
 	}
 
-	_, err := cli.s3.DeleteObject(cli.GetContext(), &in)
-
-	if !check && err != nil {
-		e := err.Error()
-		if strings.Contains(e, "api error NoSuchKey") {
-			return nil
-		}
+	if byPassGovernance {
+		in.BypassGovernanceRetention = true
 	}
 
-	return cli.GetError(err)
+	_, err := cli.s3.DeleteObject(cli.GetContext(), &in)
+
+	if !check && err != nil && strings.Contains(err.Error(), "api error NoSuchKey") {
+		return nil
+	} else if err != nil {
+		return cli.GetError(err)
+	}
+
+	return nil
+}
+
+func (cli *client) VersionCopy(source, version, destination string) error {
+	in := sdksss.CopyObjectInput{
+		Bucket: cli.GetBucketAws(),
+		Key:    sdkaws.String(destination),
+	}
+
+	if version != "" {
+		in.CopySource = sdkaws.String(path.Join(*(cli.GetBucketAws()), source) + "?versionId=" + version)
+	} else {
+		in.CopySource = sdkaws.String(path.Join(*(cli.GetBucketAws()), source))
+	}
+
+	_, err := cli.s3.CopyObject(cli.GetContext(), &in)
+
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	return nil
 }
