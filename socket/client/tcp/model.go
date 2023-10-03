@@ -110,25 +110,22 @@ func (o *cltt) dial(ctx context.Context) (net.Conn, error) {
 	}
 }
 
-func (o *cltt) Do(ctx context.Context, request io.Reader) (io.Reader, error) {
+func (o *cltt) Do(ctx context.Context, request io.Reader, fct libsck.Response) error {
 	if o == nil {
-		return nil, ErrInstance
+		return ErrInstance
 	}
 
 	var (
-		e error
-
-		lc net.Addr
-		rm net.Addr
-
+		e   error
+		lc  net.Addr
+		rm  net.Addr
 		cnn net.Conn
-		buf = o.buffRead()
 	)
 
 	o.fctInfo(nil, nil, libsck.ConnectionDial)
 	if cnn, e = o.dial(ctx); e != nil {
 		o.fctError(e)
-		return nil, e
+		return e
 	}
 
 	defer o.fctError(cnn.Close())
@@ -143,24 +140,26 @@ func (o *cltt) Do(ctx context.Context, request io.Reader) (io.Reader, error) {
 		o.fctInfo(lc, rm, libsck.ConnectionWrite)
 		if _, e = io.Copy(cnn, request); e != nil {
 			o.fctError(e)
-			return nil, e
+			return e
 		}
 	}
 
 	o.fctInfo(lc, rm, libsck.ConnectionCloseWrite)
 	if e = cnn.(*net.TCPConn).CloseWrite(); e != nil {
 		o.fctError(e)
-		return nil, e
+		return e
 	}
 
-	o.fctInfo(lc, rm, libsck.ConnectionRead)
-	if _, e = io.Copy(buf, cnn); e != nil {
-		o.fctError(e)
-		return nil, e
+	o.fctInfo(lc, rm, libsck.ConnectionHandler)
+	if fct != nil {
+		fct(cnn)
 	}
 
 	o.fctInfo(lc, rm, libsck.ConnectionCloseRead)
-	o.fctError(cnn.(*net.TCPConn).CloseRead())
+	if e = cnn.(*net.TCPConn).CloseRead(); e != nil {
+		o.fctError(e)
+		return e
+	}
 
-	return buf, nil
+	return nil
 }

@@ -29,14 +29,23 @@ import (
 	gz "compress/gzip"
 	"io"
 
+	libfpg "github.com/nabbar/golib/file/progress"
+
 	"github.com/nabbar/golib/errors"
 )
 
 func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
+	var siz = getGunZipSize(src)
+
+	if d, k := dst.(libfpg.Progress); k && siz > 0 {
+		d.Reset(siz)
+	}
+
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.Error(e)
 	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.Error(e)
+	} else if siz > 0 {
 	}
 
 	r, e := gz.NewReader(src)
@@ -52,9 +61,45 @@ func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
 	/* #nosec */
 	if _, e = io.Copy(dst, r); e != nil {
 		return ErrorIOCopy.Error(e)
-	} else if _, e := dst.Seek(0, io.SeekStart); e != nil {
+	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.Error(e)
 	} else {
 		return nil
 	}
+}
+
+func getGunZipSize(src io.ReadSeeker) int64 {
+	if _, e := src.Seek(0, io.SeekStart); e != nil {
+		return 0
+	}
+
+	r, e := gz.NewReader(src)
+	if e != nil {
+		return 0
+	}
+
+	defer func() {
+		_ = r.Close()
+	}()
+
+	if s, k := src.(libfpg.Progress); k {
+		s.RegisterFctReset(func(size, current int64) {
+
+		})
+		s.RegisterFctIncrement(func(size int64) {
+
+		})
+		s.RegisterFctEOF(func() {
+
+		})
+	}
+
+	var n int64
+	n, e = io.Copy(io.Discard, r)
+
+	if e != nil {
+		return 0
+	}
+
+	return n
 }

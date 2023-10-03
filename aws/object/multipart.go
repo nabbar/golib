@@ -26,6 +26,7 @@
 package object
 
 import (
+	"fmt"
 	"io"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
@@ -60,8 +61,12 @@ func (cli *client) MultipartList(keyMarker, markerId string) (uploads []sdktyp.M
 	}
 }
 
-func (cli *client) MultipartNew(partSize libsiz.Size, object string) libmpu.MultiPart {
-	m := libmpu.New(partSize, object, cli.GetBucketName())
+func (cli *client) MultipartNew(partSize libsiz.Size, bucket, object string) libmpu.MultiPart {
+	if len(bucket) < 1 {
+		bucket = cli.GetBucketName()
+	}
+
+	m := libmpu.New(partSize, object, bucket)
 	m.RegisterContext(cli.GetContext)
 	m.RegisterClientS3(func() *sdksss.Client {
 		return cli.s3
@@ -77,7 +82,7 @@ func (cli *client) MultipartPut(object string, body io.Reader) error {
 func (cli *client) MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) error {
 	var (
 		e error
-		m = cli.MultipartNew(partSize, object)
+		m = cli.MultipartNew(partSize, "", object)
 	)
 
 	defer func() {
@@ -90,6 +95,33 @@ func (cli *client) MultipartPutCustom(partSize libsiz.Size, object string, body 
 		return cli.GetError(e)
 	} else if _, e = io.Copy(m, body); e != nil {
 		return cli.GetError(e)
+	} else if e = m.StopMPU(false); e != nil {
+		return cli.GetError(e)
+	} else {
+		m = nil
+	}
+
+	return nil
+}
+
+func (cli *client) MultipartCopy(partSize libsiz.Size, bucketSource, source, version, bucketDestination, destination string) error {
+	var (
+		e error
+		m = cli.MultipartNew(partSize, bucketDestination, destination)
+	)
+
+	defer func() {
+		if m != nil {
+			_ = m.Close()
+		}
+	}()
+
+	if e = m.StartMPU(); e != nil {
+		return cli.GetError(e)
+	} else if e = m.Copy(bucketSource, source, version); e != nil {
+		return cli.GetError(e)
+	} else if m.Counter() < 1 {
+		return cli.GetError(fmt.Errorf("empty mpu copy"))
 	} else if e = m.StopMPU(false); e != nil {
 		return cli.GetError(e)
 	} else {

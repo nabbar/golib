@@ -23,9 +23,7 @@
  *
  */
 
-package ioutils
-
-import liberr "github.com/nabbar/golib/errors"
+package fileDescriptor
 
 // SystemFileDescriptor is returning current Limit & max system limit for file descriptor (open file or I/O resource) currently set in the system
 // This function return the current setting (current number of file descriptor and the max value) if the newValue given is zero
@@ -48,6 +46,6 @@ import liberr "github.com/nabbar/golib/errors"
 //			CC=/usr/bin/x86_64-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v ...
 //
 //		Normally no problem will be result in the build.
-func SystemFileDescriptor(newValue int) (current int, max int, err liberr.Error) {
+func SystemFileDescriptor(newValue int) (current int, max int, err error) {
 	return systemFileDescriptor(newValue)
 }

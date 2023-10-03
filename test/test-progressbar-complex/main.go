@@ -1,4 +1,3 @@
-//+build examples
 //go:build examples
 // +build examples
 
@@ -30,16 +29,20 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
 	"github.com/nabbar/golib/progress"
+	libsem "github.com/nabbar/golib/semaphore"
 	"github.com/vbauerster/mpb/v5"
 )
 
 func main() {
-	max := int64(1000000000)
-	inc := int64(100000)
+	tot := int64(1000)
+	inc := int64(1)
+	nbb := 5
+	bar := make([]progress.Bar, 0)
 
 	println("\n\n\n")
 	println("Starting complex...")
@@ -51,82 +54,44 @@ func main() {
 		pb.DeferMain()
 	}()
 
-	brK0 := pb.NewBarKBits("KiB bar", 1, " | init | ", nil)
-	brK1 := pb.NewBarKBits("KiB bar", max, " | step 1 | ", brK0)
-	brK2 := pb.NewBarKBits("KiB bar", max, " | step 2 | ", brK1)
-
-	brK0.Reset(max, 0)
-	brK0.Done()
-
-	var (
-		done1 = false
-		done2 = false
-	)
-
-	for i := int64(0); i < (max / inc); i++ {
-		time.Sleep(1 * time.Millisecond)
-		if e := pb.NewWorker(); e != nil {
-			continue
+	for i := 0; i < nbb; i++ {
+		if i > 0 && i%2 == 1 {
+			bar = append(bar, pb.NewBarKBits("KiB bar", tot, fmt.Sprintf(" | step %d | ", i), bar[i-1]))
+		} else if i > 0 && i%2 != 1 {
+			bar = append(bar, pb.NewBarKBits("KiB bar", 0, fmt.Sprintf(" | step %d | ", i), bar[i-1]))
+		} else {
+			bar = append(bar, pb.NewBarKBits("KiB bar", 0, fmt.Sprintf(" | step %d | ", i), nil))
 		}
-		go func() {
-			defer func() {
-				pb.DeferWorker()
-			}()
-
-			//nolint #nosec
-			/* #nosec */
-			rand.Seed(999)
-
-			for done1 {
-				if !done1 && brK1.Completed() {
-					done1 = true
-					brK0.Done()
-					brK1.Reset(max, 0)
-				} else if !done1 {
-					//nolint #nosec
-					/* #nosec */
-					time.Sleep(time.Duration(rand.Intn(9)+1) * time.Millisecond)
-				}
-			}
-
-			//nolint #nosec
-			/* #nosec */
-			time.Sleep(time.Duration((rand.Intn(99)/3)+1) * time.Millisecond)
-			brK1.Increment64(inc)
-		}()
 	}
 
-	for i := int64(0); i < (max / inc); i++ {
-		time.Sleep(1 * time.Millisecond)
+	for i := range bar {
 		if e := pb.NewWorker(); e != nil {
-			continue
-		}
-		go func() {
-			defer func() {
-				pb.DeferWorker()
-			}()
+			panic(e)
+		} else {
+			go func(nb int, sem libsem.Sem) {
+				defer func() {
+					pb.DeferWorker()
+				}()
 
-			//nolint #nosec
-			/* #nosec */
-			rand.Seed(999)
+				rand.Seed(999)
 
-			for done2 {
-				if !done2 && brK1.Completed() {
-					done2 = true
-					brK1.Done()
-					brK2.Reset(max, 0)
-				} else if !done2 {
-					//nolint #nosec
-					/* #nosec */
-					time.Sleep(time.Duration(rand.Intn(9)+1) * time.Millisecond)
+				for {
+					if nb > 0 && !bar[nb-1].Completed() {
+						time.Sleep(time.Second)
+					} else if bar[nb].Current() == 0 {
+						bar[nb].Reset(tot, 0)
+					}
+
+					if bar[nb].Current() < tot {
+						time.Sleep(time.Duration(rand.Intn(9)+1) * time.Millisecond)
+						bar[nb].Increment64(inc)
+					} else {
+						bar[nb].Done()
+						return
+					}
 				}
-			}
-
-			//nolint #nosec
-			/* #nosec */
-			time.Sleep(time.Duration(rand.Intn(99)+1) * time.Millisecond)
-			brK2.Increment64(inc)
-		}()
+			}(i, pb)
+		}
 	}
 
 	if e := pb.WaitAll(); e != nil {

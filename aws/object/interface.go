@@ -64,12 +64,14 @@ type Object interface {
 	Get(object string) (*sdksss.GetObjectOutput, error)
 	Put(object string, body io.Reader) error
 	Copy(source, destination string) error
+	CopyBucket(bucketSource, source, bucketDestination, destination string) error
 	Delete(check bool, object string) error
 	DeleteAll(objects *sdktps.Delete) ([]sdktps.DeletedObject, error)
 	GetAttributes(object, version string) (*sdksss.GetObjectAttributesOutput, error)
 
 	MultipartList(keyMarker, markerId string) (uploads []sdktps.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e error)
-	MultipartNew(partSize libsiz.Size, object string) libmpu.MultiPart
+	MultipartNew(partSize libsiz.Size, bucket, object string) libmpu.MultiPart
+	MultipartCopy(partSize libsiz.Size, bucketSource, source, version, bucketDestination, destination string) error
 	MultipartPut(object string, body io.Reader) error
 	MultipartPutCustom(partSize libsiz.Size, object string, body io.Reader) error
 	MultipartCancel(uploadId, key string) error
@@ -86,6 +88,7 @@ type Object interface {
 	VersionSize(object, version string) (size int64, err error)
 	VersionDelete(check bool, object, version string) error
 	VersionCopy(source, version, destination string) error
+	VersionCopyBucket(bucketSource, source, version, bucketDestination, destination string) error
 	VersionDeleteLock(check bool, object, version string, byPassGovernance bool) error
 
 	GetRetention(object, version string) (until time.Time, mode string, err error)

@@ -143,19 +143,25 @@ func ExtractAll(src libfpg.Progress, originalName, outputPath string, defaultDir
 	}
 
 	if err = libbz2.GetFile(src, tmp); err == nil {
+		if inf, er := tmp.Stat(); er == nil {
+			tmp.Reset(inf.Size())
+		}
 		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
 	} else if !err.IsCode(libbz2.ErrorIOCopy) {
 		return err
 	}
 
 	if err = libgzp.GetFile(src, tmp); err == nil {
+		if inf, er := tmp.Stat(); er == nil {
+			tmp.Reset(inf.Size())
+		}
 		return ExtractAll(tmp, originalName, outputPath, defaultDirPerm)
 	} else if !err.IsCode(libgzp.ErrorGZReader) {
 		return err
 	}
 
 	if tmp != nil {
-		_ = tmp.Close()
+		_ = tmp.CloseDelete()
 	}
 
 	if i, e = os.Stat(outputPath); e != nil && os.IsNotExist(e) {

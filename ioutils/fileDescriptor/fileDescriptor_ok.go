@@ -1,7 +1,10 @@
+//go:build !windows
+// +build !windows
+
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,36 +24,47 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package config
+package fileDescriptor
 
 import (
-	"os"
-	"time"
-
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
+	"syscall"
 )
 
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
-}
+func systemFileDescriptor(newValue int) (current int, max int, err error) {
+	var rLimit syscall.Rlimit
 
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
-
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+	if err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
+		return 0, 0, err
 	}
 
-	return s, e
+	if newValue < 1 {
+		return int(rLimit.Cur), int(rLimit.Max), nil
+	}
+
+	if newValue < int(rLimit.Cur) {
+		return int(rLimit.Cur), int(rLimit.Max), nil
+	}
+
+	var chg = false
+
+	if newValue > int(rLimit.Max) {
+		chg = true
+		rLimit.Max = uint64(newValue)
+	}
+	if newValue > int(rLimit.Cur) {
+		chg = true
+		rLimit.Cur = uint64(newValue)
+	}
+
+	if chg {
+		if err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); err != nil {
+			return 0, 0, err
+		}
+
+		return SystemFileDescriptor(0)
+	}
+
+	return int(rLimit.Cur), int(rLimit.Max), nil
 }

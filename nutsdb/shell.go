@@ -37,7 +37,6 @@ import (
 
 	shlcmd "github.com/nabbar/golib/shell/command"
 	"github.com/nutsdb/nutsdb"
-	"github.com/nutsdb/nutsdb/ds/zset"
 )
 
 type shellCommand struct {
@@ -130,21 +129,19 @@ func (s *shellCommand) parse(buf, err io.Writer, val interface{}) {
 		return
 	}
 
-	if values, ok := val.(map[string]*zset.SortedSetNode); ok {
+	if values, ok := val.(map[string]*nutsdb.SortedSetMember); ok {
 		for _, v := range values {
-			_, _ = fmt.Fprintf(buf, "Key: %s\n", v.Key())
 			_, _ = fmt.Fprintf(buf, "Val: %s\n", string(v.Value))
-			_, _ = fmt.Fprintf(buf, "Score: %v\n", v.Score())
+			_, _ = fmt.Fprintf(buf, "Score: %v\n", v.Score)
 			_, _ = fmt.Fprintf(buf, "\n")
 		}
 		return
 	}
 
-	if values, ok := val.([]*zset.SortedSetNode); ok {
+	if values, ok := val.([]*nutsdb.SortedSetMember); ok {
 		for _, v := range values {
-			_, _ = fmt.Fprintf(buf, "Key: %s\n", v.Key())
 			_, _ = fmt.Fprintf(buf, "Val: %s\n", string(v.Value))
-			_, _ = fmt.Fprintf(buf, "Score: %v\n", v.Score())
+			_, _ = fmt.Fprintf(buf, "Score: %v\n", v.Score)
 			_, _ = fmt.Fprintf(buf, "\n")
 		}
 		return

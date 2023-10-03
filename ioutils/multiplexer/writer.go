@@ -1,10 +1,7 @@
-//go:build windows
-// +build windows
-
 /*
  * MIT License
  *
- * Copyright (c) 2019 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,38 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
-package ioutils
+package multiplexer
 
-import (
-	. "github.com/nabbar/golib/errors"
-	"github.com/nabbar/golib/ioutils/maxstdio"
-)
+import "fmt"
 
-const (
-	//cf https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmaxstdio
-	winDefaultMaxStdio   = 512
-	winHardLimitMaxStdio = 8192
-)
+type writer[T comparable] struct {
+	f func(p []byte) (n int, err error)
+}
 
-func systemFileDescriptor(newValue int) (current int, max int, err Error) {
-	rLimit := maxstdio.GetMaxStdio()
-
-	if rLimit < 0 {
-		// default windows value
-		rLimit = winDefaultMaxStdio
+func (w *writer[T]) Write(p []byte) (n int, err error) {
+	if w.f == nil {
+		return 0, fmt.Errorf("invalid writer function")
+	} else {
+		return w.f(p)
 	}
-
-	if newValue > winHardLimitMaxStdio {
-		newValue = winHardLimitMaxStdio
-	}
-
-	if newValue > rLimit {
-		rLimit = int(maxstdio.SetMaxStdio(newValue))
-		return SystemFileDescriptor(0)
-	}
-
-	return rLimit, winHardLimitMaxStdio, nil
-	//	return 0, 0, fmt.Errorf("rLimit is nor implemented in current system")
 }

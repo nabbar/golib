@@ -1,10 +1,7 @@
-//go:build !windows
-// +build !windows
-
 /*
  * MIT License
  *
- * Copyright (c) 2019 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,54 +21,38 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
-package ioutils
+package encrypt
 
 import (
-	"syscall"
+	"io"
 
-	. "github.com/nabbar/golib/errors"
+	libcrp "github.com/nabbar/golib/crypt"
 )
 
-func systemFileDescriptor(newValue int) (current int, max int, err Error) {
+type enc struct {
+	c libcrp.Crypt
+	h bool
+	w io.Writer
+}
+
+func (o *enc) Write(p []byte) (n int, err error) {
 	var (
-		rLimit syscall.Rlimit
-		e      error
+		crp []byte
+		siz = len(p)
 	)
 
-	if e = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-		err = ErrorSyscallRLimitGet.Error(e)
-		return
+	if o.h {
+		crp = o.c.EncodeHex(p)
+	} else {
+		crp = o.c.Encode(p)
 	}
 
-	if newValue < 1 {
-		return int(rLimit.Cur), int(rLimit.Max), nil
+	if _, err = o.w.Write(crp); err != nil {
+		return 0, err
+	} else {
+		return siz, err
 	}
-
-	if newValue < int(rLimit.Cur) {
-		return int(rLimit.Cur), int(rLimit.Max), nil
-	}
-
-	var chg = false
-
-	if newValue > int(rLimit.Max) {
-		chg = true
-		rLimit.Max = uint64(newValue)
-	}
-	if newValue > int(rLimit.Cur) {
-		chg = true
-		rLimit.Cur = uint64(newValue)
-	}
-
-	if chg {
-		if e = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &rLimit); e != nil {
-			err = ErrorSyscallRLimitSet.Error(e)
-			return
-		}
-
-		return SystemFileDescriptor(0)
-	}
-
-	return int(rLimit.Cur), int(rLimit.Max), nil
 }

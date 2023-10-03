@@ -32,7 +32,6 @@ package nutsdb
 
 import (
 	"github.com/nutsdb/nutsdb"
-	"github.com/nutsdb/nutsdb/ds/zset"
 )
 
 type Commands interface {
@@ -72,15 +71,6 @@ type CommandBPTree interface {
 
 	// Delete removes a key from the bucket at given bucket and key.
 	Delete(bucket string, key []byte) error
-
-	// FindTxIDOnDisk returns if txId on disk at given fid and txID.
-	FindTxIDOnDisk(fID, txID uint64) (ok bool, err error)
-
-	// FindOnDisk returns entry on disk at given fID, rootOff and key.
-	FindOnDisk(fID uint64, rootOff uint64, key, newKey []byte) (entry *nutsdb.Entry, err error)
-
-	// FindLeafOnDisk returns binary leaf node on disk at given fId, rootOff and key.
-	FindLeafOnDisk(fID int64, rootOff int64, key, newKey []byte) (bn *nutsdb.BinaryNode, err error)
 }
 
 type CommandSet interface {
@@ -181,7 +171,7 @@ type CommandZSet interface {
 	ZAdd(bucket string, key []byte, score float64, val []byte) error
 
 	// ZMembers returns all the members of the set value stored at bucket.
-	ZMembers(bucket string) (map[string]*zset.SortedSetNode, error)
+	ZMembers(bucket string) (map[string]*nutsdb.SortedSetMember, error)
 
 	// ZCard returns the sorted set cardinality (number of elements) of the sorted set stored at bucket.
 	ZCard(bucket string) (int, error)
@@ -191,26 +181,26 @@ type CommandZSet interface {
 	// Limit        int  // limit the max nodes to return
 	// ExcludeStart bool // exclude start value, so it search in interval (start, end] or (start, end)
 	// ExcludeEnd   bool // exclude end value, so it search in interval [start, end) or (start, end)
-	ZCount(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) (int, error)
+	ZCount(bucket string, start, end float64, opts *nutsdb.GetByScoreRangeOptions) (int, error)
 
 	// ZPopMax removes and returns the member with the highest score in the sorted set stored at bucket.
-	ZPopMax(bucket string) (*zset.SortedSetNode, error)
+	ZPopMax(bucket string) (*nutsdb.SortedSetMember, error)
 
 	// ZPopMin removes and returns the member with the lowest score in the sorted set stored at bucket.
-	ZPopMin(bucket string) (*zset.SortedSetNode, error)
+	ZPopMin(bucket string) (*nutsdb.SortedSetMember, error)
 
 	// ZPeekMax returns the member with the highest score in the sorted set stored at bucket.
-	ZPeekMax(bucket string) (*zset.SortedSetNode, error)
+	ZPeekMax(bucket string) (*nutsdb.SortedSetMember, error)
 
 	// ZPeekMin returns the member with the lowest score in the sorted set stored at bucket.
-	ZPeekMin(bucket string) (*zset.SortedSetNode, error)
+	ZPeekMin(bucket string) (*nutsdb.SortedSetMember, error)
 
 	// ZRangeByScore returns all the elements in the sorted set at bucket with a score between min and max.
-	ZRangeByScore(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) ([]*zset.SortedSetNode, error)
+	ZRangeByScore(bucket string, start, end float64, opts *nutsdb.GetByScoreRangeOptions) ([]*nutsdb.SortedSetMember, error)
 
 	// ZRangeByRank returns all the elements in the sorted set in one bucket and key
 	// with a rank between start and end (including elements with rank equal to start or end).
-	ZRangeByRank(bucket string, start, end int) ([]*zset.SortedSetNode, error)
+	ZRangeByRank(bucket string, start, end int) ([]*nutsdb.SortedSetMember, error)
 
 	// ZRem removes the specified members from the sorted set stored in one bucket at given bucket and key.
 	ZRem(bucket, key string) error
@@ -231,5 +221,5 @@ type CommandZSet interface {
 	ZScore(bucket string, key []byte) (float64, error)
 
 	// ZGetByKey returns node in the bucket at given bucket and key.
-	ZGetByKey(bucket string, key []byte) (*zset.SortedSetNode, error)
+	ZGetByKey(bucket string, key []byte) (*nutsdb.SortedSetMember, error)
 }

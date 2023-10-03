@@ -104,25 +104,22 @@ func (o *cltu) dial(ctx context.Context) (net.Conn, error) {
 	}
 }
 
-func (o *cltu) Do(ctx context.Context, request io.Reader) (io.Reader, error) {
+func (o *cltu) Do(ctx context.Context, request io.Reader, fct libsck.Response) error {
 	if o == nil {
-		return nil, ErrInstance
+		return ErrInstance
 	}
 
 	var (
-		e error
-
-		lc net.Addr
-		rm net.Addr
-
+		e   error
+		lc  net.Addr
+		rm  net.Addr
 		cnn net.Conn
-		buf = o.buffRead()
 	)
 
 	o.fctInfo(nil, nil, libsck.ConnectionDial)
 	if cnn, e = o.dial(ctx); e != nil {
 		o.fctError(e)
-		return nil, e
+		return e
 	}
 
 	defer o.fctError(cnn.Close())
@@ -137,9 +134,14 @@ func (o *cltu) Do(ctx context.Context, request io.Reader) (io.Reader, error) {
 		o.fctInfo(lc, rm, libsck.ConnectionWrite)
 		if _, e = io.Copy(cnn, request); e != nil {
 			o.fctError(e)
-			return nil, e
+			return e
 		}
 	}
 
-	return buf, nil
+	o.fctInfo(lc, rm, libsck.ConnectionHandler)
+	if fct != nil {
+		fct(cnn)
+	}
+
+	return nil
 }

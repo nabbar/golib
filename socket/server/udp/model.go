@@ -57,7 +57,6 @@ type srv struct {
 	tr *atomic.Value // connection read timeout
 	tw *atomic.Value // connection write timeout
 	sr *atomic.Int32 // read buffer size
-	sw *atomic.Int32 // write buffer size
 
 	ad *atomic.Value // Server address url
 }

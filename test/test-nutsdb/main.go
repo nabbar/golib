@@ -53,7 +53,7 @@ import (
 	libsh "github.com/nabbar/golib/shell"
 	libvrs "github.com/nabbar/golib/version"
 	"github.com/nutsdb/nutsdb"
-	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v8"
 )
 
 const (

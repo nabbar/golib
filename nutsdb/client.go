@@ -41,7 +41,6 @@ import (
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
 	"github.com/nutsdb/nutsdb"
-	"github.com/nutsdb/nutsdb/ds/zset"
 )
 
 type Client interface {
@@ -219,7 +218,7 @@ func (c *clientNutDB) Run(cmd CmdCode, args []string) (*CommandResponse, liberr.
 	}
 
 	params := make([]reflect.Value, nbPrm)
-	opt := &zset.GetByScoreRangeOptions{
+	opt := &nutsdb.GetByScoreRangeOptions{
 		Limit:        0,
 		ExcludeStart: false,
 		ExcludeEnd:   false,
@@ -508,90 +507,6 @@ func (c *clientNutDB) Delete(bucket string, key []byte) error {
 	}
 
 	return nil
-}
-
-// nolint #dupl
-func (c *clientNutDB) FindTxIDOnDisk(fID, txID uint64) (ok bool, err error) {
-	var (
-		k bool
-		f liberr.Error
-		r *CommandResponse
-		d *CommandRequest
-	)
-
-	d = NewCommandByCaller(fID, txID)
-
-	if r, f = c.call(d, true); f != nil {
-		return false, f
-	} else if r == nil {
-		return false, nil
-	} else if r.Error != nil {
-		return false, r.Error
-	} else if len(r.Value) < 1 {
-		return false, nil
-	}
-
-	if ok, k = r.Value[0].(bool); !k {
-		ok = false
-	}
-
-	return
-}
-
-// nolint #dupl
-func (c *clientNutDB) FindOnDisk(fID uint64, rootOff uint64, key, newKey []byte) (entry *nutsdb.Entry, err error) {
-	var (
-		k bool
-		f liberr.Error
-		r *CommandResponse
-		d *CommandRequest
-	)
-
-	d = NewCommandByCaller(fID, rootOff, key, newKey)
-
-	if r, f = c.call(d, true); f != nil {
-		return nil, f
-	} else if r == nil {
-		return nil, nil
-	} else if r.Error != nil {
-		return nil, r.Error
-	} else if len(r.Value) < 1 {
-		return nil, nil
-	}
-
-	if entry, k = r.Value[0].(*nutsdb.Entry); !k {
-		entry = nil
-	}
-
-	return
-}
-
-// nolint #dupl
-func (c *clientNutDB) FindLeafOnDisk(fID int64, rootOff int64, key, newKey []byte) (bn *nutsdb.BinaryNode, err error) {
-	var (
-		k bool
-		f liberr.Error
-		r *CommandResponse
-		d *CommandRequest
-	)
-
-	d = NewCommandByCaller(fID, rootOff, key, newKey)
-
-	if r, f = c.call(d, true); f != nil {
-		return nil, f
-	} else if r == nil {
-		return nil, nil
-	} else if r.Error != nil {
-		return nil, r.Error
-	} else if len(r.Value) < 1 {
-		return nil, nil
-	}
-
-	if bn, k = r.Value[0].(*nutsdb.BinaryNode); !k {
-		bn = nil
-	}
-
-	return
 }
 
 // nolint #dupl
@@ -1274,7 +1189,7 @@ func (c *clientNutDB) ZAdd(bucket string, key []byte, score float64, val []byte)
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZMembers(bucket string) (list map[string]*zset.SortedSetNode, err error) {
+func (c *clientNutDB) ZMembers(bucket string) (list map[string]*nutsdb.SortedSetMember, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1294,7 +1209,7 @@ func (c *clientNutDB) ZMembers(bucket string) (list map[string]*zset.SortedSetNo
 		return nil, nil
 	}
 
-	if list, k = r.Value[0].(map[string]*zset.SortedSetNode); !k {
+	if list, k = r.Value[0].(map[string]*nutsdb.SortedSetMember); !k {
 		list = nil
 	}
 
@@ -1330,7 +1245,7 @@ func (c *clientNutDB) ZCard(bucket string) (card int, err error) {
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZCount(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) (number int, err error) {
+func (c *clientNutDB) ZCount(bucket string, start, end float64, opts *nutsdb.GetByScoreRangeOptions) (number int, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1358,7 +1273,7 @@ func (c *clientNutDB) ZCount(bucket string, start, end float64, opts *zset.GetBy
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZPopMax(bucket string) (item *zset.SortedSetNode, err error) {
+func (c *clientNutDB) ZPopMax(bucket string) (item *nutsdb.SortedSetMember, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1378,7 +1293,7 @@ func (c *clientNutDB) ZPopMax(bucket string) (item *zset.SortedSetNode, err erro
 		return nil, nil
 	}
 
-	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+	if item, k = r.Value[0].(*nutsdb.SortedSetMember); !k {
 		item = nil
 	}
 
@@ -1386,7 +1301,7 @@ func (c *clientNutDB) ZPopMax(bucket string) (item *zset.SortedSetNode, err erro
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZPopMin(bucket string) (item *zset.SortedSetNode, err error) {
+func (c *clientNutDB) ZPopMin(bucket string) (item *nutsdb.SortedSetMember, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1406,7 +1321,7 @@ func (c *clientNutDB) ZPopMin(bucket string) (item *zset.SortedSetNode, err erro
 		return nil, nil
 	}
 
-	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+	if item, k = r.Value[0].(*nutsdb.SortedSetMember); !k {
 		item = nil
 	}
 
@@ -1414,7 +1329,7 @@ func (c *clientNutDB) ZPopMin(bucket string) (item *zset.SortedSetNode, err erro
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZPeekMax(bucket string) (item *zset.SortedSetNode, err error) {
+func (c *clientNutDB) ZPeekMax(bucket string) (item *nutsdb.SortedSetMember, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1434,7 +1349,7 @@ func (c *clientNutDB) ZPeekMax(bucket string) (item *zset.SortedSetNode, err err
 		return nil, nil
 	}
 
-	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+	if item, k = r.Value[0].(*nutsdb.SortedSetMember); !k {
 		item = nil
 	}
 
@@ -1442,7 +1357,7 @@ func (c *clientNutDB) ZPeekMax(bucket string) (item *zset.SortedSetNode, err err
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZPeekMin(bucket string) (item *zset.SortedSetNode, err error) {
+func (c *clientNutDB) ZPeekMin(bucket string) (item *nutsdb.SortedSetMember, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1462,7 +1377,7 @@ func (c *clientNutDB) ZPeekMin(bucket string) (item *zset.SortedSetNode, err err
 		return nil, nil
 	}
 
-	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+	if item, k = r.Value[0].(*nutsdb.SortedSetMember); !k {
 		item = nil
 	}
 
@@ -1470,7 +1385,7 @@ func (c *clientNutDB) ZPeekMin(bucket string) (item *zset.SortedSetNode, err err
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZRangeByScore(bucket string, start, end float64, opts *zset.GetByScoreRangeOptions) (list []*zset.SortedSetNode, err error) {
+func (c *clientNutDB) ZRangeByScore(bucket string, start, end float64, opts *nutsdb.GetByScoreRangeOptions) (list []*nutsdb.SortedSetMember, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1490,7 +1405,7 @@ func (c *clientNutDB) ZRangeByScore(bucket string, start, end float64, opts *zse
 		return nil, nil
 	}
 
-	if list, k = r.Value[0].([]*zset.SortedSetNode); !k {
+	if list, k = r.Value[0].([]*nutsdb.SortedSetMember); !k {
 		list = nil
 	}
 
@@ -1498,7 +1413,7 @@ func (c *clientNutDB) ZRangeByScore(bucket string, start, end float64, opts *zse
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZRangeByRank(bucket string, start, end int) (list []*zset.SortedSetNode, err error) {
+func (c *clientNutDB) ZRangeByRank(bucket string, start, end int) (list []*nutsdb.SortedSetMember, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1518,7 +1433,7 @@ func (c *clientNutDB) ZRangeByRank(bucket string, start, end int) (list []*zset.
 		return nil, nil
 	}
 
-	if list, k = r.Value[0].([]*zset.SortedSetNode); !k {
+	if list, k = r.Value[0].([]*nutsdb.SortedSetMember); !k {
 		list = nil
 	}
 
@@ -1652,7 +1567,7 @@ func (c *clientNutDB) ZScore(bucket string, key []byte) (score float64, err erro
 }
 
 // nolint #dupl
-func (c *clientNutDB) ZGetByKey(bucket string, key []byte) (item *zset.SortedSetNode, err error) {
+func (c *clientNutDB) ZGetByKey(bucket string, key []byte) (item *nutsdb.SortedSetMember, err error) {
 	var (
 		k bool
 		f liberr.Error
@@ -1672,7 +1587,7 @@ func (c *clientNutDB) ZGetByKey(bucket string, key []byte) (item *zset.SortedSet
 		return nil, nil
 	}
 
-	if item, k = r.Value[0].(*zset.SortedSetNode); !k {
+	if item, k = r.Value[0].(*nutsdb.SortedSetMember); !k {
 		item = nil
 	}
 

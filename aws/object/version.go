@@ -222,15 +222,19 @@ func (cli *client) VersionDeleteLock(check bool, object, version string, byPassG
 }
 
 func (cli *client) VersionCopy(source, version, destination string) error {
+	return cli.VersionCopyBucket(*cli.GetBucketAws(), source, version, *cli.GetBucketAws(), destination)
+}
+
+func (cli *client) VersionCopyBucket(bucketSource, source, version, bucketDestination, destination string) error {
 	in := sdksss.CopyObjectInput{
-		Bucket: cli.GetBucketAws(),
+		Bucket: sdkaws.String(bucketDestination),
 		Key:    sdkaws.String(destination),
 	}
 
 	if version != "" {
-		in.CopySource = sdkaws.String(path.Join(*(cli.GetBucketAws()), source) + "?versionId=" + version)
+		in.CopySource = sdkaws.String(path.Join(bucketSource, source) + "?versionId=" + version)
 	} else {
-		in.CopySource = sdkaws.String(path.Join(*(cli.GetBucketAws()), source))
+		in.CopySource = sdkaws.String(path.Join(bucketSource, source))
 	}
 
 	_, err := cli.s3.CopyObject(cli.GetContext(), &in)

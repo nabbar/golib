@@ -78,8 +78,6 @@ func (o NutsDBOptions) GetNutsDBOptions(dataDir string) nutsdb.Options {
 	switch o.EntryIdxMode {
 	case nutsdb.HintKeyAndRAMIdxMode:
 		d.EntryIdxMode = nutsdb.HintKeyAndRAMIdxMode
-	case nutsdb.HintBPTSparseIdxMode:
-		d.EntryIdxMode = nutsdb.HintBPTSparseIdxMode
 	default:
 		d.EntryIdxMode = nutsdb.HintKeyValAndRAMIdxMode
 	}

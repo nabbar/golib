@@ -30,6 +30,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
@@ -90,7 +91,8 @@ type AWS interface {
 
 	GetBucketName() string
 	SetBucketName(bucket string)
-
+	SetHTTPTimeout(dur time.Duration) error
+	GetHTTPTimeout() time.Duration
 	GetClientS3() *sdksss.Client
 	SetClientS3(aws *sdksss.Client)
 	GetClientIam() *sdkiam.Client

@@ -23,40 +23,23 @@
  *
  */
 
-package ioutils
+package bufferReadCloser
 
-import (
-	"os"
-	"path/filepath"
+import "bytes"
 
-	liberr "github.com/nabbar/golib/errors"
-)
-
-func NewTempFile() (*os.File, error) {
-	f, e := os.CreateTemp(os.TempDir(), "")
-	return f, ErrorIOFileTempNew.IfError(e)
+type buf struct {
+	b *bytes.Buffer
 }
 
-func GetTempFilePath(f *os.File) string {
-	if f == nil {
-		return ""
-	}
-
-	return filepath.Join(os.TempDir(), filepath.Base(f.Name()))
+func (b *buf) Read(p []byte) (n int, err error) {
+	return b.b.Read(p)
 }
 
-func DelTempFile(f *os.File) error {
-	if f == nil {
-		return nil
-	}
+func (b *buf) Write(p []byte) (n int, err error) {
+	return b.b.Write(p)
+}
 
-	n := GetTempFilePath(f)
-
-	a := f.Close()
-	e1 := ErrorIOFileTempClose.IfError(a)
-
-	b := os.Remove(n)
-	e2 := ErrorIOFileTempRemove.IfError(b)
-
-	return liberr.MakeIfError(e2, e1)
+func (b *buf) Close() error {
+	b.b.Reset()
+	return nil
 }

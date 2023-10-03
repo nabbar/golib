@@ -37,7 +37,7 @@ type ServerTcp interface {
 	RegisterServer(address string) error
 }
 
-func New(h libsck.Handler, sizeBuffRead, sizeBuffWrite int32) ServerTcp {
+func New(h libsck.Handler, sizeBuffRead int32) ServerTcp {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 
@@ -50,9 +50,6 @@ func New(h libsck.Handler, sizeBuffRead, sizeBuffWrite int32) ServerTcp {
 	sr := new(atomic.Int32)
 	sr.Store(sizeBuffRead)
 
-	sw := new(atomic.Int32)
-	sw.Store(sizeBuffWrite)
-
 	return &srv{
 		l:  nil,
 		h:  f,
@@ -63,6 +60,5 @@ func New(h libsck.Handler, sizeBuffRead, sizeBuffWrite int32) ServerTcp {
 		tr: new(atomic.Value),
 		tw: new(atomic.Value),
 		sr: sr,
-		sw: sw,
 	}
 }

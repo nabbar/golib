@@ -59,6 +59,7 @@ type MultiPart interface {
 	StartMPU() error
 	StopMPU(abort bool) error
 
+	Copy(fromBucket, fromObject, fromVersionId string) error
 	AddPart(r io.Reader) (n int64, e error)
 	SendPart() error
 	CurrentSizePart() int64

@@ -23,28 +23,21 @@
  *
  */
 
-package ioutils
+package bufferReadCloser
 
 import (
 	"bytes"
 	"io"
 )
 
-type brc struct {
-	b *bytes.Buffer
+type Buffer interface {
+	io.Reader
+	io.Writer
+	io.Closer
 }
 
-func NewBufferReadCloser(b *bytes.Buffer) io.ReadCloser {
-	return &brc{
+func New(b *bytes.Buffer) Buffer {
+	return &buf{
 		b: b,
 	}
-}
-
-func (b *brc) Read(p []byte) (n int, err error) {
-	return b.b.Read(p)
-}
-
-func (b *brc) Close() error {
-	b.b.Reset()
-	return nil
 }

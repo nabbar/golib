@@ -37,7 +37,7 @@ import (
 
 	liberr "github.com/nabbar/golib/errors"
 	libfpg "github.com/nabbar/golib/file/progress"
-	libiot "github.com/nabbar/golib/ioutils"
+	libbuf "github.com/nabbar/golib/ioutils/bufferReadCloser"
 )
 
 func (s *staticHandler) _getSize() int64 {
@@ -150,7 +150,7 @@ func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error)
 	} else if err != nil {
 		return nil, ErrorFileOpen.Error(err)
 	} else {
-		return libiot.NewBufferReadCloser(bytes.NewBuffer(obj)), nil
+		return libbuf.New(bytes.NewBuffer(obj)), nil
 	}
 }
 

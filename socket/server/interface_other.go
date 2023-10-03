@@ -39,14 +39,14 @@ import (
 	scksru "github.com/nabbar/golib/socket/server/udp"
 )
 
-func New(handler libsck.Handler, proto libptc.NetworkProtocol, sizeBufferRead, sizeBufferWrite int32, address string, perm os.FileMode) (libsck.Server, error) {
+func New(handler libsck.Handler, proto libptc.NetworkProtocol, sizeBufferRead int32, address string, perm os.FileMode) (libsck.Server, error) {
 	switch proto {
 	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
-		s := scksrt.New(handler, sizeBufferRead, sizeBufferWrite)
+		s := scksrt.New(handler, sizeBufferRead)
 		e := s.RegisterServer(address)
 		return s, e
 	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
-		s := scksru.New(handler, sizeBufferRead, sizeBufferWrite)
+		s := scksru.New(handler, sizeBufferRead)
 		e := s.RegisterServer(address)
 		return s, e
 	}

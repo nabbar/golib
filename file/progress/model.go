@@ -83,7 +83,7 @@ func (o *progress) SizeBOF() (size int64, err error) {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
-	return o.Seek(0, io.SeekCurrent)
+	return o.seek(0, io.SeekCurrent)
 }
 
 func (o *progress) SizeEOF() (size int64, err error) {
@@ -97,11 +97,11 @@ func (o *progress) SizeEOF() (size int64, err error) {
 		b int64 // eof
 	)
 
-	if a, e = o.Seek(0, io.SeekCurrent); e != nil {
+	if a, e = o.seek(0, io.SeekCurrent); e != nil {
 		return 0, e
-	} else if b, e = o.Seek(0, io.SeekEnd); e != nil {
+	} else if b, e = o.seek(0, io.SeekEnd); e != nil {
 		return 0, e
-	} else if _, e = o.Seek(a, io.SeekStart); e != nil {
+	} else if _, e = o.seek(a, io.SeekStart); e != nil {
 		return 0, e
 	} else {
 		return b - a, nil

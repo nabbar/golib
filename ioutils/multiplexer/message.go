@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,33 +24,9 @@
  *
  */
 
-package config
+package multiplexer
 
-import (
-	"os"
-	"time"
-
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
-)
-
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
-}
-
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
-
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
-	}
-
-	return s, e
+type Message[T comparable] struct {
+	Stream  T      `cbor:"1,keyasint"`
+	Message []byte `cbor:"2,keyasint"`
 }

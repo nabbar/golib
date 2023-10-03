@@ -1,7 +1,10 @@
+//go:build windows
+// +build windows
+
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,36 +24,37 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package config
+package fileDescriptor
 
 import (
-	"os"
-	"time"
-
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
+	"github.com/nabbar/golib/ioutils/maxstdio"
 )
 
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
-}
+const (
+	//cf https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmaxstdio
+	winDefaultMaxStdio   = 512
+	winHardLimitMaxStdio = 8192
+)
 
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
+func systemFileDescriptor(newValue int) (current int, max int, err error) {
+	rLimit := maxstdio.GetMaxStdio()
 
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+	if rLimit < 0 {
+		// default windows value
+		rLimit = winDefaultMaxStdio
 	}
 
-	return s, e
+	if newValue > winHardLimitMaxStdio {
+		newValue = winHardLimitMaxStdio
+	}
+
+	if newValue > rLimit {
+		rLimit = int(maxstdio.SetMaxStdio(newValue))
+		return SystemFileDescriptor(0)
+	}
+
+	return rLimit, winHardLimitMaxStdio, nil
+	//	return 0, 0, fmt.Errorf("rLimit is nor implemented in current system")
 }
