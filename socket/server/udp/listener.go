@@ -65,15 +65,6 @@ func (o *srv) buffRead() *bytes.Buffer {
 	return bytes.NewBuffer(make([]byte, 0, libsck.DefaultBufferSize))
 }
 
-func (o *srv) buffWrite() *bytes.Buffer {
-	v := o.sw.Load()
-	if v > 0 {
-		return bytes.NewBuffer(make([]byte, 0, int(v)))
-	}
-
-	return bytes.NewBuffer(make([]byte, 0, libsck.DefaultBufferSize))
-}
-
 func (o *srv) getAddress() *url.URL {
 	f := o.ad.Load()
 	if f != nil {
@@ -133,7 +124,6 @@ func (o *srv) Conn(conn net.Conn) {
 		tr = o.timeoutRead()
 		tw = o.timeoutWrite()
 		br = o.buffRead()
-		bw = io.Discard
 	)
 
 	defer o.fctInfo(lc, rm, libsck.ConnectionClose)
@@ -161,6 +151,6 @@ func (o *srv) Conn(conn net.Conn) {
 
 	if h := o.handler(); h != nil {
 		o.fctInfo(lc, rm, libsck.ConnectionHandler)
-		h(br, bw)
+		h(br, conn)
 	}
 }

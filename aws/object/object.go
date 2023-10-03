@@ -132,6 +132,10 @@ func (cli *client) Copy(source, destination string) error {
 	return cli.VersionCopy(source, "", destination)
 }
 
+func (cli *client) CopyBucket(bucketSource, source, bucketDestination, destination string) error {
+	return cli.VersionCopyBucket(bucketSource, source, "", bucketDestination, destination)
+}
+
 func (cli *client) Put(object string, body io.Reader) error {
 	var tpe *string
 

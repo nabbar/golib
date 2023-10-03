@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,33 +24,26 @@
  *
  */
 
-package config
+package multiplexer
 
 import (
-	"os"
-	"time"
-
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
+	"io"
+	"sync"
 )
 
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
+type FuncWrite func(p []byte) (n int, err error)
+
+type MixStdOutErr[T comparable] interface {
+	io.Reader
+
+	Writer(key T) io.Writer
+	Add(key T, fct FuncWrite)
 }
 
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
-
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+func New[T comparable](r io.Reader, w io.Writer) MixStdOutErr[T] {
+	return &mux[T]{
+		d: new(sync.Map),
+		r: r,
+		w: w,
 	}
-
-	return s, e
 }

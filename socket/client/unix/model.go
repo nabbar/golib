@@ -113,30 +113,27 @@ func (o *cltx) dial(ctx context.Context) (net.Conn, error) {
 	}
 }
 
-func (o *cltx) Do(ctx context.Context, request io.Reader) (io.Reader, error) {
+func (o *cltx) Do(ctx context.Context, request io.Reader, fct libsck.Response) error {
 	if o == nil {
-		return nil, ErrInvalidInstance
+		return ErrInvalidInstance
 	}
 
 	var (
-		e error
-
-		lc net.Addr
-		rm net.Addr
-
+		e   error
+		lc  net.Addr
+		rm  net.Addr
 		cnn net.Conn
-		buf = o.buffRead()
 	)
 
 	o.fctInfo(nil, nil, libsck.ConnectionDial)
 	if cnn, e = o.dial(ctx); e != nil {
 		o.fctError(e)
-		return nil, e
+		return e
 	}
 
 	defer func() {
-		e := cnn.Close()
-		o.fctError(e)
+		err := cnn.Close()
+		o.fctError(err)
 	}()
 
 	lc = cnn.LocalAddr()
@@ -149,24 +146,26 @@ func (o *cltx) Do(ctx context.Context, request io.Reader) (io.Reader, error) {
 		o.fctInfo(lc, rm, libsck.ConnectionWrite)
 		if _, e = io.Copy(cnn, request); e != nil {
 			o.fctError(e)
-			return nil, e
+			return e
 		}
 	}
 
 	o.fctInfo(lc, rm, libsck.ConnectionCloseWrite)
 	if e = cnn.(*net.UnixConn).CloseWrite(); e != nil {
 		o.fctError(e)
-		return nil, e
+		return e
 	}
 
-	o.fctInfo(lc, rm, libsck.ConnectionRead)
-	if _, e = io.Copy(buf, cnn); e != nil {
-		o.fctError(e)
-		return nil, e
+	o.fctInfo(lc, rm, libsck.ConnectionHandler)
+	if fct != nil {
+		fct(cnn)
 	}
 
 	o.fctInfo(lc, rm, libsck.ConnectionCloseRead)
-	o.fctError(cnn.(*net.UnixConn).CloseRead())
+	if e = cnn.(*net.UnixConn).CloseRead(); e != nil {
+		o.fctError(e)
+		return e
+	}
 
-	return buf, nil
+	return nil
 }

@@ -37,21 +37,27 @@ import (
 )
 
 func main() {
-	max := int64(1000000)
-	inc := int64(100)
+	tot := int64(1000)
+	inc := int64(1)
 
 	println("\n\n\n")
 	println("Starting simple...")
 	pb := progress.NewProgressBar(mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
 
-	brE := pb.NewBarSimpleETA("ETA bar", max)
-	brE.Reset(max, 0)
+	brE := pb.NewBarSimpleETA("ETA bar", 0)
+	brE.Reset(tot/2, 0)
+	brE.Increment64(inc - 1)
+	brE.Reset(tot, 0)
 
-	brC := pb.NewBarSimpleCounter("counter bar", max)
-	brC.Reset(max, 0)
+	brC := pb.NewBarSimpleCounter("counter bar", 0)
+	brC.Reset(tot/2, 0)
+	brC.Increment64(inc - 1)
+	brC.Reset(tot, 0)
 
-	brK := pb.NewBarSimpleKBits("KiB bar", max)
-	brK.Reset(max, 0)
+	brK := pb.NewBarSimpleKBits("KiB bar", 0)
+	brK.Reset(tot/2, 0)
+	brK.Increment64(inc - 1)
+	brK.Reset(tot, 0)
 
 	defer func() {
 		brE.DeferMain()
@@ -59,42 +65,59 @@ func main() {
 		brK.DeferMain()
 	}()
 
-	for i := int64(0); i < (max / inc); i++ {
+	for i := int64(0); i < (tot / inc); i++ {
 		time.Sleep(5 * time.Millisecond)
 
 		if e := brE.NewWorker(); e != nil {
 			println("Error : " + e.Error())
-			continue
+		} else {
+			go func() {
+				defer brE.DeferWorker()
+
+				//nolint #nosec
+				/* #nosec */
+				rand.Seed(99)
+				//nolint #nosec
+				/* #nosec */
+				time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
+
+				brE.Increment64(inc - 1)
+			}()
 		}
+
 		if e := brC.NewWorker(); e != nil {
 			println("Error : " + e.Error())
-			brE.DeferWorker()
-			continue
+		} else {
+			go func() {
+				defer brC.DeferWorker()
+
+				//nolint #nosec
+				/* #nosec */
+				rand.Seed(99)
+				//nolint #nosec
+				/* #nosec */
+				time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
+
+				brC.Increment64(inc - 1)
+			}()
 		}
+
 		if e := brK.NewWorker(); e != nil {
 			println("Error : " + e.Error())
-			brE.DeferWorker()
-			brC.DeferWorker()
-			continue
-		}
-		go func() {
-			defer func() {
-				brE.DeferWorker()
-				brC.DeferWorker()
-				brK.DeferWorker()
+		} else {
+			go func() {
+				defer brK.DeferWorker()
+
+				//nolint #nosec
+				/* #nosec */
+				rand.Seed(99)
+				//nolint #nosec
+				/* #nosec */
+				time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
+
+				brK.Increment64(inc - 1)
 			}()
-
-			//nolint #nosec
-			/* #nosec */
-			rand.Seed(99)
-			//nolint #nosec
-			/* #nosec */
-			time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
-
-			brE.Increment64(inc - 1)
-			brC.Increment64(inc - 1)
-			brK.Increment64(inc - 1)
-		}()
+		}
 	}
 
 	if e := brE.WaitAll(); e != nil {

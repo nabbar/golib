@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,33 +24,45 @@
  *
  */
 
-package config
+package crypt
 
 import (
-	"os"
-	"time"
-
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
+	"crypto/cipher"
+	"encoding/hex"
 )
 
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
+type crt struct {
+	a cipher.AEAD
+	n []byte
 }
 
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
-
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+func (o *crt) Encode(p []byte) []byte {
+	if len(p) < 1 {
+		return make([]byte, 0)
 	}
+	return o.a.Seal(nil, o.n, p, nil)
+}
 
-	return s, e
+func (o *crt) EncodeHex(p []byte) []byte {
+	if len(p) < 1 {
+		return make([]byte, 0)
+	}
+	return []byte(hex.EncodeToString(o.Encode(p)))
+}
+
+func (o *crt) Decode(p []byte) ([]byte, error) {
+	if len(p) < 1 {
+		return make([]byte, 0), nil
+	}
+	return o.a.Open(nil, o.n, p, nil)
+}
+
+func (o *crt) DecodeHex(p []byte) ([]byte, error) {
+	if len(p) < 1 {
+		return make([]byte, 0), nil
+	} else if dec, err := hex.DecodeString(string(p)); err != nil {
+		return nil, err
+	} else {
+		return o.Decode(dec)
+	}
 }

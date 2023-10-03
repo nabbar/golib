@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,33 +24,23 @@
  *
  */
 
-package config
+package bandwidth
 
 import (
-	"os"
-	"time"
+	"sync/atomic"
 
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
+	libfpg "github.com/nabbar/golib/file/progress"
+	libsiz "github.com/nabbar/golib/size"
 )
 
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
+type BandWidth interface {
+	RegisterIncrement(fpg libfpg.Progress, fi libfpg.FctIncrement)
+	RegisterReset(fpg libfpg.Progress, fr libfpg.FctReset)
 }
 
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
-
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+func New(bytesBySecond libsiz.Size) BandWidth {
+	return &bw{
+		t: new(atomic.Value),
+		l: bytesBySecond,
 	}
-
-	return s, e
 }

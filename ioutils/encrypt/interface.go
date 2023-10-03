@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,33 +24,42 @@
  *
  */
 
-package config
+package encrypt
 
 import (
-	"os"
-	"time"
+	"io"
 
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
+	libcrp "github.com/nabbar/golib/crypt"
 )
 
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
+type Encrypt interface {
+	io.Writer
 }
 
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
+type Decrypt interface {
+	io.Reader
+}
 
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+func NewEncrypt(w io.Writer, hex bool, key [32]byte, nonce [12]byte) (Encrypt, error) {
+	if crp, err := libcrp.New(key, nonce); err != nil {
+		return nil, err
+	} else {
+		return &enc{
+			c: crp,
+			h: hex,
+			w: w,
+		}, nil
 	}
+}
 
-	return s, e
+func NewDecrypt(r io.Reader, hex bool, key [32]byte, nonce [12]byte) (Decrypt, error) {
+	if crp, err := libcrp.New(key, nonce); err != nil {
+		return nil, err
+	} else {
+		return &dec{
+			c: crp,
+			h: hex,
+			r: r,
+		}, nil
+	}
 }

@@ -70,7 +70,7 @@ func (c *cobra) Init() {
 
 func (c *cobra) printHeader() {
 	if !c.b {
-		println(c.s.GetHeader())
+		_, _ = fmt.Fprintln(os.Stdout, c.s.GetHeader())
 	}
 }
 

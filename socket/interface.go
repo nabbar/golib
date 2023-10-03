@@ -51,6 +51,7 @@ const (
 type FuncError func(e error)
 type FuncInfo func(local, remote net.Addr, state ConnState)
 type Handler func(request io.Reader, response io.Writer)
+type Response func(r io.Reader)
 
 type Server interface {
 	RegisterFuncError(f FuncError)
@@ -68,5 +69,5 @@ type Client interface {
 	RegisterFuncError(f FuncError)
 	RegisterFuncInfo(f FuncInfo)
 
-	Do(ctx context.Context, request io.Reader) (io.Reader, error)
+	Do(ctx context.Context, request io.Reader, fct Response) error
 }

@@ -59,7 +59,6 @@ type srv struct {
 	tr *atomic.Value // connection read timeout
 	tw *atomic.Value // connection write timeout
 	sr *atomic.Int32 // read buffer size
-	sw *atomic.Int32 // write buffer size
 	fs *atomic.Value // file unix socket
 	fp *atomic.Int64 // file unix perm
 }

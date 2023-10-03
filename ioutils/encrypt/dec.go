@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,33 +24,34 @@
  *
  */
 
-package config
+package encrypt
 
 import (
-	"os"
-	"time"
+	"io"
 
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
+	libcrp "github.com/nabbar/golib/crypt"
 )
 
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
+type dec struct {
+	c libcrp.Crypt
+	h bool
+	r io.Reader
 }
 
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
+func (o *dec) Read(p []byte) (n int, err error) {
+	var (
+		crp = make([]byte, cap(p)*2)
+		res = make([]byte, cap(p))
+	)
 
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+	if n, err = o.r.Read(crp); err != nil {
+		return 0, err
+	} else if o.h {
+		res, err = o.c.DecodeHex(crp)
+	} else {
+		res, err = o.c.Decode(crp)
 	}
 
-	return s, e
+	copy(p, res)
+	return len(p), err
 }

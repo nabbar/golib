@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,33 +24,71 @@
  *
  */
 
-package config
+package crypt
 
 import (
-	"os"
-	"time"
-
-	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
+	"fmt"
+	"io"
 )
 
-type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
+type reader struct {
+	f func(p []byte) (n int, err error)
 }
 
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
+func (r *reader) Read(p []byte) (n int, err error) {
+	if r.f == nil {
+		return 0, fmt.Errorf("invalid reader")
+	} else {
+		return r.f(p)
+	}
+}
 
-	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+func (o *crt) Reader(r io.Reader) io.Reader {
+	fct := func(p []byte) (n int, err error) {
+		var (
+			a = make([]byte, 0, cap(p))
+			b = make([]byte, cap(p)+o.a.Overhead())
+		)
+
+		if n, err = r.Read(b); err != nil {
+			return 0, err
+		} else if a, err = o.Decode(b[:n]); err != nil {
+			return 0, err
+		} else {
+			copy(p, a)
+			n = len(a)
+			clear(a)
+			clear(b)
+			return n, nil
+		}
 	}
 
-	return s, e
+	return &reader{
+		f: fct,
+	}
+}
+
+func (o *crt) ReaderHex(r io.Reader) io.Reader {
+	fct := func(p []byte) (n int, err error) {
+		var (
+			a = make([]byte, 0, cap(p))
+			b = make([]byte, (cap(p)+o.a.Overhead())*2)
+		)
+
+		if n, err = r.Read(b); err != nil {
+			return 0, err
+		} else if a, err = o.DecodeHex(b[:n]); err != nil {
+			return 0, err
+		} else {
+			copy(p, a)
+			n = len(a)
+			clear(a)
+			clear(b)
+			return n, nil
+		}
+	}
+
+	return &reader{
+		f: fct,
+	}
 }

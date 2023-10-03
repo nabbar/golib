@@ -27,12 +27,20 @@
 package progress
 
 func (o *progress) Seek(offset int64, whence int) (int64, error) {
+	n, err := o.seek(offset, whence)
+
+	if err != nil {
+		o.reset()
+	}
+
+	return n, err
+}
+
+func (o *progress) seek(offset int64, whence int) (int64, error) {
 	if o == nil || o.fos == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
 	n, err := o.fos.Seek(offset, whence)
-	o.reset()
-
 	return n, err
 }

@@ -27,8 +27,10 @@ package aws
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksv4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
@@ -51,6 +53,36 @@ type client struct {
 	i *sdkiam.Client
 	s *sdksss.Client
 	h *http.Client
+}
+
+func (c *client) SetHTTPTimeout(dur time.Duration) error {
+	var h *http.Client
+
+	if c.h == nil {
+		return fmt.Errorf("missing http client")
+	} else {
+		h = &http.Client{
+			Transport:     c.h.Transport,
+			CheckRedirect: c.h.CheckRedirect,
+			Jar:           c.h.Jar,
+			Timeout:       dur,
+		}
+	}
+
+	if cli, err := c._NewClientS3(c.x, h); err != nil {
+		return err
+	} else {
+		c.s = cli
+	}
+
+	return nil
+}
+
+func (c *client) GetHTTPTimeout() time.Duration {
+	if c.h != nil {
+		return c.h.Timeout
+	}
+	return 0
 }
 
 func (c *client) _NewClientIAM(ctx context.Context, httpClient *http.Client) (*sdkiam.Client, error) {

@@ -41,7 +41,7 @@ type ServerUnix interface {
 	RegisterSocket(unixFile string, perm os.FileMode)
 }
 
-func New(h libsck.Handler, sizeBuffRead, sizeBuffWrite int32) ServerUnix {
+func New(h libsck.Handler, sizeBuffRead int32) ServerUnix {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 
@@ -53,9 +53,6 @@ func New(h libsck.Handler, sizeBuffRead, sizeBuffWrite int32) ServerUnix {
 
 	sr := new(atomic.Int32)
 	sr.Store(sizeBuffRead)
-
-	sw := new(atomic.Int32)
-	sw.Store(sizeBuffWrite)
 
 	fp := new(atomic.Value)
 	fp.Store("")
@@ -73,7 +70,6 @@ func New(h libsck.Handler, sizeBuffRead, sizeBuffWrite int32) ServerUnix {
 		tr: new(atomic.Value),
 		tw: new(atomic.Value),
 		sr: sr,
-		sw: sw,
 		fs: fp,
 		fp: pe,
 	}

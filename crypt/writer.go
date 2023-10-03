@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,54 +26,49 @@
 
 package crypt
 
-import errors "github.com/nabbar/golib/errors"
-
-const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgCrypt
-	ErrorHexaDecode
-	ErrorHexaKey
-	ErrorHexaNonce
-	ErrorByteKeygen
-	ErrorByteNonceGen
-	ErrorAESBlock
-	ErrorAESGCM
-	ErrorAESDecrypt
+import (
+	"fmt"
+	"io"
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
+type writer struct {
+	f func(p []byte) (n int, err error)
 }
 
-func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+func (r *writer) Write(p []byte) (n int, err error) {
+	if r.f == nil {
+		return 0, fmt.Errorf("invalid reader")
+	} else {
+		return r.f(p)
+	}
 }
 
-func getMessage(code errors.CodeError) (message string) {
-	switch code {
-	case errors.UNK_ERROR:
-		return ""
-	case ErrorParamsEmpty:
-		return "given parameters is empty"
-	case ErrorHexaDecode:
-		return "hexa decode error"
-	case ErrorHexaKey:
-		return "converting hexa key error"
-	case ErrorHexaNonce:
-		return "converting hexa nonce error"
-	case ErrorByteKeygen:
-		return "key generate error"
-	case ErrorByteNonceGen:
-		return "nonce generate error"
-	case ErrorAESBlock:
-		return "init AES block error"
-	case ErrorAESGCM:
-		return "init AES GCM error"
-	case ErrorAESDecrypt:
-		return "decrypt AES GCM error"
+func (o *crt) Writer(w io.Writer) io.Writer {
+	fct := func(p []byte) (n int, err error) {
+		n = len(p)
+		if _, err = w.Write(o.Encode(p)); err != nil {
+			return 0, err
+		} else {
+			return n, nil
+		}
 	}
 
-	return ""
+	return &writer{
+		f: fct,
+	}
+}
+
+func (o *crt) WriterHex(w io.Writer) io.Writer {
+	fct := func(p []byte) (n int, err error) {
+		n = len(p)
+		if _, err = w.Write(o.EncodeHex(p)); err != nil {
+			return 0, err
+		} else {
+			return n, nil
+		}
+	}
+
+	return &writer{
+		f: fct,
+	}
 }

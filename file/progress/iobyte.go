@@ -33,7 +33,7 @@ import (
 
 func (o *progress) ReadByte() (byte, error) {
 	var (
-		p = make([]byte, 0, 1)
+		p = make([]byte, 1)
 		i int64
 		n int
 		e error
@@ -47,6 +47,8 @@ func (o *progress) ReadByte() (byte, error) {
 		if _, e = o.fos.Seek(i+1, io.SeekStart); e != nil && !errors.Is(e, io.EOF) {
 			return 0, e
 		}
+	} else if n == 0 {
+		return 0, e
 	}
 
 	return p[0], nil
@@ -54,7 +56,7 @@ func (o *progress) ReadByte() (byte, error) {
 
 func (o *progress) WriteByte(c byte) error {
 	var (
-		p = append(make([]byte, 0, 1), c)
+		p = []byte{0: c}
 		i int64
 		n int
 		e error
