@@ -194,7 +194,7 @@ var _ = Describe("Logger", func() {
 			}(sub)
 
 			log.SetFields(logfld.New(GetContext).Add("logger", "main"))
-			sem := libsem.NewSemaphoreWithContext(context.Background(), 0)
+			sem := libsem.New(context.Background(), 0, false)
 			defer sem.DeferMain()
 
 			for i := 0; i < 25; i++ {

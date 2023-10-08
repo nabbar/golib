@@ -1,3 +1,6 @@
+//go:build examples
+// +build examples
+
 /*
  * MIT License
  *
@@ -24,34 +27,38 @@
  *
  */
 
-package semaphore
+package main
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
-}
+import (
+	"fmt"
+	"os"
+	"time"
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
-}
+	tools "github.com/nabbar/golib/test/progress-mpb/tools"
+)
 
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
-}
+func main() {
+	pg := tools.MakeMPB(nil)
 
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
+	b0 := tools.MakeBar(pg, nil, "bar 0")
+	b1 := tools.MakeBar(pg, b0, "bar 1")
+	b2 := tools.MakeBar(pg, b1, "bar 2")
+	b3 := tools.MakeBar(pg, b2, "bar 3")
+	b4 := tools.MakeBar(pg, b3, "bar 4")
+
+	tot := int64(80)
+	inc := int64(20)
+
+	fail := func() {}
+	log := func(msg string) {
+		_, _ = fmt.Fprintln(os.Stderr, msg)
 	}
 
-	if o.c != nil {
-		o.c()
-	}
-}
+	tools.Run(b0, time.Second, tot, inc, fail, log)
+	tools.Run(b1, time.Second, tot, inc, fail, log)
+	tools.Run(b2, time.Second, tot, inc, fail, log)
+	tools.Run(b3, time.Second, tot, inc, fail, log)
+	tools.Run(b4, time.Second, tot, inc, fail, log)
 
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
-}
-
-func (o *sem) Wheigted() int64 {
-	return o.n
+	pg.Wait()
 }

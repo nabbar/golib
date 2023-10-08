@@ -24,34 +24,65 @@
  *
  */
 
-package semaphore
+package bar
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
+func (o *bar) Inc(n int) {
+	o.Inc64(int64(n))
 }
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
+func (o *bar) Dec(n int) {
+	o.Inc64(int64(n))
 }
 
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
-}
-
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
+func (o *bar) Inc64(n int64) {
+	if !o.isMPB() {
+		return
 	}
 
-	if o.c != nil {
-		o.c()
+	o.b.IncrInt64(n)
+	o.b.EwmaSetCurrent(o.b.Current(), o.getDur())
+}
+
+func (o *bar) Dec64(n int64) {
+	o.Inc64(n)
+}
+
+func (o *bar) Reset(tot, current int64) {
+	o.m.Store(tot)
+
+	if !o.isMPB() {
+		return
 	}
+
+	o.b.SetTotal(tot, false)
+	o.b.SetCurrent(current)
 }
 
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
+func (o *bar) Complete() {
+	if !o.isMPB() {
+		return
+	}
+
+	o.b.SetTotal(o.m.Load(), true)
+	o.b.EnableTriggerComplete()
 }
 
-func (o *sem) Wheigted() int64 {
-	return o.n
+func (o *bar) Completed() bool {
+	if !o.isMPB() {
+		return true
+	}
+
+	return o.b.Completed() || o.b.Aborted()
+}
+
+func (o *bar) Current() int64 {
+	if !o.isMPB() {
+		return o.m.Load()
+	}
+
+	return o.b.Current()
+}
+
+func (o *bar) Total() int64 {
+	return o.m.Load()
 }

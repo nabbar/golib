@@ -24,34 +24,22 @@
  *
  */
 
-package semaphore
+package bar
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
+import "time"
+
+func (o *bar) Deadline() (deadline time.Time, ok bool) {
+	return o.x.Deadline()
 }
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
+func (o *bar) Done() <-chan struct{} {
+	return o.x.Done()
 }
 
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
+func (o *bar) Err() error {
+	return o.x.Err()
 }
 
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
-	}
-
-	if o.c != nil {
-		o.c()
-	}
-}
-
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
-}
-
-func (o *sem) Wheigted() int64 {
-	return o.n
+func (o *bar) Value(key any) any {
+	return o.x.Value(key)
 }

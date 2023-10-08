@@ -76,10 +76,10 @@ func (m *prom) Collect(ctx context.Context) {
 func (m *prom) CollectMetrics(ctx context.Context, name ...string) {
 	var (
 		ok bool
-		s  libsem.Sem
+		s  libsem.Semaphore
 	)
 
-	s = libsem.NewSemaphoreWithContext(ctx, 0)
+	s = libsem.New(ctx, 0, false)
 	defer s.DeferMain()
 
 	if _, ok = ctx.(*ginsdk.Context); ok {
@@ -91,7 +91,7 @@ func (m *prom) CollectMetrics(ctx context.Context, name ...string) {
 	_ = s.WaitAll()
 }
 
-func (m *prom) runCollect(ctx context.Context, sem libsem.Sem) prmpol.FuncWalk {
+func (m *prom) runCollect(ctx context.Context, sem libsem.Semaphore) prmpol.FuncWalk {
 	return func(pool prmpol.MetricPool, key string, val libmet.Metric) bool {
 		if e := sem.NewWorker(); e != nil {
 			return false

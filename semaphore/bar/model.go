@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,36 +24,49 @@
  *
  */
 
-package semaphore
+package bar
 
 import (
-	"fmt"
+	"context"
+	"sync/atomic"
+	"time"
 
-	liberr "github.com/nabbar/golib/errors"
+	"github.com/vbauerster/mpb/v8"
+	"golang.org/x/sync/semaphore"
 )
 
-const (
-	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgSemaphore
-	ErrorWorkerNew
-	ErrorWorkerWaitAll
-)
+type bar struct {
+	c context.CancelFunc
+	x context.Context
 
-func init() {
-	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision with package golib/semaphore"))
-	}
-	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
+	s *semaphore.Weighted
+	n int64
+	d bool
+
+	b *mpb.Bar
+	m *atomic.Int64
+	t *atomic.Value
 }
 
-func getMessage(code liberr.CodeError) (message string) {
-	switch code {
-	case ErrorParamEmpty:
-		return "given parameters is empty"
-	case ErrorWorkerNew:
-		return "error on acquire one new semaphore worker"
-	case ErrorWorkerWaitAll:
-		return "error on acquire to wait all pending thread"
-	}
+func (o *bar) isMPB() bool {
+	return o.b != nil
+}
 
-	return liberr.NullMessage
+func (o *bar) GetMPB() *mpb.Bar {
+	return o.b
+}
+
+func (o *bar) getDur() time.Duration {
+	i := o.t.Load()
+	o.t.Store(time.Now())
+
+	if i == nil {
+		return time.Millisecond
+	} else if t, k := i.(time.Time); !k {
+		return time.Millisecond
+	} else if t.IsZero() {
+		return time.Millisecond
+	} else {
+		return time.Since(t)
+	}
 }

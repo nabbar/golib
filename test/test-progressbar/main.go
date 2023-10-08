@@ -29,11 +29,12 @@
 package main
 
 import (
+	"context"
 	"math/rand"
 	"time"
 
-	"github.com/nabbar/golib/progress"
-	"github.com/vbauerster/mpb/v5"
+	libsem "github.com/nabbar/golib/semaphore"
+	"github.com/vbauerster/mpb/v8"
 )
 
 func main() {
@@ -42,21 +43,21 @@ func main() {
 
 	println("\n\n\n")
 	println("Starting simple...")
-	pb := progress.NewProgressBar(mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
+	pb := libsem.New(context.Background(), 0, true, mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
 
-	brE := pb.NewBarSimpleETA("ETA bar", 0)
+	brE := pb.BarTime("ETA bar", "", 0, false, nil)
 	brE.Reset(tot/2, 0)
-	brE.Increment64(inc - 1)
+	brE.Inc64(inc)
 	brE.Reset(tot, 0)
 
-	brC := pb.NewBarSimpleCounter("counter bar", 0)
+	brC := pb.BarNumber("counter bar", "", 0, false, nil)
 	brC.Reset(tot/2, 0)
-	brC.Increment64(inc - 1)
+	brC.Inc64(inc)
 	brC.Reset(tot, 0)
 
-	brK := pb.NewBarSimpleKBits("KiB bar", 0)
+	brK := pb.BarBytes("KiB bar", "", 0, false, nil)
 	brK.Reset(tot/2, 0)
-	brK.Increment64(inc - 1)
+	brK.Inc64(inc)
 	brK.Reset(tot, 0)
 
 	defer func() {
@@ -81,7 +82,7 @@ func main() {
 				/* #nosec */
 				time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
 
-				brE.Increment64(inc - 1)
+				brE.Inc64(inc)
 			}()
 		}
 
@@ -98,7 +99,7 @@ func main() {
 				/* #nosec */
 				time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
 
-				brC.Increment64(inc - 1)
+				brC.Inc64(inc)
 			}()
 		}
 
@@ -115,7 +116,7 @@ func main() {
 				/* #nosec */
 				time.Sleep(time.Duration(rand.Intn(9)) * time.Millisecond)
 
-				brK.Increment64(inc - 1)
+				brK.Inc64(inc)
 			}()
 		}
 	}
