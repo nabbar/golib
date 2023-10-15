@@ -26,32 +26,19 @@
 
 package semaphore
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
-}
+import (
+	"context"
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
-}
+	"github.com/vbauerster/mpb/v8"
+	"golang.org/x/sync/semaphore"
+)
 
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
-}
+type sem struct {
+	c context.CancelFunc
+	x context.Context
 
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
-	}
+	s *semaphore.Weighted
+	n int64
 
-	if o.c != nil {
-		o.c()
-	}
-}
-
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
-}
-
-func (o *sem) Wheigted() int64 {
-	return o.n
+	m *mpb.Progress
 }

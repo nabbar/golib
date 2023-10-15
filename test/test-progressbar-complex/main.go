@@ -29,76 +29,92 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"time"
 
-	"github.com/nabbar/golib/progress"
+	semtps "github.com/nabbar/golib/semaphore/types"
+
 	libsem "github.com/nabbar/golib/semaphore"
-	"github.com/vbauerster/mpb/v5"
+	"github.com/vbauerster/mpb/v8"
 )
 
 func main() {
-	tot := int64(1000)
-	inc := int64(1)
+	tot := int64(100000)
+	inc := int64(100)
 	nbb := 5
-	bar := make([]progress.Bar, 0)
+	bar := make([]semtps.SemBar, 0)
+	sem := libsem.New(context.Background(), 0, true, mpb.WithWidth(80), mpb.WithRefreshRate(10*time.Millisecond))
+
+	defer func() {
+		sem.DeferMain()
+	}()
 
 	println("\n\n\n")
 	println("Starting complex...")
 
-	pb := progress.NewProgressBar(mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
-	pb.MainProcessInit()
-
-	defer func() {
-		pb.DeferMain()
-	}()
-
 	for i := 0; i < nbb; i++ {
 		if i > 0 && i%2 == 1 {
-			bar = append(bar, pb.NewBarKBits("KiB bar", tot, fmt.Sprintf(" | step %d | ", i), bar[i-1]))
+			bar = append(bar, sem.BarBytes("KiB bar", fmt.Sprintf("step %d", i), tot, false, bar[i-1]))
 		} else if i > 0 && i%2 != 1 {
-			bar = append(bar, pb.NewBarKBits("KiB bar", 0, fmt.Sprintf(" | step %d | ", i), bar[i-1]))
+			bar = append(bar, sem.BarNumber("KiB bar", fmt.Sprintf("step %d", i), 0, false, bar[i-1]))
 		} else {
-			bar = append(bar, pb.NewBarKBits("KiB bar", 0, fmt.Sprintf(" | step %d | ", i), nil))
+			bar = append(bar, sem.BarTime("KiB bar", fmt.Sprintf("step %d", i), 0, false, nil))
 		}
 	}
 
 	for i := range bar {
-		if e := pb.NewWorker(); e != nil {
+		if e := sem.NewWorker(); e != nil {
 			panic(e)
 		} else {
-			go func(nb int, sem libsem.Sem) {
+			go func(nb int, sem semtps.Sem) {
 				defer func() {
-					pb.DeferWorker()
+					sem.DeferWorker()
 				}()
 
 				rand.Seed(999)
 
 				for {
-					if nb > 0 && !bar[nb-1].Completed() {
-						time.Sleep(time.Second)
-					} else if bar[nb].Current() == 0 {
+					if nb > 0 {
+						if !bar[nb-1].Completed() {
+							time.Sleep(time.Second)
+							continue
+						}
+					}
+
+					if bar[nb].Current() == 0 {
 						bar[nb].Reset(tot, 0)
 					}
 
 					if bar[nb].Current() < tot {
-						time.Sleep(time.Duration(rand.Intn(9)+1) * time.Millisecond)
-						bar[nb].Increment64(inc)
+						time.Sleep(getRandTime())
+						bar[nb].Inc64(inc)
 					} else {
-						bar[nb].Done()
+						bar[nb].DeferMain()
 						return
 					}
 				}
-			}(i, pb)
+			}(i, sem)
 		}
 	}
 
-	if e := pb.WaitAll(); e != nil {
+	if e := sem.WaitAll(); e != nil {
 		panic(e)
 	}
 
 	time.Sleep(500 * time.Millisecond)
 
 	println("finish complex...")
+}
+
+func getRandTime() time.Duration {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	dur := time.Duration(rng.Intn(9)+1) * time.Millisecond
+
+	if dur > 25*time.Millisecond {
+		return 10 * time.Millisecond
+	} else {
+		return dur
+	}
 }

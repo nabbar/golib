@@ -1,4 +1,3 @@
-//+build examples
 //go:build examples
 // +build examples
 
@@ -41,15 +40,18 @@ import (
 	"sync/atomic"
 	"time"
 
+	logcfg "github.com/nabbar/golib/logger/config"
+	loglvl "github.com/nabbar/golib/logger/level"
+	semtps "github.com/nabbar/golib/semaphore/types"
+
 	"github.com/c-bata/go-prompt"
 	"github.com/c-bata/go-prompt/completer"
-
 	libclu "github.com/nabbar/golib/cluster"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	libndb "github.com/nabbar/golib/nutsdb"
 	libpwd "github.com/nabbar/golib/password"
-	libpgb "github.com/nabbar/golib/progress"
+	libsem "github.com/nabbar/golib/semaphore"
 	libsh "github.com/nabbar/golib/shell"
 	libvrs "github.com/nabbar/golib/version"
 	"github.com/nutsdb/nutsdb"
@@ -76,7 +78,9 @@ var (
 func init() {
 	ctx, cnl = context.WithCancel(context.Background())
 	liberr.SetModeReturnError(liberr.ErrorReturnCodeErrorTraceFull)
-	log.Store(liblog.New(ctx))
+	log.Store(liblog.New(func() context.Context {
+		return ctx
+	}))
 	initLogger()
 }
 
@@ -94,7 +98,7 @@ func main() {
 	tStart := time.Now()
 	cluster := Start(ctx)
 
-	liblog.SetLevel(liblog.WarnLevel)
+	getLogger().SetLevel(loglvl.WarnLevel)
 	defer func() {
 		Stop(ctx, cluster)
 	}()
@@ -123,17 +127,16 @@ func main() {
 }
 
 func Inject(ctx context.Context, tStart time.Time, cluster []libndb.NutsDB) []string {
-	lvl := liblog.GetCurrentLevel()
-	liblog.SetLevel(liblog.WarnLevel)
+	getLogger().SetLevel(loglvl.WarnLevel)
 
 	tInit := time.Since(tStart)
 	mInit := fmt.Sprintf("Memory used after Init: \n%s", strings.Join(GetMemUsage(), "\n"))
 	runtime.GC()
 	println(fmt.Sprintf("Init done. \n"))
 
-	pgb := libpgb.NewProgressBarWithContext(ctx, mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
-	barPut := pgb.NewBarSimpleCounter("PutEntry", int64(NbEntries))
-	defer barPut.DeferMain(true)
+	pgb := libsem.New(ctx, 0, true, mpb.WithWidth(64), mpb.WithRefreshRate(200*time.Millisecond))
+	barPut := pgb.BarNumber("PutEntry", "", int64(NbEntries), true, nil)
+	defer barPut.DeferMain()
 
 	tStart = time.Now()
 	for i := 0; i < NbEntries; i++ {
@@ -141,7 +144,7 @@ func Inject(ctx context.Context, tStart time.Time, cluster []libndb.NutsDB) []st
 			continue
 		}
 
-		go func(ctx context.Context, bar libpgb.Bar, clu libndb.NutsDB, num int) {
+		go func(ctx context.Context, bar semtps.SemBar, clu libndb.NutsDB, num int) {
 			defer bar.DeferWorker()
 			if AllowPut {
 				Put(ctx, clu, fmt.Sprintf("key-%03d", num), fmt.Sprintf("val-%03d|%s|%s|%s", num, libpwd.Generate(50), libpwd.Generate(50), libpwd.Generate(50)))
@@ -156,8 +159,8 @@ func Inject(ctx context.Context, tStart time.Time, cluster []libndb.NutsDB) []st
 	mPut := fmt.Sprintf("Memory used after Put entries: \n%s", strings.Join(GetMemUsage(), "\n"))
 	runtime.GC()
 
-	barGet := pgb.NewBarSimpleCounter("GetEntry", int64(NbEntries))
-	defer barGet.DeferMain(true)
+	barGet := pgb.BarNumber("GetEntry", "", int64(NbEntries), true, nil)
+	defer barGet.DeferMain()
 
 	tStart = time.Now()
 	for i := 0; i < NbEntries; i++ {
@@ -170,7 +173,7 @@ func Inject(ctx context.Context, tStart time.Time, cluster []libndb.NutsDB) []st
 			c = 0
 		}
 
-		go func(ctx context.Context, bar libpgb.Bar, clu libndb.NutsDB, num int) {
+		go func(ctx context.Context, bar semtps.SemBar, clu libndb.NutsDB, num int) {
 			defer bar.DeferWorker()
 			if AllowGet {
 				Get(ctx, clu, fmt.Sprintf("key-%03d", num), fmt.Sprintf("val-%03d", num))
@@ -195,9 +198,8 @@ func Inject(ctx context.Context, tStart time.Time, cluster []libndb.NutsDB) []st
 		mGet,
 	}
 	runtime.GC()
-	liblog.SetLevel(liblog.InfoLevel)
-	liblog.InfoLevel.Logf("Results testing: \n%s", strings.Join(res, "\n"))
-	liblog.SetLevel(lvl)
+	getLogger().SetLevel(loglvl.InfoLevel)
+	getLogger().Info("Results testing: \n%s", nil, strings.Join(res, "\n"))
 	return res
 }
 
@@ -222,10 +224,10 @@ func Get(ctx context.Context, c libndb.NutsDB, key, val string) {
 	//_, _ = c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
 	v, e := c.Client(ctx, 100*time.Microsecond).Get("myBucket", []byte(key))
 	if e != nil {
-		liblog.ErrorLevel.Logf("Cmd Get for key '%s', error : %v", key, e)
+		getLogger().Error("Cmd Get for key '%s', error : %v", nil, key, e)
 		fmt.Printf("Cmd Get for key '%s', error : %v", key, e)
 	} else if !bytes.HasPrefix(v.Value, []byte(val)) {
-		liblog.ErrorLevel.Logf("Cmd Get for key '%s', awaiting value start with '%s', but find : %s", key, val, string(v.Value))
+		getLogger().Error("Cmd Get for key '%s', awaiting value start with '%s', but find : %s", nil, key, val, string(v.Value))
 		fmt.Printf("Cmd Get for key '%s', awaiting value start with '%s', but find : %s", key, val, string(v.Value))
 	}
 }
@@ -241,7 +243,7 @@ func Start(ctx context.Context) []libndb.NutsDB {
 			return l
 		})
 
-		liblog.InfoLevel.Logf("Starting node ID #%d...", i+1)
+		getLogger().Info("Starting node ID #%d...", nil, i+1)
 		if err := clusters[i].Listen(); err != nil {
 			panic(err)
 		}
@@ -254,7 +256,7 @@ func Start(ctx context.Context) []libndb.NutsDB {
 
 func Stop(ctx context.Context, clusters []libndb.NutsDB) {
 	for i := 0; i < NbInstances; i++ {
-		liblog.InfoLevel.Logf("Stopping node ID #%d...", i+1)
+		getLogger().Info("Stopping node ID #%d...", nil, i+1)
 		if err := clusters[i].Shutdown(); err != nil {
 			panic(err)
 		}
@@ -275,11 +277,10 @@ func initNutDB(num int) libndb.NutsDB {
 func configNutDB() libndb.Config {
 	cfg := libndb.Config{
 		DB: libndb.NutsDBOptions{
-			EntryIdxMode:         nutsdb.HintKeyAndRAMIdxMode,
-			RWMode:               nutsdb.FileIO,
-			SegmentSize:          64 * 1024,
-			SyncEnable:           true,
-			StartFileLoadingMode: nutsdb.MMap,
+			EntryIdxMode: nutsdb.HintKeyAndRAMIdxMode,
+			RWMode:       nutsdb.FileIO,
+			SegmentSize:  64 * 1024,
+			SyncEnable:   true,
 		},
 
 		Cluster: libclu.Config{
@@ -358,11 +359,11 @@ func configNutDB() libndb.Config {
 
 func getLogger() liblog.Logger {
 	if log == nil {
-		return liblog.New(context.Background())
+		return liblog.New(context.Background)
 	} else if i := log.Load(); i == nil {
-		return liblog.New(context.Background())
+		return liblog.New(context.Background)
 	} else if l, ok := i.(liblog.Logger); !ok {
-		return liblog.New(context.Background())
+		return liblog.New(context.Background)
 	} else {
 		return l
 	}
@@ -384,15 +385,13 @@ func setLogger(l liblog.Logger) {
 
 func initLogger() {
 	l := getLogger()
-	l.SetLevel(liblog.InfoLevel)
-	if err := l.SetOptions(&liblog.Options{
-		DisableStandard:  true,
-		DisableStack:     false,
-		DisableTimestamp: false,
-		EnableTrace:      false,
-		TraceFilter:      "",
-		DisableColor:     false,
-		LogFile: []liblog.OptionsFile{
+	l.SetLevel(loglvl.InfoLevel)
+	if err := l.SetOptions(&logcfg.Options{
+		InheritDefault: false,
+		TraceFilter:    "",
+		Stdout:         nil,
+		LogFileExtend:  false,
+		LogFile: []logcfg.OptionsFile{
 			{
 				LogLevel: []string{
 					"panic",
@@ -412,6 +411,8 @@ func initLogger() {
 				EnableTrace:      true,
 			},
 		},
+		LogSyslogExtend: false,
+		LogSyslog:       nil,
 	}); err != nil {
 		panic(err)
 	}

@@ -24,23 +24,26 @@
  *
  */
 
-package semaphore
+package bar
 
-func (o *sem) NewWorker() error {
+func (o *bar) NewWorker() error {
 	return o.s.Acquire(o.x, 1)
 }
 
-func (o *sem) NewWorkerTry() bool {
+func (o *bar) NewWorkerTry() bool {
 	return o.s.TryAcquire(1)
 }
 
-func (o *sem) DeferWorker() {
+func (o *bar) DeferWorker() {
 	o.s.Release(1)
 }
 
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
+func (o *bar) DeferMain() {
+	if o.isMPB() {
+		o.Complete()
+		if !o.Completed() {
+			o.b.Abort(o.d)
+		}
 	}
 
 	if o.c != nil {
@@ -48,10 +51,10 @@ func (o *sem) DeferMain() {
 	}
 }
 
-func (o *sem) WaitAll() error {
+func (o *bar) WaitAll() error {
 	return o.s.Acquire(o.x, o.n)
 }
 
-func (o *sem) Wheigted() int64 {
+func (o *bar) Wheigted() int64 {
 	return o.n
 }

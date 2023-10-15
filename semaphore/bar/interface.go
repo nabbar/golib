@@ -24,34 +24,44 @@
  *
  */
 
-package semaphore
+package bar
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
-}
+import (
+	"context"
+	"sync/atomic"
+	"time"
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
-}
+	semtps "github.com/nabbar/golib/semaphore/types"
+	sdkmpb "github.com/vbauerster/mpb/v8"
+	goxsem "golang.org/x/sync/semaphore"
+)
 
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
-}
+func New(sem semtps.SemPgb, tot int64, drop bool, opts ...sdkmpb.BarOption) semtps.SemBar {
+	x, c := context.WithCancel(sem)
 
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
+	if drop {
+		opts = append(opts, sdkmpb.BarRemoveOnComplete())
 	}
 
-	if o.c != nil {
-		o.c()
+	var b *sdkmpb.Bar
+	if m := sem.GetMPB(); m != nil {
+		b = m.AddBar(tot, opts...)
 	}
-}
 
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
-}
+	ts := new(atomic.Value)
+	ts.Store(time.Now())
 
-func (o *sem) Wheigted() int64 {
-	return o.n
+	mx := new(atomic.Int64)
+	mx.Store(tot)
+
+	return &bar{
+		c: c,
+		x: x,
+		s: goxsem.NewWeighted(sem.Wheigted()),
+		n: sem.Wheigted(),
+		d: drop,
+		b: b,
+		m: mx,
+		t: ts,
+	}
 }

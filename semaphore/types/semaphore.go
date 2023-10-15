@@ -24,34 +24,30 @@
  *
  */
 
-package semaphore
+package types
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
+import "context"
+
+type SemPgb interface {
+	context.Context
+	Sem
+	ProgressMPB
 }
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
+type SemBar interface {
+	context.Context
+	Sem
+	Bar
 }
 
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
-}
+type Sem interface {
+	NewWorker() error
+	NewWorkerTry() bool
 
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
-	}
+	DeferWorker()
+	DeferMain()
 
-	if o.c != nil {
-		o.c()
-	}
-}
+	WaitAll() error
 
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
-}
-
-func (o *sem) Wheigted() int64 {
-	return o.n
+	Wheigted() int64
 }

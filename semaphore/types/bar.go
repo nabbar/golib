@@ -24,34 +24,25 @@
  *
  */
 
-package semaphore
+package types
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
+import "github.com/vbauerster/mpb/v8"
+
+type Bar interface {
+	Inc(n int)
+	Dec(n int)
+
+	Inc64(n int64)
+	Dec64(n int64)
+
+	Reset(tot, current int64)
+	Complete()
+
+	Completed() bool
+	Current() int64
+	Total() int64
 }
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
-}
-
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
-}
-
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
-	}
-
-	if o.c != nil {
-		o.c()
-	}
-}
-
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
-}
-
-func (o *sem) Wheigted() int64 {
-	return o.n
+type BarMPB interface {
+	GetMPB() *mpb.Bar
 }
