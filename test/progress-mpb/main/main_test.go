@@ -1,3 +1,6 @@
+//go:build examples
+// +build examples
+
 /*
  * MIT License
  *
@@ -24,34 +27,54 @@
  *
  */
 
-package semaphore
+package main_test
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
-}
+import (
+	"io"
+	"testing"
+	"time"
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
-}
+	tools "github.com/nabbar/golib/test/progress-mpb/tools"
+)
 
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
-}
+func TestBar(t *testing.T) {
+	pg := tools.MakeMPB(io.Discard)
+	b0 := tools.MakeBar(pg, nil, "bar 0")
+	b1 := tools.MakeBar(pg, b0, "bar 1")
+	b2 := tools.MakeBar(pg, b1, "bar 2")
+	b3 := tools.MakeBar(pg, b2, "bar 3")
+	b4 := tools.MakeBar(pg, b3, "bar 4")
 
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
+	tot := int64(80)
+	inc := int64(20)
+
+	fail := func() {
+		t.Fail()
 	}
 
-	if o.c != nil {
-		o.c()
+	log := func(msg string) {
+		t.Errorf(msg)
 	}
-}
 
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
-}
+	t.Run("Bar0", func(t *testing.T) {
+		tools.Run(b0, 10*time.Millisecond, tot, inc, fail, log)
+	})
 
-func (o *sem) Wheigted() int64 {
-	return o.n
+	t.Run("Bar1", func(t *testing.T) {
+		tools.Run(b1, 10*time.Millisecond, tot, inc, fail, log)
+	})
+
+	t.Run("Bar2", func(t *testing.T) {
+		tools.Run(b2, 10*time.Millisecond, tot, inc, fail, log)
+	})
+
+	t.Run("Bar3", func(t *testing.T) {
+		tools.Run(b3, 10*time.Millisecond, tot, inc, fail, log)
+	})
+
+	t.Run("Bar4", func(t *testing.T) {
+		tools.Run(b4, 10*time.Millisecond, tot, inc, fail, log)
+	})
+
+	pg.Wait()
 }

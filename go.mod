@@ -43,7 +43,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.17.0
 	github.com/ugorji/go/codec v1.2.11
-	github.com/vbauerster/mpb/v5 v5.4.0
 	github.com/vbauerster/mpb/v8 v8.6.2
 	github.com/xanzy/go-gitlab v0.93.1
 	github.com/xhit/go-simple-mail v2.2.2+incompatible

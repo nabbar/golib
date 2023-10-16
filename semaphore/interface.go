@@ -21,6 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
 package semaphore
@@ -28,59 +29,48 @@ package semaphore
 import (
 	"context"
 	"runtime"
-	"sync/atomic"
 
-	liberr "github.com/nabbar/golib/errors"
+	semtps "github.com/nabbar/golib/semaphore/types"
+	"github.com/vbauerster/mpb/v8"
 	"golang.org/x/sync/semaphore"
 )
 
-type SemBar interface {
-	Sem
-
-	Current() int64
-	Completed() bool
-	Reset(total, current int64)
-	ResetDefined(current int64)
-	Done()
-
-	Increment(n int)
-	Increment64(n int64)
+type Semaphore interface {
+	context.Context
+	semtps.Sem
+	semtps.Progress
 }
 
-type FuncContext func() context.Context
-
-type Sem interface {
-	NewWorker() liberr.Error
-	NewWorkerTry() bool
-	DeferWorker()
-	DeferMain()
-
-	WaitAll() liberr.Error
-}
-
-func GetMaxSimultaneous() int {
+func MaxSimultaneous() int {
 	return runtime.GOMAXPROCS(0)
 }
 
-/*
-Deprecated: func without context will be deprecated
-*/
-func NewSemaphore(maxSimultaneous int) Sem {
-	return NewSemaphoreWithContext(context.Background(), maxSimultaneous)
+func SetSimultaneous(n int) int64 {
+	m := MaxSimultaneous()
+	if n < 1 {
+		return int64(m)
+	} else if m < n {
+		return int64(m)
+	} else {
+		return int64(n)
+	}
 }
 
-func NewSemaphoreWithContext(ctx context.Context, maxSimultaneous int) Sem {
-	if maxSimultaneous < 1 {
-		maxSimultaneous = GetMaxSimultaneous()
+func New(ctx context.Context, nbrSimultaneous int, progress bool, opt ...mpb.ContainerOption) Semaphore {
+	nbr := SetSimultaneous(nbrSimultaneous)
+	ctx, cnl := context.WithCancel(ctx)
+
+	var m *mpb.Progress
+
+	if progress {
+		m = mpb.New(opt...)
 	}
 
-	x, c := NewContext(ctx, 0, EmptyTime())
-
 	return &sem{
-		d: new(atomic.Value),
-		i: int64(maxSimultaneous),
-		s: semaphore.NewWeighted(int64(maxSimultaneous)),
-		x: x,
-		c: c,
+		c: cnl,
+		x: ctx,
+		s: semaphore.NewWeighted(nbr),
+		n: nbr,
+		m: m,
 	}
 }

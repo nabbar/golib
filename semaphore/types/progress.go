@@ -24,34 +24,19 @@
  *
  */
 
-package semaphore
+package types
 
-func (o *sem) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
+import (
+	sdkmpb "github.com/vbauerster/mpb/v8"
+)
+
+type Progress interface {
+	BarBytes(name, job string, tot int64, drop bool, bar SemBar) SemBar
+	BarTime(name, job string, tot int64, drop bool, bar SemBar) SemBar
+	BarNumber(name, job string, tot int64, drop bool, bar SemBar) SemBar
+	BarOpts(tot int64, drop bool, opts ...sdkmpb.BarOption) SemBar
 }
 
-func (o *sem) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
-}
-
-func (o *sem) DeferWorker() {
-	o.s.Release(1)
-}
-
-func (o *sem) DeferMain() {
-	if o.isMbp() {
-		o.m.Shutdown()
-	}
-
-	if o.c != nil {
-		o.c()
-	}
-}
-
-func (o *sem) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
-}
-
-func (o *sem) Wheigted() int64 {
-	return o.n
+type ProgressMPB interface {
+	GetMPB() *sdkmpb.Progress
 }
