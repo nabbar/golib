@@ -35,17 +35,10 @@ import (
 )
 
 func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
-	var siz = getGunZipSize(src)
-
-	if d, k := dst.(libfpg.Progress); k && siz > 0 {
-		d.Reset(siz)
-	}
-
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.Error(e)
 	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.Error(e)
-	} else if siz > 0 {
 	}
 
 	r, e := gz.NewReader(src)
@@ -68,7 +61,7 @@ func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
 	}
 }
 
-func getGunZipSize(src io.ReadSeeker) int64 {
+func GetGunZipSize(src io.ReadSeeker) int64 {
 	if _, e := src.Seek(0, io.SeekStart); e != nil {
 		return 0
 	}

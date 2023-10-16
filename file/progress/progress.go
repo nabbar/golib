@@ -32,14 +32,26 @@ import (
 )
 
 func (o *progress) RegisterFctIncrement(fct FctIncrement) {
+	if fct == nil {
+		fct = func(size int64) {}
+	}
+
 	o.fi.Store(fct)
 }
 
 func (o *progress) RegisterFctReset(fct FctReset) {
+	if fct == nil {
+		fct = func(size, current int64) {}
+	}
+
 	o.fr.Store(fct)
 }
 
 func (o *progress) RegisterFctEOF(fct FctEOF) {
+	if fct == nil {
+		fct = func() {}
+	}
+
 	o.fe.Store(fct)
 }
 
