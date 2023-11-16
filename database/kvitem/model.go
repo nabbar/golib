@@ -29,9 +29,12 @@ package kvitem
 import (
 	"reflect"
 	"sync/atomic"
+
+	libkvt "github.com/nabbar/golib/database/kvtypes"
 )
 
 type itm[K comparable, M any] struct {
+	d libkvt.KVDriver[K, M]
 	k K // key
 
 	ml *atomic.Value // model read
@@ -39,165 +42,145 @@ type itm[K comparable, M any] struct {
 
 	fl *atomic.Value
 	fs *atomic.Value
+	fr *atomic.Value
 }
 
-func (o *itm[K, M]) RegisterFctLoad(fct FuncLoad[K, M]) {
-	o.fl.Store(fct)
-}
-
-func (o *itm[K, M]) getFctLoad() FuncLoad[K, M] {
+func (o *itm[K, M]) getDriver() libkvt.KVDriver[K, M] {
 	if o == nil {
 		return nil
 	}
 
-	i := o.fs.Load()
-	if i == nil {
-		return nil
-	} else if f, k := i.(FuncLoad[K, M]); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *itm[K, M]) RegisterFctStore(fct FuncStore[K, M]) {
-	o.fs.Store(fct)
-}
-
-func (o *itm[K, M]) getFctStore() FuncStore[K, M] {
-	if o == nil {
-		return nil
-	}
-
-	i := o.fs.Load()
-	if i == nil {
-		return nil
-	} else if f, k := i.(FuncStore[K, M]); !k {
-		return nil
-	} else {
-		return f
-	}
+	return o.d
 }
 
 func (o *itm[K, M]) Set(model M) {
-	if o == nil {
-		return
-	}
+	var val = reflect.ValueOf(model)
+	o.ms.Store(val.Interface())
+}
 
-	m := o.ml.Load()
+func (o *itm[K, M]) setModelLoad(mod M) {
+	var val = reflect.ValueOf(mod)
+	o.ml.Store(val.Interface())
+}
 
-	// model not loaded, so store new model
-	if m == nil {
-		o.ms.Store(model)
-		// model loaded and new model given not same, so store new model
-	} else if !reflect.DeepEqual(m.(M), model) {
-		o.ms.Store(model)
-		// model loaded and given model are same, so don't store new model
+func (o *itm[K, M]) getModelLoad() M {
+	var mod M
+	if i := o.ml.Load(); i == nil {
+		return mod
+	} else if v, k := i.(M); !k {
+		return mod
 	} else {
-		o.ms.Store(nil)
+		return v
 	}
+}
+
+func (o *itm[K, M]) getModelStore() M {
+	var mod M
+	if i := o.ms.Load(); i == nil {
+		return mod
+	} else if v, k := i.(M); !k {
+		return mod
+	} else {
+		return v
+	}
+}
+
+func (o *itm[K, M]) Key() K {
+	if o == nil {
+		var k K
+		return k
+	}
+
+	return o.k
 }
 
 func (o *itm[K, M]) Get() M {
+	var (
+		tmp M
+		mod M
+	)
+
 	if o == nil {
-		return *(new(M))
+		return mod
 	}
 
-	// update exist so latest fresh value
-	m := o.ms.Load()
-	if m != nil {
-		if v, k := m.(M); k {
-			return v
-		}
-	}
+	mod = o.getModelStore()
 
-	// load model exist so return last model load
-	m = o.ml.Load()
-	if m != nil {
-		if v, k := m.(M); k {
-			return v
-		}
+	if reflect.DeepEqual(mod, tmp) {
+		mod = o.getModelLoad()
 	}
 
 	// nothing load, so return new instance
-	return *(new(M))
+	return mod
 }
 
 func (o *itm[K, M]) Load() error {
-	var fct FuncLoad[K, M]
+	var (
+		mod M
+		drv = o.getDriver()
+	)
 
-	if fct = o.getFctLoad(); fct == nil {
+	if drv == nil {
 		return ErrorLoadFunction.Error(nil)
 	}
 
-	m := *(new(M))
-	e := fct(o.k, &m)
-
-	if e == nil {
-		o.ml.Store(m)
+	if e := drv.Get(o.k, &mod); e == nil {
+		o.setModelLoad(mod)
+	} else {
+		return e
 	}
 
-	return e
+	return nil
 }
 
 func (o *itm[K, M]) Store(force bool) error {
-	var fct FuncStore[K, M]
+	var drv = o.getDriver()
 
-	if fct = o.getFctStore(); fct == nil {
+	if drv == nil {
 		return ErrorStoreFunction.Error(nil)
 	}
 
-	m := o.ms.Load()
-	if m != nil {
-		return fct(o.k, m.(M))
-	} else if !force {
-		return nil
+	var (
+		lod M
+		str M
+	)
+
+	_ = o.Load()
+
+	str = o.getModelStore()
+	if reflect.DeepEqual(lod, str) {
+		str = o.getModelLoad()
 	}
 
-	// no update, but force store, so use load model
-	m = o.ml.Load()
-	if m != nil {
-		return fct(o.k, m.(M))
+	lod = o.getModelLoad()
+	if !reflect.DeepEqual(lod, str) {
+		return drv.Set(o.k, str)
+	} else if force {
+		return drv.Set(o.k, lod)
 	}
 
-	// no update and no load, but force store, so use new instance of model
-	m = *(new(M))
-	return fct(o.k, m.(M))
+	return nil
+}
+
+func (o *itm[K, M]) Remove() error {
+	drv := o.getDriver()
+
+	if drv == nil {
+		return ErrorStoreFunction.Error(nil)
+	}
+
+	return drv.Del(o.k)
 }
 
 func (o *itm[K, M]) Clean() {
-	o.ml.Store(nil)
-	o.ms.Store(nil)
+	var tmp M
+	o.setModelLoad(tmp)
+	o.Set(tmp)
 }
 
 func (o *itm[K, M]) HasChange() bool {
-	r := o.ml.Load()
-	w := o.ms.Load()
+	r := o.getModelLoad()
+	w := o.getModelStore()
 
-	if r == nil && w == nil {
-		// not loaded and not store, so no change
-		return false
-	} else if r == nil {
-		// not loaded but store is set, so has been updated
-		return true
-	} else if w == nil {
-		// loaded and not store, so no change
-		return false
-	}
-
-	mr, kr := r.(M)
-	mw, kw := w.(M)
-
-	if !kr && !kw {
-		// no valid model, so no change
-		return false
-	} else if !kr {
-		// not valid model for load, but valid for store, so has been updated
-		return true
-	} else if !kw {
-		// valid model for load, but not valid for store, so like no change
-		return false
-	}
-
-	return !reflect.DeepEqual(mr, mw)
+	return !reflect.DeepEqual(r, w)
 }

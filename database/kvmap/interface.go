@@ -27,17 +27,29 @@
 package kvmap
 
 import (
-	libkvd "github.com/nabbar/golib/database/kvdriver"
+	libkvt "github.com/nabbar/golib/database/kvtypes"
 )
 
+type FuncNew[K comparable, M any] func() libkvt.KVDriver[K, M]
 type FuncGet[K comparable, MK comparable] func(key K) (map[MK]any, error)
 type FuncSet[K comparable, MK comparable] func(key K, model map[MK]any) error
+type FuncDel[K comparable] func(key K) error
 type FuncList[K comparable, MK comparable] func() ([]K, error)
 
-type Driver[K comparable, MK comparable, M any] struct {
-	libkvd.KVDriver[K, M]
-
+type drv[K comparable, MK comparable, M any] struct {
+	FctNew  FuncNew[K, M]
 	FctGet  FuncGet[K, MK]
 	FctSet  FuncSet[K, MK]
+	FctDel  FuncDel[K]
 	FctList FuncList[K, MK]
+}
+
+func New[K comparable, MK comparable, M any](fn FuncNew[K, M], fg FuncGet[K, MK], fs FuncSet[K, MK], fd FuncDel[K], fl FuncList[K, MK]) libkvt.KVDriver[K, M] {
+	return &drv[K, MK, M]{
+		FctNew:  fn,
+		FctGet:  fg,
+		FctSet:  fs,
+		FctDel:  fd,
+		FctList: fl,
+	}
 }

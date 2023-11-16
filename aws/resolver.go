@@ -26,9 +26,13 @@
 package aws
 
 import (
+	"context"
+	"net/url"
+
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	awsedp "github.com/aws/smithy-go/endpoints"
 )
 
 type resolverIam struct {
@@ -39,6 +43,14 @@ func (r *resolverIam) ResolveEndpoint(region string, options sdkiam.EndpointReso
 	return r.r("iam", region)
 }
 
+type resolverIamV2 struct {
+	r func(service, region string) (awsedp.Endpoint, error)
+}
+
+func (r *resolverIamV2) ResolveEndpoint(ctx context.Context, params sdkiam.EndpointParameters) (awsedp.Endpoint, error) {
+	return r.r("iam", *params.Region)
+}
+
 type resolverS3 struct {
 	r func(service, region string) (sdkaws.Endpoint, error)
 }
@@ -47,14 +59,62 @@ func (r *resolverS3) ResolveEndpoint(region string, options sdksss.EndpointResol
 	return r.r("s3", region)
 }
 
+type resolverS3V2 struct {
+	r func(service, region string) (awsedp.Endpoint, error)
+}
+
+func (r *resolverS3V2) ResolveEndpoint(ctx context.Context, params sdksss.EndpointParameters) (awsedp.Endpoint, error) {
+	return r.r("s3", *params.Region)
+}
+
 func (c *client) _NewIAMResolver(cfg *sdkaws.Config) sdkiam.EndpointResolver {
 	return &resolverIam{
 		r: cfg.EndpointResolver.ResolveEndpoint,
 	}
 }
 
+func (c *client) _NewIAMResolverV2(cfg Config) sdkiam.EndpointResolverV2 {
+	return &resolverIamV2{
+		r: func(service, region string) (awsedp.Endpoint, error) {
+			edp, err := cfg.ResolveEndpoint(service, region)
+			if err != nil {
+				return awsedp.Endpoint{}, err
+			}
+
+			uri, err := url.Parse(edp.URL)
+			if err != nil {
+				return awsedp.Endpoint{}, err
+			}
+
+			return awsedp.Endpoint{
+				URI: *uri,
+			}, nil
+		},
+	}
+}
+
 func (c *client) _NewS3Resolver(cfg *sdkaws.Config) sdksss.EndpointResolver {
 	return &resolverS3{
 		r: cfg.EndpointResolver.ResolveEndpoint,
+	}
+}
+
+func (c *client) _NewS3ResolverV2(cfg Config) sdksss.EndpointResolverV2 {
+	return &resolverS3V2{
+		r: func(service, region string) (awsedp.Endpoint, error) {
+			edp, err := cfg.ResolveEndpoint(service, region)
+			if err != nil {
+				return awsedp.Endpoint{}, err
+			}
+
+			uri, err := url.Parse(edp.URL)
+			if err != nil {
+				return awsedp.Endpoint{}, err
+			}
+
+			return awsedp.Endpoint{
+				URI: *uri,
+			}, nil
+		},
 	}
 }

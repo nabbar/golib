@@ -65,7 +65,7 @@ func (m *mpu) Copy(fromBucket, fromObject, fromVersionId string) error {
 			Bucket:          sdkaws.String(bck),
 			CopySource:      sdkaws.String(src),
 			Key:             sdkaws.String(obj),
-			PartNumber:      m.Counter() + 1,
+			PartNumber:      sdkaws.Int32(m.Counter() + 1),
 			UploadId:        sdkaws.String(mid),
 			CopySourceRange: sdkaws.String("bytes=" + p),
 			RequestPayer:    sdktyp.RequestPayerRequester,
@@ -121,7 +121,9 @@ func (m *mpu) getCopyPart(fromBucket, fromObject, fromVersionId string) []string
 		return res
 	} else if hdo == nil || hdo.ETag == nil || len(*hdo.ETag) < 1 {
 		return res
-	} else if size := hdo.ContentLength; size < 1 {
+	} else if s := hdo.ContentLength; s == nil {
+		return res
+	} else if size := *s; size < 1 {
 		return res
 	} else {
 		var i int64 = 0

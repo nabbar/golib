@@ -26,25 +26,33 @@
 
 package kvdriver
 
-type FctWalk[K comparable, M any] func(key K, model M) bool
+import (
+	libkvt "github.com/nabbar/golib/database/kvtypes"
+)
 
-type KVDriver[K comparable, M any] interface {
-	Get(key K, model *M) error
-	Set(key K, model M) error
-	List() ([]K, error)
-	Walk(fct FctWalk[K, M]) error
-}
-
+type FuncNew[K comparable, M any] func() libkvt.KVDriver[K, M]
 type FuncGet[K comparable, M any] func(key K) (M, error)
 type FuncSet[K comparable, M any] func(key K, model M) error
+type FuncDel[K comparable] func(key K) error
 type FuncList[K comparable, M any] func() ([]K, error)
-type FuncWalk[K comparable, M any] func(fct FctWalk[K, M]) error
+type FuncWalk[K comparable, M any] func(fct libkvt.FctWalk[K, M]) error
 
-type Driver[K comparable, M any] struct {
-	KVDriver[K, M]
-
+type drv[K comparable, M any] struct {
+	FctNew  FuncNew[K, M]
 	FctGet  FuncGet[K, M]
 	FctSet  FuncSet[K, M]
+	FctDel  FuncDel[K]
 	FctList FuncList[K, M]
 	FctWalk FuncWalk[K, M] // optional
+}
+
+func New[K comparable, M any](fn FuncNew[K, M], fg FuncGet[K, M], fs FuncSet[K, M], fd FuncDel[K], fl FuncList[K, M], fw FuncWalk[K, M]) libkvt.KVDriver[K, M] {
+	return &drv[K, M]{
+		FctNew:  fn,
+		FctGet:  fg,
+		FctSet:  fs,
+		FctDel:  fd,
+		FctList: fl,
+		FctWalk: fw,
+	}
 }

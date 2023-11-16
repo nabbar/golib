@@ -29,6 +29,7 @@ package tcp
 import (
 	"sync/atomic"
 
+	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -37,7 +38,7 @@ type ServerTcp interface {
 	RegisterServer(address string) error
 }
 
-func New(h libsck.Handler, sizeBuffRead int32) ServerTcp {
+func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerTcp {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 
@@ -48,17 +49,20 @@ func New(h libsck.Handler, sizeBuffRead int32) ServerTcp {
 	f.Store(h)
 
 	sr := new(atomic.Int32)
-	sr.Store(sizeBuffRead)
+	sr.Store(sizeBuffRead.Int32())
 
 	return &srv{
 		l:  nil,
+		t:  new(atomic.Value),
 		h:  f,
 		c:  c,
 		s:  s,
-		e:  new(atomic.Value),
-		i:  new(atomic.Value),
+		fe: new(atomic.Value),
+		fi: new(atomic.Value),
+		fs: new(atomic.Value),
 		tr: new(atomic.Value),
 		tw: new(atomic.Value),
 		sr: sr,
+		ad: new(atomic.Value),
 	}
 }

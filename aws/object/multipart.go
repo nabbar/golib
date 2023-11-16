@@ -42,7 +42,7 @@ import (
 func (cli *client) MultipartList(keyMarker, markerId string) (uploads []sdktyp.MultipartUpload, nextKeyMarker string, nextIdMarker string, count int64, e error) {
 	in := &sdksss.ListMultipartUploadsInput{
 		Bucket:     sdkaws.String(cli.GetBucketName()),
-		MaxUploads: 1000,
+		MaxUploads: sdkaws.Int32(1000),
 	}
 
 	if keyMarker != "" && markerId != "" {
@@ -54,10 +54,17 @@ func (cli *client) MultipartList(keyMarker, markerId string) (uploads []sdktyp.M
 
 	if err != nil {
 		return nil, "", "", 0, cli.GetError(err)
-	} else if out.IsTruncated {
-		return out.Uploads, *out.NextKeyMarker, *out.NextUploadIdMarker, int64(out.MaxUploads), nil
+	}
+
+	var maxKeys int32
+	if out != nil && out.MaxUploads != nil {
+		maxKeys = *out.MaxUploads
+	}
+
+	if out != nil && out.IsTruncated != nil && *out.IsTruncated {
+		return out.Uploads, *out.NextKeyMarker, *out.NextUploadIdMarker, int64(maxKeys), nil
 	} else {
-		return out.Uploads, "", "", int64(out.MaxUploads), nil
+		return out.Uploads, "", "", int64(maxKeys), nil
 	}
 }
 

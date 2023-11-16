@@ -29,10 +29,10 @@ package kvmap
 import (
 	"encoding/json"
 
-	libkvd "github.com/nabbar/golib/database/kvdriver"
+	libkvt "github.com/nabbar/golib/database/kvtypes"
 )
 
-func (o *Driver[K, MK, M]) serialize(model *M, modelMap *map[MK]any) error {
+func (o *drv[K, MK, M]) serialize(model *M, modelMap *map[MK]any) error {
 	if p, e := json.Marshal(model); e != nil {
 		return e
 	} else {
@@ -40,7 +40,7 @@ func (o *Driver[K, MK, M]) serialize(model *M, modelMap *map[MK]any) error {
 	}
 }
 
-func (o *Driver[K, MK, M]) unSerialize(modelMap *map[MK]any, model *M) error {
+func (o *drv[K, MK, M]) unSerialize(modelMap *map[MK]any, model *M) error {
 	if p, e := json.Marshal(modelMap); e != nil {
 		return e
 	} else {
@@ -48,7 +48,16 @@ func (o *Driver[K, MK, M]) unSerialize(modelMap *map[MK]any, model *M) error {
 	}
 }
 
-func (o *Driver[K, MK, M]) Get(key K, model *M) error {
+func (o *drv[K, MK, M]) New() libkvt.KVDriver[K, M] {
+	return &drv[K, MK, M]{
+		FctGet:  o.FctGet,
+		FctSet:  o.FctSet,
+		FctDel:  o.FctDel,
+		FctList: o.FctList,
+	}
+}
+
+func (o *drv[K, MK, M]) Get(key K, model *M) error {
 	if o == nil {
 		return ErrorBadInstance.Error(nil)
 	} else if o.FctGet == nil {
@@ -60,7 +69,7 @@ func (o *Driver[K, MK, M]) Get(key K, model *M) error {
 	}
 }
 
-func (o *Driver[K, MK, M]) Set(key K, model M) error {
+func (o *drv[K, MK, M]) Set(key K, model M) error {
 	var m = make(map[MK]any)
 
 	if o == nil {
@@ -74,7 +83,17 @@ func (o *Driver[K, MK, M]) Set(key K, model M) error {
 	}
 }
 
-func (o *Driver[K, MK, M]) List() ([]K, error) {
+func (o *drv[K, MK, M]) Del(key K) error {
+	if o == nil {
+		return ErrorBadInstance.Error(nil)
+	} else if o.FctDel == nil {
+		return ErrorDelFunction.Error(nil)
+	} else {
+		return o.FctDel(key)
+	}
+}
+
+func (o *drv[K, MK, M]) List() ([]K, error) {
 	if o == nil {
 		return nil, ErrorBadInstance.Error(nil)
 	} else if o.FctList == nil {
@@ -84,7 +103,7 @@ func (o *Driver[K, MK, M]) List() ([]K, error) {
 	}
 }
 
-func (o *Driver[K, MK, M]) Walk(fct libkvd.FctWalk[K, M]) error {
+func (o *drv[K, MK, M]) Walk(fct libkvt.FctWalk[K, M]) error {
 	if o == nil {
 		return ErrorBadInstance.Error(nil)
 	} else if fct == nil {

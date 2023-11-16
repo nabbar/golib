@@ -24,14 +24,13 @@
  *
  */
 
-package kvtable
+package kvtypes
 
-import (
-	libkvt "github.com/nabbar/golib/database/kvtypes"
-)
+type FuncWalk[K comparable, M any] func(kv KVItem[K, M]) bool
 
-func New[K comparable, M any](drv libkvt.KVDriver[K, M]) libkvt.KVTable[K, M] {
-	return &tbl[K, M]{
-		d: drv,
-	}
+type KVTable[K comparable, M any] interface {
+	Get(key K) (KVItem[K, M], error)
+	Del(key K) error
+	List() ([]KVItem[K, M], error)
+	Walk(fct FuncWalk[K, M]) error
 }

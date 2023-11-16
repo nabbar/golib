@@ -33,10 +33,9 @@ import (
 	"runtime"
 	"strings"
 
-	libfpg "github.com/nabbar/golib/file/progress"
-
 	libarc "github.com/nabbar/golib/archive/archive"
 	liberr "github.com/nabbar/golib/errors"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) liberr.Error {
@@ -93,9 +92,11 @@ func GetAll(src io.ReadSeeker, outputFolder string, defaultDirPerm os.FileMode) 
 			return ErrorTarNext.Error(e)
 		}
 
+		dst := filepath.Join(outputFolder, libarc.CleanPath(strings.Replace(h.Name, ".."+string(filepath.Separator), "", -1)))
+
 		//nolint #nosec
 		/* #nosec */
-		if err := writeContent(r, h, filepath.Join(outputFolder, libarc.CleanPath(h.Name)), defaultDirPerm); err != nil {
+		if err := writeContent(r, h, dst, defaultDirPerm); err != nil {
 			return err
 		}
 	}

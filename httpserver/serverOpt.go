@@ -56,6 +56,8 @@ func (o *optServer) initServer(s *http.Server) liberr.Error {
 
 	if o.ReadHeaderTimeout > 0 {
 		s.ReadHeaderTimeout = o.ReadHeaderTimeout
+	} else {
+		s.ReadHeaderTimeout = 30 * time.Second
 	}
 
 	if o.WriteTimeout > 0 {

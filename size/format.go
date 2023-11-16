@@ -41,7 +41,8 @@ const (
 )
 
 var (
-	_maxFloat = uint64(math.Ceil(math.MaxFloat64))
+	_maxFloat64 = uint64(math.Ceil(math.MaxFloat64))
+	_maxFloat32 = uint64(math.Ceil(math.MaxFloat32))
 )
 
 func (s Size) String() string {
@@ -63,17 +64,62 @@ func (s Size) Int64() int64 {
 	return int64(s)
 }
 
+func (s Size) Int32() int32 {
+	if uint64(s) > math.MaxInt32 {
+		// overflow
+		return math.MaxInt32
+	}
+
+	return int32(s)
+}
+
+func (s Size) Int() int {
+	if uint64(s) > math.MaxInt {
+		// overflow
+		return math.MaxInt
+	}
+
+	return int(s)
+}
+
 func (s Size) Uint64() uint64 {
 	return uint64(s)
 }
 
+func (s Size) Uint32() uint32 {
+	if uint64(s) > math.MaxUint32 {
+		// overflow
+		return math.MaxUint32
+	}
+
+	return uint32(s)
+}
+
+func (s Size) Uint() uint {
+	if uint64(s) > math.MaxUint {
+		// overflow
+		return math.MaxUint
+	}
+
+	return uint(s)
+}
+
 func (s Size) Float64() float64 {
-	if uint64(s) > _maxFloat {
+	if uint64(s) > _maxFloat64 {
 		// overflow
 		return math.MaxFloat64
 	}
 
 	return float64(s)
+}
+
+func (s Size) Float32() float32 {
+	if uint64(s) > _maxFloat32 {
+		// overflow
+		return math.MaxFloat32
+	}
+
+	return float32(s)
 }
 
 func (s Size) Format(format string) string {

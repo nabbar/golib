@@ -30,11 +30,13 @@
 package unix
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"sync/atomic"
 	"time"
 
+	libtls "github.com/nabbar/golib/certificates"
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -53,14 +55,17 @@ type srv struct {
 	h *atomic.Value // handler
 	c *atomic.Value // chan []byte
 	s *atomic.Value // chan struct{}
-	e *atomic.Value // function error
-	i *atomic.Value // function info
+
+	fe *atomic.Value // function error
+	fi *atomic.Value // function info
+	fs *atomic.Value // function info server
 
 	tr *atomic.Value // connection read timeout
 	tw *atomic.Value // connection write timeout
 	sr *atomic.Int32 // read buffer size
-	fs *atomic.Value // file unix socket
-	fp *atomic.Int64 // file unix perm
+
+	sf *atomic.Value // file unix socket
+	sp *atomic.Int64 // file unix perm
 }
 
 func (o *srv) Done() <-chan struct{} {
@@ -83,12 +88,16 @@ func (o *srv) Shutdown() {
 	}
 }
 
+func (o *srv) SetTLS(enable bool, config libtls.TLSConfig) error {
+	return nil
+}
+
 func (o *srv) RegisterFuncError(f libsck.FuncError) {
 	if o == nil {
 		return
 	}
 
-	o.e.Store(f)
+	o.fe.Store(f)
 }
 
 func (o *srv) RegisterFuncInfo(f libsck.FuncInfo) {
@@ -96,7 +105,15 @@ func (o *srv) RegisterFuncInfo(f libsck.FuncInfo) {
 		return
 	}
 
-	o.i.Store(f)
+	o.fi.Store(f)
+}
+
+func (o *srv) RegisterFuncInfoServer(f libsck.FuncInfoSrv) {
+	if o == nil {
+		return
+	}
+
+	o.fs.Store(f)
 }
 
 func (o *srv) SetReadTimeout(d time.Duration) {
@@ -116,8 +133,8 @@ func (o *srv) SetWriteTimeout(d time.Duration) {
 }
 
 func (o *srv) RegisterSocket(unixFile string, perm os.FileMode) {
-	o.fs.Store(unixFile)
-	o.fp.Store(int64(perm))
+	o.sf.Store(unixFile)
+	o.sp.Store(int64(perm))
 }
 
 func (o *srv) fctError(e error) {
@@ -125,7 +142,7 @@ func (o *srv) fctError(e error) {
 		return
 	}
 
-	v := o.e.Load()
+	v := o.fe.Load()
 	if v != nil {
 		v.(libsck.FuncError)(e)
 	}
@@ -136,9 +153,20 @@ func (o *srv) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 		return
 	}
 
-	v := o.i.Load()
+	v := o.fi.Load()
 	if v != nil {
 		v.(libsck.FuncInfo)(local, remote, state)
+	}
+}
+
+func (o *srv) fctInfoSrv(msg string, args ...interface{}) {
+	if o == nil {
+		return
+	}
+
+	v := o.fs.Load()
+	if v != nil {
+		v.(libsck.FuncInfoSrv)(fmt.Sprintf(msg, args...))
 	}
 }
 

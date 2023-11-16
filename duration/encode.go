@@ -25,68 +25,63 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package duration
 
-import "math"
+import (
+	"fmt"
 
-type Size uint64
-
-const (
-	SizeNul  Size = 0
-	SizeUnit Size = 1
-	SizeKilo Size = 1 << 10
-	SizeMega Size = 1 << 20
-	SizeGiga Size = 1 << 30
-	SizeTera Size = 1 << 40
-	SizePeta Size = 1 << 50
-	SizeExa  Size = 1 << 60
+	"gopkg.in/yaml.v3"
 )
 
-var defUnit = 'B'
+func (d Duration) MarshalJSON() ([]byte, error) {
+	t := d.String()
+	b := make([]byte, 0, len(t)+2)
+	b = append(b, '"')
+	b = append(b, []byte(t)...)
+	b = append(b, '"')
+	return b, nil
+}
 
-func SetDefaultUnit(unit rune) {
-	if unit == 0 {
-		defUnit = 'B'
-	} else if s := string(unit); len(s) < 1 {
-		defUnit = 'B'
-	} else {
-		defUnit = unit
+func (d *Duration) UnmarshalJSON(bytes []byte) error {
+	return d.unmarshall(bytes)
+}
+
+func (d Duration) MarshalYAML() (interface{}, error) {
+	return d.MarshalJSON()
+}
+
+func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
+	return d.unmarshall([]byte(value.Value))
+}
+
+func (d Duration) MarshalTOML() ([]byte, error) {
+	return d.MarshalJSON()
+}
+
+func (d *Duration) UnmarshalTOML(i interface{}) error {
+	if b, k := i.([]byte); k {
+		return d.unmarshall(b)
 	}
-}
 
-func GetSize(s string) (sizeBytes Size, success bool) {
-	if z, e := parseString(s); e != nil {
-		return SizeNul, false
-	} else {
-		return z, true
+	if b, k := i.(string); k {
+		return d.parseString(b)
 	}
+
+	return fmt.Errorf("size: value not in valid format")
 }
 
-func SizeFromInt64(val int64) Size {
-	v := uint64(val)
-	return Size(v)
+func (d Duration) MarshalText() ([]byte, error) {
+	return []byte(d.String()), nil
 }
 
-func SizeFromFloat64(val float64) Size {
-	val = math.Floor(val)
-
-	if val > math.MaxUint64 {
-		return Size(uint64(math.MaxUint64))
-	} else if -val > math.MaxUint64 {
-		return Size(uint64(math.MaxUint64))
-	} else {
-		return Size(uint64(val))
-	}
+func (d *Duration) UnmarshalText(bytes []byte) error {
+	return d.unmarshall(bytes)
 }
 
-func Parse(s string) (Size, error) {
-	return parseString(s)
+func (d Duration) MarshalCBOR() ([]byte, error) {
+	return []byte(d.String()), nil
 }
 
-func ParseSize(s string) (Size, error) {
-	return parseString(s)
-}
-
-func ParseByteAsSize(p []byte) (Size, error) {
-	return parseBytes(p)
+func (d *Duration) UnmarshalCBOR(bytes []byte) error {
+	return d.unmarshall(bytes)
 }

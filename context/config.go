@@ -52,6 +52,7 @@ type Config[T comparable] interface {
 	MapManage[T]
 	Context
 
+	SetContext(ctx FuncContext)
 	Clone(ctx context.Context) Config[T]
 	Merge(cfg Config[T]) bool
 	Walk(fct FuncWalk[T]) bool
@@ -79,6 +80,18 @@ type configContext[T comparable] struct {
 	n sync.RWMutex
 	m sync.Map
 	x FuncContext
+}
+
+func (c *configContext[T]) SetContext(ctx FuncContext) {
+	c.n.Lock()
+	defer c.n.Unlock()
+
+	if ctx == nil {
+		ctx = context.Background
+	}
+
+	c.Context = ctx()
+	c.x = ctx
 }
 
 func (c *configContext[T]) Delete(key T) {

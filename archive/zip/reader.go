@@ -30,11 +30,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-
-	libfpg "github.com/nabbar/golib/file/progress"
+	"strings"
 
 	arcmod "github.com/nabbar/golib/archive/archive"
 	liberr "github.com/nabbar/golib/errors"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 func GetFile(src, dst libfpg.Progress, filenameContain, filenameRegex string) liberr.Error {
@@ -119,9 +119,10 @@ func GetAll(src libfpg.Progress, outputFolder string, defaultDirPerm os.FileMode
 			continue
 		}
 
-		//nolint #nosec
-		/* #nosec */
-		if err := writeContent(f, filepath.Join(outputFolder, arcmod.CleanPath(f.Name)), defaultDirPerm); err != nil {
+		dst := filepath.Join(outputFolder, arcmod.CleanPath(strings.Replace(f.Name, ".."+string(filepath.Separator), "..", -1)))
+
+		// #nosec
+		if err := writeContent(f, dst, defaultDirPerm); err != nil {
 			return err
 		}
 	}
@@ -175,9 +176,10 @@ func writeContent(f *zip.File, out string, defaultDirPerm os.FileMode) (err libe
 		return ErrorZipFileOpen.Error(e)
 	}
 
-	//nolint #nosec
-	/* #nosec */
-	if _, e = io.Copy(dst, r); e != nil {
+	// #nosec
+	_, e = io.Copy(dst, r)
+
+	if e != nil {
 		return ErrorIOCopy.Error(e)
 	} else if e = dst.Close(); e != nil {
 		return ErrorFileClose.Error(e)

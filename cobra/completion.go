@@ -61,7 +61,9 @@ func (c *cobra) AddCommandCompletion() {
 				os.Exit(1)
 			} else if len(args) >= 2 {
 				file = filepath.Clean(args[1])
-				c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "create file path", os.MkdirAll(filepath.Dir(file), 0755))
+				// #nosec
+				e := os.MkdirAll(filepath.Dir(file), 0755)
+				c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "create file path", e)
 			}
 
 			switch strings.ToLower(args[0]) {

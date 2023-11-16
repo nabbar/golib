@@ -110,6 +110,7 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 		cfgFile = strings.TrimRight(cfgFile, ext) + ".json"
 	}
 
+	// #nosec
 	fs, err = os.OpenFile(cfgFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err

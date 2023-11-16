@@ -93,6 +93,7 @@ func (o *srv) Listen(ctx context.Context) error {
 		}
 	}
 
+	o.fctInfoSrv("starting listening socket 'TLS %s %s'", libptc.NetworkUDP.String(), a.Host)
 	defer fctClose()
 
 	// Accept new connection or stop if context or shutdown trigger

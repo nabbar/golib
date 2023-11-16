@@ -38,6 +38,7 @@ const (
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgDatabaseKVItm
 	ErrorLoadFunction
 	ErrorStoreFunction
+	ErrorRemoveFunction
 )
 
 func init() {
@@ -57,6 +58,8 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "missing load function of " + pkgName
 	case ErrorStoreFunction:
 		return "missing store function of " + pkgName
+	case ErrorRemoveFunction:
+		return "missing remove function of " + pkgName
 	}
 
 	return liberr.NullMessage

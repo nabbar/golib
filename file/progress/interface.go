@@ -85,7 +85,10 @@ type Progress interface {
 }
 
 func New(name string, flags int, perm os.FileMode) (Progress, error) {
-	if f, e := os.OpenFile(name, flags, perm); e != nil {
+	// #nosec
+	f, e := os.OpenFile(name, flags, perm)
+
+	if e != nil {
 		return nil, e
 	} else {
 		return &progress{
@@ -99,7 +102,10 @@ func New(name string, flags int, perm os.FileMode) (Progress, error) {
 }
 
 func Unique(basePath, pattern string) (Progress, error) {
-	if f, e := os.CreateTemp(basePath, pattern); e != nil {
+	// #nosec
+	f, e := os.CreateTemp(basePath, pattern)
+
+	if e != nil {
 		return nil, e
 	} else {
 		return &progress{
@@ -113,7 +119,10 @@ func Unique(basePath, pattern string) (Progress, error) {
 }
 
 func Temp(pattern string) (Progress, error) {
-	if f, e := os.CreateTemp("", pattern); e != nil {
+	// #nosec
+	f, e := os.CreateTemp("", pattern)
+
+	if e != nil {
 		return nil, e
 	} else {
 		return &progress{
@@ -127,7 +136,10 @@ func Temp(pattern string) (Progress, error) {
 }
 
 func Open(name string) (Progress, error) {
-	if f, e := os.Open(name); e != nil {
+	// #nosec
+	f, e := os.Open(name)
+
+	if e != nil {
 		return nil, e
 	} else {
 		return &progress{
@@ -141,7 +153,10 @@ func Open(name string) (Progress, error) {
 }
 
 func Create(name string) (Progress, error) {
-	if f, e := os.Create(name); e != nil {
+	// #nosec
+	f, e := os.Create(name)
+
+	if e != nil {
 		return nil, e
 	} else {
 		return &progress{

@@ -28,12 +28,19 @@
 package protocol
 
 import (
+	"bytes"
 	"fmt"
 
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	dblQuote = "\""
+	smpQuote = "'"
+)
+
 func (s *NetworkProtocol) unmarshall(val []byte) error {
+	val = bytes.Trim(bytes.Trim(val, smpQuote), dblQuote)
 	*s = ParseBytes(val)
 	return nil
 }

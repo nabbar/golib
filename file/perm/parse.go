@@ -25,68 +25,42 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package perm
 
-import "math"
-
-type Size uint64
-
-const (
-	SizeNul  Size = 0
-	SizeUnit Size = 1
-	SizeKilo Size = 1 << 10
-	SizeMega Size = 1 << 20
-	SizeGiga Size = 1 << 30
-	SizeTera Size = 1 << 40
-	SizePeta Size = 1 << 50
-	SizeExa  Size = 1 << 60
+import (
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
 )
 
-var defUnit = 'B'
+func parseString(s string) (Perm, error) {
+	s = strings.Replace(s, "\"", "", -1)
+	s = strings.Replace(s, "'", "", -1)
 
-func SetDefaultUnit(unit rune) {
-	if unit == 0 {
-		defUnit = 'B'
-	} else if s := string(unit); len(s) < 1 {
-		defUnit = 'B'
+	if v, e := strconv.ParseUint(s, 8, 32); e != nil {
+		return 0, e
+	} else if v > math.MaxUint32 {
+		return Perm(0), fmt.Errorf("invalid permission")
 	} else {
-		defUnit = unit
+		return Perm(v), nil
 	}
 }
 
-func GetSize(s string) (sizeBytes Size, success bool) {
-	if z, e := parseString(s); e != nil {
-		return SizeNul, false
+func (p *Perm) parseString(s string) error {
+	if v, e := parseString(s); e != nil {
+		return e
 	} else {
-		return z, true
+		*p = v
+		return nil
 	}
 }
 
-func SizeFromInt64(val int64) Size {
-	v := uint64(val)
-	return Size(v)
-}
-
-func SizeFromFloat64(val float64) Size {
-	val = math.Floor(val)
-
-	if val > math.MaxUint64 {
-		return Size(uint64(math.MaxUint64))
-	} else if -val > math.MaxUint64 {
-		return Size(uint64(math.MaxUint64))
+func (p *Perm) unmarshall(val []byte) error {
+	if tmp, err := ParseByte(val); err != nil {
+		return err
 	} else {
-		return Size(uint64(val))
+		*p = tmp
+		return nil
 	}
-}
-
-func Parse(s string) (Size, error) {
-	return parseString(s)
-}
-
-func ParseSize(s string) (Size, error) {
-	return parseString(s)
-}
-
-func ParseByteAsSize(p []byte) (Size, error) {
-	return parseBytes(p)
 }

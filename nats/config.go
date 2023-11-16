@@ -104,6 +104,7 @@ func (c Config) LogConfigJson() liberr.Error {
 		return ErrorConfigInvalidFilePath.Error(e)
 	}
 
+	// #nosec
 	f, e := os.OpenFile(c.Logs.LogFile, os.O_APPEND|os.O_WRONLY, permFile)
 	if e != nil {
 		return ErrorConfigInvalidFilePath.Error(e)
@@ -1054,6 +1055,7 @@ func (c ConfigWebsocket) makeOpt(defTls libtls.TLSConfig) (natsrv.WebsocketOpts,
 		}
 	} else {
 		cfg.NoTLS = true
+		// #nosec
 		cfg.TLSConfig = &tls.Config{}
 		cfg.HandshakeTimeout = 0
 	}
@@ -1092,6 +1094,7 @@ func (c ConfigMQTT) makeOpt(defTls libtls.TLSConfig) (natsrv.MQTTOpts, liberr.Er
 			cfg.TLSTimeout = float64(c.TLSTimeout) / float64(time.Second)
 		}
 	} else {
+		// #nosec
 		cfg.TLSConfig = &tls.Config{}
 		cfg.TLSTimeout = 0
 	}

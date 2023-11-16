@@ -82,7 +82,7 @@ func (o *srv) buffRead() *bytes.Buffer {
 }
 
 func (o *srv) getSocketFile() (string, error) {
-	f := o.fs.Load()
+	f := o.sf.Load()
 	if f != nil {
 		return o.checkFile(f.(string))
 	}
@@ -91,7 +91,7 @@ func (o *srv) getSocketFile() (string, error) {
 }
 
 func (o *srv) getSocketPerm() os.FileMode {
-	p := o.fp.Load()
+	p := o.sp.Load()
 	if p > 0 {
 		return os.FileMode(p)
 	}
@@ -149,6 +149,7 @@ func (o *srv) Listen(ctx context.Context) error {
 		}
 	}
 
+	o.fctInfoSrv("starting listening socket 'TLS %s %s'", libptc.NetworkUnix.String(), unixFile)
 	defer fctClose()
 
 	if i.Mode() != perm {

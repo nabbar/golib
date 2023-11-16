@@ -98,7 +98,7 @@ func (m *mpu) RegisterPart(etag string) {
 	m.n++
 	m.l = append(m.l, sdktyp.CompletedPart{
 		ETag:       sdkaws.String(strings.Replace(etag, "\"", "", -1)),
-		PartNumber: m.n,
+		PartNumber: sdkaws.Int32(m.n),
 	})
 }
 
@@ -154,8 +154,8 @@ func (m *mpu) AddPart(r io.Reader) (n int64, e error) {
 		Bucket:        sdkaws.String(bck),
 		Key:           sdkaws.String(obj),
 		UploadId:      sdkaws.String(mid),
-		PartNumber:    m.Counter() + 1,
-		ContentLength: n,
+		PartNumber:    sdkaws.Int32(m.Counter() + 1),
+		ContentLength: sdkaws.Int64(n),
 		Body:          tmp,
 		RequestPayer:  sdktyp.RequestPayerRequester,
 		ContentMD5:    sdkaws.String(hss),
