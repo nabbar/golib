@@ -30,9 +30,8 @@ import (
 	"mime"
 	"path/filepath"
 
-	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
-
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
 )
@@ -58,10 +57,17 @@ func (cli *client) ListPrefix(continuationToken string, prefix string) ([]sdktps
 
 	if err != nil {
 		return nil, "", 0, cli.GetError(err)
-	} else if out.IsTruncated {
-		return out.Contents, *out.NextContinuationToken, int64(out.KeyCount), nil
+	}
+
+	var maxKeys int32
+	if out != nil && out.MaxKeys != nil {
+		maxKeys = *out.MaxKeys
+	}
+
+	if out != nil && out.IsTruncated != nil && *out.IsTruncated {
+		return out.Contents, *out.NextContinuationToken, int64(maxKeys), nil
 	} else {
-		return out.Contents, "", int64(out.KeyCount), nil
+		return out.Contents, "", int64(maxKeys), nil
 	}
 }
 
@@ -104,7 +110,7 @@ func (cli *client) WalkPrefix(prefix string, f WalkFunc) error {
 			}
 		}
 
-		if out.IsTruncated {
+		if out != nil && out.IsTruncated != nil && *out.IsTruncated {
 			t = out.NextContinuationToken
 		} else {
 			return e

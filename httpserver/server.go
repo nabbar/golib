@@ -93,6 +93,7 @@ func (o *srv) setServer(ctx context.Context) error {
 
 	var stdlog = o.logger()
 
+	// #nosec
 	s := &http.Server{
 		Addr:    bind,
 		Handler: o.HandlerLoadFct(),

@@ -72,6 +72,23 @@ func NewLDAP(ctx context.Context, cnf *Config, attributes []string) (*HelperLDAP
 	}, nil
 }
 
+func (lc *HelperLDAP) Clone() *HelperLDAP {
+	var att = make([]string, 0)
+	copy(att, lc.Attributes)
+
+	return &HelperLDAP{
+		Attributes: att,
+		conn:       nil,
+		config:     lc.config.Clone(),
+		tlsConfig:  lc.tlsConfig.Clone(),
+		tlsMode:    lc.tlsMode,
+		bindDN:     lc.bindDN,
+		bindPass:   lc.bindPass,
+		ctx:        lc.ctx,
+		log:        lc.log,
+	}
+}
+
 // SetLogger is used to specify the logger to be used for debug messgae
 func (lc *HelperLDAP) SetLogger(fct liblog.FuncLog) {
 	lc.log = fct
@@ -242,7 +259,7 @@ func (lc *HelperLDAP) tryConnect() (TLSMode, liberr.Error) {
 
 	defer func() {
 		if l != nil {
-			l.Close()
+			_ = l.Close()
 		}
 	}()
 
@@ -306,7 +323,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			l, err = lc.dialTLS()
 			if err != nil {
 				if l != nil {
-					l.Close()
+					_ = l.Close()
 				}
 				return err
 			}
@@ -316,7 +333,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			l, err = lc.dial()
 			if err != nil {
 				if l != nil {
-					l.Close()
+					_ = l.Close()
 				}
 				return err
 			}
@@ -326,7 +343,7 @@ func (lc *HelperLDAP) connect() liberr.Error {
 			err = lc.starttls(l)
 			if err != nil {
 				if l != nil {
-					l.Close()
+					_ = l.Close()
 				}
 				return err
 			}
@@ -348,7 +365,7 @@ func (lc *HelperLDAP) Check() liberr.Error {
 	if lc.conn == nil {
 		defer func() {
 			if lc.conn != nil {
-				lc.conn.Close()
+				_ = lc.conn.Close()
 				lc.conn = nil
 			}
 		}()
@@ -369,7 +386,7 @@ func (lc *HelperLDAP) Close() {
 	}
 
 	if lc.conn != nil {
-		lc.conn.Close()
+		_ = lc.conn.Close()
 		lc.conn = nil
 	}
 }

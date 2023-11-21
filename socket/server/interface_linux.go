@@ -36,13 +36,14 @@ import (
 	"strings"
 
 	libptc "github.com/nabbar/golib/network/protocol"
+	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 	scksrt "github.com/nabbar/golib/socket/server/tcp"
 	scksru "github.com/nabbar/golib/socket/server/udp"
 	scksrx "github.com/nabbar/golib/socket/server/unix"
 )
 
-func New(handler libsck.Handler, proto libptc.NetworkProtocol, sizeBufferRead int32, address string, perm os.FileMode) (libsck.Server, error) {
+func New(handler libsck.Handler, proto libptc.NetworkProtocol, sizeBufferRead libsiz.Size, address string, perm os.FileMode) (libsck.Server, error) {
 	switch proto {
 	case libptc.NetworkUnix:
 		if strings.EqualFold(runtime.GOOS, "linux") {

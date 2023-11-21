@@ -29,6 +29,7 @@ package tcp
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"io"
 	"net"
 	"net/url"
@@ -83,7 +84,16 @@ func (o *srv) Listen(ctx context.Context) error {
 
 	if a == nil {
 		return ErrInvalidAddress
-	} else if l, e = net.Listen(libptc.NetworkTCP.Code(), a.Host); e != nil {
+	} else if t := o.getTLS(); t == nil {
+		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkTCP.String(), a.Host)
+		l, e = net.Listen(libptc.NetworkTCP.Code(), a.Host)
+	} else {
+		o.fctInfoSrv("starting listening socket 'TLS %s %s'", libptc.NetworkTCP.String(), a.Host)
+		l, e = tls.Listen(libptc.NetworkTCP.Code(), a.Host, t)
+	}
+
+	if e != nil {
+		o.fctError(e)
 		return e
 	}
 

@@ -29,9 +29,8 @@ import (
 	gz "compress/gzip"
 	"io"
 
-	libfpg "github.com/nabbar/golib/file/progress"
-
 	"github.com/nabbar/golib/errors"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
@@ -50,9 +49,10 @@ func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
 		_ = r.Close()
 	}()
 
-	//nolint #nosec
-	/* #nosec */
-	if _, e = io.Copy(dst, r); e != nil {
+	// #nosec
+	_, e = io.Copy(dst, r)
+
+	if e != nil {
 		return ErrorIOCopy.Error(e)
 	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
 		return ErrorFileSeek.Error(e)
@@ -88,6 +88,7 @@ func GetGunZipSize(src io.ReadSeeker) int64 {
 	}
 
 	var n int64
+	// #nosec
 	n, e = io.Copy(io.Discard, r)
 
 	if e != nil {

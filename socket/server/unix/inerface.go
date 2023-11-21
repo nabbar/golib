@@ -33,6 +33,7 @@ import (
 	"os"
 	"sync/atomic"
 
+	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -41,7 +42,7 @@ type ServerUnix interface {
 	RegisterSocket(unixFile string, perm os.FileMode)
 }
 
-func New(h libsck.Handler, sizeBuffRead int32) ServerUnix {
+func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerUnix {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 
@@ -51,26 +52,30 @@ func New(h libsck.Handler, sizeBuffRead int32) ServerUnix {
 	f := new(atomic.Value)
 	f.Store(h)
 
+	// socket read buff size
 	sr := new(atomic.Int32)
-	sr.Store(sizeBuffRead)
+	sr.Store(sizeBuffRead.Int32())
 
-	fp := new(atomic.Value)
-	fp.Store("")
+	// socket file
+	sf := new(atomic.Value)
+	sf.Store("")
 
-	pe := new(atomic.Int64)
-	pe.Store(0)
+	// socket permission
+	sp := new(atomic.Int64)
+	sp.Store(0)
 
 	return &srv{
 		l:  nil,
 		h:  f,
 		c:  c,
 		s:  s,
-		e:  new(atomic.Value),
-		i:  new(atomic.Value),
+		fe: new(atomic.Value),
+		fi: new(atomic.Value),
+		fs: new(atomic.Value),
 		tr: new(atomic.Value),
 		tw: new(atomic.Value),
 		sr: sr,
-		fs: fp,
-		fp: pe,
+		sf: sf,
+		sp: sp,
 	}
 }

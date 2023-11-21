@@ -26,8 +26,8 @@
 package password
 
 import (
-	"math/rand"
-	"time"
+	"crypto/rand"
+	"math/big"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyz,;:!?./*%^$&\"'(-_)=+~#{[|`\\^@]}ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -41,36 +41,32 @@ const (
 	loopRandMaxLen = 10
 )
 
-func randStringBytesMaskImprSrc(n int) string {
-	var src = rand.NewSource(time.Now().UnixNano())
+func randIdx() int {
+	size := int64(len(letterBytes))
 
+	for n := 0; n < 100; n++ {
+
+		if i, e := rand.Int(rand.Reader, big.NewInt(size+1)); e != nil {
+			return 0
+		} else {
+			j := i.Int64()
+
+			if j > 0 && j < size {
+				return int(j)
+			}
+		}
+	}
+
+	return 0
+}
+
+func Generate(n int) string {
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			b[i] = letterBytes[idx]
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
+	for i := n - 1; i >= 0; {
+		b[i] = letterBytes[randIdx()]
+		i--
 	}
 
 	return string(b)
-}
-
-// Generate Generate a random string could be used as password.
-// The len is defined by given 'n' parameters.
-func Generate(n int) string {
-	if n > loopRandMaxLen {
-		var s = ""
-		for i := n; i > 0; i -= loopRandMaxLen {
-			s += randStringBytesMaskImprSrc(loopRandMaxLen)
-		}
-		return s[0 : n-1]
-	}
-
-	return randStringBytesMaskImprSrc(n)
 }

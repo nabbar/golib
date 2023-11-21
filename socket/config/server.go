@@ -28,9 +28,10 @@ package config
 
 import (
 	"os"
-	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	libptc "github.com/nabbar/golib/network/protocol"
+	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 	scksrv "github.com/nabbar/golib/socket/server"
 )
@@ -39,17 +40,17 @@ type ServerConfig struct {
 	Network      libptc.NetworkProtocol ``
 	Address      string
 	PermFile     os.FileMode
-	BuffSizeRead int32
-	TimeoutRead  time.Duration
-	TimeoutWrite time.Duration
+	BuffSizeRead libsiz.Size
+	TimeoutRead  libdur.Duration
+	TimeoutWrite libdur.Duration
 }
 
 func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
 	s, e := scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile)
 
 	if e != nil {
-		s.SetReadTimeout(o.TimeoutRead)
-		s.SetWriteTimeout(o.TimeoutWrite)
+		s.SetReadTimeout(o.TimeoutRead.Time())
+		s.SetWriteTimeout(o.TimeoutWrite.Time())
 	}
 
 	return s, e

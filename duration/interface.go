@@ -25,68 +25,38 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package duration
 
-import "math"
-
-type Size uint64
-
-const (
-	SizeNul  Size = 0
-	SizeUnit Size = 1
-	SizeKilo Size = 1 << 10
-	SizeMega Size = 1 << 20
-	SizeGiga Size = 1 << 30
-	SizeTera Size = 1 << 40
-	SizePeta Size = 1 << 50
-	SizeExa  Size = 1 << 60
+import (
+	"time"
 )
 
-var defUnit = 'B'
+type Duration time.Duration
 
-func SetDefaultUnit(unit rune) {
-	if unit == 0 {
-		defUnit = 'B'
-	} else if s := string(unit); len(s) < 1 {
-		defUnit = 'B'
-	} else {
-		defUnit = unit
-	}
-}
-
-func GetSize(s string) (sizeBytes Size, success bool) {
-	if z, e := parseString(s); e != nil {
-		return SizeNul, false
-	} else {
-		return z, true
-	}
-}
-
-func SizeFromInt64(val int64) Size {
-	v := uint64(val)
-	return Size(v)
-}
-
-func SizeFromFloat64(val float64) Size {
-	val = math.Floor(val)
-
-	if val > math.MaxUint64 {
-		return Size(uint64(math.MaxUint64))
-	} else if -val > math.MaxUint64 {
-		return Size(uint64(math.MaxUint64))
-	} else {
-		return Size(uint64(val))
-	}
-}
-
-func Parse(s string) (Size, error) {
+func Parse(s string) (Duration, error) {
 	return parseString(s)
 }
 
-func ParseSize(s string) (Size, error) {
-	return parseString(s)
+func ParseByte(p []byte) (Duration, error) {
+	return parseString(string(p))
 }
 
-func ParseByteAsSize(p []byte) (Size, error) {
-	return parseBytes(p)
+func Seconds(i int64) Duration {
+	return Duration(time.Duration(i) * time.Second)
+}
+
+func Minutes(i int64) Duration {
+	return Duration(time.Duration(i) * time.Minute)
+}
+
+func Hours(i int64) Duration {
+	return Duration(time.Duration(i) * time.Hour)
+}
+
+func Days(i int64) Duration {
+	return Duration(time.Duration(i) * time.Hour * 24)
+}
+
+func ParseDuration(d time.Duration) Duration {
+	return Duration(d)
 }

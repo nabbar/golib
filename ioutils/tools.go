@@ -57,7 +57,11 @@ func PathCheckCreate(isFile bool, path string, permFile os.FileMode, permDir os.
 		return os.MkdirAll(path, permDir)
 	} else if err = PathCheckCreate(false, filepath.Dir(path), permFile, permDir); err != nil {
 		return err
-	} else if hf, e := os.Create(path); e != nil {
+	}
+
+	// #nosec
+	hf, e := os.Create(path)
+	if e != nil {
 		return e
 	} else {
 		_ = hf.Close()

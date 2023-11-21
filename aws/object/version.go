@@ -38,7 +38,7 @@ import (
 func (cli *client) VersionList(prefix, keyMarker, markerId string) (version []sdktps.ObjectVersion, delMarker []sdktps.DeleteMarkerEntry, nextKeyMarker, nextMarkerId string, count int64, err error) {
 	in := sdksss.ListObjectVersionsInput{
 		Bucket:  cli.GetBucketAws(),
-		MaxKeys: 1000,
+		MaxKeys: sdkaws.Int32(1000),
 	}
 
 	if prefix != "" {
@@ -54,10 +54,17 @@ func (cli *client) VersionList(prefix, keyMarker, markerId string) (version []sd
 
 	if e != nil {
 		return nil, nil, "", "", 0, cli.GetError(e)
-	} else if out.IsTruncated {
-		return out.Versions, out.DeleteMarkers, *out.NextKeyMarker, *out.NextVersionIdMarker, int64(out.MaxKeys), nil
+	}
+
+	var maxKeys int32
+	if out != nil && out.MaxKeys != nil {
+		maxKeys = *out.MaxKeys
+	}
+
+	if out != nil && out.IsTruncated != nil && *out.IsTruncated {
+		return out.Versions, out.DeleteMarkers, *out.NextKeyMarker, *out.NextVersionIdMarker, int64(maxKeys), nil
 	} else {
-		return out.Versions, out.DeleteMarkers, "", "", int64(out.MaxKeys), nil
+		return out.Versions, out.DeleteMarkers, "", "", int64(maxKeys), nil
 	}
 }
 
@@ -68,7 +75,7 @@ func (cli *client) VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) error {
 func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) error {
 	in := sdksss.ListObjectVersionsInput{
 		Bucket:  cli.GetBucketAws(),
-		MaxKeys: 1000,
+		MaxKeys: sdkaws.Int32(1000),
 	}
 
 	if prefix != "" {
@@ -117,7 +124,7 @@ func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMa
 			}
 		}
 
-		if out.IsTruncated {
+		if out != nil && out.IsTruncated != nil && *out.IsTruncated {
 			km = out.NextKeyMarker
 			mi = out.NextVersionIdMarker
 		} else {
@@ -181,8 +188,10 @@ func (cli *client) VersionSize(object, version string) (size int64, err error) {
 
 	if h, err = cli.VersionHead(object, version); err != nil {
 		return
+	} else if h != nil && h.ContentLength != nil {
+		return *h.ContentLength, nil
 	} else {
-		return h.ContentLength, nil
+		return 0, nil
 	}
 }
 
@@ -207,7 +216,7 @@ func (cli *client) VersionDeleteLock(check bool, object, version string, byPassG
 	}
 
 	if byPassGovernance {
-		in.BypassGovernanceRetention = true
+		in.BypassGovernanceRetention = sdkaws.Bool(true)
 	}
 
 	_, err := cli.s3.DeleteObject(cli.GetContext(), &in)

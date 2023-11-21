@@ -25,78 +25,18 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package duration
 
 import (
-	"fmt"
-	"math"
 	"reflect"
 
 	libmap "github.com/mitchellh/mapstructure"
 )
 
-func (s Size) Code(unit rune) string {
-	var uni string
-
-	if unit == 0 {
-		uni = "%s" + string(defUnit)
-	} else {
-		uni = "%s" + string(unit)
-	}
-
-	switch s {
-	case SizeUnit:
-		return fmt.Sprintf(uni, "")
-	case SizeKilo:
-		return fmt.Sprintf(uni, "K")
-	case SizeMega:
-		return fmt.Sprintf(uni, "M")
-	case SizeGiga:
-		return fmt.Sprintf(uni, "G")
-	case SizeTera:
-		return fmt.Sprintf(uni, "T")
-	case SizePeta:
-		return fmt.Sprintf(uni, "E")
-	}
-
-	return fmt.Sprintf(uni, "")
-}
-
-func (s Size) isMax(size Size) bool {
-	val := math.Abs(size.Float64())
-	uni := math.Abs(s.Float64())
-	return val >= (10 * uni)
-}
-
-func (s Size) sizeByUnit(unit Size) float64 {
-	if s > 0 && uint64(s/unit) > _maxFloat64 {
-		// overflow
-		return math.MaxFloat64
-	} else if s < 0 && uint64(-s/unit) > _maxFloat64 {
-		// overflow
-		return -math.MaxFloat64
-	} else {
-		return float64(s / unit)
-	}
-}
-
-func (s Size) floorByUnit(unit Size) uint64 {
-	return uint64(math.Floor(s.sizeByUnit(unit)))
-}
-
-func (s *Size) unmarshall(val []byte) error {
-	if tmp, err := parseBytes(val); err != nil {
-		return err
-	} else {
-		*s = tmp
-		return nil
-	}
-}
-
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
-			z = Size(0)
+			z = Duration(0)
 			t string
 			k bool
 		)
@@ -114,10 +54,6 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 		}
 
 		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
-		}
+		return parseString(t)
 	}
 }

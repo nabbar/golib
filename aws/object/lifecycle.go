@@ -75,7 +75,7 @@ func (cli *client) SetRetention(object, version string, bypass bool, until time.
 	}
 
 	if bypass {
-		in.BypassGovernanceRetention = true
+		in.BypassGovernanceRetention = sdkaws.Bool(true)
 	}
 
 	switch {

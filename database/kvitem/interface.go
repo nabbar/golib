@@ -26,40 +26,21 @@
 
 package kvitem
 
-import "sync/atomic"
+import (
+	"sync/atomic"
 
-type FuncLoad[K comparable, M any] func(key K, model *M) error
-type FuncStore[K comparable, M any] func(key K, model M) error
+	libkvt "github.com/nabbar/golib/database/kvtypes"
+)
 
-type KVItem[K comparable, M any] interface {
-	Set(model M)
-	Get() M
-
-	Load() error
-	Store(force bool) error
-	Clean()
-
-	HasChange() bool
-
-	RegisterFctLoad(fct FuncLoad[K, M])
-	RegisterFctStore(fct FuncStore[K, M])
-}
-
-func New[K comparable, M any](key K) KVItem[K, M] {
-	var (
-		ml = new(atomic.Value)
-		mw = new(atomic.Value)
-	)
-
-	ml.Store(nil)
-	mw.Store(nil)
-
+func New[K comparable, M any](drv libkvt.KVDriver[K, M], key K) libkvt.KVItem[K, M] {
 	return &itm[K, M]{
 		k:  key,
-		ml: ml,
-		ms: mw,
-		fl: nil,
-		fs: nil,
+		d:  drv,
+		ml: new(atomic.Value),
+		ms: new(atomic.Value),
+		fl: new(atomic.Value),
+		fs: new(atomic.Value),
+		fr: new(atomic.Value),
 	}
 
 }

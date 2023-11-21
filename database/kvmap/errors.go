@@ -39,6 +39,7 @@ const (
 	ErrorBadInstance
 	ErrorGetFunction
 	ErrorSetFunction
+	ErrorDelFunction
 	ErrorListFunction
 	ErrorFunctionParams
 )
@@ -62,6 +63,8 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "missing get function of " + pkgName
 	case ErrorSetFunction:
 		return "missing set function of " + pkgName
+	case ErrorDelFunction:
+		return "missing del function of " + pkgName
 	case ErrorListFunction:
 		return "missing list function of " + pkgName
 	case ErrorFunctionParams:

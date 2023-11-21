@@ -28,6 +28,7 @@ package bucket
 import (
 	"fmt"
 
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdkstp "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
@@ -64,10 +65,12 @@ func (cli *client) _create(RegionConstraint string, lockEnable bool) error {
 
 	if RegionConstraint != "" {
 		in.CreateBucketConfiguration.LocationConstraint = sdkstp.BucketLocationConstraint(RegionConstraint)
+	} else {
+		in.CreateBucketConfiguration.LocationConstraint = sdkstp.BucketLocationConstraint(cli.GetRegion())
 	}
 
 	if lockEnable {
-		in.ObjectLockEnabledForBucket = true
+		in.ObjectLockEnabledForBucket = sdkaws.Bool(true)
 	}
 
 	out, err := cli.s3.CreateBucket(cli.GetContext(), in)

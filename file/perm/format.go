@@ -25,68 +25,67 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package perm
 
-import "math"
-
-type Size uint64
-
-const (
-	SizeNul  Size = 0
-	SizeUnit Size = 1
-	SizeKilo Size = 1 << 10
-	SizeMega Size = 1 << 20
-	SizeGiga Size = 1 << 30
-	SizeTera Size = 1 << 40
-	SizePeta Size = 1 << 50
-	SizeExa  Size = 1 << 60
+import (
+	"fmt"
+	"math"
+	"os"
 )
 
-var defUnit = 'B'
+func (p Perm) FileMode() os.FileMode {
+	return os.FileMode(p.Uint64())
+}
 
-func SetDefaultUnit(unit rune) {
-	if unit == 0 {
-		defUnit = 'B'
-	} else if s := string(unit); len(s) < 1 {
-		defUnit = 'B'
-	} else {
-		defUnit = unit
+func (p Perm) String() string {
+	return fmt.Sprintf("%#o", p.Uint64())
+}
+
+func (p Perm) Int64() int64 {
+	if uint64(p) > math.MaxInt64 {
+		// overflow
+		return math.MaxInt64
 	}
+
+	return int64(p)
 }
 
-func GetSize(s string) (sizeBytes Size, success bool) {
-	if z, e := parseString(s); e != nil {
-		return SizeNul, false
-	} else {
-		return z, true
+func (p Perm) Int32() int32 {
+	if uint64(p) > math.MaxInt32 {
+		// overflow
+		return math.MaxInt32
 	}
+
+	return int32(p)
 }
 
-func SizeFromInt64(val int64) Size {
-	v := uint64(val)
-	return Size(v)
-}
-
-func SizeFromFloat64(val float64) Size {
-	val = math.Floor(val)
-
-	if val > math.MaxUint64 {
-		return Size(uint64(math.MaxUint64))
-	} else if -val > math.MaxUint64 {
-		return Size(uint64(math.MaxUint64))
-	} else {
-		return Size(uint64(val))
+func (p Perm) Int() int {
+	if uint64(p) > math.MaxInt {
+		// overflow
+		return math.MaxInt
 	}
+
+	return int(p)
 }
 
-func Parse(s string) (Size, error) {
-	return parseString(s)
+func (p Perm) Uint64() uint64 {
+	return uint64(p)
 }
 
-func ParseSize(s string) (Size, error) {
-	return parseString(s)
+func (p Perm) Uint32() uint32 {
+	if uint64(p) > math.MaxUint32 {
+		// overflow
+		return math.MaxUint32
+	}
+
+	return uint32(p)
 }
 
-func ParseByteAsSize(p []byte) (Size, error) {
-	return parseBytes(p)
+func (p Perm) Uint() uint {
+	if uint64(p) > math.MaxUint {
+		// overflow
+		return math.MaxUint
+	}
+
+	return uint(p)
 }

@@ -118,11 +118,13 @@ func (c *client) _NewClientIAM(ctx context.Context, httpClient *http.Client) (*s
 		EndpointOptions: sdkiam.EndpointResolverOptions{
 			DisableHTTPS: !c.c.IsHTTPs(),
 		},
-		EndpointResolver: c._NewIAMResolver(cfg),
-		HTTPSignerV4:     sig,
-		Region:           cfg.Region,
-		Retryer:          ret,
-		HTTPClient:       httpClient,
+		BaseEndpoint:       sdkaws.String(c.c.GetEndpoint().String()),
+		EndpointResolver:   c._NewIAMResolver(cfg),
+		EndpointResolverV2: c._NewIAMResolverV2(c.c),
+		HTTPSignerV4:       sig,
+		Region:             cfg.Region,
+		Retryer:            ret,
+		HTTPClient:         httpClient,
 	})
 
 	return iam, nil
@@ -161,12 +163,14 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sd
 		EndpointOptions: sdksss.EndpointResolverOptions{
 			DisableHTTPS: !c.c.IsHTTPs(),
 		},
-		EndpointResolver: c._NewS3Resolver(cfg),
-		HTTPSignerV4:     sig,
-		Region:           cfg.Region,
-		Retryer:          ret,
-		HTTPClient:       httpClient,
-		UsePathStyle:     c.p,
+		BaseEndpoint:       sdkaws.String(c.c.GetEndpoint().String()),
+		EndpointResolver:   c._NewS3Resolver(cfg),
+		EndpointResolverV2: c._NewS3ResolverV2(c.c),
+		HTTPSignerV4:       sig,
+		Region:             cfg.Region,
+		Retryer:            ret,
+		HTTPClient:         httpClient,
+		UsePathStyle:       c.p,
 	})
 
 	return sss, nil

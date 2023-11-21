@@ -31,6 +31,8 @@ import (
 	"io"
 	"net"
 	"time"
+
+	libtls "github.com/nabbar/golib/certificates"
 )
 
 const DefaultBufferSize = 32 * 1024
@@ -48,7 +50,31 @@ const (
 	ConnectionClose
 )
 
+func (c ConnState) String() string {
+	switch c {
+	case ConnectionDial:
+		return "Dial Connection"
+	case ConnectionNew:
+		return "New Connection"
+	case ConnectionRead:
+		return "Read Incoming Stream"
+	case ConnectionCloseRead:
+		return "Close Incoming Stream"
+	case ConnectionHandler:
+		return "Run Handler"
+	case ConnectionWrite:
+		return "Write Outgoing Steam"
+	case ConnectionCloseWrite:
+		return "Close Outgoing Stream"
+	case ConnectionClose:
+		return "Close Connection"
+	}
+
+	return "unknown connection state"
+}
+
 type FuncError func(e error)
+type FuncInfoSrv func(msg string)
 type FuncInfo func(local, remote net.Addr, state ConnState)
 type Handler func(request io.Reader, response io.Writer)
 type Response func(r io.Reader)
@@ -56,10 +82,12 @@ type Response func(r io.Reader)
 type Server interface {
 	RegisterFuncError(f FuncError)
 	RegisterFuncInfo(f FuncInfo)
+	RegisterFuncInfoServer(f FuncInfoSrv)
 
 	SetReadTimeout(d time.Duration)
 	SetWriteTimeout(d time.Duration)
 
+	SetTLS(enable bool, config libtls.TLSConfig) error
 	Listen(ctx context.Context) error
 	Shutdown()
 	Done() <-chan struct{}

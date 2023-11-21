@@ -24,14 +24,17 @@
  *
  */
 
-package kvtable
+package kvtypes
 
-import (
-	libkvt "github.com/nabbar/golib/database/kvtypes"
-)
+type KVItem[K comparable, M any] interface {
+	Set(model M)
+	Get() M
+	Key() K
 
-func New[K comparable, M any](drv libkvt.KVDriver[K, M]) libkvt.KVTable[K, M] {
-	return &tbl[K, M]{
-		d: drv,
-	}
+	Load() error
+	Store(force bool) error
+	Remove() error
+	Clean()
+
+	HasChange() bool
 }

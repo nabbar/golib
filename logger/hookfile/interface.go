@@ -99,7 +99,10 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 		}
 	}
 
-	if h, e := os.OpenFile(opt.Filepath, flags, opt.FileMode); e != nil {
+	// #nosec
+	h, e := os.OpenFile(opt.Filepath, flags, opt.FileMode)
+
+	if e != nil {
 		return nil, e
 	} else if _, e = h.Seek(0, io.SeekEnd); e != nil {
 		_ = h.Close()

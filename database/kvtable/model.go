@@ -27,66 +27,58 @@
 package kvtable
 
 import (
-	"sync/atomic"
-
-	libkvd "github.com/nabbar/golib/database/kvdriver"
 	libkvs "github.com/nabbar/golib/database/kvitem"
+	libkvt "github.com/nabbar/golib/database/kvtypes"
 )
 
 type tbl[K comparable, M any] struct {
-	d *atomic.Value
+	d libkvt.KVDriver[K, M]
 }
 
-func (o *tbl[K, M]) getDriver() libkvd.KVDriver[K, M] {
+func (o *tbl[K, M]) getDriver() libkvt.KVDriver[K, M] {
 	if o == nil {
 		return nil
 	}
 
-	i := o.d.Load()
-	if i == nil {
-		return nil
-	} else if d, k := i.(libkvd.KVDriver[K, M]); !k {
+	if o.d == nil {
 		return nil
 	} else {
-		return d
+		return o.d
 	}
 }
 
-func (o *tbl[K, M]) Get(key K) (libkvs.KVItem[K, M], error) {
-	var kvs = libkvs.New[K, M](key)
-
+func (o *tbl[K, M]) Get(key K) (libkvt.KVItem[K, M], error) {
 	if drv := o.getDriver(); drv == nil {
 		return nil, ErrorBadDriver.Error(nil)
 	} else {
-		kvs.RegisterFctLoad(drv.Get)
-		kvs.RegisterFctStore(drv.Set)
+		var kvi = libkvs.New[K, M](drv.New(), key)
+		e := kvi.Load()
+		return kvi, e
 	}
-
-	return kvs, kvs.Load()
 }
 
-func (o *tbl[K, M]) Walk(fct FuncWalk[K, M]) error {
+func (o *tbl[K, M]) Del(key K) error {
+	if drv := o.getDriver(); drv == nil {
+		return ErrorBadDriver.Error(nil)
+	} else {
+		return drv.Del(key)
+	}
+}
+
+func (o *tbl[K, M]) Walk(fct libkvt.FuncWalk[K, M]) error {
 	if drv := o.getDriver(); drv == nil {
 		return ErrorBadDriver.Error(nil)
 	} else {
 		return drv.Walk(func(key K, model M) bool {
-			var kvs = libkvs.New[K, M](key)
-
-			kvs.RegisterFctStore(drv.Set)
-			kvs.RegisterFctLoad(func(k K, m *M) error {
-				*m = model
-				return nil
-			})
-			_ = kvs.Load()
-			kvs.RegisterFctLoad(drv.Get)
-
-			return fct(kvs)
+			kvi := libkvs.New[K, M](drv.New(), key)
+			kvi.Set(model)
+			return fct(kvi)
 		})
 	}
 }
 
-func (o *tbl[K, M]) List() ([]libkvs.KVItem[K, M], error) {
-	var res = make([]libkvs.KVItem[K, M], 0)
+func (o *tbl[K, M]) List() ([]libkvt.KVItem[K, M], error) {
+	var res = make([]libkvt.KVItem[K, M], 0)
 
 	if drv := o.getDriver(); drv == nil {
 		return nil, ErrorBadDriver.Error(nil)
@@ -94,12 +86,7 @@ func (o *tbl[K, M]) List() ([]libkvs.KVItem[K, M], error) {
 		return nil, e
 	} else {
 		for _, k := range l {
-			var kvs = libkvs.New[K, M](k)
-
-			kvs.RegisterFctLoad(drv.Get)
-			kvs.RegisterFctStore(drv.Set)
-
-			res = append(res, kvs)
+			res = append(res, libkvs.New[K, M](drv.New(), k))
 		}
 
 		return res, nil

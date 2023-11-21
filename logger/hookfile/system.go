@@ -74,7 +74,10 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 		}
 	}()
 
-	if h, e = os.OpenFile(p, f, m); e != nil {
+	// #nosec
+	h, e = os.OpenFile(p, f, m)
+
+	if e != nil {
 		return e
 	} else if _, e = h.Seek(0, io.SeekEnd); e != nil {
 		return e

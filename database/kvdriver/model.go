@@ -26,7 +26,26 @@
 
 package kvdriver
 
-func (o *Driver[K, M]) Get(key K, model *M) error {
+import (
+	libkvt "github.com/nabbar/golib/database/kvtypes"
+)
+
+func (o *drv[K, M]) New() libkvt.KVDriver[K, M] {
+	if o.FctNew != nil {
+		return o.FctNew()
+	}
+
+	return &drv[K, M]{
+		FctNew:  o.FctNew,
+		FctGet:  o.FctGet,
+		FctSet:  o.FctSet,
+		FctDel:  o.FctDel,
+		FctList: o.FctList,
+		FctWalk: o.FctWalk,
+	}
+}
+
+func (o *drv[K, M]) Get(key K, model *M) error {
 	if o == nil {
 		return ErrorBadInstance.Error(nil)
 	} else if o.FctGet == nil {
@@ -38,7 +57,7 @@ func (o *Driver[K, M]) Get(key K, model *M) error {
 	}
 }
 
-func (o *Driver[K, M]) Set(key K, model M) error {
+func (o *drv[K, M]) Set(key K, model M) error {
 	if o == nil {
 		return ErrorBadInstance.Error(nil)
 	} else if o.FctSet == nil {
@@ -48,7 +67,17 @@ func (o *Driver[K, M]) Set(key K, model M) error {
 	}
 }
 
-func (o *Driver[K, M]) List() ([]K, error) {
+func (o *drv[K, M]) Del(key K) error {
+	if o == nil {
+		return ErrorBadInstance.Error(nil)
+	} else if o.FctDel == nil {
+		return ErrorSetFunction.Error(nil)
+	} else {
+		return o.FctDel(key)
+	}
+}
+
+func (o *drv[K, M]) List() ([]K, error) {
 	if o == nil {
 		return nil, ErrorBadInstance.Error(nil)
 	} else if o.FctList == nil {
@@ -58,7 +87,7 @@ func (o *Driver[K, M]) List() ([]K, error) {
 	}
 }
 
-func (o *Driver[K, M]) Walk(fct FctWalk[K, M]) error {
+func (o *drv[K, M]) Walk(fct libkvt.FctWalk[K, M]) error {
 	if o == nil {
 		return ErrorBadInstance.Error(nil)
 	} else if fct == nil {
@@ -70,7 +99,7 @@ func (o *Driver[K, M]) Walk(fct FctWalk[K, M]) error {
 	}
 }
 
-func (o *Driver[K, M]) fakeWalk(fct FctWalk[K, M]) error {
+func (o *drv[K, M]) fakeWalk(fct libkvt.FctWalk[K, M]) error {
 	if l, e := o.List(); e != nil {
 		return e
 	} else {
