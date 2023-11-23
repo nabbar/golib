@@ -239,6 +239,8 @@ func WaitMinio(host string) bool {
 		}
 	}()
 
+	time.Sleep(5 * time.Second)
+
 	return err == nil
 }
 

@@ -50,6 +50,7 @@ type Config interface {
 	Validate() error
 
 	GetAccessKey() string
+	GetSecretKey() string
 	SetCredentials(accessKey, secretKey string)
 	ResetRegionEndpoint()
 	RegisterRegionEndpoint(region string, endpoint *url.URL) error

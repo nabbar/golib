@@ -102,6 +102,10 @@ func (c *awsModel) GetAccessKey() string {
 	return c.AccessKey
 }
 
+func (c *awsModel) GetSecretKey() string {
+	return c.SecretKey
+}
+
 func (c *awsModel) SetCredentials(accessKey, secretKey string) {
 	c.AccessKey = accessKey
 	c.SecretKey = secretKey

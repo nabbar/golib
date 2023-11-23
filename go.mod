@@ -2,14 +2,15 @@ module github.com/nabbar/golib
 
 go 1.21
 
-toolchain go1.21.3
+toolchain go1.21.4
 
 require (
+	github.com/aws/aws-sdk-go v1.48.3
 	github.com/aws/aws-sdk-go-v2 v1.23.1
-	github.com/aws/aws-sdk-go-v2/config v1.25.4
-	github.com/aws/aws-sdk-go-v2/credentials v1.16.3
+	github.com/aws/aws-sdk-go-v2/config v1.25.5
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.4
 	github.com/aws/aws-sdk-go-v2/service/iam v1.27.3
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.43.1
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.44.0
 	github.com/aws/smithy-go v1.17.0
 	github.com/bits-and-blooms/bitset v1.11.0
 	github.com/c-bata/go-prompt v0.2.6
@@ -146,6 +147,7 @@ require (
 	github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/juju/ratelimit v1.0.2 // indirect
 	github.com/klauspost/compress v1.17.3 // indirect
