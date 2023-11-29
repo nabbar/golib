@@ -41,7 +41,7 @@ func (d Duration) String() string {
 }
 
 func (d Duration) Days() int64 {
-	t := math.Floor(d.Time().Hours())
+	t := math.Ceil(d.Time().Hours() / 24)
 
 	if t > math.MaxInt64 {
 		return math.MaxInt64
