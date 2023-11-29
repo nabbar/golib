@@ -82,7 +82,7 @@ type Cobra interface {
 	AddCommand(subCmd ...*spfcbr.Command)
 
 	AddCommandCompletion()
-	AddCommandConfigure(basename string, defaultConfig func() io.Reader)
+	AddCommandConfigure(alias, basename string, defaultConfig func() io.Reader)
 	AddCommandPrintErrorCode(fct FuncPrintErrorCode)
 
 	Execute() error

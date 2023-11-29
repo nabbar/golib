@@ -107,7 +107,7 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 		}
 	default:
 		buf = defaultConfig()
-		cfgFile = strings.TrimRight(cfgFile, ext) + ".json"
+		cfgFile = strings.TrimSuffix(cfgFile, ext) + ".json"
 	}
 
 	// #nosec
@@ -189,14 +189,14 @@ func (c *cobra) jsonToYaml(r io.Reader) (io.Reader, error) {
 	}
 }
 
-func (c *cobra) AddCommandConfigure(basename string, defaultConfig func() io.Reader) {
+func (c *cobra) AddCommandConfigure(alias, basename string, defaultConfig func() io.Reader) {
 	pkg := c.getPackageName()
 
 	if basename == "" && pkg != "" {
 		basename = "." + strings.ToLower(pkg)
 	}
 
-	c.c.AddCommand(&spfcbr.Command{
+	cmd := &spfcbr.Command{
 		Use:     "configure <file path with valid extension (json, yaml, toml, ...) to be generated>",
 		Example: "configure ~/." + strings.ToLower(pkg) + ".yml",
 		Short:   "Generate config file",
@@ -210,5 +210,11 @@ override by passed flag in command line and completed with default for non exist
 		Args: func(cmd *spfcbr.Command, args []string) error {
 			return c.ConfigureCheckArgs(basename, args)
 		},
-	})
+	}
+
+	if len(alias) > 0 {
+		cmd.Aliases = []string{alias}
+	}
+
+	c.c.AddCommand(cmd)
 }
