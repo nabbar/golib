@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,35 +21,28 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package head
+package auth
 
 import (
-	"sync"
-
-	librtr "github.com/nabbar/golib/router/header"
-
-	libctx "github.com/nabbar/golib/context"
+	ginsdk "github.com/gin-gonic/gin"
+	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
+	rtrhdr "github.com/nabbar/golib/router/authheader"
 )
 
-type componentHead struct {
-	m sync.RWMutex
-	x libctx.Config[uint8]
-	h librtr.Headers
+type Authorization interface {
+	Handler(c *ginsdk.Context)
+	Register(router ...ginsdk.HandlerFunc) ginsdk.HandlerFunc
+	Append(router ...ginsdk.HandlerFunc)
 }
 
-func (o *componentHead) GetHeaders() librtr.Headers {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.h
-}
-
-func (o *componentHead) SetHeaders(head librtr.Headers) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.h = head
+func NewAuthorization(log liblog.FuncLog, HeadAuthType string, authCheckFunc func(AuthHeader string) (rtrhdr.AuthCode, liberr.Error)) Authorization {
+	return &authorization{
+		log:      log,
+		check:    authCheckFunc,
+		authType: HeadAuthType,
+		router:   make([]ginsdk.HandlerFunc, 0),
+	}
 }

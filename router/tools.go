@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,35 +21,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package head
+package router
 
-import (
-	"sync"
+import "strings"
 
-	librtr "github.com/nabbar/golib/router/header"
-
-	libctx "github.com/nabbar/golib/context"
-)
-
-type componentHead struct {
-	m sync.RWMutex
-	x libctx.Config[uint8]
-	h librtr.Headers
-}
-
-func (o *componentHead) GetHeaders() librtr.Headers {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.h
-}
-
-func (o *componentHead) SetHeaders(head librtr.Headers) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.h = head
+func sanitizeString(s string) string {
+	s = strings.Replace(s, "\n", "", -1)
+	s = strings.Replace(s, "\r", "", -1)
+	s = strings.Replace(s, "\t", "", -1)
+	return s
 }

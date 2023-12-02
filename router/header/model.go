@@ -23,58 +23,16 @@
  *
  */
 
-package router
+package header
 
 import (
 	"net/http"
 
 	ginsdk "github.com/gin-gonic/gin"
-	liberr "github.com/nabbar/golib/errors"
 )
-
-type HeadersConfig map[string]string
-
-func (h HeadersConfig) New() Headers {
-	var res = NewHeaders()
-
-	for k, v := range h {
-		res.Add(k, v)
-	}
-
-	return res
-}
-
-func (h HeadersConfig) Validate() liberr.Error {
-	err := ErrorConfigValidator.Error(nil)
-
-	if !err.HasParent() {
-		err = nil
-	}
-
-	return err
-}
 
 type headers struct {
 	head http.Header
-}
-
-type Headers interface {
-	Add(key, value string)
-	Set(key, value string)
-	Get(key string) string
-	Del(key string)
-
-	Header() map[string]string
-	Register(router ...ginsdk.HandlerFunc) []ginsdk.HandlerFunc
-	Handler(c *ginsdk.Context)
-
-	Clone() Headers
-}
-
-func NewHeaders() Headers {
-	return &headers{
-		head: make(http.Header),
-	}
 }
 
 func (h headers) Clone() Headers {

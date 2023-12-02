@@ -40,49 +40,12 @@ import (
 	loglvl "github.com/nabbar/golib/logger/level"
 )
 
-const (
-	EmptyHandlerGroup           = "<nil>"
-	GinContextStartUnixNanoTime = "gin-ctx-start-unix-nano-time"
-	GinContextRequestPath       = "gin-ctx-request-path"
-	GinContextRequestUser       = "gin-ctx-request-user"
-)
-
-var (
-	defaultRouters = NewRouterList(DefaultGinInit)
-)
-
-func GinEngine(trustedPlatform string, trustyProxy ...string) (*ginsdk.Engine, error) {
-	var err error
-
-	engine := ginsdk.New()
-	if len(trustyProxy) > 0 {
-		err = engine.SetTrustedProxies(trustyProxy)
-	}
-	if len(trustedPlatform) > 0 {
-		engine.TrustedPlatform = trustedPlatform
-	}
-
-	return engine, err
-}
-
-func GinAddGlobalMiddleware(eng *ginsdk.Engine, middleware ...ginsdk.HandlerFunc) *ginsdk.Engine {
-	eng.Use(middleware...)
-	return eng
-}
-
 func GinLatencyContext(c *ginsdk.Context) {
 	// Start timer
 	c.Set(GinContextStartUnixNanoTime, time.Now().UnixNano())
 
 	// Process request
 	c.Next()
-}
-
-func sanitizeString(s string) string {
-	s = strings.Replace(s, "\n", "", -1)
-	s = strings.Replace(s, "\r", "", -1)
-	s = strings.Replace(s, "\t", "", -1)
-	return s
 }
 
 func GinRequestContext(c *ginsdk.Context) {
@@ -202,117 +165,5 @@ func GinErrorLog(log liblog.FuncLog) ginsdk.HandlerFunc {
 			}
 		}()
 		c.Next()
-	}
-}
-
-func DefaultGinInit() *ginsdk.Engine {
-	engine := ginsdk.New()
-	engine.Use(ginsdk.Logger(), ginsdk.Recovery())
-
-	return engine
-}
-
-func DefaultGinWithTrustyProxy(trustyProxy []string) *ginsdk.Engine {
-	engine := ginsdk.New()
-	engine.Use(ginsdk.Logger(), ginsdk.Recovery())
-
-	if len(trustyProxy) > 0 {
-		_ = engine.SetTrustedProxies(trustyProxy)
-	}
-
-	return engine
-}
-
-func DefaultGinWithTrustedPlatform(trustedPlatform string) *ginsdk.Engine {
-	engine := ginsdk.New()
-	engine.Use(ginsdk.Logger(), ginsdk.Recovery())
-
-	if len(trustedPlatform) > 0 {
-		engine.TrustedPlatform = trustedPlatform
-	}
-
-	return engine
-}
-
-type routerItem struct {
-	method   string
-	relative string
-	router   []ginsdk.HandlerFunc
-}
-
-type routerList struct {
-	init func() *ginsdk.Engine
-	list map[string][]routerItem
-}
-
-type RegisterRouter func(method string, relativePath string, router ...ginsdk.HandlerFunc)
-type RegisterRouterInGroup func(group, method string, relativePath string, router ...ginsdk.HandlerFunc)
-
-type RouterList interface {
-	Register(method string, relativePath string, router ...ginsdk.HandlerFunc)
-	RegisterInGroup(group, method string, relativePath string, router ...ginsdk.HandlerFunc)
-	Handler(engine *ginsdk.Engine)
-	Engine() *ginsdk.Engine
-}
-
-func RoutersRegister(method string, relativePath string, router ...ginsdk.HandlerFunc) {
-	defaultRouters.Register(method, relativePath, router...)
-}
-
-func RoutersRegisterInGroup(group, method string, relativePath string, router ...ginsdk.HandlerFunc) {
-	defaultRouters.RegisterInGroup(group, method, relativePath, router...)
-}
-
-func RoutersHandler(engine *ginsdk.Engine) {
-	defaultRouters.Handler(engine)
-}
-
-func NewRouterList(initGin func() *ginsdk.Engine) RouterList {
-	return &routerList{
-		init: initGin,
-		list: make(map[string][]routerItem),
-	}
-}
-
-func (l routerList) Handler(engine *ginsdk.Engine) {
-	for grpRoute, grpList := range l.list {
-		if grpRoute == EmptyHandlerGroup {
-			for _, r := range grpList {
-				engine.Handle(r.method, r.relative, r.router...)
-			}
-		} else {
-			var grp = engine.Group(grpRoute)
-			for _, r := range grpList {
-				grp.Handle(r.method, r.relative, r.router...)
-			}
-		}
-	}
-}
-
-func (l *routerList) RegisterInGroup(group, method string, relativePath string, router ...ginsdk.HandlerFunc) {
-	if group == "" {
-		group = EmptyHandlerGroup
-	}
-
-	if _, ok := l.list[group]; !ok {
-		l.list[group] = make([]routerItem, 0)
-	}
-
-	l.list[group] = append(l.list[group], routerItem{
-		method:   method,
-		relative: relativePath,
-		router:   router,
-	})
-}
-
-func (l *routerList) Register(method string, relativePath string, router ...ginsdk.HandlerFunc) {
-	l.RegisterInGroup("", method, relativePath, router...)
-}
-
-func (l routerList) Engine() *ginsdk.Engine {
-	if l.init != nil {
-		return l.init()
-	} else {
-		return DefaultGinInit()
 	}
 }

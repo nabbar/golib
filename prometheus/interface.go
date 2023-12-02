@@ -31,7 +31,6 @@ import (
 	"sync"
 
 	ginsdk "github.com/gin-gonic/gin"
-
 	libctx "github.com/nabbar/golib/context"
 	libmet "github.com/nabbar/golib/prometheus/metrics"
 	prmpol "github.com/nabbar/golib/prometheus/pool"

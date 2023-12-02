@@ -35,6 +35,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/nabbar/golib/router/header"
+
 	ginsdk "github.com/gin-gonic/gin"
 	ginrdr "github.com/gin-gonic/gin/render"
 	liberr "github.com/nabbar/golib/errors"
@@ -50,18 +52,53 @@ func (s *staticHandler) _makeRoute(group, route string) string {
 	return path.Join(group, route)
 }
 
-func (s *staticHandler) RegisterRouter(route string, register librtr.RegisterRouter, router ...ginsdk.HandlerFunc) {
-	s._setRouter(append(s._getRouter(), s._makeRoute(urlPathSeparator, route)))
+func (s *staticHandler) genRegisterRouter(route, group string, register any, router ...ginsdk.HandlerFunc) {
+	var (
+		ok  bool
+		rte string
+		reg librtr.RegisterRouter
+		grp librtr.RegisterRouterInGroup
+	)
 
-	router = append(router, s.Get)
-	register(http.MethodGet, path.Join(route, urlPathSeparator+"*file"), router...)
+	if register == nil {
+		return
+	} else if reg, ok = register.(librtr.RegisterRouter); ok {
+		rte = s._makeRoute(urlPathSeparator, route)
+		grp = nil
+	} else if grp, ok = register.(librtr.RegisterRouterInGroup); ok {
+		rte = s._makeRoute(group, route)
+		reg = nil
+	} else {
+		return
+	}
+
+	if len(router) > 0 {
+		router = append(router, s.Get)
+	} else {
+		router = append(make([]ginsdk.HandlerFunc, 0), s.Get)
+	}
+
+	if rtr := s._getRouter(); len(rtr) > 0 {
+		s._setRouter(append(rtr, rte))
+	} else {
+		s._setRouter(append(make([]string, 0), rte))
+	}
+
+	if reg != nil {
+		reg(http.MethodGet, path.Join(route, urlPathSeparator+"*file"), router...)
+	}
+
+	if grp != nil {
+		grp(group, http.MethodGet, path.Join(route, urlPathSeparator+"*file"), router...)
+	}
+}
+
+func (s *staticHandler) RegisterRouter(route string, register librtr.RegisterRouter, router ...ginsdk.HandlerFunc) {
+	s.genRegisterRouter(route, "", register, router...)
 }
 
 func (s *staticHandler) RegisterRouterInGroup(route, group string, register librtr.RegisterRouterInGroup, router ...ginsdk.HandlerFunc) {
-	s._setRouter(append(s._getRouter(), s._makeRoute(group, route)))
-
-	router = append(router, s.Get)
-	register(group, http.MethodGet, path.Join(route, urlPathSeparator+"*file"), router...)
+	s.genRegisterRouter(route, group, register, router...)
 }
 
 func (s *staticHandler) Get(c *ginsdk.Context) {
@@ -139,7 +176,7 @@ func (s *staticHandler) Get(c *ginsdk.Context) {
 }
 
 func (s *staticHandler) SendFile(c *ginsdk.Context, filename string, size int64, isDownload bool, buf io.ReadCloser) {
-	head := librtr.NewHeaders()
+	head := header.NewHeaders()
 
 	if isDownload {
 		head.Add("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", path.Base(filename)))

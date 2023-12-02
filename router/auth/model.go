@@ -23,76 +23,26 @@
  *
  */
 
-package router
+package auth
 
 import (
 	"fmt"
 	"net/http"
 	"strings"
 
-	liblog "github.com/nabbar/golib/logger"
-
 	ginsdk "github.com/gin-gonic/gin"
 	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
 	loglvl "github.com/nabbar/golib/logger/level"
+	librtr "github.com/nabbar/golib/router"
+	rtrhdr "github.com/nabbar/golib/router/authheader"
 )
-
-type AuthCode uint8
-
-const (
-	AUTH_CODE_SUCCESS = iota
-	AUTH_CODE_REQUIRE
-	AUTH_CODE_FORBIDDEN
-)
-
-const (
-	HEAD_AUTH_REQR = "WWW-Authenticate"
-	HEAD_AUTH_SEND = "Authorization"
-	HEAD_AUTH_REAL = "Basic realm=LDAP Authorization Required"
-)
-
-func AuthRequire(c *ginsdk.Context, err error) {
-	if err != nil {
-		c.Errors = append(c.Errors, &ginsdk.Error{
-			Err:  err,
-			Type: ginsdk.ErrorTypePrivate,
-		})
-	}
-	// Credentials doesn't match, we return 401 and abort handlers chain.
-	c.Header(HEAD_AUTH_REQR, HEAD_AUTH_REAL)
-	c.AbortWithStatus(http.StatusUnauthorized)
-}
-
-func AuthForbidden(c *ginsdk.Context, err error) {
-	if err != nil {
-		c.Errors = append(c.Errors, &ginsdk.Error{
-			Err:  err,
-			Type: ginsdk.ErrorTypePrivate,
-		})
-	}
-	c.AbortWithStatus(http.StatusForbidden)
-}
 
 type authorization struct {
 	log      liblog.FuncLog
-	check    func(AuthHeader string) (AuthCode, liberr.Error)
+	check    func(AuthHeader string) (rtrhdr.AuthCode, liberr.Error)
 	router   []ginsdk.HandlerFunc
 	authType string
-}
-
-type Authorization interface {
-	Handler(c *ginsdk.Context)
-	Register(router ...ginsdk.HandlerFunc) ginsdk.HandlerFunc
-	Append(router ...ginsdk.HandlerFunc)
-}
-
-func NewAuthorization(log liblog.FuncLog, HeadAuthType string, authCheckFunc func(AuthHeader string) (AuthCode, liberr.Error)) Authorization {
-	return &authorization{
-		log:      log,
-		check:    authCheckFunc,
-		authType: HeadAuthType,
-		router:   make([]ginsdk.HandlerFunc, 0),
-	}
 }
 
 func (a *authorization) Register(router ...ginsdk.HandlerFunc) ginsdk.HandlerFunc {
@@ -112,10 +62,10 @@ func (a *authorization) logDebug(msg string, args ...interface{}) {
 
 func (a *authorization) Handler(c *ginsdk.Context) {
 	// Search user in the slice of allowed credentials
-	auth := c.Request.Header.Get(HEAD_AUTH_SEND)
+	auth := c.Request.Header.Get(rtrhdr.HeaderAuthSend)
 
 	if auth == "" {
-		AuthRequire(c, fmt.Errorf("%v", ErrorHeaderAuthMissing.Error(nil).GetErrorSlice()))
+		rtrhdr.AuthRequire(c, fmt.Errorf("%v", librtr.ErrorHeaderAuthMissing.Error(nil).GetErrorSlice()))
 		return
 	}
 
@@ -129,24 +79,24 @@ func (a *authorization) Handler(c *ginsdk.Context) {
 	}
 
 	if authValue == "" {
-		AuthRequire(c, fmt.Errorf("%v", ErrorHeaderAuthEmpty.Error(nil).GetErrorSlice()))
+		rtrhdr.AuthRequire(c, fmt.Errorf("%v", librtr.ErrorHeaderAuthEmpty.Error(nil).GetErrorSlice()))
 		return
 	} else {
 		code, err := a.check(authValue)
 
 		switch code {
-		case AUTH_CODE_SUCCESS:
+		case rtrhdr.AuthCodeSuccess:
 			for _, r := range a.router {
 				a.logDebug("Calling router '%s=%s'", c.Request.Method, c.Request.URL.RawPath)
 				r(c)
 			}
-		case AUTH_CODE_REQUIRE:
-			AuthRequire(c, fmt.Errorf("%v", ErrorHeaderAuthRequire.Error(err).GetErrorSlice()))
-		case AUTH_CODE_FORBIDDEN:
-			AuthForbidden(c, fmt.Errorf("%v", ErrorHeaderAuthForbidden.Error(err).GetErrorSlice()))
+		case rtrhdr.AuthCodeRequire:
+			rtrhdr.AuthRequire(c, fmt.Errorf("%v", librtr.ErrorHeaderAuthRequire.Error(err).GetErrorSlice()))
+		case rtrhdr.AuthCodeForbidden:
+			rtrhdr.AuthForbidden(c, fmt.Errorf("%v", librtr.ErrorHeaderAuthForbidden.Error(err).GetErrorSlice()))
 		default:
 			c.Errors = append(c.Errors, &ginsdk.Error{
-				Err:  fmt.Errorf("%v", ErrorHeaderAuth.Error(err).GetErrorSlice()),
+				Err:  fmt.Errorf("%v", librtr.ErrorHeaderAuth.Error(err).GetErrorSlice()),
 				Type: ginsdk.ErrorTypePrivate,
 			})
 			c.AbortWithStatus(http.StatusInternalServerError)

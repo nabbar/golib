@@ -26,36 +26,22 @@
 
 package static
 
-import "sync/atomic"
-
 func (s *staticHandler) _getRouter() []string {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	var def = make([]string, 0)
-	if s.r == nil {
-		return def
-	}
 	if i := s.r.Load(); i == nil {
-		return def
+		return make([]string, 0)
 	} else if o, ok := i.([]string); !ok {
-		return def
+		return make([]string, 0)
 	} else {
 		return o
 	}
 }
 
 func (s *staticHandler) _setRouter(val []string) {
-	s.m.Lock()
-	defer s.m.Unlock()
+	var rtr = make([]string, 0)
 
-	if val == nil {
-		val = make([]string, 0)
+	if len(val) > 0 {
+		copy(rtr, val)
 	}
 
-	if s.r == nil {
-		s.r = new(atomic.Value)
-	}
-
-	s.r.Store(val)
+	s.r.Store(rtr)
 }

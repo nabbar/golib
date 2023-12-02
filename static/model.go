@@ -28,7 +28,6 @@ package static
 
 import (
 	"embed"
-	"sync"
 	"sync/atomic"
 
 	libctx "github.com/nabbar/golib/context"
@@ -40,62 +39,46 @@ const (
 )
 
 type staticHandler struct {
-	m sync.RWMutex
-	l func() liblog.Logger
+	l *atomic.Value // logger
+	r *atomic.Value // router
+	h *atomic.Value // monitor
 
 	c embed.FS
-	b []string // base
-	z int64    // size
+	b *atomic.Value // base []string
+	z *atomic.Int64 // size
 
 	i libctx.Config[string] // index
 	d libctx.Config[string] // download
 	f libctx.Config[string] // follow
 	s libctx.Config[string] // specific
-	r *atomic.Value         // router
-	h *atomic.Value         // monitor
 }
 
-func (s *staticHandler) _setLogger(fct func() liblog.Logger) {
-	s.m.Lock()
-	defer s.m.Unlock()
+func (s *staticHandler) _setLogger(fct liblog.FuncLog) {
+	if fct == nil {
+		fct = s._getDefaultLogger
+	}
 
-	s.l = fct
+	s.l.Store(fct())
 }
 
 func (s *staticHandler) _getLogger() liblog.Logger {
-	s.m.RLock()
-	defer s.m.RUnlock()
+	i := s.l.Load()
 
-	var log liblog.Logger
-
-	if s.l == nil {
-		s.m.RUnlock()
-		log = s._getDefaultLogger()
-		s.m.RLock()
-		return log
-	} else if log = s.l(); log == nil {
-		s.m.RUnlock()
-		log = s._getDefaultLogger()
-		s.m.RLock()
-		return log
+	if i == nil {
+		return s._getDefaultLogger()
+	} else if l, k := i.(liblog.FuncLog); !k {
+		return s._getDefaultLogger()
+	} else if log := l(); log == nil {
+		return s._getDefaultLogger()
 	} else {
 		return log
 	}
 }
 
 func (s *staticHandler) _getDefaultLogger() liblog.Logger {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	var log = liblog.New(s.d.GetContext)
-
-	s.l = func() liblog.Logger {
-		return log
-	}
-
-	return log
+	return liblog.New(s.d.GetContext)
 }
 
-func (s *staticHandler) RegisterLogger(log func() liblog.Logger) {
+func (s *staticHandler) RegisterLogger(log liblog.FuncLog) {
 	s._setLogger(log)
 }

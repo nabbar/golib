@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,48 +21,47 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package head
+package router
 
 import (
-	"sync"
+	"os"
 
-	librtr "github.com/nabbar/golib/router/header"
-
-	libcfg "github.com/nabbar/golib/config"
-	cfgtps "github.com/nabbar/golib/config/types"
+	ginsdk "github.com/gin-gonic/gin"
 )
 
-type ComponentHead interface {
-	cfgtps.Component
+const (
+	EmptyHandlerGroup           = "<nil>"
+	GinContextStartUnixNanoTime = "gin-ctx-start-unix-nano-time"
+	GinContextRequestPath       = "gin-ctx-request-path"
+	GinContextRequestUser       = "gin-ctx-request-user"
+)
 
-	GetHeaders() librtr.Headers
-	SetHeaders(head librtr.Headers)
-}
+var (
+	defaultRouters = NewRouterList(DefaultGinInit)
+)
 
-func New() ComponentHead {
-	return &componentHead{
-		m: sync.RWMutex{},
-		h: nil,
+func init() {
+	if os.Getenv("GIN_MODE") == "" {
+		ginsdk.SetMode(ginsdk.ReleaseMode)
 	}
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentHead) {
-	cfg.ComponentSet(key, cpt)
+type RegisterRouter func(method string, relativePath string, router ...ginsdk.HandlerFunc)
+type RegisterRouterInGroup func(group, method string, relativePath string, router ...ginsdk.HandlerFunc)
+
+type RouterList interface {
+	Register(method string, relativePath string, router ...ginsdk.HandlerFunc)
+	RegisterInGroup(group, method string, relativePath string, router ...ginsdk.HandlerFunc)
+	RegisterMergeInGroup(group, method string, relativePath string, router ...ginsdk.HandlerFunc)
+	Handler(engine *ginsdk.Engine)
+	Engine() *ginsdk.Engine
 }
 
-func RegisterNew(cfg libcfg.Config, key string) {
-	cfg.ComponentSet(key, New())
-}
-
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentHead {
-	if c := getCpt(key); c == nil {
-		return nil
-	} else if h, ok := c.(ComponentHead); !ok {
-		return nil
-	} else {
-		return h
+func NewRouterList(initGin func() *ginsdk.Engine) RouterList {
+	return &rtr{
+		init: initGin,
+		list: make(map[string][]itm),
 	}
 }

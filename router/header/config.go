@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,35 +21,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package head
+package header
 
 import (
-	"sync"
-
-	librtr "github.com/nabbar/golib/router/header"
-
-	libctx "github.com/nabbar/golib/context"
+	liberr "github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/router"
 )
 
-type componentHead struct {
-	m sync.RWMutex
-	x libctx.Config[uint8]
-	h librtr.Headers
+type HeadersConfig map[string]string
+
+func (h HeadersConfig) New() Headers {
+	var res = NewHeaders()
+
+	for k, v := range h {
+		res.Add(k, v)
+	}
+
+	return res
 }
 
-func (o *componentHead) GetHeaders() librtr.Headers {
-	o.m.RLock()
-	defer o.m.RUnlock()
+func (h HeadersConfig) Validate() liberr.Error {
+	err := router.ErrorConfigValidator.Error(nil)
 
-	return o.h
-}
+	if !err.HasParent() {
+		err = nil
+	}
 
-func (o *componentHead) SetHeaders(head librtr.Headers) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.h = head
+	return err
 }

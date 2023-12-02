@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,35 +21,31 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package head
+package header
 
 import (
-	"sync"
+	"net/http"
 
-	librtr "github.com/nabbar/golib/router/header"
-
-	libctx "github.com/nabbar/golib/context"
+	ginsdk "github.com/gin-gonic/gin"
 )
 
-type componentHead struct {
-	m sync.RWMutex
-	x libctx.Config[uint8]
-	h librtr.Headers
+type Headers interface {
+	Add(key, value string)
+	Set(key, value string)
+	Get(key string) string
+	Del(key string)
+
+	Header() map[string]string
+	Register(router ...ginsdk.HandlerFunc) []ginsdk.HandlerFunc
+	Handler(c *ginsdk.Context)
+
+	Clone() Headers
 }
 
-func (o *componentHead) GetHeaders() librtr.Headers {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.h
-}
-
-func (o *componentHead) SetHeaders(head librtr.Headers) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.h = head
+func NewHeaders() Headers {
+	return &headers{
+		head: make(http.Header),
+	}
 }

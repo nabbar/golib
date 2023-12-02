@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2019 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,35 +21,48 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package head
+package authheader
 
 import (
-	"sync"
+	"net/http"
 
-	librtr "github.com/nabbar/golib/router/header"
-
-	libctx "github.com/nabbar/golib/context"
+	ginsdk "github.com/gin-gonic/gin"
 )
 
-type componentHead struct {
-	m sync.RWMutex
-	x libctx.Config[uint8]
-	h librtr.Headers
+type AuthCode uint8
+
+const (
+	AuthCodeSuccess = iota
+	AuthCodeRequire
+	AuthCodeForbidden
+)
+
+const (
+	HeaderAuthRequire = "WWW-Authenticate"
+	HeaderAuthSend    = "Authorization"
+	HeaderAuthReal    = "Basic realm=LDAP Authorization Required"
+)
+
+func AuthRequire(c *ginsdk.Context, err error) {
+	if err != nil {
+		c.Errors = append(c.Errors, &ginsdk.Error{
+			Err:  err,
+			Type: ginsdk.ErrorTypePrivate,
+		})
+	}
+	// Credentials doesn't match, we return 401 and abort handlers chain.
+	c.Header(HeaderAuthRequire, HeaderAuthReal)
+	c.AbortWithStatus(http.StatusUnauthorized)
 }
 
-func (o *componentHead) GetHeaders() librtr.Headers {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.h
-}
-
-func (o *componentHead) SetHeaders(head librtr.Headers) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.h = head
+func AuthForbidden(c *ginsdk.Context, err error) {
+	if err != nil {
+		c.Errors = append(c.Errors, &ginsdk.Error{
+			Err:  err,
+			Type: ginsdk.ErrorTypePrivate,
+		})
+	}
+	c.AbortWithStatus(http.StatusForbidden)
 }

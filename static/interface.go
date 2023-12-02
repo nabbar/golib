@@ -30,7 +30,6 @@ import (
 	"embed"
 	"io"
 	"os"
-	"sync"
 	"sync/atomic"
 
 	libfpg "github.com/nabbar/golib/file/progress"
@@ -48,7 +47,7 @@ type Static interface {
 	RegisterRouter(route string, register librtr.RegisterRouter, router ...ginsdk.HandlerFunc)
 	RegisterRouterInGroup(route, group string, register librtr.RegisterRouterInGroup, router ...ginsdk.HandlerFunc)
 
-	RegisterLogger(log func() liblog.Logger)
+	RegisterLogger(log liblog.FuncLog)
 
 	SetDownload(pathFile string, flag bool)
 	SetIndex(group, route, pathFile string)
@@ -79,15 +78,19 @@ type Static interface {
 }
 
 func New(ctx libctx.FuncContext, content embed.FS, embedRootDir ...string) Static {
-	return &staticHandler{
-		m: sync.RWMutex{},
-		l: nil,
+	s := &staticHandler{
+		l: new(atomic.Value),
 		c: content,
-		b: embedRootDir,
-		z: 0,
+		b: new(atomic.Value),
+		z: new(atomic.Int64),
 		i: libctx.NewConfig[string](ctx),
 		d: libctx.NewConfig[string](ctx),
 		f: libctx.NewConfig[string](ctx),
+		s: libctx.NewConfig[string](ctx),
 		r: new(atomic.Value),
+		h: new(atomic.Value),
 	}
+	s._setBase(embedRootDir...)
+	s._setLogger(nil)
+	return s
 }

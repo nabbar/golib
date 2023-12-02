@@ -41,40 +41,38 @@ import (
 )
 
 func (s *staticHandler) _getSize() int64 {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	return s.z
+	return s.z.Load()
 }
 
 func (s *staticHandler) _setSize(size int64) {
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	s.z = size
+	s.z.Store(size)
 }
 
 func (s *staticHandler) _getBase() []string {
-	s.m.RLock()
-	defer s.m.RUnlock()
-
-	return s.b
+	i := s.b.Load()
+	if i == nil {
+		return make([]string, 0)
+	} else if b, k := i.([]string); !k {
+		return make([]string, 0)
+	} else {
+		return b
+	}
 }
 
 func (s *staticHandler) _setBase(base ...string) {
-	s.m.Lock()
-	defer s.m.Unlock()
+	var b = make([]string, 0)
 
-	s.b = base
+	if len(base) > 0 {
+		b = append(b, base...)
+	}
+
+	s.b.Store(b)
 }
 
 func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
 	if root == "" {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
-
-	s.m.RLock()
-	defer s.m.RUnlock()
 
 	val, err := s.c.ReadDir(root)
 
@@ -108,9 +106,6 @@ func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
-	s.m.RLock()
-	defer s.m.RUnlock()
-
 	var inf fs.FileInfo
 	obj, err := s.c.Open(pathFile)
 
@@ -140,9 +135,6 @@ func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error)
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
-	s.m.RLock()
-	defer s.m.RUnlock()
-
 	obj, err := s.c.ReadFile(pathFile)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
@@ -158,9 +150,6 @@ func (s *staticHandler) _fileTemp(pathFile string) (libfpg.Progress, liberr.Erro
 	if pathFile == "" {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
-
-	s.m.RLock()
-	defer s.m.RUnlock()
 
 	var tmp libfpg.Progress
 	obj, err := s.c.Open(pathFile)

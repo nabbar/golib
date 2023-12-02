@@ -27,7 +27,7 @@
 package head
 
 import (
-	librtr "github.com/nabbar/golib/router"
+	librtr "github.com/nabbar/golib/router/header"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )

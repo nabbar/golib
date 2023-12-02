@@ -25,32 +25,24 @@
 
 package router
 
-import (
-	"net/http"
-	"os"
+import ginsdk "github.com/gin-gonic/gin"
 
-	ginsdk "github.com/gin-gonic/gin"
-)
-
-func init() {
-	if os.Getenv("GIN_MODE") == "" {
-		ginsdk.SetMode(ginsdk.ReleaseMode)
-	}
+type itm struct {
+	method   string
+	relative string
+	router   []ginsdk.HandlerFunc
 }
 
-// SetGinHandler func that return given func as ginTonic HandlerFunc interface type.
-func SetGinHandler(fct func(c *ginsdk.Context)) ginsdk.HandlerFunc {
-	return fct
+func (o *itm) Same(method, relative string) bool {
+	if o.method != method {
+		return false
+	}
+	if o.relative != relative {
+		return false
+	}
+	return true
 }
 
-func Handler(routerList RouterList) http.Handler {
-	e := routerList.Engine()
-
-	if routerList == nil {
-		RoutersHandler(e)
-	} else {
-		routerList.Handler(e)
-	}
-
-	return e
+func (o *itm) Merge(rtr ...ginsdk.HandlerFunc) {
+	o.router = rtr
 }
