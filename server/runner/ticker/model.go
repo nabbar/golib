@@ -100,7 +100,7 @@ func (o *run) Start(ctx context.Context) error {
 
 		defer func() {
 			if rec := recover(); rec != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+				_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on gollib/server/ticker/model.\n%v\n", rec)
 			}
 			if n != nil {
 				n()

@@ -67,7 +67,7 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", p, rec)
 		}
 		if h != nil {
 			_ = h.Close()
@@ -95,11 +95,18 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 func (o *hkf) freeBuffer(buf *bytes.Buffer, size int) *bytes.Buffer {
 	defer func() {
 		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", o.getFilepath(), rec)
 		}
 	}()
+
+	if size > buf.Cap() {
+		size = buf.Cap()
+	} else {
+		size = buf.Cap() - size
+	}
+
 	var a = o.newBuffer(buf.Cap())
-	a.WriteString(buf.String()[size:])
+	a.WriteString(buf.String()[0:size])
 	return a
 }
 
@@ -113,7 +120,7 @@ func (o *hkf) Run(ctx context.Context) {
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread.\n%v\n", rec)
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", o.getFilepath(), rec)
 		}
 		//flush buffer before exit function
 		if b.Len() > 0 {

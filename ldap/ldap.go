@@ -146,6 +146,16 @@ func (lc *HelperLDAP) SetCredentials(user, pass string) {
 	lc.bindPass = pass
 }
 
+func (lc *HelperLDAP) GetTLSMode() TLSMode {
+	if lc.tlsMode == TLSModeTLS || lc.tlsMode == TLSModeStarttls {
+		if lc.tlsConfig == nil {
+			return TLSModeNone
+		}
+	}
+
+	return lc.tlsMode
+}
+
 // ForceTLSMode used to force tls mode and defined tls condition.
 func (lc *HelperLDAP) ForceTLSMode(tlsMode TLSMode, tlsConfig *tls.Config) {
 	if tlsConfig != nil {
