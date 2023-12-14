@@ -161,6 +161,10 @@ func (o *componentTls) _runCli() error {
 		return prt.Error(err)
 	} else if tls, err = cfg.New(); err != nil {
 		return prt.Error(err)
+	} else if o.f != nil {
+		for _, s := range o.f() {
+			tls.AddRootCAString(s)
+		}
 	}
 
 	o.m.Lock()

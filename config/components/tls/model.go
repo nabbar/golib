@@ -38,6 +38,7 @@ type componentTls struct {
 	x libctx.Config[uint8]
 	t libtls.TLSConfig
 	c *libtls.Config
+	f FuncDefaultCARoot
 }
 
 func (o *componentTls) Config() *libtls.Config {
