@@ -28,7 +28,7 @@ package ticker
 
 import (
 	"context"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	liberr "github.com/nabbar/golib/errors"
@@ -42,10 +42,9 @@ type Ticker interface {
 
 func New(tick time.Duration, fct func(ctx context.Context, tck *time.Ticker) error) Ticker {
 	return &run{
-		m: sync.RWMutex{},
-		e: make([]error, 0),
+		e: new(atomic.Value),
 		f: fct,
 		d: tick,
-		c: nil,
+		c: new(atomic.Value),
 	}
 }

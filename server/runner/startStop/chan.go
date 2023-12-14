@@ -32,20 +32,45 @@ func init() {
 	close(closeChan)
 }
 
+func (o *run) getChan() *chData {
+	if i := o.c.Load(); i == nil {
+		return &chData{
+			cl: true,
+			ch: closeChan,
+		}
+	} else if d, k := i.(*chData); !k {
+		return &chData{
+			cl: true,
+			ch: closeChan,
+		}
+	} else {
+		return d
+	}
+}
+
+func (o *run) setChan(d *chData) {
+	if d == nil {
+		d = &chData{
+			cl: true,
+			ch: closeChan,
+		}
+	}
+	o.c.Store(d)
+}
+
 func (o *run) IsRunning() bool {
 	if e := o.checkMe(); e != nil {
 		return false
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
+	c := o.getChan()
 
-	if o.c == nil || o.c == closeChan {
+	if c.cl || c.ch == closeChan {
 		return false
 	}
 
 	select {
-	case <-o.c:
+	case <-c.ch:
 		return false
 	default:
 		return true
@@ -57,10 +82,10 @@ func (o *run) chanInit() {
 		return
 	}
 
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.c = make(chan struct{})
+	o.setChan(&chData{
+		cl: false,
+		ch: make(chan struct{}),
+	})
 }
 
 func (o *run) chanDone() <-chan struct{} {
@@ -68,10 +93,7 @@ func (o *run) chanDone() <-chan struct{} {
 		return nil
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.c
+	return o.getChan().ch
 }
 
 func (o *run) chanSend() {
@@ -79,11 +101,10 @@ func (o *run) chanSend() {
 		return
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.c != nil && o.c != closeChan {
-		o.c <- struct{}{}
+	c := o.getChan()
+	if !c.cl && c.ch != closeChan {
+		c.ch <- struct{}{}
+		o.setChan(c)
 	}
 }
 
@@ -92,10 +113,12 @@ func (o *run) chanClose() {
 		return
 	}
 
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.c != nil && o.c != closeChan {
-		o.c = closeChan
+	c := o.getChan()
+	if !c.cl && c.ch != closeChan {
+		close(c.ch)
+		o.setChan(&chData{
+			cl: true,
+			ch: closeChan,
+		})
 	}
 }

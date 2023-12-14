@@ -26,37 +26,44 @@
 
 package startStop
 
+func (o *run) getError() []error {
+	if i := o.e.Load(); i == nil {
+		return make([]error, 0)
+	} else if d, k := i.([]error); !k {
+		return make([]error, 0)
+	} else {
+		return d
+	}
+}
+
+func (o *run) setError(err ...error) {
+	if len(err) < 1 {
+		err = make([]error, 0)
+	}
+
+	o.e.Store(err)
+}
+
 func (o *run) ErrorsLast() error {
 	if o == nil {
 		return ErrInvalid
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
+	e := o.getError()
 
-	if len(o.e) > 0 {
-		return o.e[len(o.e)-1]
+	if len(e) > 0 {
+		return e[len(e)-1]
 	}
 
 	return nil
 }
 
 func (o *run) ErrorsList() []error {
-	var res = make([]error, 0)
-
 	if o == nil {
-		res = append(res, ErrInvalid)
-		return res
+		return append(make([]error, 0), ErrInvalid)
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if len(o.e) > 0 {
-		return o.e
-	}
-
-	return res
+	return o.getError()
 }
 
 func (o *run) errorsAdd(e error) {
@@ -64,10 +71,7 @@ func (o *run) errorsAdd(e error) {
 		return
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	o.e = append(o.e, e)
+	o.setError(append(o.getError(), e)...)
 }
 
 func (o *run) errorsClean() {
@@ -75,8 +79,5 @@ func (o *run) errorsClean() {
 		return
 	}
 
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.e = make([]error, 0)
+	o.setError(nil)
 }

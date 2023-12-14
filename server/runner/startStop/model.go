@@ -29,7 +29,9 @@ package startStop
 import (
 	"context"
 	"errors"
-	"sync"
+	"fmt"
+	"os"
+	"sync/atomic"
 	"time"
 
 	libsrv "github.com/nabbar/golib/server"
@@ -41,12 +43,34 @@ const (
 
 var ErrInvalid = errors.New("invalid instance")
 
+type chData struct {
+	cl bool
+	ch chan struct{}
+}
+
 type run struct {
-	m sync.RWMutex
-	e []error
-	f func(ctx context.Context) error
-	s func(ctx context.Context) error
-	c chan struct{}
+	e *atomic.Value // slice []error
+	f libsrv.Action
+	s libsrv.Action
+	c *atomic.Value // chan struct{}
+}
+
+func (o *run) getFctStart() libsrv.Action {
+	if o.f == nil {
+		return func(ctx context.Context) error {
+			return fmt.Errorf("invalid start function")
+		}
+	}
+	return o.f
+}
+
+func (o *run) getFctStop() libsrv.Action {
+	if o.s == nil {
+		return func(ctx context.Context) error {
+			return fmt.Errorf("invalid stop function")
+		}
+	}
+	return o.s
 }
 
 func (o *run) Restart(ctx context.Context) error {
@@ -72,7 +96,12 @@ func (o *run) Stop(ctx context.Context) error {
 		t = time.NewTicker(pollStop)
 	)
 
-	defer t.Stop()
+	defer func() {
+		if rec := recover(); rec != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on Stop function in gollib/server/startStop/model.\n%v\n", rec)
+		}
+		t.Stop()
+	}()
 
 	for {
 		select {
@@ -90,14 +119,11 @@ func (o *run) Stop(ctx context.Context) error {
 }
 
 func (o *run) callStop(ctx context.Context) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.s == nil {
+	if o == nil {
 		return nil
+	} else {
+		return o.getFctStop()(ctx)
 	}
-
-	return o.s(ctx)
 }
 
 func (o *run) Start(ctx context.Context) error {
@@ -105,27 +131,31 @@ func (o *run) Start(ctx context.Context) error {
 		return e
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	var can context.CancelFunc
 	ctx, can = context.WithCancel(ctx)
 
-	go func(x context.Context, n context.CancelFunc, fct libsrv.Action) {
+	go func(x context.Context, n context.CancelFunc) {
 		defer n()
 
 		o.chanInit()
-		defer o.chanClose()
+		defer func() {
+			if rec := recover(); rec != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on Start function in gollib/server/startStop/model.\n%v\n", rec)
+			}
+			_ = o.Stop(ctx)
+		}()
 
-		if e := fct(x); e != nil {
+		if e := o.getFctStart()(x); e != nil {
 			o.errorsAdd(e)
 			return
 		}
-	}(ctx, can, o.f)
+	}(ctx, can)
 
 	go func(x context.Context, n context.CancelFunc) {
 		defer n()
-		defer o.chanClose()
+		defer func() {
+			_ = o.Stop(ctx)
+		}()
 
 		for {
 			select {
@@ -143,12 +173,7 @@ func (o *run) Start(ctx context.Context) error {
 func (o *run) checkMe() error {
 	if o == nil {
 		return ErrInvalid
-	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.f == nil || o.s == nil {
+	} else if o.f == nil || o.s == nil {
 		return ErrInvalid
 	}
 

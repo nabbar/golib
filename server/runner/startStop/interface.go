@@ -28,7 +28,7 @@ package startStop
 
 import (
 	"context"
-	"sync"
+	"sync/atomic"
 
 	liberr "github.com/nabbar/golib/errors"
 	libsrv "github.com/nabbar/golib/server"
@@ -41,10 +41,9 @@ type StartStop interface {
 
 func New(start, stop func(ctx context.Context) error) StartStop {
 	return &run{
-		m: sync.RWMutex{},
-		e: make([]error, 0),
+		e: new(atomic.Value),
 		f: start,
 		s: stop,
-		c: nil,
+		c: new(atomic.Value),
 	}
 }

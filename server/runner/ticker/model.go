@@ -31,22 +31,37 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const (
-	pollStop = 500 * time.Millisecond
+	pollStop        = 500 * time.Millisecond
+	defaultDuration = 30 * time.Second
 )
 
 var ErrInvalid = errors.New("invalid instance")
 
+type chData struct {
+	cl bool
+	ch chan struct{}
+}
+
 type run struct {
-	m sync.RWMutex
-	e []error
+	e *atomic.Value // slice []error
 	f func(ctx context.Context, tck *time.Ticker) error
 	d time.Duration
-	c chan struct{}
+	c *atomic.Value // chan struct{}
+}
+
+func (o *run) getDuration() time.Duration {
+	// still check on function checkMe
+	return o.d
+}
+
+func (o *run) getFunction() func(ctx context.Context, tck *time.Ticker) error {
+	// still check on function checkMe
+	return o.f
 }
 
 func (o *run) Restart(ctx context.Context) error {
@@ -89,18 +104,15 @@ func (o *run) Start(ctx context.Context) error {
 		return e
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	go func(con context.Context, dur time.Duration, fct func(ctx context.Context, tck *time.Ticker) error) {
+	go func(con context.Context) {
 		var (
-			tck  = time.NewTicker(dur)
+			tck  = time.NewTicker(o.getDuration())
 			x, n = context.WithCancel(con)
 		)
 
 		defer func() {
 			if rec := recover(); rec != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on gollib/server/ticker/model.\n%v\n", rec)
+				_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on Start function in gollib/server/ticker/model.\n%v\n", rec)
 			}
 			if n != nil {
 				n()
@@ -120,10 +132,10 @@ func (o *run) Start(ctx context.Context) error {
 				f := func(ctx context.Context, tck *time.Ticker) error {
 					defer func() {
 						if rec := recover(); rec != nil {
-							_, _ = fmt.Fprintf(os.Stderr, "recovering panic calling function.\n%v\n", rec)
+							_, _ = fmt.Fprintf(os.Stderr, "recovering panic while calling function.\n%v\n", rec)
 						}
 					}()
-					return fct(ctx, tck)
+					return o.getFunction()(ctx, tck)
 				}
 				if e := f(x, tck); e != nil {
 					o.errorsAdd(e)
@@ -134,7 +146,7 @@ func (o *run) Start(ctx context.Context) error {
 				return
 			}
 		}
-	}(ctx, o.d, o.f)
+	}(ctx)
 
 	return nil
 }
@@ -142,12 +154,7 @@ func (o *run) Start(ctx context.Context) error {
 func (o *run) checkMe() error {
 	if o == nil {
 		return ErrInvalid
-	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.f == nil || o.d == 0 {
+	} else if o.f == nil || o.d == 0 {
 		return ErrInvalid
 	}
 
