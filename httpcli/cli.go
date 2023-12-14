@@ -51,6 +51,10 @@ const (
 
 type FctHttpClient func() *http.Client
 
+type HttpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 func GetTransport(DisableKeepAlive, DisableCompression, ForceHTTP2 bool) *http.Transport {
 	return &http.Transport{
 		Proxy:              http.ProxyFromEnvironment,
