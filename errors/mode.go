@@ -93,15 +93,15 @@ func (m ErrorMode) error(e *ers) string {
 	case ErrorReturnCodeError:
 		return e.CodeError("")
 	case ErrorReturnCodeErrorFull:
-		return strings.Join(e.CodeErrorSlice(""), ", ")
+		return strings.Join(e.CodeErrorSlice(""), "\n")
 	case ErrorReturnCodeErrorTrace:
 		return e.CodeErrorTrace("")
 	case ErrorReturnCodeErrorTraceFull:
-		return strings.Join(e.CodeErrorTraceSlice(""), ", ")
+		return strings.Join(e.CodeErrorTraceSlice(""), "\n")
 	case ErrorReturnStringError:
 		return e.StringError()
 	case ErrorReturnStringErrorFull:
-		return strings.Join(e.StringErrorSlice(), ", ")
+		return strings.Join(e.StringErrorSlice(), "\n")
 	}
 
 	return Default.error(e)
