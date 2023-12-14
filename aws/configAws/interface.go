@@ -28,12 +28,12 @@ package configAws
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkcfg "github.com/aws/aws-sdk-go-v2/config"
 	sdkcrd "github.com/aws/aws-sdk-go-v2/credentials"
 	libaws "github.com/nabbar/golib/aws"
+	libhtc "github.com/nabbar/golib/httpcli"
 )
 
 func GetConfigModel() interface{} {
@@ -88,7 +88,7 @@ func (c *awsModel) Clone() libaws.Config {
 	}
 }
 
-func (c *awsModel) GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, error) {
+func (c *awsModel) GetConfig(ctx context.Context, cli libhtc.HttpClient) (*sdkaws.Config, error) {
 	var (
 		cfg sdkaws.Config
 		err error
@@ -98,7 +98,9 @@ func (c *awsModel) GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Con
 		return nil, ErrorConfigLoader.Error(err)
 	}
 
-	if c.AccessKey != "" && c.SecretKey != "" {
+	if len(c.AccessKey) < 1 || len(c.SecretKey) < 1 {
+		cfg.Credentials = sdkaws.AnonymousCredentials{}
+	} else {
 		cfg.Credentials = sdkcrd.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, "")
 	}
 

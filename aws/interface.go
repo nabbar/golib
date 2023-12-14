@@ -27,7 +27,6 @@ package aws
 
 import (
 	"context"
-	"net/http"
 	"net/url"
 	"sync"
 	"time"
@@ -43,6 +42,7 @@ import (
 	awspol "github.com/nabbar/golib/aws/policy"
 	awsrol "github.com/nabbar/golib/aws/role"
 	awsusr "github.com/nabbar/golib/aws/user"
+	libhtc "github.com/nabbar/golib/httpcli"
 )
 
 type Config interface {
@@ -67,7 +67,7 @@ type Config interface {
 	GetResolvedRegion() string
 	SetRetryer(retryer func() sdkaws.Retryer)
 
-	GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, error)
+	GetConfig(ctx context.Context, cli libhtc.HttpClient) (*sdkaws.Config, error)
 	JSON() ([]byte, error)
 	Clone() Config
 
@@ -84,7 +84,7 @@ type AWS interface {
 	User() awsusr.User
 
 	Config() Config
-	HTTPCli() *http.Client
+	HTTPCli() libhtc.HttpClient
 	Clone(ctx context.Context) (AWS, error)
 	NewForConfig(ctx context.Context, cfg Config) (AWS, error)
 	ForcePathStyle(ctx context.Context, enabled bool) error
@@ -100,7 +100,7 @@ type AWS interface {
 	SetClientIam(aws *sdkiam.Client)
 }
 
-func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, error) {
+func New(ctx context.Context, cfg Config, httpClient libhtc.HttpClient) (AWS, error) {
 	if cfg == nil {
 		return nil, awshlp.ErrorConfigEmpty.Error(nil)
 	}
@@ -120,13 +120,13 @@ func New(ctx context.Context, cfg Config, httpClient *http.Client) (AWS, error) 
 		h: httpClient,
 	}
 
-	if i, e := cli._NewClientIAM(ctx, httpClient); e != nil {
+	if i, e := cli._NewClientIAM(ctx, httpClient, nil); e != nil {
 		return nil, e
 	} else {
 		cli.i = i
 	}
 
-	if s, e := cli._NewClientS3(ctx, httpClient); e != nil {
+	if s, e := cli._NewClientS3(ctx, httpClient, nil); e != nil {
 		return nil, e
 	} else {
 		cli.s = s

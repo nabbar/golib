@@ -41,8 +41,8 @@ import (
 type Model struct {
 	Region    string `mapstructure:"region" json:"region" yaml:"region" toml:"region" validate:"required,hostname"`
 	Endpoint  string `mapstructure:"endpoint" json:"endpoint" yaml:"endpoint" toml:"endpoint" validate:"url"`
-	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"required,printascii"`
-	SecretKey string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey" toml:"secretkey" validate:"required,printascii"`
+	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"omitempty,printascii"`
+	SecretKey string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey" toml:"secretkey" validate:"omitempty,printascii"`
 	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket" toml:"bucket" validate:"omitempty,hostname"`
 }
 

@@ -42,6 +42,7 @@ import (
 	awspol "github.com/nabbar/golib/aws/policy"
 	awsrol "github.com/nabbar/golib/aws/role"
 	awsusr "github.com/nabbar/golib/aws/user"
+	libhtc "github.com/nabbar/golib/httpcli"
 )
 
 type client struct {
@@ -52,40 +53,57 @@ type client struct {
 	c Config
 	i *sdkiam.Client
 	s *sdksss.Client
-	h *http.Client
+	h libhtc.HttpClient
 }
 
 func (c *client) SetHTTPTimeout(dur time.Duration) error {
-	var h *http.Client
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	var h libhtc.HttpClient
 
 	if c.h == nil {
 		return fmt.Errorf("missing http client")
+	} else if cli, ok := c.h.(*http.Client); !ok {
+		return fmt.Errorf("not a standard http client, cannot change timeout")
 	} else {
 		h = &http.Client{
-			Transport:     c.h.Transport,
-			CheckRedirect: c.h.CheckRedirect,
-			Jar:           c.h.Jar,
+			Transport:     cli.Transport,
+			CheckRedirect: cli.CheckRedirect,
+			Jar:           cli.Jar,
 			Timeout:       dur,
 		}
 	}
 
-	if cli, err := c._NewClientS3(c.x, h); err != nil {
+	if cli, err := c._NewClientS3(c.x, h, c.s); err != nil {
 		return err
 	} else {
 		c.s = cli
+	}
+
+	if cli, err := c._NewClientIAM(c.x, h, c.i); err != nil {
+		return err
+	} else {
+		c.i = cli
 	}
 
 	return nil
 }
 
 func (c *client) GetHTTPTimeout() time.Duration {
-	if c.h != nil {
-		return c.h.Timeout
+	c.m.Lock()
+	defer c.m.Unlock()
+
+	if c.h == nil {
+		return 0
+	} else if cli, ok := c.h.(*http.Client); !ok {
+		return 0
+	} else {
+		return cli.Timeout
 	}
-	return 0
 }
 
-func (c *client) _NewClientIAM(ctx context.Context, httpClient *http.Client) (*sdkiam.Client, error) {
+func (c *client) _NewClientIAM(ctx context.Context, httpClient libhtc.HttpClient, cli *sdkiam.Client) (*sdkiam.Client, error) {
 	var (
 		cfg *sdkaws.Config
 		iam *sdkiam.Client
@@ -112,25 +130,32 @@ func (c *client) _NewClientIAM(ctx context.Context, httpClient *http.Client) (*s
 		sig = sdksv4.NewSigner()
 	}
 
-	iam = sdkiam.New(sdkiam.Options{
-		APIOptions:  cfg.APIOptions,
-		Credentials: cfg.Credentials,
-		EndpointOptions: sdkiam.EndpointResolverOptions{
-			DisableHTTPS: !c.c.IsHTTPs(),
-		},
-		BaseEndpoint:       sdkaws.String(c.c.GetEndpoint().String()),
-		EndpointResolver:   c._NewIAMResolver(cfg),
-		EndpointResolverV2: c._NewIAMResolverV2(c.c),
-		HTTPSignerV4:       sig,
-		Region:             cfg.Region,
-		Retryer:            ret,
-		HTTPClient:         httpClient,
-	})
+	if cli == nil {
+		iam = sdkiam.New(sdkiam.Options{
+			APIOptions:  cfg.APIOptions,
+			Credentials: cfg.Credentials,
+			EndpointOptions: sdkiam.EndpointResolverOptions{
+				DisableHTTPS: !c.c.IsHTTPs(),
+			},
+			BaseEndpoint:       sdkaws.String(c.c.GetEndpoint().String()),
+			EndpointResolver:   c._NewIAMResolver(cfg),
+			EndpointResolverV2: c._NewIAMResolverV2(c.c),
+			HTTPSignerV4:       sig,
+			Region:             cfg.Region,
+			Retryer:            ret,
+			HTTPClient:         httpClient,
+		})
+	} else {
+		opt := cli.Options()
+		opt.HTTPClient = httpClient
+		opt.HTTPSignerV4 = sig
+		iam = sdkiam.New(opt)
+	}
 
 	return iam, nil
 }
 
-func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sdksss.Client, error) {
+func (c *client) _NewClientS3(ctx context.Context, httpClient libhtc.HttpClient, cli *sdksss.Client) (*sdksss.Client, error) {
 	var (
 		sss *sdksss.Client
 		err error
@@ -157,21 +182,29 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient *http.Client) (*sd
 		sig = sdksv4.NewSigner()
 	}
 
-	sss = sdksss.New(sdksss.Options{
-		APIOptions:  cfg.APIOptions,
-		Credentials: cfg.Credentials,
-		EndpointOptions: sdksss.EndpointResolverOptions{
-			DisableHTTPS: !c.c.IsHTTPs(),
-		},
-		BaseEndpoint:       sdkaws.String(c.c.GetEndpoint().String()),
-		EndpointResolver:   c._NewS3Resolver(cfg),
-		EndpointResolverV2: c._NewS3ResolverV2(c.c),
-		HTTPSignerV4:       sig,
-		Region:             cfg.Region,
-		Retryer:            ret,
-		HTTPClient:         httpClient,
-		UsePathStyle:       c.p,
-	})
+	if cli == nil {
+		sss = sdksss.New(sdksss.Options{
+			APIOptions:  cfg.APIOptions,
+			Credentials: cfg.Credentials,
+			EndpointOptions: sdksss.EndpointResolverOptions{
+				DisableHTTPS: !c.c.IsHTTPs(),
+			},
+			BaseEndpoint:       sdkaws.String(c.c.GetEndpoint().String()),
+			EndpointResolver:   c._NewS3Resolver(cfg),
+			EndpointResolverV2: c._NewS3ResolverV2(c.c),
+			HTTPSignerV4:       sig,
+			Region:             cfg.Region,
+			Retryer:            ret,
+			HTTPClient:         httpClient,
+			UsePathStyle:       c.p,
+		})
+	} else {
+		opt := cli.Options()
+		opt.HTTPClient = httpClient
+		opt.HTTPSignerV4 = sig
+		opt.UsePathStyle = c.p
+		sss = sdksss.New(opt)
+	}
 
 	return sss, nil
 }
@@ -191,13 +224,13 @@ func (c *client) NewForConfig(ctx context.Context, cfg Config) (AWS, error) {
 		h: c.h,
 	}
 
-	if i, e := n._NewClientIAM(ctx, c.h); e != nil {
+	if i, e := n._NewClientIAM(ctx, c.h, nil); e != nil {
 		return nil, e
 	} else {
 		n.i = i
 	}
 
-	if s, e := n._NewClientS3(ctx, c.h); e != nil {
+	if s, e := n._NewClientS3(ctx, c.h, nil); e != nil {
 		return nil, e
 	} else {
 		n.s = s
@@ -225,13 +258,13 @@ func (c *client) Clone(ctx context.Context) (AWS, error) {
 		h: c.h,
 	}
 
-	if i, e := n._NewClientIAM(ctx, c.h); e != nil {
+	if i, e := n._NewClientIAM(ctx, c.h, nil); e != nil {
 		return nil, e
 	} else {
 		n.i = i
 	}
 
-	if s, e := n._NewClientS3(ctx, c.h); e != nil {
+	if s, e := n._NewClientS3(ctx, c.h, nil); e != nil {
 		return nil, e
 	} else {
 		n.s = s
@@ -246,10 +279,16 @@ func (c *client) ForcePathStyle(ctx context.Context, enabled bool) error {
 
 	c.p = enabled
 
-	if s, e := c._NewClientS3(ctx, nil); e != nil {
+	if s, e := c._NewClientS3(ctx, nil, c.s); e != nil {
 		return e
 	} else {
 		c.s = s
+	}
+
+	if i, e := c._NewClientIAM(ctx, nil, c.i); e != nil {
+		return e
+	} else {
+		c.i = i
 	}
 
 	return nil
@@ -261,13 +300,13 @@ func (c *client) ForceSignerOptions(ctx context.Context, fct ...func(signer *sdk
 
 	c.o = fct
 
-	if i, e := c._NewClientIAM(ctx, nil); e != nil {
+	if i, e := c._NewClientIAM(ctx, nil, c.i); e != nil {
 		return e
 	} else {
 		c.i = i
 	}
 
-	if s, e := c._NewClientS3(ctx, nil); e != nil {
+	if s, e := c._NewClientS3(ctx, nil, c.s); e != nil {
 		return e
 	} else {
 		c.s = s
@@ -283,7 +322,7 @@ func (c *client) Config() Config {
 	return c.c
 }
 
-func (c *client) HTTPCli() *http.Client {
+func (c *client) HTTPCli() libhtc.HttpClient {
 	c.m.Lock()
 	defer c.m.Unlock()
 

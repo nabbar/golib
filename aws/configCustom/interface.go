@@ -28,13 +28,13 @@ package configCustom
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"strings"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkcrd "github.com/aws/aws-sdk-go-v2/credentials"
 	libaws "github.com/nabbar/golib/aws"
+	libhtc "github.com/nabbar/golib/httpcli"
 )
 
 func GetConfigModel() interface{} {
@@ -103,11 +103,16 @@ func (c *awsModel) Clone() libaws.Config {
 	}
 }
 
-func (c *awsModel) GetConfig(ctx context.Context, cli *http.Client) (*sdkaws.Config, error) {
+func (c *awsModel) GetConfig(ctx context.Context, cli libhtc.HttpClient) (*sdkaws.Config, error) {
 
 	cfg := sdkaws.NewConfig()
 
-	cfg.Credentials = sdkcrd.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, "")
+	if len(c.AccessKey) < 1 || len(c.SecretKey) < 1 {
+		cfg.Credentials = sdkaws.AnonymousCredentials{}
+	} else {
+		cfg.Credentials = sdkcrd.NewStaticCredentialsProvider(c.AccessKey, c.SecretKey, "")
+	}
+
 	cfg.Retryer = c.retryer
 	cfg.EndpointResolver = sdkaws.EndpointResolverFunc(c.ResolveEndpoint)
 	cfg.EndpointResolverWithOptions = sdkaws.EndpointResolverWithOptionsFunc(c.ResolveEndpointWithOptions)
