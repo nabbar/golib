@@ -30,10 +30,10 @@ package hashicorp
 import (
 	"io"
 	"log"
+	"os"
 
 	"github.com/hashicorp/go-hclog"
 	liblog "github.com/nabbar/golib/logger"
-	logcfg "github.com/nabbar/golib/logger/config"
 	loglvl "github.com/nabbar/golib/logger/level"
 )
 
@@ -43,74 +43,167 @@ const (
 )
 
 type _hclog struct {
-	l liblog.Logger
+	l liblog.FuncLog
 }
 
 func (o *_hclog) Log(level hclog.Level, msg string, args ...interface{}) {
+	var lg = o.logger()
+
+	if lg == nil {
+		return
+	}
+
 	switch level {
 	case hclog.NoLevel, hclog.Off:
 		return
 	case hclog.Trace:
-		o.l.Debug(msg, nil, args...)
+		lg.Entry(loglvl.DebugLevel, msg, args...).Log()
 	case hclog.Debug:
-		o.l.Debug(msg, nil, args...)
+		lg.Entry(loglvl.DebugLevel, msg, args...).Log()
 	case hclog.Info:
-		o.l.Info(msg, nil, args...)
+		lg.Entry(loglvl.InfoLevel, msg, args...).Log()
 	case hclog.Warn:
-		o.l.Warning(msg, nil, args...)
+		lg.Entry(loglvl.WarnLevel, msg, args...).Log()
 	case hclog.Error:
-		o.l.Error(msg, nil, args...)
+		lg.Entry(loglvl.ErrorLevel, msg, args...).Log()
+	}
+}
+
+func (o *_hclog) logger() liblog.Logger {
+	if o.l == nil {
+		return nil
+	} else if lg := o.l(); lg == nil {
+		return nil
+	} else {
+		return lg
 	}
 }
 
 func (o *_hclog) Trace(msg string, args ...interface{}) {
-	o.l.Debug(msg, nil, args...)
+	var lg = o.logger()
+
+	if lg == nil {
+		return
+	}
+
+	lg.Entry(loglvl.DebugLevel, msg, args...).Log()
 }
 
 func (o *_hclog) Debug(msg string, args ...interface{}) {
-	o.l.Debug(msg, nil, args...)
+	var lg = o.logger()
+
+	if lg == nil {
+		return
+	}
+
+	lg.Entry(loglvl.DebugLevel, msg, args...).Log()
 }
 
 func (o *_hclog) Info(msg string, args ...interface{}) {
-	o.l.Info(msg, nil, args...)
+	var lg = o.logger()
+
+	if lg == nil {
+		return
+	}
+
+	lg.Entry(loglvl.InfoLevel, msg, args...).Log()
 }
 
 func (o *_hclog) Warn(msg string, args ...interface{}) {
-	o.l.Warning(msg, nil, args...)
+	var lg = o.logger()
+
+	if lg == nil {
+		return
+	}
+
+	lg.Entry(loglvl.WarnLevel, msg, args...).Log()
 }
 
 func (o *_hclog) Error(msg string, args ...interface{}) {
-	o.l.Error(msg, nil, args...)
+	var lg = o.logger()
+
+	if lg == nil {
+		return
+	}
+
+	lg.Entry(loglvl.ErrorLevel, msg, args...).Log()
 }
 
 func (o *_hclog) IsTrace() bool {
-	if opt := o.l.GetOptions(); opt == nil {
+	var lg = o.logger()
+
+	if lg == nil {
 		return false
-	} else if opt.Stdout == nil {
-		return false
-	} else {
-		return opt.Stdout.EnableTrace
 	}
+
+	if opt := lg.GetOptions(); opt == nil {
+		return false
+	} else if opt.Stdout != nil && opt.Stdout.EnableTrace {
+		return true
+	} else {
+		for _, f := range opt.LogFile {
+			if f.EnableTrace {
+				return true
+			}
+		}
+		for _, f := range opt.LogSyslog {
+			if f.EnableTrace {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (o *_hclog) IsDebug() bool {
-	return o.l.GetLevel() >= loglvl.DebugLevel
+	var lg = o.logger()
+
+	if lg == nil {
+		return false
+	}
+
+	return lg.GetLevel() >= loglvl.DebugLevel
 }
 
 func (o *_hclog) IsInfo() bool {
-	return o.l.GetLevel() >= loglvl.InfoLevel
+	var lg = o.logger()
+
+	if lg == nil {
+		return false
+	}
+
+	return lg.GetLevel() >= loglvl.InfoLevel
 }
 
 func (o *_hclog) IsWarn() bool {
-	return o.l.GetLevel() >= loglvl.WarnLevel
+	var lg = o.logger()
+
+	if lg == nil {
+		return false
+	}
+
+	return lg.GetLevel() >= loglvl.WarnLevel
 }
 
 func (o *_hclog) IsError() bool {
-	return o.l.GetLevel() >= loglvl.ErrorLevel
+	var lg = o.logger()
+
+	if lg == nil {
+		return false
+	}
+
+	return lg.GetLevel() >= loglvl.ErrorLevel
 }
 
 func (o *_hclog) ImpliedArgs() []interface{} {
-	fields := o.l.GetFields()
+	var lg = o.logger()
+
+	if lg == nil {
+		return make([]interface{}, 0)
+	}
+
+	fields := lg.GetFields()
 
 	if i, l := fields.Load(HCLogArgs); !l {
 		return make([]interface{}, 0)
@@ -122,12 +215,24 @@ func (o *_hclog) ImpliedArgs() []interface{} {
 }
 
 func (o *_hclog) With(args ...interface{}) hclog.Logger {
-	o.l.SetFields(o.l.GetFields().Add(HCLogArgs, args))
+	var lg = o.logger()
+
+	if lg == nil {
+		return o
+	}
+
+	lg.SetFields(lg.GetFields().Add(HCLogArgs, args))
 	return o
 }
 
 func (o *_hclog) Name() string {
-	fields := o.l.GetFields()
+	var lg = o.logger()
+
+	if lg == nil {
+		return ""
+	}
+
+	fields := lg.GetFields()
 
 	if i, l := fields.Load(HCLogName); !l {
 		return ""
@@ -139,40 +244,77 @@ func (o *_hclog) Name() string {
 }
 
 func (o *_hclog) Named(name string) hclog.Logger {
-	o.l.SetFields(o.l.GetFields().Add(HCLogName, name))
+	var lg = o.logger()
+
+	if lg == nil {
+		return o
+	}
+
+	lg.SetFields(lg.GetFields().Add(HCLogName, name))
 	return o
 }
 
 func (o *_hclog) ResetNamed(name string) hclog.Logger {
-	o.l.SetFields(o.l.GetFields().Add(HCLogName, name))
+	var lg = o.logger()
+
+	if lg == nil {
+		return o
+	}
+
+	lg.SetFields(lg.GetFields().Add(HCLogName, name))
 	return o
 }
 
 func (o *_hclog) SetLevel(level hclog.Level) {
+	var lg = o.logger()
+
+	if lg == nil {
+		return
+	}
+
 	switch level {
 	case hclog.NoLevel, hclog.Off:
-		o.l.SetLevel(loglvl.NilLevel)
+		lg.SetLevel(loglvl.NilLevel)
 	case hclog.Trace:
-		opt := o.l.GetOptions()
-		if opt.Stdout == nil {
-			opt.Stdout = &logcfg.OptionsStd{}
+		opt := lg.GetOptions()
+
+		if opt.Stdout != nil {
+			opt.Stdout.EnableTrace = true
 		}
-		opt.Stdout.EnableTrace = true
-		_ = o.l.SetOptions(opt)
-		o.l.SetLevel(loglvl.DebugLevel)
+
+		if len(opt.LogFile) > 0 {
+			for i := range opt.LogFile {
+				opt.LogFile[i].EnableTrace = true
+			}
+		}
+
+		if len(opt.LogSyslog) > 0 {
+			for i := range opt.LogSyslog {
+				opt.LogSyslog[i].EnableTrace = true
+			}
+		}
+
+		_ = lg.SetOptions(opt)
+		lg.SetLevel(loglvl.DebugLevel)
 	case hclog.Debug:
-		o.l.SetLevel(loglvl.DebugLevel)
+		lg.SetLevel(loglvl.DebugLevel)
 	case hclog.Info:
-		o.l.SetLevel(loglvl.InfoLevel)
+		lg.SetLevel(loglvl.InfoLevel)
 	case hclog.Warn:
-		o.l.SetLevel(loglvl.WarnLevel)
+		lg.SetLevel(loglvl.WarnLevel)
 	case hclog.Error:
-		o.l.SetLevel(loglvl.ErrorLevel)
+		lg.SetLevel(loglvl.ErrorLevel)
 	}
 }
 
 func (o *_hclog) GetLevel() hclog.Level {
-	switch o.l.GetLevel() {
+	var lg = o.logger()
+
+	if lg == nil {
+		return hclog.NoLevel
+	}
+
+	switch lg.GetLevel() {
 	case loglvl.NilLevel:
 		return hclog.NoLevel
 	case loglvl.DebugLevel:
@@ -193,6 +335,12 @@ func (o *_hclog) GetLevel() hclog.Level {
 }
 
 func (o *_hclog) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
+	var lg = o.logger()
+
+	if lg == nil {
+		return log.Default()
+	}
+
 	var lvl loglvl.Level
 	switch opts.ForceLevel {
 	case hclog.NoLevel, hclog.Off:
@@ -209,9 +357,15 @@ func (o *_hclog) StandardLogger(opts *hclog.StandardLoggerOptions) *log.Logger {
 		lvl = loglvl.ErrorLevel
 	}
 
-	return o.l.GetStdLogger(lvl, 0)
+	return lg.GetStdLogger(lvl, 0)
 }
 
 func (o *_hclog) StandardWriter(opts *hclog.StandardLoggerOptions) io.Writer {
-	return o.l
+	var lg = o.logger()
+
+	if lg == nil {
+		return os.Stdout
+	}
+
+	return lg
 }

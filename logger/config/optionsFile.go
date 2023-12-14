@@ -27,7 +27,11 @@
 
 package config
 
-import "os"
+import (
+	"os"
+
+	libsiz "github.com/nabbar/golib/size"
+)
 
 type OptionsFile struct {
 	// LogLevel define the allowed level of log for this file.
@@ -59,6 +63,9 @@ type OptionsFile struct {
 
 	// EnableAccessLog allow to add all message from api router for access log and error log.
 	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
+
+	// FileBufferSize define the size for buffer size (by default the buffer size is set to 32KB).
+	FileBufferSize libsiz.Size `json:"file-buffer-size,omitempty" yaml:"file-buffer-size,omitempty" toml:"file-buffer-size,omitempty" mapstructure:"file-buffer-size,omitempty"`
 }
 
 type OptionsFiles []OptionsFile

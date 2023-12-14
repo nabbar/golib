@@ -44,7 +44,7 @@ func (o *hks) Run(ctx context.Context) {
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on golib/logger/hooksyslog/system\n%v\n", rec)
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on run function in golib/logger/hooksyslog/system\n%v\n", rec)
 		}
 		if s != nil {
 			w.Wait()
@@ -84,7 +84,7 @@ func (o *hks) writeWrapper(w Wrapper, d data, done func()) {
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on golib/logger/hooksyslog/system\n%v\n", rec)
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on writeWrapper function in golib/logger/hooksyslog/system\n%v\n", rec)
 		}
 		done()
 	}()

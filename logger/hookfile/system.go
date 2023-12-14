@@ -32,6 +32,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"time"
 
@@ -40,12 +41,26 @@ import (
 
 const sizeBuffer = 32 * 1024
 
+func (o *hkf) getBufferSize() int {
+	b := o.b.Load()
+
+	if b < sizeBuffer {
+		b = sizeBuffer
+	}
+
+	if b > math.MaxInt {
+		return math.MaxInt
+	} else {
+		return int(b)
+	}
+}
+
 func (o *hkf) newBuffer(size int) *bytes.Buffer {
 	if size > 0 {
 		return bytes.NewBuffer(make([]byte, 0, size))
 	}
 
-	return bytes.NewBuffer(make([]byte, 0, sizeBuffer))
+	return bytes.NewBuffer(make([]byte, 0, o.getBufferSize()))
 }
 
 func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
@@ -67,7 +82,7 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", p, rec)
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on writeBuffer function in golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", p, rec)
 		}
 		if h != nil {
 			_ = h.Close()
@@ -95,18 +110,17 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 func (o *hkf) freeBuffer(buf *bytes.Buffer, size int) *bytes.Buffer {
 	defer func() {
 		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", o.getFilepath(), rec)
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on freeBuffer function in golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", o.getFilepath(), rec)
 		}
 	}()
 
-	if size > buf.Cap() {
-		size = buf.Cap()
-	} else {
-		size = buf.Cap() - size
+	var a = o.newBuffer(o.getBufferSize())
+
+	if size < a.Cap() {
+		size = a.Cap() - size
+		a.WriteString(buf.String()[0:size])
 	}
 
-	var a = o.newBuffer(buf.Cap())
-	a.WriteString(buf.String()[0:size])
 	return a
 }
 
@@ -120,7 +134,7 @@ func (o *hkf) Run(ctx context.Context) {
 
 	defer func() {
 		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", o.getFilepath(), rec)
+			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on run function in golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", o.getFilepath(), rec)
 		}
 		//flush buffer before exit function
 		if b.Len() > 0 {

@@ -32,12 +32,12 @@ import (
 	liblog "github.com/nabbar/golib/logger"
 )
 
-func New(logger liblog.Logger) hclog.Logger {
+func New(logger liblog.FuncLog) hclog.Logger {
 	return &_hclog{
 		l: logger,
 	}
 }
 
-func SetDefault(log liblog.Logger) {
+func SetDefault(log liblog.FuncLog) {
 	hclog.SetDefault(New(log))
 }

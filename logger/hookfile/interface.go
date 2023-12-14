@@ -36,6 +36,7 @@ import (
 	logcfg "github.com/nabbar/golib/logger/config"
 	loglvl "github.com/nabbar/golib/logger/level"
 	logtps "github.com/nabbar/golib/logger/types"
+	libsiz "github.com/nabbar/golib/size"
 	"github.com/sirupsen/logrus"
 )
 
@@ -78,6 +79,7 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 	n := &hkf{
 		s: new(atomic.Value),
 		d: new(atomic.Value),
+		b: new(atomic.Int64),
 		o: ohkf{
 			format:           format,
 			flags:            flags,
@@ -91,6 +93,12 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 			fileMode:         opt.FileMode,
 			pathMode:         opt.PathMode,
 		},
+	}
+
+	if opt.FileBufferSize <= libsiz.SizeKilo {
+		n.b.Store(opt.FileBufferSize.Int64())
+	} else {
+		n.b.Store(sizeBuffer)
 	}
 
 	if opt.CreatePath {
