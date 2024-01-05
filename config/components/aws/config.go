@@ -32,6 +32,7 @@ import (
 	cfgcus "github.com/nabbar/golib/aws/configCustom"
 	libhtc "github.com/nabbar/golib/httpcli"
 	libreq "github.com/nabbar/golib/request"
+	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -117,11 +118,11 @@ func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libh
 		flg = o._getFlagUpdate()
 		mon *libreq.OptionsHealth
 		htc *libhtc.Options
-		vpr *spfvpr.Viper
+		vpr libvpr.Viper
 		err error
 	)
 
-	if vpr = o._getSPFViper(); vpr == nil {
+	if vpr = o._getViper(); vpr == nil {
 		return nil, nil, nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, nil, nil, ErrorComponentNotInitialized.Error(nil)

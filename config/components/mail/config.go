@@ -28,6 +28,7 @@ package mail
 
 import (
 	libmail "github.com/nabbar/golib/mail"
+	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -81,11 +82,11 @@ func (o *componentMail) _getConfig() (*libmail.Config, error) {
 	var (
 		key string
 		cfg libmail.Config
-		vpr *spfvpr.Viper
+		vpr libvpr.Viper
 		err error
 	)
 
-	if vpr = o._getSPFViper(); vpr == nil {
+	if vpr = o._getViper(); vpr == nil {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, ErrorComponentNotInitialized.Error(nil)

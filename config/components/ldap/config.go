@@ -28,8 +28,8 @@ package ldap
 
 import (
 	lbldap "github.com/nabbar/golib/ldap"
+	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
-	spfvpr "github.com/spf13/viper"
 )
 
 func (o *componentLDAP) RegisterFlag(Command *spfcbr.Command) error {
@@ -40,11 +40,11 @@ func (o *componentLDAP) _getConfig() (*lbldap.Config, error) {
 	var (
 		key string
 		cfg lbldap.Config
-		vpr *spfvpr.Viper
+		vpr libvpr.Viper
 		err error
 	)
 
-	if vpr = o._getSPFViper(); vpr == nil {
+	if vpr = o._getViper(); vpr == nil {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, ErrorComponentNotInitialized.Error(nil)

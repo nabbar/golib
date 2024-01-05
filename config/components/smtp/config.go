@@ -29,6 +29,7 @@ package smtp
 import (
 	libmon "github.com/nabbar/golib/monitor/types"
 	smtpcf "github.com/nabbar/golib/smtp/config"
+	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -58,11 +59,11 @@ func (o *componentSmtp) _getConfig() (smtpcf.Config, *libmon.Config, error) {
 	var (
 		key string
 		cfg smtpcf.ConfigModel
-		vpr *spfvpr.Viper
+		vpr libvpr.Viper
 		err error
 	)
 
-	if vpr = o._getSPFViper(); vpr == nil {
+	if vpr = o._getViper(); vpr == nil {
 		return nil, nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, nil, ErrorComponentNotInitialized.Error(nil)

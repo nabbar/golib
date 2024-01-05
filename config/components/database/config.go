@@ -29,6 +29,8 @@ package database
 import (
 	"time"
 
+	libvpr "github.com/nabbar/golib/viper"
+
 	"github.com/nabbar/golib/database/gorm"
 
 	spfcbr "github.com/spf13/cobra"
@@ -111,11 +113,11 @@ func (o *componentDatabase) _getConfig() (*gorm.Config, error) {
 	var (
 		key string
 		cfg gorm.Config
-		vpr *spfvpr.Viper
+		vpr libvpr.Viper
 		err error
 	)
 
-	if vpr = o._getSPFViper(); vpr == nil {
+	if vpr = o._getViper(); vpr == nil {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, ErrorComponentNotInitialized.Error(nil)
