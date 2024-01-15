@@ -27,34 +27,30 @@
 package oauth
 
 import (
-	"github.com/nabbar/golib/errors"
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	ErrorEmptyParams errors.CodeError = iota + errors.MinPkgOAuth
+	ErrorEmptyParams liberr.CodeError = iota + liberr.MinPkgOAuth
 	ErrorOAuthExchange
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorEmptyParams)
-	errors.RegisterIdFctMessage(ErrorEmptyParams, getMessage)
+	if liberr.ExistInMapMessage(ErrorEmptyParams) {
+		panic(fmt.Errorf("error code collision with package golib/config"))
+	}
+	liberr.RegisterIdFctMessage(ErrorEmptyParams, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
 	case ErrorEmptyParams:
 		return "given parameters is empty"
 	case ErrorOAuthExchange:
 		return "code seems to be invalid when trying to get token from it"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

@@ -52,8 +52,6 @@ func init() {
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case liberr.UNK_ERROR:
-		return ""
 	case ErrorParamEmpty:
 		return "given parameters is empty"
 	case ErrorFileStat:

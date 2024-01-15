@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	filterPkg = path.Clean(ConvPathFromLocal(reflect.TypeOf(UNK_ERROR).PkgPath()))
+	filterPkg = path.Clean(ConvPathFromLocal(reflect.TypeOf(UnknownError).PkgPath()))
 	currPkgs  = path.Base(ConvPathFromLocal(filterPkg))
 )
 

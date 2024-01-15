@@ -2,15 +2,15 @@ module github.com/nabbar/golib
 
 go 1.21
 
-toolchain go1.21.4
+toolchain go1.21.5
 
 require (
-	github.com/aws/aws-sdk-go v1.49.15
+	github.com/aws/aws-sdk-go v1.49.21
 	github.com/aws/aws-sdk-go-v2 v1.24.1
 	github.com/aws/aws-sdk-go-v2/config v1.26.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.14
 	github.com/aws/aws-sdk-go-v2/service/iam v1.28.7
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.47.8
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.48.0
 	github.com/aws/smithy-go v1.19.0
 	github.com/bits-and-blooms/bitset v1.13.0
 	github.com/c-bata/go-prompt v0.2.6
@@ -19,7 +19,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.5.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-ldap/ldap/v3 v3.4.6
-	github.com/go-playground/validator/v10 v10.16.0
+	github.com/go-playground/validator/v10 v10.17.0
 	github.com/google/go-github/v33 v33.0.0
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/hashicorp/go-retryablehttp v0.7.5
@@ -32,10 +32,10 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nats-io/jwt/v2 v2.5.3
-	github.com/nats-io/nats-server/v2 v2.10.7
-	github.com/nats-io/nats.go v1.31.0
+	github.com/nats-io/nats-server/v2 v2.10.9
+	github.com/nats-io/nats.go v1.32.0
 	github.com/nutsdb/nutsdb v0.14.3
-	github.com/onsi/ginkgo/v2 v2.13.2
+	github.com/onsi/ginkgo/v2 v2.14.0
 	github.com/onsi/gomega v1.30.0
 	github.com/pelletier/go-toml v1.9.5
 	github.com/prometheus/client_golang v1.18.0
@@ -49,9 +49,9 @@ require (
 	github.com/xanzy/go-gitlab v0.95.2
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
 	github.com/xujiajun/utils v0.0.0-20220904132955-5f7c5b914235
-	golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc
-	golang.org/x/net v0.19.0
-	golang.org/x/oauth2 v0.15.0
+	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3
+	golang.org/x/net v0.20.0
+	golang.org/x/oauth2 v0.16.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.16.0
 	golang.org/x/term v0.16.0
@@ -66,7 +66,7 @@ require (
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
-	github.com/ClickHouse/ch-go v0.61.0 // indirect
+	github.com/ClickHouse/ch-go v0.61.1 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.17.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
@@ -75,7 +75,7 @@ require (
 	github.com/VictoriaMetrics/metrics v1.6.2 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
-	github.com/andybalholm/brotli v1.0.6 // indirect
+	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/antlabs/stl v0.0.1 // indirect
 	github.com/antlabs/timer v0.0.12 // indirect
@@ -142,7 +142,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
-	github.com/jackc/pgx/v5 v5.5.1 // indirect
+	github.com/jackc/pgx/v5 v5.5.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -172,9 +172,9 @@ require (
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
-	github.com/paulmach/orb v0.10.0 // indirect
+	github.com/paulmach/orb v0.11.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
-	github.com/pierrec/lz4/v4 v4.1.19 // indirect
+	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.2.0-beta.2 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
@@ -207,10 +207,10 @@ require (
 	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.7.0 // indirect
-	golang.org/x/crypto v0.17.0 // indirect
+	golang.org/x/crypto v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/tools v0.17.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

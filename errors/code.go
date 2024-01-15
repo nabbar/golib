@@ -39,11 +39,8 @@ var idMsgFct = make(map[CodeError]Message)
 type Message func(code CodeError) (message string)
 type CodeError uint16
 
-const UNK_ERROR CodeError = 0
 const UnknownError CodeError = 0
-const UNK_MESSAGE = "unknown error"
 const UnknownMessage = "unknown error"
-const NUL_MESSAGE = ""
 const NullMessage = ""
 
 func (c CodeError) GetUint16() uint16 {

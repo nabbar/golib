@@ -27,7 +27,11 @@
 
 package nats
 
-import liberr "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
 	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgNutsDB
@@ -47,21 +51,15 @@ const (
 	ErrorServerStart
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = liberr.ExistInMapMessage(ErrorParamsEmpty)
+	if liberr.ExistInMapMessage(ErrorParamsEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/nats"))
+	}
 	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case liberr.UNK_ERROR:
-		return ""
 	case ErrorParamsEmpty:
 		return "at least one given parameter is empty"
 	case ErrorParamsMissing:
@@ -80,5 +78,5 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "cannot start new client connection to cluster"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

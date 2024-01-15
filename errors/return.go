@@ -35,31 +35,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type ReturnError func(code int, msg string, file string, line int)
-
-type Return interface {
-	SetError(code int, msg string, file string, line int)
-	AddParent(code int, msg string, file string, line int)
-}
-
-type ReturnGin interface {
-	Return
-
-	GinTonicAbort(ctx *gin.Context, httpCode int)
-	GinTonicErrorAbort(ctx *gin.Context, httpCode int)
-}
-
 type DefaultReturn struct {
 	Code    string
 	Message string
 	err     []error
-}
-
-func NewDefaultReturn() *DefaultReturn {
-	return &DefaultReturn{
-		Code:    "",
-		Message: "",
-	}
 }
 
 func (r *DefaultReturn) SetError(code int, msg string, file string, line int) {

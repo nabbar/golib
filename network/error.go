@@ -26,31 +26,29 @@
 
 package network
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgNetwork
+	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgNetwork
 	ErrorNetCounter
 	ErrorNetInterface
 	ErrorNetNotFound
 	ErrorNetReload
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamsEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/network"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
 	case ErrorNetCounter:
@@ -63,5 +61,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "cannot reload interface"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

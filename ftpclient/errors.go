@@ -26,10 +26,14 @@
 
 package ftpclient
 
-import "github.com/nabbar/golib/errors"
+import (
+	"fmt"
+
+	liberr "github.com/nabbar/golib/errors"
+)
 
 const (
-	ErrorParamsEmpty errors.CodeError = iota + errors.MinPkgFTPClient
+	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgFTPClient
 	ErrorValidatorError
 	ErrorEndpointParser
 	ErrorNotInitialized
@@ -39,21 +43,15 @@ const (
 	ErrorFTPCommand
 )
 
-var isCodeError = false
-
-func IsCodeError() bool {
-	return isCodeError
-}
-
 func init() {
-	isCodeError = errors.ExistInMapMessage(ErrorParamsEmpty)
-	errors.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
+	if liberr.ExistInMapMessage(ErrorParamsEmpty) {
+		panic(fmt.Errorf("error code collision with package golib/ftpclient"))
+	}
+	liberr.RegisterIdFctMessage(ErrorParamsEmpty, getMessage)
 }
 
-func getMessage(code errors.CodeError) (message string) {
+func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case errors.UNK_ERROR:
-		return ""
 	case ErrorParamsEmpty:
 		return "given parameters is empty"
 	case ErrorValidatorError:
@@ -70,5 +68,5 @@ func getMessage(code errors.CodeError) (message string) {
 		return "ftp client : command to server trigger an error"
 	}
 
-	return ""
+	return liberr.NullMessage
 }

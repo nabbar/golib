@@ -68,8 +68,6 @@ func init() {
 
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
-	case liberr.UNK_ERROR:
-		return ""
 	case ErrorParamsEmpty:
 		return "at least one given parameter is empty"
 	case ErrorParamsMissing:
@@ -112,5 +110,5 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "cluster engine config seems to be invalid"
 	}
 
-	return ""
+	return liberr.NullMessage
 }
