@@ -42,11 +42,7 @@ var _ = Describe("Role", func() {
 
 	Context("Creation", func() {
 		It("Must fail with invalid json", func() {
-			/*			if minioMode {
-							err = fmt.Errorf("backend not compatible following AWS API reference")
-						} else {
-			*/_, err = cli.Role().Add(name, "{}")
-			//			}
+			_, err = cli.Role().Add(name, "{}")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Must succeed", func() {
@@ -60,11 +56,7 @@ var _ = Describe("Role", func() {
 	})
 	Context("Attach", func() {
 		It("Must fail with invalid params", func() {
-			/*			if minioMode {
-							err = fmt.Errorf("backend not compatible following AWS API reference")
-						} else {
-			*/err = cli.Role().PolicyAttach("policyArn", "roleName")
-			//			}
+			err = cli.Role().PolicyAttach("policyArn", "roleName")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Must succeed", func() {
@@ -85,11 +77,7 @@ var _ = Describe("Role", func() {
 	})
 	Context("List attached policies to role", func() {
 		It("Must fail with invalid role name", func() {
-			/*			if minioMode {
-							err = fmt.Errorf("backend not compatible following AWS API reference")
-						} else {
-			*/_, err = cli.Role().PolicyListAttached("invalidRoleName")
-			//			}
+			_, err = cli.Role().PolicyListAttached("invalidRoleName")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Must return 1 policy", func() {
@@ -113,11 +101,7 @@ var _ = Describe("Role", func() {
 	})
 	Context("Detach", func() {
 		It("Must fail with invalid params", func() {
-			/*			if minioMode {
-							err = fmt.Errorf("backend not compatible following AWS API reference")
-						} else {
-			*/err = cli.Role().PolicyDetach("policyArn", "roleName")
-			//			}
+			err = cli.Role().PolicyDetach("policyArn", "roleName")
 			Expect(err).To(HaveOccurred())
 		})
 		It("Must succeed", func() {
@@ -151,12 +135,7 @@ var _ = Describe("Role", func() {
 			Expect(roleArn).To(Equal(arn))
 		})
 		It("Must fail with invalid name", func() {
-			/*			if minioMode {
-							err = nil
-						} else {
-			*/_, err = cli.Role().Check("invalid name")
-			//			}
-
+			_, err = cli.Role().Check("invalid name")
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -189,11 +168,7 @@ var _ = Describe("Role", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("Must fail", func() {
-			/*			if minioMode {
-							err = fmt.Errorf("backend not compatible following AWS API reference")
-						} else {
-			*/err = cli.Role().Delete(name)
-			//			}
+			err = cli.Role().Delete(name)
 			Expect(err).To(HaveOccurred())
 		})
 	})

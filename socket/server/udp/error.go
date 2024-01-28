@@ -29,9 +29,8 @@ package udp
 import "fmt"
 
 var (
-	ErrInvalidAddress  = fmt.Errorf("invalid listen address")
-	ErrInvalidHostName = fmt.Errorf("invalid server host name")
-	ErrInvalidHostPort = fmt.Errorf("invalid server host port")
-	ErrContextClosed   = fmt.Errorf("context closed")
-	ErrServerClosed    = fmt.Errorf("server closed")
+	ErrInvalidAddress = fmt.Errorf("invalid listen address")
+	ErrContextClosed  = fmt.Errorf("context closed")
+	ErrServerClosed   = fmt.Errorf("server closed")
+	ErrInvalidHandler = fmt.Errorf("invalid handler")
 )

@@ -30,10 +30,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
-	"net/url"
-	"strconv"
 	"sync/atomic"
-	"time"
+
+	libptc "github.com/nabbar/golib/network/protocol"
 
 	libtls "github.com/nabbar/golib/certificates"
 	libsck "github.com/nabbar/golib/socket"
@@ -64,10 +63,7 @@ type srv struct {
 	fi *atomic.Value // function info
 	fs *atomic.Value // function info server
 
-	tr *atomic.Value // connection read timeout
-	tw *atomic.Value // connection write timeout
 	sr *atomic.Int32 // read buffer size
-
 	ad *atomic.Value // Server address url
 }
 
@@ -134,38 +130,14 @@ func (o *srv) RegisterFuncInfoServer(f libsck.FuncInfoSrv) {
 	o.fs.Store(f)
 }
 
-func (o *srv) SetReadTimeout(d time.Duration) {
-	if o == nil {
-		return
-	}
-
-	o.tr.Store(d)
-}
-
-func (o *srv) SetWriteTimeout(d time.Duration) {
-	if o == nil {
-		return
-	}
-
-	o.tw.Store(d)
-}
-
 func (o *srv) RegisterServer(address string) error {
-	var u = &url.URL{
-		Host: address,
+	if len(address) < 1 {
+		return ErrInvalidAddress
+	} else if _, err := net.ResolveTCPAddr(libptc.NetworkTCP.Code(), address); err != nil {
+		return err
 	}
 
-	if len(u.Hostname()) < 1 {
-		return ErrInvalidHostName
-	} else if len(u.Port()) < 1 {
-		return ErrInvalidHostPort
-	} else if i, e := strconv.Atoi(u.Port()); e != nil {
-		return e
-	} else if i < 1 || i > 65534 {
-		return ErrInvalidHostPort
-	}
-
-	o.ad.Store(u)
+	o.ad.Store(address)
 	return nil
 }
 

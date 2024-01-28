@@ -27,9 +27,12 @@
 package udp
 
 import (
-	"net/url"
-	"strconv"
+	"net"
 	"sync/atomic"
+
+	libsiz "github.com/nabbar/golib/size"
+
+	libptc "github.com/nabbar/golib/network/protocol"
 
 	libsck "github.com/nabbar/golib/socket"
 )
@@ -38,31 +41,25 @@ type ClientUDP interface {
 	libsck.Client
 }
 
-func New(address string) (ClientUDP, error) {
+func New(buffSizeRead libsiz.Size, address string) (ClientUDP, error) {
 	var (
 		a = new(atomic.Value)
-		u = &url.URL{
-			Host: address,
-		}
+		s = new(atomic.Int32)
 	)
 
-	if len(u.Hostname()) < 1 {
-		return nil, ErrHostName
-	} else if len(u.Port()) < 1 {
-		return nil, ErrHostPort
-	} else if i, e := strconv.Atoi(u.Port()); e != nil {
-		return nil, e
-	} else if i < 1 || i > 65534 {
-		return nil, ErrHostPort
-	} else {
-		a.Store(u)
+	if len(address) < 1 {
+		return nil, ErrAddress
+	} else if _, err := net.ResolveUDPAddr(libptc.NetworkUDP.Code(), address); err != nil {
+		return nil, err
 	}
 
-	return &cltu{
-		a:  a,
-		e:  new(atomic.Value),
-		i:  new(atomic.Value),
-		tr: new(atomic.Value),
-		tw: new(atomic.Value),
+	a.Store(address)
+	s.Store(buffSizeRead.Int32())
+
+	return &cli{
+		a: a,
+		s: s,
+		e: new(atomic.Value),
+		i: new(atomic.Value),
 	}, nil
 }

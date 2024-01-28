@@ -56,6 +56,8 @@ func (n NetworkProtocol) String() string {
 		return "ip4"
 	case NetworkIP6:
 		return "ip6"
+	case NetworkUnixGram:
+		return "UnixGram"
 	default:
 		return ""
 	}

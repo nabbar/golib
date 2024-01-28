@@ -27,52 +27,52 @@
 package tcp
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
 	"io"
 	"net"
-	"net/url"
-	"time"
 
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
 
-func (o *srv) timeoutRead() time.Time {
-	v := o.tr.Load()
-	if v != nil {
-		return time.Now().Add(v.(time.Duration))
-	}
-
-	return time.Time{}
-}
-
-func (o *srv) timeoutWrite() time.Time {
-	v := o.tw.Load()
-	if v != nil {
-		return time.Now().Add(v.(time.Duration))
-	}
-
-	return time.Time{}
-}
-
-func (o *srv) buffRead() *bytes.Buffer {
+func (o *srv) buffSize() int {
 	v := o.sr.Load()
 	if v > 0 {
-		return bytes.NewBuffer(make([]byte, 0, int(v)))
+		return int(v)
 	}
 
-	return bytes.NewBuffer(make([]byte, 0, libsck.DefaultBufferSize))
+	return libsck.DefaultBufferSize
 }
 
-func (o *srv) getAddress() *url.URL {
+func (o *srv) getAddress() string {
 	f := o.ad.Load()
+
 	if f != nil {
-		return f.(*url.URL)
+		return f.(string)
 	}
 
-	return nil
+	return ""
+}
+
+func (o *srv) getListen(addr string) (net.Listener, error) {
+	var (
+		lis net.Listener
+		err error
+	)
+
+	if lis, err = net.Listen(libptc.NetworkTCP.Code(), addr); err != nil {
+		return lis, err
+	} else if t := o.getTLS(); t != nil {
+		lis = tls.NewListener(lis, t)
+		o.fctInfoSrv("starting listening socket 'TLS %s %s'", libptc.NetworkTCP.String(), addr)
+	} else {
+		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkTCP.String(), addr)
+	}
+
+	return lis, nil
 }
 
 func (o *srv) Listen(ctx context.Context) error {
@@ -82,28 +82,21 @@ func (o *srv) Listen(ctx context.Context) error {
 		a = o.getAddress()
 	)
 
-	if a == nil {
-		return ErrInvalidAddress
-	} else if t := o.getTLS(); t == nil {
-		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkTCP.String(), a.Host)
-		l, e = net.Listen(libptc.NetworkTCP.Code(), a.Host)
-	} else {
-		o.fctInfoSrv("starting listening socket 'TLS %s %s'", libptc.NetworkTCP.String(), a.Host)
-		l, e = tls.Listen(libptc.NetworkTCP.Code(), a.Host, t)
-	}
-
-	if e != nil {
-		o.fctError(e)
-		return e
-	}
-
 	var fctClose = func() {
+		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkTCP.String(), a)
 		if l != nil {
 			o.fctError(l.Close())
 		}
 	}
 
 	defer fctClose()
+
+	if len(a) == 0 {
+		return ErrInvalidAddress
+	} else if l, e = o.getListen(a); e != nil {
+		o.fctError(e)
+		return e
+	}
 
 	// Accept new connection or stop if context or shutdown trigger
 	for {
@@ -116,7 +109,11 @@ func (o *srv) Listen(ctx context.Context) error {
 			// Accept an incoming connection.
 			if l == nil {
 				return ErrServerClosed
-			} else if co, ce := l.Accept(); ce != nil {
+			}
+
+			co, ce := l.Accept()
+
+			if ce != nil {
 				o.fctError(ce)
 			} else {
 				go o.Conn(co)
@@ -126,52 +123,36 @@ func (o *srv) Listen(ctx context.Context) error {
 }
 
 func (o *srv) Conn(conn net.Conn) {
-	defer o.fctError(conn.Close())
+	defer func() {
+		o.fctInfo(conn.LocalAddr(), conn.RemoteAddr(), libsck.ConnectionClose)
+		_ = conn.Close()
+	}()
+
+	o.fctInfo(conn.LocalAddr(), conn.RemoteAddr(), libsck.ConnectionNew)
 
 	var (
-		lc = conn.LocalAddr()
-		rm = conn.RemoteAddr()
-		tr = o.timeoutRead()
-		tw = o.timeoutWrite()
-		br = o.buffRead()
+		err error
+		rdr = bufio.NewReaderSize(conn, o.buffSize())
+		buf []byte
+		hdl libsck.Handler
 	)
 
-	defer o.fctInfo(lc, rm, libsck.ConnectionClose)
-	o.fctInfo(lc, rm, libsck.ConnectionNew)
-
-	if !tr.IsZero() {
-		if e := conn.SetReadDeadline(tr); e != nil {
-			o.fctError(e)
-			return
-		}
-	}
-
-	if !tw.IsZero() {
-		if e := conn.SetReadDeadline(tw); e != nil {
-			o.fctError(e)
-			return
-		}
-	}
-
-	o.fctInfo(lc, rm, libsck.ConnectionRead)
-	if _, e := io.Copy(br, conn); e != nil {
-		o.fctError(e)
+	if hdl = o.handler(); hdl == nil {
 		return
 	}
 
-	o.fctInfo(lc, rm, libsck.ConnectionCloseRead)
-	if e := conn.(*net.TCPConn).CloseRead(); e != nil {
-		o.fctError(e)
-		return
-	}
+	for {
+		buf, err = rdr.ReadBytes('\n')
 
-	if h := o.handler(); h != nil {
-		o.fctInfo(lc, rm, libsck.ConnectionHandler)
-		h(br, conn)
-	}
+		o.fctInfo(conn.LocalAddr(), conn.RemoteAddr(), libsck.ConnectionRead)
+		if err != nil {
+			if err != io.EOF {
+				o.fctError(err)
+			}
+			break
+		}
 
-	o.fctInfo(lc, rm, libsck.ConnectionCloseWrite)
-	if e := conn.(*net.TCPConn).CloseWrite(); e != nil {
-		o.fctError(e)
+		o.fctInfo(conn.LocalAddr(), conn.RemoteAddr(), libsck.ConnectionHandler)
+		hdl(bytes.NewBuffer(buf), conn)
 	}
 }

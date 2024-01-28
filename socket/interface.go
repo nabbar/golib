@@ -30,7 +30,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"time"
 
 	libtls "github.com/nabbar/golib/certificates"
 )
@@ -83,9 +82,6 @@ type Server interface {
 	RegisterFuncError(f FuncError)
 	RegisterFuncInfo(f FuncInfo)
 	RegisterFuncInfoServer(f FuncInfoSrv)
-
-	SetReadTimeout(d time.Duration)
-	SetWriteTimeout(d time.Duration)
 
 	SetTLS(enable bool, config libtls.TLSConfig) error
 	Listen(ctx context.Context) error

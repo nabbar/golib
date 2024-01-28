@@ -28,6 +28,7 @@ package config
 
 import (
 	libptc "github.com/nabbar/golib/network/protocol"
+	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 	sckclt "github.com/nabbar/golib/socket/client"
 )
@@ -35,7 +36,7 @@ import (
 type ClientConfig struct {
 	Network      libptc.NetworkProtocol ``
 	Address      string
-	ReadBuffSize int32
+	ReadBuffSize libsiz.Size
 }
 
 func (o ClientConfig) New() (libsck.Client, error) {

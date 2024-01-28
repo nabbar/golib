@@ -24,42 +24,6 @@
  *
  */
 
-package tcp
+package unixgram
 
-import (
-	"net"
-	"sync/atomic"
-
-	libptc "github.com/nabbar/golib/network/protocol"
-
-	libsiz "github.com/nabbar/golib/size"
-
-	libsck "github.com/nabbar/golib/socket"
-)
-
-type ClientTCP interface {
-	libsck.Client
-}
-
-func New(buffSizeRead libsiz.Size, address string) (ClientTCP, error) {
-	var (
-		a = new(atomic.Value)
-		s = new(atomic.Int32)
-	)
-
-	if len(address) < 1 {
-		return nil, ErrAddress
-	} else if _, err := net.ResolveTCPAddr(libptc.NetworkTCP.Code(), address); err != nil {
-		return nil, err
-	}
-
-	a.Store(address)
-	s.Store(buffSizeRead.Int32())
-
-	return &cli{
-		a: a,
-		s: s,
-		e: new(atomic.Value),
-		i: new(atomic.Value),
-	}, nil
-}
+// this file is to prevent error on build with system not compatible with unix

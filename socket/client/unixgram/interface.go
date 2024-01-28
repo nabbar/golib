@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * MIT License
  *
@@ -24,36 +27,27 @@
  *
  */
 
-package tcp
+package unixgram
 
 import (
-	"net"
 	"sync/atomic"
-
-	libptc "github.com/nabbar/golib/network/protocol"
 
 	libsiz "github.com/nabbar/golib/size"
 
 	libsck "github.com/nabbar/golib/socket"
 )
 
-type ClientTCP interface {
+type ClientUnix interface {
 	libsck.Client
 }
 
-func New(buffSizeRead libsiz.Size, address string) (ClientTCP, error) {
+func New(buffSizeRead libsiz.Size, unixfile string) ClientUnix {
 	var (
 		a = new(atomic.Value)
 		s = new(atomic.Int32)
 	)
 
-	if len(address) < 1 {
-		return nil, ErrAddress
-	} else if _, err := net.ResolveTCPAddr(libptc.NetworkTCP.Code(), address); err != nil {
-		return nil, err
-	}
-
-	a.Store(address)
+	a.Store(unixfile)
 	s.Store(buffSizeRead.Int32())
 
 	return &cli{
@@ -61,5 +55,5 @@ func New(buffSizeRead libsiz.Size, address string) (ClientTCP, error) {
 		s: s,
 		e: new(atomic.Value),
 		i: new(atomic.Value),
-	}, nil
+	}
 }

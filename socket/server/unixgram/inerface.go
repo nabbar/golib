@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * MIT License
  *
@@ -24,42 +27,60 @@
  *
  */
 
-package tcp
+package unixgram
 
 import (
-	"net"
+	"os"
 	"sync/atomic"
 
-	libptc "github.com/nabbar/golib/network/protocol"
-
 	libsiz "github.com/nabbar/golib/size"
-
 	libsck "github.com/nabbar/golib/socket"
 )
 
-type ClientTCP interface {
-	libsck.Client
+const maxGID = 32767
+
+type ServerUnixGram interface {
+	libsck.Server
+	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
 }
 
-func New(buffSizeRead libsiz.Size, address string) (ClientTCP, error) {
-	var (
-		a = new(atomic.Value)
-		s = new(atomic.Int32)
-	)
+func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerUnixGram {
+	c := new(atomic.Value)
+	c.Store(make(chan []byte))
 
-	if len(address) < 1 {
-		return nil, ErrAddress
-	} else if _, err := net.ResolveTCPAddr(libptc.NetworkTCP.Code(), address); err != nil {
-		return nil, err
+	s := new(atomic.Value)
+	s.Store(make(chan struct{}))
+
+	f := new(atomic.Value)
+	f.Store(h)
+
+	// socket read buff size
+	sr := new(atomic.Int32)
+	sr.Store(sizeBuffRead.Int32())
+
+	// socket file
+	sf := new(atomic.Value)
+	sf.Store("")
+
+	// socket permission
+	sp := new(atomic.Int64)
+	sp.Store(0)
+
+	// socket group permission
+	sg := new(atomic.Int32)
+	sg.Store(0)
+
+	return &srv{
+		l:  nil,
+		h:  f,
+		c:  c,
+		s:  s,
+		fe: new(atomic.Value),
+		fi: new(atomic.Value),
+		fs: new(atomic.Value),
+		sr: sr,
+		sf: sf,
+		sp: sp,
+		sg: sg,
 	}
-
-	a.Store(address)
-	s.Store(buffSizeRead.Int32())
-
-	return &cli{
-		a: a,
-		s: s,
-		e: new(atomic.Value),
-		i: new(atomic.Value),
-	}, nil
 }

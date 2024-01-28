@@ -30,6 +30,7 @@
 package unix
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -40,45 +41,24 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	libptc "github.com/nabbar/golib/network/protocol"
+
 	libsck "github.com/nabbar/golib/socket"
 )
 
-func (o *srv) timeoutRead() time.Time {
-	v := o.tr.Load()
-	if v == nil {
-		return time.Time{}
-	} else if d, k := v.(time.Duration); !k {
-		return time.Time{}
-	} else if d > 0 {
-		return time.Now().Add(v.(time.Duration))
+func (o *srv) buffSize() int {
+	v := o.sr.Load()
+
+	if v > 0 {
+		return int(v)
 	}
 
-	return time.Time{}
-}
-
-func (o *srv) timeoutWrite() time.Time {
-	v := o.tw.Load()
-	if v == nil {
-		return time.Time{}
-	} else if d, k := v.(time.Duration); !k {
-		return time.Time{}
-	} else if d > 0 {
-		return time.Now().Add(v.(time.Duration))
-	}
-
-	return time.Time{}
+	return libsck.DefaultBufferSize
 }
 
 func (o *srv) buffRead() *bytes.Buffer {
-	v := o.sr.Load()
-	if v > 0 {
-		return bytes.NewBuffer(make([]byte, 0, int(v)))
-	}
-
-	return bytes.NewBuffer(make([]byte, 0, libsck.DefaultBufferSize))
+	return bytes.NewBuffer(make([]byte, o.buffSize()))
 }
 
 func (o *srv) getSocketFile() (string, error) {
@@ -99,6 +79,20 @@ func (o *srv) getSocketPerm() os.FileMode {
 	return os.FileMode(0770)
 }
 
+func (o *srv) getSocketGroup() int {
+	p := o.sg.Load()
+	if p >= 0 {
+		return int(p)
+	}
+
+	gid := syscall.Getgid()
+	if gid <= maxGID {
+		return gid
+	}
+
+	return 0
+}
+
 func (o *srv) checkFile(unixFile string) (string, error) {
 	if len(unixFile) < 1 {
 		return unixFile, fmt.Errorf("missing socket file path")
@@ -117,46 +111,72 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 	return unixFile, nil
 }
 
+func (o *srv) getListen(uxf string) (net.Listener, error) {
+	var (
+		err error
+		prm = o.getSocketPerm()
+		grp = o.getSocketGroup()
+		old int
+		inf fs.FileInfo
+		lis net.Listener
+	)
+
+	old = syscall.Umask(int(prm))
+	defer func() {
+		syscall.Umask(old)
+	}()
+
+	if lis, err = net.Listen(libptc.NetworkUnix.Code(), uxf); err != nil {
+		return nil, err
+	} else if inf, err = os.Stat(uxf); err != nil {
+		_ = lis.Close()
+		return nil, err
+	} else if inf.Mode() != prm {
+		if err = os.Chmod(uxf, prm); err != nil {
+			_ = lis.Close()
+			return nil, err
+		}
+	}
+
+	if stt, ok := inf.Sys().(*syscall.Stat_t); ok {
+		if int(stt.Gid) != grp {
+			if err = os.Chown(uxf, syscall.Getuid(), grp); err != nil {
+				_ = lis.Close()
+				return nil, err
+			}
+		}
+	}
+
+	o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUnix.String(), uxf)
+	return lis, nil
+}
+
 func (o *srv) Listen(ctx context.Context) error {
 	var (
 		e error
-		i fs.FileInfo
+		f string
 		l net.Listener
-
-		perm     = o.getSocketPerm()
-		unixFile string
-
-		p = syscall.Umask(int(perm))
 	)
 
-	if unixFile, e = o.getSocketFile(); e != nil {
-		return e
-	} else if l, e = net.Listen(libptc.NetworkUnix.Code(), unixFile); e != nil {
-		return e
-	} else if i, e = os.Stat(unixFile); e != nil {
+	if f, e = o.getSocketFile(); e != nil {
 		return e
 	}
-
-	syscall.Umask(p)
 
 	var fctClose = func() {
 		if l != nil {
 			o.fctError(l.Close())
 		}
 
-		if i, e = os.Stat(unixFile); e == nil {
-			o.fctError(os.Remove(unixFile))
+		if _, e = os.Stat(f); e == nil {
+			o.fctError(os.Remove(f))
 		}
 	}
 
-	o.fctInfoSrv("starting listening socket 'TLS %s %s'", libptc.NetworkUnix.String(), unixFile)
+	if l, e = o.getListen(f); e != nil {
+		return e
+	}
+
 	defer fctClose()
-
-	if i.Mode() != perm {
-		if e = os.Chmod(unixFile, perm); e != nil {
-			return e
-		}
-	}
 
 	// Accept new connection or stop if context or shutdown trigger
 	for {
@@ -172,63 +192,44 @@ func (o *srv) Listen(ctx context.Context) error {
 			} else if co, ce := l.Accept(); ce != nil {
 				o.fctError(ce)
 			} else {
+				o.fctInfo(co.LocalAddr(), co.RemoteAddr(), libsck.ConnectionNew)
 				go o.Conn(co)
 			}
 		}
 	}
 }
 
-func (o *srv) Conn(conn net.Conn) {
+func (o *srv) Conn(con net.Conn) {
 	defer func() {
-		e := conn.Close()
-		o.fctError(e)
+		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
+		_ = con.Close()
 	}()
 
+	o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionNew)
+
 	var (
-		lc = conn.LocalAddr()
-		rm = conn.RemoteAddr()
-		tr = o.timeoutRead()
-		tw = o.timeoutWrite()
-		br = o.buffRead()
+		err error
+		rdr = bufio.NewReaderSize(con, o.buffSize())
+		buf []byte
+		hdl libsck.Handler
 	)
 
-	defer o.fctInfo(lc, rm, libsck.ConnectionClose)
-
-	o.fctInfo(lc, rm, libsck.ConnectionNew)
-
-	if !tr.IsZero() {
-		if e := conn.SetReadDeadline(tr); e != nil {
-			o.fctError(e)
-			return
-		}
-	}
-
-	if !tw.IsZero() {
-		if e := conn.SetReadDeadline(tw); e != nil {
-			o.fctError(e)
-			return
-		}
-	}
-
-	o.fctInfo(lc, rm, libsck.ConnectionRead)
-	if _, e := io.Copy(br, conn); e != nil {
-		o.fctError(e)
+	if hdl = o.handler(); hdl == nil {
 		return
 	}
 
-	o.fctInfo(lc, rm, libsck.ConnectionCloseRead)
-	if e := conn.(*net.UnixConn).CloseRead(); e != nil {
-		o.fctError(e)
-		return
-	}
+	for {
+		buf, err = rdr.ReadBytes('\n')
 
-	if h := o.handler(); h != nil {
-		o.fctInfo(lc, rm, libsck.ConnectionHandler)
-		h(br, conn)
-	}
+		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionRead)
+		if err != nil {
+			if err != io.EOF {
+				o.fctError(err)
+			}
+			break
+		}
 
-	o.fctInfo(lc, rm, libsck.ConnectionCloseWrite)
-	if e := conn.(*net.UnixConn).CloseWrite(); e != nil {
-		o.fctError(e)
+		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionHandler)
+		hdl(bytes.NewBuffer(buf), con)
 	}
 }

@@ -34,7 +34,8 @@ import (
 	"net"
 	"os"
 	"sync/atomic"
-	"time"
+
+	libptc "github.com/nabbar/golib/network/protocol"
 
 	libtls "github.com/nabbar/golib/certificates"
 	libsck "github.com/nabbar/golib/socket"
@@ -60,12 +61,10 @@ type srv struct {
 	fi *atomic.Value // function info
 	fs *atomic.Value // function info server
 
-	tr *atomic.Value // connection read timeout
-	tw *atomic.Value // connection write timeout
 	sr *atomic.Int32 // read buffer size
-
 	sf *atomic.Value // file unix socket
 	sp *atomic.Int64 // file unix perm
+	sg *atomic.Int32 // file unix group perm
 }
 
 func (o *srv) Done() <-chan struct{} {
@@ -116,25 +115,18 @@ func (o *srv) RegisterFuncInfoServer(f libsck.FuncInfoSrv) {
 	o.fs.Store(f)
 }
 
-func (o *srv) SetReadTimeout(d time.Duration) {
-	if o == nil {
-		return
+func (o *srv) RegisterSocket(unixFile string, perm os.FileMode, gid int32) error {
+	if _, err := net.ResolveUnixAddr(libptc.NetworkUnix.Code(), unixFile); err != nil {
+		return err
+	} else if gid > maxGID {
+		return ErrInvalidGroup
 	}
 
-	o.tr.Store(d)
-}
-
-func (o *srv) SetWriteTimeout(d time.Duration) {
-	if o == nil {
-		return
-	}
-
-	o.tw.Store(d)
-}
-
-func (o *srv) RegisterSocket(unixFile string, perm os.FileMode) {
 	o.sf.Store(unixFile)
 	o.sp.Store(int64(perm))
+	o.sg.Store(gid)
+
+	return nil
 }
 
 func (o *srv) fctError(e error) {

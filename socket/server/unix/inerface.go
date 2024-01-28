@@ -37,9 +37,11 @@ import (
 	libsck "github.com/nabbar/golib/socket"
 )
 
+const maxGID = 32767
+
 type ServerUnix interface {
 	libsck.Server
-	RegisterSocket(unixFile string, perm os.FileMode)
+	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
 }
 
 func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerUnix {
@@ -64,6 +66,10 @@ func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerUnix {
 	sp := new(atomic.Int64)
 	sp.Store(0)
 
+	// socket group permission
+	sg := new(atomic.Int32)
+	sg.Store(0)
+
 	return &srv{
 		l:  nil,
 		h:  f,
@@ -72,10 +78,9 @@ func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerUnix {
 		fe: new(atomic.Value),
 		fi: new(atomic.Value),
 		fs: new(atomic.Value),
-		tr: new(atomic.Value),
-		tw: new(atomic.Value),
 		sr: sr,
 		sf: sf,
 		sp: sp,
+		sg: sg,
 	}
 }

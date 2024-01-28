@@ -41,15 +41,22 @@ import (
 	scksrt "github.com/nabbar/golib/socket/server/tcp"
 	scksru "github.com/nabbar/golib/socket/server/udp"
 	scksrx "github.com/nabbar/golib/socket/server/unix"
+	sckgrm "github.com/nabbar/golib/socket/server/unixgram"
 )
 
-func New(handler libsck.Handler, proto libptc.NetworkProtocol, sizeBufferRead libsiz.Size, address string, perm os.FileMode) (libsck.Server, error) {
+func New(handler libsck.Handler, proto libptc.NetworkProtocol, sizeBufferRead libsiz.Size, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
 	switch proto {
 	case libptc.NetworkUnix:
 		if strings.EqualFold(runtime.GOOS, "linux") {
 			s := scksrx.New(handler, sizeBufferRead)
-			s.RegisterSocket(address, perm)
-			return s, nil
+			e := s.RegisterSocket(address, perm, gid)
+			return s, e
+		}
+	case libptc.NetworkUnixGram:
+		if strings.EqualFold(runtime.GOOS, "linux") {
+			s := sckgrm.New(handler, sizeBufferRead)
+			e := s.RegisterSocket(address, perm, gid)
+			return s, e
 		}
 	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
 		s := scksrt.New(handler, sizeBufferRead)

@@ -29,10 +29,6 @@ package udp
 import "fmt"
 
 var (
-	ErrInstance      = fmt.Errorf("invalid instance")
-	ErrAddress       = fmt.Errorf("invalid dial address")
-	ErrHostName      = fmt.Errorf("invalid dial host name")
-	ErrHostPort      = fmt.Errorf("invalid dial host port")
-	ErrContextClosed = fmt.Errorf("context closed")
-	ErrClientClosed  = fmt.Errorf("server closed")
+	ErrInstance = fmt.Errorf("invalid instance")
+	ErrAddress  = fmt.Errorf("invalid dial address")
 )

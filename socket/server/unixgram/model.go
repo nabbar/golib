@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * MIT License
  *
@@ -24,11 +27,12 @@
  *
  */
 
-package udp
+package unixgram
 
 import (
 	"fmt"
 	"net"
+	"os"
 	"sync/atomic"
 
 	libptc "github.com/nabbar/golib/network/protocol"
@@ -58,7 +62,9 @@ type srv struct {
 	fs *atomic.Value // function info server
 
 	sr *atomic.Int32 // read buffer size
-	ad *atomic.Value // Server address url
+	sf *atomic.Value // file unix socket
+	sp *atomic.Int64 // file unix perm
+	sg *atomic.Int32 // file unix group perm
 }
 
 func (o *srv) Done() <-chan struct{} {
@@ -109,14 +115,17 @@ func (o *srv) RegisterFuncInfoServer(f libsck.FuncInfoSrv) {
 	o.fs.Store(f)
 }
 
-func (o *srv) RegisterServer(address string) error {
-	if len(address) < 1 {
-		return ErrInvalidAddress
-	} else if _, err := net.ResolveUDPAddr(libptc.NetworkUDP.Code(), address); err != nil {
+func (o *srv) RegisterSocket(unixFile string, perm os.FileMode, gid int32) error {
+	if _, err := net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), unixFile); err != nil {
 		return err
+	} else if gid > maxGID {
+		return ErrInvalidGroup
 	}
 
-	o.ad.Store(address)
+	o.sf.Store(unixFile)
+	o.sp.Store(int64(perm))
+	o.sg.Store(gid)
+
 	return nil
 }
 

@@ -32,6 +32,8 @@ package unix
 import (
 	"sync/atomic"
 
+	libsiz "github.com/nabbar/golib/size"
+
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -39,21 +41,19 @@ type ClientUnix interface {
 	libsck.Client
 }
 
-func New(buffSizeRead int32, unixfile string) ClientUnix {
+func New(buffSizeRead libsiz.Size, unixfile string) ClientUnix {
 	var (
 		a = new(atomic.Value)
 		s = new(atomic.Int32)
 	)
 
 	a.Store(unixfile)
-	s.Store(buffSizeRead)
+	s.Store(buffSizeRead.Int32())
 
-	return &cltx{
-		a:  a,
-		s:  s,
-		e:  new(atomic.Value),
-		i:  new(atomic.Value),
-		tr: new(atomic.Value),
-		tw: new(atomic.Value),
+	return &cli{
+		a: a,
+		s: s,
+		e: new(atomic.Value),
+		i: new(atomic.Value),
 	}
 }

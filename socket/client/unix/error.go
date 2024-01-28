@@ -32,8 +32,6 @@ package unix
 import "fmt"
 
 var (
-	ErrInvalidInstance = fmt.Errorf("invalid instance")
-	ErrUnixFile        = fmt.Errorf("invalid unix file")
-	ErrContextClosed   = fmt.Errorf("context closed")
-	ErrServerClosed    = fmt.Errorf("server closed")
+	ErrInstance = fmt.Errorf("invalid instance")
+	ErrAddress  = fmt.Errorf("invalid dial address")
 )

@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * MIT License
  *
@@ -24,20 +27,28 @@
  *
  */
 
-package udp
+package unixgram
 
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"net"
+	"os"
+	"path/filepath"
+	"syscall"
 
 	libptc "github.com/nabbar/golib/network/protocol"
+
 	libsck "github.com/nabbar/golib/socket"
 )
 
 func (o *srv) buffSize() int {
 	v := o.sr.Load()
+
 	if v > 0 {
 		return int(v)
 	}
@@ -45,31 +56,93 @@ func (o *srv) buffSize() int {
 	return libsck.DefaultBufferSize
 }
 
-func (o *srv) getAddress() string {
-	f := o.ad.Load()
-
+func (o *srv) getSocketFile() (string, error) {
+	f := o.sf.Load()
 	if f != nil {
-		return f.(string)
+		return o.checkFile(f.(string))
 	}
 
-	return ""
+	return "", os.ErrNotExist
 }
 
-func (o *srv) getListen(addr string) (*net.UDPConn, error) {
-	var (
-		adr *net.UDPAddr
-		lis *net.UDPConn
-		err error
-	)
-
-	if adr, err = net.ResolveUDPAddr(libptc.NetworkUDP.Code(), addr); err != nil {
-		return nil, err
-	} else if lis, err = net.ListenUDP(libptc.NetworkUDP.Code(), adr); err != nil {
-		return lis, err
-	} else {
-		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUDP.String(), addr)
+func (o *srv) getSocketPerm() os.FileMode {
+	p := o.sp.Load()
+	if p > 0 {
+		return os.FileMode(p)
 	}
 
+	return os.FileMode(0770)
+}
+
+func (o *srv) getSocketGroup() int {
+	p := o.sg.Load()
+	if p >= 0 {
+		return int(p)
+	}
+
+	gid := syscall.Getgid()
+	if gid <= maxGID {
+		return gid
+	}
+
+	return 0
+}
+
+func (o *srv) checkFile(unixFile string) (string, error) {
+	if len(unixFile) < 1 {
+		return unixFile, fmt.Errorf("missing socket file path")
+	} else {
+		unixFile = filepath.Join(filepath.Dir(unixFile), filepath.Base(unixFile))
+	}
+
+	if _, e := os.Stat(unixFile); e != nil && !errors.Is(e, os.ErrNotExist) {
+		return unixFile, e
+	} else if e != nil {
+		return unixFile, nil
+	} else if e = os.Remove(unixFile); e != nil {
+		return unixFile, e
+	}
+
+	return unixFile, nil
+}
+
+func (o *srv) getListen(uxf string, adr *net.UnixAddr) (*net.UnixConn, error) {
+	var (
+		err error
+		prm = o.getSocketPerm()
+		grp = o.getSocketGroup()
+		old int
+		inf fs.FileInfo
+		lis *net.UnixConn
+	)
+
+	old = syscall.Umask(int(prm))
+	defer func() {
+		syscall.Umask(old)
+	}()
+
+	if lis, err = net.ListenUnixgram(libptc.NetworkUnixGram.Code(), adr); err != nil {
+		return nil, err
+	} else if inf, err = os.Stat(uxf); err != nil {
+		_ = lis.Close()
+		return nil, err
+	} else if inf.Mode() != prm {
+		if err = os.Chmod(uxf, prm); err != nil {
+			_ = lis.Close()
+			return nil, err
+		}
+	}
+
+	if stt, ok := inf.Sys().(*syscall.Stat_t); ok {
+		if int(stt.Gid) != grp {
+			if err = os.Chown(uxf, syscall.Getuid(), grp); err != nil {
+				_ = lis.Close()
+				return nil, err
+			}
+		}
+	}
+
+	o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUnixGram.String(), uxf)
 	return lis, nil
 }
 
@@ -77,36 +150,35 @@ func (o *srv) Listen(ctx context.Context) error {
 	var (
 		err error
 		nbr int
-		loc *net.UDPAddr
+		uxf string
+		loc *net.UnixAddr
 		rem net.Addr
-		con *net.UDPConn
-		adr = o.getAddress()
+		con *net.UnixConn
 		hdl libsck.Handler
 	)
 
-	if len(adr) == 0 {
-		return ErrInvalidAddress
+	if uxf, err = o.getSocketFile(); err != nil {
+		return err
 	} else if hdl = o.handler(); hdl == nil {
 		return ErrInvalidHandler
-	} else if loc, err = net.ResolveUDPAddr(libptc.NetworkUDP.Code(), adr); err != nil {
+	} else if loc, err = net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), uxf); err != nil {
+		return err
+	} else if con, err = o.getListen(uxf, loc); err != nil {
 		return err
 	}
 
 	var fctClose = func() {
-		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUDP.String(), adr)
 		if con != nil {
+			o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnixGram.String(), uxf)
 			o.fctError(con.Close())
+		}
+
+		if _, err = os.Stat(uxf); err == nil {
+			o.fctError(os.Remove(uxf))
 		}
 	}
 
 	defer fctClose()
-
-	if con, err = net.ListenUDP(libptc.NetworkUDP.Code(), loc); err != nil {
-		o.fctError(err)
-		return err
-	} else {
-		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUDP.String(), adr)
-	}
 
 	// Accept new connection or stop if context or shutdown trigger
 	for {
@@ -125,7 +197,7 @@ func (o *srv) Listen(ctx context.Context) error {
 			nbr, rem, err = con.ReadFrom(buf)
 
 			if rem == nil {
-				rem = &net.UDPAddr{}
+				rem = &net.UnixAddr{}
 			}
 
 			o.fctInfo(loc, rem, libsck.ConnectionRead)

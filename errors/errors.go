@@ -100,8 +100,10 @@ func (e *ers) Add(parent ...error) {
 
 		if er, ok = v.(*ers); ok {
 			// prevent circular addition
-			if e.is(er) {
-				continue
+			if e.IsError(er) {
+				for _, erp := range er.p {
+					e.Add(erp)
+				}
 			} else {
 				e.p = append(e.p, er)
 			}

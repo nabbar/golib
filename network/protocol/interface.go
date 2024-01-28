@@ -46,6 +46,7 @@ const (
 	NetworkIP
 	NetworkIP4
 	NetworkIP6
+	NetworkUnixGram
 )
 
 func Parse(str string) NetworkProtocol {
@@ -60,6 +61,8 @@ func Parse(str string) NetworkProtocol {
 		return NetworkUDP
 	case strings.EqualFold(NetworkUnix.Code(), str):
 		return NetworkUnix
+	case strings.EqualFold(NetworkUnixGram.Code(), str):
+		return NetworkUnixGram
 	default:
 		return NetworkEmpty
 	}

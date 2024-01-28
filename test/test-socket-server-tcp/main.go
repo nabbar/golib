@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
  * MIT License
  *
@@ -27,37 +24,74 @@
  *
  */
 
-package client
+package main
 
 import (
+	"context"
 	"fmt"
-	"runtime"
-	"strings"
+	"io"
+	"net"
+	"os"
 
-	libptc "github.com/nabbar/golib/network/protocol"
+	netptl "github.com/nabbar/golib/network/protocol"
 	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
-	sckclt "github.com/nabbar/golib/socket/client/tcp"
-	sckclu "github.com/nabbar/golib/socket/client/udp"
-	sckclx "github.com/nabbar/golib/socket/client/unix"
-	sckgrm "github.com/nabbar/golib/socket/client/unixgram"
+	sckcfg "github.com/nabbar/golib/socket/config"
 )
 
-func New(proto libptc.NetworkProtocol, sizeBufferRead libsiz.Size, address string) (libsck.Client, error) {
-	switch proto {
-	case libptc.NetworkUnix:
-		if strings.EqualFold(runtime.GOOS, "linux") {
-			return sckclx.New(sizeBufferRead, address), nil
+func config() sckcfg.ServerConfig {
+	return sckcfg.ServerConfig{
+		Network:      netptl.NetworkTCP,
+		Address:      ":9000",
+		PermFile:     0,
+		BuffSizeRead: 32 * libsiz.SizeKilo,
+	}
+}
+
+func Handler(request io.Reader, response io.Writer) {
+	_, e := io.Copy(os.Stdout, request)
+	printError(e)
+}
+
+func printError(err ...error) {
+	for _, e := range err {
+		if e == nil {
+			continue
 		}
-	case libptc.NetworkUnixGram:
-		if strings.EqualFold(runtime.GOOS, "linux") {
-			return sckgrm.New(sizeBufferRead, address), nil
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %v\n", e)
+	}
+}
+
+func checkPanic(err ...error) {
+	var found = false
+	for _, e := range err {
+		if e == nil {
+			continue
 		}
-	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
-		return sckclt.New(sizeBufferRead, address)
-	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
-		return sckclu.New(sizeBufferRead, address)
+
+		found = true
+		printError(err...)
+		break
 	}
 
-	return nil, fmt.Errorf("invalid client protocol")
+	if found {
+		panic(nil)
+	}
+}
+
+func main() {
+	srv, err := config().New(Handler)
+	checkPanic(err)
+
+	srv.RegisterFuncError(func(e error) {
+		printError(e)
+	})
+	srv.RegisterFuncInfo(func(local, remote net.Addr, state libsck.ConnState) {
+		_, _ = fmt.Fprintf(os.Stdout, "[%s %s]=>[%s %s] %s\n", remote.Network(), remote.String(), local.Network(), local.String(), state.String())
+	})
+	srv.RegisterFuncInfoServer(func(msg string) {
+		_, _ = fmt.Fprintf(os.Stdout, "%s\n", msg)
+	})
+
+	checkPanic(srv.Listen(context.Background()))
 }

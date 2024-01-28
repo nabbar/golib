@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * MIT License
  *
@@ -24,7 +27,7 @@
  *
  */
 
-package udp
+package unixgram
 
 import (
 	"bufio"
@@ -39,7 +42,7 @@ import (
 )
 
 type cli struct {
-	a *atomic.Value // address: hostname + port
+	a *atomic.Value // address : unixfile
 	s *atomic.Int32 // buffer size
 	e *atomic.Value // function error
 	i *atomic.Value // function info
@@ -105,7 +108,7 @@ func (o *cli) dial(ctx context.Context) (net.Conn, error) {
 		return nil, ErrAddress
 	} else {
 		d := net.Dialer{}
-		return d.DialContext(ctx, libptc.NetworkUDP.Code(), adr)
+		return d.DialContext(ctx, libptc.NetworkUnixGram.Code(), adr)
 	}
 }
 
@@ -126,7 +129,7 @@ func (o *cli) Do(ctx context.Context, request io.Reader, fct libsck.Response) er
 		}
 	}()
 
-	o.fctInfo(&net.UDPAddr{}, &net.UDPAddr{}, libsck.ConnectionDial)
+	o.fctInfo(&net.UnixAddr{}, &net.UnixAddr{}, libsck.ConnectionDial)
 	if cnn, err = o.dial(ctx); err != nil {
 		o.fctError(err)
 		return err
