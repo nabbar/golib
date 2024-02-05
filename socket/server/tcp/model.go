@@ -27,10 +27,12 @@
 package tcp
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
 	"sync/atomic"
+	"time"
 
 	libptc "github.com/nabbar/golib/network/protocol"
 
@@ -58,6 +60,7 @@ type srv struct {
 	h *atomic.Value // handler
 	c *atomic.Value // chan []byte
 	s *atomic.Value // chan struct{}
+	r *atomic.Bool  // is Running
 
 	fe *atomic.Value // function error
 	fi *atomic.Value // function info
@@ -65,6 +68,10 @@ type srv struct {
 
 	sr *atomic.Int32 // read buffer size
 	ad *atomic.Value // Server address url
+}
+
+func (o *srv) IsRunning() bool {
+	return o.r.Load()
 }
 
 func (o *srv) Done() <-chan struct{} {
@@ -76,14 +83,47 @@ func (o *srv) Done() <-chan struct{} {
 	return closedChanStruct
 }
 
-func (o *srv) Shutdown() {
+func (o *srv) Close() error {
+	return o.Shutdown()
+}
+
+func (o *srv) Shutdown() error {
 	if o == nil {
-		return
+		return ErrInvalidInstance
 	}
 
 	s := o.s.Load()
 	if s != nil {
-		o.s.Store(nil)
+		if c, k := s.(chan struct{}); k {
+			c <- struct{}{}
+			o.s.Store(c)
+		}
+	}
+
+	var (
+		tck      = time.NewTicker(100 * time.Millisecond)
+		ctx, cnl = context.WithTimeout(context.Background(), 25*time.Second)
+	)
+
+	defer func() {
+		if s != nil {
+			o.s.Store(closedChanStruct)
+		}
+
+		tck.Stop()
+		cnl()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ErrShutdownTimeout
+		case <-tck.C:
+			if o.IsRunning() {
+				continue
+			}
+			return nil
+		}
 	}
 }
 

@@ -32,8 +32,10 @@ package unix
 import "fmt"
 
 var (
-	ErrContextClosed  = fmt.Errorf("context closed")
-	ErrServerClosed   = fmt.Errorf("server closed")
-	ErrInvalidGroup   = fmt.Errorf("invalid unix group for socket group permission")
-	ErrInvalidHandler = fmt.Errorf("invalid handler")
+	ErrContextClosed   = fmt.Errorf("context closed")
+	ErrServerClosed    = fmt.Errorf("server closed")
+	ErrInvalidGroup    = fmt.Errorf("invalid unix group for socket group permission")
+	ErrInvalidHandler  = fmt.Errorf("invalid handler")
+	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
+	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

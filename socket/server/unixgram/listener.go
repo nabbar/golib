@@ -39,6 +39,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 
 	libptc "github.com/nabbar/golib/network/protocol"
@@ -151,6 +152,7 @@ func (o *srv) Listen(ctx context.Context) error {
 		err error
 		nbr int
 		uxf string
+		stp = new(atomic.Bool)
 		loc *net.UnixAddr
 		rem net.Addr
 		con *net.UnixConn
@@ -168,9 +170,10 @@ func (o *srv) Listen(ctx context.Context) error {
 	}
 
 	var fctClose = func() {
+		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnixGram.String(), uxf)
+
 		if con != nil {
-			o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnixGram.String(), uxf)
-			o.fctError(con.Close())
+			_ = con.Close()
 		}
 
 		if _, err = os.Stat(uxf); err == nil {
@@ -179,40 +182,69 @@ func (o *srv) Listen(ctx context.Context) error {
 	}
 
 	defer fctClose()
+	stp.Store(false)
 
+	go func() {
+		<-ctx.Done()
+		go func() {
+			_ = o.Shutdown()
+		}()
+		return
+	}()
+
+	go func() {
+		<-o.Done()
+
+		err = nil
+		stp.Store(true)
+
+		if con != nil {
+			o.fctError(con.Close())
+		}
+
+		return
+	}()
+
+	o.r.Store(true)
 	// Accept new connection or stop if context or shutdown trigger
 	for {
-		select {
-		case <-ctx.Done():
-			return ErrContextClosed
-		case <-o.Done():
-			return nil
-		default:
-			// Accept an incoming connection.
-			if con == nil {
-				return ErrServerClosed
-			}
-
-			var buf = make([]byte, o.buffSize())
-			nbr, rem, err = con.ReadFrom(buf)
-
-			if rem == nil {
-				rem = &net.UnixAddr{}
-			}
-
-			o.fctInfo(loc, rem, libsck.ConnectionRead)
-
-			if err != nil {
-				o.fctError(err)
-				continue
-			}
-
-			go func(la, ra net.Addr, b []byte) {
-				o.fctInfo(la, ra, libsck.ConnectionHandler)
-				r := bytes.NewBuffer(b)
-				r.WriteString("\n")
-				hdl(r, io.Discard)
-			}(loc, rem, buf[:nbr])
+		// Accept an incoming connection.
+		if con == nil {
+			return ErrServerClosed
+		} else if stp.Load() {
+			return err
 		}
+
+		var (
+			buf = make([]byte, o.buffSize())
+			rer error
+		)
+
+		nbr, rem, rer = con.ReadFrom(buf)
+
+		if rem == nil {
+			rem = &net.UnixAddr{}
+		}
+
+		o.fctInfo(loc, rem, libsck.ConnectionRead)
+
+		if rer != nil {
+			if !stp.Load() {
+				o.fctError(rer)
+			}
+			continue
+		}
+
+		go func(la, ra net.Addr, b []byte) {
+			o.fctInfo(la, ra, libsck.ConnectionHandler)
+
+			r := bytes.NewBuffer(b)
+
+			if !bytes.HasSuffix(b, []byte{libsck.EOL}) {
+				r.Write([]byte{libsck.EOL})
+			}
+
+			hdl(r, io.Discard)
+		}(loc, rem, buf[:nbr])
 	}
 }

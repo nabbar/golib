@@ -56,6 +56,7 @@ func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerTcp {
 		h:  f,
 		c:  c,
 		s:  s,
+		r:  new(atomic.Bool),
 		fe: new(atomic.Value),
 		fi: new(atomic.Value),
 		fs: new(atomic.Value),

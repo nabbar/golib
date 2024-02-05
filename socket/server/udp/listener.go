@@ -31,6 +31,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"sync/atomic"
 
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
@@ -78,6 +79,7 @@ func (o *srv) Listen(ctx context.Context) error {
 		err error
 		nbr int
 		loc *net.UDPAddr
+		stp = new(atomic.Bool)
 		rem net.Addr
 		con *net.UDPConn
 		adr = o.getAddress()
@@ -92,55 +94,86 @@ func (o *srv) Listen(ctx context.Context) error {
 		return err
 	}
 
-	var fctClose = func() {
-		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUDP.String(), adr)
-		if con != nil {
-			o.fctError(con.Close())
-		}
-	}
-
-	defer fctClose()
-
 	if con, err = net.ListenUDP(libptc.NetworkUDP.Code(), loc); err != nil {
 		o.fctError(err)
 		return err
-	} else {
-		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUDP.String(), adr)
 	}
 
+	var fctClose = func() {
+		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUDP.String(), adr)
+
+		if con != nil {
+			_ = con.Close()
+		}
+
+		o.r.Store(false)
+	}
+
+	defer fctClose()
+	stp.Store(false)
+
+	go func() {
+		<-ctx.Done()
+		go func() {
+			_ = o.Shutdown()
+		}()
+		return
+	}()
+
+	go func() {
+		<-o.Done()
+
+		err = nil
+		stp.Store(true)
+
+		if con != nil {
+			o.fctError(con.Close())
+		}
+
+		return
+	}()
+
+	o.r.Store(true)
+
+	o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUDP.String(), adr)
 	// Accept new connection or stop if context or shutdown trigger
 	for {
-		select {
-		case <-ctx.Done():
-			return ErrContextClosed
-		case <-o.Done():
-			return nil
-		default:
-			// Accept an incoming connection.
-			if con == nil {
-				return ErrServerClosed
-			}
-
-			var buf = make([]byte, o.buffSize())
-			nbr, rem, err = con.ReadFrom(buf)
-
-			if rem == nil {
-				rem = &net.UDPAddr{}
-			}
-
-			o.fctInfo(loc, rem, libsck.ConnectionRead)
-
-			if err != nil {
-				o.fctError(err)
-				continue
-			}
-
-			go func(la, ra net.Addr, b []byte) {
-				o.fctInfo(la, ra, libsck.ConnectionHandler)
-				r := bytes.NewBuffer(b)
-				r.WriteString("\n")
-				hdl(r, io.Discard)
-			}(loc, rem, buf[:nbr])
+		// Accept an incoming connection.
+		if con == nil {
+			return ErrServerClosed
+		} else if stp.Load() {
+			return err
 		}
+
+		var (
+			buf = make([]byte, o.buffSize())
+			rer error
+		)
+
+		nbr, rem, rer = con.ReadFrom(buf)
+
+		if rem == nil {
+			rem = &net.UDPAddr{}
+		}
+
+		o.fctInfo(loc, rem, libsck.ConnectionRead)
+
+		if rer != nil {
+			if !stp.Load() {
+				o.fctError(rer)
+			}
+			continue
+		}
+
+		go func(la, ra net.Addr, b []byte) {
+			o.fctInfo(la, ra, libsck.ConnectionHandler)
+
+			r := bytes.NewBuffer(b)
+			if !bytes.HasSuffix(b, []byte{libsck.EOL}) {
+				r.Write([]byte{libsck.EOL})
+			}
+
+			hdl(r, io.Discard)
+		}(loc, rem, buf[:nbr])
 	}
 }

@@ -30,8 +30,9 @@ import "fmt"
 
 var (
 	ErrInvalidAddress  = fmt.Errorf("invalid listen address")
-	ErrInvalidHostName = fmt.Errorf("invalid server host name")
-	ErrInvalidHostPort = fmt.Errorf("invalid server host port")
 	ErrContextClosed   = fmt.Errorf("context closed")
 	ErrServerClosed    = fmt.Errorf("server closed")
+	ErrInvalidHandler  = fmt.Errorf("invalid handler")
+	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
+	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

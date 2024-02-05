@@ -33,6 +33,7 @@ import (
 	"crypto/tls"
 	"io"
 	"net"
+	"sync/atomic"
 
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
@@ -80,44 +81,67 @@ func (o *srv) Listen(ctx context.Context) error {
 		e error
 		l net.Listener
 		a = o.getAddress()
+		s = new(atomic.Bool)
 	)
-
-	var fctClose = func() {
-		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkTCP.String(), a)
-		if l != nil {
-			o.fctError(l.Close())
-		}
-	}
-
-	defer fctClose()
 
 	if len(a) == 0 {
 		return ErrInvalidAddress
+	} else if hdl := o.handler(); hdl == nil {
+		return ErrInvalidHandler
 	} else if l, e = o.getListen(a); e != nil {
 		o.fctError(e)
 		return e
 	}
 
+	var fctClose = func() {
+		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkTCP.String(), a)
+
+		if l != nil {
+			_ = l.Close()
+		}
+
+		o.r.Store(false)
+	}
+
+	defer fctClose()
+	s.Store(false)
+
+	go func() {
+		<-ctx.Done()
+		go func() {
+			_ = o.Shutdown()
+		}()
+		return
+	}()
+
+	go func() {
+		<-o.Done()
+
+		e = nil
+		s.Store(true)
+
+		if l != nil {
+			o.fctError(l.Close())
+		}
+
+		return
+	}()
+
+	o.r.Store(true)
 	// Accept new connection or stop if context or shutdown trigger
 	for {
-		select {
-		case <-ctx.Done():
-			return ErrContextClosed
-		case <-o.Done():
-			return nil
-		default:
-			// Accept an incoming connection.
-			if l == nil {
-				return ErrServerClosed
-			}
+		// Accept an incoming connection.
+		if l == nil {
+			return ErrServerClosed
+		} else if s.Load() {
+			return e
+		}
 
-			co, ce := l.Accept()
-
-			if ce != nil {
-				o.fctError(ce)
-			} else {
-				go o.Conn(co)
-			}
+		if co, ce := l.Accept(); ce != nil && !s.Load() {
+			o.fctError(ce)
+		} else {
+			o.fctInfo(co.LocalAddr(), co.RemoteAddr(), libsck.ConnectionNew)
+			go o.Conn(co)
 		}
 	}
 }
@@ -128,12 +152,10 @@ func (o *srv) Conn(conn net.Conn) {
 		_ = conn.Close()
 	}()
 
-	o.fctInfo(conn.LocalAddr(), conn.RemoteAddr(), libsck.ConnectionNew)
-
 	var (
 		err error
 		rdr = bufio.NewReaderSize(conn, o.buffSize())
-		buf []byte
+		msg []byte
 		hdl libsck.Handler
 	)
 
@@ -142,7 +164,7 @@ func (o *srv) Conn(conn net.Conn) {
 	}
 
 	for {
-		buf, err = rdr.ReadBytes('\n')
+		msg, err = rdr.ReadBytes('\n')
 
 		o.fctInfo(conn.LocalAddr(), conn.RemoteAddr(), libsck.ConnectionRead)
 		if err != nil {
@@ -152,7 +174,13 @@ func (o *srv) Conn(conn net.Conn) {
 			break
 		}
 
+		var buf = bytes.NewBuffer(msg)
+
+		if !bytes.HasSuffix(msg, []byte{libsck.EOL}) {
+			buf.Write([]byte{libsck.EOL})
+		}
+
 		o.fctInfo(conn.LocalAddr(), conn.RemoteAddr(), libsck.ConnectionHandler)
-		hdl(bytes.NewBuffer(buf), conn)
+		hdl(buf, conn)
 	}
 }

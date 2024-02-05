@@ -29,8 +29,10 @@ package udp
 import "fmt"
 
 var (
-	ErrInvalidAddress = fmt.Errorf("invalid listen address")
-	ErrContextClosed  = fmt.Errorf("context closed")
-	ErrServerClosed   = fmt.Errorf("server closed")
-	ErrInvalidHandler = fmt.Errorf("invalid handler")
+	ErrInvalidAddress  = fmt.Errorf("invalid listen address")
+	ErrContextClosed   = fmt.Errorf("context closed")
+	ErrServerClosed    = fmt.Errorf("server closed")
+	ErrInvalidHandler  = fmt.Errorf("invalid handler")
+	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
+	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

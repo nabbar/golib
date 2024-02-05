@@ -35,6 +35,7 @@ import (
 )
 
 const DefaultBufferSize = 32 * 1024
+const EOL byte = '\n'
 
 type ConnState uint8
 
@@ -79,13 +80,16 @@ type Handler func(request io.Reader, response io.Writer)
 type Response func(r io.Reader)
 
 type Server interface {
+	io.Closer
+
 	RegisterFuncError(f FuncError)
 	RegisterFuncInfo(f FuncInfo)
 	RegisterFuncInfoServer(f FuncInfoSrv)
 
 	SetTLS(enable bool, config libtls.TLSConfig) error
 	Listen(ctx context.Context) error
-	Shutdown()
+	Shutdown() error
+	IsRunning() bool
 	Done() <-chan struct{}
 }
 
