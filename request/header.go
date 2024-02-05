@@ -26,10 +26,17 @@
 
 package request
 
-import "net/url"
+import (
+	"fmt"
+	"net/url"
+)
 
 func (r *request) ContentType(mime string) {
 	r.SetHeader(_ContentType, mime)
+}
+
+func (r *request) ContentLength(size uint64) {
+	r.SetHeader(__ContentLength, fmt.Sprintf("%d", size))
 }
 
 func (r *request) CleanHeader() {

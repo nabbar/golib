@@ -42,6 +42,7 @@ import (
 
 const (
 	_ContentType         = "Content-Type"
+	__ContentLength      = "Content-Length"
 	_Authorization       = "Authorization"
 	_AuthorizationBearer = "Bearer"
 	_AuthorizationBasic  = "Basic"

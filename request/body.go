@@ -32,16 +32,21 @@ import (
 	"io"
 )
 
-const contentTypeJson = "application/json"
+const (
+	contentTypeJson = "application/json"
+)
 
 func (r *request) BodyJson(body interface{}) error {
 	if p, e := json.Marshal(body); e != nil {
 		return e
+	} else if len(p) < 1 {
+		return ErrorInvalidBody.Error()
 	} else {
+		r.ContentType(contentTypeJson)
+		r.ContentLength(uint64(len(p)))
 		r._BodyReader(bytes.NewBuffer(p))
 	}
 
-	r.ContentType(contentTypeJson)
 	return nil
 }
 

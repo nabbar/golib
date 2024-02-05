@@ -36,6 +36,7 @@ const (
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgRequest
 	ErrorParamInvalid
 	ErrorValidatorError
+	ErrorInvalidBody
 	ErrorCreateRequest
 	ErrorSendRequest
 	ErrorResponseInvalid
@@ -61,6 +62,8 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "at least one given parameters is invalid"
 	case ErrorValidatorError:
 		return "config seems to be invalid"
+	case ErrorInvalidBody:
+		return "marshalled body seems to be invalid"
 	case ErrorCreateRequest:
 		return "cannot create http request for given params"
 	case ErrorSendRequest:
