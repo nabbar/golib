@@ -5,12 +5,12 @@ go 1.21
 toolchain go1.21.5
 
 require (
-	github.com/aws/aws-sdk-go v1.50.0
+	github.com/aws/aws-sdk-go v1.50.10
 	github.com/aws/aws-sdk-go-v2 v1.24.1
-	github.com/aws/aws-sdk-go-v2/config v1.26.5
+	github.com/aws/aws-sdk-go-v2/config v1.26.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.16
 	github.com/aws/aws-sdk-go-v2/service/iam v1.28.7
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.48.0
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.48.1
 	github.com/aws/smithy-go v1.19.0
 	github.com/bits-and-blooms/bitset v1.13.0
 	github.com/c-bata/go-prompt v0.2.6
@@ -32,7 +32,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nats-io/jwt/v2 v2.5.3
-	github.com/nats-io/nats-server/v2 v2.10.9
+	github.com/nats-io/nats-server/v2 v2.10.10
 	github.com/nats-io/nats.go v1.32.0
 	github.com/nutsdb/nutsdb v0.14.3
 	github.com/onsi/ginkgo/v2 v2.15.0
@@ -46,7 +46,7 @@ require (
 	github.com/spf13/viper v1.18.2
 	github.com/ugorji/go/codec v1.2.12
 	github.com/vbauerster/mpb/v8 v8.6.2
-	github.com/xanzy/go-gitlab v0.96.0
+	github.com/xanzy/go-gitlab v0.97.0
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
 	github.com/xujiajun/utils v0.0.0-20220904132955-5f7c5b914235
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
@@ -61,13 +61,13 @@ require (
 	gorm.io/driver/postgres v1.5.4
 	gorm.io/driver/sqlite v1.5.4
 	gorm.io/driver/sqlserver v1.5.2
-	gorm.io/gorm v1.25.5
+	gorm.io/gorm v1.25.6
 )
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
-	github.com/ClickHouse/ch-go v0.61.1 // indirect
-	github.com/ClickHouse/clickhouse-go/v2 v2.17.1 // indirect
+	github.com/ClickHouse/ch-go v0.61.2 // indirect
+	github.com/ClickHouse/clickhouse-go/v2 v2.18.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
@@ -77,14 +77,14 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/andybalholm/cascadia v1.3.2 // indirect
-	github.com/antlabs/stl v0.0.1 // indirect
-	github.com/antlabs/timer v0.0.12 // indirect
+	github.com/antlabs/stl v0.0.2 // indirect
+	github.com/antlabs/timer v0.1.1 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.5.4 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.11 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.10 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.10 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.2 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.2.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.2.10 // indirect
@@ -125,8 +125,8 @@ require (
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/pprof v0.0.0-20240117000934-35fc243c5815 // indirect
-	github.com/google/uuid v1.5.0 // indirect
+	github.com/google/pprof v0.0.0-20240130152714-0ed6a68c8d9e // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -142,7 +142,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
-	github.com/jackc/pgx/v5 v5.5.2 // indirect
+	github.com/jackc/pgx/v5 v5.5.3 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -150,16 +150,16 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441 // indirect
-	github.com/klauspost/compress v1.17.4 // indirect
+	github.com/klauspost/compress v1.17.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
-	github.com/leodido/go-urn v1.2.4 // indirect
+	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lni/goutils v1.3.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
-	github.com/mattn/go-sqlite3 v1.14.19 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mattn/go-tty v0.0.5 // indirect
 	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/microsoft/go-mssqldb v1.6.0 // indirect
@@ -172,7 +172,7 @@ require (
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
-	github.com/paulmach/orb v0.11.0 // indirect
+	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -180,7 +180,7 @@ require (
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
-	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rivo/uniseg v0.4.6 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
