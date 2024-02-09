@@ -62,11 +62,13 @@ type OptionProxy struct {
 }
 
 type Options struct {
-	Timeout time.Duration `json:"timeout" yaml:"timeout" toml:"timeout" mapstructure:"timeout"`
-	Http2   bool          `json:"http2" yaml:"http2" toml:"http2" mapstructure:"http2"`
-	TLS     OptionTLS     `json:"tls" yaml:"tls" toml:"tls" mapstructure:"tls"`
-	ForceIP OptionForceIP `json:"force_ip" yaml:"force_ip" toml:"force_ip" mapstructure:"force_ip"`
-	Proxy   OptionProxy   `json:"proxy" yaml:"proxy" toml:"proxy" mapstructure:"proxy"`
+	Timeout            time.Duration `json:"timeout" yaml:"timeout" toml:"timeout" mapstructure:"timeout"`
+	DisableKeepAlive   bool          `json:"disable-keep-alive" yaml:"disable-keep-alive" toml:"disable-keep-alive" mapstructure:"disable-keep-alive"`
+	DisableCompression bool          `json:"disable-compression" yaml:"disable-compression" toml:"disable-compression" mapstructure:"disable-compression"`
+	Http2              bool          `json:"http2" yaml:"http2" toml:"http2" mapstructure:"http2"`
+	TLS                OptionTLS     `json:"tls" yaml:"tls" toml:"tls" mapstructure:"tls"`
+	ForceIP            OptionForceIP `json:"force_ip" yaml:"force_ip" toml:"force_ip" mapstructure:"force_ip"`
+	Proxy              OptionProxy   `json:"proxy" yaml:"proxy" toml:"proxy" mapstructure:"proxy"`
 }
 
 func DefaultConfig(indent string) []byte {
@@ -74,6 +76,8 @@ func DefaultConfig(indent string) []byte {
 		res = bytes.NewBuffer(make([]byte, 0))
 		def = []byte(`{
        "timeout":"0s",
+       "disable-keep-alive": false,
+       "disable-compression": false,
        "http2": true,
        "tls": ` + string(cmptls.DefaultConfig(cfgcst.JSONIndent)) + `,
        "force_ip": {
@@ -119,7 +123,10 @@ func (o Options) Validate() liberr.Error {
 }
 
 func (o Options) GetClient(def libtls.TLSConfig, servername string) (*http.Client, liberr.Error) {
-	var tls libtls.TLSConfig
+	var (
+		tls libtls.TLSConfig
+		edp *url.URL
+	)
 
 	if t, e := o._GetTLS(def); e != nil {
 		return nil, e
@@ -127,15 +134,7 @@ func (o Options) GetClient(def libtls.TLSConfig, servername string) (*http.Clien
 		tls = t
 	}
 
-	var tr *http.Transport
-
-	tr = GetTransport(false, false, o.Http2)
-	SetTransportTLS(tr, tls, "")
-	SetTransportDial(tr, o.ForceIP.Enable, o.ForceIP.Net, o.ForceIP.IP, o.ForceIP.Local)
-
 	if o.Proxy.Enable && o.Proxy.Endpoint != nil {
-		var edp *url.URL
-
 		edp = &url.URL{
 			Scheme:      o.Proxy.Endpoint.Scheme,
 			Opaque:      o.Proxy.Endpoint.Opaque,
@@ -162,11 +161,15 @@ func (o Options) GetClient(def libtls.TLSConfig, servername string) (*http.Clien
 			}
 		}
 
-		if edp != nil && len(edp.String()) > 0 {
-			SetTransportProxy(tr, edp)
+		if edp != nil && len(edp.String()) < 1 {
+			edp = nil
 		}
 	}
 
+	var tr *http.Transport
+
+	tr = GetTransport(tls.TlsConfig(""), edp, o.DisableKeepAlive, o.DisableCompression, o.Http2)
+	SetTransportDial(tr, o.ForceIP.Enable, o.ForceIP.Net, o.ForceIP.IP, o.ForceIP.Local)
 	return GetClient(tr, o.Http2, o.Timeout)
 }
 

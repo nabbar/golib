@@ -28,12 +28,13 @@ package httpcli
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 	"time"
 
-	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
 	libptc "github.com/nabbar/golib/network/protocol"
 	"golang.org/x/net/http2"
@@ -49,34 +50,98 @@ const (
 	ClientNetworkUDP = "udp"
 )
 
+var trp = new(atomic.Value)
+
+func init() {
+	trp.Store(&http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		TLSHandshakeTimeout:   10 * time.Second,
+		DisableKeepAlives:     false,
+		DisableCompression:    false,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   1,
+		MaxConnsPerHost:       25,
+		IdleConnTimeout:       90 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ForceAttemptHTTP2:     true,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS13,
+		},
+	})
+}
+
 type FctHttpClient func() *http.Client
 
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func GetTransport(DisableKeepAlive, DisableCompression, ForceHTTP2 bool) *http.Transport {
-	return &http.Transport{
-		Proxy:              http.ProxyFromEnvironment,
-		DialContext:        nil,
-		DialTLSContext:     nil,
-		TLSClientConfig:    nil,
-		DisableKeepAlives:  DisableKeepAlive,
-		DisableCompression: DisableCompression,
-		ForceAttemptHTTP2:  ForceHTTP2,
+func ForceUpdateTransport(cfg *tls.Config, proxyUrl *url.URL) *http.Transport {
+	t := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		TLSClientConfig:       cfg.Clone(),
+		TLSHandshakeTimeout:   10 * time.Second,
+		DisableKeepAlives:     false,
+		DisableCompression:    false,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   1,
+		MaxConnsPerHost:       25,
+		IdleConnTimeout:       90 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		ForceAttemptHTTP2:     true,
 	}
+
+	if proxyUrl != nil {
+		t.Proxy = http.ProxyURL(proxyUrl)
+	}
+
+	trp.Store(t)
+
+	return t
 }
 
-func SetTransportTLS(tr *http.Transport, tls libtls.TLSConfig, servername string) {
-	tr.TLSClientConfig = tls.TlsConfig(servername)
-}
+func GetTransport(tlsConfig *tls.Config, proxyURL *url.URL, DisableKeepAlive, DisableCompression, ForceHTTP2 bool) *http.Transport {
+	var tr *http.Transport
 
-func SetTransportProxy(tr *http.Transport, proxyUrl *url.URL) {
-	tr.Proxy = http.ProxyURL(proxyUrl)
+	if i := trp.Load(); i != nil {
+		if t, k := i.(*http.Transport); k {
+			tr = t.Clone()
+		}
+	}
+
+	if tr == nil {
+		tr = &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			TLSHandshakeTimeout:   10 * time.Second,
+			DisableKeepAlives:     false,
+			DisableCompression:    false,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   1,
+			MaxConnsPerHost:       25,
+			IdleConnTimeout:       90 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+			ForceAttemptHTTP2:     true,
+		}
+	}
+
+	tr.DisableCompression = DisableCompression
+	tr.DisableKeepAlives = DisableKeepAlive
+	tr.TLSClientConfig = tlsConfig.Clone()
+
+	if proxyURL != nil {
+		tr.Proxy = http.ProxyURL(proxyURL)
+	}
+
+	return tr
 }
 
 func SetTransportDial(tr *http.Transport, forceIp bool, netw libptc.NetworkProtocol, ip, local string) {
 	var (
+		dial = &net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}
 		fctDial func(ctx context.Context, network, address string) (net.Conn, error)
 	)
 
@@ -85,24 +150,24 @@ func SetTransportDial(tr *http.Transport, forceIp bool, netw libptc.NetworkProto
 			Host: local,
 		}
 		fctDial = func(ctx context.Context, network, address string) (net.Conn, error) {
-			dl := &net.Dialer{
-				LocalAddr: &net.TCPAddr{
-					IP: net.ParseIP(u.Hostname()),
-				},
+			dial.LocalAddr = &net.TCPAddr{
+				IP: net.ParseIP(u.Hostname()),
 			}
-			return dl.DialContext(ctx, netw.Code(), ip)
+
+			return dial.DialContext(ctx, netw.Code(), ip)
 		}
 	} else if forceIp {
 		fctDial = func(ctx context.Context, network, address string) (net.Conn, error) {
-			dl := &net.Dialer{}
-			return dl.DialContext(ctx, netw.Code(), ip)
+			return dial.DialContext(ctx, netw.Code(), ip)
 		}
 	} else {
-		dl := &net.Dialer{}
-		fctDial = dl.DialContext
+		fctDial = dial.DialContext
 	}
 
 	tr.DialContext = fctDial
+	tr.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return tls.DialWithDialer(dial, network, addr, tr.TLSClientConfig)
+	}
 }
 
 func GetClient(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
