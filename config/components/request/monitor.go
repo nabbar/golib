@@ -34,26 +34,6 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
-func (o *componentRequest) RegisterMonitorPool(fct montps.FuncPool) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.p = fct
-}
-
-func (o *componentRequest) _getMonitorPool() montps.Pool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.p == nil {
-		return nil
-	} else if p := o.p(); p == nil {
-		return nil
-	} else {
-		return p
-	}
-}
-
 func (o *componentRequest) _registerMonitor(cfg *libreq.Options) error {
 	var (
 		e   error
@@ -63,7 +43,7 @@ func (o *componentRequest) _registerMonitor(cfg *libreq.Options) error {
 		ctx = o._getContext()
 	)
 
-	if o._getMonitorPool() == nil {
+	if o.getPool() == nil {
 		return nil
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
@@ -107,15 +87,13 @@ func (o *componentRequest) _registerMonitor(cfg *libreq.Options) error {
 }
 
 func (o *componentRequest) _newMonitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	return o.r.Monitor(ctx, vrs)
+	return o.getRequest().Monitor(ctx, vrs)
 }
 
 func (o *componentRequest) _getMonitor(key string) montps.Monitor {
 	var (
 		mon montps.Monitor
-		pol = o._getMonitorPool()
+		pol = o.getPool()
 	)
 
 	if pol == nil {
@@ -127,7 +105,7 @@ func (o *componentRequest) _getMonitor(key string) montps.Monitor {
 }
 
 func (o *componentRequest) _setMonitor(mon montps.Monitor) error {
-	var pol = o._getMonitorPool()
+	var pol = o.getPool()
 
 	if pol == nil {
 		return nil

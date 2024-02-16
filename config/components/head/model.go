@@ -29,9 +29,8 @@ package head
 import (
 	"sync"
 
-	librtr "github.com/nabbar/golib/router/header"
-
 	libctx "github.com/nabbar/golib/context"
+	librtr "github.com/nabbar/golib/router/header"
 )
 
 type componentHead struct {

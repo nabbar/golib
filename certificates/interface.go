@@ -36,6 +36,7 @@ import (
 
 type FctHttpClient func(def TLSConfig, servername string) *http.Client
 type FctTLSDefault func() TLSConfig
+type FctRootCA func() []string
 
 type TLSConfig interface {
 	AddRootCAString(rootCA string) bool

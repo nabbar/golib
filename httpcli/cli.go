@@ -28,162 +28,87 @@ package httpcli
 
 import (
 	"context"
-	"crypto/tls"
-	"net"
 	"net/http"
-	"net/url"
 	"sync/atomic"
 	"time"
 
-	liberr "github.com/nabbar/golib/errors"
-	libptc "github.com/nabbar/golib/network/protocol"
-	"golang.org/x/net/http2"
+	libtls "github.com/nabbar/golib/certificates"
+	libdur "github.com/nabbar/golib/duration"
+	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
 )
 
 const (
-	ClientTimeout30Sec = 30 * time.Second
-	ClientTimeout10Sec = 10 * time.Second
-	ClientTimeout5Sec  = 5 * time.Second
-	ClientTimeout1Sec  = 1 * time.Second
-
-	ClientNetworkTCP = "tcp"
-	ClientNetworkUDP = "udp"
+	ClientTimeout5Sec = 5 * time.Second
 )
 
-var trp = new(atomic.Value)
+var (
+	dns = new(atomic.Value)
+	ctx context.Context
+	cnl context.CancelFunc
+)
 
-func init() {
-	trp.Store(&http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		TLSHandshakeTimeout:   10 * time.Second,
-		DisableKeepAlives:     false,
-		DisableCompression:    false,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   1,
-		MaxConnsPerHost:       25,
-		IdleConnTimeout:       90 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		ForceAttemptHTTP2:     true,
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			MaxVersion: tls.VersionTLS13,
+func initDNSMapper() htcdns.DNSMapper {
+	if cnl != nil {
+		cnl()
+	}
+
+	ctx, cnl = context.WithCancel(context.Background())
+
+	return htcdns.New(ctx, &htcdns.Config{
+		DNSMapper:  make(map[string]string),
+		TimerClean: libdur.ParseDuration(3 * time.Minute),
+		Transport: htcdns.TransportConfig{
+			Proxy:                 nil,
+			TLSConfig:             &libtls.Config{},
+			DisableHTTP2:          false,
+			DisableKeepAlive:      false,
+			DisableCompression:    false,
+			MaxIdleConns:          50,
+			MaxIdleConnsPerHost:   5,
+			MaxConnsPerHost:       25,
+			TimeoutGlobal:         libdur.ParseDuration(30 * time.Second),
+			TimeoutKeepAlive:      libdur.ParseDuration(15 * time.Second),
+			TimeoutTLSHandshake:   libdur.ParseDuration(10 * time.Second),
+			TimeoutExpectContinue: libdur.ParseDuration(3 * time.Second),
+			TimeoutIdleConn:       libdur.ParseDuration(30 * time.Second),
+			TimeoutResponseHeader: 0,
 		},
-	})
+	}, nil)
+}
+
+func DefaultDNSMapper() htcdns.DNSMapper {
+	if i := dns.Load(); i == nil {
+		d := initDNSMapper()
+		dns.Store(d)
+		return d
+	} else if d, k := i.(htcdns.DNSMapper); !k {
+		d = initDNSMapper()
+		dns.Store(d)
+		return d
+	} else {
+		return d
+	}
+}
+
+func SetDefaultDNSMapper(d htcdns.DNSMapper) {
+	if d == nil {
+		return
+	}
+
+	if cnl != nil {
+		cnl()
+	}
+
+	dns.Store(d)
 }
 
 type FctHttpClient func() *http.Client
+type FctHttpClientSrv func(servername string) *http.Client
 
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func ForceUpdateTransport(cfg *tls.Config, proxyUrl *url.URL) *http.Transport {
-	t := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		TLSClientConfig:       cfg.Clone(),
-		TLSHandshakeTimeout:   10 * time.Second,
-		DisableKeepAlives:     false,
-		DisableCompression:    false,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   1,
-		MaxConnsPerHost:       25,
-		IdleConnTimeout:       90 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		ForceAttemptHTTP2:     true,
-	}
-
-	if proxyUrl != nil {
-		t.Proxy = http.ProxyURL(proxyUrl)
-	}
-
-	trp.Store(t)
-
-	return t
-}
-
-func GetTransport(tlsConfig *tls.Config, proxyURL *url.URL, DisableKeepAlive, DisableCompression, ForceHTTP2 bool) *http.Transport {
-	var tr *http.Transport
-
-	if i := trp.Load(); i != nil {
-		if t, k := i.(*http.Transport); k {
-			tr = t.Clone()
-		}
-	}
-
-	if tr == nil {
-		tr = &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			TLSHandshakeTimeout:   10 * time.Second,
-			DisableKeepAlives:     false,
-			DisableCompression:    false,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   1,
-			MaxConnsPerHost:       25,
-			IdleConnTimeout:       90 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-			ForceAttemptHTTP2:     true,
-		}
-	}
-
-	tr.DisableCompression = DisableCompression
-	tr.DisableKeepAlives = DisableKeepAlive
-	tr.TLSClientConfig = tlsConfig.Clone()
-
-	if proxyURL != nil {
-		tr.Proxy = http.ProxyURL(proxyURL)
-	}
-
-	return tr
-}
-
-func SetTransportDial(tr *http.Transport, forceIp bool, netw libptc.NetworkProtocol, ip, local string) {
-	var (
-		dial = &net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}
-		fctDial func(ctx context.Context, network, address string) (net.Conn, error)
-	)
-
-	if forceIp && len(local) > 0 {
-		u := &url.URL{
-			Host: local,
-		}
-		fctDial = func(ctx context.Context, network, address string) (net.Conn, error) {
-			dial.LocalAddr = &net.TCPAddr{
-				IP: net.ParseIP(u.Hostname()),
-			}
-
-			return dial.DialContext(ctx, netw.Code(), ip)
-		}
-	} else if forceIp {
-		fctDial = func(ctx context.Context, network, address string) (net.Conn, error) {
-			return dial.DialContext(ctx, netw.Code(), ip)
-		}
-	} else {
-		fctDial = dial.DialContext
-	}
-
-	tr.DialContext = fctDial
-	tr.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		return tls.DialWithDialer(dial, network, addr, tr.TLSClientConfig)
-	}
-}
-
-func GetClient(tr *http.Transport, http2Tr bool, GlobalTimeout time.Duration) (*http.Client, liberr.Error) {
-	if http2Tr {
-		if e := http2.ConfigureTransport(tr); e != nil {
-			return nil, ErrorClientTransportHttp2.Error(e)
-		}
-	}
-
-	c := &http.Client{
-		Transport: tr,
-	}
-
-	if GlobalTimeout != 0 {
-		c.Timeout = GlobalTimeout
-	}
-
-	return c, nil
+func GetClient() *http.Client {
+	return DefaultDNSMapper().DefaultClient()
 }

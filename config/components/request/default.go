@@ -31,13 +31,11 @@ import (
 	"encoding/json"
 
 	cfgcst "github.com/nabbar/golib/config/const"
-	libhtc "github.com/nabbar/golib/httpcli"
 	moncfg "github.com/nabbar/golib/monitor/types"
 )
 
 var _defaultConfig = []byte(`{
    "endpoint":"https://endpoint.example.com/path",
-   "http_client": ` + string(libhtc.DefaultConfig(cfgcst.JSONIndent)) + `,
    "auth": {
      "basic":{
        "enable": false,

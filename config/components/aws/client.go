@@ -27,12 +27,8 @@
 package aws
 
 import (
-	"net/http"
-
 	libaws "github.com/nabbar/golib/aws"
-	libtls "github.com/nabbar/golib/certificates"
 	cfgtps "github.com/nabbar/golib/config/types"
-	libhtc "github.com/nabbar/golib/httpcli"
 	libreq "github.com/nabbar/golib/request"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -40,9 +36,6 @@ import (
 )
 
 func (o *componentAws) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -54,32 +47,7 @@ func (o *componentAws) _getKey() string {
 	}
 }
 
-func (o *componentAws) _getTLS() libtls.TLSConfig {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.t == nil {
-		return nil
-	}
-
-	return o.t()
-}
-
-func (o *componentAws) _getHttpClient() *http.Client {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.c == nil {
-		return &http.Client{}
-	}
-
-	return o.c()
-}
-
 func (o *componentAws) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -112,9 +80,6 @@ func (o *componentAws) _getSPFViper() *spfvbr.Viper {
 }
 
 func (o *componentAws) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyFctGetCpt); !l {
 		return nil
 	} else if i == nil {
@@ -127,9 +92,6 @@ func (o *componentAws) _getFctCpt() cfgtps.FuncCptGet {
 }
 
 func (o *componentAws) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -150,9 +112,6 @@ func (o *componentAws) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 }
 
 func (o *componentAws) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -178,7 +137,6 @@ func (o *componentAws) _runCli() error {
 		cli libaws.AWS
 		cfg libaws.Config
 		mon *libreq.OptionsHealth
-		htc *libhtc.Options
 		opt *libreq.Options
 		req libreq.Request
 		prt = ErrorComponentReload
@@ -188,51 +146,33 @@ func (o *componentAws) _runCli() error {
 		prt = ErrorComponentStart
 	}
 
-	if cfg, mon, htc, err = o._getConfig(); err != nil {
+	if cfg, mon, err = o._getConfig(); err != nil {
 		return prt.Error(err)
 	}
 
-	if htc != nil {
-		var h = *htc
-		o.RegisterHTTPClient(func() *http.Client {
-			if cl, er := h.GetClient(o._getTLS(), ""); er == nil {
-				return cl
-			}
-
-			return &http.Client{}
-		})
-	}
-
-	if cli, err = libaws.New(o.x.GetContext(), cfg, o._getHttpClient()); err != nil {
+	if cli, err = libaws.New(o.x.GetContext(), cfg, o.getClient()); err != nil {
 		return prt.Error(err)
 	}
 
 	if mon != nil && mon.Enable {
 		opt = &libreq.Options{
-			Endpoint:   "",
-			HttpClient: *htc,
-			Auth:       libreq.OptionsAuth{},
-			Health:     *mon,
+			Endpoint: "",
+			Auth:     libreq.OptionsAuth{},
+			Health:   *mon,
 		}
 
-		opt.SetDefaultTLS(o._getTLS)
 		opt.SetDefaultLog(o.getLogger)
 
-		o.m.Lock()
-		req = o.r
-		o.m.Unlock()
-
-		if req != nil {
+		if req = o.getRequest(); req != nil {
 			if req, err = opt.Update(o.x.GetContext, req); err != nil {
 				return prt.Error(err)
 			}
-		} else if req, err = opt.New(o.x.GetContext); err != nil {
+			req.RegisterHTTPClient(o.getClient())
+		} else if req, err = opt.New(o.x.GetContext, o.getClient()); err != nil {
 			return prt.Error(err)
 		}
 
-		o.m.Lock()
-		o.r = req
-		o.m.Unlock()
+		o.setRequest(req)
 	}
 
 	if mon != nil {
@@ -241,9 +181,7 @@ func (o *componentAws) _runCli() error {
 		}
 	}
 
-	o.m.Lock()
-	o.a = cli
-	o.m.Unlock()
+	o.SetAws(cli)
 
 	return nil
 }

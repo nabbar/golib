@@ -30,14 +30,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"runtime"
 
 	logent "github.com/nabbar/golib/logger/entry"
 	loglvl "github.com/nabbar/golib/logger/level"
-
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
+	libptc "github.com/nabbar/golib/network/protocol"
 	libver "github.com/nabbar/golib/version"
 )
 
@@ -90,9 +91,16 @@ func (o *srv) runAndHealthy(ctx context.Context) error {
 		return errNotRunning
 	} else if e := o.PortNotUse(ctx, o.GetBindable()); e != nil {
 		return e
+	} else {
+		d := &net.Dialer{}
+		co, ce := d.DialContext(ctx, libptc.NetworkTCP.Code(), o.GetBindable())
+		defer func() {
+			if co != nil {
+				_ = co.Close()
+			}
+		}()
+		return ce
 	}
-
-	return nil
 }
 
 func (o *srv) MonitorName() string {

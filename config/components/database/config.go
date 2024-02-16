@@ -27,12 +27,11 @@
 package database
 
 import (
+	"fmt"
 	"time"
 
+	libdbs "github.com/nabbar/golib/database/gorm"
 	libvpr "github.com/nabbar/golib/viper"
-
-	"github.com/nabbar/golib/database/gorm"
-
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"
 )
@@ -109,10 +108,10 @@ func (o *componentDatabase) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentDatabase) _getConfig() (*gorm.Config, error) {
+func (o *componentDatabase) _getConfig() (*libdbs.Config, error) {
 	var (
 		key string
-		cfg gorm.Config
+		cfg libdbs.Config
 		vpr libvpr.Viper
 		err error
 	)
@@ -121,9 +120,9 @@ func (o *componentDatabase) _getConfig() (*gorm.Config, error) {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, ErrorComponentNotInitialized.Error(nil)
-	}
-
-	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
+	} else if !vpr.Viper().IsSet(key) {
+		return nil, ErrorParamInvalid.Error(fmt.Errorf("missing config key '%s'", key))
+	} else if e := vpr.UnmarshalKey(key, &cfg); e != nil {
 		return nil, ErrorParamInvalid.Error(e)
 	}
 
@@ -131,7 +130,7 @@ func (o *componentDatabase) _getConfig() (*gorm.Config, error) {
 	cfg.RegisterContext(o.x.GetContext)
 
 	if val := vpr.GetString(key + ".driver"); val != "" {
-		cfg.Driver = gorm.DriverFromString(val)
+		cfg.Driver = libdbs.DriverFromString(val)
 	}
 	if val := vpr.GetString(key + ".name"); val != "" {
 		cfg.Name = val

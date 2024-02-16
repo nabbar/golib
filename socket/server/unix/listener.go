@@ -44,7 +44,6 @@ import (
 	"syscall"
 
 	libptc "github.com/nabbar/golib/network/protocol"
-
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -220,7 +219,7 @@ func (o *srv) Listen(ctx context.Context) error {
 
 		if co, ce := l.Accept(); ce != nil && !s.Load() {
 			o.fctError(ce)
-		} else {
+		} else if co != nil {
 			o.fctInfo(co.LocalAddr(), co.RemoteAddr(), libsck.ConnectionNew)
 			go o.Conn(co)
 		}
@@ -252,7 +251,9 @@ func (o *srv) Conn(con net.Conn) {
 			if err != io.EOF {
 				o.fctError(err)
 			}
-			break
+			if len(msg) < 1 {
+				break
+			}
 		}
 
 		var buf = bytes.NewBuffer(msg)

@@ -28,17 +28,14 @@ package request
 
 import (
 	"fmt"
-	"net/http"
 	"sync/atomic"
-
-	liblog "github.com/nabbar/golib/logger"
-
-	moncfg "github.com/nabbar/golib/monitor/types"
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
 	libhtc "github.com/nabbar/golib/httpcli"
+	liblog "github.com/nabbar/golib/logger"
+	moncfg "github.com/nabbar/golib/monitor/types"
 )
 
 type OptionsCredentials struct {
@@ -73,10 +70,9 @@ type OptionsHealthResult struct {
 }
 
 type Options struct {
-	Endpoint   string         `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"url"`
-	HttpClient libhtc.Options `json:"http_client" yaml:"http_client" toml:"http_client" mapstructure:"http_client" validate:""`
-	Auth       OptionsAuth    `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:""`
-	Health     OptionsHealth  `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:""`
+	Endpoint string        `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint" validate:"url"`
+	Auth     OptionsAuth   `json:"auth" yaml:"auth" toml:"auth" mapstructure:"auth" validate:""`
+	Health   OptionsHealth `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:""`
 
 	tls libtls.FctTLSDefault
 	log liblog.FuncLog
@@ -140,20 +136,8 @@ func (o *Options) SetDefaultLog(fct liblog.FuncLog) {
 	o.log = fct
 }
 
-func (o *Options) ClientHTTPTLS(tls libtls.TLSConfig, servername string) *http.Client {
-	if c, e := o.HttpClient.GetClient(tls, servername); e == nil {
-		return c
-	}
-
-	return &http.Client{}
-}
-
-func (o *Options) ClientHTTP(servername string) *http.Client {
-	return o.ClientHTTPTLS(o.defaultTLS(), servername)
-}
-
-func (o *Options) New(ctx libctx.FuncContext) (Request, error) {
-	if n, e := New(ctx, o); e != nil {
+func (o *Options) New(ctx libctx.FuncContext, cli libhtc.HttpClient) (Request, error) {
+	if n, e := New(ctx, o, cli); e != nil {
 		return nil, e
 	} else {
 		if o.log != nil {
@@ -166,7 +150,6 @@ func (o *Options) New(ctx libctx.FuncContext) (Request, error) {
 				return l
 			})
 		}
-		n.RegisterHTTPClient(o.ClientHTTPTLS)
 		return n, nil
 	}
 }
@@ -199,8 +182,6 @@ func (o *Options) Update(ctx libctx.FuncContext, req Request) (Request, error) {
 			return l
 		})
 	}
-
-	n.RegisterHTTPClient(o.ClientHTTPTLS)
 
 	return n, nil
 }
@@ -245,11 +226,11 @@ func (r *request) SetOption(opt *Options) error {
 	return nil
 }
 
-func (r *request) RegisterHTTPClient(fct libtls.FctHttpClient) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	r.f = fct
+func (r *request) RegisterHTTPClient(cli libhtc.HttpClient) {
+	if cli == nil {
+		return
+	}
+	r.c.Store(cli)
 }
 
 func (r *request) RegisterDefaultLogger(fct liblog.FuncLog) {

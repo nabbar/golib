@@ -31,9 +31,7 @@ import (
 	"sync/atomic"
 
 	libptc "github.com/nabbar/golib/network/protocol"
-
 	libsiz "github.com/nabbar/golib/size"
-
 	libsck "github.com/nabbar/golib/socket"
 )
 

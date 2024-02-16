@@ -56,17 +56,6 @@ func (o *componentRequest) Type() string {
 }
 
 func (o *componentRequest) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.x == nil {
-		o.x = libctx.NewConfig[uint8](ctx)
-	} else {
-		x := libctx.NewConfig[uint8](ctx)
-		x.Merge(o.x)
-		o.x = x
-	}
-
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -85,9 +74,6 @@ func (o *componentRequest) RegisterFuncReload(before, after cfgtps.FuncCptEvent)
 }
 
 func (o *componentRequest) IsStarted() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	return o != nil && o.r != nil
 }
 
@@ -104,23 +90,14 @@ func (o *componentRequest) Reload() error {
 }
 
 func (o *componentRequest) Stop() {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.r = nil
-	return
+	o.setRequest(nil)
 }
 
 func (o *componentRequest) Dependencies() []string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	var def = []string{cpttls.ComponentType}
 
 	if o == nil {
 		return def
-	} else if len(o.t) > 0 {
-		def = []string{o.t}
 	}
 
 	if o.x == nil {
@@ -137,9 +114,6 @@ func (o *componentRequest) Dependencies() []string {
 }
 
 func (o *componentRequest) SetDependencies(d []string) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if o.x == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {

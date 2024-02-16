@@ -31,37 +31,16 @@ import (
 	"fmt"
 	"runtime"
 
-	libreq "github.com/nabbar/golib/request"
-
 	libaws "github.com/nabbar/golib/aws"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
+	libreq "github.com/nabbar/golib/request"
 )
 
 const (
 	defaultNameMonitor = "AWS Client"
 )
-
-func (o *componentAws) RegisterMonitorPool(fct montps.FuncPool) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.p = fct
-}
-
-func (o *componentAws) _getMonitorPool() montps.Pool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.p == nil {
-		return nil
-	} else if p := o.p(); p == nil {
-		return nil
-	} else {
-		return p
-	}
-}
 
 func (o *componentAws) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Config) error {
 	var (
@@ -73,7 +52,7 @@ func (o *componentAws) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Co
 		vrs = o._getVersion()
 	)
 
-	if o._getMonitorPool() == nil {
+	if o.getPool() == nil {
 		return nil
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
@@ -133,10 +112,7 @@ func (o *componentAws) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Co
 }
 
 func (o *componentAws) _getEndpoint(opt *libreq.OptionsHealth, aws libaws.Config) string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r != nil && len(opt.Endpoint) > 0 {
+	if req := o.getRequest(); req != nil && len(opt.Endpoint) > 0 {
 		return opt.Endpoint
 	} else {
 		return aws.GetEndpoint().Host
@@ -157,7 +133,7 @@ func (o *componentAws) _newMonitor(inf montps.Info) (montps.Monitor, error) {
 func (o *componentAws) _getMonitor(key string, inf montps.Info) montps.Monitor {
 	var (
 		mon libmon.Monitor
-		pol = o._getMonitorPool()
+		pol = o.getPool()
 	)
 
 	if pol == nil {
@@ -175,7 +151,7 @@ func (o *componentAws) _getMonitor(key string, inf montps.Info) montps.Monitor {
 }
 
 func (o *componentAws) _setMonitor(mon montps.Monitor) error {
-	var pol = o._getMonitorPool()
+	var pol = o.getPool()
 
 	if pol == nil {
 		return nil
@@ -185,14 +161,11 @@ func (o *componentAws) _setMonitor(mon montps.Monitor) error {
 }
 
 func (o *componentAws) HealthCheck(ctx context.Context) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if !o.IsStarted() {
+	if cli := o.GetAws(); cli == nil {
 		return fmt.Errorf("component not started")
-	} else if o.r == nil {
-		return o.a.Config().Check(ctx)
+	} else if req := o.getRequest(); req == nil {
+		return cli.Config().Check(ctx)
 	} else {
-		return o.r.HealthCheck(ctx)
+		return req.HealthCheck(ctx)
 	}
 }

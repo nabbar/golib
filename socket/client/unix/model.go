@@ -171,7 +171,9 @@ func (o *cli) sendRequest(con net.Conn, r io.Reader) {
 			if !errors.Is(err, io.EOF) {
 				o.fctError(err)
 			}
-			return
+			if len(buf) < 1 {
+				return
+			}
 		}
 
 		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionWrite)

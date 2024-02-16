@@ -35,8 +35,6 @@ import (
 	libctx "github.com/nabbar/golib/context"
 )
 
-type FuncDefaultCARoot func() []string
-
 type ComponentTlS interface {
 	cfgtps.Component
 	Config() *libtls.Config
@@ -44,12 +42,13 @@ type ComponentTlS interface {
 	SetTLS(tls libtls.TLSConfig)
 }
 
-func New(ctx libctx.FuncContext, defCARoot FuncDefaultCARoot) ComponentTlS {
+func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCA) ComponentTlS {
 	return &componentTls{
 		m: sync.RWMutex{},
 		x: libctx.NewConfig[uint8](ctx),
 		t: nil,
 		c: nil,
+		f: defCARoot,
 	}
 }
 
@@ -57,7 +56,7 @@ func Register(cfg libcfg.Config, key string, cpt ComponentTlS) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot FuncDefaultCARoot) {
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot libtls.FctRootCA) {
 	cfg.ComponentSet(key, New(ctx, defCARoot))
 }
 

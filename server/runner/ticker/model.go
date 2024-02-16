@@ -51,6 +51,7 @@ type run struct {
 	e *atomic.Value // slice []error
 	f func(ctx context.Context, tck *time.Ticker) error
 	d time.Duration
+	t *atomic.Value
 	c *atomic.Value // chan struct{}
 }
 
@@ -78,7 +79,11 @@ func (o *run) Restart(ctx context.Context) error {
 func (o *run) Stop(ctx context.Context) error {
 	if e := o.checkMe(); e != nil {
 		return e
-	} else if !o.IsRunning() {
+	}
+
+	o.t.Store(time.Time{})
+
+	if !o.IsRunning() {
 		return nil
 	}
 
@@ -122,6 +127,8 @@ func (o *run) Start(ctx context.Context) error {
 			}
 			o.chanClose()
 		}()
+
+		o.t.Store(time.Now())
 
 		o.chanInit()
 		o.errorsClean()
@@ -171,4 +178,14 @@ func (o *run) checkMeStart(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (o *run) Uptime() time.Duration {
+	if i := o.t.Load(); i == nil {
+		return 0
+	} else if t, k := i.(time.Time); !k {
+		return 0
+	} else {
+		return time.Since(t)
+	}
 }

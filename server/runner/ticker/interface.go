@@ -45,6 +45,7 @@ func New(tick time.Duration, fct func(ctx context.Context, tck *time.Ticker) err
 		e: new(atomic.Value),
 		f: fct,
 		d: tick,
+		t: new(atomic.Value),
 		c: new(atomic.Value),
 	}
 }

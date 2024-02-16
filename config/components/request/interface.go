@@ -27,36 +27,43 @@
 package request
 
 import (
-	"sync"
+	"sync/atomic"
 
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
+	libhtc "github.com/nabbar/golib/httpcli"
 	libreq "github.com/nabbar/golib/request"
 )
 
 type ComponentRequest interface {
 	cfgtps.Component
 
-	SetDefaultTLS(key string)
-	Request() (libreq.Request, error)
+	SetHTTPClient(cli libhtc.HttpClient)
+	Request() libreq.Request
 }
 
-func New(ctx libctx.FuncContext, tls string) ComponentRequest {
-	return &componentRequest{
-		m: sync.RWMutex{},
+func New(ctx libctx.FuncContext, cli libhtc.HttpClient) ComponentRequest {
+	o := &componentRequest{
 		x: libctx.NewConfig[uint8](ctx),
-		r: nil,
-		t: tls,
+		r: new(atomic.Value),
+		c: new(atomic.Value),
+		p: new(atomic.Value),
 	}
+
+	if cli != nil {
+		o.c.Store(cli)
+	}
+
+	return o
 }
 
 func Register(cfg libcfg.Config, key string, cpt ComponentRequest) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key, tls string) {
-	cfg.ComponentSet(key, New(ctx, tls))
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, cli libhtc.HttpClient) {
+	cfg.ComponentSet(key, New(ctx, cli))
 }
 
 func Load(getCpt cfgtps.FuncCptGet, key string) ComponentRequest {

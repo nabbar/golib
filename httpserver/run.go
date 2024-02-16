@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	loglvl "github.com/nabbar/golib/logger/level"
@@ -226,4 +227,15 @@ func (o *srv) runFuncStop(ctx context.Context) (err error) {
 	err = ser.Shutdown(x)
 
 	return err
+}
+
+func (o *srv) Uptime() time.Duration {
+	o.m.RLock()
+	defer o.m.RUnlock()
+
+	if o.r != nil {
+		return o.r.Uptime()
+	}
+
+	return 0
 }

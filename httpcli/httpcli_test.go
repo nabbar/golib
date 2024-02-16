@@ -28,11 +28,11 @@ package httpcli_test
 import (
 	"io"
 	"net/http"
+	"time"
 
-	libptc "github.com/nabbar/golib/network/protocol"
+	libdur "github.com/nabbar/golib/duration"
+	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
 
-	libtls "github.com/nabbar/golib/certificates"
-	"github.com/nabbar/golib/httpcli"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -40,7 +40,8 @@ import (
 var (
 	cli *http.Client
 	err error
-	opt httpcli.Options
+	opt htcdns.Config
+	dns htcdns.DNSMapper
 	rsp *http.Response
 )
 
@@ -52,24 +53,29 @@ var _ = Describe("HttpCli", func() {
 	}()
 	Context("Get URL with a Force IP", func() {
 		It("Create new client must succeed", func() {
-			opt = httpcli.Options{
-				Timeout: 0,
-				Http2:   true,
-				TLS: httpcli.OptionTLS{
-					Enable: false,
-					Config: libtls.Config{},
-				},
-				ForceIP: httpcli.OptionForceIP{
-					Enable: true,
-					Net:    libptc.NetworkTCP,
-					IP:     "127.0.0.1:8080",
-				},
+			opt = htcdns.Config{
+				DNSMapper:  make(map[string]string),
+				TimerClean: libdur.ParseDuration(30 * time.Second),
+				Transport:  htcdns.TransportConfig{},
 			}
-			cli, err = opt.GetClient(nil, "")
-			Expect(err).ToNot(HaveOccurred())
+
+			dns = htcdns.New(ctx, &opt, nil)
+
+			cli = dns.DefaultClient()
 			Expect(cli).ToNot(BeNil())
 		})
-		It("Get URL must succeed", func() {
+		It("Get URL must succeed for DNS Mapper with host", func() {
+			dns.Del("test.me.example.com:80")
+			dns.Add("test.me.example.com", "127.0.0.1:8080")
+
+			rsp, err = cli.Get("http://test.me.example.com/path/any/thing")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(rsp).ToNot(BeNil())
+		})
+		It("Get URL must succeed for DNS Mapper with host & port", func() {
+			dns.Del("test.me.example.com")
+			dns.Add("test.me.example.com:80", "127.0.0.1:8080")
+
 			rsp, err = cli.Get("http://test.me.example.com/path/any/thing")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rsp).ToNot(BeNil())

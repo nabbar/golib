@@ -27,6 +27,8 @@
 package smtp
 
 import (
+	"fmt"
+
 	libmon "github.com/nabbar/golib/monitor/types"
 	smtpcf "github.com/nabbar/golib/smtp/config"
 	libvpr "github.com/nabbar/golib/viper"
@@ -67,9 +69,9 @@ func (o *componentSmtp) _getConfig() (smtpcf.Config, *libmon.Config, error) {
 		return nil, nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, nil, ErrorComponentNotInitialized.Error(nil)
-	}
-
-	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
+	} else if !vpr.Viper().IsSet(key) {
+		return nil, nil, ErrorParamInvalid.Error(fmt.Errorf("missing config key '%s'", key))
+	} else if e := vpr.UnmarshalKey(key, &cfg); e != nil {
 		return nil, nil, ErrorParamInvalid.Error(e)
 	}
 

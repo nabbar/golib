@@ -53,7 +53,7 @@ func (o *sem) defOpts(unit interface{}, name, job string, bar semtps.Bar) []sdkm
 
 	if len(name) > 0 {
 		dec = append(dec,
-			mpbdec.Name(name, mpbdec.WC{W: len(name) + 1, C: mpbdec.DidentRight}),
+			mpbdec.Name(name, mpbdec.WC{W: len(name) + 1, C: mpbdec.DindentRight}),
 		)
 	}
 
@@ -64,7 +64,7 @@ func (o *sem) defOpts(unit interface{}, name, job string, bar semtps.Bar) []sdkm
 			)
 		}
 		dec = append(dec,
-			mpbdec.Name(job, mpbdec.WC{W: len(job) + 1, C: mpbdec.DidentRight | mpbdec.DextraSpace}),
+			mpbdec.Name(job, mpbdec.WC{W: len(job) + 1, C: mpbdec.DindentRight | mpbdec.DextraSpace}),
 		)
 	}
 

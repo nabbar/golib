@@ -29,8 +29,6 @@ package request
 import (
 	"context"
 
-	libtls "github.com/nabbar/golib/certificates"
-	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libreq "github.com/nabbar/golib/request"
 	libver "github.com/nabbar/golib/version"
@@ -39,9 +37,6 @@ import (
 )
 
 func (o *componentRequest) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -54,9 +49,6 @@ func (o *componentRequest) _getKey() string {
 }
 
 func (o *componentRequest) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -89,9 +81,6 @@ func (o *componentRequest) _getSPFViper() *spfvbr.Viper {
 }
 
 func (o *componentRequest) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyFctGetCpt); !l {
 		return nil
 	} else if i == nil {
@@ -104,16 +93,10 @@ func (o *componentRequest) _getFctCpt() cfgtps.FuncCptGet {
 }
 
 func (o *componentRequest) _getContext() context.Context {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	return o.x.GetContext()
 }
 
 func (o *componentRequest) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -122,23 +105,6 @@ func (o *componentRequest) _getVersion() libver.Version {
 		return nil
 	} else {
 		return v
-	}
-}
-
-func (o *componentRequest) _GetTLS() libtls.TLSConfig {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.t == "" {
-		return nil
-	}
-
-	if i := cpttls.Load(o._getFctCpt(), o.t); i == nil {
-		return nil
-	} else if tls := i.GetTLS(); tls == nil {
-		return nil
-	} else {
-		return tls
 	}
 }
 
@@ -151,9 +117,6 @@ func (o *componentRequest) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) 
 }
 
 func (o *componentRequest) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -185,29 +148,27 @@ func (o *componentRequest) _runCli() error {
 	if !o.IsStarted() {
 		prt = ErrorComponentStart
 	} else {
-		req = o.r
+		req = o.getRequest()
 	}
 
 	if cfg, err = o._getConfig(); err != nil {
 		return prt.Error(err)
 	}
 
-	cfg.SetDefaultTLS(o._GetTLS)
 	cfg.SetDefaultLog(o.getLogger)
 
 	if req != nil {
 		if req, e = cfg.Update(o.x.GetContext, req); err != nil {
 			return prt.Error(e)
 		}
+		req.RegisterHTTPClient(o.getClient())
 	} else {
-		if req, e = cfg.New(o.x.GetContext); err != nil {
+		if req, e = cfg.New(o.x.GetContext, o.getClient()); err != nil {
 			return prt.Error(e)
 		}
 	}
 
-	o.m.Lock()
-	o.r = req
-	o.m.Unlock()
+	o.setRequest(req)
 
 	if e = o._registerMonitor(cfg); e != nil {
 		return prt.Error(e)

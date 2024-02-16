@@ -60,9 +60,9 @@ func getMessage(code liberr.CodeError) (message string) {
 	case ErrorConfigInvalid:
 		return "server invalid config"
 	case ErrorComponentStart:
-		return "cannot open database connection with config"
+		return "cannot initiate new TLSConfig with config"
 	case ErrorComponentReload:
-		return "cannot update database connection with new config"
+		return "cannot update TLSConfig with new config"
 	}
 
 	return liberr.NullMessage

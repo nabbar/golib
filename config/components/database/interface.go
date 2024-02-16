@@ -30,11 +30,10 @@ import (
 	"sync"
 	"time"
 
-	libdbs "github.com/nabbar/golib/database/gorm"
-
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
+	libdbs "github.com/nabbar/golib/database/gorm"
 )
 
 type ComponentDatabase interface {

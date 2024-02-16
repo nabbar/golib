@@ -30,9 +30,8 @@ import (
 	"sync"
 	"time"
 
-	libdbs "github.com/nabbar/golib/database/gorm"
-
 	libctx "github.com/nabbar/golib/context"
+	libdbs "github.com/nabbar/golib/database/gorm"
 	montps "github.com/nabbar/golib/monitor/types"
 )
 

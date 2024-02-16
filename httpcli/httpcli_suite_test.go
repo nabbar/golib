@@ -47,10 +47,19 @@ var srv = &http.Server{
 	Handler: Hello(),
 }
 
+var (
+	ctx context.Context
+	cnl context.CancelFunc
+)
+
 func TestGolibHttpCliHelper(t *testing.T) {
 	defer func() {
 		_ = srv.Shutdown(context.Background())
 	}()
+
+	ctx, cnl = context.WithCancel(context.Background())
+	defer cnl()
+
 	go func() {
 		if e := srv.ListenAndServe(); e != nil {
 			if !errors.Is(e, http.ErrServerClosed) {
@@ -58,6 +67,7 @@ func TestGolibHttpCliHelper(t *testing.T) {
 			}
 		}
 	}()
+
 	time.Sleep(500 * time.Millisecond)
 
 	RegisterFailHandler(Fail)

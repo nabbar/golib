@@ -34,9 +34,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	libptc "github.com/nabbar/golib/network/protocol"
-
 	libtls "github.com/nabbar/golib/certificates"
+	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
 

@@ -27,10 +27,11 @@
 package aws
 
 import (
+	"fmt"
+
 	libaws "github.com/nabbar/golib/aws"
 	cfgstd "github.com/nabbar/golib/aws/configAws"
 	cfgcus "github.com/nabbar/golib/aws/configCustom"
-	libhtc "github.com/nabbar/golib/httpcli"
 	libreq "github.com/nabbar/golib/request"
 	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
@@ -111,102 +112,93 @@ func (o *componentAws) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, *libhtc.Options, error) {
+func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, error) {
 	var (
 		key string
 		cfg libaws.Config
 		flg = o._getFlagUpdate()
 		mon *libreq.OptionsHealth
-		htc *libhtc.Options
 		vpr libvpr.Viper
 		err error
 	)
 
 	if vpr = o._getViper(); vpr == nil {
-		return nil, nil, nil, ErrorComponentNotInitialized.Error(nil)
+		return nil, nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
-		return nil, nil, nil, ErrorComponentNotInitialized.Error(nil)
+		return nil, nil, ErrorComponentNotInitialized.Error(nil)
+	} else if !vpr.Viper().IsSet(key) {
+		return nil, nil, ErrorParamInvalid.Error(fmt.Errorf("missing config key '%s'", key))
 	}
 
 	switch o.d {
 	case ConfigCustomStatus:
 		cnf := cfgcus.ModelStatus{}
 		if err = vpr.UnmarshalKey(key, &cnf); err != nil {
-			return nil, nil, nil, ErrorParamInvalid.Error(err)
+			return nil, nil, ErrorParamInvalid.Error(err)
 		} else {
 			flg.updCustom(&cnf.Config)
 		}
 
 		if cfg, err = o.d.NewFromModel(cnf); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		} else {
 			mon = &cnf.Monitor
-			htc = &cnf.HTTPClient
 		}
 
 	case ConfigCustom:
 		cnf := cfgcus.Model{}
 		if err = vpr.UnmarshalKey(key, &cnf); err != nil {
-			return nil, nil, nil, ErrorParamInvalid.Error(err)
+			return nil, nil, ErrorParamInvalid.Error(err)
 		} else {
 			flg.updCustom(&cnf)
 		}
 
 		if cfg, err = o.d.NewFromModel(cnf); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		} else {
 			mon = nil
-			htc = nil
 		}
 
 	case ConfigStandardStatus:
 		cnf := cfgstd.ModelStatus{}
 		if err = vpr.UnmarshalKey(key, &cnf); err != nil {
-			return nil, nil, nil, ErrorParamInvalid.Error(err)
+			return nil, nil, ErrorParamInvalid.Error(err)
 		} else {
 			flg.updStandard(&cnf.Config)
 		}
 
 		if cfg, err = o.d.NewFromModel(cnf); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		} else {
 			mon = &cnf.Monitor
-			htc = &cnf.HTTPClient
 		}
 
 	case ConfigStandard:
 		cnf := cfgstd.Model{}
 		if err = vpr.UnmarshalKey(key, &cnf); err != nil {
-			return nil, nil, nil, ErrorParamInvalid.Error(err)
+			return nil, nil, ErrorParamInvalid.Error(err)
 		} else {
 			flg.updStandard(&cnf)
 		}
 
 		if cfg, err = o.d.NewFromModel(cnf); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		} else {
 			mon = nil
-			htc = nil
 		}
 	}
 
 	if err = cfg.Validate(); err != nil {
-		return nil, nil, nil, ErrorConfigInvalid.Error(err)
+		return nil, nil, ErrorConfigInvalid.Error(err)
 	}
 
 	if mon != nil {
 		if err = mon.Validate(); err != nil {
-			return nil, nil, nil, ErrorConfigInvalid.Error(err)
+			return nil, nil, ErrorConfigInvalid.Error(err)
 		}
 	}
 
-	if htc != nil {
-		if err = htc.Validate(); err != nil {
-			return nil, nil, nil, ErrorConfigInvalid.Error(err)
-		}
-	}
-
-	return cfg, mon, htc, nil
+	return cfg, mon, nil
 }
 
 func (o *componentAws) _getFlagUpdate() *_configFlag {

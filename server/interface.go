@@ -28,6 +28,7 @@ package server
 
 import (
 	"context"
+	"time"
 )
 
 type Action func(ctx context.Context) error
@@ -44,6 +45,9 @@ type Server interface {
 
 	// IsRunning return true if the server is currently running
 	IsRunning() bool
+
+	//Uptime return the duration since last launch
+	Uptime() time.Duration
 }
 
 type WaitNotify interface {

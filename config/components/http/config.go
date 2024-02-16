@@ -29,9 +29,8 @@ package http
 import (
 	"fmt"
 
-	libvpr "github.com/nabbar/golib/viper"
-
 	htpool "github.com/nabbar/golib/httpserver/pool"
+	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
 )
 
@@ -51,9 +50,9 @@ func (o *componentHttp) _getConfig() (*htpool.Config, error) {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, ErrorComponentNotInitialized.Error(nil)
-	}
-
-	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
+	} else if !vpr.Viper().IsSet(key) {
+		return nil, ErrorParamInvalid.Error(fmt.Errorf("missing config key '%s'", key))
+	} else if e := vpr.UnmarshalKey(key, &cfg); e != nil {
 		return nil, ErrorParamInvalid.Error(e)
 	}
 

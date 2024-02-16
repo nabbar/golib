@@ -52,6 +52,7 @@ type run struct {
 	e *atomic.Value // slice []error
 	f libsrv.Action
 	s libsrv.Action
+	t *atomic.Value
 	c *atomic.Value // chan struct{}
 }
 
@@ -96,6 +97,8 @@ func (o *run) Stop(ctx context.Context) error {
 		t = time.NewTicker(pollStop)
 	)
 
+	o.t.Store(time.Time{})
+
 	defer func() {
 		if rec := recover(); rec != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on Stop function in gollib/server/startStop/model.\n%v\n", rec)
@@ -133,6 +136,7 @@ func (o *run) Start(ctx context.Context) error {
 
 	var can context.CancelFunc
 	ctx, can = context.WithCancel(ctx)
+	o.t.Store(time.Now())
 
 	go func(x context.Context, n context.CancelFunc) {
 		defer n()
@@ -190,4 +194,14 @@ func (o *run) checkMeStart(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (o *run) Uptime() time.Duration {
+	if i := o.t.Load(); i == nil {
+		return 0
+	} else if t, k := i.(time.Time); !k {
+		return 0
+	} else {
+		return time.Since(t)
+	}
 }

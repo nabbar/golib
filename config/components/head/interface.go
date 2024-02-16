@@ -29,10 +29,9 @@ package head
 import (
 	"sync"
 
-	librtr "github.com/nabbar/golib/router/header"
-
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
+	librtr "github.com/nabbar/golib/router/header"
 )
 
 type ComponentHead interface {

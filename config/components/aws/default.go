@@ -45,7 +45,6 @@ var _defaultConfigStandard = []byte(`{
 
 var _defaultConfigStandardWithStatus = []byte(`{
   "config":` + string(DefaultConfigStandard(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
-  "http-client":` + string(libhtc.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `,
   "health":` + string(montps.DefaultConfig(cfgcst.JSONIndent+cfgcst.JSONIndent)) + `
 }`)
 

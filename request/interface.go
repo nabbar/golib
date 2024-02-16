@@ -33,13 +33,12 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 
-	liblog "github.com/nabbar/golib/logger"
-
-	montps "github.com/nabbar/golib/monitor/types"
-
-	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
+	libhtc "github.com/nabbar/golib/httpcli"
+	liblog "github.com/nabbar/golib/logger"
+	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"
 )
 
@@ -105,7 +104,7 @@ type Request interface {
 
 	GetOption() *Options
 	SetOption(opt *Options) error
-	RegisterHTTPClient(fct libtls.FctHttpClient)
+	RegisterHTTPClient(cli libhtc.HttpClient)
 	RegisterDefaultLogger(fct liblog.FuncLog)
 	RegisterContext(fct libctx.FuncContext)
 
@@ -120,19 +119,22 @@ type Request interface {
 	HealthCheck(ctx context.Context) error
 }
 
-func New(ctx libctx.FuncContext, opt *Options) (Request, error) {
+func New(ctx libctx.FuncContext, opt *Options, cli libhtc.HttpClient) (Request, error) {
 	r := &request{
 		s: sync.Mutex{},
 		o: nil,
 		x: ctx,
-		f: nil,
+		l: nil,
 		u: nil,
 		h: make(url.Values),
 		p: make(url.Values),
 		b: bytes.NewBuffer(make([]byte, 0)),
 		m: http.MethodGet,
 		e: nil,
+		c: new(atomic.Value),
 	}
+
+	r.c.Store(cli)
 
 	if e := r.SetOption(opt); e != nil {
 		return nil, e

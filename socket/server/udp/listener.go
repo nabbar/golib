@@ -162,7 +162,9 @@ func (o *srv) Listen(ctx context.Context) error {
 			if !stp.Load() {
 				o.fctError(rer)
 			}
-			continue
+			if nbr < 1 {
+				continue
+			}
 		}
 
 		go func(la, ra net.Addr, b []byte) {

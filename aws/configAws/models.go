@@ -45,9 +45,8 @@ type Model struct {
 }
 
 type ModelStatus struct {
-	Config     Model                `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required"`
-	HTTPClient libhtc.Options       `json:"http-client" yaml:"http-client" toml:"http-client" mapstructure:"http-client" validate:""`
-	Monitor    libreq.OptionsHealth `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:""`
+	Config  Model                `json:"config" yaml:"config" toml:"config" mapstructure:"config" validate:"required"`
+	Monitor libreq.OptionsHealth `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:""`
 }
 
 type awsModel struct {

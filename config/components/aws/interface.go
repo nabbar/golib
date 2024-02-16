@@ -27,39 +27,33 @@
 package aws
 
 import (
-	"net/http"
-	"sync"
+	"sync/atomic"
 
 	libaws "github.com/nabbar/golib/aws"
-	libtls "github.com/nabbar/golib/certificates"
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
+	libctx "github.com/nabbar/golib/context"
+	libhtc "github.com/nabbar/golib/httpcli"
 )
 
-type ComponentAwsClient interface {
-	cfgtps.Component
-	RegisterHTTPClient(fct func() *http.Client)
-}
-
-type ComponentAwsAPI interface {
-	cfgtps.Component
-	RegisterTLS(fct libtls.FctTLSDefault)
-}
-
 type ComponentAws interface {
-	ComponentAwsClient
-	ComponentAwsAPI
+	cfgtps.Component
 
-	GetAws() (libaws.AWS, error)
+	GetAws() libaws.AWS
 	SetAws(a libaws.AWS)
+
+	RegisterHTTPClient(cli libhtc.HttpClient)
 }
 
-func New(drv ConfigDriver) ComponentAws {
+func New(ctx libctx.FuncContext, drv ConfigDriver) ComponentAws {
 	return &componentAws{
-		m: sync.RWMutex{},
-		x: nil,
+		x: libctx.NewConfig[uint8](ctx),
 		d: drv,
-		a: nil,
+		p: new(atomic.Value),
+		c: new(atomic.Value),
+		a: new(atomic.Value),
+		r: new(atomic.Value),
+		s: new(atomic.Bool),
 	}
 }
 
@@ -67,8 +61,8 @@ func Register(cfg libcfg.Config, key string, cpt ComponentAws) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, drv ConfigDriver, key string) {
-	cfg.ComponentSet(key, New(drv))
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, drv ConfigDriver, key string) {
+	cfg.ComponentSet(key, New(ctx, drv))
 }
 
 func Load(getCpt cfgtps.FuncCptGet, key string) ComponentAws {

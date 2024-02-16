@@ -27,8 +27,6 @@
 package httpcli
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -36,9 +34,8 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
-	cmptls "github.com/nabbar/golib/config/components/tls"
-	cfgcst "github.com/nabbar/golib/config/const"
 	liberr "github.com/nabbar/golib/errors"
+	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
 	libptc "github.com/nabbar/golib/network/protocol"
 )
 
@@ -72,33 +69,7 @@ type Options struct {
 }
 
 func DefaultConfig(indent string) []byte {
-	var (
-		res = bytes.NewBuffer(make([]byte, 0))
-		def = []byte(`{
-       "timeout":"0s",
-       "disable-keep-alive": false,
-       "disable-compression": false,
-       "http2": true,
-       "tls": ` + string(cmptls.DefaultConfig(cfgcst.JSONIndent)) + `,
-       "force_ip": {
-         "enable": false,
-         "net":"tcp",
-         "ip":"127.0.0.1:8080",
-         "local":"127.0.0.1"
-       },
-       "proxy": {
-         "enable": false,
-         "endpoint":"http://example.com",
-         "username":"example",
-         "password":"example"
-       }
-}`)
-	)
-	if err := json.Indent(res, def, indent, cfgcst.JSONIndent); err != nil {
-		return def
-	} else {
-		return res.Bytes()
-	}
+	return htcdns.DefaultConfig(indent)
 }
 
 func (o Options) Validate() liberr.Error {
@@ -123,60 +94,5 @@ func (o Options) Validate() liberr.Error {
 }
 
 func (o Options) GetClient(def libtls.TLSConfig, servername string) (*http.Client, liberr.Error) {
-	var (
-		tls libtls.TLSConfig
-		edp *url.URL
-	)
-
-	if t, e := o._GetTLS(def); e != nil {
-		return nil, e
-	} else {
-		tls = t
-	}
-
-	if o.Proxy.Enable && o.Proxy.Endpoint != nil {
-		edp = &url.URL{
-			Scheme:      o.Proxy.Endpoint.Scheme,
-			Opaque:      o.Proxy.Endpoint.Opaque,
-			User:        nil,
-			Host:        o.Proxy.Endpoint.Host,
-			Path:        o.Proxy.Endpoint.Path,
-			RawPath:     o.Proxy.Endpoint.RawPath,
-			OmitHost:    o.Proxy.Endpoint.OmitHost,
-			ForceQuery:  o.Proxy.Endpoint.ForceQuery,
-			RawQuery:    o.Proxy.Endpoint.RawQuery,
-			Fragment:    o.Proxy.Endpoint.Fragment,
-			RawFragment: o.Proxy.Endpoint.RawFragment,
-		}
-
-		if len(o.Proxy.Password) > 0 {
-			edp.User = url.UserPassword(o.Proxy.Username, o.Proxy.Password)
-		} else if len(o.Proxy.Username) > 0 {
-			edp.User = url.User(o.Proxy.Username)
-		} else if o.Proxy.Endpoint.User != nil {
-			if p, k := o.Proxy.Endpoint.User.Password(); k {
-				edp.User = url.UserPassword(o.Proxy.Endpoint.User.Username(), p)
-			} else {
-				edp.User = url.User(o.Proxy.Endpoint.User.Username())
-			}
-		}
-
-		if edp != nil && len(edp.String()) < 1 {
-			edp = nil
-		}
-	}
-
-	var tr *http.Transport
-
-	tr = GetTransport(tls.TlsConfig(""), edp, o.DisableKeepAlive, o.DisableCompression, o.Http2)
-	SetTransportDial(tr, o.ForceIP.Enable, o.ForceIP.Net, o.ForceIP.IP, o.ForceIP.Local)
-	return GetClient(tr, o.Http2, o.Timeout)
-}
-
-func (o Options) _GetTLS(def libtls.TLSConfig) (libtls.TLSConfig, liberr.Error) {
-	if o.TLS.Enable {
-		return o.TLS.Config.NewFrom(def)
-	} else {
-		return libtls.Default.Clone(), nil
-	}
+	return GetClient(), nil
 }

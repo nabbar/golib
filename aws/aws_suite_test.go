@@ -92,8 +92,7 @@ var _ = BeforeSuite(func() {
 			secretKey = libpwd.Generate(64)
 		)
 
-		htp, err = libhtc.GetClient(libhtc.GetTransport(false, false, false), true, libhtc.ClientTimeout30Sec)
-		Expect(err).NotTo(HaveOccurred())
+		htp = libhtc.GetClient()
 		Expect(htp).NotTo(BeNil())
 
 		cfg = awscfg.NewConfig("", accessKey, secretKey, uri, "us-east-1")
@@ -119,7 +118,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cli).NotTo(BeNil())
 
-	cli.ForcePathStyle(ctx, true)
+	err = cli.ForcePathStyle(ctx, true)
+	Expect(err).NotTo(HaveOccurred())
 
 	name, err = lbuuid.GenerateUUID()
 	Expect(err).ToNot(HaveOccurred())

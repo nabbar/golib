@@ -27,6 +27,8 @@
 package tls
 
 import (
+	"fmt"
+
 	libtls "github.com/nabbar/golib/certificates"
 	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
@@ -48,13 +50,11 @@ func (o *componentTls) _getConfig() (*libtls.Config, error) {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, ErrorComponentNotInitialized.Error(nil)
-	}
-
-	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
+	} else if !vpr.Viper().IsSet(key) {
+		return nil, ErrorParamInvalid.Error(fmt.Errorf("missing config key '%s'", key))
+	} else if e := vpr.UnmarshalKey(key, &cfg); e != nil {
 		return nil, ErrorParamInvalid.Error(e)
-	}
-
-	if err = cfg.Validate(); err != nil {
+	} else if err = cfg.Validate(); err != nil {
 		return nil, ErrorConfigInvalid.Error(err)
 	}
 

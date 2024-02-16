@@ -55,17 +55,6 @@ func (o *componentAws) Type() string {
 }
 
 func (o *componentAws) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.x == nil {
-		o.x = libctx.NewConfig[uint8](ctx)
-	} else {
-		x := libctx.NewConfig[uint8](ctx)
-		x.Merge(o.x)
-		o.x = x
-	}
-
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -84,10 +73,11 @@ func (o *componentAws) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 }
 
 func (o *componentAws) IsStarted() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
+	if o.s.Load() {
+		return o.getAws() != nil
+	}
 
-	return o.a != nil
+	return false
 }
 
 func (o *componentAws) IsRunning() bool {
@@ -95,6 +85,7 @@ func (o *componentAws) IsRunning() bool {
 }
 
 func (o *componentAws) Start() error {
+	o.s.Store(true)
 	return o._run()
 }
 
@@ -103,17 +94,11 @@ func (o *componentAws) Reload() error {
 }
 
 func (o *componentAws) Stop() {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.a = nil
+	o.s.Store(false)
 	return
 }
 
 func (o *componentAws) Dependencies() []string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	var def = make([]string, 0)
 
 	if o == nil {
@@ -132,9 +117,6 @@ func (o *componentAws) Dependencies() []string {
 }
 
 func (o *componentAws) SetDependencies(d []string) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if o.x == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {

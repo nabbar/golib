@@ -44,6 +44,7 @@ func New(start, stop func(ctx context.Context) error) StartStop {
 		e: new(atomic.Value),
 		f: start,
 		s: stop,
+		t: new(atomic.Value),
 		c: new(atomic.Value),
 	}
 }

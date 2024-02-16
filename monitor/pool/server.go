@@ -30,6 +30,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	montps "github.com/nabbar/golib/monitor/types"
 )
@@ -97,4 +98,19 @@ func (o *pool) IsRunning() bool {
 	})
 
 	return res
+}
+
+func (o *pool) Uptime() time.Duration {
+	var res time.Duration
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		if dur := val.Uptime(); res < dur {
+			res = dur
+		}
+
+		return true
+	})
+
+	return res
+
 }

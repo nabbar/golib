@@ -36,9 +36,7 @@ import (
 	"runtime"
 
 	logent "github.com/nabbar/golib/logger/entry"
-
 	loglvl "github.com/nabbar/golib/logger/level"
-
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"

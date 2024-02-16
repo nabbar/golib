@@ -45,11 +45,12 @@ const (
 	MinPkgDatabaseKVTbl = baseSub + MinPkgDatabaseKVMap
 	MinPkgDatabaseKVItm = baseSub + MinPkgDatabaseKVTbl
 
-	MinPkgFileProgress = baseInc + MinPkgDatabaseGorm
-	MinPkgFTPClient    = baseInc + MinPkgFileProgress
-	MinPkgHttpCli      = baseInc + MinPkgFTPClient
+	MinPkgFileProgress     = baseInc + MinPkgDatabaseGorm
+	MinPkgFTPClient        = baseInc + MinPkgFileProgress
+	MinPkgHttpCli          = baseInc + MinPkgFTPClient
+	MinPkgHttpCliDNSMapper = baseSub + MinPkgHttpCli
 
-	MinPkgHttpServer     = baseInc + MinPkgHttpCli
+	MinPkgHttpServer     = baseInc + MinPkgHttpCliDNSMapper
 	MinPkgHttpServerPool = baseSub + MinPkgHttpServer
 
 	MinPkgIOUtils    = baseInc + MinPkgHttpServer

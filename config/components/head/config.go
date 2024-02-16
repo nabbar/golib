@@ -27,6 +27,8 @@
 package head
 
 import (
+	"fmt"
+
 	librtr "github.com/nabbar/golib/router/header"
 	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
@@ -48,9 +50,9 @@ func (o *componentHead) _getConfig() (*librtr.HeadersConfig, error) {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if key = o._getKey(); len(key) < 1 {
 		return nil, ErrorComponentNotInitialized.Error(nil)
-	}
-
-	if e := vpr.UnmarshalKey(key, &cfg); e != nil {
+	} else if !vpr.Viper().IsSet(key) {
+		return nil, ErrorParamInvalid.Error(fmt.Errorf("missing config key '%s'", key))
+	} else if e := vpr.UnmarshalKey(key, &cfg); e != nil {
 		return nil, ErrorParamInvalid.Error(e)
 	}
 

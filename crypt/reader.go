@@ -27,8 +27,11 @@
 package crypt
 
 import (
+	"bytes"
 	"fmt"
 	"io"
+
+	libsck "github.com/nabbar/golib/socket"
 )
 
 type reader struct {
@@ -77,7 +80,11 @@ func (o *crt) ReaderHex(r io.Reader) io.Reader {
 
 		if n, err = r.Read(b); err != nil {
 			return 0, err
-		} else if a, err = o.DecodeHex(b[:n]); err != nil {
+		} else if bytes.HasSuffix(b[:n], []byte{libsck.EOL}) {
+			n = n - len([]byte{libsck.EOL})
+		}
+
+		if a, err = o.DecodeHex(b[:n]); err != nil {
 			return 0, err
 		} else {
 			copy(p, a)

@@ -33,7 +33,6 @@ import (
 	"sync/atomic"
 
 	libsiz "github.com/nabbar/golib/size"
-
 	libsck "github.com/nabbar/golib/socket"
 )
 

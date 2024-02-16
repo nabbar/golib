@@ -29,15 +29,13 @@ package request
 import (
 	"context"
 	"io"
-	"net/http"
 	"net/url"
 	"sync"
 	"sync/atomic"
 
-	liblog "github.com/nabbar/golib/logger"
-
-	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
+	libhtc "github.com/nabbar/golib/httpcli"
+	liblog "github.com/nabbar/golib/logger"
 )
 
 const (
@@ -51,16 +49,16 @@ const (
 type request struct {
 	s sync.Mutex
 
-	o *atomic.Value        // Options
-	x libctx.FuncContext   // Context function
-	f libtls.FctHttpClient // Http client func
-	l liblog.FuncLog       // Default logger
-	u *url.URL             // endpoint url
-	h url.Values           // header values
-	p url.Values           // parameters values
-	b io.Reader            // body io reader
-	m string               // method
-	e *requestError        // Error pointer
+	o *atomic.Value      // Options
+	x libctx.FuncContext // Context function
+	l liblog.FuncLog     // Default logger
+	u *url.URL           // endpoint url
+	h url.Values         // header values
+	p url.Values         // parameters values
+	b io.Reader          // body io reader
+	m string             // method
+	e *requestError      // Error pointer
+	c *atomic.Value      // libhtc HTTPClient
 }
 
 func (r *request) Clone() (Request, error) {
@@ -97,7 +95,7 @@ func (r *request) New() (Request, error) {
 		c = &Options{}
 	}
 
-	if i, e := New(r.x, c); e != nil {
+	if i, e := New(r.x, c, r.client()); e != nil {
 		return nil, e
 	} else {
 		n = i.(*request)
@@ -122,10 +120,6 @@ func (r *request) New() (Request, error) {
 		n.l = r.l
 	}
 
-	if r.f != nil {
-		n.f = r.f
-	}
-
 	return n, nil
 }
 
@@ -139,28 +133,16 @@ func (r *request) context() context.Context {
 	return context.Background()
 }
 
-func (r *request) client() *http.Client {
-	var h string
-
-	if r.u != nil {
-		h = r.u.Hostname()
+func (r *request) client() libhtc.HttpClient {
+	if i := r.c.Load(); i != nil {
+		if c, k := i.(libhtc.HttpClient); k {
+			return c
+		}
 	}
 
-	if r.f == nil {
-		return r.clientDefault(h)
-	} else if c := r.f(r.defaultTLS(), h); c != nil {
-		return c
-	} else {
-		return r.clientDefault(h)
-	}
-}
-
-func (r *request) clientDefault(h string) *http.Client {
-	if cfg := r.options(); cfg != nil {
-		return cfg.ClientHTTP(h)
-	} else {
-		return &http.Client{}
-	}
+	c := libhtc.GetClient()
+	r.c.Store(c)
+	return c
 }
 
 func (r *request) Error() Error {

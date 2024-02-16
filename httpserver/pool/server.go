@@ -28,6 +28,7 @@ package pool
 
 import (
 	"context"
+	"time"
 
 	libhtp "github.com/nabbar/golib/httpserver"
 )
@@ -105,4 +106,18 @@ func (o *pool) IsRunning() bool {
 	})
 
 	return run
+}
+
+func (o *pool) Uptime() time.Duration {
+	var res time.Duration
+
+	o.Walk(func(name string, val libhtp.Server) bool {
+		if dur := val.Uptime(); res < dur {
+			res = dur
+		}
+
+		return true
+	})
+
+	return res
 }

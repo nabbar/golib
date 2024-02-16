@@ -27,56 +27,101 @@
 package aws
 
 import (
-	"net/http"
-	"sync"
-
-	libreq "github.com/nabbar/golib/request"
+	"sync/atomic"
 
 	libaws "github.com/nabbar/golib/aws"
-	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
+	libhtc "github.com/nabbar/golib/httpcli"
 	montps "github.com/nabbar/golib/monitor/types"
+	libreq "github.com/nabbar/golib/request"
 )
 
 type componentAws struct {
-	m sync.RWMutex
 	x libctx.Config[uint8]
 	d ConfigDriver
-	p montps.FuncPool
-	c func() *http.Client
-	t libtls.FctTLSDefault
-	a libaws.AWS
-	r libreq.Request
+	p *atomic.Value // montps.FuncPool
+	c *atomic.Value // libhtc.HTTPClient
+	a *atomic.Value // libaws.AWS
+	r *atomic.Value // libreq.Request
+	s *atomic.Bool  // status running == true
 }
 
-func (o *componentAws) RegisterHTTPClient(fct func() *http.Client) {
-	o.m.Lock()
-	defer o.m.Unlock()
+func (o *componentAws) RegisterHTTPClient(cli libhtc.HttpClient) {
+	if cli == nil {
+		cli = libhtc.GetClient()
+	}
 
-	o.c = fct
+	o.c.Store(cli)
 }
 
-func (o *componentAws) RegisterTLS(fct libtls.FctTLSDefault) {
-	o.m.Lock()
-	defer o.m.Unlock()
+func (o *componentAws) GetAws() libaws.AWS {
+	if o.s.Load() {
+		return o.getAws()
+	}
 
-	o.t = fct
+	return nil
 }
 
-func (o *componentAws) GetAws() (libaws.AWS, error) {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.a == nil {
-		return nil, ErrorComponentNotInitialized.Error(nil)
+func (o *componentAws) getAws() libaws.AWS {
+	if i := o.a.Load(); i == nil {
+		return nil
+	} else if v, k := i.(libaws.AWS); !k {
+		return nil
 	} else {
-		return o.a.Clone(o.x.GetContext())
+		return v
 	}
 }
 
-func (o *componentAws) SetAws(a libaws.AWS) {
-	o.m.Lock()
-	defer o.m.Unlock()
+func (o *componentAws) SetAws(cli libaws.AWS) {
+	if cli != nil {
+		o.a.Store(cli)
+	}
+}
 
-	o.a = a
+func (o *componentAws) getPool() montps.Pool {
+	if i := o.p.Load(); i == nil {
+		return nil
+	} else if v, k := i.(montps.FuncPool); !k {
+		return nil
+	} else if p := v(); p == nil {
+		return nil
+	} else {
+		return p
+	}
+}
+
+func (o *componentAws) RegisterMonitorPool(fct montps.FuncPool) {
+	if fct == nil {
+		fct = func() montps.Pool {
+			return nil
+		}
+	}
+
+	o.p.Store(fct)
+}
+
+func (o *componentAws) getClient() libhtc.HttpClient {
+	if i := o.c.Load(); i == nil {
+		return libhtc.GetClient()
+	} else if v, k := i.(libhtc.HttpClient); !k {
+		return libhtc.GetClient()
+	} else {
+		return v
+	}
+}
+
+func (o *componentAws) getRequest() libreq.Request {
+	if i := o.r.Load(); i == nil {
+		return nil
+	} else if v, k := i.(libreq.Request); !k {
+		return nil
+	} else {
+		return v
+	}
+}
+
+func (o *componentAws) setRequest(req libreq.Request) {
+	if req != nil {
+		o.r.Store(req)
+	}
 }

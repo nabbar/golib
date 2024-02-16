@@ -29,10 +29,9 @@ package httpserver
 import (
 	"sync"
 
-	liblog "github.com/nabbar/golib/logger"
-
 	libctx "github.com/nabbar/golib/context"
 	srvtps "github.com/nabbar/golib/httpserver/types"
+	liblog "github.com/nabbar/golib/logger"
 	montps "github.com/nabbar/golib/monitor/types"
 	libsrv "github.com/nabbar/golib/server"
 	libver "github.com/nabbar/golib/version"

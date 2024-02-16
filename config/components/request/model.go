@@ -27,31 +27,86 @@
 package request
 
 import (
-	"sync"
+	"sync/atomic"
 
 	libctx "github.com/nabbar/golib/context"
+	libhtc "github.com/nabbar/golib/httpcli"
 	montps "github.com/nabbar/golib/monitor/types"
 	libreq "github.com/nabbar/golib/request"
 )
 
 type componentRequest struct {
-	m sync.RWMutex
 	x libctx.Config[uint8]
-	r libreq.Request
-	t string
-	p montps.FuncPool
+	r *atomic.Value // libreq.Request
+	c *atomic.Value // libhtc.HttpClient
+	p *atomic.Value // montps.FuncPool
 }
 
-func (o *componentRequest) SetDefaultTLS(key string) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.t = key
+func (o *componentRequest) SetHTTPClient(cli libhtc.HttpClient) {
+	o.setClient(cli)
 }
 
-func (o *componentRequest) Request() (libreq.Request, error) {
-	o.m.RLock()
-	defer o.m.RUnlock()
+func (o *componentRequest) Request() libreq.Request {
+	return o.getRequest()
+}
 
-	return o.r.Clone()
+func (o *componentRequest) RegisterMonitorPool(fct montps.FuncPool) {
+	o.setPool(fct)
+}
+
+func (o *componentRequest) getRequest() libreq.Request {
+	if i := o.r.Load(); i == nil {
+		return nil
+	} else if v, k := i.(libreq.Request); !k {
+		return nil
+	} else {
+		return v
+	}
+}
+
+func (o *componentRequest) setRequest(req libreq.Request) {
+	if req == nil {
+		return
+	}
+	o.r.Store(req)
+}
+
+func (o *componentRequest) getClient() libhtc.HttpClient {
+	if i := o.c.Load(); i == nil {
+		return nil
+	} else if v, k := i.(libhtc.HttpClient); !k {
+		return nil
+	} else {
+		return v
+	}
+}
+
+func (o *componentRequest) setClient(cli libhtc.HttpClient) {
+	if cli == nil {
+		return
+	}
+
+	o.c.Store(cli)
+}
+
+func (o *componentRequest) getPool() montps.Pool {
+	if i := o.p.Load(); i == nil {
+		return nil
+	} else if v, k := i.(montps.FuncPool); !k {
+		return nil
+	} else if p := v(); p == nil {
+		return nil
+	} else {
+		return p
+	}
+}
+
+func (o *componentRequest) setPool(fct montps.FuncPool) {
+	if fct == nil {
+		fct = func() montps.Pool {
+			return nil
+		}
+	}
+
+	o.p.Store(fct)
 }
