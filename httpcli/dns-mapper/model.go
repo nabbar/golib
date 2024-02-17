@@ -28,8 +28,6 @@ package dns_mapper
 
 import (
 	"context"
-	"net"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -78,103 +76,6 @@ func (o *dmp) configDialerKeepAlive() time.Duration {
 	}
 }
 
-func (o *dmp) CacheHas(endpoint string) bool {
-	_, l := o.z.Load(endpoint)
-	return l
-}
-
-func (o *dmp) CacheGet(endpoint string) string {
-	if i, l := o.z.Load(endpoint); !l {
-		return ""
-	} else if v, k := i.(string); !k {
-		return ""
-	} else {
-		return v
-	}
-}
-
-func (o *dmp) CacheSet(endpoint, ip string) {
-	o.z.Store(endpoint, ip)
-}
-
-func (o *dmp) Add(endpoint, ip string) {
-	o.d.Store(endpoint, ip)
-}
-
-func (o *dmp) Get(endpoint string) string {
-	if i, l := o.d.Load(endpoint); !l {
-		return ""
-	} else if s, k := i.(string); !k {
-		return ""
-	} else {
-		return s
-	}
-}
-
-func (o *dmp) Search(endpoint string) string {
-	var res string
-
-	o.d.Range(func(key, value any) bool {
-		var (
-			e error
-			k bool
-			h string
-
-			src string
-			dst string
-		)
-
-		if src, k = key.(string); !k {
-			return true
-		} else if dst, k = value.(string); !k {
-			return true
-		}
-
-		if strings.EqualFold(src, endpoint) {
-			res = dst
-			return false
-		}
-
-		h, _, e = net.SplitHostPort(src)
-		if e == nil {
-			src = h
-		}
-
-		if strings.EqualFold(src, endpoint) {
-			res = dst
-			return false
-		} else if strings.HasPrefix(src, "*.") {
-			// search for wildcard
-			f := src
-			t := endpoint
-
-			for strings.HasPrefix(f, "*.") {
-				if p := strings.SplitAfterN(f, ".", 2); len(p) > 1 {
-					f = p[1]
-				} else {
-					break
-				}
-				if p := strings.SplitAfterN(t, ".", 2); len(p) > 1 {
-					t = p[1]
-				}
-			}
-
-			if strings.EqualFold(f, t) {
-				res = dst
-				return false
-			}
-		}
-
-		return true
-	})
-
-	return res
-}
-
-func (o *dmp) Del(endpoint string) {
-	o.d.Delete(endpoint)
-}
-
 func (o *dmp) TimeCleaner(ctx context.Context, dur time.Duration) {
 	if dur < 5*time.Second {
 		dur = 5 * time.Minute
@@ -197,13 +98,4 @@ func (o *dmp) TimeCleaner(ctx context.Context, dur time.Duration) {
 			}
 		}
 	}()
-}
-
-func (o *dmp) Len() int {
-	var i int
-	o.d.Range(func(key, value any) bool {
-		i++
-		return true
-	})
-	return i
 }

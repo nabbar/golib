@@ -39,9 +39,14 @@ import (
 )
 
 type DNSMapper interface {
-	Add(endpoint, ip string)
-	Get(endpoint string) string
-	Del(endpoint string)
+	Add(from, to string)
+	Get(from string) string
+	Del(from string)
+	Len() int
+	Walk(func(from, to string) bool)
+	Clean(endpoint string) (host string, port string, err error)
+	Search(endpoint string) (string, error)
+	SearchWithCache(endpoint string) (string, error)
 
 	DialContext(ctx context.Context, network, address string) (net.Conn, error)
 	Transport(cfg TransportConfig) *http.Transport

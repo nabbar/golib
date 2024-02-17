@@ -35,23 +35,23 @@ import (
 	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
 )
 
-func (o *componentHttpClient) Add(endpoint string, ip string) {
+func (o *componentHttpClient) Add(from string, to string) {
 	if d := o.getDNSMapper(); d != nil {
-		d.Add(endpoint, ip)
+		d.Add(from, to)
 		o.setDNSMapper(d)
 	}
 }
 
-func (o *componentHttpClient) Get(endpoint string) string {
+func (o *componentHttpClient) Get(from string) string {
 	if d := o.getDNSMapper(); d != nil {
-		return d.Get(endpoint)
+		return d.Get(from)
 	}
 	return ""
 }
 
-func (o *componentHttpClient) Del(endpoint string) {
+func (o *componentHttpClient) Del(from string) {
 	if d := o.getDNSMapper(); d != nil {
-		d.Del(endpoint)
+		d.Del(from)
 		o.setDNSMapper(d)
 	}
 }
@@ -100,4 +100,42 @@ func (o *componentHttpClient) TimeCleaner(ctx context.Context, dur time.Duration
 	if d := o.getDNSMapper(); d != nil {
 		d.TimeCleaner(ctx, dur)
 	}
+}
+
+func (o *componentHttpClient) Len() int {
+	if d := o.getDNSMapper(); d != nil {
+		return d.Len()
+	}
+
+	return 0
+}
+
+func (o *componentHttpClient) Walk(f func(from string, to string) bool) {
+	if d := o.getDNSMapper(); d != nil {
+		d.Walk(f)
+	}
+}
+
+func (o *componentHttpClient) Clean(endpoint string) (host string, port string, err error) {
+	if d := o.getDNSMapper(); d != nil {
+		return d.Clean(endpoint)
+	}
+
+	return "", "", ErrorComponentNotInitialized.Error()
+}
+
+func (o *componentHttpClient) Search(endpoint string) (string, error) {
+	if d := o.getDNSMapper(); d != nil {
+		return d.Search(endpoint)
+	}
+
+	return "", ErrorComponentNotInitialized.Error()
+}
+
+func (o *componentHttpClient) SearchWithCache(endpoint string) (string, error) {
+	if d := o.getDNSMapper(); d != nil {
+		return d.SearchWithCache(endpoint)
+	}
+
+	return "", ErrorComponentNotInitialized.Error()
 }

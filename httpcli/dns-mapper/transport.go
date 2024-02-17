@@ -52,47 +52,16 @@ func (o *dmp) Dial(network, address string) (net.Conn, error) {
 
 func (o *dmp) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	var (
-		e error
-		d = o.dialer()
-		a string
-
-		hs string
-		ps string
+		e   error
+		d   = o.dialer()
+		dst string
 	)
 
-	if o.CacheHas(address) {
-		a = o.CacheGet(address)
-	}
-
-	if len(a) > 0 {
-		return d.DialContext(ctx, network, a)
-	} else {
-		a = o.Get(address)
-	}
-
-	hs, ps, e = net.SplitHostPort(address)
-	if e != nil {
+	if dst, e = o.SearchWithCache(address); e != nil {
 		return nil, e
-	}
-
-	if len(a) < 1 {
-		a = o.Get(hs)
-	}
-
-	if len(a) < 1 {
-		a = o.Search(hs)
-	}
-
-	if len(a) < 1 {
-		o.CacheSet(address, address)
-		return d.DialContext(ctx, network, address)
-	} else if _, _, e = net.SplitHostPort(a); e == nil {
-		o.CacheSet(address, a)
-		return d.DialContext(ctx, network, a)
 	} else {
-		a = net.JoinHostPort(a, ps)
-		o.CacheSet(address, a)
-		return d.DialContext(ctx, network, a)
+		o.CacheSet(address, dst)
+		return d.DialContext(ctx, network, dst)
 	}
 }
 
