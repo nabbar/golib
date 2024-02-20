@@ -134,7 +134,11 @@ func New(ctx libctx.FuncContext, opt *Options, cli libhtc.HttpClient) (Request, 
 		c: new(atomic.Value),
 	}
 
-	r.c.Store(cli)
+	if cli != nil {
+		r.c.Store(cli)
+	} else {
+		r.c.Store(libhtc.GetClient())
+	}
 
 	if e := r.SetOption(opt); e != nil {
 		return nil, e

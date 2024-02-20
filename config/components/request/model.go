@@ -73,9 +73,9 @@ func (o *componentRequest) setRequest(req libreq.Request) {
 
 func (o *componentRequest) getClient() libhtc.HttpClient {
 	if i := o.c.Load(); i == nil {
-		return nil
+		return libhtc.GetClient()
 	} else if v, k := i.(libhtc.HttpClient); !k {
-		return nil
+		return libhtc.GetClient()
 	} else {
 		return v
 	}
