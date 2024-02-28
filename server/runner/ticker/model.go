@@ -29,10 +29,10 @@ package ticker
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
 	"sync/atomic"
 	"time"
+
+	libsrv "github.com/nabbar/golib/server"
 )
 
 const (
@@ -116,9 +116,7 @@ func (o *run) Start(ctx context.Context) error {
 		)
 
 		defer func() {
-			if rec := recover(); rec != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on Start function in gollib/server/ticker/model.\n%v\n", rec)
-			}
+			libsrv.RecoveryCaller("golib/server/ticker", recover())
 			if n != nil {
 				n()
 			}
@@ -137,11 +135,7 @@ func (o *run) Start(ctx context.Context) error {
 			select {
 			case <-tck.C:
 				f := func(ctx context.Context, tck *time.Ticker) error {
-					defer func() {
-						if rec := recover(); rec != nil {
-							_, _ = fmt.Fprintf(os.Stderr, "recovering panic while calling function.\n%v\n", rec)
-						}
-					}()
+					defer libsrv.RecoveryCaller("golib/server/ticker", recover())
 					return o.getFunction()(ctx, tck)
 				}
 				if e := f(x, tck); e != nil {

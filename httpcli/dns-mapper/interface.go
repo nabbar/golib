@@ -38,6 +38,8 @@ import (
 	libdur "github.com/nabbar/golib/duration"
 )
 
+type FuncMessage func(msg string)
+
 type DNSMapper interface {
 	Add(from, to string)
 	Get(from string) string
@@ -58,7 +60,7 @@ type DNSMapper interface {
 	TimeCleaner(ctx context.Context, dur time.Duration)
 }
 
-func New(ctx context.Context, cfg *Config, fct libtls.FctRootCA) DNSMapper {
+func New(ctx context.Context, cfg *Config, fct libtls.FctRootCA, msg FuncMessage) DNSMapper {
 	if cfg == nil {
 		cfg = &Config{
 			DNSMapper:  make(map[string]string),
@@ -76,12 +78,17 @@ func New(ctx context.Context, cfg *Config, fct libtls.FctRootCA) DNSMapper {
 		}
 	}
 
+	if msg == nil {
+		msg = func(msg string) {}
+	}
+
 	d := &dmp{
 		d: new(sync.Map),
 		z: new(sync.Map),
 		c: new(atomic.Value),
 		t: new(atomic.Value),
 		f: fct,
+		i: msg,
 	}
 
 	for edp, adr := range cfg.DNSMapper {

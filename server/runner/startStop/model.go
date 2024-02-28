@@ -30,7 +30,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync/atomic"
 	"time"
 
@@ -100,9 +99,7 @@ func (o *run) Stop(ctx context.Context) error {
 	o.t.Store(time.Time{})
 
 	defer func() {
-		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on Stop function in gollib/server/startStop/model.\n%v\n", rec)
-		}
+		libsrv.RecoveryCaller("golib/server/startstop", recover())
 		t.Stop()
 	}()
 
@@ -143,9 +140,7 @@ func (o *run) Start(ctx context.Context) error {
 
 		o.chanInit()
 		defer func() {
-			if rec := recover(); rec != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on Start function in gollib/server/startStop/model.\n%v\n", rec)
-			}
+			libsrv.RecoveryCaller("golib/server/startstop", recover())
 			_ = o.Stop(ctx)
 		}()
 

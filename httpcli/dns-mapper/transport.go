@@ -29,6 +29,7 @@ package dns_mapper
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -60,6 +61,7 @@ func (o *dmp) DialContext(ctx context.Context, network, address string) (net.Con
 	if dst, e = o.SearchWithCache(address); e != nil {
 		return nil, e
 	} else {
+		o.Message(fmt.Sprintf("Dialing '%s %s' => '%s %s'", network, address, network, dst))
 		o.CacheSet(address, dst)
 		return d.DialContext(ctx, network, dst)
 	}

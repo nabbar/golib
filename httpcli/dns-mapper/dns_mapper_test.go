@@ -27,6 +27,7 @@ package dns_mapper_test
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	libdur "github.com/nabbar/golib/duration"
@@ -88,7 +89,9 @@ func init() {
 	addDns("*.*.test.example.com", numIdx("*"), addIdx("127.0.0."), numIdx("8"))
 	idx++
 
-	dns = htcdns.New(ctx, &opt, nil)
+	dns = htcdns.New(ctx, &opt, nil, func(msg string) {
+		_, _ = fmt.Fprintln(os.Stdout, msg)
+	})
 }
 
 func addIdx(src string) string {

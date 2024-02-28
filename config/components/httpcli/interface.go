@@ -43,15 +43,17 @@ type ComponentHTTPClient interface {
 	Config() htcdns.Config
 	SetDefault()
 	SetAsDefaultHTTPClient(flag bool)
+	SetFuncMessage(f htcdns.FuncMessage)
 }
 
-func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCA, isDeftHTTPClient bool) ComponentHTTPClient {
+func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCA, isDeftHTTPClient bool, msg htcdns.FuncMessage) ComponentHTTPClient {
 	c := &componentHttpClient{
 		x: libctx.NewConfig[uint8](ctx),
 		c: new(atomic.Value),
 		d: new(atomic.Value),
 		f: new(atomic.Value),
 		s: new(atomic.Bool),
+		m: new(atomic.Value),
 	}
 
 	if defCARoot == nil {
@@ -60,8 +62,13 @@ func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCA, isDeftHTTPClient bo
 		}
 	}
 
+	if msg == nil {
+		msg = func(msg string) {}
+	}
+
 	c.f.Store(defCARoot)
 	c.s.Store(isDeftHTTPClient)
+	c.m.Store(msg)
 
 	return c
 }
@@ -70,8 +77,8 @@ func Register(cfg libcfg.Config, key string, cpt ComponentHTTPClient) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot libtls.FctRootCA, isDeftHTTPClient bool) {
-	cfg.ComponentSet(key, New(ctx, defCARoot, isDeftHTTPClient))
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot libtls.FctRootCA, isDeftHTTPClient bool, msg htcdns.FuncMessage) {
+	cfg.ComponentSet(key, New(ctx, defCARoot, isDeftHTTPClient, msg))
 }
 
 func Load(getCpt cfgtps.FuncCptGet, key string) ComponentHTTPClient {

@@ -40,12 +40,26 @@ type fldModel struct {
 }
 
 func (o *fldModel) Add(key string, val interface{}) Fields {
+	if o == nil {
+		return nil
+	} else if o.Config == nil {
+		return nil
+	}
+
 	o.Store(key, val)
+
 	return o
 }
 
 func (o *fldModel) Logrus() logrus.Fields {
 	var res = make(logrus.Fields, 0)
+
+	if o == nil {
+		return res
+	} else if o.Config == nil {
+		return res
+	}
+
 	o.Walk(func(key string, val interface{}) bool {
 		res[key] = val
 		return true
@@ -54,10 +68,17 @@ func (o *fldModel) Logrus() logrus.Fields {
 }
 
 func (o *fldModel) Map(fct func(key string, val interface{}) interface{}) Fields {
+	if o == nil {
+		return nil
+	} else if o.Config == nil {
+		return nil
+	}
+
 	o.Walk(func(key string, val interface{}) bool {
 		o.Store(key, fct(key, val))
 		return true
 	})
+
 	return o
 }
 

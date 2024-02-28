@@ -73,7 +73,7 @@ func initDNSMapper() htcdns.DNSMapper {
 			TimeoutIdleConn:       libdur.ParseDuration(30 * time.Second),
 			TimeoutResponseHeader: 0,
 		},
-	}, nil)
+	}, nil, nil)
 }
 
 func DefaultDNSMapper() htcdns.DNSMapper {

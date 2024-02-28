@@ -41,6 +41,7 @@ type dmp struct {
 	c *atomic.Value // *Config
 	t *atomic.Value // *http transport
 	f libtls.FctRootCA
+	i func(msg string)
 }
 
 func (o *dmp) config() *Config {
@@ -98,4 +99,10 @@ func (o *dmp) TimeCleaner(ctx context.Context, dur time.Duration) {
 			}
 		}
 	}()
+}
+
+func (o *dmp) Message(msg string) {
+	if o.i != nil {
+		o.i(msg)
+	}
 }

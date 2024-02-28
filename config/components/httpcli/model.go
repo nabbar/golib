@@ -41,6 +41,7 @@ type componentHttpClient struct {
 	d *atomic.Value // htcdns.DNSMapper
 	f *atomic.Value // FuncDefaultCARoot
 	s *atomic.Bool  // is Default at start / update
+	m *atomic.Value // htcdns.FctMessage
 }
 
 func (o *componentHttpClient) getRootCA() []string {
@@ -52,6 +53,22 @@ func (o *componentHttpClient) getRootCA() []string {
 		return make([]string, 0)
 	} else {
 		return r
+	}
+}
+
+func (o *componentHttpClient) getMessage() htcdns.FuncMessage {
+	if i := o.m.Load(); i == nil {
+		return nil
+	} else if v, k := i.(htcdns.FuncMessage); !k {
+		return nil
+	} else {
+		return v
+	}
+}
+
+func (o *componentHttpClient) SetFuncMessage(f htcdns.FuncMessage) {
+	if f != nil {
+		o.m.Store(f)
 	}
 }
 

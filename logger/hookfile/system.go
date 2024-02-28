@@ -37,6 +37,7 @@ import (
 	"time"
 
 	libiot "github.com/nabbar/golib/ioutils"
+	libsrv "github.com/nabbar/golib/server"
 )
 
 const sizeBuffer = 32 * 1024
@@ -81,9 +82,7 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 	}
 
 	defer func() {
-		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on writeBuffer function in golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", p, rec)
-		}
+		libsrv.RecoveryCaller("golib/logger/hookfile/system", recover())
 		if h != nil {
 			_ = h.Close()
 		}
@@ -109,9 +108,7 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 
 func (o *hkf) freeBuffer(buf *bytes.Buffer, size int) *bytes.Buffer {
 	defer func() {
-		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on freeBuffer function in golib/logger/hookfile/system.\nfor log file '%s'\n%v\n", o.getFilepath(), rec)
-		}
+		libsrv.RecoveryCaller("golib/logger/hookfile/system", recover(), fmt.Sprintf("log file: %s", o.getFilepath()))
 	}()
 
 	var a = o.newBuffer(o.getBufferSize())

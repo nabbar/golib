@@ -26,8 +26,10 @@
 package httpcli_test
 
 import (
+	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	libdur "github.com/nabbar/golib/duration"
@@ -59,7 +61,9 @@ var _ = Describe("HttpCli", func() {
 				Transport:  htcdns.TransportConfig{},
 			}
 
-			dns = htcdns.New(ctx, &opt, nil)
+			dns = htcdns.New(ctx, &opt, nil, func(msg string) {
+				_, _ = fmt.Fprintln(os.Stdout, msg)
+			})
 
 			cli = dns.DefaultClient()
 			Expect(cli).ToNot(BeNil())

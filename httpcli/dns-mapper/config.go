@@ -121,6 +121,6 @@ func (o Config) Validate() liberr.Error {
 	return e
 }
 
-func (o Config) New(ctx context.Context, fct libtls.FctRootCA) DNSMapper {
-	return New(ctx, &o, fct)
+func (o Config) New(ctx context.Context, fct libtls.FctRootCA, msg FuncMessage) DNSMapper {
+	return New(ctx, &o, fct, msg)
 }

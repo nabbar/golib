@@ -27,7 +27,11 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"os"
+	"runtime"
 	"time"
 )
 
@@ -72,5 +76,49 @@ func RunTick(ctx context.Context, tick, max time.Duration, chk FunCheck, run Fun
 				return chk()
 			}
 		}
+	}
+}
+
+func RecoveryCaller(proc string, rec any, data ...any) {
+	if rec == nil {
+		return
+	}
+
+	var (
+		buf = bytes.NewBuffer(make([]byte, 0))
+
+		// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need.
+		pCnt = make([]uintptr, 10, 255)
+		nCnt = runtime.Callers(1, pCnt)
+	)
+
+	buf.WriteString(fmt.Sprintf("Receoring process '%s': %v\n", proc, rec))
+	for _, d := range data {
+		buf.WriteString(fmt.Sprintf("%v\n", d))
+	}
+
+	if nCnt > 0 {
+		var (
+			frames = runtime.CallersFrames(pCnt[:nCnt])
+			more   = true
+			lCnt   = 0
+		)
+
+		for more && lCnt < 10 {
+			var frame runtime.Frame
+			frame, more = frames.Next()
+
+			if len(frame.File) > 0 {
+				buf.WriteString(fmt.Sprintf("  trace #%d => Line: %d - File: %s\n", lCnt, frame.Line, frame.File))
+				lCnt++
+			} else if len(frame.Function) > 0 {
+				buf.WriteString(fmt.Sprintf("  trace #%d => Line: %d - Func: %s\n", lCnt, frame.Line, frame.Function))
+				lCnt++
+			}
+		}
+	}
+
+	if buf.Len() > 0 {
+		_, _ = fmt.Fprint(os.Stderr, buf.Bytes())
 	}
 }

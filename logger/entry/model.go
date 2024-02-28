@@ -76,42 +76,72 @@ type entry struct {
 }
 
 func (e *entry) SetEntryContext(etime time.Time, stack uint64, caller, file string, line uint64, msg string) Entry {
+	if e == nil {
+		return nil
+	}
+
 	e.Time = etime
 	e.Stack = stack
 	e.Caller = caller
 	e.File = file
 	e.Line = line
 	e.Message = msg
+
 	return e
 }
 
 func (e *entry) SetMessageOnly(flag bool) Entry {
+	if e == nil {
+		return nil
+	}
+
 	e.clean = flag
 	return e
 }
 
 func (e *entry) SetLevel(lvl loglvl.Level) Entry {
+	if e == nil {
+		return nil
+	}
+
 	e.Level = lvl
+
 	return e
 }
 
 func (e *entry) SetLogger(fct func() *logrus.Logger) Entry {
+	if e == nil {
+		return nil
+	}
+
 	e.log = fct
 	return e
 }
 
 // SetGinContext allow to register a gin context pointer to register the errors of the current entry intro gin Context Error Slice.
 func (e *entry) SetGinContext(ctx *ginsdk.Context) Entry {
+	if e == nil {
+		return nil
+	}
+
 	e.gin = ctx
 	return e
 }
 
 func (e *entry) DataSet(data interface{}) Entry {
+	if e == nil {
+		return nil
+	}
+
 	e.Data = data
 	return e
 }
 
 func (e *entry) Check(lvlNoErr loglvl.Level) bool {
+	if e == nil {
+		return false
+	}
+
 	var found = false
 	if len(e.Error) > 0 {
 		for _, er := range e.Error {
@@ -134,6 +164,8 @@ func (e *entry) Check(lvlNoErr loglvl.Level) bool {
 
 func (e *entry) Log() {
 	if e == nil {
+		return
+	} else if e.log == nil {
 		return
 	} else if e.Fields == nil {
 		return

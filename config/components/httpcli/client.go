@@ -146,7 +146,7 @@ func (o *componentHttpClient) _runCli() error {
 
 	if cfg, err = o._getConfig(); err != nil {
 		return prt.Error(err)
-	} else if dns = cfg.New(o.x.GetContext(), o.getRootCA); dns == nil {
+	} else if dns = cfg.New(o.x.GetContext(), o.getRootCA, o.getMessage()); dns == nil {
 		return prt.Error(fmt.Errorf("cannot create DNS Mapper"))
 	}
 

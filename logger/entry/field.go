@@ -33,23 +33,45 @@ import (
 
 // FieldAdd allow to add one couple key/val as type string/interface into the custom field of the entry.
 func (e *entry) FieldAdd(key string, val interface{}) Entry {
+	if e == nil {
+		return nil
+	} else if e.Fields == nil {
+		return nil
+	}
+
 	e.Fields.Add(key, val)
 	return e
 }
 
 // FieldMerge allow to merge a Field pointer into the custom field of the entry.
 func (e *entry) FieldMerge(fields logfld.Fields) Entry {
+	if e == nil {
+		return nil
+	} else if e.Fields == nil {
+		return nil
+	}
+
 	e.Fields.Merge(fields)
 	return e
 }
 
 // FieldSet allow to change the custom field of the entry with the given Fields in parameter.
 func (e *entry) FieldSet(fields logfld.Fields) Entry {
+	if e == nil {
+		return nil
+	}
+
 	e.Fields = fields
 	return e
 }
 
 func (e *entry) FieldClean(keys ...string) Entry {
+	if e == nil {
+		return nil
+	} else if e.Fields == nil {
+		return nil
+	}
+
 	for _, k := range keys {
 		e.Fields.Delete(k)
 	}

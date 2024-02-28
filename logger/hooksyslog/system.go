@@ -33,6 +33,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	libsrv "github.com/nabbar/golib/server"
 )
 
 func (o *hks) Run(ctx context.Context) {
@@ -43,9 +45,7 @@ func (o *hks) Run(ctx context.Context) {
 	)
 
 	defer func() {
-		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on run function in golib/logger/hooksyslog/system\n%v\n", rec)
-		}
+		libsrv.RecoveryCaller("golib/logger/hooksyslog/system", recover())
 		if s != nil {
 			w.Wait()
 			_ = s.Close()
