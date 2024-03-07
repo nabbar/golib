@@ -29,6 +29,7 @@ package ticker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -42,17 +43,13 @@ const (
 
 var ErrInvalid = errors.New("invalid instance")
 
-type chData struct {
-	cl bool
-	ch chan struct{}
-}
-
 type run struct {
 	e *atomic.Value // slice []error
-	f func(ctx context.Context, tck *time.Ticker) error
+	f libsrv.FuncTicker
 	d time.Duration
 	t *atomic.Value
-	c *atomic.Value // chan struct{}
+	r *atomic.Bool
+	n *atomic.Value
 }
 
 func (o *run) getDuration() time.Duration {
@@ -60,96 +57,15 @@ func (o *run) getDuration() time.Duration {
 	return o.d
 }
 
-func (o *run) getFunction() func(ctx context.Context, tck *time.Ticker) error {
+func (o *run) getFunction() libsrv.FuncTicker {
 	// still check on function checkMe
+	if o.f == nil {
+		return func(ctx context.Context, tck *time.Ticker) error {
+			return fmt.Errorf("invalid function ticker")
+		}
+	}
+
 	return o.f
-}
-
-func (o *run) Restart(ctx context.Context) error {
-	if e := o.Stop(ctx); e != nil {
-		return e
-	} else if e = o.Start(ctx); e != nil {
-		_ = o.Stop(ctx)
-		return e
-	}
-
-	return nil
-}
-
-func (o *run) Stop(ctx context.Context) error {
-	if e := o.checkMe(); e != nil {
-		return e
-	}
-
-	o.t.Store(time.Time{})
-
-	if !o.IsRunning() {
-		return nil
-	}
-
-	var t = time.NewTicker(pollStop)
-	defer t.Stop()
-
-	for {
-		select {
-		case <-t.C:
-			if o.IsRunning() {
-				o.chanSend()
-			} else {
-				return nil
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (o *run) Start(ctx context.Context) error {
-	if e := o.checkMeStart(ctx); e != nil {
-		return e
-	}
-
-	go func(con context.Context) {
-		var (
-			tck  = time.NewTicker(o.getDuration())
-			x, n = context.WithCancel(con)
-		)
-
-		defer func() {
-			libsrv.RecoveryCaller("golib/server/ticker", recover())
-			if n != nil {
-				n()
-			}
-			if tck != nil {
-				tck.Stop()
-			}
-			o.chanClose()
-		}()
-
-		o.t.Store(time.Now())
-
-		o.chanInit()
-		o.errorsClean()
-
-		for {
-			select {
-			case <-tck.C:
-				f := func(ctx context.Context, tck *time.Ticker) error {
-					defer libsrv.RecoveryCaller("golib/server/ticker", recover())
-					return o.getFunction()(ctx, tck)
-				}
-				if e := f(x, tck); e != nil {
-					o.errorsAdd(e)
-				}
-			case <-con.Done():
-				return
-			case <-o.chanDone():
-				return
-			}
-		}
-	}(ctx)
-
-	return nil
 }
 
 func (o *run) checkMe() error {
@@ -182,4 +98,108 @@ func (o *run) Uptime() time.Duration {
 	} else {
 		return time.Since(t)
 	}
+}
+
+func (o *run) IsRunning() bool {
+	if e := o.checkMe(); e != nil {
+		return false
+	}
+
+	return o.r.Load()
+}
+
+func (o *run) Restart(ctx context.Context) error {
+	if e := o.Stop(ctx); e != nil {
+		return e
+	} else if e = o.Start(ctx); e != nil {
+		_ = o.Stop(ctx)
+		return e
+	}
+
+	return nil
+}
+
+func (o *run) Stop(ctx context.Context) error {
+	if e := o.checkMe(); e != nil {
+		return e
+	} else if !o.IsRunning() {
+		return nil
+	}
+
+	var t = time.NewTicker(pollStop)
+	defer t.Stop()
+
+	o.errorsClean()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+			if o.IsRunning() {
+				if i := o.n.Load(); i != nil {
+					if f, k := i.(context.CancelFunc); k {
+						f()
+					} else {
+						o.r.Store(false)
+					}
+				} else {
+					o.r.Store(false)
+				}
+			} else {
+				return nil
+			}
+		}
+	}
+}
+
+func (o *run) Start(ctx context.Context) error {
+	if e := o.checkMeStart(ctx); e != nil {
+		return e
+	}
+
+	cx, ca := context.WithCancel(ctx)
+
+	if i := o.n.Swap(ca); i != nil {
+		if f, k := i.(context.CancelFunc); k {
+			f()
+		}
+	}
+
+	o.errorsClean()
+
+	fct := func(ctx context.Context, tck *time.Ticker) error {
+		defer libsrv.RecoveryCaller("golib/server/ticker", recover())
+		return o.getFunction()(ctx, tck)
+	}
+
+	go func(x context.Context, n context.CancelFunc, f libsrv.FuncTicker) {
+		var tck = time.NewTicker(o.getDuration())
+
+		defer func() {
+			libsrv.RecoveryCaller("golib/server/ticker", recover())
+			tck.Stop()
+			n()
+
+			o.t.Store(time.Time{})
+			o.r.Store(false)
+		}()
+
+		o.r.Store(true)
+		o.t.Store(time.Now())
+
+		for {
+			select {
+			case <-x.Done():
+				return
+			case <-tck.C:
+				o.r.Store(true)
+				if e := f(x, tck); e != nil {
+					o.errorsAdd(e)
+				}
+			}
+		}
+	}(cx, ca, fct)
+
+	return nil
 }

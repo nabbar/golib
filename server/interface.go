@@ -31,7 +31,8 @@ import (
 	"time"
 )
 
-type Action func(ctx context.Context) error
+type FuncAction func(ctx context.Context) error
+type FuncTicker func(ctx context.Context, tck *time.Ticker) error
 
 type Server interface {
 	// Start is used to start the server

@@ -36,7 +36,7 @@ import (
 
 const (
 	MaxPoolStart  = 15 * time.Second
-	MaxTickPooler = 500 * time.Millisecond
+	MaxTickPooler = 50 * time.Millisecond
 )
 
 func (o *mon) Start(ctx context.Context) error {
@@ -126,10 +126,10 @@ func (o *mon) poolIsRunning(ctx context.Context) error {
 	for {
 		select {
 		case <-tck.C:
-			if time.Since(tms) >= MaxPoolStart {
-				return ErrorTimeout.Error(nil)
-			} else if o.IsRunning() {
+			if o.IsRunning() {
 				return nil
+			} else if time.Since(tms) >= MaxPoolStart {
+				return ErrorTimeout.Error(nil)
 			}
 		case <-ctx.Done():
 			return ctx.Err()

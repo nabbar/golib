@@ -30,7 +30,6 @@
 package unix
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"io"
@@ -46,6 +45,7 @@ type cli struct {
 	s *atomic.Int32 // buffer size
 	e *atomic.Value // function error
 	i *atomic.Value // function info
+	c *atomic.Value // net.Conn
 }
 
 func (o *cli) RegisterFuncError(f libsck.FuncError) {
@@ -112,91 +112,98 @@ func (o *cli) dial(ctx context.Context) (net.Conn, error) {
 	}
 }
 
-func (o *cli) Do(ctx context.Context, request io.Reader, fct libsck.Response) error {
+func (o *cli) Connect(ctx context.Context) error {
 	if o == nil {
 		return ErrInstance
 	}
 
 	var (
 		err error
-		cnn net.Conn
+		con net.Conn
 	)
 
-	defer func() {
-		if cnn != nil {
-			o.fctInfo(cnn.LocalAddr(), cnn.RemoteAddr(), libsck.ConnectionClose)
-			o.fctError(cnn.Close())
-		}
-	}()
-
 	o.fctInfo(&net.UnixAddr{}, &net.UnixAddr{}, libsck.ConnectionDial)
-	if cnn, err = o.dial(ctx); err != nil {
+	if con, err = o.dial(ctx); err != nil {
 		o.fctError(err)
 		return err
 	}
 
-	o.fctInfo(cnn.LocalAddr(), cnn.RemoteAddr(), libsck.ConnectionNew)
-
-	o.sendRequest(cnn, request)
-	o.readResponse(cnn, fct)
+	o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionNew)
+	o.c.Store(con)
 
 	return nil
 }
 
-func (o *cli) sendRequest(con net.Conn, r io.Reader) {
-	var (
-		err error
-		buf []byte
-		rdr = bufio.NewReaderSize(r, o.buffSize())
-		wrt = bufio.NewWriterSize(con, o.buffSize())
-	)
+func (o *cli) Read(p []byte) (n int, err error) {
+	if o == nil {
+		return 0, ErrInstance
+	} else if i := o.c.Load(); i == nil {
+		return 0, ErrConnection
+	} else if c, k := i.(net.Conn); !k {
+		return 0, ErrConnection
+	} else {
+		o.fctInfo(c.LocalAddr(), c.RemoteAddr(), libsck.ConnectionRead)
+		return c.Read(p)
+	}
+}
+
+func (o *cli) Write(p []byte) (n int, err error) {
+	if o == nil {
+		return 0, ErrInstance
+	} else if i := o.c.Load(); i == nil {
+		return 0, ErrConnection
+	} else if c, k := i.(net.Conn); !k {
+		return 0, ErrConnection
+	} else {
+		o.fctInfo(c.LocalAddr(), c.RemoteAddr(), libsck.ConnectionWrite)
+		return c.Write(p)
+	}
+}
+
+func (o *cli) Close() error {
+	if o == nil {
+		return ErrInstance
+	} else if i := o.c.Load(); i == nil {
+		return ErrConnection
+	} else if c, k := i.(net.Conn); !k {
+		return ErrConnection
+	} else {
+		o.fctInfo(c.LocalAddr(), c.RemoteAddr(), libsck.ConnectionClose)
+		e := c.Close()
+		o.c.Store(c)
+		return e
+	}
+}
+
+func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) error {
+	if o == nil {
+		return ErrInstance
+	}
 
 	defer func() {
-		if con != nil {
-			if c, ok := con.(*net.UnixConn); ok {
-				o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionCloseWrite)
-				_ = c.CloseWrite()
-			}
-		}
+		o.fctError(o.Close())
 	}()
 
-	for {
-		if con == nil && r == nil {
-			return
-		}
+	var err error
 
-		buf, err = rdr.ReadBytes('\n')
+	if err = o.Connect(ctx); err != nil {
+		o.fctError(err)
+		return err
+	}
+
+	for {
+		_, err = io.Copy(o, request)
 
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				o.fctError(err)
+				return err
+			} else {
+				break
 			}
-			if len(buf) < 1 {
-				return
-			}
-		}
-
-		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionWrite)
-
-		_, err = wrt.Write(buf)
-		if err != nil {
-			o.fctError(err)
-			return
-		}
-
-		err = wrt.Flush()
-		if err != nil {
-			o.fctError(err)
-			return
 		}
 	}
-}
 
-func (o *cli) readResponse(con net.Conn, f libsck.Response) {
-	if f == nil {
-		return
-	}
-
-	o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionHandler)
-	f(con)
+	fct(o)
+	return nil
 }

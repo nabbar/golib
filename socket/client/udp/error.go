@@ -29,6 +29,7 @@ package udp
 import "fmt"
 
 var (
-	ErrInstance = fmt.Errorf("invalid instance")
-	ErrAddress  = fmt.Errorf("invalid dial address")
+	ErrInstance   = fmt.Errorf("invalid instance")
+	ErrConnection = fmt.Errorf("invalid connection")
+	ErrAddress    = fmt.Errorf("invalid dial address")
 )

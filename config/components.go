@@ -34,6 +34,7 @@ import (
 
 	cfgcst "github.com/nabbar/golib/config/const"
 	cfgtps "github.com/nabbar/golib/config/types"
+	loglvl "github.com/nabbar/golib/logger/level"
 	spfcbr "github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 )
@@ -118,12 +119,22 @@ func (c *configModel) ComponentStart() error {
 		} else if cpt := c.ComponentGet(key); cpt == nil {
 			continue
 		} else {
+			if l := c.getDefaultLogger(); l != nil {
+				l.Entry(loglvl.InfoLevel, fmt.Sprintf("starting component '%s'", key)).Log()
+			}
 			e := cpt.Start()
 			c.componentUpdate(key, cpt)
 			if e != nil {
+				if l := c.getDefaultLogger(); l != nil {
+					l.Entry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' starting return an error", key)).ErrorAdd(true, e).Log()
+				}
 				err.Add(e)
 			} else if !cpt.IsStarted() {
-				err.Add(fmt.Errorf("component '%s' has been call to start, but is not started", key))
+				e = fmt.Errorf("component '%s' has been call to start, but is not started", key)
+				if l := c.getDefaultLogger(); l != nil {
+					l.Entry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' is not started", key)).ErrorAdd(true, e).Log()
+				}
+				err.Add(e)
 			}
 		}
 	}
@@ -163,11 +174,21 @@ func (c *configModel) ComponentReload() error {
 		} else if cpt := c.ComponentGet(key); cpt == nil {
 			continue
 		} else {
+			if l := c.getDefaultLogger(); l != nil {
+				l.Entry(loglvl.InfoLevel, fmt.Sprintf("reloading component '%s'", key)).Log()
+			}
 			e := cpt.Reload()
 			c.componentUpdate(key, cpt)
 			if e != nil {
+				if l := c.getDefaultLogger(); l != nil {
+					l.Entry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' reloading return an error", key)).ErrorAdd(true, e).Log()
+				}
 				err.Add(e)
 			} else if !cpt.IsStarted() {
+				e = fmt.Errorf("component '%s' has been call to reload, but is not started", key)
+				if l := c.getDefaultLogger(); l != nil {
+					l.Entry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' is not started after a reload", key)).ErrorAdd(true, e).Log()
+				}
 				err.Add(fmt.Errorf("component '%s' has been call to reload, but is not started", key))
 			}
 		}

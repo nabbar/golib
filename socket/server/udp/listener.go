@@ -137,6 +137,13 @@ func (o *srv) Listen(ctx context.Context) error {
 
 	o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUDP.String(), adr)
 	// Accept new connection or stop if context or shutdown trigger
+
+	var (
+		siz = o.buffSize()
+		buf []byte
+		rer error
+	)
+
 	for {
 		// Accept an incoming connection.
 		if con == nil {
@@ -145,11 +152,7 @@ func (o *srv) Listen(ctx context.Context) error {
 			return err
 		}
 
-		var (
-			buf = make([]byte, o.buffSize())
-			rer error
-		)
-
+		buf = make([]byte, siz)
 		nbr, rem, rer = con.ReadFrom(buf)
 
 		if rem == nil {
@@ -162,20 +165,16 @@ func (o *srv) Listen(ctx context.Context) error {
 			if !stp.Load() {
 				o.fctError(rer)
 			}
-			if nbr < 1 {
-				continue
-			}
 		}
 
-		go func(la, ra net.Addr, b []byte) {
-			o.fctInfo(la, ra, libsck.ConnectionHandler)
-
-			r := bytes.NewBuffer(b)
-			if !bytes.HasSuffix(b, []byte{libsck.EOL}) {
-				r.Write([]byte{libsck.EOL})
+		if nbr > 0 {
+			if !bytes.HasSuffix(buf, []byte{libsck.EOL}) {
+				buf = append(buf, libsck.EOL)
+				nbr++
 			}
 
-			hdl(r, io.Discard)
-		}(loc, rem, buf[:nbr])
+			o.fctInfo(loc, rem, libsck.ConnectionHandler)
+			hdl(bytes.NewBuffer(buf[:nbr]), io.Discard)
+		}
 	}
 }

@@ -59,5 +59,6 @@ func New(buffSizeRead libsiz.Size, address string) (ClientTCP, error) {
 		s: s,
 		e: new(atomic.Value),
 		i: new(atomic.Value),
+		c: new(atomic.Value),
 	}, nil
 }

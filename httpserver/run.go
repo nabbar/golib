@@ -86,7 +86,27 @@ func (o *srv) runStart(ctx context.Context) error {
 		return ErrorServerValidate.Error(nil)
 	}
 
-	return o.r.Start(ctx)
+	if e := o.r.Start(ctx); e != nil {
+		return e
+	}
+
+	var x, n = context.WithTimeout(ctx, 30*time.Second)
+
+	defer n()
+
+	for !o.r.IsRunning() {
+		select {
+		case <-x.Done():
+			return errNotRunning
+		default:
+			time.Sleep(100 * time.Millisecond)
+			if o.r.IsRunning() {
+				return o.GetError()
+			}
+		}
+	}
+
+	return o.GetError()
 }
 
 func (o *srv) runStop(ctx context.Context) error {
@@ -238,4 +258,26 @@ func (o *srv) Uptime() time.Duration {
 	}
 
 	return 0
+}
+
+func (o *srv) IsError() bool {
+	if el := o.r.ErrorsList(); len(el) > 0 {
+		for _, e := range el {
+			if e != nil {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (o *srv) GetError() error {
+	var err = ErrorServerStart.Error(o.r.ErrorsList()...)
+
+	if err.HasParent() {
+		return err
+	}
+
+	return nil
 }

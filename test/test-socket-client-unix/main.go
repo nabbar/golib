@@ -95,5 +95,5 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stdout, "[%s %s]=>[%s %s] %s\n", remote.Network(), remote.String(), local.Network(), local.String(), state.String())
 	})
 
-	checkPanic(cli.Do(context.Background(), request(), nil))
+	checkPanic(cli.Once(context.Background(), request(), nil))
 }

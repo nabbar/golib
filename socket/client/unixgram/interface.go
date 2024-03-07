@@ -54,5 +54,6 @@ func New(buffSizeRead libsiz.Size, unixfile string) ClientUnix {
 		s: s,
 		e: new(atomic.Value),
 		i: new(atomic.Value),
+		c: new(atomic.Value),
 	}
 }

@@ -94,8 +94,11 @@ type Server interface {
 }
 
 type Client interface {
+	io.ReadWriteCloser
+
 	RegisterFuncError(f FuncError)
 	RegisterFuncInfo(f FuncInfo)
 
-	Do(ctx context.Context, request io.Reader, fct Response) error
+	Connect(ctx context.Context) error
+	Once(ctx context.Context, request io.Reader, fct Response) error
 }

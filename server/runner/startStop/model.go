@@ -49,13 +49,14 @@ type chData struct {
 
 type run struct {
 	e *atomic.Value // slice []error
-	f libsrv.Action
-	s libsrv.Action
+	f libsrv.FuncAction
+	s libsrv.FuncAction
 	t *atomic.Value
-	c *atomic.Value // chan struct{}
+	r *atomic.Bool  // Want Stop
+	n *atomic.Value // context.CancelFunc
 }
 
-func (o *run) getFctStart() libsrv.Action {
+func (o *run) getFctStart() libsrv.FuncAction {
 	if o.f == nil {
 		return func(ctx context.Context) error {
 			return fmt.Errorf("invalid start function")
@@ -64,109 +65,13 @@ func (o *run) getFctStart() libsrv.Action {
 	return o.f
 }
 
-func (o *run) getFctStop() libsrv.Action {
+func (o *run) getFctStop() libsrv.FuncAction {
 	if o.s == nil {
 		return func(ctx context.Context) error {
 			return fmt.Errorf("invalid stop function")
 		}
 	}
 	return o.s
-}
-
-func (o *run) Restart(ctx context.Context) error {
-	if e := o.Stop(ctx); e != nil {
-		return e
-	} else if e = o.Start(ctx); e != nil {
-		_ = o.Stop(ctx)
-		return e
-	}
-
-	return nil
-}
-
-func (o *run) Stop(ctx context.Context) error {
-	if e := o.checkMe(); e != nil {
-		return e
-	} else if !o.IsRunning() {
-		return nil
-	}
-
-	var (
-		e error
-		t = time.NewTicker(pollStop)
-	)
-
-	o.t.Store(time.Time{})
-
-	defer func() {
-		libsrv.RecoveryCaller("golib/server/startstop", recover())
-		t.Stop()
-	}()
-
-	for {
-		select {
-		case <-t.C:
-			if o.IsRunning() {
-				o.chanSend()
-				e = o.callStop(ctx)
-			} else {
-				return e
-			}
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-}
-
-func (o *run) callStop(ctx context.Context) error {
-	if o == nil {
-		return nil
-	} else {
-		return o.getFctStop()(ctx)
-	}
-}
-
-func (o *run) Start(ctx context.Context) error {
-	if e := o.checkMeStart(ctx); e != nil {
-		return e
-	}
-
-	var can context.CancelFunc
-	ctx, can = context.WithCancel(ctx)
-	o.t.Store(time.Now())
-
-	go func(x context.Context, n context.CancelFunc) {
-		defer n()
-
-		o.chanInit()
-		defer func() {
-			libsrv.RecoveryCaller("golib/server/startstop", recover())
-			_ = o.Stop(ctx)
-		}()
-
-		if e := o.getFctStart()(x); e != nil {
-			o.errorsAdd(e)
-			return
-		}
-	}(ctx, can)
-
-	go func(x context.Context, n context.CancelFunc) {
-		defer n()
-		defer func() {
-			_ = o.Stop(ctx)
-		}()
-
-		for {
-			select {
-			case <-o.chanDone():
-				return
-			case <-x.Done():
-				return
-			}
-		}
-	}(ctx, can)
-
-	return nil
 }
 
 func (o *run) checkMe() error {
@@ -199,4 +104,113 @@ func (o *run) Uptime() time.Duration {
 	} else {
 		return time.Since(t)
 	}
+}
+
+func (o *run) IsRunning() bool {
+	if e := o.checkMe(); e != nil {
+		return false
+	}
+
+	return o.r.Load()
+}
+
+func (o *run) Restart(ctx context.Context) error {
+	if e := o.Stop(ctx); e != nil {
+		return e
+	} else if e = o.Start(ctx); e != nil {
+		_ = o.Stop(ctx)
+		return e
+	}
+
+	return nil
+}
+
+func (o *run) Stop(ctx context.Context) error {
+	if e := o.checkMe(); e != nil {
+		return e
+	} else if !o.IsRunning() {
+		return nil
+	}
+
+	var (
+		e error
+		t = time.NewTicker(pollStop)
+	)
+
+	o.errorsClean()
+
+	if i := o.n.Load(); i != nil {
+		if f, k := i.(context.CancelFunc); k {
+			f()
+		}
+	}
+
+	defer func() {
+		libsrv.RecoveryCaller("golib/server/startstop", recover())
+		t.Stop()
+	}()
+
+	for {
+		select {
+		case <-t.C:
+			if o.IsRunning() {
+				e = o.getFctStop()(ctx)
+			} else {
+				return e
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func (o *run) Start(ctx context.Context) error {
+	if e := o.checkMeStart(ctx); e != nil {
+		return e
+	}
+
+	cx, ca := context.WithCancel(ctx)
+
+	if i := o.n.Swap(ca); i != nil {
+		if f, k := i.(context.CancelFunc); k {
+			f()
+		}
+	}
+
+	o.errorsClean()
+
+	fStart := func(c context.Context) error {
+		defer libsrv.RecoveryCaller("golib/server/startstop", recover())
+		return o.getFctStart()(c)
+	}
+
+	fStop := func(c context.Context) error {
+		defer libsrv.RecoveryCaller("golib/server/startstop", recover())
+		return o.getFctStop()(c)
+	}
+
+	go func(x context.Context, n context.CancelFunc, start, stop libsrv.FuncAction) {
+		defer func() {
+			libsrv.RecoveryCaller("golib/server/startstop", recover())
+			_ = stop(ctx)
+
+			n()
+
+			o.t.Store(time.Time{})
+			o.r.Store(false)
+		}()
+
+		o.t.Store(time.Now())
+
+		for !o.r.Load() && ctx.Err() == nil {
+			o.r.Store(true)
+
+			if e := start(x); e != nil {
+				o.errorsAdd(e)
+				return
+			}
+		}
+	}(cx, ca, fStart, fStop)
+
+	return nil
 }

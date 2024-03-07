@@ -234,6 +234,7 @@ func (o *srv) Conn(con net.Conn) {
 
 	var (
 		err error
+		nbr int
 		rdr = bufio.NewReaderSize(con, o.buffSize())
 		msg []byte
 		hdl libsck.Handler
@@ -244,25 +245,26 @@ func (o *srv) Conn(con net.Conn) {
 	}
 
 	for {
+		msg = msg[:0]
 		msg, err = rdr.ReadBytes('\n')
+		nbr = len(msg)
 
 		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionRead)
+
+		if nbr > 0 {
+			if !bytes.HasSuffix(msg, []byte{libsck.EOL}) {
+				msg = append(msg, libsck.EOL)
+				nbr++
+			}
+
+			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionHandler)
+			hdl(bytes.NewBuffer(msg[:nbr]), con)
+		}
+
 		if err != nil {
 			if err != io.EOF {
 				o.fctError(err)
 			}
-			if len(msg) < 1 {
-				break
-			}
 		}
-
-		var buf = bytes.NewBuffer(msg)
-
-		if !bytes.HasSuffix(msg, []byte{libsck.EOL}) {
-			buf.Write([]byte{libsck.EOL})
-		}
-
-		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionHandler)
-		hdl(buf, con)
 	}
 }
