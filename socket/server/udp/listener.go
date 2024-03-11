@@ -161,12 +161,6 @@ func (o *srv) Listen(ctx context.Context) error {
 
 		o.fctInfo(loc, rem, libsck.ConnectionRead)
 
-		if rer != nil {
-			if !stp.Load() {
-				o.fctError(rer)
-			}
-		}
-
 		if nbr > 0 {
 			if !bytes.HasSuffix(buf, []byte{libsck.EOL}) {
 				buf = append(buf, libsck.EOL)
@@ -175,6 +169,12 @@ func (o *srv) Listen(ctx context.Context) error {
 
 			o.fctInfo(loc, rem, libsck.ConnectionHandler)
 			hdl(bytes.NewBuffer(buf[:nbr]), io.Discard)
+		}
+
+		if rer != nil {
+			if !stp.Load() {
+				o.fctError(rer)
+			}
 		}
 	}
 }

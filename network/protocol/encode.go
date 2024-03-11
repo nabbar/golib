@@ -39,14 +39,14 @@ const (
 	smpQuote = "'"
 )
 
-func (s *NetworkProtocol) unmarshall(val []byte) error {
+func (n *NetworkProtocol) unmarshall(val []byte) error {
 	val = bytes.Trim(bytes.Trim(val, smpQuote), dblQuote)
-	*s = ParseBytes(val)
+	*n = ParseBytes(val)
 	return nil
 }
 
-func (s NetworkProtocol) MarshalJSON() ([]byte, error) {
-	t := s.String()
+func (n NetworkProtocol) MarshalJSON() ([]byte, error) {
+	t := n.String()
 	b := make([]byte, 0, len(t)+2)
 	b = append(b, '"')
 	b = append(b, []byte(t)...)
@@ -54,44 +54,44 @@ func (s NetworkProtocol) MarshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func (s *NetworkProtocol) UnmarshalJSON(bytes []byte) error {
-	return s.unmarshall(bytes)
+func (n *NetworkProtocol) UnmarshalJSON(bytes []byte) error {
+	return n.unmarshall(bytes)
 }
 
-func (s NetworkProtocol) MarshalYAML() (interface{}, error) {
-	return []byte(s.String()), nil
+func (n NetworkProtocol) MarshalYAML() (interface{}, error) {
+	return []byte(n.String()), nil
 }
 
-func (s *NetworkProtocol) UnmarshalYAML(value *yaml.Node) error {
-	return s.unmarshall([]byte(value.Value))
+func (n *NetworkProtocol) UnmarshalYAML(value *yaml.Node) error {
+	return n.unmarshall([]byte(value.Value))
 }
 
-func (s NetworkProtocol) MarshalTOML() ([]byte, error) {
-	return []byte(s.String()), nil
+func (n NetworkProtocol) MarshalTOML() ([]byte, error) {
+	return []byte(n.String()), nil
 }
 
-func (s *NetworkProtocol) UnmarshalTOML(i interface{}) error {
+func (n *NetworkProtocol) UnmarshalTOML(i interface{}) error {
 	if p, k := i.([]byte); k {
-		return s.unmarshall(p)
+		return n.unmarshall(p)
 	}
 	if p, k := i.(string); k {
-		return s.unmarshall([]byte(p))
+		return n.unmarshall([]byte(p))
 	}
 	return fmt.Errorf("size: value not in valid format")
 }
 
-func (s NetworkProtocol) MarshalText() ([]byte, error) {
-	return []byte(s.String()), nil
+func (n NetworkProtocol) MarshalText() ([]byte, error) {
+	return []byte(n.String()), nil
 }
 
-func (s *NetworkProtocol) UnmarshalText(bytes []byte) error {
-	return s.unmarshall(bytes)
+func (n *NetworkProtocol) UnmarshalText(bytes []byte) error {
+	return n.unmarshall(bytes)
 }
 
-func (s NetworkProtocol) MarshalCBOR() ([]byte, error) {
-	return []byte(s.String()), nil
+func (n NetworkProtocol) MarshalCBOR() ([]byte, error) {
+	return []byte(n.String()), nil
 }
 
-func (s *NetworkProtocol) UnmarshalCBOR(bytes []byte) error {
-	return s.unmarshall(bytes)
+func (n *NetworkProtocol) UnmarshalCBOR(bytes []byte) error {
+	return n.unmarshall(bytes)
 }

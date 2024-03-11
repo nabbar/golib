@@ -265,6 +265,7 @@ func (o *srv) Conn(con net.Conn) {
 			if err != io.EOF {
 				o.fctError(err)
 			}
+			return
 		}
 	}
 }

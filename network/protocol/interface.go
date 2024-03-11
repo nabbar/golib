@@ -73,9 +73,28 @@ func ParseBytes(p []byte) NetworkProtocol {
 }
 
 func ParseInt64(val int64) NetworkProtocol {
+	var v NetworkProtocol
+
 	if val > int64(math.MaxUint8) {
-		return NetworkProtocol(math.MaxUint8)
+		v = NetworkProtocol(math.MaxUint8)
+	} else {
+		v = NetworkProtocol(val)
 	}
 
-	return NetworkProtocol(uint8(val))
+	switch v {
+	case NetworkTCP:
+		return NetworkTCP
+	case NetworkTCP4:
+		return NetworkTCP4
+	case NetworkTCP6:
+		return NetworkTCP6
+	case NetworkUDP:
+		return NetworkUDP
+	case NetworkUnix:
+		return NetworkUnix
+	case NetworkUnixGram:
+		return NetworkUnixGram
+	default:
+		return NetworkEmpty
+	}
 }
