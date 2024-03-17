@@ -30,19 +30,25 @@ import (
 	"os"
 
 	libptc "github.com/nabbar/golib/network/protocol"
-	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 	scksrv "github.com/nabbar/golib/socket/server"
 )
 
+// ServerConfig define the server configuration
 type ServerConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	PermFile     os.FileMode
-	GroupPerm    int32
-	BuffSizeRead libsiz.Size
+	// network protocol
+	Network libptc.NetworkProtocol ``
+	// address to listen
+	Address string
+	// permission of owner for socket file
+	PermFile os.FileMode
+	// permission of group for socket file
+	GroupPerm int32
 }
 
+// New returns a new server with the given handler and based on the ServerConfig
+// handler libsck.Handler
+// (libsck.Server, error)
 func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	return scksrv.New(handler, o.Network, o.BuffSizeRead, o.Address, o.PermFile, o.GroupPerm)
+	return scksrv.New(handler, o.Network, o.Address, o.PermFile, o.GroupPerm)
 }

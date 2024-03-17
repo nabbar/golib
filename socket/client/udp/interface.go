@@ -31,7 +31,6 @@ import (
 	"sync/atomic"
 
 	libptc "github.com/nabbar/golib/network/protocol"
-	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -39,11 +38,8 @@ type ClientUDP interface {
 	libsck.Client
 }
 
-func New(buffSizeRead libsiz.Size, address string) (ClientUDP, error) {
-	var (
-		a = new(atomic.Value)
-		s = new(atomic.Int32)
-	)
+func New(address string) (ClientUDP, error) {
+	var a = new(atomic.Value)
 
 	if len(address) < 1 {
 		return nil, ErrAddress
@@ -52,11 +48,9 @@ func New(buffSizeRead libsiz.Size, address string) (ClientUDP, error) {
 	}
 
 	a.Store(address)
-	s.Store(buffSizeRead.Int32())
 
 	return &cli{
 		a: a,
-		s: s,
 		e: new(atomic.Value),
 		i: new(atomic.Value),
 		c: new(atomic.Value),

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2023 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,34 +24,18 @@
  *
  */
 
-package encrypt
+package delim
 
-import (
-	"io"
+type DiscardCloser struct{}
 
-	libcrp "github.com/nabbar/golib/crypt"
-)
-
-type dec struct {
-	c libcrp.Crypt
-	h bool
-	r io.Reader
+func (d DiscardCloser) Read(p []byte) (n int, err error) {
+	return 0, nil
 }
 
-func (o *dec) Read(p []byte) (n int, err error) {
-	var (
-		crp = make([]byte, cap(p)*2)
-		res = make([]byte, cap(p))
-	)
+func (d DiscardCloser) Write(p []byte) (n int, err error) {
+	return len(p), nil
+}
 
-	if n, err = o.r.Read(crp); err != nil {
-		return 0, err
-	} else if o.h {
-		res, err = o.c.DecodeHex(crp)
-	} else {
-		res, err = o.c.Decode(crp)
-	}
-
-	copy(p, res)
-	return len(p), err
+func (d DiscardCloser) Close() error {
+	return nil
 }

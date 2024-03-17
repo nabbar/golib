@@ -93,6 +93,42 @@ func (s *Size) unmarshall(val []byte) error {
 	}
 }
 
+func (s *Size) Mul(v float64) {
+	v = s.Float64() * v
+	if v > math.MaxUint64 {
+		*s = math.MaxUint64
+	} else {
+		*s = Size(v)
+	}
+}
+
+func (s *Size) Div(v float64) {
+	v = math.Ceil(s.Float64() / v)
+	if v > math.MaxUint64 {
+		*s = math.MaxUint64
+	} else {
+		*s = Size(v)
+	}
+}
+
+func (s *Size) Add(v uint64) {
+	v = s.Uint64() + v
+	if v > math.MaxUint64 {
+		*s = math.MaxUint64
+	} else {
+		*s = Size(v)
+	}
+}
+
+func (s *Size) Sub(v uint64) {
+	v = s.Uint64() - v
+	if v > math.MaxUint64 {
+		*s = math.MaxUint64
+	} else {
+		*s = Size(v)
+	}
+}
+
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (

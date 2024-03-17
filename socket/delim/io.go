@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
  * MIT License
  *
@@ -27,61 +24,71 @@
  *
  */
 
-package unix
+package delim
 
-import (
-	"os"
-	"sync/atomic"
+import "io"
 
-	libsiz "github.com/nabbar/golib/size"
-	libsck "github.com/nabbar/golib/socket"
-)
-
-const maxGID = 32767
-
-type ServerUnix interface {
-	libsck.Server
-	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
+func (o *dlm) Reader() io.ReadCloser {
+	return o
 }
 
-func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerUnix {
-	c := new(atomic.Value)
-	c.Store(make(chan []byte))
+func (o *dlm) Copy(w io.Writer) (n int64, err error) {
+	return o.WriteTo(w)
+}
 
-	s := new(atomic.Value)
-	s.Store(make(chan struct{}))
+func (o *dlm) Read(p []byte) (n int, err error) {
+	if r := o.getReader(); r == nil {
+		return 0, ErrInstance
+	} else {
+		b, e := r.ReadBytes(o.getDelimByte())
 
-	f := new(atomic.Value)
-	f.Store(h)
+		if len(b) > 0 {
+			if cap(p) < len(b) {
+				p = append(p, make([]byte, len(b)-len(p))...)
+			}
+			copy(p, b)
+		}
 
-	// socket read buff size
-	sr := new(atomic.Int32)
-	sr.Store(sizeBuffRead.Int32())
-
-	// socket file
-	sf := new(atomic.Value)
-	sf.Store("")
-
-	// socket permission
-	sp := new(atomic.Int64)
-	sp.Store(0)
-
-	// socket group permission
-	sg := new(atomic.Int32)
-	sg.Store(0)
-
-	return &srv{
-		l:  nil,
-		h:  f,
-		c:  c,
-		s:  s,
-		r:  new(atomic.Bool),
-		fe: new(atomic.Value),
-		fi: new(atomic.Value),
-		fs: new(atomic.Value),
-		sr: sr,
-		sf: sf,
-		sp: sp,
-		sg: sg,
+		return len(b), e
 	}
+}
+
+func (o *dlm) ReadBytes() ([]byte, error) {
+	if r := o.getReader(); r == nil {
+		return make([]byte, 0), ErrInstance
+	} else {
+		return r.ReadBytes(o.getDelimByte())
+	}
+}
+
+func (o *dlm) Close() error {
+	return o.getInput().Close()
+}
+
+func (o *dlm) WriteTo(w io.Writer) (n int64, err error) {
+	var (
+		i int
+		s = 1
+		e error
+		b []byte
+	)
+
+	for err == nil && s > 0 {
+		b, err = o.ReadBytes()
+		s = len(b)
+
+		if s > 0 {
+			i, e = w.Write(b)
+			n += int64(i)
+		}
+
+		b = b[:0]
+		b = nil
+
+		if err == nil && e != nil {
+			err = e
+		}
+	}
+
+	return n, err
 }

@@ -48,18 +48,14 @@ func init() {
 	close(closedChanStruct)
 }
 
-type data struct {
-	data any
-}
-
 type srv struct {
-	l net.Listener
-
-	t *atomic.Value // tls config
-	h *atomic.Value // handler
-	c *atomic.Value // chan []byte
-	s *atomic.Value // chan struct{}
-	r *atomic.Bool  // is Running
+	ssl *atomic.Value // tls config
+	hdl *atomic.Value // handler
+	msg *atomic.Value // chan []byte
+	stp *atomic.Value // chan struct{}
+	rst *atomic.Value // chan struct{}
+	run *atomic.Bool  // is Running
+	gon *atomic.Bool  // is Running
 
 	fe *atomic.Value // function error
 	fi *atomic.Value // function info
@@ -67,48 +63,115 @@ type srv struct {
 
 	sr *atomic.Int32 // read buffer size
 	ad *atomic.Value // Server address url
+
+	nc *atomic.Int64 // Counter Connection
+}
+
+func (o *srv) OpenConnections() int64 {
+	return o.nc.Load()
 }
 
 func (o *srv) IsRunning() bool {
-	return o.r.Load()
+	return o.run.Load()
+}
+
+func (o *srv) IsGone() bool {
+	return o.gon.Load()
 }
 
 func (o *srv) Done() <-chan struct{} {
-	s := o.s.Load()
-	if s != nil {
-		return s.(chan struct{})
+	if o == nil {
+		return closedChanStruct
+	}
+
+	if i := o.stp.Load(); i != nil {
+		if c, k := i.(chan struct{}); k {
+			return c
+		}
+	}
+
+	return closedChanStruct
+}
+
+func (o *srv) Gone() <-chan struct{} {
+	if o == nil {
+		return closedChanStruct
+	}
+	if o.IsGone() {
+		return closedChanStruct
+	} else if i := o.rst.Load(); i != nil {
+		if g, k := i.(chan struct{}); k {
+			return g
+		}
 	}
 
 	return closedChanStruct
 }
 
 func (o *srv) Close() error {
-	return o.Shutdown()
+	return o.Shutdown(context.Background())
 }
 
-func (o *srv) Shutdown() error {
+func (o *srv) StopGone(ctx context.Context) error {
 	if o == nil {
 		return ErrInvalidInstance
 	}
 
-	s := o.s.Load()
-	if s != nil {
-		if c, k := s.(chan struct{}); k {
-			c <- struct{}{}
-			o.s.Store(c)
+	o.gon.Store(true)
+
+	if i := o.rst.Load(); i != nil {
+		if c, k := i.(chan struct{}); k && c != closedChanStruct {
+			close(c)
+		}
+	}
+	o.rst.Store(closedChanStruct)
+
+	var (
+		tck = time.NewTicker(5 * time.Millisecond)
+		cnl context.CancelFunc
+	)
+
+	ctx, cnl = context.WithTimeout(ctx, 10*time.Second)
+
+	defer func() {
+		tck.Stop()
+		cnl()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ErrGoneTimeout
+		case <-tck.C:
+			if o.OpenConnections() > 0 {
+				continue
+			}
+			return nil
 		}
 	}
 
+}
+
+func (o *srv) StopListen(ctx context.Context) error {
+	if o == nil {
+		return ErrInvalidInstance
+	}
+
+	if i := o.stp.Load(); i != nil {
+		if c, k := i.(chan struct{}); k && c != closedChanStruct {
+			close(c)
+		}
+	}
+	o.stp.Store(closedChanStruct)
+
 	var (
-		tck      = time.NewTicker(100 * time.Millisecond)
-		ctx, cnl = context.WithTimeout(context.Background(), 25*time.Second)
+		tck = time.NewTicker(5 * time.Millisecond)
+		cnl context.CancelFunc
 	)
 
-	defer func() {
-		if s != nil {
-			o.s.Store(closedChanStruct)
-		}
+	ctx, cnl = context.WithTimeout(ctx, 10*time.Second)
 
+	defer func() {
 		tck.Stop()
 		cnl()
 	}()
@@ -124,12 +187,30 @@ func (o *srv) Shutdown() error {
 			return nil
 		}
 	}
+
+}
+
+func (o *srv) Shutdown(ctx context.Context) error {
+	if o == nil {
+		return ErrInvalidInstance
+	}
+
+	var cnl context.CancelFunc
+	ctx, cnl = context.WithTimeout(ctx, 25*time.Second)
+	defer cnl()
+
+	e := o.StopGone(ctx)
+	if err := o.StopListen(ctx); err != nil {
+		return err
+	} else {
+		return e
+	}
 }
 
 func (o *srv) SetTLS(enable bool, config libtls.TLSConfig) error {
 	if !enable {
 		// #nosec
-		o.t.Store(&tls.Config{})
+		o.ssl.Store(&tls.Config{})
 		return nil
 	}
 
@@ -140,7 +221,7 @@ func (o *srv) SetTLS(enable bool, config libtls.TLSConfig) error {
 	} else if t := config.TlsConfig(""); t == nil {
 		return fmt.Errorf("invalid tls config")
 	} else {
-		o.t.Store(t)
+		o.ssl.Store(t)
 		return nil
 	}
 }
@@ -218,7 +299,7 @@ func (o *srv) handler() libsck.Handler {
 		return nil
 	}
 
-	v := o.h.Load()
+	v := o.hdl.Load()
 	if v != nil {
 		return v.(libsck.Handler)
 	}
@@ -227,7 +308,7 @@ func (o *srv) handler() libsck.Handler {
 }
 
 func (o *srv) getTLS() *tls.Config {
-	i := o.t.Load()
+	i := o.ssl.Load()
 
 	if i == nil {
 		return nil

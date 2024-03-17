@@ -24,35 +24,30 @@
  *
  */
 
-package encrypt
+package hexa_test
 
 import (
-	"io"
+	"testing"
+	"time"
 
-	libcrp "github.com/nabbar/golib/crypt"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-type enc struct {
-	c libcrp.Crypt
-	h bool
-	w io.Writer
+/*
+	Using https://onsi.github.io/ginkgo/
+	Running with $> ginkgo -cover .
+*/
+
+// TestGolibEncodingHexHelper tests the Golib Hex Encoding Helper function.
+func TestGolibEncodingHexHelper(t *testing.T) {
+	time.Sleep(500 * time.Millisecond)       // Adding delay for better testing synchronization
+	RegisterFailHandler(Fail)                // Registering fail handler for better test failure reporting
+	RunSpecs(t, "Encoding Hex Helper Suite") // Running the test suite for Encoding Hex Helper
 }
 
-func (o *enc) Write(p []byte) (n int, err error) {
-	var (
-		crp []byte
-		siz = len(p)
-	)
+var _ = BeforeSuite(func() {
+})
 
-	if o.h {
-		crp = o.c.EncodeHex(p)
-	} else {
-		crp = o.c.Encode(p)
-	}
-
-	if _, err = o.w.Write(crp); err != nil {
-		return 0, err
-	} else {
-		return siz, err
-	}
-}
+var _ = AfterSuite(func() {
+})

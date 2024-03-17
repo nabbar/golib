@@ -24,43 +24,10 @@
  *
  */
 
-package udp
+package delim
 
-import (
-	"sync/atomic"
+import "fmt"
 
-	libsiz "github.com/nabbar/golib/size"
-	libsck "github.com/nabbar/golib/socket"
+var (
+	ErrInstance = fmt.Errorf("invalid buffer delim instance")
 )
-
-type ServerTcp interface {
-	libsck.Server
-	RegisterServer(address string) error
-}
-
-func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerTcp {
-	c := new(atomic.Value)
-	c.Store(make(chan []byte))
-
-	s := new(atomic.Value)
-	s.Store(make(chan struct{}))
-
-	f := new(atomic.Value)
-	f.Store(h)
-
-	sr := new(atomic.Int32)
-	sr.Store(sizeBuffRead.Int32())
-
-	return &srv{
-		l:  nil,
-		h:  f,
-		c:  c,
-		s:  s,
-		r:  new(atomic.Bool),
-		fe: new(atomic.Value),
-		fi: new(atomic.Value),
-		fs: new(atomic.Value),
-		sr: sr,
-		ad: new(atomic.Value),
-	}
-}

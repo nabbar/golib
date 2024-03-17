@@ -24,45 +24,50 @@
  *
  */
 
-package crypt
+package encoding
 
 import (
-	"crypto/cipher"
-	"encoding/hex"
+	"io"
 )
 
-type crt struct {
-	a cipher.AEAD
-	n []byte
-}
+type Coder interface {
+	// Encode encodes the given byte slice.
+	//
+	// Parameter(s): p []byte
+	// Return type(s): []byte
+	Encode(p []byte) []byte
 
-func (o *crt) Encode(p []byte) []byte {
-	if len(p) < 1 {
-		return make([]byte, 0)
-	}
-	return o.a.Seal(nil, o.n, p, nil)
-}
+	// Decode decodes the given byte slice and returns the decoded byte slice and an error if any.
+	//
+	// Parameters:
+	// - p: The byte slice to be decoded.
+	//
+	// Returns:
+	// - []byte: The decoded byte slice.
+	// - error: An error if any occurred during decoding.
+	Decode(p []byte) ([]byte, error)
 
-func (o *crt) EncodeHex(p []byte) []byte {
-	if len(p) < 1 {
-		return make([]byte, 0)
-	}
-	return []byte(hex.EncodeToString(o.Encode(p)))
-}
+	// EncodeReader return a io.Reader that can be used to encode the given byte slice
+	//
+	// r io.Reader
+	// io.Reader
+	EncodeReader(r io.Reader) io.Reader
 
-func (o *crt) Decode(p []byte) ([]byte, error) {
-	if len(p) < 1 {
-		return make([]byte, 0), nil
-	}
-	return o.a.Open(nil, o.n, p, nil)
-}
+	// DecodeReader return a io.Reader that can be used to decode the given byte slice
+	//
+	// r io.Reader
+	// io.Reader
+	DecodeReader(r io.Reader) io.Reader
 
-func (o *crt) DecodeHex(p []byte) ([]byte, error) {
-	if len(p) < 1 {
-		return make([]byte, 0), nil
-	} else if dec, err := hex.DecodeString(string(p)); err != nil {
-		return nil, err
-	} else {
-		return o.Decode(dec)
-	}
+	// EncodeWriter return a io.writer that can be used to encode the given byte slice
+	//
+	// w io.Writer parameter.
+	// io.Writer return type.
+	EncodeWriter(w io.Writer) io.Writer
+
+	// DecodeWriter return a io.writer that can be used to decode the given byte slice
+	//
+	// w io.Writer parameter.
+	// io.Writer return type.
+	DecodeWriter(w io.Writer) io.Writer
 }

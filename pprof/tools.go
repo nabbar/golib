@@ -98,11 +98,11 @@ func ProfilingCPUStart() {
 		panic(e)
 	}
 
-	_, _ = fmt.Fprintf(os.Stdout, "Starting pprof for CPU to file '%s'", c.Name())
+	_, _ = fmt.Fprintf(os.Stdout, "Starting pprof for CPU to file '%s'\n", c.Name())
 }
 
 func ProfilingCPUDefer() {
-	_, _ = fmt.Fprintf(os.Stdout, "Stopping pprof for CPU to file '%s'", c.Name())
+	_, _ = fmt.Fprintf(os.Stdout, "Stopping pprof for CPU to file '%s'\n", c.Name())
 	pprof.StopCPUProfile()
 	_ = c.Close()
 }

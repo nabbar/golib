@@ -27,7 +27,7 @@
 package ldap
 
 import (
-	"sync"
+	"sync/atomic"
 
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
@@ -50,11 +50,21 @@ type ComponentLDAP interface {
 }
 
 func New(ctx libctx.FuncContext) ComponentLDAP {
+	var (
+		a = new(atomic.Value)
+		c = new(atomic.Value)
+		l = new(atomic.Value)
+	)
+
+	a.Store(make([]string, 0))
+	c.Store(&lbldap.Config{})
+	l.Store(&lbldap.HelperLDAP{})
+
 	return &componentLDAP{
-		m: sync.RWMutex{},
+		a: a,
+		c: c,
+		l: l,
 		x: libctx.NewConfig[uint8](ctx),
-		c: nil,
-		l: nil,
 	}
 }
 

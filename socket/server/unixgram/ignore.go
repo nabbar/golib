@@ -1,3 +1,6 @@
+//go:build !linux
+// +build !linux
+
 /*
  * MIT License
  *
@@ -24,6 +27,23 @@
  *
  */
 
+// this file is to prevent error on build with system not compatible with unix
+
 package unixgram
 
-// this file is to prevent error on build with system not compatible with unix
+import (
+	"os"
+
+	libsck "github.com/nabbar/golib/socket"
+)
+
+const maxGID = 32767
+
+type ServerUnixGram interface {
+	libsck.Server
+	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
+}
+
+func New(h libsck.Handler) ServerUnixGram {
+	return nil
+}

@@ -34,22 +34,20 @@ import (
 	"os"
 
 	netptl "github.com/nabbar/golib/network/protocol"
-	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 	sckcfg "github.com/nabbar/golib/socket/config"
 )
 
 func config() sckcfg.ServerConfig {
 	return sckcfg.ServerConfig{
-		Network:      netptl.NetworkUnixGram,
-		Address:      "/tmp/test-server-unix.sock",
-		PermFile:     0777,
-		GroupPerm:    -1,
-		BuffSizeRead: 32 * libsiz.SizeKilo,
+		Network:   netptl.NetworkUnixGram,
+		Address:   "/tmp/test-server-unix.sock",
+		PermFile:  0777,
+		GroupPerm: -1,
 	}
 }
 
-func Handler(request io.Reader, response io.Writer) {
+func Handler(request libsck.Reader, response libsck.Writer) {
 	_, e := io.Copy(os.Stdout, request)
 	printError(e)
 }
@@ -84,8 +82,8 @@ func main() {
 	srv, err := config().New(Handler)
 	checkPanic(err)
 
-	srv.RegisterFuncError(func(e error) {
-		printError(e)
+	srv.RegisterFuncError(func(e ...error) {
+		printError(e...)
 	})
 	srv.RegisterFuncInfo(func(local, remote net.Addr, state libsck.ConnState) {
 		_, _ = fmt.Fprintf(os.Stdout, "[%s %s]=>[%s %s] %s\n", remote.Network(), remote.String(), local.Network(), local.String(), state.String())

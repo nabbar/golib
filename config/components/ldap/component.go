@@ -29,6 +29,7 @@ package ldap
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
+	lbldap "github.com/nabbar/golib/ldap"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -55,17 +56,6 @@ func (o *componentLDAP) Type() string {
 }
 
 func (o *componentLDAP) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.x == nil {
-		o.x = libctx.NewConfig[uint8](ctx)
-	} else {
-		x := libctx.NewConfig[uint8](ctx)
-		x.Merge(o.x)
-		o.x = x
-	}
-
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -84,10 +74,17 @@ func (o *componentLDAP) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 }
 
 func (o *componentLDAP) IsStarted() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o != nil && o.l != nil
+	if o == nil {
+		return false
+	} else if i := o.l.Load(); i == nil {
+		return false
+	} else if v, k := i.(*lbldap.HelperLDAP); !k {
+		return false
+	} else if v.Check() != nil {
+		return false
+	} else {
+		return true
+	}
 }
 
 func (o *componentLDAP) IsRunning() bool {
@@ -103,24 +100,19 @@ func (o *componentLDAP) Reload() error {
 }
 
 func (o *componentLDAP) Stop() {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.l.Close()
-	o.l = nil
-
-	return
+	if i := o.l.Swap(&lbldap.HelperLDAP{}); i == nil {
+		return
+	} else if v, k := i.(*lbldap.HelperLDAP); !k {
+		return
+	} else {
+		v.Close()
+	}
 }
 
 func (o *componentLDAP) Dependencies() []string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	var def = make([]string, 0)
 
 	if o == nil {
-		return def
-	} else if o.x == nil {
 		return def
 	} else if i, l := o.x.Load(keyCptDependencies); !l {
 		return def
@@ -134,12 +126,13 @@ func (o *componentLDAP) Dependencies() []string {
 }
 
 func (o *componentLDAP) SetDependencies(d []string) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if o.x == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {
+		if d == nil {
+			d = make([]string, 0)
+		}
+
 		o.x.Store(keyCptDependencies, d)
 		return nil
 	}

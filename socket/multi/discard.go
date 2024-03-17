@@ -24,44 +24,18 @@
  *
  */
 
-package tcp
+package multi
 
-import (
-	"sync/atomic"
+type DiscardCloser struct{}
 
-	libsiz "github.com/nabbar/golib/size"
-	libsck "github.com/nabbar/golib/socket"
-)
-
-type ServerTcp interface {
-	libsck.Server
-	RegisterServer(address string) error
+func (d DiscardCloser) Read(p []byte) (n int, err error) {
+	return 0, nil
 }
 
-func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerTcp {
-	c := new(atomic.Value)
-	c.Store(make(chan []byte))
+func (d DiscardCloser) Write(p []byte) (n int, err error) {
+	return len(p), nil
+}
 
-	s := new(atomic.Value)
-	s.Store(make(chan struct{}))
-
-	f := new(atomic.Value)
-	f.Store(h)
-
-	sr := new(atomic.Int32)
-	sr.Store(sizeBuffRead.Int32())
-
-	return &srv{
-		l:  nil,
-		t:  new(atomic.Value),
-		h:  f,
-		c:  c,
-		s:  s,
-		r:  new(atomic.Bool),
-		fe: new(atomic.Value),
-		fi: new(atomic.Value),
-		fs: new(atomic.Value),
-		sr: sr,
-		ad: new(atomic.Value),
-	}
+func (d DiscardCloser) Close() error {
+	return nil
 }

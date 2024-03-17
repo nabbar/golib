@@ -24,42 +24,30 @@
  *
  */
 
-package encrypt
+package mux_test
 
 import (
-	"io"
+	"testing"
+	"time"
 
-	libcrp "github.com/nabbar/golib/crypt"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-type Encrypt interface {
-	io.Writer
+/*
+	Using https://onsi.github.io/ginkgo/
+	Running with $> ginkgo -cover .
+*/
+
+// TestGolibEncodingMuxHelper tests the Golib Mux Encoding Helper function.
+func TestGolibEncodingMuxHelper(t *testing.T) {
+	time.Sleep(500 * time.Millisecond)       // Adding delay for better testing synchronization
+	RegisterFailHandler(Fail)                // Registering fail handler for better test failure reporting
+	RunSpecs(t, "Encoding Mux Helper Suite") // Running the test suite for Encoding Mux Helper
 }
 
-type Decrypt interface {
-	io.Reader
-}
+var _ = BeforeSuite(func() {
+})
 
-func NewEncrypt(w io.Writer, hex bool, key [32]byte, nonce [12]byte) (Encrypt, error) {
-	if crp, err := libcrp.New(key, nonce); err != nil {
-		return nil, err
-	} else {
-		return &enc{
-			c: crp,
-			h: hex,
-			w: w,
-		}, nil
-	}
-}
-
-func NewDecrypt(r io.Reader, hex bool, key [32]byte, nonce [12]byte) (Decrypt, error) {
-	if crp, err := libcrp.New(key, nonce); err != nil {
-		return nil, err
-	} else {
-		return &dec{
-			c: crp,
-			h: hex,
-			r: r,
-		}, nil
-	}
-}
+var _ = AfterSuite(func() {
+})

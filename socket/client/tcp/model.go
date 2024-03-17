@@ -28,21 +28,69 @@ package tcp
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"sync/atomic"
+	"time"
 
+	libtls "github.com/nabbar/golib/certificates"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
 
+type tlsCfg struct {
+	enable bool
+	config *tls.Config
+}
+
 type cli struct {
 	a *atomic.Value // ptr net TCP Addr
-	s *atomic.Int32 // buffer size
+	t *atomic.Value // tls Config
 	e *atomic.Value // function error
 	i *atomic.Value // function info
 	c *atomic.Value // net.Conn
+}
+
+func (o *cli) SetTLS(enable bool, config libtls.TLSConfig) error {
+	if !enable {
+		// #nosec
+		o.t.Store(&tlsCfg{
+			enable: false,
+			config: nil,
+		})
+		return nil
+	}
+
+	if config == nil {
+		return fmt.Errorf("invalid tls config")
+	} else if l := config.GetCertificatePair(); len(l) < 1 {
+		return fmt.Errorf("invalid tls config, missing certificates pair")
+	} else if t := config.TlsConfig(""); t == nil {
+		return fmt.Errorf("invalid tls config")
+	} else {
+		o.t.Store(&tlsCfg{
+			enable: true,
+			config: t,
+		})
+		return nil
+	}
+}
+
+func (o *cli) getTLS() *tls.Config {
+	i := o.t.Load()
+
+	if i == nil {
+		return nil
+	} else if t, k := i.(*tls.Config); !k {
+		return nil
+	} else if len(t.Certificates) < 1 {
+		return nil
+	} else {
+		return t
+	}
 }
 
 func (o *cli) RegisterFuncError(f libsck.FuncError) {
@@ -83,29 +131,46 @@ func (o *cli) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 	}
 }
 
-func (o *cli) buffSize() int {
-	v := o.s.Load()
-	if v > 0 {
-		return int(v)
-	}
-
-	return libsck.DefaultBufferSize
-}
-
 func (o *cli) dial(ctx context.Context) (net.Conn, error) {
 	if o == nil {
 		return nil, ErrInstance
 	}
 
 	v := o.a.Load()
+	d := &net.Dialer{
+		KeepAlive: 5 * time.Minute,
+	}
 
 	if v == nil {
 		return nil, ErrAddress
 	} else if adr, ok := v.(string); !ok {
 		return nil, ErrAddress
+	} else if i := o.t.Load(); i != nil {
+		if t, k := i.(*tlsCfg); k && t.enable {
+			u := &tls.Dialer{
+				NetDialer: d,
+				Config:    t.config,
+			}
+			return u.DialContext(ctx, libptc.NetworkTCP.Code(), adr)
+		} else {
+			return d.DialContext(ctx, libptc.NetworkTCP.Code(), adr)
+		}
 	} else {
-		d := net.Dialer{}
 		return d.DialContext(ctx, libptc.NetworkTCP.Code(), adr)
+	}
+}
+
+func (o *cli) IsConnected() bool {
+	if o == nil {
+		return false
+	} else if i := o.c.Load(); i == nil {
+		return false
+	} else if c, k := i.(net.Conn); !k {
+		return false
+	} else if _, e := c.Write(nil); e != nil {
+		return false
+	} else {
+		return true
 	}
 }
 
@@ -181,7 +246,10 @@ func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) 
 		o.fctError(o.Close())
 	}()
 
-	var err error
+	var (
+		err error
+		nbr int64
+	)
 
 	if err = o.Connect(ctx); err != nil {
 		o.fctError(err)
@@ -189,7 +257,7 @@ func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) 
 	}
 
 	for {
-		_, err = io.Copy(o, request)
+		nbr, err = io.Copy(o, request)
 
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
@@ -198,9 +266,14 @@ func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) 
 			} else {
 				break
 			}
+		} else if nbr < 1 {
+			break
 		}
 	}
 
-	fct(o)
+	if fct != nil {
+		fct(o)
+	}
+
 	return nil
 }
