@@ -30,11 +30,9 @@
 package unixgram
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"net"
 	"os"
@@ -45,16 +43,6 @@ import (
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
-
-func (o *srv) buffSize() int {
-	v := o.sr.Load()
-
-	if v > 0 {
-		return int(v)
-	}
-
-	return libsck.DefaultBufferSize
-}
 
 func (o *srv) getSocketFile() (string, error) {
 	f := o.sf.Load()
@@ -148,102 +136,162 @@ func (o *srv) getListen(uxf string, adr *net.UnixAddr) (*net.UnixConn, error) {
 
 func (o *srv) Listen(ctx context.Context) error {
 	var (
-		err error
-		nbr int
-		uxf string
-		stp = new(atomic.Bool)
+		e error
+		u string
+		s = new(atomic.Bool)
+
 		loc *net.UnixAddr
-		rem net.Addr
 		con *net.UnixConn
 		hdl libsck.Handler
+		cnl context.CancelFunc
+		cor libsck.Reader
+		cow libsck.Writer
 	)
 
-	if uxf, err = o.getSocketFile(); err != nil {
-		return err
+	s.Store(false)
+
+	if u, e = o.getSocketFile(); e != nil {
+		o.fctError(e)
+		return e
 	} else if hdl = o.handler(); hdl == nil {
+		o.fctError(ErrInvalidHandler)
 		return ErrInvalidHandler
-	} else if loc, err = net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), uxf); err != nil {
-		return err
-	} else if con, err = o.getListen(uxf, loc); err != nil {
-		return err
+	} else if loc, e = net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), u); e != nil {
+		o.fctError(e)
+		return e
+	} else if con, e = o.getListen(u, loc); e != nil {
+		o.fctError(e)
+		return e
 	}
 
-	var fctClose = func() {
-		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnixGram.String(), uxf)
+	ctx, cnl = context.WithCancel(ctx)
+	cor, cow = o.getReadWriter(ctx, con, loc)
 
-		if con != nil {
-			_ = con.Close()
+	o.stp.Store(make(chan struct{}))
+	o.run.Store(true)
+
+	defer func() {
+		// cancel context for connection
+		cnl()
+
+		// send info about connection closing
+		o.fctInfo(loc, &net.UnixAddr{}, libsck.ConnectionClose)
+		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnixGram.String(), u)
+
+		// close connection
+		_ = con.Close()
+
+		if _, e = os.Stat(u); e == nil {
+			o.fctError(os.Remove(u))
 		}
 
-		if _, err = os.Stat(uxf); err == nil {
-			o.fctError(os.Remove(uxf))
+		o.run.Store(false)
+	}()
+
+	// get handler or exit if nil
+	go hdl(cor, cow)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ErrContextClosed
+		case <-o.Done():
+			return nil
 		}
 	}
+}
 
-	defer fctClose()
-	stp.Store(false)
-
-	go func() {
-		<-ctx.Done()
-		go func() {
-			_ = o.Shutdown()
-		}()
-		return
-	}()
-
-	go func() {
-		<-o.Done()
-
-		err = nil
-		stp.Store(true)
-
-		if con != nil {
-			o.fctError(con.Close())
-		}
-
-		return
-	}()
-
-	o.r.Store(true)
-
+func (o *srv) getReadWriter(ctx context.Context, con *net.UnixConn, loc net.Addr) (libsck.Reader, libsck.Writer) {
 	var (
-		siz = o.buffSize()
-		buf []byte
-		rer error
+		re = &net.UDPAddr{}
+		ra = new(atomic.Value)
+		fg = func() net.Addr {
+			if i := ra.Load(); i != nil {
+				if v, k := i.(net.Addr); k {
+					return v
+				}
+			}
+			return &net.UnixAddr{}
+		}
+	)
+	ra.Store(re)
+
+	fctClose := func() error {
+		o.fctInfo(loc, fg(), libsck.ConnectionClose)
+		return con.Close()
+	}
+
+	rdr := libsck.NewReader(
+		func(p []byte) (n int, err error) {
+			if ctx.Err() != nil {
+				_ = fctClose()
+				return 0, ctx.Err()
+			}
+
+			var a net.Addr
+			n, a, err = con.ReadFrom(p)
+
+			if a != nil {
+				ra.Store(a)
+			} else {
+				ra.Store(re)
+			}
+
+			o.fctInfo(loc, fg(), libsck.ConnectionRead)
+			return n, err
+		},
+		fctClose,
+		func() bool {
+			if ctx.Err() != nil {
+				_ = fctClose()
+				return false
+			}
+			_, e := con.Read(nil)
+
+			if e != nil {
+				_ = fctClose()
+			}
+
+			return true
+		},
+		func() <-chan struct{} {
+			return ctx.Done()
+		},
 	)
 
-	// Accept new connection or stop if context or shutdown trigger
-	for {
-		// Accept an incoming connection.
-		if con == nil {
-			return ErrServerClosed
-		} else if stp.Load() {
-			return err
-		}
-
-		buf = make([]byte, siz)
-		nbr, rem, rer = con.ReadFrom(buf)
-
-		if rem == nil {
-			rem = &net.UnixAddr{}
-		}
-
-		o.fctInfo(loc, rem, libsck.ConnectionRead)
-
-		if nbr > 0 {
-			if !bytes.HasSuffix(buf, []byte{libsck.EOL}) {
-				buf = append(buf, libsck.EOL)
-				nbr++
+	wrt := libsck.NewWriter(
+		func(p []byte) (n int, err error) {
+			if ctx.Err() != nil {
+				_ = fctClose()
+				return 0, ctx.Err()
 			}
 
-			o.fctInfo(loc, rem, libsck.ConnectionHandler)
-			hdl(bytes.NewBuffer(buf[:nbr]), io.Discard)
-		}
-
-		if rer != nil {
-			if !stp.Load() {
-				o.fctError(rer)
+			if a := fg(); a != nil && a != re {
+				o.fctInfo(loc, a, libsck.ConnectionWrite)
+				return con.WriteTo(p, a)
 			}
-		}
-	}
+
+			o.fctInfo(loc, fg(), libsck.ConnectionWrite)
+			return con.Write(p)
+		},
+		fctClose,
+		func() bool {
+			if ctx.Err() != nil {
+				_ = fctClose()
+				return false
+			}
+			_, e := con.Write(nil)
+
+			if e != nil {
+				_ = fctClose()
+			}
+
+			return true
+		},
+		func() <-chan struct{} {
+			return ctx.Done()
+		},
+	)
+
+	return rdr, wrt
 }

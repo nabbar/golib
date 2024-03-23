@@ -35,7 +35,6 @@ import (
 	"strings"
 
 	libptc "github.com/nabbar/golib/network/protocol"
-	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 	sckclt "github.com/nabbar/golib/socket/client/tcp"
 	sckclu "github.com/nabbar/golib/socket/client/udp"
@@ -43,20 +42,20 @@ import (
 	sckgrm "github.com/nabbar/golib/socket/client/unixgram"
 )
 
-func New(proto libptc.NetworkProtocol, sizeBufferRead libsiz.Size, address string) (libsck.Client, error) {
+func New(proto libptc.NetworkProtocol, address string) (libsck.Client, error) {
 	switch proto {
 	case libptc.NetworkUnix:
 		if strings.EqualFold(runtime.GOOS, "linux") {
-			return sckclx.New(sizeBufferRead, address), nil
+			return sckclx.New(address), nil
 		}
 	case libptc.NetworkUnixGram:
 		if strings.EqualFold(runtime.GOOS, "linux") {
-			return sckgrm.New(sizeBufferRead, address), nil
+			return sckgrm.New(address), nil
 		}
 	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
-		return sckclt.New(sizeBufferRead, address)
+		return sckclt.New(address)
 	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
-		return sckclu.New(sizeBufferRead, address)
+		return sckclu.New(address)
 	}
 
 	return nil, fmt.Errorf("invalid client protocol")

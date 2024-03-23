@@ -36,16 +36,14 @@ import (
 	"time"
 
 	netptl "github.com/nabbar/golib/network/protocol"
-	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 	sckcfg "github.com/nabbar/golib/socket/config"
 )
 
 func config() sckcfg.ClientConfig {
 	return sckcfg.ClientConfig{
-		Network:      netptl.NetworkUnixGram,
-		Address:      "/tmp/test-server-unix.sock",
-		ReadBuffSize: 32 * libsiz.SizeKilo,
+		Network: netptl.NetworkUnixGram,
+		Address: "/tmp/test-server-unix.sock",
 	}
 }
 
@@ -88,8 +86,8 @@ func main() {
 	cli, err := config().New()
 	checkPanic(err)
 
-	cli.RegisterFuncError(func(e error) {
-		printError(e)
+	cli.RegisterFuncError(func(e ...error) {
+		printError(e...)
 	})
 	cli.RegisterFuncInfo(func(local, remote net.Addr, state libsck.ConnState) {
 		_, _ = fmt.Fprintf(os.Stdout, "[%s %s]=>[%s %s] %s\n", remote.Network(), remote.String(), local.Network(), local.String(), state.String())

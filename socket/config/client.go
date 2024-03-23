@@ -28,17 +28,20 @@ package config
 
 import (
 	libptc "github.com/nabbar/golib/network/protocol"
-	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 	sckclt "github.com/nabbar/golib/socket/client"
 )
 
+// ClientConfig define the client configuration
 type ClientConfig struct {
-	Network      libptc.NetworkProtocol ``
-	Address      string
-	ReadBuffSize libsiz.Size
+	// Network define the network protocol
+	Network libptc.NetworkProtocol ``
+	// Address define the address to connect
+	Address string
 }
 
+// New returns a new Client based on the configuration.
+// It takes a ClientConfig as a parameter and returns a libsck.Client and an error.
 func (o ClientConfig) New() (libsck.Client, error) {
-	return sckclt.New(o.Network, o.ReadBuffSize, o.Address)
+	return sckclt.New(o.Network, o.Address)
 }

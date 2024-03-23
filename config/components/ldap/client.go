@@ -35,9 +35,6 @@ import (
 )
 
 func (o *componentLDAP) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -50,9 +47,6 @@ func (o *componentLDAP) _getKey() string {
 }
 
 func (o *componentLDAP) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -85,9 +79,6 @@ func (o *componentLDAP) _getSPFViper() *spfvbr.Viper {
 }
 
 func (o *componentLDAP) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyFctGetCpt); !l {
 		return nil
 	} else if i == nil {
@@ -100,9 +91,6 @@ func (o *componentLDAP) _getFctCpt() cfgtps.FuncCptGet {
 }
 
 func (o *componentLDAP) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -123,9 +111,6 @@ func (o *componentLDAP) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 }
 
 func (o *componentLDAP) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -153,27 +138,22 @@ func (o *componentLDAP) _runCli() error {
 		cfg *lbldap.Config
 	)
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if cfg, err = o._getConfig(); err != nil {
 		return ErrorParamInvalid.Error(err)
-	} else if cli, e = lbldap.NewLDAP(o.x.GetContext(), cfg, o.a); e != nil {
+	} else if cli, e = lbldap.NewLDAP(o.x.GetContext(), cfg, o.GetAttributes()); e != nil {
 		return ErrorConfigInvalid.Error(e)
 	} else {
 		cli.SetLogger(o.getLogger)
 	}
 
-	if o.l != nil {
-		o.l.Close()
+	if i := o.l.Load(); i != nil {
+		if v, k := i.(*lbldap.HelperLDAP); k {
+			v.Close()
+		}
 	}
 
-	o.m.RUnlock()
-	o.m.Lock()
-	o.l = cli
-	o.c = cfg
-	o.m.Unlock()
-	o.m.RLock()
+	o.SetConfig(cfg)
+	o.SetLDAP(cli)
 
 	return nil
 }

@@ -37,5 +37,6 @@ var (
 	ErrInvalidGroup    = fmt.Errorf("invalid unix group for socket group permission")
 	ErrInvalidHandler  = fmt.Errorf("invalid handler")
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
+	ErrGoneTimeout     = fmt.Errorf("timeout on closing connections")
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

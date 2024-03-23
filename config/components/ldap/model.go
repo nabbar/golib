@@ -27,55 +27,84 @@
 package ldap
 
 import (
-	"sync"
+	"sync/atomic"
 
 	libctx "github.com/nabbar/golib/context"
 	lbldap "github.com/nabbar/golib/ldap"
 )
 
 type componentLDAP struct {
-	m sync.RWMutex
+	a *atomic.Value // slice attributes []string
+	c *atomic.Value // config
+	l *atomic.Value // client LDAP
 	x libctx.Config[uint8]
-
-	a []string
-	c *lbldap.Config
-	l *lbldap.HelperLDAP
 }
 
 func (o *componentLDAP) GetConfig() *lbldap.Config {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.c
+	if i := o.c.Load(); i == nil {
+		return nil
+	} else if v, k := i.(*lbldap.Config); !k {
+		return nil
+	} else if len(v.Uri) < 1 {
+		return nil
+	} else if v.PortLdap < 1 && v.Portldaps < 1 {
+		return nil
+	} else {
+		var cfg = lbldap.Config{}
+		cfg = *v
+		return &cfg
+	}
 }
 
 func (o *componentLDAP) SetConfig(opt *lbldap.Config) {
-	o.m.Lock()
-	defer o.m.Unlock()
+	if opt == nil {
+		opt = &lbldap.Config{}
+	}
 
-	o.c = opt
+	o.c.Store(opt)
 }
 
 func (o *componentLDAP) GetLDAP() *lbldap.HelperLDAP {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.l
+	if i := o.l.Load(); i == nil {
+		return nil
+	} else if v, k := i.(*lbldap.HelperLDAP); !k {
+		return nil
+	} else if v == nil {
+		return nil
+	} else if n := v.Clone(); n == nil {
+		return nil
+	} else if n.Check() != nil {
+		return nil
+	} else {
+		n.Attributes = o.GetAttributes()
+		return n
+	}
 }
 
 func (o *componentLDAP) SetLDAP(l *lbldap.HelperLDAP) {
-	o.m.Lock()
-	defer o.m.Unlock()
+	if l == nil {
+		l = &lbldap.HelperLDAP{}
+	}
 
-	o.l = l
+	o.l.Store(l)
+}
+
+func (o *componentLDAP) GetAttributes() []string {
+	if i := o.a.Load(); i == nil {
+		return make([]string, 0)
+	} else if v, k := i.([]string); !k {
+		return make([]string, 0)
+	} else if len(v) > 0 {
+		return v
+	} else {
+		return make([]string, 0)
+	}
 }
 
 func (o *componentLDAP) SetAttributes(att []string) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.a = att
-	if o.l != nil {
-		o.l.Attributes = att
+	if att == nil {
+		att = make([]string, 0)
 	}
+
+	o.a.Store(att)
 }

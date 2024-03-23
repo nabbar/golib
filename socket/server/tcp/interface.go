@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
  * MIT License
  *
@@ -27,61 +24,44 @@
  *
  */
 
-package unixgram
+package tcp
 
 import (
-	"os"
 	"sync/atomic"
 
-	libsiz "github.com/nabbar/golib/size"
 	libsck "github.com/nabbar/golib/socket"
 )
 
-const maxGID = 32767
-
-type ServerUnixGram interface {
+type ServerTcp interface {
 	libsck.Server
-	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
+	RegisterServer(address string) error
 }
 
-func New(h libsck.Handler, sizeBuffRead libsiz.Size) ServerUnixGram {
+func New(h libsck.Handler) ServerTcp {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 
 	s := new(atomic.Value)
 	s.Store(make(chan struct{}))
 
+	r := new(atomic.Value)
+	r.Store(make(chan struct{}))
+
 	f := new(atomic.Value)
 	f.Store(h)
 
-	// socket read buff size
-	sr := new(atomic.Int32)
-	sr.Store(sizeBuffRead.Int32())
-
-	// socket file
-	sf := new(atomic.Value)
-	sf.Store("")
-
-	// socket permission
-	sp := new(atomic.Int64)
-	sp.Store(0)
-
-	// socket group permission
-	sg := new(atomic.Int32)
-	sg.Store(0)
-
 	return &srv{
-		l:  nil,
-		h:  f,
-		c:  c,
-		s:  s,
-		r:  new(atomic.Bool),
-		fe: new(atomic.Value),
-		fi: new(atomic.Value),
-		fs: new(atomic.Value),
-		sr: sr,
-		sf: sf,
-		sp: sp,
-		sg: sg,
+		ssl: new(atomic.Value),
+		hdl: f,
+		msg: c,
+		stp: s,
+		rst: r,
+		run: new(atomic.Bool),
+		gon: new(atomic.Bool),
+		fe:  new(atomic.Value),
+		fi:  new(atomic.Value),
+		fs:  new(atomic.Value),
+		ad:  new(atomic.Value),
+		nc:  new(atomic.Int64),
 	}
 }

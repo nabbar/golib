@@ -1,3 +1,6 @@
+//go:build !linux
+// +build !linux
+
 /*
  * MIT License
  *
@@ -24,6 +27,18 @@
  *
  */
 
+// this file is to prevent error on build with system not compatible with unix
+
 package unix
 
-// this file is to prevent error on build with system not compatible with unix
+import (
+	libsck "github.com/nabbar/golib/socket"
+)
+
+type ClientUnix interface {
+	libsck.Client
+}
+
+func New(unixfile string) ClientUnix {
+	return nil
+}

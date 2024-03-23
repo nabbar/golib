@@ -24,51 +24,44 @@
  *
  */
 
-package crypt
+package unix_test
 
 import (
-	"fmt"
-	"io"
+	"context"
+	"os"
+	"testing"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-type writer struct {
-	f func(p []byte) (n int, err error)
+/*
+	Using https://onsi.github.io/ginkgo/
+	Running with $> ginkgo -cover .
+*/
+
+var (
+	ctx context.Context
+	cnl context.CancelFunc
+)
+
+func TestMain(m *testing.M) {
+	os.Exit(m.Run())
 }
 
-func (r *writer) Write(p []byte) (n int, err error) {
-	if r.f == nil {
-		return 0, fmt.Errorf("invalid reader")
-	} else {
-		return r.f(p)
-	}
+// TestGolibEncodingMuxHelper tests the Golib Mux Encoding Helper function.
+func TestGolibSocketServerUnixHelper(t *testing.T) {
+	ctx, cnl = context.WithCancel(context.Background())
+	defer cnl()
+
+	time.Sleep(500 * time.Millisecond)      // Adding delay for better testing synchronization
+	RegisterFailHandler(Fail)               // Registering fail handler for better test failure reporting
+	RunSpecs(t, "Socket Server Unix Suite") // Running the test suite for Encoding Mux Helper
 }
 
-func (o *crt) Writer(w io.Writer) io.Writer {
-	fct := func(p []byte) (n int, err error) {
-		n = len(p)
-		if _, err = w.Write(o.Encode(p)); err != nil {
-			return 0, err
-		} else {
-			return n, nil
-		}
-	}
+var _ = BeforeSuite(func() {
+})
 
-	return &writer{
-		f: fct,
-	}
-}
-
-func (o *crt) WriterHex(w io.Writer) io.Writer {
-	fct := func(p []byte) (n int, err error) {
-		n = len(p)
-		if _, err = w.Write(o.EncodeHex(p)); err != nil {
-			return 0, err
-		} else {
-			return n, nil
-		}
-	}
-
-	return &writer{
-		f: fct,
-	}
-}
+var _ = AfterSuite(func() {
+})

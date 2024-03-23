@@ -34,5 +34,6 @@ var (
 	ErrServerClosed    = fmt.Errorf("server closed")
 	ErrInvalidHandler  = fmt.Errorf("invalid handler")
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
+	ErrGoneTimeout     = fmt.Errorf("timeout on closing connections")
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

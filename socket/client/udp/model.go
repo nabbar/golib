@@ -33,16 +33,20 @@ import (
 	"net"
 	"sync/atomic"
 
+	libtls "github.com/nabbar/golib/certificates"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
 
 type cli struct {
 	a *atomic.Value // address: hostname + port
-	s *atomic.Int32 // buffer size
 	e *atomic.Value // function error
 	i *atomic.Value // function info
 	c *atomic.Value // net.Conn
+}
+
+func (o *cli) SetTLS(enable bool, config libtls.TLSConfig) error {
+	return nil
 }
 
 func (o *cli) RegisterFuncError(f libsck.FuncError) {
@@ -83,15 +87,6 @@ func (o *cli) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 	}
 }
 
-func (o *cli) buffSize() int {
-	v := o.s.Load()
-	if v > 0 {
-		return int(v)
-	}
-
-	return libsck.DefaultBufferSize
-}
-
 func (o *cli) dial(ctx context.Context) (net.Conn, error) {
 	if o == nil {
 		return nil, ErrInstance
@@ -106,6 +101,20 @@ func (o *cli) dial(ctx context.Context) (net.Conn, error) {
 	} else {
 		d := net.Dialer{}
 		return d.DialContext(ctx, libptc.NetworkUDP.Code(), adr)
+	}
+}
+
+func (o *cli) IsConnected() bool {
+	if o == nil {
+		return false
+	} else if i := o.c.Load(); i == nil {
+		return false
+	} else if c, k := i.(net.Conn); !k {
+		return false
+	} else if _, e := c.Write(nil); e != nil {
+		return false
+	} else {
+		return true
 	}
 }
 
@@ -181,7 +190,10 @@ func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) 
 		o.fctError(o.Close())
 	}()
 
-	var err error
+	var (
+		err error
+		nbr int64
+	)
 
 	if err = o.Connect(ctx); err != nil {
 		o.fctError(err)
@@ -189,7 +201,7 @@ func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) 
 	}
 
 	for {
-		_, err = io.Copy(o, request)
+		nbr, err = io.Copy(o, request)
 
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
@@ -198,9 +210,14 @@ func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) 
 			} else {
 				break
 			}
+		} else if nbr < 1 {
+			break
 		}
 	}
 
-	fct(o)
+	if fct != nil {
+		fct(o)
+	}
+
 	return nil
 }

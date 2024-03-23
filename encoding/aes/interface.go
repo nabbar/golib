@@ -24,7 +24,7 @@
  *
  */
 
-package crypt
+package aes
 
 import (
 	"crypto/aes"
@@ -32,21 +32,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"io"
+
+	libenc "github.com/nabbar/golib/encoding"
 )
-
-type Crypt interface {
-	Encode(p []byte) []byte
-	Reader(r io.Reader) io.Reader
-
-	EncodeHex(p []byte) []byte
-	ReaderHex(r io.Reader) io.Reader
-
-	Decode(p []byte) ([]byte, error)
-	Writer(w io.Writer) io.Writer
-
-	DecodeHex(p []byte) ([]byte, error)
-	WriterHex(w io.Writer) io.Writer
-}
 
 func GetHexKey(s string) ([32]byte, error) {
 	var (
@@ -108,7 +96,7 @@ func GenNonce() ([12]byte, error) {
 	return non, nil
 }
 
-func New(key [32]byte, nonce [12]byte) (Crypt, error) {
+func New(key [32]byte, nonce [12]byte) (libenc.Coder, error) {
 	var (
 		k = make([]byte, 32)
 		n = make([]byte, 12)

@@ -27,24 +27,13 @@
 package udp
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"net"
 	"sync/atomic"
 
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
-
-func (o *srv) buffSize() int {
-	v := o.sr.Load()
-	if v > 0 {
-		return int(v)
-	}
-
-	return libsck.DefaultBufferSize
-}
 
 func (o *srv) getAddress() string {
 	f := o.ad.Load()
@@ -56,7 +45,7 @@ func (o *srv) getAddress() string {
 	return ""
 }
 
-func (o *srv) getListen(addr string) (*net.UDPConn, error) {
+func (o *srv) getListen(addr string) (*net.UDPAddr, *net.UDPConn, error) {
 	var (
 		adr *net.UDPAddr
 		lis *net.UDPConn
@@ -64,117 +53,171 @@ func (o *srv) getListen(addr string) (*net.UDPConn, error) {
 	)
 
 	if adr, err = net.ResolveUDPAddr(libptc.NetworkUDP.Code(), addr); err != nil {
-		return nil, err
+		return nil, nil, err
 	} else if lis, err = net.ListenUDP(libptc.NetworkUDP.Code(), adr); err != nil {
-		return lis, err
+		if lis != nil {
+			_ = lis.Close()
+		}
+		return nil, nil, err
 	} else {
 		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUDP.String(), addr)
 	}
 
-	return lis, nil
+	return adr, lis, nil
 }
 
 func (o *srv) Listen(ctx context.Context) error {
 	var (
-		err error
-		nbr int
+		e error
+		s = new(atomic.Bool)
+		a = o.getAddress()
+
 		loc *net.UDPAddr
-		stp = new(atomic.Bool)
-		rem net.Addr
 		con *net.UDPConn
-		adr = o.getAddress()
 		hdl libsck.Handler
+		cnl context.CancelFunc
+		cor libsck.Reader
+		cow libsck.Writer
 	)
 
-	if len(adr) == 0 {
+	s.Store(false)
+
+	if len(a) == 0 {
+		o.fctError(ErrInvalidInstance)
 		return ErrInvalidAddress
 	} else if hdl = o.handler(); hdl == nil {
+		o.fctError(ErrInvalidInstance)
 		return ErrInvalidHandler
-	} else if loc, err = net.ResolveUDPAddr(libptc.NetworkUDP.Code(), adr); err != nil {
-		return err
+	} else if loc, con, e = o.getListen(a); e != nil {
+		o.fctError(e)
+		return e
 	}
 
-	if con, err = net.ListenUDP(libptc.NetworkUDP.Code(), loc); err != nil {
-		o.fctError(err)
-		return err
-	}
+	ctx, cnl = context.WithCancel(ctx)
+	cor, cow = o.getReadWriter(ctx, con, loc)
 
-	var fctClose = func() {
-		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUDP.String(), adr)
+	o.stp.Store(make(chan struct{}))
+	o.run.Store(true)
 
-		if con != nil {
-			_ = con.Close()
-		}
+	defer func() {
+		// cancel context for connection
+		cnl()
 
-		o.r.Store(false)
-	}
+		// send info about connection closing
+		o.fctInfo(loc, &net.UDPAddr{}, libsck.ConnectionClose)
+		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUDP.String(), a)
 
-	defer fctClose()
-	stp.Store(false)
+		// close connection
+		_ = con.Close()
 
-	go func() {
-		<-ctx.Done()
-		go func() {
-			_ = o.Shutdown()
-		}()
-		return
+		o.run.Store(false)
 	}()
 
-	go func() {
-		<-o.Done()
-
-		err = nil
-		stp.Store(true)
-
-		if con != nil {
-			o.fctError(con.Close())
-		}
-
-		return
-	}()
-
-	o.r.Store(true)
-
-	o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUDP.String(), adr)
-	// Accept new connection or stop if context or shutdown trigger
-
-	var (
-		siz = o.buffSize()
-		buf []byte
-		rer error
-	)
+	// get handler or exit if nil
+	go hdl(cor, cow)
 
 	for {
-		// Accept an incoming connection.
-		if con == nil {
-			return ErrServerClosed
-		} else if stp.Load() {
-			return err
-		}
-
-		buf = make([]byte, siz)
-		nbr, rem, rer = con.ReadFrom(buf)
-
-		if rem == nil {
-			rem = &net.UDPAddr{}
-		}
-
-		o.fctInfo(loc, rem, libsck.ConnectionRead)
-
-		if nbr > 0 {
-			if !bytes.HasSuffix(buf, []byte{libsck.EOL}) {
-				buf = append(buf, libsck.EOL)
-				nbr++
-			}
-
-			o.fctInfo(loc, rem, libsck.ConnectionHandler)
-			hdl(bytes.NewBuffer(buf[:nbr]), io.Discard)
-		}
-
-		if rer != nil {
-			if !stp.Load() {
-				o.fctError(rer)
-			}
+		select {
+		case <-ctx.Done():
+			return ErrContextClosed
+		case <-o.Done():
+			return nil
 		}
 	}
+}
+
+func (o *srv) getReadWriter(ctx context.Context, con *net.UDPConn, loc net.Addr) (libsck.Reader, libsck.Writer) {
+	var (
+		re = &net.UDPAddr{}
+		ra = new(atomic.Value)
+		fg = func() net.Addr {
+			if i := ra.Load(); i != nil {
+				if v, k := i.(net.Addr); k {
+					return v
+				}
+			}
+			return &net.UDPAddr{}
+		}
+	)
+	ra.Store(re)
+
+	fctClose := func() error {
+		o.fctInfo(loc, fg(), libsck.ConnectionClose)
+		return con.Close()
+	}
+
+	rdr := libsck.NewReader(
+		func(p []byte) (n int, err error) {
+			if ctx.Err() != nil {
+				_ = fctClose()
+				return 0, ctx.Err()
+			}
+
+			var a net.Addr
+			n, a, err = con.ReadFrom(p)
+
+			if a != nil {
+				ra.Store(a)
+			} else {
+				ra.Store(re)
+			}
+
+			o.fctInfo(loc, fg(), libsck.ConnectionRead)
+			return n, err
+		},
+		fctClose,
+		func() bool {
+			if ctx.Err() != nil {
+				_ = fctClose()
+				return false
+			}
+			_, e := con.Read(nil)
+
+			if e != nil {
+				_ = fctClose()
+			}
+
+			return true
+		},
+		func() <-chan struct{} {
+			return ctx.Done()
+		},
+	)
+
+	wrt := libsck.NewWriter(
+		func(p []byte) (n int, err error) {
+			if ctx.Err() != nil {
+				_ = fctClose()
+				return 0, ctx.Err()
+			}
+
+			if a := fg(); a != nil && a != re {
+				o.fctInfo(loc, a, libsck.ConnectionWrite)
+				return con.WriteTo(p, a)
+			}
+
+			o.fctInfo(loc, fg(), libsck.ConnectionWrite)
+			return con.Write(p)
+		},
+		fctClose,
+		func() bool {
+			if ctx.Err() != nil {
+				_ = fctClose()
+				return false
+			}
+
+			_, e := con.Write(nil)
+
+			if e != nil {
+				_ = fctClose()
+			}
+
+			return true
+		},
+		func() <-chan struct{} {
+			return ctx.Done()
+		},
+	)
+
+	return rdr, wrt
 }
