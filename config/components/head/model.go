@@ -27,28 +27,31 @@
 package head
 
 import (
-	"sync"
+	"sync/atomic"
 
 	libctx "github.com/nabbar/golib/context"
 	librtr "github.com/nabbar/golib/router/header"
 )
 
 type componentHead struct {
-	m sync.RWMutex
 	x libctx.Config[uint8]
-	h librtr.Headers
+	h *atomic.Value // librtr.Headers
 }
 
 func (o *componentHead) GetHeaders() librtr.Headers {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.h
+	if i := o.h.Load(); i == nil {
+		return librtr.NewHeaders()
+	} else if v, k := i.(librtr.Headers); !k {
+		return librtr.NewHeaders()
+	} else {
+		return v
+	}
 }
 
 func (o *componentHead) SetHeaders(head librtr.Headers) {
-	o.m.Lock()
-	defer o.m.Unlock()
+	if head == nil {
+		head = librtr.NewHeaders()
+	}
 
-	o.h = head
+	o.h.Store(head)
 }

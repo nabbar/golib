@@ -34,9 +34,6 @@ import (
 )
 
 func (o *componentHead) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -49,9 +46,6 @@ func (o *componentHead) _getKey() string {
 }
 
 func (o *componentHead) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -84,9 +78,6 @@ func (o *componentHead) _getSPFViper() *spfvbr.Viper {
 }
 
 func (o *componentHead) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyFctGetCpt); !l {
 		return nil
 	} else if i == nil {
@@ -99,9 +90,6 @@ func (o *componentHead) _getFctCpt() cfgtps.FuncCptGet {
 }
 
 func (o *componentHead) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -122,9 +110,6 @@ func (o *componentHead) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 }
 
 func (o *componentHead) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -148,10 +133,7 @@ func (o *componentHead) _runCli() error {
 	if cfg, err := o._getConfig(); err != nil {
 		return ErrorParamInvalid.Error(err)
 	} else {
-		o.m.Lock()
-		defer o.m.Unlock()
-
-		o.h = cfg.New()
+		o.SetHeaders(cfg.New())
 		return nil
 	}
 }

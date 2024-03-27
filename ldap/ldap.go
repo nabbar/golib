@@ -181,8 +181,13 @@ func (lc *HelperLDAP) ForceTLSMode(tlsMode TLSMode, tlsConfig *tls.Config) {
 
 func (lc *HelperLDAP) dialTLS() (*ldap.Conn, liberr.Error) {
 	d := net.Dialer{}
+	adr := lc.config.ServerAddr(true)
 
-	c, err := d.DialContext(lc.ctx, "tcp", lc.config.ServerAddr(true))
+	if len(adr) < 3 {
+		return nil, ErrorLDAPServerTLS.Error(fmt.Errorf("invalid port for LDAPS"))
+	}
+
+	c, err := d.DialContext(lc.ctx, "tcp", adr)
 
 	if err != nil {
 		if c != nil {
@@ -218,8 +223,13 @@ func (lc *HelperLDAP) dialTLS() (*ldap.Conn, liberr.Error) {
 
 func (lc *HelperLDAP) dial() (*ldap.Conn, liberr.Error) {
 	d := net.Dialer{}
+	adr := lc.config.ServerAddr(false)
 
-	c, err := d.DialContext(lc.ctx, "tcp", lc.config.ServerAddr(false))
+	if len(adr) < 3 {
+		return nil, ErrorLDAPServerTLS.Error(fmt.Errorf("invalid port for LDAP / LDAP+STARTLS"))
+	}
+
+	c, err := d.DialContext(lc.ctx, "tcp", adr)
 
 	if err != nil {
 		if c != nil {

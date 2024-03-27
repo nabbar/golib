@@ -99,11 +99,13 @@ func (cnf Config) BaseDN() string {
 }
 
 func (cnf Config) ServerAddr(withTls bool) string {
-	if withTls {
+	if withTls && cnf.Portldaps > 0 {
 		return fmt.Sprintf("%s:%d", cnf.Uri, cnf.Portldaps)
+	} else if !withTls && cnf.PortLdap > 0 {
+		return fmt.Sprintf("%s:%d", cnf.Uri, cnf.PortLdap)
 	}
 
-	return fmt.Sprintf("%s:%d", cnf.Uri, cnf.PortLdap)
+	return ""
 }
 
 func (cnf Config) PatternFilterGroup() string {

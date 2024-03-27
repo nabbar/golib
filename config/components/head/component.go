@@ -55,17 +55,6 @@ func (o *componentHead) Type() string {
 }
 
 func (o *componentHead) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.x == nil {
-		o.x = libctx.NewConfig[uint8](ctx)
-	} else {
-		x := libctx.NewConfig[uint8](ctx)
-		x.Merge(o.x)
-		o.x = x
-	}
-
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -84,10 +73,7 @@ func (o *componentHead) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 }
 
 func (o *componentHead) IsStarted() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.h != nil
+	return len(o.GetHeaders().Header()) > 0
 }
 
 func (o *componentHead) IsRunning() bool {
@@ -103,17 +89,11 @@ func (o *componentHead) Reload() error {
 }
 
 func (o *componentHead) Stop() {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.h = nil
+	o.SetHeaders(nil)
 	return
 }
 
 func (o *componentHead) Dependencies() []string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	var def = make([]string, 0)
 
 	if o == nil {
@@ -132,10 +112,7 @@ func (o *componentHead) Dependencies() []string {
 }
 
 func (o *componentHead) SetDependencies(d []string) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.x == nil {
+	if o == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {
 		o.x.Store(keyCptDependencies, d)

@@ -27,7 +27,9 @@
 package head
 
 import (
-	"sync"
+	"sync/atomic"
+
+	libctx "github.com/nabbar/golib/context"
 
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
@@ -41,10 +43,10 @@ type ComponentHead interface {
 	SetHeaders(head librtr.Headers)
 }
 
-func New() ComponentHead {
+func New(ctx libctx.FuncContext) ComponentHead {
 	return &componentHead{
-		m: sync.RWMutex{},
-		h: nil,
+		x: libctx.NewConfig[uint8](ctx),
+		h: new(atomic.Value),
 	}
 }
 
@@ -52,8 +54,8 @@ func Register(cfg libcfg.Config, key string, cpt ComponentHead) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(cfg libcfg.Config, key string) {
-	cfg.ComponentSet(key, New())
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+	cfg.ComponentSet(key, New(ctx))
 }
 
 func Load(getCpt cfgtps.FuncCptGet, key string) ComponentHead {

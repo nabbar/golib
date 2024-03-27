@@ -74,7 +74,7 @@ func (o *componentRequest) RegisterFuncReload(before, after cfgtps.FuncCptEvent)
 }
 
 func (o *componentRequest) IsStarted() bool {
-	return o != nil && o.r != nil
+	return o.getRequest() != nil
 }
 
 func (o *componentRequest) IsRunning() bool {
