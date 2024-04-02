@@ -23,32 +23,22 @@
  *
  */
 
-package bz2
+package archive
 
-import (
-	"compress/bzip2"
-	"io"
+import "io"
 
-	"github.com/nabbar/golib/errors"
-)
+func NopWriteCloser(w io.Writer) io.WriteCloser {
+	return &wrp{w: w}
+}
 
-func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
-	if _, e := src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.Error(e)
-	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.Error(e)
-	}
+type wrp struct {
+	w io.Writer
+}
 
-	r := bzip2.NewReader(src)
+func (o *wrp) Write(p []byte) (n int, err error) {
+	return o.w.Write(p)
+}
 
-	// #nosec
-	_, e := io.Copy(dst, r)
-
-	if e != nil {
-		return ErrorIOCopy.Error(e)
-	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.Error(e)
-	} else {
-		return nil
-	}
+func (o *wrp) Close() error {
+	return nil
 }

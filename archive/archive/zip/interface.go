@@ -23,77 +23,53 @@
  *
  */
 
-package gzip
+package zip
 
 import (
-	gz "compress/gzip"
+	"archive/zip"
 	"io"
+	"io/fs"
 
-	"github.com/nabbar/golib/errors"
-	libfpg "github.com/nabbar/golib/file/progress"
+	arctps "github.com/nabbar/golib/archive/archive/types"
 )
 
-func GetFile(src io.ReadSeeker, dst io.WriteSeeker) errors.Error {
-	if _, e := src.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.Error(e)
-	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.Error(e)
-	}
+type readerSize interface {
+	Size() int64
+}
 
-	r, e := gz.NewReader(src)
-	if e != nil {
-		return ErrorGZReader.Error(e)
-	}
+type readerSeek interface {
+	io.Seeker
+}
 
-	defer func() {
-		_ = r.Close()
-	}()
+type readerAt interface {
+	io.ReadCloser
+	io.ReaderAt
+}
 
-	// #nosec
-	_, e = io.Copy(dst, r)
-
-	if e != nil {
-		return ErrorIOCopy.Error(e)
-	} else if _, e = dst.Seek(0, io.SeekStart); e != nil {
-		return ErrorFileSeek.Error(e)
+func NewReader(r io.ReadCloser) (arctps.Reader, error) {
+	if s, k := r.(readerSize); !k {
+		return nil, fs.ErrInvalid
+	} else if ra, ok := r.(readerAt); !ok {
+		return nil, fs.ErrInvalid
+	} else if rs, o := r.(io.Seeker); !o {
+		return nil, fs.ErrInvalid
+	} else if siz := s.Size(); siz <= 0 {
+		return nil, fs.ErrInvalid
+	} else if _, e := rs.Seek(0, io.SeekStart); e != nil {
+		return nil, e
+	} else if z, err := zip.NewReader(ra, siz); err != nil {
+		return nil, err
 	} else {
-		return nil
+		return &rdr{
+			r: r,
+			z: z,
+		}, nil
 	}
 }
 
-func GetGunZipSize(src io.ReadSeeker) int64 {
-	if _, e := src.Seek(0, io.SeekStart); e != nil {
-		return 0
-	}
-
-	r, e := gz.NewReader(src)
-	if e != nil {
-		return 0
-	}
-
-	defer func() {
-		_ = r.Close()
-	}()
-
-	if s, k := src.(libfpg.Progress); k {
-		s.RegisterFctReset(func(size, current int64) {
-
-		})
-		s.RegisterFctIncrement(func(size int64) {
-
-		})
-		s.RegisterFctEOF(func() {
-
-		})
-	}
-
-	var n int64
-	// #nosec
-	n, e = io.Copy(io.Discard, r)
-
-	if e != nil {
-		return 0
-	}
-
-	return n
+func NewWriter(w io.WriteCloser) (arctps.Writer, error) {
+	return &wrt{
+		w: w,
+		z: zip.NewWriter(w),
+	}, nil
 }

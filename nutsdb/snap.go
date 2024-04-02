@@ -33,11 +33,13 @@ package nutsdb
 import (
 	"io"
 	"os"
-	"path/filepath"
+	"strings"
 
-	libfpg "github.com/nabbar/golib/file/progress"
+	arcarc "github.com/nabbar/golib/archive/archive"
+	arctps "github.com/nabbar/golib/archive/archive/types"
 
-	"github.com/nabbar/golib/archive"
+	libarc "github.com/nabbar/golib/archive"
+	arccmp "github.com/nabbar/golib/archive/compress"
 	liberr "github.com/nabbar/golib/errors"
 	"github.com/nutsdb/nutsdb"
 )
@@ -86,30 +88,27 @@ func (s *snap) Prepare(opt Options, db *nutsdb.DB) liberr.Error {
 func (s *snap) Save(opt Options, writer io.Writer) liberr.Error {
 	var (
 		e error
-
-		tmp libfpg.Progress
-		err liberr.Error
+		g io.WriteCloser
+		t arctps.Writer
+		f = func(str string) string {
+			return strings.TrimPrefix(str, s.path)
+		}
 	)
 
 	defer func() {
-		if tmp != nil {
-			_ = tmp.CloseDelete()
+		if t != nil {
+			_ = t.Close()
+		}
+		if g != nil {
+			_ = g.Close()
 		}
 	}()
 
-	if tmp, e = libfpg.Unique(opt.GetTempDir(), opt.NewTempFilePattern("tar")); e != nil {
-		return ErrorFileTemp.Error(e)
-	}
-
-	if _, err = archive.CreateArchive(archive.TypeTarGzip, tmp, s.path, s.path); err != nil {
-		return ErrorFolderArchive.Error(err)
-	}
-
-	if _, e = tmp.Seek(0, io.SeekStart); e != nil {
+	if g, e = arccmp.Gzip.Writer(libarc.NopWriteCloser(writer)); e != nil {
 		return ErrorDatabaseSnapshot.Error(e)
-	}
-
-	if _, e = tmp.WriteTo(writer); e != nil {
+	} else if t, e = arcarc.Tar.Writer(g); e != nil {
+		return ErrorDatabaseSnapshot.Error(e)
+	} else if e = t.FromPath(s.path, "", f); e != nil {
 		return ErrorDatabaseSnapshot.Error(e)
 	}
 
@@ -118,37 +117,20 @@ func (s *snap) Save(opt Options, writer io.Writer) liberr.Error {
 
 func (s *snap) Load(opt Options, reader io.Reader) liberr.Error {
 	var (
-		a string
-		o string
 		e error
-
-		tmp libfpg.Progress
-		err liberr.Error
+		d string
 	)
 
 	defer func() {
-		if tmp != nil {
-			_ = tmp.CloseDelete()
-		}
 	}()
 
-	if tmp, e = libfpg.Unique(opt.GetTempDir(), opt.NewTempFilePattern("tar.gz")); e != nil {
-		return ErrorFileTemp.Error(e)
-	}
-
-	if _, e = tmp.ReadFrom(reader); e != nil {
+	if d, e = opt.NewTempFolder(); e != nil {
 		return ErrorDatabaseSnapshot.Error(e)
+	} else if e = libarc.ExtractAll(io.NopCloser(reader), "unknown", d); e != nil {
+		return ErrorDatabaseSnapshot.Error(e)
+	} else {
+		s.path = d
 	}
-
-	if o, err = opt.NewTempFolder(); err != nil {
-		return err
-	}
-
-	if err = archive.ExtractAll(tmp, filepath.Base(a), o, opt.Permission()); err != nil {
-		return ErrorFolderExtract.Error(err)
-	}
-
-	s.path = o
 
 	return nil
 }

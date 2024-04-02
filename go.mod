@@ -14,6 +14,7 @@ require (
 	github.com/aws/smithy-go v1.20.1
 	github.com/bits-and-blooms/bitset v1.13.0
 	github.com/c-bata/go-prompt v0.2.6
+	github.com/dsnet/compress v0.0.1
 	github.com/fatih/color v1.16.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/fxamacker/cbor/v2 v2.6.0
@@ -35,9 +36,10 @@ require (
 	github.com/nats-io/nats-server/v2 v2.10.12
 	github.com/nats-io/nats.go v1.34.0
 	github.com/nutsdb/nutsdb v0.14.3
-	github.com/onsi/ginkgo/v2 v2.17.0
+	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
 	github.com/pelletier/go-toml v1.9.5
+	github.com/pierrec/lz4/v4 v4.1.21
 	github.com/prometheus/client_golang v1.19.0
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.9.3
@@ -45,6 +47,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.18.2
 	github.com/ugorji/go/codec v1.2.12
+	github.com/ulikunitz/xz v0.5.11
 	github.com/vbauerster/mpb/v8 v8.7.2
 	github.com/xanzy/go-gitlab v0.101.0
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
@@ -174,7 +177,6 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
-	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.2.0-beta.2 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
