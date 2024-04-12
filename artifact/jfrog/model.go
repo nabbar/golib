@@ -42,7 +42,6 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 type artifactoryModel struct {
@@ -319,10 +318,9 @@ func (a *artifactoryModel) GetArtifact(containName string, regexName string, rel
 	}
 }
 
-func (a *artifactoryModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error {
+func (a *artifactoryModel) Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error) {
 	var (
 		e error
-		n int64
 
 		art *ResponseStorage
 		err error
@@ -331,38 +329,29 @@ func (a *artifactoryModel) Download(dst libfpg.Progress, containName string, reg
 	)
 
 	defer func() {
-		if rsp != nil && rsp.Body != nil {
-			_ = rsp.Body.Close()
-		}
-
 		if req != nil && req.Body != nil {
 			_ = req.Body.Close()
 		}
 	}()
 
 	if art, err = a.getArtifact(containName, regexName, release); err != nil {
-		return err
-	} else {
-		dst.Reset(art.size)
+		return 0, nil, err
 	}
 
 	if req, e = http.NewRequestWithContext(a.ctx, http.MethodGet, art.DownloadUri, nil); e != nil {
-		return ErrorRequestInit.Error(e)
+		return 0, nil, ErrorRequestInit.Error(e)
 	} else if rsp, e = a.Do(req); e != nil {
-		return ErrorRequestDo.Error(e)
+		return 0, nil, ErrorRequestDo.Error(e)
 	} else if rsp.StatusCode >= http.StatusBadRequest {
 		//nolint #goerr113
-		return ErrorRequestResponse.Error(fmt.Errorf("status: %v", rsp.Status))
+		return 0, nil, ErrorRequestResponse.Error(fmt.Errorf("status: %v", rsp.Status))
 	} else if rsp.Body == nil {
 		//nolint #goerr113
-		return ErrorRequestResponseBodyEmpty.Error(fmt.Errorf("status: %v", rsp.Status))
-	} else if n, e = io.Copy(dst, rsp.Body); e != nil {
-		return ErrorArtifactoryDownload.Error(e)
-	} else if n != art.size {
-		return ErrorDestinationSize.Error(errMisMatchingSize)
-	} else if n != rsp.ContentLength {
-		return ErrorDestinationSize.Error(errMisMatchingSize)
+		return 0, nil, ErrorRequestResponseBodyEmpty.Error(fmt.Errorf("status: %v", rsp.Status))
+	} else if art.size != rsp.ContentLength {
+		_ = rsp.Body.Close()
+		return 0, nil, ErrorDestinationSize.Error(errMisMatchingSize)
+	} else {
+		return rsp.ContentLength, rsp.Body, nil
 	}
-
-	return nil
 }

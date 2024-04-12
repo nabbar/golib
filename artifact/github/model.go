@@ -36,7 +36,6 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 const (
@@ -112,46 +111,34 @@ func (g *githubModel) GetArtifact(containName string, regexName string, release 
 	return "", ErrorGithubNotFound.Error(nil)
 }
 
-func (g *githubModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error {
+func (g *githubModel) Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error) {
 	var (
 		uri string
 		rsp *github.Response
 		req *http.Request
 		err error
 		e   error
-		n   int64
 	)
 
 	defer func() {
 		if req != nil && req.Body != nil {
 			_ = req.Body.Close()
 		}
-		if rsp != nil && rsp.Body != nil {
-			_ = rsp.Body.Close()
-		}
 	}()
 
 	if uri, e = g.GetArtifact(containName, regexName, release); e != nil {
-		return e
+		return 0, nil, e
 	} else if req, err = g.c.NewRequest(http.MethodGet, uri, nil); err != nil {
-		return ErrorGithubRequestNew.Error(err)
+		return 0, nil, ErrorGithubRequestNew.Error(err)
 	} else if rsp, err = g.c.Do(g.x, req, nil); err != nil {
-		return ErrorGithubRequestRun.Error(err)
+		return 0, nil, ErrorGithubRequestRun.Error(err)
 	} else if rsp.StatusCode < 200 || rsp.StatusCode > 299 {
-		return ErrorGithubResponse.Error(errResponseCode)
+		return 0, nil, ErrorGithubResponse.Error(errResponseCode)
 	} else if rsp.ContentLength < 1 {
-		return ErrorGithubResponse.Error(errResponseContents)
+		return 0, nil, ErrorGithubResponse.Error(errResponseContents)
 	} else if rsp.Body == nil {
-		return ErrorGithubResponse.Error(errResponseBodyEmpty)
+		return 0, nil, ErrorGithubResponse.Error(errResponseBodyEmpty)
 	} else {
-		dst.Reset(rsp.ContentLength)
+		return rsp.ContentLength, rsp.Body, nil
 	}
-
-	if n, err = io.Copy(dst, rsp.Body); err != nil {
-		return ErrorGithubIOCopy.Error(err)
-	} else if n != rsp.ContentLength {
-		return ErrorDestinationSize.Error(errMisMatchingSize)
-	}
-
-	return nil
 }

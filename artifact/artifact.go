@@ -26,6 +26,7 @@
 package artifact
 
 import (
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -33,7 +34,6 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 	artcli "github.com/nabbar/golib/artifact/client"
 	liberr "github.com/nabbar/golib/errors"
-	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 const subUp = 20
@@ -50,7 +50,7 @@ type Client interface {
 
 	ListReleases() (releases hscvrs.Collection, err error)
 	GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error)
-	Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error
+	Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error)
 }
 
 func CheckRegex(name, regex string) bool {

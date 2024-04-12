@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2019 Nicolas JUHEL
+ * Copyright (c) 2024 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,39 +24,48 @@
  *
  */
 
-package gin
+package ioprogress
 
 import (
-	"context"
-	"os"
-	"time"
+	"io"
+	"sync/atomic"
 
-	"github.com/gin-gonic/gin"
-	liblog "github.com/nabbar/golib/logger"
+	libfpg "github.com/nabbar/golib/file/progress"
 )
 
-type GinTonic interface {
-	context.Context
+type Progress interface {
+	RegisterFctIncrement(fct libfpg.FctIncrement)
+	RegisterFctReset(fct libfpg.FctReset)
+	RegisterFctEOF(fct libfpg.FctEOF)
+	Reset(max int64)
+}
 
-	//generic
-	GinContext() *gin.Context
-	CancelOnSignal(s ...os.Signal)
+type Reader interface {
+	io.ReadCloser
+	Progress
+}
 
-	//gin context metadata
-	Set(key string, value interface{})
-	Get(key string) (value interface{}, exists bool)
-	MustGet(key string) interface{}
-	GetString(key string) (s string)
-	GetBool(key string) (b bool)
-	GetInt(key string) (i int)
-	GetInt64(key string) (i64 int64)
-	GetFloat64(key string) (f64 float64)
-	GetTime(key string) (t time.Time)
-	GetDuration(key string) (d time.Duration)
-	GetStringSlice(key string) (ss []string)
-	GetStringMap(key string) (sm map[string]interface{})
-	GetStringMapString(key string) (sms map[string]string)
-	GetStringMapStringSlice(key string) (smss map[string][]string)
+type Writer interface {
+	io.WriteCloser
+	Progress
+}
 
-	SetLogger(log liblog.FuncLog)
+func NewReadCloser(r io.ReadCloser) Reader {
+	return &rdr{
+		r:  r,
+		cr: new(atomic.Int64),
+		fi: new(atomic.Value),
+		fe: new(atomic.Value),
+		fr: new(atomic.Value),
+	}
+}
+
+func NewWriteCloser(w io.WriteCloser) Writer {
+	return &wrt{
+		w:  w,
+		cr: new(atomic.Int64),
+		fi: new(atomic.Value),
+		fe: new(atomic.Value),
+		fr: new(atomic.Value),
+	}
 }

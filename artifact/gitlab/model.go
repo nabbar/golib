@@ -36,7 +36,6 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	libfpg "github.com/nabbar/golib/file/progress"
 	gitlab "github.com/xanzy/go-gitlab"
 )
 
@@ -111,46 +110,34 @@ func (g *gitlabModel) GetArtifact(containName string, regexName string, release 
 	return "", ErrorGitlabNotFound.Error(nil)
 }
 
-func (g *gitlabModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error {
+func (g *gitlabModel) Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error) {
 	var (
 		uri string
 		rsp *gitlab.Response
 		req *hschtc.Request
 		err error
 		e   error
-		n   int64
 	)
 
 	defer func() {
 		if req != nil && req.Body != nil {
 			_ = req.Body.Close()
 		}
-		if rsp != nil && rsp.Body != nil {
-			_ = rsp.Body.Close()
-		}
 	}()
 
 	if uri, e = g.GetArtifact(containName, regexName, release); e != nil {
-		return e
+		return 0, nil, e
 	} else if req, err = g.c.NewRequest(http.MethodGet, uri, nil, nil); err != nil {
-		return ErrorGitlabRequestNew.Error(err)
+		return 0, nil, ErrorGitlabRequestNew.Error(err)
 	} else if rsp, err = g.c.Do(req, nil); err != nil {
-		return ErrorGitlabRequestRun.Error(err)
+		return 0, nil, ErrorGitlabRequestRun.Error(err)
 	} else if rsp.StatusCode < 200 || rsp.StatusCode > 299 {
-		return ErrorGitlabResponse.Error(errResponseCode)
+		return 0, nil, ErrorGitlabResponse.Error(errResponseCode)
 	} else if rsp.ContentLength < 1 {
-		return ErrorGitlabResponse.Error(errResponseContents)
+		return 0, nil, ErrorGitlabResponse.Error(errResponseContents)
 	} else if rsp.Body == nil {
-		return ErrorGitlabResponse.Error(errResponseBodyEmpty)
+		return 0, nil, ErrorGitlabResponse.Error(errResponseBodyEmpty)
 	} else {
-		dst.Reset(rsp.ContentLength)
+		return rsp.ContentLength, rsp.Body, nil
 	}
-
-	if n, err = io.Copy(dst, rsp.Body); err != nil {
-		return ErrorGitlabIOCopy.Error(err)
-	} else if n != rsp.ContentLength {
-		return ErrorDestinationSize.Error(errMisMatchingSize)
-	}
-
-	return nil
 }

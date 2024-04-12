@@ -36,7 +36,6 @@ import (
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
 	libaws "github.com/nabbar/golib/aws"
-	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 type s3awsModel struct {
@@ -145,7 +144,7 @@ func (s *s3awsModel) GetArtifact(containName string, regexName string, release *
 	return "", ErrorS3AWSNotFound.Error(getError(errVersRequest, release.String()))
 }
 
-func (s *s3awsModel) Download(dst libfpg.Progress, containName string, regexName string, release *hscvrs.Version) error {
+func (s *s3awsModel) Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error) {
 	var (
 		e error
 		r *regexp.Regexp
@@ -157,11 +156,11 @@ func (s *s3awsModel) Download(dst libfpg.Progress, containName string, regexName
 	)
 
 	if s.regex == "" {
-		return ErrorParamEmpty.Error(nil)
+		return 0, nil, ErrorParamEmpty.Error(nil)
 	}
 
-	if l, err = s.c.Object().Find(s.regex); e != nil {
-		return ErrorS3AWSFind.Error(err)
+	if l, err = s.c.Object().Find(s.regex); err != nil {
+		return 0, nil, ErrorS3AWSFind.Error(err)
 	}
 
 	r = regexp.MustCompile(s.regex)
@@ -170,68 +169,44 @@ func (s *s3awsModel) Download(dst libfpg.Progress, containName string, regexName
 		grp := r.FindStringSubmatch(o)
 
 		if len(grp) < s.group {
-			return ErrorS3AWSRegex.Error(getError(errRegexGroup, s.regex, len(grp), s.group))
+			return 0, nil, ErrorS3AWSRegex.Error(getError(errRegexGroup, s.regex, len(grp), s.group))
 		}
 
 		if v, e = hscvrs.NewVersion(grp[s.group]); e != nil {
-			return ErrorS3AWSNewVers.Error(getError(errVersion, grp[s.group]), e)
+			return 0, nil, ErrorS3AWSNewVers.Error(getError(errVersion, grp[s.group]), e)
 		} else if v.Equal(release) {
 			if containName != "" && strings.Contains(o, containName) {
-				return s.downloadObject(dst, o)
+				return s.downloadObject(o)
 			}
 
 			if regexName != "" {
 				if k, e = regexp.MatchString(regexName, o); e == nil && k {
-					return s.downloadObject(dst, o)
+					return s.downloadObject(o)
 				}
 			}
 
 			if containName == "" && regexName == "" {
-				return s.downloadObject(dst, o)
+				return s.downloadObject(o)
 			}
 		}
 	}
 
-	return ErrorS3AWSNotFound.Error(getError(errVersRequest, release.String()))
+	return 0, nil, ErrorS3AWSNotFound.Error(getError(errVersRequest, release.String()))
 }
 
-func (s *s3awsModel) downloadObject(dst libfpg.Progress, object string) error {
+func (s *s3awsModel) downloadObject(object string) (int64, io.ReadCloser, error) {
 	var (
-		r *sdksss.GetObjectOutput
-		e error
-		j int64
-		n int64
-
+		r   *sdksss.GetObjectOutput
 		err error
 	)
 
-	defer func() {
-		if r != nil && r.Body != nil {
-			_ = r.Body.Close()
-		}
-	}()
-
-	if j, err = s.c.Object().Size(object); err != nil {
-		er := ErrorS3AWSDownloadError.Error(getError(errObject, object))
-		er.Add(err)
-		return er
-	} else if j < 1 {
-		return ErrorS3AWSDownloadError.Error(getError(errObjectEmpty, object))
-	} else {
-		dst.Reset(j)
-	}
-
 	if r, err = s.c.Object().Get(object); err != nil {
-		er := ErrorS3AWSDownloadError.Error(getError(errObject, object))
-		er.Add(err)
-		return er
+		return 0, nil, ErrorS3AWSDownloadError.Error(getError(errObject, object), err)
+	} else if r.ContentLength == nil || *r.ContentLength < 1 {
+		return 0, nil, ErrorS3AWSDownloadError.Error(getError(errObjectEmpty, object))
 	} else if r.Body == nil {
-		return ErrorS3AWSIOReaderError.Error(getError(errObject, object))
-	} else if n, e = io.Copy(dst, r.Body); e != nil {
-		return ErrorS3AWSDownloadError.Error(getError(errObject, object), e)
-	} else if n != j {
-		return ErrorS3AWSDownloadError.Error(getError(errObjectSize, object))
+		return 0, nil, ErrorS3AWSIOReaderError.Error(getError(errObject, object))
+	} else {
+		return *r.ContentLength, r.Body, nil
 	}
-
-	return nil
 }
