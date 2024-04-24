@@ -28,11 +28,10 @@ package semaphore
 
 import (
 	"context"
-	"runtime"
 
+	semsem "github.com/nabbar/golib/semaphore/sem"
 	semtps "github.com/nabbar/golib/semaphore/types"
-	"github.com/vbauerster/mpb/v8"
-	"golang.org/x/sync/semaphore"
+	sdkmpb "github.com/vbauerster/mpb/v8"
 )
 
 type Semaphore interface {
@@ -42,35 +41,24 @@ type Semaphore interface {
 }
 
 func MaxSimultaneous() int {
-	return runtime.GOMAXPROCS(0)
+	return semsem.MaxSimultaneous()
 }
 
 func SetSimultaneous(n int) int64 {
-	m := MaxSimultaneous()
-	if n < 1 {
-		return int64(m)
-	} else if m < n {
-		return int64(m)
-	} else {
-		return int64(n)
-	}
+	return semsem.SetSimultaneous(n)
 }
 
-func New(ctx context.Context, nbrSimultaneous int, progress bool, opt ...mpb.ContainerOption) Semaphore {
-	nbr := SetSimultaneous(nbrSimultaneous)
-	ctx, cnl := context.WithCancel(ctx)
-
-	var m *mpb.Progress
+func New(ctx context.Context, nbrSimultaneous int, progress bool, opt ...sdkmpb.ContainerOption) Semaphore {
+	var (
+		m *sdkmpb.Progress
+	)
 
 	if progress {
-		m = mpb.New(opt...)
+		m = sdkmpb.New(opt...)
 	}
 
 	return &sem{
-		c: cnl,
-		x: ctx,
-		s: semaphore.NewWeighted(nbr),
-		n: nbr,
+		s: semsem.New(ctx, nbrSimultaneous),
 		m: m,
 	}
 }

@@ -26,7 +26,7 @@
 
 package types
 
-import "github.com/vbauerster/mpb/v8"
+import sdkmpb "github.com/vbauerster/mpb/v8"
 
 type Bar interface {
 	Inc(n int)
@@ -44,5 +44,5 @@ type Bar interface {
 }
 
 type BarMPB interface {
-	GetMPB() *mpb.Bar
+	GetMPB() *sdkmpb.Bar
 }

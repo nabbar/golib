@@ -29,17 +29,17 @@ package bar
 import "time"
 
 func (o *bar) Deadline() (deadline time.Time, ok bool) {
-	return o.x.Deadline()
+	return o.s.Deadline()
 }
 
 func (o *bar) Done() <-chan struct{} {
-	return o.x.Done()
+	return o.s.Done()
 }
 
 func (o *bar) Err() error {
-	return o.x.Err()
+	return o.s.Err()
 }
 
 func (o *bar) Value(key any) any {
-	return o.x.Value(key)
+	return o.s.Value(key)
 }

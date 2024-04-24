@@ -27,18 +27,11 @@
 package semaphore
 
 import (
-	"context"
-
-	"github.com/vbauerster/mpb/v8"
-	"golang.org/x/sync/semaphore"
+	semtps "github.com/nabbar/golib/semaphore/types"
+	sdkmpb "github.com/vbauerster/mpb/v8"
 )
 
 type sem struct {
-	c context.CancelFunc
-	x context.Context
-
-	s *semaphore.Weighted
-	n int64
-
-	m *mpb.Progress
+	s semtps.Sem
+	m *sdkmpb.Progress
 }

@@ -24,22 +24,78 @@
  *
  */
 
-package semaphore
+package sem
 
-import "time"
+import (
+	"context"
+	"sync"
+	"time"
 
-func (o *sem) Deadline() (deadline time.Time, ok bool) {
-	return o.s.Deadline()
+	semtps "github.com/nabbar/golib/semaphore/types"
+)
+
+type wg struct {
+	c context.CancelFunc
+	x context.Context
+
+	w sync.WaitGroup
 }
 
-func (o *sem) Done() <-chan struct{} {
-	return o.s.Done()
+func (o *wg) Deadline() (deadline time.Time, ok bool) {
+	return o.x.Deadline()
 }
 
-func (o *sem) Err() error {
-	return o.s.Err()
+func (o *wg) Done() <-chan struct{} {
+	return o.x.Done()
 }
 
-func (o *sem) Value(key any) any {
-	return o.s.Value(key)
+func (o *wg) Err() error {
+	return o.x.Err()
+}
+
+func (o *wg) Value(key any) any {
+	return o.x.Value(key)
+}
+
+func (o *wg) NewWorker() error {
+	o.w.Add(1)
+	return nil
+}
+
+func (o *wg) NewWorkerTry() bool {
+	return true
+}
+
+func (o *wg) DeferWorker() {
+	o.w.Done()
+}
+
+func (o *wg) DeferMain() {
+	if o.c != nil {
+		o.c()
+	}
+}
+
+func (o *wg) WaitAll() error {
+	o.w.Wait()
+	return nil
+}
+
+func (o *wg) Weighted() int64 {
+	return -1
+}
+
+func (o *wg) New() semtps.Sem {
+	var (
+		x context.Context
+		n context.CancelFunc
+	)
+
+	x, n = context.WithCancel(o)
+
+	return &wg{
+		c: n,
+		x: x,
+		w: sync.WaitGroup{},
+	}
 }

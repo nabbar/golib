@@ -27,20 +27,16 @@
 package bar
 
 import (
-	"context"
 	"sync/atomic"
 	"time"
 
+	semtps "github.com/nabbar/golib/semaphore/types"
+
 	"github.com/vbauerster/mpb/v8"
-	"golang.org/x/sync/semaphore"
 )
 
 type bar struct {
-	c context.CancelFunc
-	x context.Context
-
-	s *semaphore.Weighted
-	n int64
+	s semtps.Sem
 	d bool
 
 	b *mpb.Bar

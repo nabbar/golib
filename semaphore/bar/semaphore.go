@@ -26,16 +26,18 @@
 
 package bar
 
+import semtps "github.com/nabbar/golib/semaphore/types"
+
 func (o *bar) NewWorker() error {
-	return o.s.Acquire(o.x, 1)
+	return o.s.NewWorker()
 }
 
 func (o *bar) NewWorkerTry() bool {
-	return o.s.TryAcquire(1)
+	return o.s.NewWorkerTry()
 }
 
 func (o *bar) DeferWorker() {
-	o.s.Release(1)
+	o.s.DeferWorker()
 }
 
 func (o *bar) DeferMain() {
@@ -46,15 +48,17 @@ func (o *bar) DeferMain() {
 		}
 	}
 
-	if o.c != nil {
-		o.c()
-	}
+	o.s.DeferMain()
 }
 
 func (o *bar) WaitAll() error {
-	return o.s.Acquire(o.x, o.n)
+	return o.s.WaitAll()
 }
 
-func (o *bar) Wheigted() int64 {
-	return o.n
+func (o *bar) Weighted() int64 {
+	return o.s.Weighted()
+}
+
+func (o *bar) New() semtps.Sem {
+	return o.s.New()
 }

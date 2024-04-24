@@ -27,18 +27,14 @@
 package bar
 
 import (
-	"context"
 	"sync/atomic"
 	"time"
 
 	semtps "github.com/nabbar/golib/semaphore/types"
 	sdkmpb "github.com/vbauerster/mpb/v8"
-	goxsem "golang.org/x/sync/semaphore"
 )
 
 func New(sem semtps.SemPgb, tot int64, drop bool, opts ...sdkmpb.BarOption) semtps.SemBar {
-	x, c := context.WithCancel(sem)
-
 	if drop {
 		opts = append(opts, sdkmpb.BarRemoveOnComplete())
 	}
@@ -55,10 +51,7 @@ func New(sem semtps.SemPgb, tot int64, drop bool, opts ...sdkmpb.BarOption) semt
 	mx.Store(tot)
 
 	return &bar{
-		c: c,
-		x: x,
-		s: goxsem.NewWeighted(sem.Wheigted()),
-		n: sem.Wheigted(),
+		s: sem.New(),
 		d: drop,
 		b: b,
 		m: mx,

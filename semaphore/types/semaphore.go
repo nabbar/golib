@@ -29,18 +29,18 @@ package types
 import "context"
 
 type SemPgb interface {
-	context.Context
 	Sem
 	ProgressMPB
 }
 
 type SemBar interface {
-	context.Context
 	Sem
 	Bar
 }
 
 type Sem interface {
+	context.Context
+
 	NewWorker() error
 	NewWorkerTry() bool
 
@@ -49,5 +49,7 @@ type Sem interface {
 
 	WaitAll() error
 
-	Wheigted() int64
+	Weighted() int64
+
+	New() Sem
 }

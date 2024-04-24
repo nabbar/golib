@@ -24,22 +24,60 @@
  *
  */
 
-package semaphore
+package sem
 
-import "time"
+import (
+	"context"
+	"runtime"
+	"sync"
 
-func (o *sem) Deadline() (deadline time.Time, ok bool) {
-	return o.s.Deadline()
+	semtps "github.com/nabbar/golib/semaphore/types"
+	goxsem "golang.org/x/sync/semaphore"
+)
+
+func MaxSimultaneous() int {
+	return runtime.GOMAXPROCS(0)
 }
 
-func (o *sem) Done() <-chan struct{} {
-	return o.s.Done()
+func SetSimultaneous(n int) int64 {
+	m := MaxSimultaneous()
+	if n < 1 {
+		return int64(m)
+	} else if m < n {
+		return int64(m)
+	} else {
+		return int64(n)
+	}
 }
 
-func (o *sem) Err() error {
-	return o.s.Err()
-}
+func New(ctx context.Context, nbrSimultaneous int) semtps.Sem {
+	var (
+		x context.Context
+		n context.CancelFunc
+	)
 
-func (o *sem) Value(key any) any {
-	return o.s.Value(key)
+	x, n = context.WithCancel(ctx)
+
+	if nbrSimultaneous == 0 {
+		b := SetSimultaneous(nbrSimultaneous)
+		return &sem{
+			c: n,
+			x: x,
+			s: goxsem.NewWeighted(b),
+			n: b,
+		}
+	} else if nbrSimultaneous > 0 {
+		return &sem{
+			c: n,
+			x: x,
+			s: goxsem.NewWeighted(int64(nbrSimultaneous)),
+			n: int64(nbrSimultaneous),
+		}
+	} else {
+		return &wg{
+			c: n,
+			x: x,
+			w: sync.WaitGroup{},
+		}
+	}
 }
