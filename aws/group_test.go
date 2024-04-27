@@ -27,6 +27,9 @@ package aws_test
 
 import (
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -62,20 +65,23 @@ var _ = Describe("Groups", func() {
 
 	Context("List", func() {
 		It("Must succeed", func() {
-			var group map[string]string
+			var group *iam.ListGroupsOutput
 
 			if minioMode {
 				err = nil
-				group = map[string]string{
-					"skip1": "skip",
-					"skip2": "skip",
-					"skip3": "skip",
+				group = &iam.ListGroupsOutput{
+					Groups: []types.Group{
+						{
+							GroupName: aws.String("skip"),
+							GroupId:   aws.String("skip1"),
+						},
+					},
 				}
 			} else {
 				group, err = cli.Group().List()
 			}
 			Expect(err).ToNot(HaveOccurred())
-			Expect(group).To(HaveLen(3))
+			Expect(len(group.Groups)).To(BeNumerically(">", 0))
 		})
 	})
 

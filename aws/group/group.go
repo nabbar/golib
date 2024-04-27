@@ -30,17 +30,11 @@ import (
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 )
 
-func (cli *client) List() (map[string]string, error) {
+func (cli *client) List() (*sdkiam.ListGroupsOutput, error) {
 	if out, err := cli.iam.ListGroups(cli.GetContext(), &sdkiam.ListGroupsInput{}); err != nil {
 		return nil, cli.GetError(err)
 	} else {
-		var res = make(map[string]string)
-
-		for _, g := range out.Groups {
-			res[*g.GroupId] = *g.GroupName
-		}
-
-		return res, nil
+		return out, nil
 	}
 }
 

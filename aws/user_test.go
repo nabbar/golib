@@ -27,6 +27,7 @@ package aws_test
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/nabbar/golib/password"
 	. "github.com/onsi/ginkgo/v2"
@@ -80,19 +81,23 @@ var _ = Describe("User", func() {
 	})
 	Context("List", func() {
 		It("Must succeed", func() {
-			var users map[string]string
+			var users *iam.ListUsersOutput
 
 			if minioMode {
 				err = nil
-				users = map[string]string{
-					username: username,
+				users = &iam.ListUsersOutput{
+					Users: []types.User{
+						{
+							UserName: &username,
+						},
+					},
 				}
 			} else {
 				users, err = cli.User().List()
 			}
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(users).To(HaveLen(1))
+			Expect(users.Users).To(HaveLen(1))
 		})
 	})
 
