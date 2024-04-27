@@ -48,7 +48,7 @@ type Group interface {
 	UserAdd(username, groupName string) error
 	UserRemove(username, groupName string) error
 
-	List() (map[string]string, error)
+	List() (*sdkiam.ListGroupsOutput, error)
 	Add(groupName string) error
 	Remove(groupName string) error
 
