@@ -32,14 +32,21 @@ import (
 	awshlp "github.com/nabbar/golib/aws/helper"
 )
 
-func (cli *client) List() (*sdkiam.ListUsersOutput, error) {
+func (cli *client) List() (map[string]string, error) {
 	out, err := cli.iam.ListUsers(cli.GetContext(), &sdkiam.ListUsersInput{})
 
 	if err != nil {
 		return nil, cli.GetError(err)
+	} else if out.Users == nil {
+		return nil, awshlp.ErrorResponse.Error(nil)
 	} else {
+		var res = make(map[string]string)
 
-		return out, nil
+		for _, u := range out.Users {
+			res[*u.UserId] = *u.UserName
+		}
+
+		return res, nil
 	}
 }
 

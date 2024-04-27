@@ -32,13 +32,19 @@ import (
 	libhlp "github.com/nabbar/golib/aws/helper"
 )
 
-func (cli *client) List() (*iam.ListPoliciesOutput, error) {
+func (cli *client) List() (map[string]string, error) {
 	out, err := cli.iam.ListPolicies(cli.GetContext(), &iam.ListPoliciesInput{})
 
 	if err != nil {
 		return nil, cli.GetError(err)
 	} else {
-		return out, nil
+		var res = make(map[string]string)
+
+		for _, p := range out.Policies {
+			res[*p.PolicyName] = *p.Arn
+		}
+
+		return res, nil
 	}
 }
 

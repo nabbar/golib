@@ -41,7 +41,7 @@ type client struct {
 }
 
 type Policy interface {
-	List() (*iam.ListPoliciesOutput, error)
+	List() (map[string]string, error)
 
 	Get(arn string) (*types.Policy, error)
 	Add(name, desc, policy string) (string, error)
