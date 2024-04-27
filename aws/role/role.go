@@ -28,15 +28,16 @@ package role
 import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
-func (cli *client) List() (*sdkiam.ListRolesOutput, error) {
+func (cli *client) List() ([]iamtps.Role, error) {
 	out, err := cli.iam.ListRoles(cli.GetContext(), &sdkiam.ListRolesInput{})
 
 	if err != nil {
 		return nil, cli.GetError(err)
 	} else {
-		return out, nil
+		return out.Roles, nil
 	}
 }
 

@@ -43,7 +43,7 @@ type client struct {
 type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
 
 type User interface {
-	List() (*sdkiam.ListUsersOutput, error)
+	List() (map[string]string, error)
 	Get(username string) (*sdktps.User, error)
 	Create(username string) error
 	Delete(username string) error

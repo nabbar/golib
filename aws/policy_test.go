@@ -26,8 +26,6 @@
 package aws_test
 
 import (
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -93,24 +91,19 @@ var _ = Describe("Policies", func() {
 	})
 	Context("List", func() {
 		It("Must return 3 policies", func() { //Default policies + 1 made just above
-			var policies *iam.ListPoliciesOutput
+			var policies map[string]string
 
 			if minioMode {
 				err = nil
-				policies = &iam.ListPoliciesOutput{
-					Policies: []types.Policy{
-						{
-							Arn:        &arn,
-							PolicyName: &name,
-						},
-					},
+				policies = map[string]string{
+					name: arn,
 				}
 			} else {
 				policies, err = cli.Policy().List()
 			}
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(len(policies.Policies)).To(BeNumerically(">", 0))
+			Expect(policies).To(HaveKeyWithValue(name, arn))
 		})
 	})
 	Context("Delete", func() {

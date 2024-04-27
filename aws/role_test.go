@@ -27,7 +27,6 @@ package aws_test
 
 import (
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -142,23 +141,21 @@ var _ = Describe("Role", func() {
 	})
 	Context("List", func() {
 		It("Must return 1 role", func() {
-			var roles *iam.ListRolesOutput
+			var roles []types.Role
 
 			if minioMode {
 				err = nil
-				roles = &iam.ListRolesOutput{
-					Roles: []types.Role{
-						{
-							Arn:      aws.String(arn),
-							RoleName: aws.String(name),
-						},
+				roles = []types.Role{
+					{
+						Arn:      aws.String(arn),
+						RoleName: aws.String(name),
 					},
 				}
 			} else {
 				roles, err = cli.Role().List()
 			}
 			Expect(err).ToNot(HaveOccurred())
-			Expect(roles.Roles).To(HaveLen(1))
+			Expect(roles).To(HaveLen(1))
 		})
 	})
 	Context("Delete", func() {

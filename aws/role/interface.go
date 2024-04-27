@@ -43,7 +43,7 @@ type client struct {
 type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
 
 type Role interface {
-	List() (*sdkiam.ListRolesOutput, error)
+	List() ([]sdktps.Role, error)
 	Check(name string) (string, error)
 	Add(name, role string) (string, error)
 	Delete(roleName string) error
