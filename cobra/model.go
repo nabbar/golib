@@ -29,7 +29,6 @@ package cobra
 import (
 	"context"
 	"fmt"
-	tea "github.com/charmbracelet/bubbletea"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,28 +44,9 @@ type cobra struct {
 	s libver.Version
 	b bool
 	d string
-	q []Question
 	v FuncViper
 	i FuncInit
 	l FuncLogger
-}
-
-func (c *cobra) model() tea.Model {
-	return &promptModel{questions: c.q, cursor: 0}
-}
-
-func (c *cobra) RunInteractiveUI() {
-	if c.q == nil {
-		return
-	}
-	p := tea.NewProgram(c.model())
-	if err := p.Start(); err != nil {
-		fmt.Println("Error:", err)
-		os.Exit(1)
-	}
-}
-func (c *cobra) SetUIQuestions(questions []Question) {
-	c.q = questions
 }
 
 func (c *cobra) Cobra() *spfcbr.Command {
