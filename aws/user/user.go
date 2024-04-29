@@ -49,6 +49,102 @@ func (cli *client) List() (map[string]string, error) {
 		return res, nil
 	}
 }
+func (cli *client) detachUserFromGroupsAndPolicies(username string) error {
+	groups, err := cli.iam.ListGroupsForUser(cli.GetContext(), &sdkiam.ListGroupsForUserInput{
+		UserName: sdkaws.String(username),
+	})
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	for _, group := range groups.Groups {
+		_, err := cli.iam.RemoveUserFromGroup(cli.GetContext(), &sdkiam.RemoveUserFromGroupInput{
+			UserName:  sdkaws.String(username),
+			GroupName: group.GroupName,
+		})
+		if err != nil {
+			return cli.GetError(err)
+		}
+	}
+
+	attachedPoliciesOutput, err := cli.iam.ListAttachedUserPolicies(cli.GetContext(), &sdkiam.ListAttachedUserPoliciesInput{
+		UserName: sdkaws.String(username),
+	})
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	for _, policy := range attachedPoliciesOutput.AttachedPolicies {
+		_, err := cli.iam.DetachUserPolicy(cli.GetContext(), &sdkiam.DetachUserPolicyInput{
+			UserName:  sdkaws.String(username),
+			PolicyArn: policy.PolicyArn,
+		})
+		if err != nil {
+			return cli.GetError(err)
+		}
+	}
+
+	return nil
+}
+
+func (cli *client) Walk(prefix string, fct UserFunc) error {
+	var (
+		err       error
+		out       *sdkiam.ListUsersOutput
+		marker    *string
+		truncated = true
+	)
+
+	for truncated {
+		in := &sdkiam.ListUsersInput{
+			PathPrefix: sdkaws.String(prefix),
+		}
+
+		if marker != nil && len(*marker) > 0 {
+			in.Marker = marker
+		}
+
+		out, err = cli.iam.ListUsers(cli.GetContext(), in)
+		if err != nil {
+			return cli.GetError(err)
+		} else if out == nil || len(out.Users) < 1 {
+			return nil
+		}
+
+		for _, user := range out.Users {
+			if !fct(*user.UserName) {
+				return nil
+			}
+		}
+
+		if out.IsTruncated && out.Marker != nil && len(*out.Marker) > 0 {
+			truncated = true
+			marker = out.Marker
+		} else {
+			truncated = false
+		}
+	}
+
+	return nil
+}
+
+func (cli *client) DetachUsers(prefix string) ([]string, error) {
+	var detachedUsernames []string
+
+	err := cli.Walk(prefix, func(username string) bool {
+		if err := cli.detachUserFromGroupsAndPolicies(username); err != nil {
+			return false
+		}
+		detachedUsernames = append(detachedUsernames, username)
+		return true
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return detachedUsernames, nil
+}
 
 func (cli *client) Get(username string) (*iamtps.User, error) {
 	out, err := cli.iam.GetUser(cli.GetContext(), &sdkiam.GetUserInput{
