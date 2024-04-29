@@ -54,8 +54,9 @@ func (cli *client) Walk(prefix string, fct GroupFunc) error {
 	)
 
 	for trk {
-		var in = &sdkiam.ListGroupsInput{
-			PathPrefix: sdkaws.String(prefix),
+		var in = &sdkiam.ListGroupsInput{}
+		if len(prefix) > 0 {
+			in.PathPrefix = sdkaws.String(prefix)
 		}
 
 		if mrk != nil && len(*mrk) > 0 {

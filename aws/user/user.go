@@ -26,8 +26,10 @@
 package user
 
 import (
+	"fmt"
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	awshlp "github.com/nabbar/golib/aws/helper"
 )
@@ -89,53 +91,55 @@ func (cli *client) detachUserFromGroupsAndPolicies(username string) error {
 
 func (cli *client) Walk(prefix string, fct UserFunc) error {
 	var (
-		err       error
-		out       *sdkiam.ListUsersOutput
-		marker    *string
-		truncated = true
+		err error
+		out *sdkiam.ListUsersOutput
+		mrk *string
+		trk = true
 	)
 
-	for truncated {
-		in := &sdkiam.ListUsersInput{
-			PathPrefix: sdkaws.String(prefix),
+	for trk {
+		var in = &sdkiam.ListUsersInput{}
+		if len(prefix) > 0 {
+			in.PathPrefix = sdkaws.String(prefix)
 		}
-
-		if marker != nil && len(*marker) > 0 {
-			in.Marker = marker
+		if mrk != nil && len(*mrk) > 0 {
+			in.Marker = mrk
 		}
 
 		out, err = cli.iam.ListUsers(cli.GetContext(), in)
+
 		if err != nil {
 			return cli.GetError(err)
 		} else if out == nil || len(out.Users) < 1 {
 			return nil
+		} else {
+			trk = false
+			mrk = nil
 		}
 
-		for _, user := range out.Users {
-			if !fct(*user.UserName) {
+		for _, u := range out.Users {
+			if !fct(u) {
 				return nil
 			}
 		}
 
 		if out.IsTruncated && out.Marker != nil && len(*out.Marker) > 0 {
-			truncated = true
-			marker = out.Marker
-		} else {
-			truncated = false
+			trk = true
+			mrk = out.Marker
 		}
 	}
-
 	return nil
 }
 
 func (cli *client) DetachUsers(prefix string) ([]string, error) {
 	var detachedUsernames []string
 
-	err := cli.Walk(prefix, func(username string) bool {
-		if err := cli.detachUserFromGroupsAndPolicies(username); err != nil {
+	err := cli.Walk(prefix, func(user types.User) bool {
+		if err := cli.detachUserFromGroupsAndPolicies(*user.UserName); err != nil {
+			fmt.Println(err)
 			return false
 		}
-		detachedUsernames = append(detachedUsernames, username)
+		detachedUsernames = append(detachedUsernames, *user.UserName)
 		return true
 	})
 
