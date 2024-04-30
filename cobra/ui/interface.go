@@ -11,10 +11,11 @@ type UI interface {
 	SetQuestions(questions []Question)
 	RunInteractiveUI()
 	SetCobra(cobra cobra.Cobra)
-	AfterPreRun()
-	BeforePreRun()
-	AfterRun()
-	BeforeRun()
+	AfterPreRun() []string
+	BeforePreRun() []string
+	AfterRun() []string
+	BeforeRun() []string
+	GetAnswers() []string
 }
 
 func New() UI {

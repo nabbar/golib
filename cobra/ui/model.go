@@ -9,12 +9,13 @@ import (
 )
 
 type ui struct {
-	cobra     cobra.Cobra
-	questions []Question
-	index     int
-	input     string
-	cursor    int
-	errorMsg  string
+	cobra       cobra.Cobra
+	questions   []Question
+	index       int
+	input       string
+	cursor      int
+	errorMsg    string
+	userAnswers []string
 }
 
 func (u *ui) SetCobra(cobra cobra.Cobra) {
@@ -49,6 +50,8 @@ func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					u.cursor = 0
 					return u, nil
 				}
+				// Store the user's answer
+				u.userAnswers = append(u.userAnswers, u.input)
 				u.input = ""
 				u.index++
 				u.cursor = 0
@@ -123,10 +126,14 @@ func (u *ui) RunInteractiveUI() {
 	}
 }
 
-func (u *ui) AfterPreRun() {
+func (u *ui) GetAnswers() []string {
+	return u.userAnswers
+}
+
+func (u *ui) AfterPreRun() []string {
 	if u.cobra == nil || u.cobra.Cobra() == nil {
 		fmt.Println("Cobra instance is not set")
-		return
+		return nil
 	}
 	existingPreRun := u.cobra.Cobra().PreRun
 	if existingPreRun != nil {
@@ -139,12 +146,13 @@ func (u *ui) AfterPreRun() {
 			u.RunInteractiveUI()
 		}
 	}
+	return u.userAnswers
 }
 
-func (u *ui) BeforePreRun() {
+func (u *ui) BeforePreRun() []string {
 	if u.cobra == nil || u.cobra.Cobra() == nil {
 		fmt.Println("Cobra instance is not set")
-		return
+		return nil
 	}
 	existingPreRun := u.cobra.Cobra().PreRun
 	if existingPreRun != nil {
@@ -157,12 +165,13 @@ func (u *ui) BeforePreRun() {
 			u.RunInteractiveUI()
 		}
 	}
+	return u.userAnswers
 }
 
-func (u *ui) BeforeRun() {
+func (u *ui) BeforeRun() []string {
 	if u.cobra == nil || u.cobra.Cobra() == nil {
 		fmt.Println("Cobra instance is not set")
-		return
+		return nil
 	}
 	existingRun := u.cobra.Cobra().Run
 	if existingRun != nil {
@@ -175,12 +184,13 @@ func (u *ui) BeforeRun() {
 			u.RunInteractiveUI()
 		}
 	}
+	return u.userAnswers
 }
 
-func (u *ui) AfterRun() {
+func (u *ui) AfterRun() []string {
 	if u.cobra == nil || u.cobra.Cobra() == nil {
 		fmt.Println("Cobra instance is not set")
-		return
+		return nil
 	}
 	existingRun := u.cobra.Cobra().Run
 	if existingRun != nil {
@@ -193,4 +203,5 @@ func (u *ui) AfterRun() {
 			u.RunInteractiveUI()
 		}
 	}
+	return u.userAnswers
 }
