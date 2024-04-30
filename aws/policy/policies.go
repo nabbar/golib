@@ -48,6 +48,58 @@ func (cli *client) List() (map[string]string, error) {
 	}
 }
 
+func (cli *client) Walk(prefix string, fct PolicyFunc) error {
+	var (
+		mrk *string
+		trk = true
+	)
+
+	for trk {
+		in := &iam.ListPoliciesInput{}
+
+		if len(prefix) > 0 {
+			in.PathPrefix = aws.String(prefix)
+		}
+
+		if mrk != nil && len(*mrk) > 0 {
+			in.Marker = mrk
+		}
+
+		out, err := cli.iam.ListPolicies(cli.GetContext(), in)
+		if err != nil {
+			return cli.GetError(err)
+		}
+
+		for _, policy := range out.Policies {
+			if !fct(*policy.Arn) {
+				return nil
+			}
+		}
+
+		if out.IsTruncated && out.Marker != nil && len(*out.Marker) > 0 {
+			mrk = out.Marker
+		} else {
+			trk = false
+		}
+	}
+
+	return nil
+}
+
+func (cli *client) GetAllPolicies(prefix string) ([]string, error) {
+	var policies []string
+
+	err := cli.Walk(prefix, func(policyArn string) bool {
+		policies = append(policies, policyArn)
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return policies, nil
+}
+
 func (cli *client) Get(arn string) (*types.Policy, error) {
 	out, err := cli.iam.GetPolicy(cli.GetContext(), &iam.GetPolicyInput{
 		PolicyArn: aws.String(arn),

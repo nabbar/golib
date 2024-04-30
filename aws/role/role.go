@@ -40,6 +40,86 @@ func (cli *client) List() ([]iamtps.Role, error) {
 		return out.Roles, nil
 	}
 }
+func (cli *client) Walk(prefix string, fct RoleFunc) error {
+	var (
+		err error
+		out *sdkiam.ListRolesOutput
+		mrk *string
+		trk = true
+	)
+
+	for trk {
+		in := &sdkiam.ListRolesInput{}
+
+		if len(prefix) > 0 {
+			in.PathPrefix = sdkaws.String(prefix)
+		}
+
+		if mrk != nil && len(*mrk) > 0 {
+			in.Marker = mrk
+		}
+
+		out, err = cli.iam.ListRoles(cli.GetContext(), in)
+		if err != nil {
+			return cli.GetError(err)
+		}
+
+		for _, role := range out.Roles {
+			if !fct(*role.RoleName) {
+				return nil
+			}
+		}
+
+		if out.IsTruncated && out.Marker != nil && len(*out.Marker) > 0 {
+			mrk = out.Marker
+		} else {
+			trk = false
+		}
+	}
+
+	return nil
+}
+
+func (cli *client) detachPoliciesFromRole(roleName string) error {
+	attachedPoliciesOutput, err := cli.iam.ListAttachedRolePolicies(cli.GetContext(),
+		&sdkiam.ListAttachedRolePoliciesInput{
+			RoleName: sdkaws.String(roleName),
+		})
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	for _, policy := range attachedPoliciesOutput.AttachedPolicies {
+		_, err := cli.iam.DetachRolePolicy(cli.GetContext(),
+			&sdkiam.DetachRolePolicyInput{
+				RoleName:  sdkaws.String(roleName),
+				PolicyArn: policy.PolicyArn,
+			})
+		if err != nil {
+			return cli.GetError(err)
+		}
+	}
+
+	return nil
+}
+
+func (cli *client) DetachRoles(prefix string) ([]string, error) {
+	var detachedRoleNames []string
+	err := cli.Walk(prefix, func(roleName string) bool {
+		if err := cli.detachPoliciesFromRole(roleName); err != nil {
+			return false
+		}
+
+		detachedRoleNames = append(detachedRoleNames, roleName)
+		return true
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return detachedRoleNames, nil
+}
 
 func (cli *client) Check(name string) (string, error) {
 	out, err := cli.iam.GetRole(cli.GetContext(), &sdkiam.GetRoleInput{

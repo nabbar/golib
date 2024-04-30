@@ -26,8 +26,10 @@
 package user
 
 import (
+	"fmt"
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	awshlp "github.com/nabbar/golib/aws/helper"
 )
@@ -48,6 +50,104 @@ func (cli *client) List() (map[string]string, error) {
 
 		return res, nil
 	}
+}
+func (cli *client) detachUserFromGroupsAndPolicies(username string) error {
+	groups, err := cli.iam.ListGroupsForUser(cli.GetContext(), &sdkiam.ListGroupsForUserInput{
+		UserName: sdkaws.String(username),
+	})
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	for _, group := range groups.Groups {
+		_, err := cli.iam.RemoveUserFromGroup(cli.GetContext(), &sdkiam.RemoveUserFromGroupInput{
+			UserName:  sdkaws.String(username),
+			GroupName: group.GroupName,
+		})
+		if err != nil {
+			return cli.GetError(err)
+		}
+	}
+
+	attachedPoliciesOutput, err := cli.iam.ListAttachedUserPolicies(cli.GetContext(), &sdkiam.ListAttachedUserPoliciesInput{
+		UserName: sdkaws.String(username),
+	})
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	for _, policy := range attachedPoliciesOutput.AttachedPolicies {
+		_, err := cli.iam.DetachUserPolicy(cli.GetContext(), &sdkiam.DetachUserPolicyInput{
+			UserName:  sdkaws.String(username),
+			PolicyArn: policy.PolicyArn,
+		})
+		if err != nil {
+			return cli.GetError(err)
+		}
+	}
+
+	return nil
+}
+
+func (cli *client) Walk(prefix string, fct UserFunc) error {
+	var (
+		err error
+		out *sdkiam.ListUsersOutput
+		mrk *string
+		trk = true
+	)
+
+	for trk {
+		var in = &sdkiam.ListUsersInput{}
+		if len(prefix) > 0 {
+			in.PathPrefix = sdkaws.String(prefix)
+		}
+		if mrk != nil && len(*mrk) > 0 {
+			in.Marker = mrk
+		}
+
+		out, err = cli.iam.ListUsers(cli.GetContext(), in)
+
+		if err != nil {
+			return cli.GetError(err)
+		} else if out == nil || len(out.Users) < 1 {
+			return nil
+		} else {
+			trk = false
+			mrk = nil
+		}
+
+		for _, u := range out.Users {
+			if !fct(u) {
+				return nil
+			}
+		}
+
+		if out.IsTruncated && out.Marker != nil && len(*out.Marker) > 0 {
+			trk = true
+			mrk = out.Marker
+		}
+	}
+	return nil
+}
+
+func (cli *client) DetachUsers(prefix string) ([]string, error) {
+	var detachedUsernames []string
+
+	err := cli.Walk(prefix, func(user types.User) bool {
+		if err := cli.detachUserFromGroupsAndPolicies(*user.UserName); err != nil {
+			fmt.Println(err)
+			return false
+		}
+		detachedUsernames = append(detachedUsernames, *user.UserName)
+		return true
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return detachedUsernames, nil
 }
 
 func (cli *client) Get(username string) (*iamtps.User, error) {
