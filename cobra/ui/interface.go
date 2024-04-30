@@ -1,20 +1,21 @@
 package ui
 
-import "github.com/nabbar/golib/cobra"
+import "github.com/spf13/cobra"
 
 type Question struct {
-	Text    string
-	Options []string
-	Handler func(string) error
+	Text         string
+	Options      []string
+	Handler      func(string) error
+	PasswordType bool
 }
 type UI interface {
 	SetQuestions(questions []Question)
 	RunInteractiveUI()
-	SetCobra(cobra cobra.Cobra)
-	AfterPreRun() []string
-	BeforePreRun() []string
-	AfterRun() []string
-	BeforeRun() []string
+	SetCobra(cobra *cobra.Command)
+	AfterPreRun()
+	BeforePreRun()
+	AfterRun()
+	BeforeRun()
 	GetAnswers() []string
 }
 

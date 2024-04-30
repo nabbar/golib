@@ -3,13 +3,13 @@ package ui
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/nabbar/golib/cobra"
 	spfcbr "github.com/spf13/cobra"
 	"os"
+	"strings"
 )
 
 type ui struct {
-	cobra       cobra.Cobra
+	cobra       *spfcbr.Command
 	questions   []Question
 	index       int
 	input       string
@@ -18,7 +18,7 @@ type ui struct {
 	userAnswers []string
 }
 
-func (u *ui) SetCobra(cobra cobra.Cobra) {
+func (u *ui) SetCobra(cobra *spfcbr.Command) {
 	u.cobra = cobra
 }
 
@@ -104,7 +104,11 @@ func (u *ui) View() string {
 		}
 	} else {
 		if len(u.input) > 0 {
-			view += "" + u.input + "\n"
+			if u.questions[u.index].PasswordType == true {
+				view += strings.Repeat("*", len(u.input)) + "\n"
+			} else {
+				view += "" + u.input + "\n"
+			}
 		} else {
 			view += "\n"
 		}
@@ -118,8 +122,9 @@ func (u *ui) SetQuestions(questions []Question) {
 }
 
 func (u *ui) RunInteractiveUI() {
-	model := &ui{questions: u.questions, cursor: 0}
-	p := tea.NewProgram(model)
+	u.index = 0
+	u.cursor = 0
+	p := tea.NewProgram(u)
 	if err := p.Start(); err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
@@ -130,78 +135,70 @@ func (u *ui) GetAnswers() []string {
 	return u.userAnswers
 }
 
-func (u *ui) AfterPreRun() []string {
-	if u.cobra == nil || u.cobra.Cobra() == nil {
+func (u *ui) AfterPreRun() {
+	if u.cobra == nil {
 		fmt.Println("Cobra instance is not set")
-		return nil
 	}
-	existingPreRun := u.cobra.Cobra().PreRun
+	existingPreRun := u.cobra.PreRun
 	if existingPreRun != nil {
-		u.cobra.Cobra().PreRun = func(cmd *spfcbr.Command, args []string) {
+		u.cobra.PreRun = func(cmd *spfcbr.Command, args []string) {
 			existingPreRun(cmd, args)
 			u.RunInteractiveUI()
 		}
 	} else {
-		u.cobra.Cobra().PreRun = func(cmd *spfcbr.Command, args []string) {
+		u.cobra.PreRun = func(cmd *spfcbr.Command, args []string) {
 			u.RunInteractiveUI()
 		}
 	}
-	return u.userAnswers
 }
 
-func (u *ui) BeforePreRun() []string {
-	if u.cobra == nil || u.cobra.Cobra() == nil {
+func (u *ui) BeforePreRun() {
+	if u.cobra == nil {
 		fmt.Println("Cobra instance is not set")
-		return nil
 	}
-	existingPreRun := u.cobra.Cobra().PreRun
+	existingPreRun := u.cobra.PreRun
 	if existingPreRun != nil {
-		u.cobra.Cobra().PreRun = func(cmd *spfcbr.Command, args []string) {
+		u.cobra.PreRun = func(cmd *spfcbr.Command, args []string) {
 			u.RunInteractiveUI()
 			existingPreRun(cmd, args)
 		}
 	} else {
-		u.cobra.Cobra().PreRun = func(cmd *spfcbr.Command, args []string) {
+		u.cobra.PreRun = func(cmd *spfcbr.Command, args []string) {
 			u.RunInteractiveUI()
 		}
 	}
-	return u.userAnswers
 }
 
-func (u *ui) BeforeRun() []string {
-	if u.cobra == nil || u.cobra.Cobra() == nil {
+func (u *ui) BeforeRun() {
+	if u.cobra == nil {
 		fmt.Println("Cobra instance is not set")
-		return nil
 	}
-	existingRun := u.cobra.Cobra().Run
+	existingRun := u.cobra.Run
 	if existingRun != nil {
-		u.cobra.Cobra().Run = func(cmd *spfcbr.Command, args []string) {
+		u.cobra.Run = func(cmd *spfcbr.Command, args []string) {
 			u.RunInteractiveUI()
 			existingRun(cmd, args)
 		}
 	} else {
-		u.cobra.Cobra().Run = func(cmd *spfcbr.Command, args []string) {
+		u.cobra.Run = func(cmd *spfcbr.Command, args []string) {
 			u.RunInteractiveUI()
 		}
 	}
-	return u.userAnswers
 }
 
-func (u *ui) AfterRun() []string {
-	if u.cobra == nil || u.cobra.Cobra() == nil {
+func (u *ui) AfterRun() {
+	if u.cobra == nil {
 		fmt.Println("Cobra instance is not set")
-		return nil
 	}
-	existingRun := u.cobra.Cobra().Run
+	existingRun := u.cobra.Run
 	if existingRun != nil {
-		u.cobra.Cobra().Run = func(cmd *spfcbr.Command, args []string) {
+		u.cobra.Run = func(cmd *spfcbr.Command, args []string) {
 			existingRun(cmd, args)
 			u.RunInteractiveUI()
 		}
 	} else {
-		u.cobra.Cobra().Run = func(cmd *spfcbr.Command, args []string) {
+		u.cobra.Run = func(cmd *spfcbr.Command, args []string) {
 			u.RunInteractiveUI()
 		}
 	}
-	return u.userAnswers
 }
