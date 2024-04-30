@@ -114,10 +114,6 @@ func (cli *client) detachPoliciesFromGroup(groupName string) error {
 func (cli *client) DetachGroups(prefix string) ([]string, error) {
 	var detachedGroupNames []string
 	err := cli.Walk(prefix, func(group types.Group) bool {
-		if *group.GroupName == "FullAccessGroup" || *group.GroupName == "ReadOnlyGroup" {
-			return true
-		}
-
 		if err := cli.detachPoliciesFromGroup(*group.GroupName); err != nil {
 			return false
 		}
