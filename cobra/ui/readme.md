@@ -1,165 +1,167 @@
 # UI Package
-The main services of the UI package is to help giving a real time UI that is assigned by
-questions in a dynamic way.
-- The package can be used alone 
-- The package can be used with cobra CLI
 
-## Example with cobra CLI
-```
+The UI package empowers developers to craft immersive and interactive user interfaces seamlessly integrated into their applications.  
+## Features
+
+- File Input with Pagination: Facilitate the selection of files from a directory with built-in pagination support (10 files/page). Users can navigate through large sets of files seamlessly.  
+- Error Handling: Handle errors gracefully during user interactions. When a handler encounters an error, it returns an error object containing relevant information about the error. The UI displays the error message to the user and prompts the question again.  
+- Single-Choice Questions: Allow users to select one option from a list of choices.
+- Text Input Questions: Prompt users to enter text-based inputs.  
+- Password Input Questions: Securely collect password inputs from users, hiding the entered characters for privacy.  
+- Dynamic Pagination: Automatically paginate choices for single-choice questions with more than 10 options, ensuring a smooth user experience without overwhelming them with too many choices at once.  
+
+These features collectively empower developers to create engaging and user-friendly interfaces, whether they are standalone applications or CLI tools integrated with Cobra.   
+
+## Standalone Usage Examples:
+1- Single-choice Question:  
+``` 
+import (
+    "fmt"
+    "github.com/nabbar/cobra/ui"
+)
+
+func main() {
+    var choice string
+    tui := ui.New()
+    tui.SetQuestions([]ui.Question{
+        {
+            Text: "What is your preferred programming language?",
+            Options: []string{"Go", "Python", "JavaScript", "Java"},
+            Handler: func(input string) error {
+                choice = input
+                return nil
+            },
+        },
+    })
+    // if the options > 10 => pagination will be done dynamically
+    tui.RunInteractiveUI()
+    fmt.Println(choice)
+}
+```  
+2- Text Input Question
+``` 
 package main
 
 import (
 	"fmt"
-	"github.com/nabbar/golib/cobra"
-	"github.com/nabbar/golib/cobra/ui"
-	spfcbr "github.com/spf13/cobra"
-	"github/sabouaram/testui/release"
+	"strconv"
+	"errors"
+	"github.com/nabbar/cobra/ui"
 )
-
-var (
-	tui   ui.UI
-	cbr   cobra.Cobra
-	input string
-)
-
-var rootCmd = &spfcbr.Command{
-	Use:   "test",
-	Short: "This for test purposes",
-	Run: func(cmd *spfcbr.Command, args []string) {
-		fmt.Printf("the question input: %v\n", input)
-	},
-}
 
 func main() {
-	tui = ui.New()
+	var(
+	    age int
+	    err error
+	)
+	tui := ui.New()
 	tui.SetQuestions([]ui.Question{
 		{
-			Text:    "What is your preferred car:",
-			Options: []string{"BMW", "Toyota", "Nissan"},
-			Handler: func(s string) (e error) {
-				input = s
-				return nil
+			Text:    "Enter your age:",
+			Handler: func(input string) error {
+				age,err = strconv.Atoi(input)
+				if err !=nil{
+				  return errors.New("Age must be an integer")
+				}
 			},
 		},
 	})
-	cbr = cobra.New()
-	cbr.SetVersion(release.GetVersion())
-	cbr.SetFuncInit(func() {
-	})
-	cbr.Init()
-	cbr.Cobra().AddCommand(rootCmd)
-	tui.SetCobra(rootCmd)
-	tui.BeforeRun()
-	err := cbr.Cobra().Execute()
-	if err != nil {
-		fmt.Println(err)
-	}
-
+	tui.RunInteractiveUI()
+	fmt.Printf("Hello, %s!\n", userName)
 }
-
-```
-In this example the UI package is used with cobra CLI:
- - We define our cobra command
- - We use the golib/cobra pkg to add our cobra command
- - We set our questions using the ui pkg
- - We set the cobra command in the ui
- - Just before the CLI execution we can choose when to run the UI => here we choosed BeforeRun so we can handle the user anwsers after in the Run thanks to the question handler
- -  The ui can be run before or after the cobra defined PreRun or Run functions so we have to use one of the corresponding functions:  
- ```BeforeRun() ```  
- ```AfterRun() ```  
- ```AfterPreRun```  
- ```BeforePreRun```
-
-## Useful General Infos
-In the scenario when we have a question without options  
-this means that a user input is attended from the user  
-by default if we have an input type question we can in the handler  
-check the attended input type in case the type is wrong an error should be returned  
-the UI pkg in this case will show the error and re-ask the question dynamically  
-
-## Using the UI pkg alone
+```  
+3- Password Input Question  
 ``` 
 package main
 
 import (
-	"github.com/nabbar/golib/cobra/ui"
+    "fmt"
+	"github.com/nabbar/cobra/ui"
 )
 
 func main() {
-
+	var passwordEntered bool
 	tui := ui.New()
-	tui.SetQuestions([]ui.Question{
+	tui.SetQuestions([]dynamicui.Question{
 		{
-			Text:    "What is your preferred car:",
-			Options: []string{"BMW", "Toyota", "Nissan"},
-			Handler: func(s string) (e error) {
+			Text:          "Enter your password:",
+			PasswordInput: true,
+			Handler: func(password string) error {
+				passwordEntered = true
 				return nil
 			},
 		},
 	})
 	tui.RunInteractiveUI()
+	if passwordEntered {
+		fmt.Println("Password entered.")
+	}
 }
-```
-
-## Protected Input Question
+```  
+4- File Input Question  
 ``` 
-q := ui.Question{
-		Text: "Enter your password:",
-		PasswordType: true,
-		Handler: func(s string) error {
-			return nil
-		},
-	}
-```
-## File input Question
-Pagination is supported by default 10 files are shown per page
-```
+package main
+
+import (
+	"fmt"
+	"github.com/nabbar/cobra/ui"
+)
+
 func main() {
-	var path string
+	var selectedFile string
 	tui := ui.New()
-	q := ui.Question{
-		Text:     "Enter folder path:",
-		FilePath: true,
-		Handler: func(filePath string) error {
-			path = filePath
-			return nil
+	tui.SetQuestions([]ui.Question{
+		{
+			Text:     "Select a file:",
+			FilePath: true,
+			Handler: func(filePath string) error {
+				selectedFile = filePath
+				return nil
+			},
 		},
-	}
-	tui.SetQuestions([]ui.Question{q})
+	})
 	tui.RunInteractiveUI()
-
-	fmt.Println(path)
+	fmt.Printf("Selected file full path: %s\n", selectedFile)
 }
-```
-## Choice Questions
-For choice questions if the options > 10 pagination is done by default  
-10 options are shown per page
 
-## Recap Questions Usage
-- Choice question => ```ui.Question{
-  Text:     "What is your preferred car:",
-  Options: []string{"BMW", "Toyota", "Nissan"},
-  Handler: func(choice string) error {
-        return nil
-   },
-} ```
-- Protected Input Question => ```ui.Question{
-  Text:     "Please enter your password:",
-  PasswordType: true,
-  Handler: func(input string) error {
-      return nil
-  },
-} ```
-- File Selection Input Question => ```ui.Question{
-  Text:     "Please select the file you want to upload enter the path:",
-  FilePath: true,
-  Handler: func(filePath string) error {
-        return nil
-  },
-} ```
-- Normal Input Question =>  ```ui.Question{
-  Text:     "Entre your Name",
-  Handler: func(input string) error {
-        return nil
-  },
-} ```
+```  
+5- Cobra CLI Integration
+``` 
+package main
+
+import (
+	"fmt"
+	"github.com/nabbar/cobra/ui"
+	"github.com/spf13/cobra"
+)
+var choice string
+var rootCmd = &cobra.Command{
+	Use:   "myapp",
+	Short: "A sample application using",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("Welcome to myapp!")
+		fmt.Println("Thank you for choosing ", choice)
+	},
+}
+
+func main() {
+	tui := ui.New()
+	tui.SetQuestions([]ui.Question{
+		{
+			Text:    "What is your preferred programming language?",
+			Options: []string{"Go", "Python", "JavaScript"},
+			Handler: func(input string) error {
+				choice = input
+				return nil
+			},
+		},
+	})
+	tui.SetCobra(rootCmd)
+	tui.BeforeRun()
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+	}
+}
+
+```
