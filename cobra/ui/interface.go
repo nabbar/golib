@@ -17,6 +17,7 @@ type UI interface {
 	BeforePreRun()
 	AfterRun()
 	BeforeRun()
+	SetLastMessage(msg string)
 }
 
 func New() UI {

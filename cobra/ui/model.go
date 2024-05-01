@@ -20,6 +20,7 @@ type ui struct {
 	cursor      int
 	errorMsg    string
 	userAnswers []string
+	LastMessage string
 }
 
 func (u *ui) SetCobra(cobra *spfcbr.Command) {
@@ -28,6 +29,10 @@ func (u *ui) SetCobra(cobra *spfcbr.Command) {
 
 func (u *ui) Init() tea.Cmd {
 	return nil
+}
+
+func (u *ui) SetLastMessage(msg string) {
+	u.LastMessage = msg
 }
 
 func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -45,16 +50,31 @@ func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if u.index < len(u.questions) {
 				if u.questions[u.index].FilePath {
 					selectedFile := ""
-					if _, err := os.Stat(u.input); err == nil {
-						files, _ := filepath.Glob(filepath.Join(u.input, "*"))
-						if len(files) > 0 {
-							selectedFile = files[u.cursor]
+					var fullPath string
+					if u.input == "." {
+						fullPath, _ = filepath.Abs(u.input)
+					} else {
+						fullPath = u.input
+					}
+
+					if _, err := os.Stat(fullPath); err == nil {
+						files, _ := filepath.Glob(filepath.Join(fullPath, "*"))
+						var filesList []string
+						for _, file := range files {
+							fileInfo, err := os.Stat(file)
+							if err == nil && !fileInfo.IsDir() {
+								filesList = append(filesList, file)
+							}
 						}
-						filePath := filepath.Join(u.input, selectedFile)
-						err = u.questions[u.index].Handler(filePath)
+						if len(filesList) > 0 {
+							fileIndex := u.cursor
+							if fileIndex < len(filesList) {
+								selectedFile = filesList[fileIndex]
+							}
+						}
+						err = u.questions[u.index].Handler(selectedFile)
 					} else {
 						u.errorMsg = "Directory does not exist"
-
 					}
 				} else if len(u.questions[u.index].Options) > 0 {
 					err = u.questions[u.index].Handler(u.questions[u.index].Options[u.cursor])
@@ -76,20 +96,28 @@ func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return nil, tea.Quit
 			}
 		case tea.KeyDown:
-			if len(u.questions[u.index].Options) > 0 {
-				if u.cursor < len(u.questions[u.index].Options)-1 {
-					u.cursor++
-				}
-			} else if u.questions[u.index].FilePath {
+			if u.questions[u.index].FilePath {
 				if _, err := os.Stat(u.input); err == nil {
 					files, _ := filepath.Glob(filepath.Join(u.input, "*"))
-					if len(files) > 0 {
-						if u.cursor < len(files)-1 {
+					var filesList []string
+					for _, file := range files {
+						fileInfo, err := os.Stat(file)
+						if err == nil && !fileInfo.IsDir() {
+							filesList = append(filesList, file)
+						}
+					}
+					if len(filesList) > 0 {
+						if u.cursor < len(filesList)-1 {
 							u.cursor++
 						}
 					}
 				}
+			} else if len(u.questions[u.index].Options) > 0 {
+				if u.cursor < len(u.questions[u.index].Options)-1 {
+					u.cursor++
+				}
 			}
+
 		case tea.KeyUp:
 			if u.cursor > 0 {
 				u.cursor--
@@ -137,7 +165,7 @@ func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (u *ui) View() string {
 	var dir string
 	if u.index >= len(u.questions) {
-		return ""
+		return u.LastMessage
 	}
 	view := u.questions[u.index].Text
 
@@ -201,7 +229,6 @@ func (u *ui) View() string {
 			end = totalOptions
 		}
 		if start >= totalOptions {
-			// Reset cursor to the beginning if the current page is empty
 			u.cursor = 0
 			currentPage = 1
 			start = 0
