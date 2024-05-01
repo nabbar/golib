@@ -2,11 +2,15 @@ package ui
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	spfcbr "github.com/spf13/cobra"
-	"os"
-	"strings"
 )
+
+const pageSize = 10
 
 type ui struct {
 	cobra       *spfcbr.Command
@@ -39,7 +43,20 @@ func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyEnter:
 			if u.index < len(u.questions) {
-				if len(u.questions[u.index].Options) > 0 {
+				if u.questions[u.index].FilePath {
+					selectedFile := ""
+					if _, err := os.Stat(u.input); err == nil {
+						files, _ := filepath.Glob(filepath.Join(u.input, "*"))
+						if len(files) > 0 {
+							selectedFile = files[u.cursor]
+						}
+						filePath := filepath.Join(u.input, selectedFile)
+						err = u.questions[u.index].Handler(filePath)
+					} else {
+						u.errorMsg = "Directory does not exist"
+
+					}
+				} else if len(u.questions[u.index].Options) > 0 {
 					err = u.questions[u.index].Handler(u.questions[u.index].Options[u.cursor])
 				} else {
 					err = u.questions[u.index].Handler(u.input)
@@ -50,7 +67,6 @@ func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					u.cursor = 0
 					return u, nil
 				}
-				// Store the user's answer
 				u.userAnswers = append(u.userAnswers, u.input)
 				u.input = ""
 				u.index++
@@ -61,16 +77,51 @@ func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case tea.KeyDown:
 			if len(u.questions[u.index].Options) > 0 {
-				u.cursor = (u.cursor + 1) % len(u.questions[u.index].Options)
+				if u.cursor < len(u.questions[u.index].Options)-1 {
+					u.cursor++
+				}
+			} else if u.questions[u.index].FilePath {
+				if _, err := os.Stat(u.input); err == nil {
+					files, _ := filepath.Glob(filepath.Join(u.input, "*"))
+					if len(files) > 0 {
+						if u.cursor < len(files)-1 {
+							u.cursor++
+						}
+					}
+				}
 			}
 		case tea.KeyUp:
-			if len(u.questions[u.index].Options) > 0 {
-				u.cursor = (u.cursor - 1 + len(u.questions[u.index].Options)) % len(u.questions[u.index].Options)
+			if u.cursor > 0 {
+				u.cursor--
 			}
+		case tea.KeyRight:
+			if u.questions[u.index].FilePath {
+				if _, err := os.Stat(u.input); err == nil {
+					files, _ := filepath.Glob(filepath.Join(u.input, "*"))
+					page := u.cursor + pageSize
+					if page >= len(files) {
+						u.cursor = 0
+					} else {
+						u.cursor = page
+					}
+				}
+			} else if len(u.questions[u.index].Options) > 0 {
+				nextPage := (u.cursor/pageSize + 1) * pageSize
+				if nextPage < len(u.questions[u.index].Options) {
+					u.cursor = nextPage
+				} else {
+					u.cursor = len(u.questions[u.index].Options) - 1
+				}
+			}
+		case tea.KeyLeft:
+			if u.cursor >= pageSize {
+				u.cursor -= pageSize
+			} else {
+				u.cursor = 0
+			}
+
 		case tea.KeyTab:
-
 		case tea.KeySpace:
-
 		case tea.KeyBackspace:
 			if len(u.input) > 0 {
 				u.input = u.input[:len(u.input)-1]
@@ -84,27 +135,89 @@ func (u *ui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (u *ui) View() string {
+	var dir string
 	if u.index >= len(u.questions) {
 		return ""
 	}
-	if u.errorMsg != "" {
-		return "" + u.errorMsg + "\n" + u.questions[u.index].Text + u.input
-	}
-
 	view := u.questions[u.index].Text
 
-	if len(u.questions[u.index].Options) > 0 {
+	if u.questions[u.index].FilePath {
+		dir += u.input
+		view += u.input + "\n"
+		if u.errorMsg != "" {
+			view += "Error: " + u.errorMsg + "\n"
+		}
+		fileInfo, err := os.Stat(u.input)
+		if err == nil && fileInfo.IsDir() {
+			files, _ := filepath.Glob(filepath.Join(u.input, "*"))
+			var filesList []string
+			for _, file := range files {
+				fileInfo, err := os.Stat(file)
+				if err == nil && !fileInfo.IsDir() {
+					filesList = append(filesList, file)
+				}
+			}
+			if len(filesList) > 0 {
+				view += "Files in folder:\n"
+				totalPages := (len(filesList) + pageSize - 1) / pageSize
+				currentPage := u.cursor/pageSize + 1
+				start := (currentPage - 1) * pageSize
+				end := start + pageSize
+				if end > len(filesList) {
+					end = len(filesList)
+				}
+				if start >= len(filesList) {
+					u.cursor = 0
+					currentPage = 1
+					start = 0
+					end = pageSize
+				}
+				for i := start; i < end; i++ {
+					cursor := " "
+					if i == u.cursor {
+						cursor = "→"
+					}
+					view += fmt.Sprintf("%s %d. %s\n", cursor, i+1, filesList[i])
+				}
+				view += fmt.Sprintf("\nPage %d/%d\n", currentPage, totalPages)
+			} else {
+				view += "No files in folder\n"
+				u.cursor = 0
+			}
+		} else {
+			if u.input != "" {
+				view += "Invalid directory path\n"
+			}
+
+		}
+	} else if len(u.questions[u.index].Options) > 0 {
 		view += "\n"
-		for i, option := range u.questions[u.index].Options {
+		totalOptions := len(u.questions[u.index].Options)
+		totalPages := (totalOptions + pageSize - 1) / pageSize
+		currentPage := u.cursor/pageSize + 1
+		start := (currentPage - 1) * pageSize
+		end := start + pageSize
+		if end > totalOptions {
+			end = totalOptions
+		}
+		if start >= totalOptions {
+			// Reset cursor to the beginning if the current page is empty
+			u.cursor = 0
+			currentPage = 1
+			start = 0
+			end = pageSize
+		}
+		for i := start; i < end; i++ {
 			cursor := " "
 			if i == u.cursor {
 				cursor = "→"
 			}
-			view += fmt.Sprintf("%s %d. %s\n", cursor, i+1, option)
+			view += fmt.Sprintf("%s %d. %s\n", cursor, i+1, u.questions[u.index].Options[i])
 		}
+		view += fmt.Sprintf("\nPage %d/%d\n", currentPage, totalPages)
 	} else {
 		if len(u.input) > 0 {
-			if u.questions[u.index].PasswordType == true {
+			if u.questions[u.index].PasswordType {
 				view += strings.Repeat("*", len(u.input)) + "\n"
 			} else {
 				view += "" + u.input + "\n"
@@ -129,10 +242,6 @@ func (u *ui) RunInteractiveUI() {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
-}
-
-func (u *ui) GetAnswers() []string {
-	return u.userAnswers
 }
 
 func (u *ui) AfterPreRun() {

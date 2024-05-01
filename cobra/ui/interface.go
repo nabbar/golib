@@ -7,6 +7,7 @@ type Question struct {
 	Options      []string
 	Handler      func(string) error
 	PasswordType bool
+	FilePath     bool
 }
 type UI interface {
 	SetQuestions(questions []Question)
@@ -16,7 +17,6 @@ type UI interface {
 	BeforePreRun()
 	AfterRun()
 	BeforeRun()
-	GetAnswers() []string
 }
 
 func New() UI {

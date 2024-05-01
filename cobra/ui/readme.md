@@ -111,3 +111,26 @@ q := ui.Question{
 		},
 	}
 ```
+## File input Question
+Pagination is supported by default 10 files are shown per page
+```
+func main() {
+	var path string
+	tui := ui.New()
+	q := ui.Question{
+		Text:     "Enter folder path:",
+		FilePath: true,
+		Handler: func(filePath string) error {
+			path = filePath
+			return nil
+		},
+	}
+	tui.SetQuestions([]ui.Question{q})
+	tui.RunInteractiveUI()
+
+	fmt.Println(path)
+}
+```
+## Choice Questions
+For choice questions if the options > 10 pagination is done by default  
+10 options are shown per page
