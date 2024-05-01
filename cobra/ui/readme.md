@@ -125,7 +125,7 @@ func main() {
 			return nil
 		},
 	}
-	tui.SetQuestions([]ui.Question{q})
+	tui.SetQuestions([]ui.Questigit p)
 	tui.RunInteractiveUI()
 
 	fmt.Println(path)
@@ -134,3 +134,32 @@ func main() {
 ## Choice Questions
 For choice questions if the options > 10 pagination is done by default  
 10 options are shown per page
+
+## Recap Questions Usage
+- Choice question => ```ui.Question{
+  Text:     "What is your preferred car:",
+  Options: []string{"BMW", "Toyota", "Nissan"},
+  Handler: func(choice string) error {
+        return nil
+   },
+} ```
+- Protected Input Question => ```ui.Question{
+  Text:     "Please enter your password:",
+  PasswordType: true,
+  Handler: func(input string) error {
+      return nil
+  },
+} ```
+- File Selection Input Question => ```ui.Question{
+  Text:     "Please select the file you want to upload enter the path:",
+  FilePath: true,
+  Handler: func(filePath string) error {
+        return nil
+  },
+} ```
+- Normal Input Question =>  ```ui.Question{
+  Text:     "Entre your Name",
+  Handler: func(input string) error {
+        return nil
+  },
+} ```
