@@ -125,7 +125,7 @@ func main() {
 			return nil
 		},
 	}
-	tui.SetQuestions([]ui.Questigit p)
+	tui.SetQuestions([]ui.Question{q})
 	tui.RunInteractiveUI()
 
 	fmt.Println(path)
