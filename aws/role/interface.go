@@ -41,18 +41,19 @@ type client struct {
 }
 
 type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
-
+type RoleFunc func(roleName string) bool
 type Role interface {
 	List() ([]sdktps.Role, error)
 	Check(name string) (string, error)
 	Add(name, role string) (string, error)
 	Delete(roleName string) error
-
 	PolicyAttach(policyARN, roleName string) error
 	PolicyDetach(policyARN, roleName string) error
 	PolicyListAttached(roleName string) ([]sdktps.AttachedPolicy, error)
 	PolicyAttachedList(roleName, marker string) ([]sdktps.AttachedPolicy, string, error)
 	PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) error
+	Walk(prefix string, fct RoleFunc) error
+	DetachRoles(prefix string) ([]string, error)
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Role {

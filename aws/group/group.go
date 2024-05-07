@@ -28,6 +28,7 @@ package group
 import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
 func (cli *client) List() (map[string]string, error) {
@@ -42,6 +43,90 @@ func (cli *client) List() (map[string]string, error) {
 
 		return res, nil
 	}
+}
+
+func (cli *client) Walk(prefix string, fct GroupFunc) error {
+	var (
+		err error
+		out *sdkiam.ListGroupsOutput
+		mrk *string
+		trk = true
+	)
+
+	for trk {
+		var in = &sdkiam.ListGroupsInput{}
+		if len(prefix) > 0 {
+			in.PathPrefix = sdkaws.String(prefix)
+		}
+
+		if mrk != nil && len(*mrk) > 0 {
+			in.Marker = mrk
+		}
+
+		out, err = cli.iam.ListGroups(cli.GetContext(), in)
+
+		if err != nil {
+			return cli.GetError(err)
+		} else if out == nil || len(out.Groups) < 1 {
+			return nil
+		} else {
+			trk = false
+			mrk = nil
+		}
+
+		for _, g := range out.Groups {
+			if !fct(g) {
+				return nil
+			}
+		}
+
+		if out.IsTruncated && out.Marker != nil && len(*out.Marker) > 0 {
+			trk = true
+			mrk = out.Marker
+		}
+	}
+	return nil
+}
+
+func (cli *client) detachPoliciesFromGroup(groupName string) error {
+	attachedPoliciesOutput, err := cli.iam.ListAttachedGroupPolicies(cli.GetContext(),
+		&sdkiam.ListAttachedGroupPoliciesInput{
+			GroupName: sdkaws.String(groupName),
+		})
+	if err != nil {
+		return cli.GetError(err)
+	}
+
+	for _, policy := range attachedPoliciesOutput.AttachedPolicies {
+		_, err := cli.iam.DetachGroupPolicy(cli.GetContext(),
+			&sdkiam.DetachGroupPolicyInput{
+				GroupName: sdkaws.String(groupName),
+				PolicyArn: policy.PolicyArn,
+			})
+		if err != nil {
+			return cli.GetError(err)
+		}
+	}
+
+	return nil
+}
+
+func (cli *client) DetachGroups(prefix string) ([]string, error) {
+	var detachedGroupNames []string
+	err := cli.Walk(prefix, func(group types.Group) bool {
+		if err := cli.detachPoliciesFromGroup(*group.GroupName); err != nil {
+			return false
+		}
+
+		detachedGroupNames = append(detachedGroupNames, *group.GroupName)
+		return true
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return detachedGroupNames, nil
 }
 
 func (cli *client) Add(groupName string) error {

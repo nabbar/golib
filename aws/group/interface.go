@@ -41,17 +41,17 @@ type client struct {
 }
 
 type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
-
+type GroupFunc func(group sdktps.Group) bool
 type Group interface {
 	UserList(username string) ([]string, error)
+	DetachGroups(prefix string) ([]string, error)
 	UserCheck(username, groupName string) (error, bool)
 	UserAdd(username, groupName string) error
 	UserRemove(username, groupName string) error
-
+	Walk(prefix string, fct GroupFunc) error
 	List() (map[string]string, error)
 	Add(groupName string) error
 	Remove(groupName string) error
-
 	PolicyList(groupName string) (map[string]string, error)
 	PolicyAttach(groupName, polArn string) error
 	PolicyDetach(groupName, polArn string) error

@@ -39,21 +39,20 @@ type client struct {
 	iam *iam.Client
 	s3  *s3.Client
 }
-
+type PolicyFunc func(policyArn string) bool
 type Policy interface {
 	List() (map[string]string, error)
-
 	Get(arn string) (*types.Policy, error)
 	Add(name, desc, policy string) (string, error)
 	Update(polArn, polContents string) error
 	Delete(polArn string) error
-
 	VersionList(arn string, maxItem int32, noDefaultVersion bool) (map[string]string, error)
 	VersionGet(arn string, vers string) (*types.PolicyVersion, error)
 	VersionAdd(arn string, doc string) error
 	VersionDel(arn string, vers string) error
-
 	CompareUpdate(arn string, doc string) (upd bool, err error)
+	Walk(prefix string, fct PolicyFunc) error
+	GetAllPolicies(prefix string) ([]string, error)
 }
 
 func New(ctx context.Context, bucket, region string, iam *iam.Client, s3 *s3.Client) Policy {
