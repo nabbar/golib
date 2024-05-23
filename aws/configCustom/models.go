@@ -31,6 +31,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"unicode"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
@@ -62,7 +63,13 @@ type awsModel struct {
 func (c *awsModel) Validate() error {
 	err := ErrorConfigValidator.Error(nil)
 
-	if er := libval.New().Struct(c); er != nil {
+	backupC := c
+	// Only if the first character is numeric
+	if !unicode.IsLetter(rune(c.Model.Bucket[0])) {
+		backupC.Bucket = "f" + c.Bucket[1:]
+	}
+
+	if er := libval.New().Struct(backupC); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
 			err.Add(e)
 		}
