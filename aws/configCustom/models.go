@@ -63,7 +63,7 @@ type awsModel struct {
 func (c *awsModel) Validate() error {
 	err := ErrorConfigValidator.Error(nil)
 
-	backupC := c
+	backupC := *c
 	// Only if the first character is numeric
 	if !unicode.IsLetter(rune(c.Model.Bucket[0])) {
 		backupC.Bucket = "f" + c.Bucket[1:]
