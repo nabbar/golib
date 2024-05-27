@@ -61,23 +61,10 @@ type awsModel struct {
 	mapRegion map[string]*url.URL
 }
 
-func containsInvalidSequences(input string) bool {
-	for i := 1; i < len(input); i++ {
-		if (input[i] == '.' && (input[i-1] == '.' || input[i-1] == '-')) ||
-			(input[i] == '-' && (input[i-1] == '-' || input[i-1] == '.')) {
-			return true
-		}
-	}
-	return false
-}
-
 func validateBucketS3(fl validator.FieldLevel) bool {
 	value := fl.Field().String()
-	re := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$`)
+	re := regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9]|\.[A-Za-z0-9]|-[A-Za-z0-9]){0,46}[A-Za-z0-9]$`)
 	if !re.MatchString(value) {
-		return false
-	}
-	if containsInvalidSequences(value) {
 		return false
 	}
 	return true
