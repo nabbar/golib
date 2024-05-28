@@ -37,6 +37,7 @@ func (o *bar) NewWorkerTry() bool {
 }
 
 func (o *bar) DeferWorker() {
+	o.Inc(1)
 	o.s.DeferWorker()
 }
 
