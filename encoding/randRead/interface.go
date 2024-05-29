@@ -27,7 +27,6 @@
 package randRead
 
 import (
-	"bufio"
 	"io"
 	"sync/atomic"
 )
@@ -49,11 +48,12 @@ func New(fct FuncRemote) io.ReadCloser {
 	f.Store(fct)
 
 	r := &remote{
+		r: new(atomic.Value),
 		f: f,
 	}
 
 	return &prnd{
-		b: bufio.NewReader(r),
+		b: new(atomic.Value),
 		r: r,
 	}
 }
