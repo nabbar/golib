@@ -28,11 +28,12 @@ package configCustom
 import (
 	"context"
 	"fmt"
-	"github.com/go-playground/validator/v10"
 	"net"
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/go-playground/validator/v10"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
