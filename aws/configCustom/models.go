@@ -33,8 +33,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
-
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
 	libhtc "github.com/nabbar/golib/httpcli"
@@ -62,7 +60,7 @@ type awsModel struct {
 	mapRegion map[string]*url.URL
 }
 
-func validateBucketS3(fl validator.FieldLevel) bool {
+func validateBucketS3(fl libval.FieldLevel) bool {
 	value := fl.Field().String()
 	re := regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9]|\.[A-Za-z0-9]|-[A-Za-z0-9]){0,46}[A-Za-z0-9]$`)
 	if !re.MatchString(value) {
