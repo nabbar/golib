@@ -9,7 +9,7 @@ The UI package empowers developers to craft immersive and interactive user inter
 - Text Input Questions: Prompt users to enter text-based inputs.  
 - Password Input Questions: Securely collect password inputs from users, hiding the entered characters for privacy.  
 - Dynamic Pagination: Automatically paginate choices for single-choice questions with more than 10 options, ensuring a smooth user experience without overwhelming them with too many choices at once.  
-
+- Each question can have separately its own string cursor and color (the default cursor it not specified is ->)
 These features collectively empower developers to create engaging and user-friendly interfaces, whether they are standalone applications or CLI tools integrated with Cobra.   
 
 ## Standalone Usage Examples:
@@ -18,6 +18,7 @@ These features collectively empower developers to create engaging and user-frien
 import (
     "fmt"
     "github.com/nabbar/cobra/ui"
+    "github.com/fatih/color"
 )
 
 func main() {
@@ -25,6 +26,8 @@ func main() {
     tui := ui.New()
     tui.SetQuestions([]ui.Question{
         {
+            CursorStr: "==>",
+            Color: color.FgCyan,
             Text: "What is your preferred programming language?",
             Options: []string{"Go", "Python", "JavaScript", "Java"},
             Handler: func(input string) error {

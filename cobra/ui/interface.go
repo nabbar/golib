@@ -25,15 +25,21 @@
 
 package ui
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/fatih/color"
+	"github.com/spf13/cobra"
+)
 
 type Question struct {
 	Text         string
 	Options      []string
-	Handler      func(string) error
-	PasswordType bool
 	FilePath     bool
+	PasswordType bool
+	Handler      func(string) error
+	Color        color.Attribute
+	CursorStr    string
 }
+
 type UI interface {
 	SetQuestions(questions []Question)
 	RunInteractiveUI()
