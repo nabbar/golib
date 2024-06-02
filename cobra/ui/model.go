@@ -32,7 +32,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/fatih/color"
+	color "github.com/fatih/color"
 	spfcbr "github.com/spf13/cobra"
 )
 
