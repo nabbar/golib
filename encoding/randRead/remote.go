@@ -24,56 +24,73 @@
  *
  */
 
-package randRead_test
+package randRead
 
 import (
-	"bytes"
-	"crypto/rand"
-	"encoding/binary"
-	"errors"
+	"fmt"
 	"io"
-	"strconv"
-
-	encrnd "github.com/nabbar/golib/encoding/randRead"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"sync/atomic"
 )
 
-func simRequest() (io.ReadCloser, error) {
-	var p = make([]byte, 1)
-	if n, e := rand.Read(p); e != nil {
-		return nil, e
-	} else if n > 0 {
-		return io.NopCloser(bytes.NewBuffer(p)), nil
+type remote struct {
+	f *atomic.Value // FuncRemote
+	r *atomic.Value // io.ReadCloser
+}
+
+func (o *remote) reader(p []byte) (n int, err error) {
+	if i := o.r.Load(); i == nil {
+		return 0, io.EOF
+	} else if r, k := i.(io.ReadCloser); !k {
+		return 0, io.EOF
 	} else {
-		return nil, errors.New("empty buffer")
+		return r.Read(p)
 	}
 }
 
-var _ = Describe("encoding/randRead", func() {
-	Context("complete Random Reader", func() {
-		var (
-			err error
-			nbr int64
-			rnd io.ReadCloser
-		)
+func (o *remote) readRemote() error {
+	if o.f == nil {
+		return fmt.Errorf("invalid reader")
+	} else if i := o.f.Load(); i == nil {
+		return fmt.Errorf("invalid reader")
+	} else if f, ok := i.(FuncRemote); !ok {
+		return fmt.Errorf("invalid reader")
+	} else if r, err := f(); err != nil {
+		return err
+	} else {
+		l := o.r.Swap(r)
 
-		It("must succeed when create new random reader", func() {
-			rnd = encrnd.New(simRequest)
-			Expect(rnd).ToNot(BeNil())
-		})
-
-		for i := 0; i < 10; i++ {
-			It("must succeed when using random reader on iteration #"+strconv.Itoa(i), func() {
-				nbr = 0
-				err = binary.Read(rnd, binary.BigEndian, &nbr)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nbr).ToNot(BeNumerically("==", 0))
-			})
+		if v, k := l.(io.Closer); k && v != nil {
+			_ = v.Close()
 		}
 
-		It("must succeed when closing the random reader", func() {
-			Expect(rnd.Close()).ToNot(HaveOccurred())
-		})
-	})
-})
+		return nil
+	}
+}
+
+func (o *remote) Read(p []byte) (n int, err error) {
+	n, err = o.reader(p)
+	if n > 0 {
+		return n, nil
+	}
+
+	if err = o.readRemote(); err != nil {
+		return 0, err
+	}
+
+	n, err = o.reader(p)
+	if n > 0 {
+		return n, nil
+	}
+
+	return 0, err
+}
+
+func (o *remote) Close() error {
+	if i := o.r.Load(); i == nil {
+		return nil
+	} else if r, k := i.(io.ReadCloser); !k {
+		return nil
+	} else {
+		return r.Close()
+	}
+}

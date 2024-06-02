@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	libval "github.com/go-playground/validator/v10"
@@ -41,7 +42,7 @@ type Model struct {
 	Region    string `mapstructure:"region" json:"region" yaml:"region" toml:"region" validate:"printascii,required"`
 	AccessKey string `mapstructure:"accesskey" json:"accesskey" yaml:"accesskey" toml:"accesskey" validate:"printascii,required"`
 	SecretKey string `mapstructure:"secretkey" json:"secretkey" yaml:"secretkey" toml:"secretkey" validate:"printascii,required"`
-	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket" toml:"bucket" validate:"printascii,omitempty"`
+	Bucket    string `mapstructure:"bucket" json:"bucket" yaml:"bucket" toml:"bucket" validate:"printascii,omitempty,bucket-s3"`
 }
 
 type ModelStatus struct {
@@ -54,10 +55,25 @@ type awsModel struct {
 	retryer func() sdkaws.Retryer
 }
 
+func validateBucketS3(fl libval.FieldLevel) bool {
+	value := fl.Field().String()
+	re := regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9]|\.[A-Za-z0-9]|-[A-Za-z0-9]){0,46}[A-Za-z0-9]$`)
+	if !re.MatchString(value) {
+		return false
+	}
+	return true
+}
+
 func (c *awsModel) Validate() error {
 	err := ErrorConfigValidator.Error(nil)
 
-	if er := libval.New().Struct(c); er != nil {
+	validate := libval.New()
+	valErr := validate.RegisterValidation("bucket-s3", validateBucketS3)
+	if valErr != nil {
+		err.Add(valErr)
+	}
+
+	if er := validate.Struct(c); er != nil {
 		if e, ok := er.(*libval.InvalidValidationError); ok {
 			err.Add(e)
 		}

@@ -27,6 +27,7 @@ package user
 
 import (
 	"fmt"
+
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
