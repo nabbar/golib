@@ -44,7 +44,6 @@ type cobra struct {
 	s libver.Version
 	b bool
 	d string
-
 	v FuncViper
 	i FuncInit
 	l FuncLogger
