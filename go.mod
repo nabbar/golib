@@ -35,7 +35,7 @@ require (
 	github.com/nats-io/jwt/v2 v2.5.7
 	github.com/nats-io/nats-server/v2 v2.10.16
 	github.com/nats-io/nats.go v1.35.0
-	github.com/nutsdb/nutsdb v1.0.4
+        github.com/nutsdb/nutsdb v0.14.3
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/pelletier/go-toml v1.9.5
