@@ -31,8 +31,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	tea "github.com/charmbrac
-	elet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/fatih/color"
 	spfcbr "github.com/spf13/cobra"
 )
