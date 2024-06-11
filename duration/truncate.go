@@ -28,40 +28,30 @@
 package duration
 
 import (
-	"fmt"
 	"math"
 	"time"
 )
 
-func (d Duration) Time() time.Duration {
-	return time.Duration(d)
+func (d Duration) TruncateMicroseconds() Duration {
+	return Duration(time.Duration(d.Time().Microseconds()) * time.Microsecond)
 }
 
-func (d Duration) String() string {
-	var (
-		s string
-		n = d.Days()
-		i = d.Time()
-	)
-
-	if n > 0 {
-		i = i - (time.Duration(n) * 24 * time.Hour)
-		s = fmt.Sprintf("%dd", n)
-	}
-
-	if i > 0 {
-		s = fmt.Sprintf("%s%s", s, i.String())
-	}
-
-	return s
+func (d Duration) TruncateMilliseconds() Duration {
+	return Duration(time.Duration(d.Time().Milliseconds()) * time.Millisecond)
 }
 
-func (d Duration) Days() int64 {
-	t := math.Floor(d.Time().Hours() / 24)
+func (d Duration) TruncateSeconds() Duration {
+	return Duration(time.Duration(math.Floor(d.Time().Seconds())) * time.Second)
+}
 
-	if t > math.MaxInt64 {
-		return math.MaxInt64
-	}
+func (d Duration) TruncateMinutes() Duration {
+	return Duration(time.Duration(math.Floor(d.Time().Minutes())) * time.Minute)
+}
 
-	return int64(t)
+func (d Duration) TruncateHours() Duration {
+	return Duration(time.Duration(math.Floor(d.Time().Hours())) * time.Hour)
+}
+
+func (d Duration) TruncateDays() Duration {
+	return Duration(time.Duration(d.Days()) * 24 * time.Hour)
 }

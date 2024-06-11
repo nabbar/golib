@@ -2,15 +2,15 @@ module github.com/nabbar/golib
 
 go 1.22
 
-toolchain go1.22.2
+toolchain go1.22.3
 
 require (
-	github.com/aws/aws-sdk-go v1.53.11
-	github.com/aws/aws-sdk-go-v2 v1.27.0
-	github.com/aws/aws-sdk-go-v2/config v1.27.16
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.16
-	github.com/aws/aws-sdk-go-v2/service/iam v1.32.4
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.54.3
+	github.com/aws/aws-sdk-go v1.53.20
+	github.com/aws/aws-sdk-go-v2 v1.27.2
+	github.com/aws/aws-sdk-go-v2/config v1.27.18
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.18
+	github.com/aws/aws-sdk-go-v2/service/iam v1.32.6
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.55.1
 	github.com/aws/smithy-go v1.20.2
 	github.com/bits-and-blooms/bitset v1.13.0
 	github.com/c-bata/go-prompt v0.2.6
@@ -20,10 +20,10 @@ require (
 	github.com/fxamacker/cbor/v2 v2.6.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-ldap/ldap/v3 v3.4.8
-	github.com/go-playground/validator/v10 v10.20.0
+	github.com/go-playground/validator/v10 v10.21.0
 	github.com/google/go-github/v33 v33.0.0
 	github.com/hashicorp/go-hclog v1.6.3
-	github.com/hashicorp/go-retryablehttp v0.7.6
+	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/hashicorp/go-version v1.7.0
 	github.com/jlaffaye/ftp v0.2.0
@@ -45,21 +45,21 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/jwalterweatherman v1.1.0
-	github.com/spf13/viper v1.18.2
+	github.com/spf13/viper v1.19.0
 	github.com/ugorji/go/codec v1.2.12
 	github.com/ulikunitz/xz v0.5.12
 	github.com/vbauerster/mpb/v8 v8.7.3
 	github.com/xanzy/go-gitlab v0.105.0
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
 	github.com/xujiajun/utils v0.0.0-20220904132955-5f7c5b914235
-	golang.org/x/exp v0.0.0-20240529005216-23cca8864a10
-	golang.org/x/net v0.25.0
-	golang.org/x/oauth2 v0.20.0
+	golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8
+	golang.org/x/net v0.26.0
+	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.7.0
-	golang.org/x/sys v0.20.0
-	golang.org/x/term v0.20.0
+	golang.org/x/sys v0.21.0
+	golang.org/x/term v0.21.0
 	gopkg.in/yaml.v3 v3.0.1
-	gorm.io/driver/clickhouse v0.6.0
+	gorm.io/driver/clickhouse v0.6.1
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/driver/postgres v1.5.7
 	gorm.io/driver/sqlite v1.5.5
@@ -85,21 +85,21 @@ require (
 	github.com/antlabs/timer v0.1.4 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.2 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.3 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.7 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.7 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.5 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.9 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.7 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.2 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.7 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.20.9 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.24.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.28.10 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.20.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.24.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.28.12 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
-	github.com/bytedance/sonic v1.11.7 // indirect
+	github.com/bytedance/sonic v1.11.8 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
@@ -142,11 +142,11 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/memberlist v0.2.2 // indirect
-	github.com/huandu/xstrings v1.4.0 // indirect
+	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.6.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056 // indirect
@@ -156,7 +156,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/juju/ratelimit v1.0.2-0.20191002062651-f60b32039441 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
@@ -166,7 +166,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mattn/go-tty v0.0.5 // indirect
-	github.com/microsoft/go-mssqldb v1.7.1 // indirect
+	github.com/microsoft/go-mssqldb v1.7.2 // indirect
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/minio/highwayhash v1.0.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -186,7 +186,7 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/sagikazarmark/locafero v0.4.0 // indirect
+	github.com/sagikazarmark/locafero v0.6.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
@@ -210,10 +210,10 @@ require (
 	go.opentelemetry.io/otel/trace v1.27.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/crypto v0.24.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.21.0 // indirect
+	golang.org/x/tools v0.22.0 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
