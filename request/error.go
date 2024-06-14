@@ -32,48 +32,91 @@ import (
 )
 
 type requestError struct {
-	c  int
-	s  string
-	se bool
-	b  *bytes.Buffer
-	be bool
-	e  error
+	code      int
+	status    string
+	statusErr bool
+	bufBody   *bytes.Buffer
+	bodyErr   bool
+	err       error
 }
 
 func (r *requestError) StatusCode() int {
-	return r.c
+	return r.code
 }
 
 func (r *requestError) Status() string {
-	return r.s
+	return r.status
 }
 
 func (r *requestError) Body() *bytes.Buffer {
-	return r.b
+	return r.bufBody
 }
 
 func (r *requestError) Error() error {
-	return r.e
+	return r.err
 }
 
 func (r *requestError) IsError() bool {
-	return r.se || r.be || r.e != nil
+	return r.statusErr || r.bodyErr || r.err != nil
 }
 
 func (r *requestError) IsStatusError() bool {
-	return r.se
+	return r.statusErr
 }
 
 func (r *requestError) IsBodyError() bool {
-	return r.be
+	return r.bodyErr
 }
 
 func (r *requestError) ParseBody(i interface{}) bool {
-	if r.b != nil && r.b.Len() > 0 {
-		if e := json.Unmarshal(r.b.Bytes(), i); e == nil {
+	if r.bufBody != nil && r.bufBody.Len() > 0 {
+		if e := json.Unmarshal(r.bufBody.Bytes(), i); e == nil {
 			return true
 		}
 	}
 
 	return false
+}
+
+func (r *request) newError() {
+	r.err.Store(&requestError{
+		code:      0,
+		status:    "",
+		statusErr: false,
+		bufBody:   bytes.NewBuffer(make([]byte, 0)),
+		bodyErr:   false,
+		err:       nil,
+	})
+}
+
+func (r *request) getError() *requestError {
+	if i := r.err.Load(); i != nil {
+		if v, k := i.(*requestError); k {
+			return v
+		}
+	}
+
+	return &requestError{
+		code:      0,
+		status:    "",
+		statusErr: false,
+		bufBody:   bytes.NewBuffer(make([]byte, 0)),
+		bodyErr:   false,
+		err:       nil,
+	}
+}
+
+func (r *request) setError(e *requestError) {
+	if e == nil {
+		e = &requestError{
+			code:      0,
+			status:    "",
+			statusErr: false,
+			bufBody:   bytes.NewBuffer(make([]byte, 0)),
+			bodyErr:   false,
+			err:       nil,
+		}
+	}
+
+	r.err.Store(e)
 }

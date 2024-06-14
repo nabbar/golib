@@ -51,19 +51,12 @@ func (r *request) HealthCheck(ctx context.Context) error {
 	var (
 		opts = r.GetOption()
 		ednp = r.GetFullUrl()
+		head = make(http.Header)
 		ent  logent.Entry
 	)
 
 	if log := r._getDefaultLogger(); log != nil {
 		ent = log.Entry(loglvl.ErrorLevel, "healthcheck")
-	}
-
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	head := make(url.Values, 0)
-	if v := r.h.Get(_Authorization); v != "" {
-		head.Set(_Authorization, v)
 	}
 
 	if !opts.Health.Enable {
@@ -95,7 +88,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 		ent.FieldAdd("method", http.MethodGet)
 	}
 
-	req, err = r._MakeRequest(ctx, ednp, http.MethodGet, nil, head, nil)
+	req, err = r.makeRequest(ctx, ednp, http.MethodGet, nil, head, nil)
 
 	if err != nil {
 		if ent != nil {
@@ -113,7 +106,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 		return err
 	}
 
-	if buf, err = r._CheckResponse(rsp); err != nil {
+	if buf, err = r.checkResponse(rsp); err != nil {
 		if ent != nil {
 			ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
 		}
@@ -121,7 +114,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 	}
 
 	if len(opts.Health.Result.ValidHTTPCode) > 0 {
-		if !r._IsValidCode(opts.Health.Result.ValidHTTPCode, rsp.StatusCode) {
+		if !r.isValidCode(opts.Health.Result.ValidHTTPCode, rsp.StatusCode) {
 			err = ErrorResponseStatus.Error(fmt.Errorf("status: %s", rsp.Status))
 			if ent != nil {
 				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
@@ -129,7 +122,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 			return err
 		}
 	} else if len(opts.Health.Result.InvalidHTTPCode) > 0 {
-		if r._IsValidCode(opts.Health.Result.InvalidHTTPCode, rsp.StatusCode) {
+		if r.isValidCode(opts.Health.Result.InvalidHTTPCode, rsp.StatusCode) {
 			err = ErrorResponseStatus.Error(fmt.Errorf("status: %s", rsp.Status))
 			if ent != nil {
 				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
@@ -139,7 +132,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 	}
 
 	if len(opts.Health.Result.Contain) > 0 {
-		if !r._IsValidContents(opts.Health.Result.Contain, buf) {
+		if !r.isValidContents(opts.Health.Result.Contain, buf) {
 			err = ErrorResponseContainsNotFound.Error(nil)
 			if ent != nil {
 				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
@@ -147,7 +140,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 			return err
 		}
 	} else if len(opts.Health.Result.NotContain) > 0 {
-		if r._IsValidContents(opts.Health.Result.NotContain, buf) {
+		if r.isValidContents(opts.Health.Result.NotContain, buf) {
 			err = ErrorResponseNotContainsFound.Error(nil)
 			if ent != nil {
 				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
@@ -192,7 +185,7 @@ func (r *request) Monitor(ctx context.Context, vrs libver.Version) (montps.Monit
 		})
 	}
 
-	if mon, e = libmon.New(r.x, inf); e != nil {
+	if mon, e = libmon.New(r.getFuncContext(), inf); e != nil {
 		return nil, e
 	} else if mon == nil {
 		return nil, nil
@@ -200,7 +193,7 @@ func (r *request) Monitor(ctx context.Context, vrs libver.Version) (montps.Monit
 
 	mon.RegisterLoggerDefault(r._getDefaultLogger)
 
-	if e = mon.SetConfig(r.x, opt.Health.Monitor); e != nil {
+	if e = mon.SetConfig(r.getFuncContext(), opt.Health.Monitor); e != nil {
 		return nil, e
 	}
 

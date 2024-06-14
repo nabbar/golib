@@ -90,7 +90,11 @@ type Header interface {
 
 type Body interface {
 	BodyJson(body interface{}) error
-	BodyReader(body io.Reader, contentType string)
+	BodyReader(body io.Reader, contentType string) error
+}
+
+type BodyRetryer interface {
+	Retry() io.Reader
 }
 
 type Request interface {
@@ -121,23 +125,23 @@ type Request interface {
 
 func New(ctx libctx.FuncContext, opt *Options, cli libhtc.HttpClient) (Request, error) {
 	r := &request{
-		s: sync.Mutex{},
-		o: nil,
-		x: ctx,
-		l: nil,
-		u: nil,
-		h: make(url.Values),
-		p: make(url.Values),
-		b: bytes.NewBuffer(make([]byte, 0)),
-		m: http.MethodGet,
-		e: nil,
-		c: new(atomic.Value),
+		mux: sync.Mutex{},
+		opt: new(atomic.Value),
+		ctx: new(atomic.Value),
+		log: new(atomic.Value),
+		uri: nil,
+		hdr: sync.Map{},
+		prm: make(url.Values),
+		bdr: nil,
+		mth: http.MethodGet,
+		err: new(atomic.Value),
+		cli: new(atomic.Value),
 	}
 
 	if cli != nil {
-		r.c.Store(cli)
+		r.cli.Store(cli)
 	} else {
-		r.c.Store(libhtc.GetClient())
+		r.cli.Store(libhtc.GetClient())
 	}
 
 	if e := r.SetOption(opt); e != nil {

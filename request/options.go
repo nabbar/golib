@@ -28,7 +28,6 @@ package request
 
 import (
 	"fmt"
-	"sync/atomic"
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
@@ -187,9 +186,9 @@ func (o *Options) Update(ctx libctx.FuncContext, req Request) (Request, error) {
 }
 
 func (r *request) options() *Options {
-	if r.o == nil {
+	if r.opt == nil {
 		return nil
-	} else if i := r.o.Load(); i == nil {
+	} else if i := r.opt.Load(); i == nil {
 		return nil
 	} else if o, ok := i.(*Options); !ok {
 		return nil
@@ -199,8 +198,6 @@ func (r *request) options() *Options {
 }
 
 func (r *request) GetOption() *Options {
-	r.s.Lock()
-	defer r.s.Unlock()
 	return r.options()
 }
 
@@ -215,40 +212,8 @@ func (r *request) SetOption(opt *Options) error {
 		r.AuthBearer(opt.Auth.Bearer.Token)
 	}
 
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	if r.o == nil {
-		r.o = new(atomic.Value)
-	}
-
-	r.o.Store(opt)
+	r.opt.Store(opt)
 	return nil
-}
-
-func (r *request) RegisterHTTPClient(cli libhtc.HttpClient) {
-	if cli == nil {
-		return
-	}
-	r.c.Store(cli)
-}
-
-func (r *request) RegisterDefaultLogger(fct liblog.FuncLog) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	r.l = fct
-}
-
-func (r *request) _getDefaultLogger() liblog.Logger {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	if r.l == nil {
-		return nil
-	} else {
-		return r.l()
-	}
 }
 
 func (r *request) defaultTLS() libtls.TLSConfig {
@@ -257,11 +222,4 @@ func (r *request) defaultTLS() libtls.TLSConfig {
 	}
 
 	return nil
-}
-
-func (r *request) RegisterContext(fct libctx.FuncContext) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	r.x = fct
 }

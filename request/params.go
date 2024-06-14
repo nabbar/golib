@@ -29,51 +29,48 @@ package request
 import "net/url"
 
 func (r *request) CleanParams() {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	r.p = make(url.Values)
+	r.prm = make(url.Values)
 }
 
 func (r *request) DelParams(key string) {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	r.p.Del(key)
+	r.prm.Del(key)
 }
 
 func (r *request) SetParams(key, val string) {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	if len(r.p) < 1 {
-		r.p = make(url.Values)
+	if len(r.prm) < 1 {
+		r.prm = make(url.Values)
 	}
 
-	r.p.Set(key, val)
+	r.prm.Set(key, val)
 }
 
 func (r *request) AddParams(key, val string) {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	if len(r.p) < 1 {
-		r.p = make(url.Values)
+	if len(r.prm) < 1 {
+		r.prm = make(url.Values)
 	}
 
-	r.p.Set(key, val)
+	r.prm.Set(key, val)
 }
 
 func (r *request) GetFullUrl() *url.URL {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	return r.u
+	return r.uri
 }
 
 func (r *request) SetFullUrl(u *url.URL) {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	r.u = u
+	r.uri = u
 }

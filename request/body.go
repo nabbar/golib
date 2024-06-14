@@ -36,6 +36,29 @@ const (
 	contentTypeJson = "application/json"
 )
 
+type bds struct {
+	b []byte
+}
+
+func (b *bds) Retry() io.Reader {
+	var p = make([]byte, len(b.b), cap(b.b))
+	copy(p, b.b)
+	return bytes.NewBuffer(p)
+}
+
+type bdf struct {
+	f io.ReadSeeker
+	p int64
+}
+
+func (b *bdf) Retry() io.Reader {
+	if _, e := b.f.Seek(b.p, io.SeekStart); e != nil {
+		return nil
+	} else {
+		return b.f
+	}
+}
+
 func (r *request) BodyJson(body interface{}) error {
 	if p, e := json.Marshal(body); e != nil {
 		return e
@@ -44,23 +67,41 @@ func (r *request) BodyJson(body interface{}) error {
 	} else {
 		r.ContentType(contentTypeJson)
 		r.ContentLength(uint64(len(p)))
-		r._BodyReader(bytes.NewBuffer(p))
+		r._BodyReader(&bds{
+			b: p,
+		})
 	}
 
 	return nil
 }
 
-func (r *request) BodyReader(body io.Reader, contentType string) {
-	r._BodyReader(body)
+func (r *request) BodyReader(body io.Reader, contentType string) error {
+	if f, k := body.(io.ReadSeeker); k {
+		if p, e := f.Seek(0, io.SeekStart); e != nil {
+			return e
+		} else {
+			r._BodyReader(&bdf{
+				f: f,
+				p: p,
+			})
+		}
+	} else {
+		if p, e := io.ReadAll(body); e != nil {
+			return e
+		} else {
+			r._BodyReader(&bds{
+				b: p,
+			})
+		}
+	}
 
 	if contentType != "" {
 		r.ContentType(contentType)
 	}
+
+	return nil
 }
 
-func (r *request) _BodyReader(body io.Reader) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	r.b = body
+func (r *request) _BodyReader(body BodyRetryer) {
+	r.bdr = body
 }

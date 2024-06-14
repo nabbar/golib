@@ -37,45 +37,45 @@ func (r *request) SetEndpoint(u string) error {
 	if uri, err := url.Parse(u); err != nil {
 		return err
 	} else {
-		r.s.Lock()
-		defer r.s.Unlock()
+		r.mux.Lock()
+		defer r.mux.Unlock()
 
-		r.u = uri
+		r.uri = uri
 		return nil
 	}
 }
 
 func (r *request) GetEndpoint() string {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	return r.u.String()
+	return r.uri.String()
 }
 
 func (r *request) SetPath(raw bool, path string) {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
 	if raw {
-		r.u.RawPath = path
+		r.uri.RawPath = path
 	} else {
-		r.u.Path = path
+		r.uri.Path = path
 	}
 }
 
 func (r *request) AddPath(raw bool, pathPart ...string) {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	if r.u == nil {
+	if r.uri == nil {
 		return
 	}
 
 	var str string
 	if raw {
-		str = path.Clean(r.u.RawPath)
+		str = path.Clean(r.uri.RawPath)
 	} else {
-		str = path.Clean(r.u.Path)
+		str = path.Clean(r.uri.Path)
 	}
 
 	for i := range pathPart {
@@ -91,47 +91,47 @@ func (r *request) AddPath(raw bool, pathPart ...string) {
 	}
 
 	if raw {
-		r.u.RawPath = path.Clean(str)
+		r.uri.RawPath = path.Clean(str)
 	} else {
-		r.u.Path = path.Clean(str)
+		r.uri.Path = path.Clean(str)
 	}
 }
 
 func (r *request) SetMethod(method string) {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
 	switch strings.ToUpper(method) {
 	case http.MethodGet:
-		r.m = http.MethodGet
+		r.mth = http.MethodGet
 	case http.MethodHead:
-		r.m = http.MethodHead
+		r.mth = http.MethodHead
 	case http.MethodPost:
-		r.m = http.MethodPost
+		r.mth = http.MethodPost
 	case http.MethodPut:
-		r.m = http.MethodPut
+		r.mth = http.MethodPut
 	case http.MethodPatch:
-		r.m = http.MethodPatch
+		r.mth = http.MethodPatch
 	case http.MethodDelete:
-		r.m = http.MethodDelete
+		r.mth = http.MethodDelete
 	case http.MethodConnect:
-		r.m = http.MethodConnect
+		r.mth = http.MethodConnect
 	case http.MethodOptions:
-		r.m = http.MethodOptions
+		r.mth = http.MethodOptions
 	case http.MethodTrace:
-		r.m = http.MethodTrace
+		r.mth = http.MethodTrace
 	default:
-		r.m = strings.ToUpper(method)
+		r.mth = strings.ToUpper(method)
 	}
 
-	if r.m == "" {
-		r.m = http.MethodGet
+	if r.mth == "" {
+		r.mth = http.MethodGet
 	}
 }
 
 func (r *request) GetMethod() string {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	return r.m
+	return r.mth
 }

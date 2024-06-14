@@ -38,23 +38,23 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
-func (r *request) _MakeRequest(ctx context.Context, u *url.URL, mtd string, body io.Reader, head url.Values, params url.Values) (*http.Request, error) {
+func (r *request) makeRequest(ctx context.Context, u *url.URL, mtd string, body BodyRetryer, head http.Header, params url.Values) (*http.Request, error) {
 	var (
 		req *http.Request
 		err error
 	)
 
-	req, err = http.NewRequestWithContext(ctx, mtd, u.String(), body)
+	if body != nil {
+		req, err = http.NewRequestWithContext(ctx, mtd, u.String(), body.Retry())
+	} else {
+		req, err = http.NewRequestWithContext(ctx, mtd, u.String(), nil)
+	}
 
 	if err != nil {
 		return nil, ErrorCreateRequest.Error(err)
 	}
 
-	if len(head) > 0 {
-		for k := range head {
-			req.Header.Set(k, head.Get(k))
-		}
-	}
+	req.Header = head
 
 	if len(params) > 0 {
 		q := req.URL.Query()
@@ -67,7 +67,7 @@ func (r *request) _MakeRequest(ctx context.Context, u *url.URL, mtd string, body
 	return req, nil
 }
 
-func (r *request) _CheckResponse(rsp *http.Response, validStatus ...int) (*bytes.Buffer, error) {
+func (r *request) checkResponse(rsp *http.Response, validStatus ...int) (*bytes.Buffer, error) {
 	var (
 		e error
 		b = bytes.NewBuffer(make([]byte, 0))
@@ -89,14 +89,14 @@ func (r *request) _CheckResponse(rsp *http.Response, validStatus ...int) (*bytes
 		}
 	}
 
-	if !r._IsValidCode(validStatus, rsp.StatusCode) {
+	if !r.isValidCode(validStatus, rsp.StatusCode) {
 		return b, ErrorResponseStatus.Error(nil)
 	}
 
 	return b, nil
 }
 
-func (r *request) _IsValidCode(listValid []int, statusCode int) bool {
+func (r *request) isValidCode(listValid []int, statusCode int) bool {
 	if len(listValid) < 1 {
 		return true
 	}
@@ -110,7 +110,7 @@ func (r *request) _IsValidCode(listValid []int, statusCode int) bool {
 	return false
 }
 
-func (r *request) _IsValidContents(contains []string, buf *bytes.Buffer) bool {
+func (r *request) isValidContents(contains []string, buf *bytes.Buffer) bool {
 	if len(contains) < 1 {
 		return true
 	} else if buf.Len() < 1 {
@@ -127,39 +127,37 @@ func (r *request) _IsValidContents(contains []string, buf *bytes.Buffer) bool {
 }
 
 func (r *request) Do() (*http.Response, error) {
-	r.s.Lock()
-	defer r.s.Unlock()
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	if r.m == "" || r.u == nil || r.u.String() == "" {
+	if r.mth == "" || r.uri == nil || r.uri.String() == "" {
 		return nil, ErrorParamInvalid.Error(nil)
 	}
 
 	var (
 		e   error
 		req *http.Request
+		rer *requestError
 		rsp *http.Response
 		err error
 	)
 
-	r.e = &requestError{
-		c:  0,
-		s:  "",
-		se: false,
-		b:  bytes.NewBuffer(make([]byte, 0)),
-		be: false,
-		e:  nil,
-	}
+	r.newError()
+	rer = r.getError()
 
-	req, err = r._MakeRequest(r.context(), r.u, r.m, r.b, r.h, r.p)
+	req, err = r.makeRequest(r.context(), r.uri, r.mth, r.bdr, r.httpHeader(), r.prm)
+
 	if err != nil {
-		r.e.e = err
-		return nil, err
+		rer.err = err
+		r.setError(rer)
+		return nil, ErrorCreateRequest.Error(err)
 	}
 
 	rsp, e = r.client().Do(req)
 
 	if e != nil {
-		r.e.e = e
+		rer.err = e
+		r.setError(rer)
 		return nil, ErrorSendRequest.Error(e)
 	}
 
@@ -173,40 +171,35 @@ func (r *request) DoParse(model interface{}, validStatus ...int) error {
 
 		err error
 		rsp *http.Response
+		rer *requestError
 	)
-
-	r.e = &requestError{
-		c:  0,
-		s:  "",
-		se: false,
-		b:  bytes.NewBuffer(make([]byte, 0)),
-		be: false,
-		e:  nil,
-	}
 
 	if rsp, err = r.Do(); err != nil {
 		return err
 	} else if rsp == nil {
 		return ErrorResponseInvalid.Error(nil)
 	} else {
-		r.e.c = rsp.StatusCode
-		r.e.s = rsp.Status
+		rer = r.getError()
+		rer.code = rsp.StatusCode
+		rer.status = rsp.Status
 	}
 
-	b, err = r._CheckResponse(rsp, validStatus...)
-	r.e.b = b
+	b, err = r.checkResponse(rsp, validStatus...)
+	rer.bufBody = b
 
 	if er := liberr.Get(err); er != nil && er.HasCode(ErrorResponseStatus) {
-		r.e.se = true
+		rer.statusErr = true
 	} else if err != nil {
-		r.e.e = err
+		rer.err = err
+		r.setError(rer)
 		return err
 	}
 
 	if b.Len() > 0 {
 		if e = json.Unmarshal(b.Bytes(), model); e != nil {
-			r.e.be = true
-			r.e.e = e
+			rer.bodyErr = true
+			rer.err = e
+			r.setError(rer)
 			return ErrorResponseUnmarshall.Error(e)
 		}
 	}

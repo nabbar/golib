@@ -28,14 +28,14 @@ package request
 
 import (
 	"context"
-	"io"
 	"net/url"
 	"sync"
 	"sync/atomic"
 
 	libctx "github.com/nabbar/golib/context"
-	libhtc "github.com/nabbar/golib/httpcli"
 	liblog "github.com/nabbar/golib/logger"
+
+	libhtc "github.com/nabbar/golib/httpcli"
 )
 
 const (
@@ -47,35 +47,43 @@ const (
 )
 
 type request struct {
-	s sync.Mutex
+	mux sync.Mutex
 
-	o *atomic.Value      // Options
-	x libctx.FuncContext // Context function
-	l liblog.FuncLog     // Default logger
-	u *url.URL           // endpoint url
-	h url.Values         // header values
-	p url.Values         // parameters values
-	b io.Reader          // body io reader
-	m string             // method
-	e *requestError      // Error pointer
-	c *atomic.Value      // libhtc HTTPClient
+	opt *atomic.Value // Options
+	ctx *atomic.Value // Context function: libctx.FuncContext
+	log *atomic.Value // Default logger : liblog.FuncLog
+	uri *url.URL      // endpoint url
+	hdr sync.Map      // header values
+	prm url.Values    // parameters values
+	bdr BodyRetryer   // body io reader
+	mth string        // method
+	err *atomic.Value // Error pointer: *requestError
+	cli *atomic.Value // libhtc HTTPClient
 }
 
 func (r *request) Clone() (Request, error) {
 	if n, e := r.New(); e != nil {
 		return nil, e
 	} else {
-		r.s.Lock()
-		defer r.s.Unlock()
-
 		n.CleanHeader()
-		for k := range r.h {
-			n.SetHeader(k, r.h.Get(k))
-		}
+
+		r.hdr.Range(func(key, value any) bool {
+			if u, l := key.(string); !l {
+				return true
+			} else if v, k := value.([]string); !k {
+				return true
+			} else {
+				for _, w := range v {
+					n.AddHeader(u, w)
+				}
+			}
+
+			return true
+		})
 
 		n.CleanParams()
-		for k := range r.p {
-			n.SetParams(k, r.p.Get(k))
+		for k := range r.prm {
+			n.SetParams(k, r.prm.Get(k))
 		}
 
 		return n, nil
@@ -83,9 +91,6 @@ func (r *request) Clone() (Request, error) {
 }
 
 func (r *request) New() (Request, error) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
 	var (
 		n *request
 		c = r.options()
@@ -95,66 +100,103 @@ func (r *request) New() (Request, error) {
 		c = &Options{}
 	}
 
-	if i, e := New(r.x, c, r.client()); e != nil {
+	if i, e := New(r.getFuncContext(), c, r.client()); e != nil {
 		return nil, e
 	} else {
 		n = i.(*request)
 	}
 
-	if r.u != nil {
-		n.u = &url.URL{
-			Scheme:      r.u.Scheme,
-			Opaque:      r.u.Opaque,
-			User:        r.u.User,
-			Host:        r.u.Host,
-			Path:        r.u.Path,
-			RawPath:     r.u.RawPath,
-			ForceQuery:  r.u.ForceQuery,
-			RawQuery:    r.u.RawQuery,
-			Fragment:    r.u.Fragment,
-			RawFragment: r.u.RawFragment,
+	if r.uri != nil {
+		n.uri = &url.URL{
+			Scheme:      r.uri.Scheme,
+			Opaque:      r.uri.Opaque,
+			User:        r.uri.User,
+			Host:        r.uri.Host,
+			Path:        r.uri.Path,
+			RawPath:     r.uri.RawPath,
+			ForceQuery:  r.uri.ForceQuery,
+			RawQuery:    r.uri.RawQuery,
+			Fragment:    r.uri.Fragment,
+			RawFragment: r.uri.RawFragment,
 		}
 	}
 
-	if r.l != nil {
-		n.l = r.l
+	if r.log != nil {
+		n.log = r.log
 	}
 
 	return n, nil
 }
 
-func (r *request) context() context.Context {
-	if r.x != nil {
-		if x := r.x(); x != nil {
-			return x
+func (r *request) RegisterDefaultLogger(fct liblog.FuncLog) {
+	if fct == nil {
+		fct = func() liblog.Logger {
+			return nil
 		}
 	}
 
-	return context.Background()
+	r.log.Store(fct)
+}
+
+func (r *request) _getDefaultLogger() liblog.Logger {
+	if i := r.log.Load(); i == nil {
+		return nil
+	} else if v, k := i.(liblog.FuncLog); !k {
+		return nil
+	} else {
+		return v()
+	}
+}
+
+func (r *request) RegisterContext(fct libctx.FuncContext) {
+	if fct == nil {
+		fct = context.Background
+	}
+
+	r.ctx.Store(fct)
+}
+
+func (r *request) getFuncContext() libctx.FuncContext {
+	if i := r.ctx.Load(); i == nil {
+		return nil
+	} else if v, k := i.(libctx.FuncContext); !k {
+		return nil
+	} else {
+		return v
+	}
+}
+
+func (r *request) context() context.Context {
+	if f := r.getFuncContext(); f == nil {
+		return context.Background()
+	} else {
+		return f()
+	}
+}
+
+func (r *request) RegisterHTTPClient(cli libhtc.HttpClient) {
+	if cli == nil {
+		cli = libhtc.GetClient()
+	}
+
+	r.cli.Store(cli)
 }
 
 func (r *request) client() libhtc.HttpClient {
-	if i := r.c.Load(); i != nil {
+	if i := r.cli.Load(); i != nil {
 		if c, k := i.(libhtc.HttpClient); k {
 			return c
 		}
 	}
 
-	c := libhtc.GetClient()
-	r.c.Store(c)
-	return c
+	return libhtc.GetClient()
 }
 
 func (r *request) Error() Error {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	return r.e
+	return r.getError()
 }
 
 func (r *request) IsError() bool {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	return r.e != nil && r.e.IsError()
+	err := r.getError()
+	return err.IsError()
 }

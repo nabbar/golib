@@ -28,7 +28,7 @@ package request
 
 import (
 	"fmt"
-	"net/url"
+	"net/http"
 )
 
 func (r *request) ContentType(mime string) {
@@ -40,37 +40,64 @@ func (r *request) ContentLength(size uint64) {
 }
 
 func (r *request) CleanHeader() {
-	r.s.Lock()
-	defer r.s.Unlock()
+	var k = make([]any, 0)
 
-	r.h = make(url.Values)
+	r.hdr.Range(func(key, value any) bool {
+		k = append(k, key)
+		return true
+	})
+
+	for _, key := range k {
+		r.hdr.Delete(key)
+	}
 }
 
 func (r *request) DelHeader(key string) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	r.h.Del(key)
+	r.hdr.Delete(key)
 }
 
 func (r *request) SetHeader(key, value string) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	if len(r.h) < 1 {
-		r.h = make(url.Values)
-	}
-
-	r.h.Set(key, value)
+	r.hdr.Store(key, append(make([]string, 0), value))
 }
 
 func (r *request) AddHeader(key, value string) {
-	r.s.Lock()
-	defer r.s.Unlock()
-
-	if len(r.h) < 1 {
-		r.h = make(url.Values)
+	var val []string
+	if i, l := r.hdr.Load(key); i != nil && l {
+		if v, k := i.([]string); k && len(v) > 0 {
+			val = v
+		}
 	}
 
-	r.h.Add(key, value)
+	if len(val) < 1 {
+		val = make([]string, 0)
+	}
+
+	r.hdr.Store(key, append(val, value))
+}
+
+func (r *request) GetHeader(key string) []string {
+	if i, l := r.hdr.Load(key); i != nil && l {
+		if v, k := i.([]string); k && len(v) > 0 {
+			return v
+		}
+	}
+
+	return make([]string, 0)
+}
+
+func (r *request) httpHeader() http.Header {
+	var hdr = make(http.Header)
+
+	r.hdr.Range(func(key, value any) bool {
+		if u, k := key.(string); !k {
+			return true
+		} else if v, l := value.([]string); !l {
+			return true
+		} else {
+			hdr[u] = v
+			return true
+		}
+	})
+
+	return hdr
 }
