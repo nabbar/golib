@@ -26,6 +26,11 @@
 package aws_test
 
 import (
+	"io"
+
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
+	awspsh "github.com/nabbar/golib/aws/pusher"
 	libsiz "github.com/nabbar/golib/size"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -49,7 +54,7 @@ var _ = Describe("Bucket", func() {
 				Expect(objects).To(HaveLen(0))
 			})
 		})
-		Context("With the object", func() {
+		Context("With the object sent as mpu", func() {
 			It("Must succeed", func() {
 				var (
 					err error
@@ -65,6 +70,130 @@ var _ = Describe("Bucket", func() {
 
 				err = cli.Object().Delete(true, "object")
 				Expect(err).ToNot(HaveOccurred())
+
+				err = cli.Object().Delete(false, "object")
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Context("With a large object sent with pusher instance", func() {
+			It("Must succeed", func() {
+				var (
+					err error
+					nbr int64
+					psh awspsh.Pusher
+					pcf = &awspsh.Config{
+						FuncGetClientS3: func() *sdksss.Client {
+							return cli.GetClientS3()
+						},
+						ObjectS3Options: awspsh.ConfigObjectOptions{
+							Bucket: sdkaws.String(cli.GetBucketName()),
+							Key:    sdkaws.String("object"),
+						},
+					}
+				)
+
+				psh, err = awspsh.New(ctx, pcf)
+				Expect(err).ToNot(HaveOccurred())
+
+				nbr, err = io.Copy(psh, randContent(50*libsiz.SizeMega))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nbr).To(BeNumerically("==", 50*libsiz.SizeMega))
+
+				err = psh.Complete()
+				Expect(err).ToNot(HaveOccurred())
+
+				err = psh.Close()
+				Expect(err).To(HaveOccurred())
+
+				objects, err := cli.Object().Find("object")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(objects).To(HaveLen(1))
+
+				err = cli.Object().Delete(true, "object")
+				Expect(err).ToNot(HaveOccurred())
+
+				err = cli.Object().Delete(false, "object")
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Context("With a small object sent with pusher instance", func() {
+			It("Must succeed", func() {
+				var (
+					err error
+					nbr int64
+					psh awspsh.Pusher
+					pcf = &awspsh.Config{
+						FuncGetClientS3: func() *sdksss.Client {
+							return cli.GetClientS3()
+						},
+						ObjectS3Options: awspsh.ConfigObjectOptions{
+							Bucket: sdkaws.String(cli.GetBucketName()),
+							Key:    sdkaws.String("object"),
+						},
+					}
+				)
+
+				psh, err = awspsh.New(ctx, pcf)
+				Expect(err).ToNot(HaveOccurred())
+
+				nbr, err = io.Copy(psh, randContent(500*libsiz.SizeKilo))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nbr).To(BeNumerically("==", 500*libsiz.SizeKilo))
+
+				err = psh.Complete()
+				Expect(err).ToNot(HaveOccurred())
+
+				err = psh.Close()
+				Expect(err).To(HaveOccurred())
+
+				objects, err := cli.Object().Find("object")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(objects).To(HaveLen(1))
+
+				err = cli.Object().Delete(true, "object")
+				Expect(err).ToNot(HaveOccurred())
+
+				err = cli.Object().Delete(false, "object")
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+		Context("With a large object sent with pusher instance but abort", func() {
+			It("Must fail", func() {
+				var (
+					err error
+					nbr int64
+					obj []string
+					psh awspsh.Pusher
+					pcf = &awspsh.Config{
+						FuncGetClientS3: func() *sdksss.Client {
+							return cli.GetClientS3()
+						},
+						ObjectS3Options: awspsh.ConfigObjectOptions{
+							Bucket: sdkaws.String(cli.GetBucketName()),
+							Key:    sdkaws.String("object"),
+						},
+					}
+				)
+
+				psh, err = awspsh.New(ctx, pcf)
+				Expect(err).ToNot(HaveOccurred())
+
+				nbr, err = io.Copy(psh, randContent(50*libsiz.SizeMega))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nbr).To(BeNumerically("==", 50*libsiz.SizeMega))
+
+				err = psh.Close()
+				Expect(err).ToNot(HaveOccurred())
+
+				err = psh.Close()
+				Expect(err).To(HaveOccurred())
+
+				obj, err = cli.Object().Find("object")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(obj).To(HaveLen(0))
+
+				err = cli.Object().Delete(true, "object")
+				Expect(err).To(HaveOccurred())
 
 				err = cli.Object().Delete(false, "object")
 				Expect(err).ToNot(HaveOccurred())

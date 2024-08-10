@@ -26,11 +26,11 @@
 package aws_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -40,6 +40,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -244,14 +245,30 @@ func WaitMinio(host string) bool {
 	return err == nil
 }
 
-func randContent(size libsiz.Size) *bytes.Buffer {
-	p := make([]byte, size.Int64())
+type randReader struct {
+	s int64
+	i *atomic.Int64
+}
 
-	_, err := rand.Read(p)
+func (r *randReader) Read(p []byte) (n int, err error) {
+	n, e := rand.Read(p)
 
-	if err != nil {
-		panic(err)
+	if n > 0 {
+		r.i.Add(int64(n))
 	}
 
-	return bytes.NewBuffer(p)
+	if e != nil {
+		return n, e
+	} else if r.i.Load() >= r.s {
+		return n, io.EOF
+	} else {
+		return n, nil
+	}
+}
+
+func randContent(size libsiz.Size) io.Reader {
+	return &randReader{
+		s: size.Int64(),
+		i: new(atomic.Int64),
+	}
 }
