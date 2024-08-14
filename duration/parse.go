@@ -35,6 +35,9 @@ import (
 func parseString(s string) (Duration, error) {
 	s = strings.Replace(s, "\"", "", -1)
 	s = strings.Replace(s, "'", "", -1)
+
+	// err: 99d55h44m33s123ms
+
 	if v, e := time.ParseDuration(s); e != nil {
 		return 0, e
 	} else {

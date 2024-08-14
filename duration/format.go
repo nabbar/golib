@@ -49,8 +49,8 @@ func (d Duration) String() string {
 		s = fmt.Sprintf("%dd", n)
 	}
 
-	if i > 0 {
-		s = fmt.Sprintf("%s%s", s, i.String())
+	if n < 1 || i > 0 {
+		s = s + i.String()
 	}
 
 	return s
