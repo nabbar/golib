@@ -43,7 +43,8 @@ var _defaultConfig = []byte(`
      "disableStack":false,
      "disableTimestamp":false,
      "enableTrace":true,
-     "disableColor":false
+     "disableColor":false,
+     "enableAccessLog": false
    },
    "logFile":[
       {
@@ -60,9 +61,11 @@ var _defaultConfig = []byte(`
          "createPath":false,
          "fileMode":"0644",
          "pathMode":"0755",
+         "file-buffer-size": "32KB",
          "disableStack":false,
          "disableTimestamp":false,
-         "enableTrace":true
+         "enableTrace":true,
+         "enableAccessLog": false
       }
    ],
    "logSyslog":[
@@ -82,7 +85,8 @@ var _defaultConfig = []byte(`
          "tag":"",
          "disableStack":false,
          "disableTimestamp":false,
-         "enableTrace":true
+         "enableTrace":true,
+         "enableAccessLog": false
       }
    ]
 }`)
