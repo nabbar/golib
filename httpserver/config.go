@@ -32,11 +32,11 @@ import (
 	"net"
 	"net/url"
 	"strings"
-	"time"
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
+	libdur "github.com/nabbar/golib/duration"
 	liberr "github.com/nabbar/golib/errors"
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	liblog "github.com/nabbar/golib/logger"
@@ -109,7 +109,7 @@ type Config struct {
 	// decisions on each request body's acceptable deadline or
 	// upload rate, most users will prefer to use
 	// ReadHeaderTimeout. It is valid to use them both.
-	ReadTimeout time.Duration `mapstructure:"read_timeout" json:"read_timeout" yaml:"read_timeout" toml:"read_timeout"`
+	ReadTimeout libdur.Duration `mapstructure:"read_timeout" json:"read_timeout" yaml:"read_timeout" toml:"read_timeout"`
 
 	// ReadHeaderTimeout is the amount of time allowed to read
 	// request headers. The connection's read deadline is reset
@@ -117,13 +117,13 @@ type Config struct {
 	// is considered too slow for the body. If ReadHeaderTimeout
 	// is zero, the value of ReadTimeout is used. If both are
 	// zero, there is no timeout.
-	ReadHeaderTimeout time.Duration `mapstructure:"read_header_timeout" json:"read_header_timeout" yaml:"read_header_timeout" toml:"read_header_timeout"`
+	ReadHeaderTimeout libdur.Duration `mapstructure:"read_header_timeout" json:"read_header_timeout" yaml:"read_header_timeout" toml:"read_header_timeout"`
 
 	// WriteTimeout is the maximum duration before timing out
 	// writes of the response. It is reset whenever a new
 	// request's header is read. Like ReadTimeout, it does not
 	// let Handlers make decisions on a per-request basis.
-	WriteTimeout time.Duration `mapstructure:"write_timeout" json:"write_timeout" yaml:"write_timeout" toml:"write_timeout"`
+	WriteTimeout libdur.Duration `mapstructure:"write_timeout" json:"write_timeout" yaml:"write_timeout" toml:"write_timeout"`
 
 	// MaxHeaderBytes controls the maximum number of bytes the
 	// srv will read parsing the request header's keys and
@@ -160,7 +160,7 @@ type Config struct {
 	// IdleTimeout specifies how long until idle clients should be
 	// closed with a GOAWAY frame. PING frames are not considered
 	// activity for the purposes of IdleTimeout.
-	IdleTimeout time.Duration `mapstructure:"idle_timeout" json:"idle_timeout" yaml:"idle_timeout" toml:"idle_timeout"`
+	IdleTimeout libdur.Duration `mapstructure:"idle_timeout" json:"idle_timeout" yaml:"idle_timeout" toml:"idle_timeout"`
 
 	// MaxUploadBufferPerConnection is the size of the initial flow
 	// control window for each connections. The HTTP/2 spec does not
@@ -375,15 +375,15 @@ func (o *srv) GetConfig() *Config {
 
 func (o *srv) makeOptServer(cfg Config) *optServer {
 	return &optServer{
-		ReadTimeout:                  cfg.ReadTimeout,
-		ReadHeaderTimeout:            cfg.ReadHeaderTimeout,
-		WriteTimeout:                 cfg.WriteTimeout,
+		ReadTimeout:                  cfg.ReadTimeout.Time(),
+		ReadHeaderTimeout:            cfg.ReadHeaderTimeout.Time(),
+		WriteTimeout:                 cfg.WriteTimeout.Time(),
 		MaxHeaderBytes:               cfg.MaxHeaderBytes,
 		MaxHandlers:                  cfg.MaxHandlers,
 		MaxConcurrentStreams:         cfg.MaxConcurrentStreams,
 		MaxReadFrameSize:             cfg.MaxReadFrameSize,
 		PermitProhibitedCipherSuites: cfg.PermitProhibitedCipherSuites,
-		IdleTimeout:                  cfg.IdleTimeout,
+		IdleTimeout:                  cfg.IdleTimeout.Time(),
 		MaxUploadBufferPerConnection: cfg.MaxUploadBufferPerConnection,
 		MaxUploadBufferPerStream:     cfg.MaxUploadBufferPerStream,
 		DisableKeepAlive:             cfg.DisableKeepAlive,

@@ -43,7 +43,7 @@ var _defaultConfig = []byte(`
      "disableStack":false,
      "disableTimestamp":false,
      "enableTrace":true,
-     "disableColor":false,
+     "disableColor":false
    },
    "logFile":[
       {

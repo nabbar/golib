@@ -90,8 +90,8 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 			enableAccessLog:  opt.EnableAccessLog,
 			createPath:       opt.CreatePath,
 			filepath:         opt.Filepath,
-			fileMode:         opt.FileMode,
-			pathMode:         opt.PathMode,
+			fileMode:         opt.FileMode.FileMode(),
+			pathMode:         opt.PathMode.FileMode(),
 		},
 	}
 
@@ -102,13 +102,13 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 	}
 
 	if opt.CreatePath {
-		if e := libiot.PathCheckCreate(true, opt.Filepath, opt.FileMode, opt.PathMode); e != nil {
+		if e := libiot.PathCheckCreate(true, opt.Filepath, opt.FileMode.FileMode(), opt.PathMode.FileMode()); e != nil {
 			return nil, e
 		}
 	}
 
 	// #nosec
-	h, e := os.OpenFile(opt.Filepath, flags, opt.FileMode)
+	h, e := os.OpenFile(opt.Filepath, flags, opt.FileMode.FileMode())
 
 	if e != nil {
 		return nil, e

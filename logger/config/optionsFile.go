@@ -28,8 +28,7 @@
 package config
 
 import (
-	"os"
-
+	libprm "github.com/nabbar/golib/file/perm"
 	libsiz "github.com/nabbar/golib/size"
 )
 
@@ -47,10 +46,10 @@ type OptionsFile struct {
 	CreatePath bool `json:"createPath,omitempty" yaml:"createPath,omitempty" toml:"createPath,omitempty" mapstructure:"createPath,omitempty"`
 
 	// FileMode define mode to be used for the log file if the create it.
-	FileMode os.FileMode `json:"fileMode,omitempty" yaml:"fileMode,omitempty" toml:"fileMode,omitempty" mapstructure:"fileMode,omitempty"`
+	FileMode libprm.Perm `json:"fileMode,omitempty" yaml:"fileMode,omitempty" toml:"fileMode,omitempty" mapstructure:"fileMode,omitempty"`
 
 	// PathMode define mode to be used for the path of the log file if create it.
-	PathMode os.FileMode `json:"pathMode,omitempty" yaml:"pathMode,omitempty" toml:"pathMode,omitempty" mapstructure:"pathMode,omitempty"`
+	PathMode libprm.Perm `json:"pathMode,omitempty" yaml:"pathMode,omitempty" toml:"pathMode,omitempty" mapstructure:"pathMode,omitempty"`
 
 	// DisableStack allow to disable the goroutine id before each message.
 	DisableStack bool `json:"disableStack,omitempty" yaml:"disableStack,omitempty" toml:"disableStack,omitempty" mapstructure:"disableStack,omitempty"`

@@ -30,10 +30,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	libval "github.com/go-playground/validator/v10"
 	cfgtps "github.com/nabbar/golib/config/const"
+	libdur "github.com/nabbar/golib/duration"
 	liberr "github.com/nabbar/golib/errors"
 	logcfg "github.com/nabbar/golib/logger/config"
 )
@@ -69,16 +69,16 @@ type Config struct {
 	Name string `json:"name" yaml:"name" toml:"name" mapstructure:"name"`
 
 	// CheckTimeout define the timeout use for healthcheck. Default is 5 second.
-	CheckTimeout time.Duration `json:"check-timeout" yaml:"check-timeout" toml:"check-timeout" mapstructure:"check-timeout"`
+	CheckTimeout libdur.Duration `json:"check-timeout" yaml:"check-timeout" toml:"check-timeout" mapstructure:"check-timeout"`
 
 	// IntervalCheck define the time waiting between 2 healthcheck. Default is 5 second.
-	IntervalCheck time.Duration `json:"interval-check" yaml:"interval-check" toml:"interval-check" mapstructure:"interval-check"`
+	IntervalCheck libdur.Duration `json:"interval-check" yaml:"interval-check" toml:"interval-check" mapstructure:"interval-check"`
 
 	// IntervalFall define the time waiting between 2 healthcheck when last check is KO. Default is 5 second.
-	IntervalFall time.Duration `json:"interval-fall" yaml:"interval-fall" toml:"interval-fall" mapstructure:"interval-down"`
+	IntervalFall libdur.Duration `json:"interval-fall" yaml:"interval-fall" toml:"interval-fall" mapstructure:"interval-down"`
 
 	// IntervalRise define the time waiting between 2 healthcheck when status is KO or Warn but last check is OK. Default is 5 second.
-	IntervalRise time.Duration `json:"interval-rise" yaml:"interval-rise" toml:"interval-rise" mapstructure:"interval-rise"`
+	IntervalRise libdur.Duration `json:"interval-rise" yaml:"interval-rise" toml:"interval-rise" mapstructure:"interval-rise"`
 
 	// FallCountKO define the number of KO before considerate the component as down.
 	FallCountKO uint8 `json:"fall-count-ko" yaml:"fall-count-ko" toml:"fall-count-ko" mapstructure:"fall-count-ko"`

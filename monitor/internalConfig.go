@@ -30,6 +30,7 @@ import (
 	"time"
 
 	libctx "github.com/nabbar/golib/context"
+	libdur "github.com/nabbar/golib/duration"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
@@ -116,10 +117,10 @@ func (o *mon) SetConfig(ctx libctx.FuncContext, cfg montps.Config) liberr.Error 
 	}
 
 	cnf := &runCfg{
-		checkTimeout:  cfg.CheckTimeout,
-		intervalCheck: cfg.IntervalCheck,
-		intervalFall:  cfg.IntervalFall,
-		intervalRise:  cfg.IntervalRise,
+		checkTimeout:  cfg.CheckTimeout.Time(),
+		intervalCheck: cfg.IntervalCheck.Time(),
+		intervalFall:  cfg.IntervalFall.Time(),
+		intervalRise:  cfg.IntervalRise.Time(),
 		fallCountKO:   cfg.FallCountKO,
 		fallCountWarn: cfg.FallCountWarn,
 		riseCountKO:   cfg.RiseCountKO,
@@ -192,10 +193,10 @@ func (o *mon) GetConfig() montps.Config {
 
 	return montps.Config{
 		Name:          o.getName(),
-		CheckTimeout:  cfg.checkTimeout,
-		IntervalCheck: cfg.intervalCheck,
-		IntervalFall:  cfg.intervalFall,
-		IntervalRise:  cfg.intervalRise,
+		CheckTimeout:  libdur.ParseDuration(cfg.checkTimeout),
+		IntervalCheck: libdur.ParseDuration(cfg.intervalCheck),
+		IntervalFall:  libdur.ParseDuration(cfg.intervalFall),
+		IntervalRise:  libdur.ParseDuration(cfg.intervalRise),
 		FallCountKO:   cfg.fallCountKO,
 		FallCountWarn: cfg.fallCountWarn,
 		RiseCountKO:   cfg.riseCountKO,
