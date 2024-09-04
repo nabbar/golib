@@ -6,13 +6,13 @@ toolchain go1.22.6
 
 require (
 	github.com/aws/aws-sdk-go v1.55.5
-	github.com/aws/aws-sdk-go-v2 v1.30.3
-	github.com/aws/aws-sdk-go-v2/config v1.27.27
-	github.com/aws/aws-sdk-go-v2/credentials v1.17.27
-	github.com/aws/aws-sdk-go-v2/service/iam v1.34.3
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.58.3
-	github.com/aws/smithy-go v1.20.3
-	github.com/bits-and-blooms/bitset v1.13.0
+	github.com/aws/aws-sdk-go-v2 v1.30.5
+	github.com/aws/aws-sdk-go-v2/config v1.27.32
+	github.com/aws/aws-sdk-go-v2/credentials v1.17.31
+	github.com/aws/aws-sdk-go-v2/service/iam v1.35.1
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.61.1
+	github.com/aws/smithy-go v1.20.4
+	github.com/bits-and-blooms/bitset v1.14.2
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/dsnet/compress v0.0.1
 	github.com/fatih/color v1.17.0
@@ -33,14 +33,14 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/nats-io/jwt/v2 v2.5.8
-	github.com/nats-io/nats-server/v2 v2.10.18
-	github.com/nats-io/nats.go v1.36.0
+	github.com/nats-io/nats-server/v2 v2.10.20
+	github.com/nats-io/nats.go v1.37.0
 	github.com/nutsdb/nutsdb v0.14.3
-	github.com/onsi/ginkgo/v2 v2.20.0
-	github.com/onsi/gomega v1.34.1
+	github.com/onsi/ginkgo/v2 v2.20.2
+	github.com/onsi/gomega v1.34.2
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pierrec/lz4/v4 v4.1.21
-	github.com/prometheus/client_golang v1.19.1
+	github.com/prometheus/client_golang v1.20.2
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
@@ -48,11 +48,11 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/ugorji/go/codec v1.2.12
 	github.com/ulikunitz/xz v0.5.12
-	github.com/vbauerster/mpb/v8 v8.7.5
-	github.com/xanzy/go-gitlab v0.107.0
+	github.com/vbauerster/mpb/v8 v8.8.3
+	github.com/xanzy/go-gitlab v0.108.0
 	github.com/xhit/go-simple-mail v2.2.2+incompatible
 	github.com/xujiajun/utils v0.0.0-20220904132955-5f7c5b914235
-	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa
+	golang.org/x/exp v0.0.0-20240823005443-9b4947da3948
 	golang.org/x/net v0.28.0
 	golang.org/x/oauth2 v0.22.0
 	golang.org/x/sync v0.8.0
@@ -71,7 +71,7 @@ require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/ClickHouse/ch-go v0.62.0 // indirect
-	github.com/ClickHouse/clickhouse-go/v2 v2.27.1 // indirect
+	github.com/ClickHouse/clickhouse-go/v2 v2.28.2 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible // indirect
@@ -84,24 +84,24 @@ require (
 	github.com/antlabs/stl v0.0.2 // indirect
 	github.com/antlabs/timer v0.1.4 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.3 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.11 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.15 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.15 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.15 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.17 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.15 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.22.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.26.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.30.3 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.4 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.13 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.17 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.1 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.3.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.3.19 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.19 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.22.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.26.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.30.6 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bwmarrin/snowflake v0.3.0 // indirect
-	github.com/bytedance/sonic v1.12.1 // indirect
+	github.com/bytedance/sonic v1.12.2 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.7.5 // indirect
@@ -125,12 +125,12 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
-	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
+	github.com/google/pprof v0.0.0-20240903155634-a8630aee4ab9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -173,16 +173,17 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.2.0-beta.2 // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
-	github.com/prometheus/common v0.48.0 // indirect
-	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/common v0.55.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -206,8 +207,8 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xujiajun/mmap-go v1.0.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
-	go.opentelemetry.io/otel v1.28.0 // indirect
-	go.opentelemetry.io/otel/trace v1.28.0 // indirect
+	go.opentelemetry.io/otel v1.29.0 // indirect
+	go.opentelemetry.io/otel/trace v1.29.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.9.0 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
