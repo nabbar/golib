@@ -143,7 +143,7 @@ type Server interface {
 type Client interface {
 	io.ReadWriteCloser
 
-	SetTLS(enable bool, config libtls.TLSConfig) error
+	SetTLS(enable bool, config libtls.TLSConfig, serverName string) error
 
 	// RegisterFuncError registers a FuncError used to process errors during running process
 	// f FuncError

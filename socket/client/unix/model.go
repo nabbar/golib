@@ -48,7 +48,7 @@ type cli struct {
 	c *atomic.Value // net.Conn
 }
 
-func (o *cli) SetTLS(enable bool, config libtls.TLSConfig) error {
+func (o *cli) SetTLS(enable bool, config libtls.TLSConfig, serverName string) error {
 	return nil
 }
 

@@ -54,7 +54,7 @@ type cli struct {
 	c *atomic.Value // net.Conn
 }
 
-func (o *cli) SetTLS(enable bool, config libtls.TLSConfig) error {
+func (o *cli) SetTLS(enable bool, config libtls.TLSConfig, serverName string) error {
 	if !enable {
 		// #nosec
 		o.t.Store(&tlsCfg{
@@ -66,9 +66,7 @@ func (o *cli) SetTLS(enable bool, config libtls.TLSConfig) error {
 
 	if config == nil {
 		return fmt.Errorf("invalid tls config")
-	} else if l := config.GetCertificatePair(); len(l) < 1 {
-		return fmt.Errorf("invalid tls config, missing certificates pair")
-	} else if t := config.TlsConfig(""); t == nil {
+	} else if t := config.TlsConfig(serverName); t == nil {
 		return fmt.Errorf("invalid tls config")
 	} else {
 		o.t.Store(&tlsCfg{
