@@ -302,8 +302,10 @@ func (c *awsModel) Check(ctx context.Context) error {
 		return ErrorEndpointInvalid.Error(err)
 	}
 
-	if _, err = cfg.Credentials.Retrieve(ctx); err != nil {
-		return ErrorCredentialsInvalid.Error(err)
+	if _, ok := cfg.Credentials.(sdkaws.AnonymousCredentials); !ok {
+		if _, err = cfg.Credentials.Retrieve(ctx); err != nil {
+			return ErrorCredentialsInvalid.Error(err)
+		}
 	}
 
 	d := net.Dialer{

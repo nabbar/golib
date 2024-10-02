@@ -65,6 +65,10 @@ func (o *logger) switchCloser(c iotclo.Closer) iotclo.Closer {
 }
 
 func (o *logger) newCloser() iotclo.Closer {
+	if o == nil || o.x == nil {
+		return nil
+	}
+
 	return iotclo.New(o.x.GetContext)
 }
 
