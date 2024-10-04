@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2024 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,40 +23,16 @@
  *
  */
 
-package duration
+package pidcontroller
 
-import (
-	"strings"
-	"time"
-)
-
-func parseString(s string) (Duration, error) {
-	s = strings.Replace(s, "\"", "", -1)
-	s = strings.Replace(s, "'", "", -1)
-
-	// err: 99d55h44m33s123ms
-
-	if v, e := time.ParseDuration(s); e != nil {
-		return 0, e
-	} else {
-		return Duration(v), nil
-	}
+type PID interface {
+	Range(min, max float64) []float64
 }
 
-func (d *Duration) parseString(s string) error {
-	if v, e := parseString(s); e != nil {
-		return e
-	} else {
-		*d = v
-		return nil
-	}
-}
-
-func (d *Duration) unmarshall(val []byte) error {
-	if tmp, err := ParseByte(val); err != nil {
-		return err
-	} else {
-		*d = tmp
-		return nil
+func New(rateProportional, rateIntegral, rateDerivative float64) PID {
+	return &pid{
+		kp: rateProportional,
+		ki: rateIntegral,
+		kd: rateDerivative,
 	}
 }

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2024 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,40 +23,39 @@
  *
  */
 
-package duration
+package pidcontroller
 
-import (
-	"strings"
-	"time"
-)
+// PID (Proportional Integral Derivative controller)
+type pid struct {
+	kp float64 // rate proportional
+	ki float64 // rate integral
+	kd float64 // rate derivative
 
-func parseString(s string) (Duration, error) {
-	s = strings.Replace(s, "\"", "", -1)
-	s = strings.Replace(s, "'", "", -1)
-
-	// err: 99d55h44m33s123ms
-
-	if v, e := time.ParseDuration(s); e != nil {
-		return 0, e
-	} else {
-		return Duration(v), nil
-	}
+	prevError float64
+	integral  float64
 }
 
-func (d *Duration) parseString(s string) error {
-	if v, e := parseString(s); e != nil {
-		return e
-	} else {
-		*d = v
-		return nil
-	}
+func (p *pid) calc(end, actual float64) float64 {
+	pidError := end - actual
+	p.integral += pidError
+	derive := pidError - p.prevError
+
+	output := p.kp*pidError + p.ki*p.integral + p.kd*derive
+	p.prevError = pidError
+
+	return output
 }
 
-func (d *Duration) unmarshall(val []byte) error {
-	if tmp, err := ParseByte(val); err != nil {
-		return err
-	} else {
-		*d = tmp
-		return nil
+func (p *pid) Range(min, max float64) []float64 {
+	var res = make([]float64, 0)
+
+	for {
+		min += p.calc(max, min)
+
+		if min > max {
+			return append(res, max)
+		} else {
+			res = append(res, min)
+		}
 	}
 }

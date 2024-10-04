@@ -28,6 +28,7 @@
 package duration
 
 import (
+	"math"
 	"time"
 )
 
@@ -59,4 +60,14 @@ func Days(i int64) Duration {
 
 func ParseDuration(d time.Duration) Duration {
 	return Duration(d)
+}
+
+func ParseFloat64(f float64) Duration {
+	const mx float64 = math.MaxInt64
+
+	if f > mx {
+		return Duration(math.MaxInt64)
+	} else {
+		return Duration(math.Round(f))
+	}
 }

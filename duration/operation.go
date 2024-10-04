@@ -26,37 +26,53 @@
 package duration
 
 import (
-	"strings"
-	"time"
+	libpid "github.com/nabbar/golib/pidcontroller"
 )
 
-func parseString(s string) (Duration, error) {
-	s = strings.Replace(s, "\"", "", -1)
-	s = strings.Replace(s, "'", "", -1)
+var (
+	DefaultRateProportional float64 = 0.1
+	DefaultRateIntegral     float64 = 0.01
+	DefaultRateDerivative   float64 = 0.05
+)
 
-	// err: 99d55h44m33s123ms
+func (d Duration) RangeTo(dur Duration, rateP, rateI, rateD float64) []Duration {
+	var (
+		p = libpid.New(rateP, rateI, rateD)
+		r = make([]Duration, 0)
+	)
 
-	if v, e := time.ParseDuration(s); e != nil {
-		return 0, e
-	} else {
-		return Duration(v), nil
+	for _, v := range p.Range(d.Float64(), dur.Float64()) {
+		r = append(r, ParseFloat64(v))
 	}
+
+	if len(r) < 3 {
+		r = append(make([]Duration, 0), d, dur)
+	}
+
+	return r
 }
 
-func (d *Duration) parseString(s string) error {
-	if v, e := parseString(s); e != nil {
-		return e
-	} else {
-		*d = v
-		return nil
-	}
+func (d Duration) RangeDefTo(dur Duration) []Duration {
+	return d.RangeTo(dur, DefaultRateProportional, DefaultRateIntegral, DefaultRateDerivative)
 }
 
-func (d *Duration) unmarshall(val []byte) error {
-	if tmp, err := ParseByte(val); err != nil {
-		return err
-	} else {
-		*d = tmp
-		return nil
+func (d Duration) RangeFrom(dur Duration, rateP, rateI, rateD float64) []Duration {
+	var (
+		p = libpid.New(rateP, rateI, rateD)
+		r = make([]Duration, 0)
+	)
+
+	for _, v := range p.Range(dur.Float64(), d.Float64()) {
+		r = append(r, ParseFloat64(v))
 	}
+
+	if len(r) < 3 {
+		r = append(make([]Duration, 0), d, dur)
+	}
+
+	return r
+}
+
+func (d Duration) RangeDefFrom(dur Duration) []Duration {
+	return d.RangeFrom(dur, DefaultRateProportional, DefaultRateIntegral, DefaultRateDerivative)
 }
