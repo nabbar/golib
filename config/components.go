@@ -31,12 +31,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 
 	cfgcst "github.com/nabbar/golib/config/const"
 	cfgtps "github.com/nabbar/golib/config/types"
 	loglvl "github.com/nabbar/golib/logger/level"
 	spfcbr "github.com/spf13/cobra"
-	"golang.org/x/exp/slices"
 )
 
 func (c *configModel) ComponentHas(key string) bool {

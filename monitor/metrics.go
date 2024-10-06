@@ -28,11 +28,11 @@ package monitor
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	monsts "github.com/nabbar/golib/monitor/status"
 	libprm "github.com/nabbar/golib/prometheus"
-	"golang.org/x/exp/slices"
 )
 
 func (o *mon) RegisterMetricsName(names ...string) {

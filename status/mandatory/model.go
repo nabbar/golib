@@ -27,10 +27,10 @@
 package mandatory
 
 import (
+	"slices"
 	"sync/atomic"
 
 	stsctr "github.com/nabbar/golib/status/control"
-	"golang.org/x/exp/slices"
 )
 
 type model struct {
