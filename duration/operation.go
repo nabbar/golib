@@ -49,6 +49,14 @@ func (d Duration) RangeTo(dur Duration, rateP, rateI, rateD float64) []Duration 
 		r = append(make([]Duration, 0), d, dur)
 	}
 
+	if r[0] > d {
+		r = append(append(make([]Duration, 0), d), r...)
+	}
+
+	if r[len(r)-1] < dur {
+		r = append(r, dur)
+	}
+
 	return r
 }
 
@@ -68,6 +76,14 @@ func (d Duration) RangeFrom(dur Duration, rateP, rateI, rateD float64) []Duratio
 
 	if len(r) < 3 {
 		r = append(make([]Duration, 0), d, dur)
+	}
+
+	if r[0] > dur {
+		r = append(append(make([]Duration, 0), dur), r...)
+	}
+
+	if r[len(r)-1] < d {
+		r = append(r, d)
 	}
 
 	return r
