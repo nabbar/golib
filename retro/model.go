@@ -32,6 +32,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/pelletier/go-toml"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,6 +42,7 @@ type Model[T any] struct {
 }
 
 func (m Model[T]) marshal(format Format) ([]byte, error) {
+
 	if !format.Valid() {
 		return nil, errors.New("unsupported format")
 	}
@@ -75,7 +77,6 @@ func (m Model[T]) marshal(format Format) ([]byte, error) {
 		if formatTag != "" {
 
 			tagParts := strings.Split(formatTag, ",")
-
 			key = tagParts[0]
 		}
 
@@ -98,12 +99,15 @@ func (m Model[T]) marshal(format Format) ([]byte, error) {
 		return json.Marshal(modelMap)
 	case FormatYAML:
 		return yaml.Marshal(modelMap)
+	case FormatTOML:
+		return toml.Marshal(modelMap)
 	default:
 		return nil, errors.New("unsupported format")
 	}
 }
 
 func (m *Model[T]) unmarshal(data []byte, format Format) error {
+
 	if !format.Valid() {
 		return errors.New("unsupported format")
 	}
@@ -123,6 +127,8 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 		err = json.Unmarshal(data, &tempMap)
 	case FormatYAML:
 		err = yaml.Unmarshal(data, &tempMap)
+	case FormatTOML:
+		err = toml.Unmarshal(data, &tempMap)
 	default:
 		return errors.New("unsupported format")
 	}
@@ -212,8 +218,38 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 						return err
 					}
 				}
+
+			case FormatTOML:
+
+				if unmarshaler, ok := field.Interface().(toml.Unmarshaler); ok {
+
+					if rawMessage, err = toml.Marshal(map[string]interface{}{
+						fieldName: rawField,
+					}); err != nil {
+						return err
+					}
+
+					if err = unmarshaler.UnmarshalTOML(rawMessage); err != nil {
+						return err
+					}
+
+				} else {
+
+					if rawMessage, err = toml.Marshal(map[string]interface{}{
+						fieldName: rawField,
+					}); err != nil {
+						return err
+					}
+
+					if err = toml.Unmarshal(rawMessage, &m.Fields); err != nil {
+						return err
+					}
+
+				}
 			}
 		}
+
 	}
+
 	return nil
 }

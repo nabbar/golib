@@ -26,7 +26,12 @@
 
 package retro
 
-import "gopkg.in/yaml.v3"
+import (
+	"fmt"
+
+	"github.com/pelletier/go-toml"
+	"gopkg.in/yaml.v3"
+)
 
 func (m Model[T]) MarshalJSON() ([]byte, error) {
 	return m.marshal(FormatJSON)
@@ -38,9 +43,11 @@ func (m *Model[T]) UnmarshalJSON(data []byte) error {
 
 func (m Model[T]) MarshalYAML() (interface{}, error) {
 	data, err := m.marshal(FormatYAML)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return string(data), nil
 }
 
@@ -60,4 +67,19 @@ func (m *Model[T]) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	return m.unmarshal(rawData, FormatYAML)
+}
+
+func (m Model[T]) MarshalTOML() ([]byte, error) {
+	return m.marshal(FormatTOML)
+}
+
+func (m *Model[T]) UnmarshalTOML(data interface{}) error {
+
+	rawData, err := toml.Marshal(data.(map[string]interface{}))
+
+	if err != nil {
+		return fmt.Errorf("error marshaling to TOML bytes: %w", err)
+	}
+
+	return m.unmarshal(rawData, FormatTOML)
 }

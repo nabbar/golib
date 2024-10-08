@@ -33,33 +33,34 @@ import (
 	"time"
 
 	"github.com/nabbar/golib/retro"
+	"github.com/pelletier/go-toml"
 	yaml "gopkg.in/yaml.v3"
 )
 
 type Test struct {
-	LastName     string     `json:"lastName" yaml:"lastName" retro:"v1.0.0,>v1.0.3"` // greater than v1.0.3 except v1.0.0
-	Age          int        `json:"age,omitempty" yaml:"age,omitempty"`              // this if not 0 should be included in all the models because no retro tag
-	Name         string     `json:"name"  yaml:"name" retro:">v1.0.0"`               // only if version strict greater than v1.0.0
-	Version      string     `json:"version,omitempty" yaml:"version,omitempty"`
-	Salary       float64    `json:"salary,omitempty" yaml:"salary,omitempty" retro:"<v1.0.2"`                               // only if version strict lesser than v1.0.2
-	Active       bool       `json:"active,omitempty" yaml:"active,omitempty" retro:">=v1.0.2"`                              // only if version greater or equal to v1.0.2
-	Address      Address    `json:"address" yaml:"address" retro:"<=v1.0.0"`                                                // only if version lesser or equal to v1.0.0
-	Job          string     `json:"job" yaml:"job" retro:">v1.0.1,<v1.0.4"`                                                 // only v1.0.2 and v1.0.3
-	Status       Status     `json:"status" yaml:"status" retro:"default,>v1.0.1,<v1.0.4"`                                   // default (meaning no versioning) or only v1.0.2 and v1.0.3
-	Married      bool       `json:"married" yaml:"married" retro:">=v1.0.0,<v1.0.2"`                                        // v1.0.0 v1.0.1
-	BirthDate    *time.Time `json:"birthdate,omitempty" yaml:"birthdate,omitempty" retro:"default,>=v1.0.0,<v1.0.2"`        // v1.0.0 v1.0.1 and default
-	Degree       string     `json:"degree" yaml:"degree" retro:">v1.0.0,<=v1.0.2"`                                          // v1.0.1 v1.0.2
-	Phone        int32      `json:"phone,omitempty" yaml:"phone,omitempty" retro:"default,>v1.0.0,<=v1.0.2"`                // v1.0.1 v1.0.2 and default
-	Other        []string   `json:"other" yaml:"other" retro:">=v1.0.0,<=v1.0.2"`                                           // v1.0.0 v1.0.1 v1.0.2
-	LuckyNumbers []int      `json:"luckyNumbers,omitempty" yaml:"luckyNumbers,omitempty" retro:"default,>=v1.0.0,<=v1.0.2"` // v1.0.0 v1.0.1 v1.0.2 and default
-	Weight       int        `json:"weight,omitempty" yaml:"weight,omitempty" retro:"default,v1.0.0"`                        // v1.0.0 and default
-	Height       int        `json:"height" yaml:"height" retro:"v1.0.0"`                                                    // v1.0.0 only
-	Id           string     `json:"id" yaml:"id" retro:"v1.0.0,v1.0.3"`                                                     // v1.0.0 and v1.0.3 only
-	Languages    []string   `json:"languages,omitempty" yaml:"languages,omitempty" retro:"default,v1.0.0,v1.0.3"`           // v1.0.0 and v1.0.3 and default
-	Email        string     `json:"email" yaml:"email" retro:"<v1.0.0,v1.0.3"`                                              // lesser than v1.0.0 expect v1.0.3
-	Available    bool       `json:"available" yaml:"available" retro:">v1.0.0,<=v1.0.3"`                                    // v1.0.1 v1.0.2 v1.0.3
-	Sex          string     `json:"sex,omitempty" yaml:"sex,omitempty" retro:">v1.0.0,<=v1.0.3, v0.0.3, default"`           // between v1.0.0 and v1.0.3 (expect v0.0.3) and default
-	Conflict     string     `json:"conflict" yaml:"conflict" retro:">v1.0.0,>v1.0.3"`                                       // this field has non-valid retro definition and should be always ignored
+	LastName     string     `json:"lastName" yaml:"lastName" toml:"lastName" retro:"v1.0.0,>v1.0.3"` // greater than v1.0.3 except v1.0.0
+	Age          int        `json:"age,omitempty" yaml:"age,omitempty" toml:"age,omitempty"`         // this if not 0 should be included in all the models because no retro tag
+	Name         string     `json:"name"  yaml:"name" toml:"name" retro:">v1.0.0"`                   // only if version strict greater than v1.0.0
+	Version      string     `json:"version,omitempty" yaml:"version,omitempty" toml:"version,omitempty"`
+	Salary       float64    `json:"salary,omitempty" yaml:"salary,omitempty" toml:"salary,omitempty" retro:"<v1.0.2"`                                     // only if version strict lesser than v1.0.2
+	Active       bool       `json:"active,omitempty" yaml:"active,omitempty" toml:"active,omitempty" retro:">=v1.0.2"`                                    // only if version greater or equal to v1.0.2
+	Address      Address    `json:"address" yaml:"address" toml:"address" retro:"<=v1.0.0"`                                                               // only if version lesser or equal to v1.0.0
+	Job          string     `json:"job" yaml:"job" toml:"job" retro:">v1.0.1,<v1.0.4"`                                                                    // only v1.0.2 and v1.0.3
+	Status       Status     `json:"status" yaml:"status" toml:"status" retro:"default,>v1.0.1,<v1.0.4"`                                                   // default (meaning no versioning) or only v1.0.2 and v1.0.3
+	Married      bool       `json:"married" yaml:"married" toml:"married" retro:">=v1.0.0,<v1.0.2"`                                                       // v1.0.0 v1.0.1
+	BirthDate    *time.Time `json:"birthdate,omitempty" yaml:"birthdate,omitempty" toml:"birthdate,omitempty" retro:"default,>=v1.0.0,<v1.0.2"`           // v1.0.0 v1.0.1 and default
+	Degree       string     `json:"degree" yaml:"degree" toml:"degree" retro:">v1.0.0,<=v1.0.2"`                                                          // v1.0.1 v1.0.2
+	Phone        int32      `json:"phone,omitempty" yaml:"phone,omitempty" toml:"phone,omitempty" retro:"default,>v1.0.0,<=v1.0.2"`                       // v1.0.1 v1.0.2 and default
+	Other        []string   `json:"other" yaml:"other" toml:"other" retro:">=v1.0.0,<=v1.0.2"`                                                            // v1.0.0 v1.0.1 v1.0.2
+	LuckyNumbers []int      `json:"luckyNumbers,omitempty" yaml:"luckyNumbers,omitempty" toml:"luckyNumbers,omitempty" retro:"default,>=v1.0.0,<=v1.0.2"` // v1.0.0 v1.0.1 v1.0.2 and default
+	Weight       int        `json:"weight,omitempty" yaml:"weight,omitempty" toml:"weight,omitempty" retro:"default,v1.0.0"`                              // v1.0.0 and default
+	Height       int        `json:"height" yaml:"height" toml:"height" retro:"v1.0.0"`                                                                    // v1.0.0 only
+	Id           string     `json:"id" yaml:"id"  toml:"id" retro:"v1.0.0,v1.0.3"`                                                                        // v1.0.0 and v1.0.3 only
+	Languages    []string   `json:"languages,omitempty" yaml:"languages,omitempty" toml:"languages,omitempty" retro:"default,v1.0.0,v1.0.3"`              // v1.0.0 and v1.0.3 and default
+	Email        string     `json:"email" yaml:"email" toml:"email" retro:"<v1.0.0,v1.0.3"`                                                               // lesser than v1.0.0 expect v1.0.3
+	Available    bool       `json:"available" yaml:"available" toml:"available" retro:">v1.0.0,<=v1.0.3"`                                                 // v1.0.1 v1.0.2 v1.0.3
+	Sex          string     `json:"sex,omitempty" yaml:"sex,omitempty" toml:"sex,omitempty" retro:">v1.0.0,<=v1.0.3, v0.0.3, default"`                    // between v1.0.0 and v1.0.3 (expect v0.0.3) and default
+	Conflict     string     `json:"conflict" yaml:"conflict" toml:"conflict" retro:">v1.0.0,>v1.0.3"`                                                     // this field has non-valid retro definition and should be always ignored
 }
 
 type Address struct {
@@ -292,7 +293,7 @@ func TestModel_MarshalYAML(t *testing.T) {
 		expectedErr bool
 	}{
 		{ // Example Test Case
-			model: retro.Model[Test]{Fields: Test{Age: 25, Status: Active}},
+			model: retro.Model[Test]{Fields: Test{Age: 25, Status: Active, Conflict: "test"}},
 			expected: `age: 25
 status: 1
 `,
@@ -379,6 +380,101 @@ sex: M`,
 			var result retro.Model[Test]
 
 			err := yaml.Unmarshal([]byte(tt.input), &result)
+
+			if (err != nil) != tt.expectedErr {
+				t.Errorf("expected error: %v, got: %v", tt.expectedErr, err)
+			}
+
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("expected: %+v, got: %+v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestModel_MarshalTOML(t *testing.T) {
+	var birth = time.Date(2024, 10, 8, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		model       retro.Model[Test]
+		expected    string
+		expectedErr bool
+	}{
+		{
+			model: retro.Model[Test]{Fields: Test{
+				LastName: "test",
+				Age:      34,
+				Name:     "test",
+				Salary:   1500,
+				Active:   true,
+				Address: Address{
+					Street: "Joseph Bermond",
+					City:   "Valbonne",
+				},
+				Job:          "test",
+				Status:       Active,
+				Married:      true,
+				BirthDate:    &birth,
+				Degree:       "test",
+				Phone:        12345850,
+				Other:        []string{"tt", "aa", "bb"},
+				LuckyNumbers: []int{12, 21},
+				Weight:       100,
+				Height:       10,
+				Id:           "uc123",
+				Languages:    []string{"french"},
+				Email:        "test@test.com",
+				Available:    true,
+				Sex:          "M",
+				Conflict:     "test",
+			}},
+			expected: "age = 34\nbirthdate = \"2024-10-08T00:00:00Z\"\nlanguages = [\"french\"]\nluckyNumbers = [12, 21]" +
+				"\nphone = 12345850\nsex = \"M\"\nstatus = 1\nweight = 100\n", // TOML representation
+		},
+	}
+	for _, tt := range tests {
+		var expectedTOML, resultTOML interface{}
+
+		t.Run(tt.expected, func(t *testing.T) {
+
+			result, err := toml.Marshal(tt.model)
+
+			if (err != nil) != tt.expectedErr {
+				t.Errorf("expected error: %v, got: %v", tt.expectedErr, err)
+			}
+
+			if err = toml.Unmarshal([]byte(tt.expected), &expectedTOML); err != nil {
+				t.Fatalf("failed to unmarshal expected TOML: %v", err)
+			}
+
+			if err = toml.Unmarshal(result, &resultTOML); err != nil {
+				t.Fatalf("failed to unmarshal result TOML: %v", err)
+			}
+
+			if !reflect.DeepEqual(expectedTOML, resultTOML) {
+				t.Errorf("expected: %+v, got: %+v", expectedTOML, resultTOML)
+			}
+		})
+	}
+}
+
+func TestModel_UnmarshalTOML(t *testing.T) {
+	tests := []struct {
+		input       string
+		expected    retro.Model[Test]
+		expectedErr bool
+	}{
+		{
+			input:    "age = 25\nstatus = 1\nemai = \"test@testcom\"\n",
+			expected: retro.Model[Test]{Fields: Test{Age: 25, Status: Active}},
+		},
+	}
+
+	for _, tt := range tests {
+		var result retro.Model[Test]
+
+		t.Run(tt.input, func(t *testing.T) {
+			err := toml.Unmarshal([]byte(tt.input), &result)
 
 			if (err != nil) != tt.expectedErr {
 				t.Errorf("expected error: %v, got: %v", tt.expectedErr, err)
