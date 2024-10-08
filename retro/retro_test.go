@@ -28,11 +28,12 @@ package retro_test
 
 import (
 	"encoding/json"
-	"github.com/nabbar/golib/retro"
-	"gopkg.in/yaml.v3"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/nabbar/golib/retro"
+	yaml "gopkg.in/yaml.v3"
 )
 
 type Test struct {
@@ -40,25 +41,25 @@ type Test struct {
 	Age          int        `json:"age,omitempty" yaml:"age,omitempty"`              // this if not 0 should be included in all the models because no retro tag
 	Name         string     `json:"name"  yaml:"name" retro:">v1.0.0"`               // only if version strict greater than v1.0.0
 	Version      string     `json:"version,omitempty" yaml:"version,omitempty"`
-	Salary       float64    `json:"salary,omitempty" yaml:"salary,omitempty" retro:"<v1.0.2"`                                // only if version strict lesser than v1.0.2
-	Active       bool       `json:"active,omitempty" yaml:"active,omitempty" retro:">=v1.0.2"`                               // only if version greater or equal to v1.0.2
-	Address      Address    `json:"address" yaml:"address" retro:"<=v1.0.0"`                                                 // only if version lesser or equal to v1.0.0
-	Job          string     `json:"job" yaml:"job" retro:">v1.0.1,<v1.0.4"`                                                  // only v1.0.2 and v1.0.3
-	Status       Status     `json:"status" yaml:"status" retro:"default,>v1.0.1,<v1.0.4"`                                    // default (meaning no versioning) or only v1.0.2 and v1.0.3
-	Married      bool       `json:"married" yaml:"married" retro:">=v1.0.0,<v1.0.2"`                                         // v1.0.0 v1.0.1
-	BirthDate    *time.Time `json:"birthdate,omitempty" yaml:"birthdate,omitempty" retro:"default,>=v1.0.0,<v1.0.2"`         // v1.0.0 v1.0.1 and default
-	Degree       string     `json:"degree" yaml:"degree" retro:">v1.0.0,<=v1.0.2"`                                           // v1.0.1 v1.0.2
-	Phone        int32      `json:"phone,omitempty" yaml:"phone,omitempty" retro:"default,>v1.0.0,<=v1.0.2"`                 // v1.0.1 v1.0.2 and default
-	Other        []string   `json:"other" yaml:"other" retro:">=v1.0.0,<=v1.0.2"`                                            // v1.0.0 v1.0.1 v1.0.2
-	LuckyNumbers []int      `json:"luckyNumbers,omitempty" yaml:"luckyNumbers,omitempty" retro:"default, >=v1.0.0,<=v1.0.2"` // v1.0.0 v1.0.1 v1.0.2 and default
-	Weight       int        `json:"weight,omitempty" yaml:"weight,omitempty" retro:"default,v1.0.0"`                         // v1.0.0 and default
-	Height       int        `json:"height" yaml:"height" retro:"v1.0.0"`                                                     // v1.0.0 only
-	Id           string     `json:"id" yaml:"id" retro:"v1.0.0,v1.0.3"`                                                      // v1.0.0 and v1.0.3 only
-	Languages    []string   `json:"languages,omitempty" yaml:"languages,omitempty" retro:"default,v1.0.0,v1.0.3"`            // v1.0.0 and v1.0.3 and default
-	Email        string     `json:"email" yaml:"email" retro:"<v1.0.0,v1.0.3"`                                               // lesser than v1.0.0 expect v1.0.3
-	Available    bool       `json:"available" yaml:"available" retro:">v1.0.0,<=v1.0.3"`                                     // v1.0.1 v1.0.2 v1.0.3
-	Sex          string     `json:"sex,omitempty" yaml:"sex,omitempty" retro:">v1.0.0,<=v1.0.3, v0.0.3, default"`            // between v1.0.0 and v1.0.3 (expect v0.0.3) and default
-	Conflict     string     `json:"conflict" yaml:"conflict" retro:">v1.0.0,>v1.0.3"`                                        // this field has non-valid retro definition and should be always ignored
+	Salary       float64    `json:"salary,omitempty" yaml:"salary,omitempty" retro:"<v1.0.2"`                               // only if version strict lesser than v1.0.2
+	Active       bool       `json:"active,omitempty" yaml:"active,omitempty" retro:">=v1.0.2"`                              // only if version greater or equal to v1.0.2
+	Address      Address    `json:"address" yaml:"address" retro:"<=v1.0.0"`                                                // only if version lesser or equal to v1.0.0
+	Job          string     `json:"job" yaml:"job" retro:">v1.0.1,<v1.0.4"`                                                 // only v1.0.2 and v1.0.3
+	Status       Status     `json:"status" yaml:"status" retro:"default,>v1.0.1,<v1.0.4"`                                   // default (meaning no versioning) or only v1.0.2 and v1.0.3
+	Married      bool       `json:"married" yaml:"married" retro:">=v1.0.0,<v1.0.2"`                                        // v1.0.0 v1.0.1
+	BirthDate    *time.Time `json:"birthdate,omitempty" yaml:"birthdate,omitempty" retro:"default,>=v1.0.0,<v1.0.2"`        // v1.0.0 v1.0.1 and default
+	Degree       string     `json:"degree" yaml:"degree" retro:">v1.0.0,<=v1.0.2"`                                          // v1.0.1 v1.0.2
+	Phone        int32      `json:"phone,omitempty" yaml:"phone,omitempty" retro:"default,>v1.0.0,<=v1.0.2"`                // v1.0.1 v1.0.2 and default
+	Other        []string   `json:"other" yaml:"other" retro:">=v1.0.0,<=v1.0.2"`                                           // v1.0.0 v1.0.1 v1.0.2
+	LuckyNumbers []int      `json:"luckyNumbers,omitempty" yaml:"luckyNumbers,omitempty" retro:"default,>=v1.0.0,<=v1.0.2"` // v1.0.0 v1.0.1 v1.0.2 and default
+	Weight       int        `json:"weight,omitempty" yaml:"weight,omitempty" retro:"default,v1.0.0"`                        // v1.0.0 and default
+	Height       int        `json:"height" yaml:"height" retro:"v1.0.0"`                                                    // v1.0.0 only
+	Id           string     `json:"id" yaml:"id" retro:"v1.0.0,v1.0.3"`                                                     // v1.0.0 and v1.0.3 only
+	Languages    []string   `json:"languages,omitempty" yaml:"languages,omitempty" retro:"default,v1.0.0,v1.0.3"`           // v1.0.0 and v1.0.3 and default
+	Email        string     `json:"email" yaml:"email" retro:"<v1.0.0,v1.0.3"`                                              // lesser than v1.0.0 expect v1.0.3
+	Available    bool       `json:"available" yaml:"available" retro:">v1.0.0,<=v1.0.3"`                                    // v1.0.1 v1.0.2 v1.0.3
+	Sex          string     `json:"sex,omitempty" yaml:"sex,omitempty" retro:">v1.0.0,<=v1.0.3, v0.0.3, default"`           // between v1.0.0 and v1.0.3 (expect v0.0.3) and default
+	Conflict     string     `json:"conflict" yaml:"conflict" retro:">v1.0.0,>v1.0.3"`                                       // this field has non-valid retro definition and should be always ignored
 }
 
 type Address struct {
@@ -108,24 +109,87 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 }
 
 func TestModel_MarshalJSON(t *testing.T) {
+	var birth = time.Date(2024, 10, 8, 0, 0, 0, 0, time.UTC)
 	tests := []struct {
 		model       retro.Model[Test]
 		expected    string
 		expectedErr bool
 	}{
 		{ // Test Default No Versioning + age field with no retro tag
-			model:    retro.Model[Test]{Fields: Test{Age: 25, Name: "Alice", Active: true, Address: Address{Street: "123 Main St", City: "Wonderland"}, Status: Active}},
+			model: retro.Model[Test]{Fields: Test{
+				Age:    25,
+				Name:   "Alice",
+				Active: true,
+				Address: Address{Street: "123 Main St",
+					City: "Wonderland"},
+				Status: Active}},
+
 			expected: `{"age":25,"status":"active"}`,
 		},
 		{ // v1.0.3
-			model: retro.Model[Test]{Fields: Test{Age: 25, Name: "Alice", Active: true, Job: "test", Id: "uc123", Email: "test@example.com",
-				Available: true, Sex: "M", Version: "v1.0.3", Address: Address{Street: "123 Main St", City: "Wonderland"}, Status: Active}},
-			expected: `{"version":"v1.0.3","age":25,"status":"active","name":"Alice", "active":true,"job":"test","id":"uc123","email":"test@example.com","available":true,"sex":"M"}`,
+			model: retro.Model[Test]{Fields: Test{
+				Age:       25,
+				Name:      "Alice",
+				Active:    true,
+				Job:       "test",
+				Id:        "uc123",
+				Email:     "test@example.com",
+				Available: true,
+				Sex:       "M",
+				Version:   "v1.0.3",
+				Address:   Address{Street: "123 Main St", City: "Wonderland"},
+				Status:    Active}},
+
+			expected: `{"version":"v1.0.3","age":25,"status":"active","name":"Alice", 
+						"active":true,"job":"test","id":"uc123",
+						"email":"test@example.com","available":true,"sex":"M"}`,
 		},
 		{ // v0.0.3
 
-			model:    retro.Model[Test]{Fields: Test{Age: 15, Version: "v0.0.3", Salary: 100, Address: Address{Street: "123 Main St", City: "Wonderland"}, Email: "test", Sex: "F"}},
-			expected: `{"version":"v0.0.3","age":15,"email":"test","sex":"F","salary":100,"address":{"street":"123 Main St","city":"Wonderland"}}`,
+			model: retro.Model[Test]{Fields: Test{
+				Age:     15,
+				Version: "v0.0.3",
+				Salary:  100,
+				Address: Address{Street: "123 Main St", City: "Wonderland"},
+				Email:   "test",
+				Sex:     "F"}},
+
+			expected: `{"version":"v0.0.3","age":15,"email":"test","sex":"F",
+						"salary":100,"address":{"street":"123 Main St","city":"Wonderland"}}`,
+		},
+		{
+			model: retro.Model[Test]{Fields: Test{
+				LastName: "test",
+				Age:      34,
+				Name:     "test",
+				Version:  "v1.0.0",
+				Salary:   1500,
+				Active:   true,
+				Address: Address{
+					Street: "Joseph Bermond",
+					City:   "Valbonne",
+				},
+				Job:          "test",
+				Status:       Active,
+				Married:      true,
+				BirthDate:    &birth,
+				Degree:       "test",
+				Phone:        12345850,
+				Other:        []string{"tt", "aa", "bb"},
+				LuckyNumbers: []int{12, 21},
+				Weight:       100,
+				Height:       190,
+				Id:           "uc123",
+				Languages:    []string{"french"},
+				Email:        "test@test.com",
+				Available:    true,
+				Sex:          "M",
+				Conflict:     "test",
+			}},
+			expected: `{"lastName": "test","salary":1500,"age": 34,"version": "v1.0.0",
+						"address": {"street": "Joseph Bermond","city": "Valbonne"},"married": true,
+						"birthdate": "2024-10-08T00:00:00Z","other": ["tt", "aa", "bb"],"luckyNumbers": 
+						[12, 21],"weight": 100,"height": 190,"id": "uc123","languages": ["french"]}`,
 		},
 	}
 
@@ -156,6 +220,7 @@ func TestModel_MarshalJSON(t *testing.T) {
 }
 
 func TestModel_UnmarshalJSON(t *testing.T) {
+	var birth = time.Date(2024, 10, 8, 0, 0, 0, 0, time.UTC)
 	tests := []struct {
 		input       string
 		expected    retro.Model[Test]
@@ -166,9 +231,39 @@ func TestModel_UnmarshalJSON(t *testing.T) {
 			expected: retro.Model[Test]{Fields: Test{Age: 25, Status: Active, Weight: 70}},
 		},
 		{
-			input: `{"version":"v1.0.3","age":25,"status":"active","name":"Alice", "active":true,"job":"test","id":"uc123","email":"test@example.com","available":true,"sex":"M"}`,
-			expected: retro.Model[Test]{Fields: Test{Age: 25, Name: "Alice", Active: true, Job: "test", Id: "uc123", Email: "test@example.com",
+			input: `{"version":"v1.0.3","age":25,"status":"active","name":"Alice", 
+					"active":true,"job":"test","id":"uc123","email":"test@example.com","available":true,"sex":"M"}`,
+			expected: retro.Model[Test]{Fields: Test{Age: 25, Name: "Alice", Active: true,
+				Job: "test", Id: "uc123", Email: "test@example.com",
 				Available: true, Sex: "M", Version: "v1.0.3", Status: Active}},
+		},
+		{
+			input: `{"lastName":"test","age":34,"name":"test","version":"v1.0.0",
+					 "salary":1500,"active":true,"address":{"street":"Joseph Bermond","city":"Valbonne"},"job":"test",
+					"status":"active","married":true,"birthdate":"2024-10-08T00:00:00Z","degree":"test","phone":12345850,
+					"other":["tt","aa","bb"],"luckyNumbers":[12,21],"weight":100,"height":190,
+					"id":"uc123","languages":["french"],
+					"email":"test@test.com","available":true,"sex":"M","conflict":"test"}`,
+			expected: retro.Model[Test]{
+				Fields: Test{
+					LastName: "test",
+					Age:      34,
+					Version:  "v1.0.0",
+					Salary:   1500,
+					Address: Address{
+						Street: "Joseph Bermond",
+						City:   "Valbonne",
+					},
+					Married:      true,
+					BirthDate:    &birth,
+					Other:        []string{"tt", "aa", "bb"},
+					LuckyNumbers: []int{12, 21},
+					Weight:       100,
+					Height:       190,
+					Id:           "uc123",
+					Languages:    []string{"french"},
+				},
+			},
 		},
 	}
 
@@ -273,7 +368,8 @@ id: uc123
 email: test@example.com
 available: true
 sex: M`,
-			expected: retro.Model[Test]{Fields: Test{Age: 25, Name: "Alice", Active: true, Job: "test", Id: "uc123", Email: "test@example.com",
+			expected: retro.Model[Test]{Fields: Test{Age: 25, Name: "Alice", Active: true, Job: "test", Id: "uc123",
+				Email:     "test@example.com",
 				Available: true, Sex: "M", Version: "v1.0.3", Status: Active}},
 		},
 	}
