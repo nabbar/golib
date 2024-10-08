@@ -42,7 +42,7 @@ func (d Duration) RangeTo(dur Duration, rateP, rateI, rateD float64) []Duration 
 	)
 
 	for _, v := range p.Range(d.Float64(), dur.Float64()) {
-		r = append(r, ParseFloat64(v))
+		r = append(r, ParseFloat64(v).TruncateSeconds())
 	}
 
 	if len(r) < 3 {
@@ -71,7 +71,7 @@ func (d Duration) RangeFrom(dur Duration, rateP, rateI, rateD float64) []Duratio
 	)
 
 	for _, v := range p.Range(dur.Float64(), d.Float64()) {
-		r = append(r, ParseFloat64(v))
+		r = append(r, ParseFloat64(v).TruncateSeconds())
 	}
 
 	if len(r) < 3 {
