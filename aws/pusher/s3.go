@@ -203,7 +203,13 @@ func (o *psh) pushObject() error {
 		fct = o.pushSingleObject
 	}
 
-	defer o.cfg.onUpload(o.GetLastPartInfo(), o.GetObjectInfo(), err)
+	defer func() {
+		if o.IsMPU() {
+			o.cfg.onUpload(o.GetLastPartInfo(), o.GetObjectInfo(), err)
+		} else {
+			o.cfg.onComplete(o.GetObjectInfo(), err)
+		}
+	}()
 
 	for i := 0; i < 10; i++ {
 		if err, ret = fct(); err == nil {
@@ -316,7 +322,9 @@ func (o *psh) abortUpload() error {
 		i.UploadId = sdkaws.String(u)
 	}
 
-	defer o.cfg.onAbort(o.GetObjectInfo(), e)
+	defer func() {
+		o.cfg.onAbort(o.GetObjectInfo(), e)
+	}()
 
 	if r, e = c.AbortMultipartUpload(o.ctx, i); e == nil && r == nil {
 		e = ErrInvalidResponse
@@ -367,7 +375,9 @@ func (o *psh) completeUpload() error {
 		}
 	}
 
-	defer o.cfg.onComplete(o.GetObjectInfo(), e)
+	defer func() {
+		o.cfg.onComplete(o.GetObjectInfo(), e)
+	}()
 
 	if r, e = c.CompleteMultipartUpload(o.ctx, i); e == nil && r == nil {
 		e = ErrInvalidResponse
