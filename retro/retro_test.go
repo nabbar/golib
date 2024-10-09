@@ -117,18 +117,19 @@ func TestModel_MarshalJSON(t *testing.T) {
 		expectedErr bool
 	}{
 		{ // Test Default No Versioning + age field with no retro tag
-			model: retro.Model[Test]{Fields: Test{
+			model: retro.Model[Test]{Struct: Test{
 				Age:    25,
 				Name:   "Alice",
 				Active: true,
 				Address: Address{Street: "123 Main St",
 					City: "Wonderland"},
-				Status: Active}},
+				Status: Active},
+			},
 
 			expected: `{"age":25,"status":"active"}`,
 		},
 		{ // v1.0.3
-			model: retro.Model[Test]{Fields: Test{
+			model: retro.Model[Test]{Struct: Test{
 				Age:       25,
 				Name:      "Alice",
 				Active:    true,
@@ -147,7 +148,7 @@ func TestModel_MarshalJSON(t *testing.T) {
 		},
 		{ // v0.0.3
 
-			model: retro.Model[Test]{Fields: Test{
+			model: retro.Model[Test]{Struct: Test{
 				Age:     15,
 				Version: "v0.0.3",
 				Salary:  100,
@@ -159,7 +160,7 @@ func TestModel_MarshalJSON(t *testing.T) {
 						"salary":100,"address":{"street":"123 Main St","city":"Wonderland"}}`,
 		},
 		{
-			model: retro.Model[Test]{Fields: Test{
+			model: retro.Model[Test]{Struct: Test{
 				LastName: "test",
 				Age:      34,
 				Name:     "test",
@@ -229,12 +230,12 @@ func TestModel_UnmarshalJSON(t *testing.T) {
 	}{
 		{
 			input:    `{"age":25,"status":"active","weight":70}`,
-			expected: retro.Model[Test]{Fields: Test{Age: 25, Status: Active, Weight: 70}},
+			expected: retro.Model[Test]{Struct: Test{Age: 25, Status: Active, Weight: 70}},
 		},
 		{
 			input: `{"version":"v1.0.3","age":25,"status":"active","name":"Alice", 
 					"active":true,"job":"test","id":"uc123","email":"test@example.com","available":true,"sex":"M"}`,
-			expected: retro.Model[Test]{Fields: Test{Age: 25, Name: "Alice", Active: true,
+			expected: retro.Model[Test]{Struct: Test{Age: 25, Name: "Alice", Active: true,
 				Job: "test", Id: "uc123", Email: "test@example.com",
 				Available: true, Sex: "M", Version: "v1.0.3", Status: Active}},
 		},
@@ -246,7 +247,7 @@ func TestModel_UnmarshalJSON(t *testing.T) {
 					"id":"uc123","languages":["french"],
 					"email":"test@test.com","available":true,"sex":"M","conflict":"test"}`,
 			expected: retro.Model[Test]{
-				Fields: Test{
+				Struct: Test{
 					LastName: "test",
 					Age:      34,
 					Version:  "v1.0.0",
@@ -293,14 +294,14 @@ func TestModel_MarshalYAML(t *testing.T) {
 		expectedErr bool
 	}{
 		{ // Example Test Case
-			model: retro.Model[Test]{Fields: Test{Age: 25, Status: Active, Conflict: "test"}},
+			model: retro.Model[Test]{Struct: Test{Age: 25, Status: Active, Conflict: "test"}},
 			expected: `age: 25
 status: 1
 `,
 			expectedErr: false,
 		},
 		{ // v0.0.3
-			model: retro.Model[Test]{Fields: Test{
+			model: retro.Model[Test]{Struct: Test{
 				Age:     15,
 				Version: "v0.0.3",
 				Salary:  100,
@@ -356,7 +357,7 @@ func TestModel_UnmarshalYAML(t *testing.T) {
 			input: `age: 25
 status: 1
 weight: 70`,
-			expected: retro.Model[Test]{Fields: Test{Age: 25, Status: Active, Weight: 70}},
+			expected: retro.Model[Test]{Struct: Test{Age: 25, Status: Active, Weight: 70}},
 		},
 		{
 			input: `version: v1.0.3
@@ -369,7 +370,7 @@ id: uc123
 email: test@example.com
 available: true
 sex: M`,
-			expected: retro.Model[Test]{Fields: Test{Age: 25, Name: "Alice", Active: true, Job: "test", Id: "uc123",
+			expected: retro.Model[Test]{Struct: Test{Age: 25, Name: "Alice", Active: true, Job: "test", Id: "uc123",
 				Email:     "test@example.com",
 				Available: true, Sex: "M", Version: "v1.0.3", Status: Active}},
 		},
@@ -386,6 +387,7 @@ sex: M`,
 			}
 
 			if !reflect.DeepEqual(result, tt.expected) {
+
 				t.Errorf("expected: %+v, got: %+v", tt.expected, result)
 			}
 		})
@@ -401,7 +403,7 @@ func TestModel_MarshalTOML(t *testing.T) {
 		expectedErr bool
 	}{
 		{
-			model: retro.Model[Test]{Fields: Test{
+			model: retro.Model[Test]{Struct: Test{
 				LastName: "test",
 				Age:      34,
 				Name:     "test",
@@ -465,8 +467,8 @@ func TestModel_UnmarshalTOML(t *testing.T) {
 		expectedErr bool
 	}{
 		{
-			input:    "age = 25\nstatus = 1\nemai = \"test@testcom\"\n",
-			expected: retro.Model[Test]{Fields: Test{Age: 25, Status: Active}},
+			input:    "age = 25\nstatus = 1\nemail = \"test@testcom\"\n",
+			expected: retro.Model[Test]{Struct: Test{Age: 25, Status: Active}},
 		},
 	}
 

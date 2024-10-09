@@ -38,7 +38,8 @@ import (
 
 // Model => The generic struct that handles retro functionality
 type Model[T any] struct {
-	Fields T
+	Struct   T
+	Standard bool
 }
 
 func (m Model[T]) marshal(format Format) ([]byte, error) {
@@ -47,12 +48,25 @@ func (m Model[T]) marshal(format Format) ([]byte, error) {
 		return nil, errors.New("unsupported format")
 	}
 
+	if m.Standard {
+		switch format {
+		case FormatJSON:
+			return json.Marshal(m.Struct)
+		case FormatYAML:
+			return yaml.Marshal(m.Struct)
+		case FormatTOML:
+			return toml.Marshal(m.Struct)
+		default:
+			return nil, errors.New("unsupported format")
+		}
+	}
+
 	var (
 		modelMap = make(map[string]interface{})
 		key      string
 	)
 
-	val := reflect.Indirect(reflect.ValueOf(&m.Fields))
+	val := reflect.Indirect(reflect.ValueOf(&m.Struct))
 
 	version := val.FieldByName("Version").String()
 
@@ -75,9 +89,10 @@ func (m Model[T]) marshal(format Format) ([]byte, error) {
 		}
 
 		if formatTag != "" {
-
 			tagParts := strings.Split(formatTag, ",")
 			key = tagParts[0]
+		} else {
+			key = val.Type().Field(i).Name
 		}
 
 		fieldValue := val.Field(i)
@@ -112,6 +127,19 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 		return errors.New("unsupported format")
 	}
 
+	if m.Standard {
+		switch format {
+		case FormatJSON:
+			return json.Unmarshal(data, &m.Struct)
+		case FormatYAML:
+			return yaml.Unmarshal(data, &m.Struct)
+		case FormatTOML:
+			return toml.Unmarshal(data, &m.Struct)
+		default:
+			return errors.New("unsupported format")
+		}
+	}
+
 	var (
 		tempMap    map[string]interface{}
 		version    string
@@ -143,7 +171,7 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 		version = "default"
 	}
 
-	val := reflect.Indirect(reflect.ValueOf(&m.Fields))
+	val := reflect.Indirect(reflect.ValueOf(&m.Struct))
 
 	for i := 0; i < val.NumField(); i++ {
 
@@ -241,7 +269,7 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 						return err
 					}
 
-					if err = toml.Unmarshal(rawMessage, &m.Fields); err != nil {
+					if err = toml.Unmarshal(rawMessage, &m.Struct); err != nil {
 						return err
 					}
 
