@@ -48,7 +48,7 @@ func (m Model[T]) marshal(format Format) ([]byte, error) {
 		return nil, errors.New("unsupported format")
 	}
 
-	if m.Standard {
+	if m.Standard == true {
 		switch format {
 		case FormatJSON:
 			return json.Marshal(m.Struct)
@@ -127,7 +127,7 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 		return errors.New("unsupported format")
 	}
 
-	if m.Standard {
+	if m.Standard == true {
 		switch format {
 		case FormatJSON:
 			return json.Unmarshal(data, &m.Struct)
@@ -152,17 +152,19 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 	// Unmarshal based on the provided format
 	switch format {
 	case FormatJSON:
-		err = json.Unmarshal(data, &tempMap)
+		if err = json.Unmarshal(data, &tempMap); err != nil {
+			return err
+		}
 	case FormatYAML:
-		err = yaml.Unmarshal(data, &tempMap)
+		if err = yaml.Unmarshal(data, &tempMap); err != nil {
+			return err
+		}
 	case FormatTOML:
-		err = toml.Unmarshal(data, &tempMap)
+		if err = toml.Unmarshal(data, &tempMap); err != nil {
+			return err
+		}
 	default:
 		return errors.New("unsupported format")
-	}
-
-	if err != nil {
-		return err
 	}
 
 	version, _ = tempMap["version"].(string)
@@ -195,9 +197,8 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 				field = field.Addr()
 			}
 
-			switch format {
+			if format == FormatJSON {
 
-			case FormatJSON:
 				if unmarshaler, ok := field.Interface().(json.Unmarshaler); ok {
 
 					if rawMessage, err = json.Marshal(rawField); err != nil {
@@ -219,20 +220,21 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 					}
 				}
 
-			case FormatYAML:
+			} else if format == FormatYAML {
+
 				if unmarshaler, ok := field.Interface().(yaml.Unmarshaler); ok {
 
-					var node yaml.Node
+					var node1 yaml.Node
 
 					if rawMessage, err = yaml.Marshal(rawField); err != nil {
 						return err
 					}
 
-					if err = yaml.Unmarshal(rawMessage, &node); err != nil {
+					if err = yaml.Unmarshal(rawMessage, &node1); err != nil {
 						return err
 					}
 
-					if err = unmarshaler.UnmarshalYAML(&node); err != nil {
+					if err = unmarshaler.UnmarshalYAML(&node1); err != nil {
 						return err
 					}
 
@@ -247,7 +249,7 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 					}
 				}
 
-			case FormatTOML:
+			} else if format == FormatTOML {
 
 				if unmarshaler, ok := field.Interface().(toml.Unmarshaler); ok {
 
@@ -272,9 +274,9 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 					if err = toml.Unmarshal(rawMessage, &m.Struct); err != nil {
 						return err
 					}
-
 				}
 			}
+
 		}
 
 	}

@@ -63,9 +63,17 @@ type Test struct {
 	Conflict     string     `json:"conflict" yaml:"conflict" toml:"conflict" retro:">v1.0.0,>v1.0.3"`                                                     // this field has non-valid retro definition and should be always ignored
 }
 
+type Standard struct {
+	A int      `json:"a" yaml:"a" toml:"a"`
+	b int      `json:"b,omitempty" yaml:"b,omitempty" toml:"b,omitempty"` // private in struct, but omitted
+	C string   `json:"C" yaml:"C" toml:"C"`
+	D []string `json:"d" yaml:"d" toml:"d"`
+}
+
 type Address struct {
-	Street string `json:"street" `
-	City   string `json:"city,omitempty"`
+	Street  string `json:"street" `
+	City    string `json:"city,omitempty"`
+	Version string `json:"version,omitempty" yaml:"version,omitempty" toml:"version,omitempty"`
 }
 
 type Status int
@@ -294,7 +302,7 @@ func TestModel_MarshalYAML(t *testing.T) {
 		expectedErr bool
 	}{
 		{ // Example Test Case
-			model: retro.Model[Test]{Struct: Test{Age: 25, Status: Active, Conflict: "test"}},
+			model: retro.Model[Test]{Struct: Test{Age: 25, Status: Active}},
 			expected: `age: 25
 status: 1
 `,
@@ -323,26 +331,26 @@ address:
 	}
 
 	for _, tt := range tests {
+
 		t.Run(tt.expected, func(t *testing.T) {
-			var expectedMap, resultMap map[string]interface{}
+			var (
+				m   retro.Model[Test]
+				err error
+			)
 
-			result, err := tt.model.MarshalYAML()
-
-			if (err != nil) != tt.expectedErr {
+			if _, err = yaml.Marshal(&tt.model); (err != nil) != tt.expectedErr {
 				t.Errorf("expected error: %v, got: %v", tt.expectedErr, err)
 			}
 
-			if err = yaml.Unmarshal([]byte(tt.expected), &expectedMap); err != nil {
+			if err = yaml.Unmarshal([]byte(tt.expected), &m); err != nil {
 				t.Fatalf("failed to unmarshal expected YAML: %v", err)
 			}
 
-			if err = yaml.Unmarshal([]byte(result.(string)), &resultMap); err != nil {
-				t.Fatalf("failed to unmarshal actual YAML: %v", err)
+			if !reflect.DeepEqual(m, tt.model) {
+
+				t.Errorf("expected: %+v, got: %+v", tt.model, m)
 			}
 
-			if !reflect.DeepEqual(expectedMap, resultMap) {
-				t.Errorf("expected: %+v, got: %+v", expectedMap, resultMap)
-			}
 		})
 	}
 }
@@ -377,7 +385,9 @@ sex: M`,
 	}
 
 	for _, tt := range tests {
+
 		t.Run(tt.input, func(t *testing.T) {
+
 			var result retro.Model[Test]
 
 			err := yaml.Unmarshal([]byte(tt.input), &result)
@@ -486,5 +496,84 @@ func TestModel_UnmarshalTOML(t *testing.T) {
 				t.Errorf("expected: %+v, got: %+v", tt.expected, result)
 			}
 		})
+	}
+}
+
+// Standard to true means that the retro Model will Marshalled Unmarshalled directly with the standard encoders
+func TestModel_MarshalStandard(t *testing.T) {
+	var (
+		err error
+		// Expected struct after unmarshaling
+		expected = retro.Model[Standard]{
+			Struct: Standard{
+				A: 12,
+				C: "test",
+				D: []string{"a", "b"},
+			},
+			Standard: true,
+		}
+		// Struct to be used for unmarshaling and comparison
+		m = retro.Model[Standard]{
+			Standard: true,
+		}
+	)
+
+	tests := []struct {
+		input                                    retro.Model[Standard]
+		expectedJSON, expectedYAML, expectedTOML string
+		expectedErr                              bool
+	}{
+		{
+			input: retro.Model[Standard]{
+				Struct: Standard{
+					A: 12,
+					b: 25,
+					C: "test",
+					D: []string{"a", "b"},
+				},
+				Standard: true,
+			},
+
+			expectedJSON: `{"a":12,"C":"test","d":["a","b"]}`,
+			expectedYAML: `
+a: 12
+C: test
+b: 25
+d:
+  - a
+  - b
+`,
+			expectedTOML: `a = 12
+C = "test"
+d = ["a", "b"]
+`,
+		},
+	}
+
+	for _, tt := range tests {
+
+		if err = yaml.Unmarshal([]byte(tt.expectedYAML), &m); (err != nil) != tt.expectedErr {
+			t.Fatalf("failed to unmarshal expected YAML: %v", err)
+		}
+
+		if !reflect.DeepEqual(m.Struct, expected.Struct) {
+			t.Errorf("YAML: expected: %+v, got: %+v", expected, m)
+		}
+
+		if err = json.Unmarshal([]byte(tt.expectedJSON), &m); (err != nil) != tt.expectedErr {
+			t.Fatalf("failed to unmarshal expected JSON: %v", err)
+		}
+
+		if !reflect.DeepEqual(m.Struct, expected.Struct) {
+			t.Errorf("JSON: expected: %+v, got: %+v", expected, m)
+		}
+
+		if err = toml.Unmarshal([]byte(tt.expectedTOML), &m); (err != nil) != tt.expectedErr {
+			t.Fatalf("failed to unmarshal expected TOML: %v", err)
+		}
+
+		if !reflect.DeepEqual(m.Struct, expected.Struct) {
+			t.Errorf("TOML: expected: %+v, got: %+v", expected, m)
+		}
 	}
 }

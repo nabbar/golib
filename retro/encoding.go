@@ -27,8 +27,6 @@
 package retro
 
 import (
-	"fmt"
-
 	"github.com/pelletier/go-toml"
 	"gopkg.in/yaml.v3"
 )
@@ -42,6 +40,7 @@ func (m *Model[T]) UnmarshalJSON(data []byte) error {
 }
 
 func (m Model[T]) MarshalYAML() (interface{}, error) {
+
 	data, err := m.marshal(FormatYAML)
 
 	if err != nil {
@@ -49,20 +48,21 @@ func (m Model[T]) MarshalYAML() (interface{}, error) {
 	}
 
 	return string(data), nil
+
 }
 
 func (m *Model[T]) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var (
-		tempMap map[string]interface{}
-		rawData []byte
+		tmp     interface{}
 		err     error
+		rawData []byte
 	)
 
-	if err = unmarshal(&tempMap); err != nil {
+	if err = unmarshal(&tmp); err != nil {
 		return err
 	}
 
-	if rawData, err = yaml.Marshal(tempMap); err != nil {
+	if rawData, err = yaml.Marshal(tmp); err != nil {
 		return err
 	}
 
@@ -73,12 +73,12 @@ func (m Model[T]) MarshalTOML() ([]byte, error) {
 	return m.marshal(FormatTOML)
 }
 
-func (m *Model[T]) UnmarshalTOML(data interface{}) error {
+func (m *Model[T]) UnmarshalTOML(data interface{}) (err error) {
 
-	rawData, err := toml.Marshal(data.(map[string]interface{}))
+	var rawData []byte
 
-	if err != nil {
-		return fmt.Errorf("error marshaling to TOML bytes: %w", err)
+	if rawData, err = toml.Marshal(data.(map[string]interface{})); err != nil {
+		return err
 	}
 
 	return m.unmarshal(rawData, FormatTOML)
