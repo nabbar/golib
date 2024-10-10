@@ -65,7 +65,7 @@ type Test struct {
 
 type Standard struct {
 	A int      `json:"a" yaml:"a" toml:"a"`
-	b int      `json:"b,omitempty" yaml:"b,omitempty" toml:"b,omitempty"` // private in struct, but omitted
+	b int      
 	C string   `json:"C" yaml:"C" toml:"C"`
 	D []string `json:"d" yaml:"d" toml:"d"`
 }
@@ -73,7 +73,6 @@ type Standard struct {
 type Address struct {
 	Street  string `json:"street" `
 	City    string `json:"city,omitempty"`
-	Version string `json:"version,omitempty" yaml:"version,omitempty" toml:"version,omitempty"`
 }
 
 type Status int
