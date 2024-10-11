@@ -27,6 +27,7 @@
 package status
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -35,7 +36,6 @@ import (
 	monsts "github.com/nabbar/golib/monitor/status"
 	montps "github.com/nabbar/golib/monitor/types"
 	stsctr "github.com/nabbar/golib/status/control"
-	"golang.org/x/exp/slices"
 )
 
 type fctGetName func() string

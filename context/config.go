@@ -26,10 +26,9 @@ package context
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
-
-	"golang.org/x/exp/slices"
 )
 
 type FuncContext func() context.Context

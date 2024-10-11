@@ -27,13 +27,13 @@
 package listmandatory
 
 import (
+	"slices"
 	"sort"
 	"sync"
 	"sync/atomic"
 
 	stsctr "github.com/nabbar/golib/status/control"
 	stsmdt "github.com/nabbar/golib/status/mandatory"
-	"golang.org/x/exp/slices"
 )
 
 type model struct {

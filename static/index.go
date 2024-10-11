@@ -27,7 +27,7 @@
 package static
 
 import (
-	"golang.org/x/exp/slices"
+	"slices"
 )
 
 func (s *staticHandler) SetIndex(group, route, pathFile string) {

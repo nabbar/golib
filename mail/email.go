@@ -25,7 +25,7 @@
 
 package mail
 
-import "golang.org/x/exp/slices"
+import "slices"
 
 const (
 	headerFrom       = "From"
