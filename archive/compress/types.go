@@ -37,6 +37,27 @@ const (
 	XZ
 )
 
+func List() []Algorithm {
+	return []Algorithm{
+		None,
+		Bzip2,
+		Gzip,
+		LZ4,
+		XZ,
+	}
+}
+
+func ListString() []string {
+	var (
+		lst = List()
+		res = make([]string, len(lst))
+	)
+	for i := range lst {
+		res[i] = lst[i].String()
+	}
+	return res
+}
+
 func (a Algorithm) IsNone() bool {
 	return a == None
 }
