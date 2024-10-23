@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2024 Salim Amine Bou Aram
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -30,8 +30,8 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/nabbar/golib/archive/compress"
-	"github.com/nabbar/golib/archive/compress/helper"
+	arccmp "github.com/nabbar/golib/archive/compress"
+	archlp "github.com/nabbar/golib/archive/helper"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -39,53 +39,48 @@ import (
 var _ = Describe("Compress Helper Test", func() {
 
 	var (
-		dcHelper        helper.Helper
-		compressionAlgo = []compress.Algorithm{compress.Gzip, compress.Bzip2, compress.LZ4, compress.XZ}
+		dcHelper        archlp.Helper
+		compressionAlgo = []arccmp.Algorithm{arccmp.Gzip, arccmp.Bzip2, arccmp.LZ4, arccmp.XZ}
 	)
 
 	for _, algo := range compressionAlgo {
 		Context(algo.String(), func() {
 			var (
-				buf                      = make([]byte, 1024)
-				compressed, decompressed bytes.Buffer
+				compressed   = bytes.NewBuffer(make([]byte, 0))
+				decompressed = bytes.NewBuffer(make([]byte, 0))
 			)
 
 			BeforeEach(func() {
 				// Create the compressor helper
-				dcHelper, err = helper.NewHelper(algo)
+				dcHelper, err = archlp.NewHelper(algo)
 				Expect(err).NotTo(HaveOccurred())
+				Expect(dcHelper).NotTo(BeNil())
 
 			})
 
 			It("should compress and then decompress correctly", func() {
+				var (
+					cmpNbr int64
+					decNbr int64
+				)
 
 				// Initialize the compressor
 				err = dcHelper.Compress(bytes.NewReader([]byte(loremIpsum)))
 				Expect(err).NotTo(HaveOccurred())
 
 				// Read compressed data
-				for {
-					n, err := dcHelper.Read(buf)
-					if err == io.EOF {
-						break
-					}
-					Expect(err).NotTo(HaveOccurred())
-					compressed.Write(buf[:n])
-				}
+				cmpNbr, err = io.Copy(compressed, dcHelper)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(cmpNbr).To(BeNumerically(">", 0))
 
 				// Initialize decompressor
 				err := dcHelper.Decompress(bytes.NewReader(compressed.Bytes()))
 				Expect(err).NotTo(HaveOccurred())
 
-				// Read decompressed data
-				for {
-					n, err := dcHelper.Read(buf)
-					if err == io.EOF {
-						break
-					}
-					Expect(err).NotTo(HaveOccurred())
-					decompressed.Write(buf[:n])
-				}
+				// Read compressed data
+				decNbr, err = io.Copy(decompressed, dcHelper)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(decNbr).To(BeNumerically(">", 0))
 
 				// Check if decompressed data matches the original data
 				Expect(reflect.DeepEqual([]byte(loremIpsum), decompressed.Bytes())).To(BeTrue(), "unexpected decompressed data")

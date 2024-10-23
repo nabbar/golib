@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2024 Salim Amine Bou Aram
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,18 @@
 
 package helper
 
-import "io"
+import (
+	"bytes"
+	"io"
+)
+
+// compressor handles data compression in chunks.
+type compressor struct {
+	source io.Reader
+	writer io.WriteCloser
+	buffer *bytes.Buffer
+	closed bool
+}
 
 // Read for compressor compresses the data and reads it from the buffer in chunks.
 func (c *compressor) Read(outputBuffer []byte) (n int, err error) {
@@ -34,10 +45,8 @@ func (c *compressor) Read(outputBuffer []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 
-	if c.buffer.Len() == 0 {
-		if _, err = c.fill(); err != nil {
-			return 0, err
-		}
+	if _, err = c.fill(cap(outputBuffer)); err != nil {
+		return 0, err
 	}
 
 	if n, err = c.buffer.Read(outputBuffer); err == io.EOF && c.buffer.Len() == 0 {
@@ -49,36 +58,47 @@ func (c *compressor) Read(outputBuffer []byte) (n int, err error) {
 }
 
 // fill handles compressing data from the source and writing to the buffer.
-func (c *compressor) fill() (n int, err error) {
+func (c *compressor) fill(size int) (n int, err error) {
+	var (
+		tempBuffer = make([]byte, size)
+		nbrWrt     int
+		errWrt     error
+	)
 
-	var tempBuffer = make([]byte, ChunkSize)
+	for c.buffer.Len() < size {
 
-	if n, err = c.source.Read(tempBuffer); err != nil && err != io.EOF {
-		return 0, err
-	}
-
-	if n > 0 {
-		if _, err = c.writer.Write(tempBuffer[:n]); err != nil {
+		if n, err = c.source.Read(tempBuffer); err != nil && err != io.EOF {
 			return 0, err
 		}
-	}
 
-	if err == io.EOF {
-		if closeErr := c.writer.Close(); closeErr != nil {
-			return 0, closeErr
+		if n > 0 {
+			if nbrWrt, errWrt = c.writer.Write(tempBuffer[:n]); errWrt != nil {
+				return 0, errWrt
+			} else if nbrWrt < 1 {
+				return 0, io.ErrShortWrite
+			}
 		}
-		c.closed = true
+
+		clear(tempBuffer)
+
+		if err == io.EOF {
+			if closeErr := c.writer.Close(); closeErr != nil {
+				return 0, closeErr
+			}
+
+			c.closed = true
+			return c.buffer.Len(), nil
+		}
 	}
 
 	data := c.buffer.Bytes()
-
 	c.buffer.Reset()
 
 	if _, err = c.buffer.Write(data); err != nil {
 		return 0, err
 	}
 
-	return n, nil
+	return c.buffer.Len(), nil
 }
 
 // Close closes the compressor and underlying writer.

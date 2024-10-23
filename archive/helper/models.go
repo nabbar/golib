@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2024 Salim Amine Bou Aram
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nabbar/golib/archive/compress"
+	libarc "github.com/nabbar/golib/archive"
+	arccmp "github.com/nabbar/golib/archive/compress"
 )
 
 // engine manages both compression and decompression operations.
@@ -38,43 +39,13 @@ type engine struct {
 	operation    string
 	compressor   *compressor
 	decompressor *decompressor
-	algo         compress.Algorithm
-}
-
-// compressor handles data compression in chunks.
-type compressor struct {
-	source io.Reader
-	writer io.WriteCloser
-	buffer *bytes.Buffer
-	closed bool
-}
-
-// decompressor handles data decompression in chunks.
-type decompressor struct {
-	source io.Reader
-	writer io.WriteCloser
-	buffer *bytes.Buffer
-	closed bool
-}
-
-// bufferRWCloser wraps a bytes.Buffer to implement io.ReadWriteCloser.
-type bufferRWCloser struct {
-	*bytes.Buffer
-}
-
-func (bc *bufferRWCloser) Close() error {
-	return nil
-}
-
-// newBufferCloser converts a bytes.Buffer to an io.ReadWriteCloser.
-func newBufferRWCloser(buffer *bytes.Buffer) io.ReadWriteCloser {
-	return &bufferRWCloser{buffer}
+	algo         arccmp.Algorithm
 }
 
 // Compress initializes the compressor.
 func (e *engine) Compress(source io.Reader) error {
-	var buffer bytes.Buffer
-	writer, err := e.algo.Writer(newBufferRWCloser(&buffer))
+	var buffer = bytes.NewBuffer(make([]byte, 0))
+	writer, err := e.algo.Writer(libarc.NopWriteCloser(buffer))
 	if err != nil {
 		return err
 	}
@@ -82,7 +53,7 @@ func (e *engine) Compress(source io.Reader) error {
 	e.compressor = &compressor{
 		source: source,
 		writer: writer,
-		buffer: &buffer,
+		buffer: buffer,
 		closed: false,
 	}
 
@@ -94,7 +65,7 @@ func (e *engine) Compress(source io.Reader) error {
 func (e *engine) Decompress(source io.Reader) error {
 	var (
 		err    error
-		buffer bytes.Buffer
+		buffer = bytes.NewBuffer(make([]byte, 0))
 		reader io.ReadCloser
 	)
 
@@ -105,8 +76,8 @@ func (e *engine) Decompress(source io.Reader) error {
 
 	e.decompressor = &decompressor{
 		source: reader,
-		writer: newBufferRWCloser(&buffer),
-		buffer: &buffer,
+		writer: libarc.NopWriteCloser(buffer),
+		buffer: buffer,
 		closed: false,
 	}
 

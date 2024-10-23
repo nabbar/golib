@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2024 Salim Amine Bou Aram
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,18 @@
 
 package helper
 
-import "io"
+import (
+	"bytes"
+	"io"
+)
+
+// decompressor handles data decompression in chunks.
+type decompressor struct {
+	source io.Reader
+	writer io.WriteCloser
+	buffer *bytes.Buffer
+	closed bool
+}
 
 // Read for decompressor reads decompressed data from the buffer in chunks.
 func (d *decompressor) Read(outputBuffer []byte) (n int, err error) {
