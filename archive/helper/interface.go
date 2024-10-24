@@ -26,23 +26,33 @@
 package helper
 
 import (
+	"errors"
 	"io"
 
 	"github.com/nabbar/golib/archive/compress"
 )
 
-var ChunkSize = 256 // internal temporary buffer size
+type Mode uint8
+
+const (
+	ReaderMode = iota
+	WriterMode
+)
 
 type Helper interface {
-	Compress(io.Reader) error
-	Decompress(io.Reader) error
-	Read([]byte) (int, error)
-	Close() error
+	Compress(any) error
+	Decompress(any) error
+	io.ReadWriteCloser
 }
 
 // NewHelper creates a new Helper instance for a specified algorithm.
-func NewHelper(algo compress.Algorithm) (Helper, error) {
+func NewHelper(algo compress.Algorithm, mode Mode) (Helper, error) {
+	if mode < 0 || mode > 1 {
+		return nil, errors.New("unexpected mode argument")
+	}
+
 	return &engine{
 		algo: algo,
+		mode: mode,
 	}, nil
 }

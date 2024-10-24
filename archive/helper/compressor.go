@@ -45,8 +45,10 @@ func (c *compressor) Read(outputBuffer []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 
-	if _, err = c.fill(cap(outputBuffer)); err != nil {
-		return 0, err
+	if c.buffer.Len() == 0 {
+		if _, err = c.fill(cap(outputBuffer)); err != nil {
+			return 0, err
+		}
 	}
 
 	if n, err = c.buffer.Read(outputBuffer); err == io.EOF && c.buffer.Len() == 0 {
@@ -54,14 +56,12 @@ func (c *compressor) Read(outputBuffer []byte) (n int, err error) {
 	}
 
 	return n, err
-
 }
 
 // fill handles compressing data from the source and writing to the buffer.
 func (c *compressor) fill(size int) (n int, err error) {
 	var (
 		tempBuffer = make([]byte, size)
-		nbrWrt     int
 		errWrt     error
 	)
 
@@ -72,26 +72,22 @@ func (c *compressor) fill(size int) (n int, err error) {
 		}
 
 		if n > 0 {
-			if nbrWrt, errWrt = c.writer.Write(tempBuffer[:n]); errWrt != nil {
+			if _, errWrt = c.writer.Write(tempBuffer[:n]); errWrt != nil {
 				return 0, errWrt
-			} else if nbrWrt < 1 {
-				return 0, io.ErrShortWrite
 			}
 		}
-
-		clear(tempBuffer)
 
 		if err == io.EOF {
 			if closeErr := c.writer.Close(); closeErr != nil {
 				return 0, closeErr
 			}
-
 			c.closed = true
 			return c.buffer.Len(), nil
 		}
 	}
 
 	data := c.buffer.Bytes()
+
 	c.buffer.Reset()
 
 	if _, err = c.buffer.Write(data); err != nil {
@@ -102,8 +98,17 @@ func (c *compressor) fill(size int) (n int, err error) {
 }
 
 // Close closes the compressor and underlying writer.
-func (c *compressor) Close() error {
+func (c *compressor) Close() (err error) {
+
 	c.closed = true
-	c.buffer.Reset()
-	return c.writer.Close()
+
+	if c.buffer != nil {
+		c.buffer.Reset()
+	}
+
+	if c.writer != nil {
+		return c.writer.Close()
+	}
+
+	return nil
 }
