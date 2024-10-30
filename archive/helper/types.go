@@ -28,13 +28,13 @@ package helper
 type operation uint8
 
 const (
-	Compress = iota
+	Compress operation = iota
 	Decompress
 )
 
 type Mode uint8
 
 const (
-	ReaderMode = iota
+	ReaderMode Mode = iota
 	WriterMode
 )

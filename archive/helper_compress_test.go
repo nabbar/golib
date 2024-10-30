@@ -91,7 +91,7 @@ var _ = Describe("Compress Helper Test", func() {
 				)
 
 				// Create the compressor helper
-				dcHelper, err = archlp.New(algo, archlp.Decompress)
+				dcHelper, err = archlp.New(algo, archlp.WriterMode)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(dcHelper).NotTo(BeNil())
 
