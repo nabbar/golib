@@ -40,13 +40,20 @@ type compressor struct {
 
 // Read for compressor compresses the data and reads it from the buffer in chunks.
 func (c *compressor) Read(outputBuffer []byte) (n int, err error) {
+	var size int
+
+	if cap(outputBuffer) < chunkSize {
+		size = chunkSize
+	} else {
+		size = cap(outputBuffer)
+	}
 
 	if c.closed && c.buffer.Len() == 0 {
 		return 0, io.EOF
 	}
 
 	if c.buffer.Len() == 0 {
-		if _, err = c.fill(cap(outputBuffer)); err != nil {
+		if _, err = c.fill(size); err != nil {
 			return 0, err
 		}
 	}

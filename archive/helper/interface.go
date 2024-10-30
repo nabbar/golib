@@ -32,6 +32,8 @@ import (
 	"github.com/nabbar/golib/archive/compress"
 )
 
+const chunkSize = 512
+
 type Helper interface {
 	Compress(any) error
 	Decompress(any) error

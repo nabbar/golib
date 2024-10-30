@@ -144,7 +144,7 @@ func (e *engine) Write(p []byte) (n int, err error) {
 
 		rc, err = e.algo.Reader(bytes.NewReader(p))
 
-		buf := make([]byte, 512)
+		buf := make([]byte, chunkSize)
 
 		for {
 			n, err = rc.Read(buf)
