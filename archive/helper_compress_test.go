@@ -40,7 +40,7 @@ var _ = Describe("Compress Helper Test", func() {
 
 	var (
 		dcHelper        archlp.Helper
-		compressionAlgo = []arccmp.Algorithm{arccmp.Gzip}
+		compressionAlgo = []arccmp.Algorithm{arccmp.Gzip, arccmp.XZ, arccmp.LZ4, arccmp.Bzip2}
 	)
 
 	for _, algo := range compressionAlgo {
@@ -53,8 +53,9 @@ var _ = Describe("Compress Helper Test", func() {
 					compressed   = bytes.NewBuffer(make([]byte, 0))
 					decompressed = bytes.NewBuffer(make([]byte, 0))
 				)
+
 				// Create the compressor helper
-				dcHelper, err = archlp.NewHelper(algo, archlp.ReaderMode)
+				dcHelper, err = archlp.New(algo, archlp.ReaderMode)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(dcHelper).NotTo(BeNil())
 
@@ -64,6 +65,7 @@ var _ = Describe("Compress Helper Test", func() {
 
 				// Read compressed data
 				cmpNbr, err = io.Copy(compressed, dcHelper)
+
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cmpNbr).To(BeNumerically(">", 0))
 
@@ -89,7 +91,7 @@ var _ = Describe("Compress Helper Test", func() {
 				)
 
 				// Create the compressor helper
-				dcHelper, err = archlp.NewHelper(algo, archlp.WriterMode)
+				dcHelper, err = archlp.New(algo, archlp.Decompress)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(dcHelper).NotTo(BeNil())
 

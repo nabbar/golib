@@ -26,17 +26,10 @@
 package helper
 
 import (
-	"errors"
+	"fmt"
 	"io"
 
 	"github.com/nabbar/golib/archive/compress"
-)
-
-type Mode uint8
-
-const (
-	ReaderMode = iota
-	WriterMode
 )
 
 type Helper interface {
@@ -45,14 +38,18 @@ type Helper interface {
 	io.ReadWriteCloser
 }
 
-// NewHelper creates a new Helper instance for a specified algorithm.
-func NewHelper(algo compress.Algorithm, mode Mode) (Helper, error) {
+func New(algo compress.Algorithm, mode Mode) (h Helper, err error) {
+
 	if mode < 0 || mode > 1 {
-		return nil, errors.New("unexpected mode argument")
+		return nil, fmt.Errorf("invalid operation/mode type")
 	}
 
-	return &engine{
-		algo: algo,
-		mode: mode,
-	}, nil
+	eng := &engine{
+		compressor:   nil,
+		decompressor: nil,
+		algo:         algo,
+		mode:         mode,
+	}
+
+	return eng, nil
 }

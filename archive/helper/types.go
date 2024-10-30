@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2024 Salim Amine Bou Aram
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -23,47 +23,18 @@
  *
  */
 
-package compress
-
-import (
-	"bytes"
-	"errors"
-	"io"
-	"sync/atomic"
-)
+package helper
 
 type operation uint8
 
 const (
-	Compress operation = iota
+	Compress = iota
 	Decompress
 )
 
-const chunkSize = 856
+type Mode uint8
 
-type Helper interface {
-	SetReader(io.Reader) error
-	SetWriter(io.Writer) error
-	io.ReadWriter
-}
-
-func NewHelper(algo Algorithm, operation operation) (Helper, error) {
-	var eng *engine
-
-	if operation < 0 || operation > 1 {
-		return nil, errors.New("invalid operation: choose 'compress' or 'decompress'")
-	}
-
-	eng = &engine{
-		state:     new(atomic.Bool),
-		algo:      algo,
-		buffer:    bytes.NewBuffer(make([]byte, 0)),
-		operation: operation,
-		closed:    new(atomic.Bool),
-		writer:    nil,
-		reader:    nil,
-	}
-
-	return eng, nil
-
-}
+const (
+	ReaderMode = iota
+	WriterMode
+)
