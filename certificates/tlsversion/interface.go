@@ -63,6 +63,8 @@ func Parse(s string) Version {
 	s = strings.Replace(s, "tls", "", -1)
 	s = strings.Replace(s, "ssl", "", -1)
 	s = strings.Replace(s, ".", "", -1)
+	s = strings.Replace(s, "-", "", -1)
+	s = strings.Replace(s, "_", "", -1)
 	s = strings.Replace(s, " ", "", -1)
 	s = strings.TrimSpace(s)
 
