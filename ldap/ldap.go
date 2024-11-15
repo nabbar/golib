@@ -547,7 +547,7 @@ func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) 
 func (lc *HelperLDAP) GroupInfo(groupname string) (map[string]interface{}, liberr.Error) {
 	return lc.GroupInfoByField(groupname, groupFieldCN)
 }
-func (lc *HelperLDAP) GroupsAttributeInfoByField(search string,
+func (lc *HelperLDAP) AttributeFilter(search string,
 	filter string, attribute string) (map[string][]string,
 	liberr.Error) {
 
