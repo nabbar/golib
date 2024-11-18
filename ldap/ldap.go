@@ -567,6 +567,8 @@ func (lc *HelperLDAP) AttributeFilter(search string,
 		return nil, ErrorLDAPGroupNotFound.Error(nil)
 	}
 
+	grpInfo = make(map[string][]string, len(src.Entries))
+
 	for _, entry := range src.Entries {
 		for _, entryAttribute := range entry.Attributes {
 			if entryAttribute.Name == attribute {
