@@ -547,6 +547,37 @@ func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) 
 func (lc *HelperLDAP) GroupInfo(groupname string) (map[string]interface{}, liberr.Error) {
 	return lc.GroupInfoByField(groupname, groupFieldCN)
 }
+func (lc *HelperLDAP) AttributeFilter(search string,
+	filter string, attribute string) (map[string][]string,
+	liberr.Error) {
+
+	var (
+		err     liberr.Error
+		src     *ldap.SearchResult
+		grpInfo map[string][]string
+	)
+
+	src, err = lc.runSearch(fmt.Sprintf("(&(objectClass~=groupOfNames)(%s=%s))", filter, search), []string{})
+
+	if err != nil {
+		return grpInfo, err
+	}
+
+	if len(src.Entries) == 0 {
+		return nil, ErrorLDAPGroupNotFound.Error(nil)
+	}
+
+	for _, entry := range src.Entries {
+		for _, entryAttribute := range entry.Attributes {
+			if entryAttribute.Name == attribute {
+				grpInfo[entryAttribute.Name] = append(grpInfo[entryAttribute.Name], entryAttribute.Values...)
+			}
+		}
+	}
+
+	lc.getLogEntry(loglvl.DebugLevel, "ldap group find success").FieldAdd("ldap.group", search).FieldAdd("ldap.map", grpInfo).Log()
+	return grpInfo, nil
+}
 
 // GroupInfoByField used to retrieve the information of a given group cn, but use a given field to make the search.
 func (lc *HelperLDAP) GroupInfoByField(groupname string, fieldForUnicValue string) (map[string]interface{}, liberr.Error) {
