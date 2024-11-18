@@ -557,7 +557,7 @@ func (lc *HelperLDAP) AttributeFilter(search string,
 		grpInfo map[string][]string
 	)
 
-	src, err = lc.runSearch(fmt.Sprintf(lc.config.FilterGroup, filter, search), []string{})
+	src, err = lc.runSearch(fmt.Sprintf("(&(objectClass~=groupOfNames)(%s=%s))", filter, search), []string{})
 
 	if err != nil {
 		return grpInfo, err
