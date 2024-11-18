@@ -460,7 +460,7 @@ func (lc *HelperLDAP) runSearch(filter string, attributes []string) (*ldap.Searc
 		lc.config.Basedn,
 		ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases,
-		100, 0, false,
+		0, 0, false,
 		filter,
 		attributes,
 		nil,
