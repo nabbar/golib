@@ -39,6 +39,37 @@ func Parse(s string) Algorithm {
 	}
 }
 
+func DetectOnly(r io.Reader) (io.ReadCloser, Algorithm) {
+	var (
+		err error
+		alg Algorithm
+		bfr = bufio.NewReader(r)
+		buf []byte
+	)
+
+	if buf, err = bfr.Peek(6); err != nil {
+		return io.NopCloser(r), None
+	}
+
+	// Vérifier le type de compression
+	switch {
+	case Gzip.DetectHeader(buf): // gzip
+		alg = Gzip
+	case Bzip2.DetectHeader(buf): // bzip2
+		alg = Bzip2
+	case LZ4.DetectHeader(buf): // lz4
+		alg = LZ4
+	case XZ.DetectHeader(buf): // xz
+		alg = XZ
+	default:
+		alg = None
+	}
+
+	return io.NopCloser(r), alg
+
+}
+
+
 func Detect(r io.Reader) (Algorithm, io.ReadCloser, error) {
 	var (
 		err error
