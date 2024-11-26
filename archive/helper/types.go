@@ -25,16 +25,9 @@
 
 package helper
 
-type operation uint8
+type Operation uint8
 
 const (
-	Compress operation = iota
+	Compress Operation = iota
 	Decompress
-)
-
-type Mode uint8
-
-const (
-	ReaderMode Mode = iota
-	WriterMode
 )
