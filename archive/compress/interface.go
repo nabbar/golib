@@ -43,9 +43,24 @@ func Detect(r io.Reader) (Algorithm, io.ReadCloser, error) {
 	var (
 		err error
 		alg Algorithm
+		rdr io.ReadCloser
+	)
+
+	if alg, rdr, err = DetectOnly(r); err != nil {
+		return None, nil, err
+	} else if rdr, err = alg.Reader(rdr); err != nil {
+		return None, nil, err
+	} else {
+		return alg, rdr, nil
+	}
+}
+
+func DetectOnly(r io.Reader) (Algorithm, io.ReadCloser, error) {
+	var (
+		err error
+		alg Algorithm
 		bfr = bufio.NewReader(r)
 		buf []byte
-		res io.ReadCloser
 	)
 
 	if buf, err = bfr.Peek(6); err != nil {
@@ -66,11 +81,5 @@ func Detect(r io.Reader) (Algorithm, io.ReadCloser, error) {
 		alg = None
 	}
 
-	if err != nil {
-		return None, nil, err
-	} else if res, err = alg.Reader(bfr); err != nil {
-		return None, nil, err
-	} else {
-		return alg, res, err
-	}
+	return alg, io.NopCloser(bfr), err
 }
