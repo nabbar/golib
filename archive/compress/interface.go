@@ -39,7 +39,7 @@ func Parse(s string) Algorithm {
 	}
 }
 
-func DetectOnly(r io.Reader) (io.ReadCloser, Algorithm) {
+func DetectOnly(r io.Reader) (Algorithm, io.ReadCloser, error) {
 	var (
 		err error
 		alg Algorithm
@@ -48,7 +48,7 @@ func DetectOnly(r io.Reader) (io.ReadCloser, Algorithm) {
 	)
 
 	if buf, err = bfr.Peek(6); err != nil {
-		return io.NopCloser(r), None
+		return None, io.NopCloser(bfr), err
 	}
 
 	// Vérifier le type de compression
@@ -65,7 +65,7 @@ func DetectOnly(r io.Reader) (io.ReadCloser, Algorithm) {
 		alg = None
 	}
 
-	return io.NopCloser(r), alg
+	return alg, io.NopCloser(bfr), nil
 
 }
 
