@@ -54,63 +54,21 @@ var _ = Describe("Compress Helper Test", func() {
 					decompressed = bytes.NewBuffer(make([]byte, 0))
 				)
 
-				// Create the compressor helper
-				dcHelper, err = archlp.New(algo, archlp.ReaderMode)
+				dcHelper, err = archlp.NewReader(algo, archlp.Compress, bytes.NewReader([]byte(loremIpsum)))
 				Expect(err).NotTo(HaveOccurred())
 				Expect(dcHelper).NotTo(BeNil())
 
-				// Initialize the compressor
-				err = dcHelper.Compress(bytes.NewReader([]byte(loremIpsum)))
-				Expect(err).NotTo(HaveOccurred())
-
-				// Read compressed data
 				cmpNbr, err = io.Copy(compressed, dcHelper)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cmpNbr).To(BeNumerically(">", 0))
 
-				// Initialize decompressor
-				err := dcHelper.Decompress(bytes.NewReader(compressed.Bytes()))
+				dcHelper, err = archlp.NewReader(algo, archlp.Decompress, bytes.NewReader(compressed.Bytes()))
 				Expect(err).NotTo(HaveOccurred())
 
-				// Read compressed data
 				decNbr, err = io.Copy(decompressed, dcHelper)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(decNbr).To(BeNumerically(">", 0))
-
-				// Check if decompressed data matches the original data
-				Expect(reflect.DeepEqual([]byte(loremIpsum), decompressed.Bytes())).To(BeTrue(), "unexpected decompressed data")
-
-			})
-
-			It("should compress and then decompress correctly in writer mode ", func() {
-				var (
-					n            int
-					compressed   = bytes.NewBuffer(make([]byte, 0))
-					decompressed = bytes.NewBuffer(make([]byte, 0))
-				)
-
-				// Create the compressor helper
-				dcHelper, err = archlp.New(algo, archlp.WriterMode)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(dcHelper).NotTo(BeNil())
-
-				// Initialize the compressor
-				err = dcHelper.Compress(compressed)
-				Expect(err).NotTo(HaveOccurred())
-
-				// Compress
-				n, err = dcHelper.Write([]byte(loremIpsum))
-				Expect(err).NotTo(HaveOccurred())
-				Expect(n).To(BeNumerically(">", 0))
-
-				// Initialize decompressor
-				err := dcHelper.Decompress(decompressed)
-				Expect(err).NotTo(HaveOccurred())
-
-				// decompress
-				n, err = dcHelper.Write(compressed.Bytes())
-				Expect(err).NotTo(HaveOccurred())
 
 				// Check if decompressed data matches the original data
 				Expect(reflect.DeepEqual([]byte(loremIpsum), decompressed.Bytes())).To(BeTrue(), "unexpected decompressed data")
