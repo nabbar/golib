@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2024 Salim Amine BOU ARAM & Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -23,63 +23,11 @@
  *
  */
 
-package compress
+package helper
 
-import (
-	"bufio"
-	"io"
+type Operation uint8
+
+const (
+	Compress Operation = iota
+	Decompress
 )
-
-func Parse(s string) Algorithm {
-	var alg = None
-	if e := alg.UnmarshalText([]byte(s)); e != nil {
-		return None
-	} else {
-		return alg
-	}
-}
-
-func Detect(r io.Reader) (Algorithm, io.ReadCloser, error) {
-	var (
-		err error
-		alg Algorithm
-		rdr io.ReadCloser
-	)
-
-	if alg, rdr, err = DetectOnly(r); err != nil {
-		return None, nil, err
-	} else if rdr, err = alg.Reader(rdr); err != nil {
-		return None, nil, err
-	} else {
-		return alg, rdr, nil
-	}
-}
-
-func DetectOnly(r io.Reader) (Algorithm, io.ReadCloser, error) {
-	var (
-		err error
-		alg Algorithm
-		bfr = bufio.NewReader(r)
-		buf []byte
-	)
-
-	if buf, err = bfr.Peek(6); err != nil {
-		return None, nil, err
-	}
-
-	// Vérifier le type de compression
-	switch {
-	case Gzip.DetectHeader(buf): // gzip
-		alg = Gzip
-	case Bzip2.DetectHeader(buf): // bzip2
-		alg = Bzip2
-	case LZ4.DetectHeader(buf): // lz4
-		alg = LZ4
-	case XZ.DetectHeader(buf): // xz
-		alg = XZ
-	default:
-		alg = None
-	}
-
-	return alg, io.NopCloser(bfr), err
-}
