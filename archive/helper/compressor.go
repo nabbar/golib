@@ -28,94 +28,131 @@ package helper
 import (
 	"bytes"
 	"io"
+	"sync/atomic"
 )
 
+type compressWriter struct {
+	dst io.WriteCloser
+}
+
+func (o *compressWriter) Read(p []byte) (n int, err error) {
+	return 0, ErrInvalidSource
+}
+
+func (o *compressWriter) Write(p []byte) (n int, err error) {
+	return o.dst.Write(p)
+}
+
+func (o *compressWriter) Close() error {
+	return o.dst.Close()
+}
+
 // compressor handles data compression in chunks.
-type compressor struct {
-	source io.Reader
-	writer io.WriteCloser
-	buffer *bytes.Buffer
-	closed bool
+type compressReader struct {
+	src io.ReadCloser
+	wrt io.WriteCloser
+	buf *bytes.Buffer
+	clo *atomic.Bool
 }
 
 // Read for compressor compresses the data and reads it from the buffer in chunks.
-func (c *compressor) Read(outputBuffer []byte) (n int, err error) {
-	var size int
-
-	if cap(outputBuffer) < chunkSize {
-		size = chunkSize
-	} else {
-		size = cap(outputBuffer)
+func (o *compressReader) Read(p []byte) (n int, err error) {
+	if o.src == nil {
+		return 0, ErrInvalidSource
 	}
 
-	if c.closed && c.buffer.Len() == 0 {
+	var size int
+
+	if s := cap(p); s < chunkSize {
+		size = chunkSize
+	} else {
+		size = s
+	}
+
+	if o.clo.Load() && o.buf.Len() == 0 {
 		return 0, io.EOF
 	}
 
-	if c.buffer.Len() == 0 {
-		if _, err = c.fill(size); err != nil {
+	if o.buf.Len() < size && !o.clo.Load() {
+		if _, err = o.fill(size); err != nil {
 			return 0, err
 		}
 	}
 
-	if n, err = c.buffer.Read(outputBuffer); err == io.EOF && c.buffer.Len() == 0 {
+	n, err = o.buf.Read(p)
+
+	if n > 0 {
 		return n, nil
+	} else if err == nil {
+		err = io.EOF
 	}
 
-	return n, err
+	return 0, err
 }
 
 // fill handles compressing data from the source and writing to the buffer.
-func (c *compressor) fill(size int) (n int, err error) {
+func (o *compressReader) fill(size int) (n int, err error) {
 	var (
-		tempBuffer = make([]byte, size)
-		errWrt     error
+		buf    = make([]byte, size)
+		errWrt error
+		errclo error
 	)
 
-	for c.buffer.Len() < size {
-
-		if n, err = c.source.Read(tempBuffer); err != nil && err != io.EOF {
+	for o.buf.Len() < size {
+		if n, err = o.src.Read(buf); err != nil && err != io.EOF {
 			return 0, err
 		}
 
 		if n > 0 {
-			if _, errWrt = c.writer.Write(tempBuffer[:n]); errWrt != nil {
+			if _, errWrt = o.wrt.Write(buf[:n]); errWrt != nil {
 				return 0, errWrt
 			}
 		}
 
 		if err == io.EOF {
-			if closeErr := c.writer.Close(); closeErr != nil {
-				return 0, closeErr
+			o.clo.Store(true)
+
+			errWrt = o.wrt.Close()
+			errclo = o.src.Close()
+
+			if errclo != nil {
+				return 0, errclo
+			} else if errWrt != nil {
+				return 0, errWrt
 			}
-			c.closed = true
-			return c.buffer.Len(), nil
+
+			return o.buf.Len(), nil
+		} else if err != nil {
+			return n, err
 		}
 	}
 
-	data := c.buffer.Bytes()
+	data := o.buf.Bytes()
+	o.buf.Reset()
 
-	c.buffer.Reset()
-
-	if _, err = c.buffer.Write(data); err != nil {
+	if _, err = o.buf.Write(data); err != nil {
 		return 0, err
 	}
 
-	return c.buffer.Len(), nil
+	return o.buf.Len(), nil
 }
 
 // Close closes the compressor and underlying writer.
-func (c *compressor) Close() (err error) {
+func (o *compressReader) Close() (err error) {
 
-	c.closed = true
+	o.clo.Store(true)
 
-	if c.buffer != nil {
-		c.buffer.Reset()
+	if o.buf != nil {
+		o.buf.Reset()
 	}
 
-	if c.writer != nil {
-		return c.writer.Close()
+	if o.wrt != nil {
+		return o.wrt.Close()
 	}
 
 	return nil
+}
+
+func (o *compressReader) Write(p []byte) (n int, err error) {
+	return 0, ErrInvalidSource
 }

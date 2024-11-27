@@ -26,32 +26,132 @@
 package helper
 
 import (
-	"fmt"
+	"bytes"
+	"errors"
 	"io"
+	"sync/atomic"
 
-	"github.com/nabbar/golib/archive/compress"
+	libarc "github.com/nabbar/golib/archive"
+	arccmp "github.com/nabbar/golib/archive/compress"
 )
 
 const chunkSize = 512
 
+var (
+	ErrInvalidSource    = errors.New("invalid source")
+	ErrClosedResource   = errors.New("closed resource")
+	ErrInvalidOperation = errors.New("invalid operation")
+)
+
 type Helper interface {
-	Compress(any) error
-	Decompress(any) error
 	io.ReadWriteCloser
 }
 
-func New(algo compress.Algorithm, mode Mode) (h Helper, err error) {
+func New(algo arccmp.Algorithm, ope Operation, src any) (h Helper, err error) {
+	if r, k := src.(io.Reader); k {
+		return NewReader(algo, ope, r)
+	}
+	if w, k := src.(io.Writer); k {
+		return NewWriter(algo, ope, w)
+	}
+	return nil, ErrInvalidSource
+}
 
-	if mode < 0 || mode > 1 {
-		return nil, fmt.Errorf("invalid operation/mode type")
+func NewReader(algo arccmp.Algorithm, ope Operation, src io.Reader) (Helper, error) {
+	switch ope {
+	case Compress:
+		return makeCompressReader(algo, src)
+	case Decompress:
+		return makeDeCompressReader(algo, src)
 	}
 
-	eng := &engine{
-		compressor:   nil,
-		decompressor: nil,
-		algo:         algo,
-		mode:         mode,
+	return nil, ErrInvalidOperation
+}
+
+func NewWriter(algo arccmp.Algorithm, ope Operation, dst io.Writer) (Helper, error) {
+	switch ope {
+	case Compress:
+		return makeCompressWriter(algo, dst)
+	case Decompress:
+		return makeDeCompressWriter(algo, dst)
 	}
 
-	return eng, nil
+	return nil, ErrInvalidOperation
+}
+
+func makeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err error) {
+	wc, ok := src.(io.WriteCloser)
+
+	if !ok {
+		wc = libarc.NopWriteCloser(src)
+	}
+
+	if wc, err = algo.Writer(wc); err != nil {
+		return nil, err
+	} else {
+		return &compressWriter{
+			dst: wc,
+		}, nil
+	}
+}
+
+func makeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err error) {
+	rc, ok := src.(io.ReadCloser)
+
+	if !ok {
+		rc = io.NopCloser(src)
+	}
+
+	var (
+		buf = bytes.NewBuffer(make([]byte, 0))
+		wrt io.WriteCloser
+	)
+
+	wrt, err = algo.Writer(libarc.NopWriteCloser(buf))
+
+	return &compressReader{
+		src: rc,
+		wrt: wrt,
+		buf: buf,
+		clo: new(atomic.Bool),
+	}, nil
+}
+
+func makeDeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err error) {
+	rc, ok := src.(io.ReadCloser)
+
+	if !ok {
+		rc = io.NopCloser(src)
+	}
+
+	if rc, err = algo.Reader(rc); err != nil {
+		return nil, err
+	} else {
+		return &deCompressReader{
+			src: rc,
+		}, nil
+	}
+}
+
+func makeDeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err error) {
+	wc, ok := src.(io.WriteCloser)
+
+	if !ok {
+		wc = libarc.NopWriteCloser(src)
+	}
+
+	var (
+		buf = bytes.NewBuffer(make([]byte, 0))
+		rdr io.ReadCloser
+	)
+
+	rdr, err = algo.Reader(io.NopCloser(buf))
+
+	return &deCompressWriter{
+		src: rdr,
+		wrt: wc,
+		buf: buf,
+		clo: new(atomic.Bool),
+		run: new(atomic.Bool),
+	}, nil
 }
