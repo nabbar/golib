@@ -29,9 +29,15 @@ package certificates
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"io"
 	"net/http"
 
-	liberr "github.com/nabbar/golib/errors"
+	tlsaut "github.com/nabbar/golib/certificates/auth"
+	tlscas "github.com/nabbar/golib/certificates/ca"
+	tlscrt "github.com/nabbar/golib/certificates/certs"
+	tlscpr "github.com/nabbar/golib/certificates/cipher"
+	tlscrv "github.com/nabbar/golib/certificates/curves"
+	tlsvrs "github.com/nabbar/golib/certificates/tlsversion"
 )
 
 type FctHttpClient func(def TLSConfig, servername string) *http.Client
@@ -39,50 +45,62 @@ type FctTLSDefault func() TLSConfig
 type FctRootCA func() []string
 
 type TLSConfig interface {
+	RegisterRand(rand io.Reader)
+
 	AddRootCAString(rootCA string) bool
-	AddRootCAFile(pemFile string) liberr.Error
-	GetRootCA() *x509.CertPool
+	AddRootCAFile(pemFile string) error
+	GetRootCA() []tlscas.Cert
+	GetRootCAPool() *x509.CertPool
 
 	AddClientCAString(ca string) bool
-	AddClientCAFile(pemFile string) liberr.Error
-	GetClientCA() *x509.CertPool
+	AddClientCAFile(pemFile string) error
+	GetClientCA() []tlscas.Cert
+	GetClientCAPool() *x509.CertPool
+	SetClientAuth(a tlsaut.ClientAuth)
 
-	AddCertificatePairString(key, crt string) liberr.Error
-	AddCertificatePairFile(keyFile, crtFile string) liberr.Error
+	AddCertificatePairString(key, crt string) error
+	AddCertificatePairFile(keyFile, crtFile string) error
 	LenCertificatePair() int
 	CleanCertificatePair()
 	GetCertificatePair() []tls.Certificate
 
-	SetVersionMin(vers uint16)
-	SetVersionMax(vers uint16)
-	SetClientAuth(cAuth tls.ClientAuthType)
-	SetCipherList(cipher []uint16)
-	SetCurveList(curves []tls.CurveID)
+	SetVersionMin(v tlsvrs.Version)
+	GetVersionMin() tlsvrs.Version
+	SetVersionMax(v tlsvrs.Version)
+	GetVersionMax() tlsvrs.Version
+
+	SetCipherList(c []tlscpr.Cipher)
+	AddCiphers(c ...tlscpr.Cipher)
+	GetCiphers() []tlscpr.Cipher
+
+	SetCurveList(c []tlscrv.Curves)
+	AddCurves(c ...tlscrv.Curves)
+	GetCurves() []tlscrv.Curves
+
 	SetDynamicSizingDisabled(flag bool)
 	SetSessionTicketDisabled(flag bool)
 
 	Clone() TLSConfig
+	TLS(serverName string) *tls.Config
 	TlsConfig(serverName string) *tls.Config
+	Config() *Config
 }
 
 var Default = New()
 
 func New() TLSConfig {
 	return &config{
-		caRoot: nil,
-		cert:   nil,
-
-		tlsMinVersion: 0,
-		tlsMaxVersion: 0,
-
-		cipherList: nil,
-		curveList:  nil,
-
+		rand:                  nil,
+		cert:                  make([]tlscrt.Cert, 0),
+		cipherList:            make([]tlscpr.Cipher, 0),
+		curveList:             make([]tlscrv.Curves, 0),
+		caRoot:                make([]tlscas.Cert, 0),
+		clientAuth:            tlsaut.NoClientCert,
+		clientCA:              make([]tlscas.Cert, 0),
+		tlsMinVersion:         tlsvrs.VersionUnknown,
+		tlsMaxVersion:         tlsvrs.VersionUnknown,
 		dynSizingDisabled:     false,
 		ticketSessionDisabled: false,
-
-		clientAuth: 0,
-		clientCA:   nil,
 	}
 }
 
@@ -92,7 +110,7 @@ func AddRootCAContents(rootContent string) bool {
 }
 
 // Deprecated: use local config and no more globals default config.
-func AddRootCAFile(rootFile string) liberr.Error {
+func AddRootCAFile(rootFile string) error {
 	return Default.AddRootCAFile(rootFile)
 }
 
@@ -102,17 +120,17 @@ func AddCACertificateContents(caContent string) bool {
 }
 
 // Deprecated: use local config and no more globals default config.
-func AddCACertificateFile(caFile string) liberr.Error {
+func AddCACertificateFile(caFile string) error {
 	return Default.AddClientCAFile(caFile)
 }
 
 // Deprecated: use local config and no more globals default config.
-func AddCertificatePairString(key, crt string) liberr.Error {
+func AddCertificatePairString(key, crt string) error {
 	return Default.AddCertificatePairString(key, crt)
 }
 
 // Deprecated: use local config and no more globals default config.
-func AddCertificatePairFile(keyFile, crtFile string) liberr.Error {
+func AddCertificatePairFile(keyFile, crtFile string) error {
 	return Default.AddCertificatePairFile(keyFile, crtFile)
 }
 
@@ -137,37 +155,47 @@ func AppendCertificates(cert []tls.Certificate) []tls.Certificate {
 
 // Deprecated: use local config and no more globals default config.
 func GetRootCA() *x509.CertPool {
-	return Default.GetRootCA()
+	return Default.GetRootCAPool()
 }
 
 // Deprecated: use local config and no more globals default config.
 func GetClientCA() *x509.CertPool {
-	return Default.GetClientCA()
+	return Default.GetClientCAPool()
 }
 
 // Deprecated: use local config and no more globals default config.
 func SetVersionMin(vers uint16) {
-	Default.SetVersionMin(vers)
+	Default.SetVersionMin(tlsvrs.ParseInt(int(vers)))
 }
 
 // Deprecated: use local config and no more globals default config.
 func SetVersionMax(vers uint16) {
-	Default.SetVersionMax(vers)
+	Default.SetVersionMax(tlsvrs.ParseInt(int(vers)))
 }
 
 // Deprecated: use local config and no more globals default config.
 func SetClientAuth(auth string) {
-	Default.SetClientAuth(StringToClientAuth(auth))
+	Default.SetClientAuth(tlsaut.Parse(auth))
 }
 
 // Deprecated: use local config and no more globals default config.
 func SetCipherList(cipher []uint16) {
-	Default.SetCipherList(cipher)
+	Default.SetCipherList(make([]tlscpr.Cipher, 0))
+
+	for _, i := range cipher {
+		c := tlscpr.ParseInt(int(i))
+		Default.AddCiphers(c)
+	}
 }
 
 // Deprecated: use local config and no more globals default config.
 func SetCurve(curves []tls.CurveID) {
-	Default.SetCurveList(curves)
+	Default.SetCurveList(make([]tlscrv.Curves, 0))
+
+	for _, i := range curves {
+		c := tlscrv.ParseInt(int(i))
+		Default.AddCurves(c)
+	}
 }
 
 // Deprecated: use local config and no more globals default config.
@@ -191,11 +219,11 @@ func GetTlsConfigCertificates() *tls.Config {
 }
 
 // Deprecated: use local config and no more globals default config.
-func AddCertificateContents(keyContents, certContents string) liberr.Error {
+func AddCertificateContents(keyContents, certContents string) error {
 	return Default.AddCertificatePairString(keyContents, certContents)
 }
 
 // Deprecated: use local config and no more globals default config.
-func AddCertificateFile(keyFile, certFile string) liberr.Error {
+func AddCertificateFile(keyFile, certFile string) error {
 	return Default.AddCertificatePairFile(keyFile, certFile)
 }

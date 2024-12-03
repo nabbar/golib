@@ -146,7 +146,7 @@ func (o *componentSmtp) _GetTLS() libtls.TLSConfig {
 }
 
 func (o *componentSmtp) _GetTLSConfig(cfg libtls.Config) *tls.Config {
-	if i, e := cfg.NewFrom(o._GetTLS()); e != nil {
+	if i := cfg.NewFrom(o._GetTLS()); i == nil {
 		// #nosec
 		return &tls.Config{}
 	} else {

@@ -24,39 +24,63 @@
  *
  */
 
-package tlsversion
+package certificates
 
 import (
-	"reflect"
+	"crypto/x509"
 
-	libmap "github.com/mitchellh/mapstructure"
+	tlsaut "github.com/nabbar/golib/certificates/auth"
+	tlscas "github.com/nabbar/golib/certificates/ca"
 )
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
+func (o *config) SetClientAuth(a tlsaut.ClientAuth) {
+	o.clientAuth = a
+}
 
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
+func (o *config) GetClientCA() []tlscas.Cert {
+	var res = make([]tlscas.Cert, 0)
+
+	for _, c := range o.clientCA {
+		res = append(res, c)
+	}
+
+	return res
+}
+
+func (o *config) GetClientCAPool() *x509.CertPool {
+	var res = x509.NewCertPool()
+
+	for _, ca := range o.clientCA {
+		ca.AppendPool(res)
+	}
+
+	return res
+}
+
+func (o *config) AddClientCAString(ca string) bool {
+	if ca != "" {
+		if c, e := tlscas.Parse(ca); e == nil {
+			o.clientCA = append(o.clientCA, c)
+			return true
 		}
+	}
 
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
+	return false
+}
 
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
+func (o *config) AddClientCAFile(pemFile string) error {
+	var fct = func(p []byte) error {
+		if c, e := tlscas.ParseByte(p); e != nil {
+			return e
 		} else {
-			return z, nil
+			o.clientCA = append(o.clientCA, c)
+			return nil
 		}
+	}
+
+	if e := checkFile(fct, pemFile); e != nil {
+		return e
+	} else {
+		return nil
 	}
 }

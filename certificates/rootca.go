@@ -24,39 +24,56 @@
  *
  */
 
-package tlsversion
+package certificates
 
 import (
-	"reflect"
+	"crypto/x509"
 
-	libmap "github.com/mitchellh/mapstructure"
+	tlscas "github.com/nabbar/golib/certificates/ca"
 )
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
+func (o *config) GetRootCA() []tlscas.Cert {
+	var res = make([]tlscas.Cert, 0)
 
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
+	for _, c := range o.caRoot {
+		res = append(res, c)
+	}
 
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
+	return res
+}
 
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
+func (o *config) GetRootCAPool() *x509.CertPool {
+	var res = x509.NewCertPool()
+	for _, ca := range o.caRoot {
+		ca.AppendPool(res)
+	}
+	return res
+}
+
+func (o *config) AddRootCAString(rootCA string) bool {
+	if rootCA != "" {
+		if c, e := tlscas.Parse(rootCA); e == nil {
+			o.caRoot = append(o.caRoot, c)
+			return true
 		}
 	}
+
+	return false
+}
+
+func (o *config) AddRootCAFile(pemFile string) error {
+	var fct = func(p []byte) error {
+		if c, e := tlscas.ParseByte(p); e != nil {
+			return e
+		} else {
+			o.caRoot = append(o.caRoot, c)
+			return nil
+		}
+	}
+
+	if e := checkFile(fct, pemFile); e != nil {
+		return e
+	}
+
+	return nil
 }

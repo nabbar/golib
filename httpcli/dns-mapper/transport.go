@@ -75,16 +75,13 @@ func (o *dmp) Transport(cfg TransportConfig) *http.Transport {
 		prx = http.ProxyURL(cfg.Proxy)
 	}
 
-	var (
-		err error
-		ssl libtls.TLSConfig
-	)
+	var ssl libtls.TLSConfig
 
 	if cfg.TLSConfig == nil {
 		ssl = libtls.New()
 		ssl.SetVersionMin(tls.VersionTLS12)
 		ssl.SetVersionMax(tls.VersionTLS13)
-	} else if ssl, err = cfg.TLSConfig.New(); err != nil {
+	} else if ssl = cfg.TLSConfig.New(); ssl == nil {
 		ssl = libtls.New()
 		ssl.SetVersionMin(tls.VersionTLS12)
 		ssl.SetVersionMax(tls.VersionTLS13)

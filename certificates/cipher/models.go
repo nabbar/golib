@@ -24,7 +24,7 @@
  *
  */
 
-package tlsversion
+package curves
 
 import (
 	"reflect"
@@ -35,7 +35,7 @@ import (
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
-			z = Version(0)
+			z = Cipher(0)
 			t string
 			k bool
 		)

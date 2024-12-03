@@ -33,7 +33,6 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
-	liberr "github.com/nabbar/golib/errors"
 	natcli "github.com/nats-io/nats.go"
 )
 
@@ -147,7 +146,7 @@ type Client struct {
 	TLSConfig libtls.Config
 }
 
-func (c Client) Validate() liberr.Error {
+func (c Client) Validate() error {
 	err := ErrorConfigValidation.Error(nil)
 
 	if er := libval.New().Struct(c); er != nil {
@@ -168,7 +167,7 @@ func (c Client) Validate() liberr.Error {
 	return nil
 }
 
-func (c Client) NewClient(defTls libtls.TLSConfig) (*natcli.Conn, liberr.Error) {
+func (c Client) NewClient(defTls libtls.TLSConfig) (*natcli.Conn, error) {
 	opts := natcli.GetDefaultOptions()
 
 	if c.Url != "" {
@@ -273,8 +272,8 @@ func (c Client) NewClient(defTls libtls.TLSConfig) (*natcli.Conn, liberr.Error) 
 	}
 
 	if c.Secure {
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return nil, e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return nil, fmt.Errorf("no valid tls configuration")
 		} else {
 			opts.TLSConfig = t.TlsConfig("")
 		}

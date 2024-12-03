@@ -33,46 +33,45 @@ import (
 	"time"
 
 	libftp "github.com/jlaffaye/ftp"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type FTPClient interface {
 	// Connect establish the connection to server with the given configuration registered.
-	Connect() liberr.Error
+	Connect() error
 
 	// Check try to retrieve a valid connection to the server and send an NOOP command to check the connection.
-	Check() liberr.Error
+	Check() error
 
 	// Close send the QUID command to the server if the connection is valid (cf Check).
 	Close()
 
 	// NameList issues an NLST FTP command.
-	NameList(path string) ([]string, liberr.Error)
+	NameList(path string) ([]string, error)
 
 	// List issues a LIST FTP command.
-	List(path string) ([]*libftp.Entry, liberr.Error)
+	List(path string) ([]*libftp.Entry, error)
 
 	// ChangeDir issues a CWD FTP command, which changes the current directory to the specified path.
-	ChangeDir(path string) liberr.Error
+	ChangeDir(path string) error
 
 	// CurrentDir issues a PWD FTP command, which Returns the path of the current directory.
-	CurrentDir() (string, liberr.Error)
+	CurrentDir() (string, error)
 
 	// FileSize issues a SIZE FTP command, which Returns the size of the file.
-	FileSize(path string) (int64, liberr.Error)
+	FileSize(path string) (int64, error)
 
 	// GetTime issues the MDTM FTP command to obtain the file modification time.
 	// It returns a UTC time.
-	GetTime(path string) (time.Time, liberr.Error)
+	GetTime(path string) (time.Time, error)
 
 	// SetTime issues the MFMT FTP command to set the file modification time.
 	// Also it can use a non-standard form of the MDTM command supported by the VsFtpd server instead of MFMT for the same purpose.
 	// See "mdtm_write" in https://security.appspot.com/vsftpd/vsftpd_conf.html
-	SetTime(path string, t time.Time) liberr.Error
+	SetTime(path string, t time.Time) error
 
 	// Retr issues a RETR FTP command to fetch the specified file from the remote FTP server.
 	// The returned ReadCloser must be closed to cleanup the FTP data connection.
-	Retr(path string) (*libftp.Response, liberr.Error)
+	Retr(path string) (*libftp.Response, error)
 
 	// RetrFrom issues a RETR FTP command to fetch the specified file from the remote FTP server,
 	// the server will not send the offset first bytes of the file.
@@ -82,38 +81,38 @@ type FTPClient interface {
 	// Stor issues a STOR FTP command to store a file to the remote FTP server.
 	// Stor creates the specified file with the content of the io.Reader.
 	// Hint: io.Pipe() can be used if an io.Writer is required.
-	Stor(path string, r io.Reader) liberr.Error
+	Stor(path string, r io.Reader) error
 
 	// StorFrom issues a STOR FTP command to store a file to the remote FTP server.
 	// Stor creates the specified file with the content of the io.Reader, writing on the server will start at the given file offset.
 	// Hint: io.Pipe() can be used if an io.Writer is required.
-	StorFrom(path string, r io.Reader, offset uint64) liberr.Error
+	StorFrom(path string, r io.Reader, offset uint64) error
 
 	// Append issues a APPE FTP command to store a file to the remote FTP server.
 	// If a file already exists with the given path, then the content of the io.Reader is appended.
 	// Otherwise, a new file is created with that content. Hint: io.Pipe() can be used if an io.Writer is required.
-	Append(path string, r io.Reader) liberr.Error
+	Append(path string, r io.Reader) error
 
 	// Rename renames a file on the remote FTP server.
-	Rename(from, to string) liberr.Error
+	Rename(from, to string) error
 
 	// Delete issues a DELE FTP command to delete the specified file from the remote FTP server.
-	Delete(path string) liberr.Error
+	Delete(path string) error
 
 	// RemoveDirRecur deletes a non-empty folder recursively using RemoveDir and Delete.
-	RemoveDirRecur(path string) liberr.Error
+	RemoveDirRecur(path string) error
 
 	// MakeDir issues a MKD FTP command to create the specified directory on the remote FTP server.
-	MakeDir(path string) liberr.Error
+	MakeDir(path string) error
 
 	// RemoveDir issues a RMD FTP command to remove the specified directory from the remote FTP server.
-	RemoveDir(path string) liberr.Error
+	RemoveDir(path string) error
 
 	//Walk prepares the internal walk function so that the caller can begin traversing the directory.
-	Walk(root string) (*libftp.Walker, liberr.Error)
+	Walk(root string) (*libftp.Walker, error)
 }
 
-func New(cfg *Config) (FTPClient, liberr.Error) {
+func New(cfg *Config) (FTPClient, error) {
 	c := &ftpClient{
 		m:   sync.Mutex{},
 		cfg: new(atomic.Value),

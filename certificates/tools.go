@@ -27,21 +27,11 @@
 package certificates
 
 import (
-	"crypto/tls"
+	"bytes"
 	"crypto/x509"
+	"os"
 	"runtime"
-	"strings"
 )
-
-// Deprecated: use StringToCipherKey.
-func GetCipherKey(cipher string) uint16 {
-	return StringToCipherKey(cipher)
-}
-
-// Deprecated: use StringToCurveID.
-func GetCurveID(curveRef string) tls.CurveID {
-	return StringToCurveID(curveRef)
-}
 
 func SystemRootCA() *x509.CertPool {
 	if runtime.GOOS == "windows" {
@@ -53,105 +43,36 @@ func SystemRootCA() *x509.CertPool {
 	}
 }
 
-func StringToTlsVersion(tlsVersStr string) uint16 {
-	tlsVersStr = strings.ToLower(tlsVersStr)
-	tlsVersStr = strings.Replace(tlsVersStr, "TLS", "", -1)
-	tlsVersStr = strings.TrimSpace(tlsVersStr)
+func checkFile(fct func(p []byte) error, pemFiles ...string) error {
+	for _, f := range pemFiles {
+		if f == "" {
+			return ErrorParamEmpty.Error(nil)
+		}
 
-	switch tlsVersStr {
-	case "1", "1.0":
-		return tls.VersionTLS10
-	case "1.1":
-		return tls.VersionTLS11
-	case "1.2":
-		return tls.VersionTLS12
-	case "1.3":
-		return tls.VersionTLS13
-	default:
-		return tls.VersionTLS12
-	}
-}
+		if _, e := os.Stat(f); e != nil {
+			return e
+		}
 
-func StringToClientAuth(auth string) tls.ClientAuthType {
-	switch strings.ToLower(auth) {
-	case "request":
-		return tls.RequestClientCert
-	case "require":
-		return tls.RequireAnyClientCert
-	case "verify":
-		return tls.VerifyClientCertIfGiven
-	case "strict":
-		return tls.RequireAndVerifyClientCert
-	default:
-		return tls.NoClientCert
-	}
-}
+		/* #nosec */
+		b, e := os.ReadFile(f)
+		if e != nil {
+			return e
+		}
 
-func StringToCipherKey(cipher string) uint16 {
-	cipher = strings.ToLower(cipher)
-	cipher = strings.ReplaceAll(cipher, " ", "")
-	cipher = strings.ReplaceAll(cipher, "_", "")
-	cipher = strings.ReplaceAll(cipher, "-", "")
+		b = bytes.Trim(b, "\n")
+		b = bytes.Trim(b, "\r")
+		b = bytes.TrimSpace(b)
 
-	rsa := strings.Contains(cipher, "rsa")
-	dhe := strings.Contains(cipher, "ecdhe")
-	dsa := strings.Contains(cipher, "ecdsa")
-	gcm := strings.Contains(cipher, "gcm")
-	aes1 := strings.Contains(cipher, "aes128")
-	aes2 := strings.Contains(cipher, "aes256")
-	cha := strings.Contains(cipher, "chacha20")
-	poly := strings.Contains(cipher, "poly1305")
+		if len(b) < 1 {
+			return ErrorFileEmpty.Error(nil)
+		} else if fct == nil {
+			continue
+		}
 
-	switch {
-	// TLS v1.0 - v1.2
-	case !dhe && rsa && aes1 && !gcm:
-		return tls.TLS_RSA_WITH_AES_128_CBC_SHA256
-	case !dhe && rsa && aes1 && gcm:
-		return tls.TLS_RSA_WITH_AES_128_GCM_SHA256
-	case !dhe && rsa && aes2 && gcm:
-		return tls.TLS_RSA_WITH_AES_256_GCM_SHA384
-	case dhe && dsa && aes1 && !gcm:
-		return tls.TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256
-	case dhe && rsa && aes1 && !gcm:
-		return tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-	case dhe && rsa && aes1 && gcm:
-		return tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
-	case dhe && dsa && aes1 && gcm:
-		return tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
-	case dhe && rsa && aes2 && gcm:
-		return tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-	case dhe && dsa && aes2 && gcm:
-		return tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
-	case rsa && (cha || poly):
-		return tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-	case dsa && (cha || poly):
-		return tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
-
-	// TLS v1.3
-	case aes1 && gcm:
-		return tls.TLS_AES_128_GCM_SHA256
-	case aes2 && gcm:
-		return tls.TLS_AES_256_GCM_SHA384
-	case cha || poly:
-		return tls.TLS_CHACHA20_POLY1305_SHA256
-
+		if e = fct(b); e != nil {
+			return e
+		}
 	}
 
-	return 0
-}
-
-func StringToCurveID(curveRef string) tls.CurveID {
-	curveRef = strings.ToLower(curveRef)
-
-	if strings.Contains(curveRef, "p2") {
-		return tls.CurveP256
-	} else if strings.Contains(curveRef, "p3") {
-		return tls.CurveP384
-	} else if strings.Contains(curveRef, "p5") {
-		return tls.CurveP521
-	} else if strings.Contains(curveRef, "x25") {
-		return tls.X25519
-	}
-
-	return 0
+	return nil
 }

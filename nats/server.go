@@ -37,7 +37,6 @@ import (
 
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"
 	natsrv "github.com/nats-io/nats-server/v2/server"
@@ -50,8 +49,8 @@ const (
 )
 
 type Server interface {
-	Listen(ctx context.Context) liberr.Error
-	Restart(ctx context.Context) liberr.Error
+	Listen(ctx context.Context) error
+	Restart(ctx context.Context) error
 	Shutdown()
 
 	GetOptions() *natsrv.Options
@@ -62,9 +61,9 @@ type Server interface {
 	IsReadyTimeout(parent context.Context, dur time.Duration) bool
 	WaitReady(ctx context.Context, tick time.Duration)
 
-	ClientAdvertise(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
-	ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
-	ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error)
+	ClientAdvertise(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err error)
+	ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err error)
+	ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err error)
 
 	Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error)
 }
@@ -89,11 +88,11 @@ type server struct {
 	o *atomic.Value
 	s *atomic.Value
 	r *atomic.Value
-	e liberr.Error
+	e error
 	m sync.Mutex
 }
 
-func (s *server) Listen(ctx context.Context) liberr.Error {
+func (s *server) Listen(ctx context.Context) error {
 	if s.IsRunning() || s.IsReady() {
 		s.Shutdown()
 	}
@@ -123,7 +122,7 @@ func (s *server) Listen(ctx context.Context) liberr.Error {
 	return nil
 }
 
-func (s *server) Restart(ctx context.Context) liberr.Error {
+func (s *server) Restart(ctx context.Context) error {
 	return s.Listen(ctx)
 }
 
@@ -212,7 +211,7 @@ func (s *server) WaitReady(ctx context.Context, tick time.Duration) {
 	}
 }
 
-func (s *server) ClientAdvertise(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
+func (s *server) ClientAdvertise(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err error) {
 	if o := s.GetOptions(); o != nil && o.ClientAdvertise != "" {
 		opt.Url = s._FormatAddress(o.ClientAdvertise)
 	} else {
@@ -222,7 +221,7 @@ func (s *server) ClientAdvertise(ctx context.Context, tick time.Duration, defTls
 	return opt.NewClient(defTls)
 }
 
-func (s *server) ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
+func (s *server) ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err error) {
 	s.WaitReady(ctx, tick)
 
 	if srv := s._GetServer(); srv != nil {
@@ -236,7 +235,7 @@ func (s *server) ClientCluster(ctx context.Context, tick time.Duration, defTls l
 	return opt.NewClient(defTls)
 }
 
-func (s *server) ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err liberr.Error) {
+func (s *server) ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err error) {
 	var o *natsrv.Options
 
 	if o = s.GetOptions(); o == nil {
@@ -290,14 +289,14 @@ func (s *server) _SetServer(srv *natsrv.Server) {
 	s.s.Store(srv)
 }
 
-func (s *server) _GetError() liberr.Error {
+func (s *server) _GetError() error {
 	s.m.Lock()
 	defer s.m.Unlock()
 
 	return s.e
 }
 
-func (s *server) _SetError(err liberr.Error) {
+func (s *server) _SetError(err error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 

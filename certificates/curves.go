@@ -24,39 +24,29 @@
  *
  */
 
-package tlsversion
+package certificates
 
-import (
-	"reflect"
+import tlscrv "github.com/nabbar/golib/certificates/curves"
 
-	libmap "github.com/mitchellh/mapstructure"
-)
+func (o *config) SetCurveList(c []tlscrv.Curves) {
+	o.curveList = make([]tlscrv.Curves, 0)
+	o.AddCurves(c...)
+}
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
+func (o *config) AddCurves(c ...tlscrv.Curves) {
+	for _, i := range c {
+		o.curveList = append(o.curveList, i)
+	}
+}
 
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
+func (o *config) GetCurves() []tlscrv.Curves {
+	var res = make([]tlscrv.Curves, 0)
 
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
-
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
+	for _, i := range o.curveList {
+		if tlscrv.Check(i.Uint16()) {
+			res = append(res, i)
 		}
 	}
+
+	return res
 }

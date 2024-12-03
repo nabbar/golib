@@ -27,6 +27,8 @@
 package tls
 
 import (
+	"fmt"
+
 	libtls "github.com/nabbar/golib/certificates"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libver "github.com/nabbar/golib/version"
@@ -159,8 +161,8 @@ func (o *componentTls) _runCli() error {
 
 	if cfg, err = o._getConfig(); err != nil {
 		return prt.Error(err)
-	} else if tls, err = cfg.New(); err != nil {
-		return prt.Error(err)
+	} else if tls = cfg.New(); tls == nil {
+		return prt.Error(fmt.Errorf("cannot use tls config for new instance"))
 	} else if o.f != nil {
 		for _, s := range o.f() {
 			tls.AddRootCAString(s)

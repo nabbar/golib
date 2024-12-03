@@ -24,39 +24,63 @@
  *
  */
 
-package tlsversion
+package certs
 
 import (
-	"reflect"
-
-	libmap "github.com/mitchellh/mapstructure"
+	"bytes"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 )
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
+func (o *Certif) String() string {
+	str, _ := o.Chain()
+	return str
+}
 
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
+func (o *Certif) Pair() (pub string, key string, err error) {
+	var (
+		bufPub = bytes.NewBuffer(make([]byte, 0))
+		bufKey = bytes.NewBuffer(make([]byte, 0))
+	)
+
+	for _, certDER := range o.c.Certificate {
+		block := &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: certDER,
 		}
-
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
-
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
+		if err = pem.Encode(bufPub, block); err != nil {
+			return "", "", err
 		}
 	}
+
+	// Afficher la clé privée si disponible
+	if o.c.PrivateKey != nil {
+		var p []byte
+		if p, err = x509.MarshalPKCS8PrivateKey(o.c.PrivateKey); err != nil {
+			return "", "", err
+		} else {
+			privateKeyBlock := &pem.Block{
+				Type:  "PRIVATE KEY",
+				Bytes: p,
+			}
+			if err = pem.Encode(bufKey, privateKeyBlock); err != nil {
+				return "", "", err
+			}
+		}
+	}
+
+	return bufPub.String(), bufKey.String(), nil
+}
+
+func (o *Certif) Chain() (string, error) {
+	if pub, key, err := o.Pair(); err != nil {
+		return "", err
+	} else {
+		return pub + key, nil
+	}
+}
+
+func (o *Certif) TLS() tls.Certificate {
+	return o.c
 }

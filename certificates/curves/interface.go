@@ -24,45 +24,49 @@
  *
  */
 
-package tlsversion
+package curves
 
 import (
 	"crypto/tls"
+	"math"
 	"strings"
 )
 
-type Version int
+type Curves uint16
 
 const (
-	VersionUnknown Version = iota
-	VersionTLS10           = Version(tls.VersionTLS10)
-	VersionTLS11           = Version(tls.VersionTLS11)
-	VersionTLS12           = Version(tls.VersionTLS12)
-	VersionTLS13           = Version(tls.VersionTLS13)
+	Unknown Curves = iota
+	X25519         = Curves(tls.X25519)
+	P256           = Curves(tls.CurveP256)
+	P384           = Curves(tls.CurveP384)
+	P521           = Curves(tls.CurveP521)
 )
 
-func List() []Version {
-	return []Version{
-		VersionTLS13,
-		VersionTLS12,
-		VersionTLS11,
-		VersionTLS10,
+func List() []Curves {
+	return []Curves{
+		X25519,
+		P256,
+		P384,
+		P521,
 	}
 }
 
-func ListHigh() []Version {
-	return []Version{
-		VersionTLS13,
-		VersionTLS12,
+func ListString() []string {
+	var res = make([]string, 0)
+	for _, c := range List() {
+		res = append(res, c.String())
 	}
+	return res
 }
 
-func Parse(s string) Version {
+func Parse(s string) Curves {
 	s = strings.ToLower(s)
 	s = strings.Replace(s, "\"", "", -1)
 	s = strings.Replace(s, "'", "", -1)
-	s = strings.Replace(s, "tls", "", -1)
-	s = strings.Replace(s, "ssl", "", -1)
+	s = strings.Replace(s, "x", "", -1)
+	s = strings.Replace(s, "X", "", -1)
+	s = strings.Replace(s, "p", "", -1)
+	s = strings.Replace(s, "P", "", -1)
 	s = strings.Replace(s, ".", "", -1)
 	s = strings.Replace(s, "-", "", -1)
 	s = strings.Replace(s, "_", "", -1)
@@ -70,36 +74,47 @@ func Parse(s string) Version {
 	s = strings.TrimSpace(s)
 
 	switch {
-	case strings.EqualFold(s, "1"):
-		return VersionTLS10
-	case strings.EqualFold(s, "10"):
-		return VersionTLS10
-	case strings.EqualFold(s, "11"):
-		return VersionTLS11
-	case strings.EqualFold(s, "12"):
-		return VersionTLS12
-	case strings.EqualFold(s, "13"):
-		return VersionTLS13
+	case strings.EqualFold(s, "25519"):
+		return X25519
+	case strings.EqualFold(s, "256"):
+		return P256
+	case strings.EqualFold(s, "384"):
+		return P384
+	case strings.EqualFold(s, "521"):
+		return P521
 	default:
-		return VersionUnknown
+		return Unknown
 	}
 }
 
-func ParseInt(d int) Version {
-	switch d {
-	case tls.VersionTLS10:
-		return VersionTLS10
-	case tls.VersionTLS11:
-		return VersionTLS11
-	case tls.VersionTLS12:
-		return VersionTLS12
-	case tls.VersionTLS13:
-		return VersionTLS13
+func ParseInt(d int) Curves {
+	if d > math.MaxUint16 {
+		d = math.MaxUint16
+	} else if d < 1 {
+		d = 0
+	}
+
+	switch tls.CurveID(d) {
+	case tls.X25519:
+		return X25519
+	case tls.CurveP256:
+		return P256
+	case tls.CurveP384:
+		return P384
+	case tls.CurveP521:
+		return P521
 	default:
-		return VersionUnknown
+		return Unknown
 	}
 }
 
-func parseBytes(p []byte) Version {
+func Check(curves uint16) bool {
+	if c := ParseInt(int(curves)); c == Unknown {
+		return false
+	}
+	return true
+}
+
+func parseBytes(p []byte) Curves {
 	return Parse(string(p))
 }

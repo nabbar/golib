@@ -24,39 +24,55 @@
  *
  */
 
-package tlsversion
+package ca
 
 import (
-	"reflect"
+	"crypto/x509"
+	"encoding"
+	"encoding/json"
+	"errors"
+	"fmt"
 
-	libmap "github.com/mitchellh/mapstructure"
+	"github.com/fxamacker/cbor/v2"
+	"github.com/pelletier/go-toml"
+	"gopkg.in/yaml.v3"
 )
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
+var (
+	ErrInvalidPairCertificate = errors.New("invalid pair certificate")
+	ErrInvalidCertificate     = errors.New("invalid certificate")
+)
 
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
+type Cert interface {
+	encoding.TextMarshaler
+	encoding.TextUnmarshaler
+	encoding.BinaryMarshaler
+	encoding.BinaryUnmarshaler
+	json.Marshaler
+	json.Unmarshaler
+	yaml.Marshaler
+	yaml.Unmarshaler
+	toml.Marshaler
+	toml.Unmarshaler
+	cbor.Marshaler
+	cbor.Unmarshaler
+	fmt.Stringer
 
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
+	AppendPool(p *x509.CertPool)
+}
 
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
-		}
+func Parse(str string) (Cert, error) {
+	return ParseByte([]byte(str))
+}
+
+func ParseByte(p []byte) (Cert, error) {
+	c := &mod{
+		c: make([]*x509.Certificate, 0),
 	}
+
+	if e := c.unMarshall(p); e != nil {
+		return nil, e
+	}
+
+	return c, nil
 }

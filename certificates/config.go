@@ -30,29 +30,27 @@ import (
 	"fmt"
 
 	libval "github.com/go-playground/validator/v10"
+	tlsaut "github.com/nabbar/golib/certificates/auth"
+	tlscas "github.com/nabbar/golib/certificates/ca"
+	tlscrt "github.com/nabbar/golib/certificates/certs"
+	tlscpr "github.com/nabbar/golib/certificates/cipher"
+	tlscrv "github.com/nabbar/golib/certificates/curves"
+	tlsvrs "github.com/nabbar/golib/certificates/tlsversion"
 	liberr "github.com/nabbar/golib/errors"
 )
 
-type Certif struct {
-	Key string `mapstructure:"key" json:"key" yaml:"key" toml:"key"`
-	Pem string `mapstructure:"pem" json:"pem" yaml:"pem" toml:"pem"`
-}
-
 type Config struct {
-	CurveList            []string `mapstructure:"curveList" json:"curveList" yaml:"curveList" toml:"curveList"`
-	CipherList           []string `mapstructure:"cipherList" json:"cipherList" yaml:"cipherList" toml:"cipherList"`
-	RootCAString         []string `mapstructure:"rootCA" json:"rootCA" yaml:"rootCA" toml:"rootCA"`
-	RootCAFile           []string `mapstructure:"rootCAFiles" json:"rootCAFiles" yaml:"rootCAFiles" toml:"rootCAFiles"`
-	ClientCAString       []string `mapstructure:"clientCA" json:"clientCA" yaml:"clientCA" toml:"clientCA"`
-	ClientCAFiles        []string `mapstructure:"clientCAFiles" json:"clientCAFiles" yaml:"clientCAFiles" toml:"clientCAFiles"`
-	CertPairString       []Certif `mapstructure:"certPair" json:"certPair" yaml:"certPair" toml:"certPair"`
-	CertPairFile         []Certif `mapstructure:"certPairFiles" json:"certPairFiles" yaml:"certPairFiles" toml:"certPairFiles"`
-	VersionMin           string   `mapstructure:"versionMin" json:"versionMin" yaml:"versionMin" toml:"versionMin"`
-	VersionMax           string   `mapstructure:"versionMax" json:"versionMax" yaml:"versionMax" toml:"versionMax"`
-	AuthClient           string   `mapstructure:"authClient" json:"authClient" yaml:"authClient" toml:"authClient"`
-	InheritDefault       bool     `mapstructure:"inheritDefault" json:"inheritDefault" yaml:"inheritDefault" toml:"inheritDefault"`
-	DynamicSizingDisable bool     `mapstructure:"dynamicSizingDisable" json:"dynamicSizingDisable" yaml:"dynamicSizingDisable" toml:"dynamicSizingDisable"`
-	SessionTicketDisable bool     `mapstructure:"sessionTicketDisable" json:"sessionTicketDisable" yaml:"sessionTicketDisable" toml:"sessionTicketDisable"`
+	CurveList            []tlscrv.Curves   `mapstructure:"curveList" json:"curveList" yaml:"curveList" toml:"curveList"`
+	CipherList           []tlscpr.Cipher   `mapstructure:"cipherList" json:"cipherList" yaml:"cipherList" toml:"cipherList"`
+	RootCA               []tlscas.Cert     `mapstructure:"rootCA" json:"rootCA" yaml:"rootCA" toml:"rootCA"`
+	ClientCA             []tlscas.Cert     `mapstructure:"clientCA" json:"clientCA" yaml:"clientCA" toml:"clientCA"`
+	Certs                []tlscrt.Certif   `mapstructure:"certs" json:"certs" yaml:"certs" toml:"certs"`
+	VersionMin           tlsvrs.Version    `mapstructure:"versionMin" json:"versionMin" yaml:"versionMin" toml:"versionMin"`
+	VersionMax           tlsvrs.Version    `mapstructure:"versionMax" json:"versionMax" yaml:"versionMax" toml:"versionMax"`
+	AuthClient           tlsaut.ClientAuth `mapstructure:"authClient" json:"authClient" yaml:"authClient" toml:"authClient"`
+	InheritDefault       bool              `mapstructure:"inheritDefault" json:"inheritDefault" yaml:"inheritDefault" toml:"inheritDefault"`
+	DynamicSizingDisable bool              `mapstructure:"dynamicSizingDisable" json:"dynamicSizingDisable" yaml:"dynamicSizingDisable" toml:"dynamicSizingDisable"`
+	SessionTicketDisable bool              `mapstructure:"sessionTicketDisable" json:"sessionTicketDisable" yaml:"sessionTicketDisable" toml:"sessionTicketDisable"`
 }
 
 func (c *Config) Validate() liberr.Error {
@@ -76,7 +74,7 @@ func (c *Config) Validate() liberr.Error {
 	return nil
 }
 
-func (c *Config) New() (TLSConfig, liberr.Error) {
+func (c *Config) New() TLSConfig {
 	if c.InheritDefault {
 		return c.NewFrom(Default)
 	} else {
@@ -85,117 +83,114 @@ func (c *Config) New() (TLSConfig, liberr.Error) {
 }
 
 // nolint #gocognit
-func (c *Config) NewFrom(cfg TLSConfig) (TLSConfig, liberr.Error) {
-	var t *config
+func (c *Config) NewFrom(cfg TLSConfig) TLSConfig {
+	var t *Config
 
 	if cfg != nil {
-		t = asStruct(cfg.Clone())
+		t = cfg.Config()
 	}
 
 	if t == nil {
-		t = asStruct(New())
-		t.caRoot = SystemRootCA()
+		t = &Config{}
 	}
 
-	if c.VersionMin != "" {
-		t.tlsMinVersion = StringToTlsVersion(c.VersionMin)
+	if c.VersionMin != tlsvrs.VersionUnknown {
+		t.VersionMin = c.VersionMin
 	}
 
-	if c.VersionMax != "" {
-		t.tlsMaxVersion = StringToTlsVersion(c.VersionMax)
+	if c.VersionMax != tlsvrs.VersionUnknown {
+		t.VersionMax = c.VersionMax
 	}
 
 	if c.DynamicSizingDisable {
-		t.dynSizingDisabled = true
+		t.DynamicSizingDisable = true
 	}
 
 	if c.SessionTicketDisable {
-		t.ticketSessionDisabled = true
+		t.SessionTicketDisable = true
 	}
 
-	if c.AuthClient != "" {
-		t.clientAuth = StringToClientAuth(c.AuthClient)
+	if c.AuthClient != tlsaut.NoClientCert {
+		t.AuthClient = c.AuthClient
 	}
 
 	if len(c.CipherList) > 0 {
 		for _, a := range c.CipherList {
-			if len(a) < 1 {
-				continue
+			if tlscpr.Check(a.Uint16()) {
+				t.CipherList = append(t.CipherList, a)
 			}
-			t.cipherList = append(t.cipherList, StringToCipherKey(a))
 		}
 	}
 
 	if len(c.CurveList) > 0 {
 		for _, a := range c.CurveList {
-			if len(a) < 1 {
-				continue
-			}
-			t.curveList = append(t.curveList, StringToCurveID(a))
-		}
-	}
-
-	if len(c.RootCAString) > 0 {
-		for _, s := range c.RootCAString {
-			if len(s) < 1 {
-				continue
-			}
-			t.AddRootCAString(s)
-		}
-	}
-
-	if len(c.RootCAFile) > 0 {
-		for _, f := range c.RootCAFile {
-			if len(f) < 1 {
-				continue
-			}
-			if e := t.AddRootCAFile(f); e != nil {
-				return nil, e
+			if tlscrv.Check(a.Uint16()) {
+				t.CurveList = append(t.CurveList, a)
 			}
 		}
 	}
 
-	if len(c.ClientCAString) > 0 {
-		for _, s := range c.ClientCAString {
-			if len(s) < 1 {
-				continue
-			}
-			t.AddClientCAString(s)
+	if len(c.RootCA) > 0 {
+		for _, s := range c.RootCA {
+			t.RootCA = append(t.RootCA, s)
 		}
 	}
 
-	if len(c.ClientCAFiles) > 0 {
-		for _, f := range c.ClientCAFiles {
-			if len(f) < 1 {
-				continue
-			}
-			if e := t.AddClientCAFile(f); e != nil {
-				return nil, e
-			}
+	if len(c.ClientCA) > 0 {
+		for _, s := range c.ClientCA {
+			t.ClientCA = append(t.ClientCA, s)
 		}
 	}
 
-	if len(c.CertPairString) > 0 {
-		for _, s := range c.CertPairString {
-			if len(s.Key) < 1 || len(s.Pem) < 1 {
-				continue
-			}
-			if e := t.AddCertificatePairString(s.Key, s.Pem); e != nil {
-				return nil, e
-			}
+	if len(c.Certs) > 0 {
+		for _, s := range c.Certs {
+			t.Certs = append(t.Certs, s)
 		}
 	}
 
-	if len(c.CertPairFile) > 0 {
-		for _, f := range c.CertPairFile {
-			if len(f.Key) < 1 || len(f.Pem) < 1 {
-				continue
-			}
-			if e := t.AddCertificatePairFile(f.Key, f.Pem); e != nil {
-				return nil, e
-			}
+	res := &config{
+		rand:                  nil,
+		cert:                  make([]tlscrt.Cert, 0),
+		cipherList:            make([]tlscpr.Cipher, 0),
+		curveList:             make([]tlscrv.Curves, 0),
+		caRoot:                make([]tlscas.Cert, 0),
+		clientAuth:            t.AuthClient,
+		clientCA:              make([]tlscas.Cert, 0),
+		tlsMinVersion:         t.VersionMin,
+		tlsMaxVersion:         t.VersionMax,
+		dynSizingDisabled:     t.DynamicSizingDisable,
+		ticketSessionDisabled: t.SessionTicketDisable,
+	}
+
+	if len(t.Certs) > 0 {
+		for _, s := range t.Certs {
+			res.cert = append(res.cert, s.Cert())
 		}
 	}
 
-	return t, nil
+	if len(t.CipherList) > 0 {
+		for _, s := range t.CipherList {
+			res.cipherList = append(res.cipherList, s)
+		}
+	}
+
+	if len(t.CurveList) > 0 {
+		for _, s := range t.CurveList {
+			res.curveList = append(res.curveList, s)
+		}
+	}
+
+	if len(t.RootCA) > 0 {
+		for _, s := range t.RootCA {
+			res.caRoot = append(res.caRoot, s)
+		}
+	}
+
+	if len(t.ClientCA) > 0 {
+		for _, s := range t.ClientCA {
+			res.clientCA = append(res.clientCA, s)
+		}
+	}
+
+	return res
 }

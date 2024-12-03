@@ -91,11 +91,11 @@ func (p Config) Walk(fct FuncWalkConfig) {
 	}
 }
 
-func (p Config) Validate() liberr.Error {
+func (p Config) Validate() error {
 	var e = ErrorPoolValidate.Error(nil)
 
 	p.Walk(func(cfg libhtp.Config) bool {
-		var err liberr.Error
+		var err error
 
 		if err = cfg.Validate(); err != nil {
 			e.Add(err)

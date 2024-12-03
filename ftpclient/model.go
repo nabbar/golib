@@ -34,7 +34,6 @@ import (
 	"time"
 
 	libftp "github.com/jlaffaye/ftp"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type ftpClient struct {
@@ -96,10 +95,9 @@ func (f *ftpClient) setClient(cli *libftp.ServerConn) {
 	f.cli.Store(cli)
 }
 
-func (f *ftpClient) Connect() liberr.Error {
+func (f *ftpClient) Connect() error {
 	var (
 		e   error
-		err liberr.Error
 		cfg *Config
 		cli *libftp.ServerConn
 	)
@@ -116,8 +114,8 @@ func (f *ftpClient) Connect() liberr.Error {
 		return ErrorNotInitialized.Error(nil)
 	}
 
-	if cli, err = cfg.New(); err != nil {
-		return err
+	if cli, e = cfg.New(); e != nil {
+		return e
 	}
 
 	if e = cli.NoOp(); e != nil {
@@ -128,7 +126,7 @@ func (f *ftpClient) Connect() liberr.Error {
 	return nil
 }
 
-func (f *ftpClient) Check() liberr.Error {
+func (f *ftpClient) Check() error {
 	var cli *libftp.ServerConn
 
 	if cli = f.getClient(); cli == nil {
@@ -153,7 +151,7 @@ func (f *ftpClient) Close() {
 	}
 }
 
-func (f *ftpClient) NameList(path string) ([]string, liberr.Error) {
+func (f *ftpClient) NameList(path string) ([]string, error) {
 	if err := f.Check(); err != nil {
 		return nil, err
 	}
@@ -165,7 +163,7 @@ func (f *ftpClient) NameList(path string) ([]string, liberr.Error) {
 	}
 }
 
-func (f *ftpClient) List(path string) ([]*libftp.Entry, liberr.Error) {
+func (f *ftpClient) List(path string) ([]*libftp.Entry, error) {
 	if err := f.Check(); err != nil {
 		return nil, err
 	}
@@ -177,7 +175,7 @@ func (f *ftpClient) List(path string) ([]*libftp.Entry, liberr.Error) {
 	}
 }
 
-func (f *ftpClient) ChangeDir(path string) liberr.Error {
+func (f *ftpClient) ChangeDir(path string) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -189,7 +187,7 @@ func (f *ftpClient) ChangeDir(path string) liberr.Error {
 	}
 }
 
-func (f *ftpClient) CurrentDir() (string, liberr.Error) {
+func (f *ftpClient) CurrentDir() (string, error) {
 	if err := f.Check(); err != nil {
 		return "", err
 	}
@@ -201,7 +199,7 @@ func (f *ftpClient) CurrentDir() (string, liberr.Error) {
 	}
 }
 
-func (f *ftpClient) FileSize(path string) (int64, liberr.Error) {
+func (f *ftpClient) FileSize(path string) (int64, error) {
 	if err := f.Check(); err != nil {
 		return 0, err
 	}
@@ -213,7 +211,7 @@ func (f *ftpClient) FileSize(path string) (int64, liberr.Error) {
 	}
 }
 
-func (f *ftpClient) GetTime(path string) (time.Time, liberr.Error) {
+func (f *ftpClient) GetTime(path string) (time.Time, error) {
 	if err := f.Check(); err != nil {
 		return time.Time{}, err
 	}
@@ -225,7 +223,7 @@ func (f *ftpClient) GetTime(path string) (time.Time, liberr.Error) {
 	}
 }
 
-func (f *ftpClient) SetTime(path string, t time.Time) liberr.Error {
+func (f *ftpClient) SetTime(path string, t time.Time) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -237,7 +235,7 @@ func (f *ftpClient) SetTime(path string, t time.Time) liberr.Error {
 	}
 }
 
-func (f *ftpClient) Retr(path string) (*libftp.Response, liberr.Error) {
+func (f *ftpClient) Retr(path string) (*libftp.Response, error) {
 	if err := f.Check(); err != nil {
 		return nil, err
 	}
@@ -261,7 +259,7 @@ func (f *ftpClient) RetrFrom(path string, offset uint64) (*libftp.Response, erro
 	}
 }
 
-func (f *ftpClient) Stor(path string, r io.Reader) liberr.Error {
+func (f *ftpClient) Stor(path string, r io.Reader) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -273,7 +271,7 @@ func (f *ftpClient) Stor(path string, r io.Reader) liberr.Error {
 	}
 }
 
-func (f *ftpClient) StorFrom(path string, r io.Reader, offset uint64) liberr.Error {
+func (f *ftpClient) StorFrom(path string, r io.Reader, offset uint64) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -285,7 +283,7 @@ func (f *ftpClient) StorFrom(path string, r io.Reader, offset uint64) liberr.Err
 	}
 }
 
-func (f *ftpClient) Append(path string, r io.Reader) liberr.Error {
+func (f *ftpClient) Append(path string, r io.Reader) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -297,7 +295,7 @@ func (f *ftpClient) Append(path string, r io.Reader) liberr.Error {
 	}
 }
 
-func (f *ftpClient) Rename(from, to string) liberr.Error {
+func (f *ftpClient) Rename(from, to string) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -309,7 +307,7 @@ func (f *ftpClient) Rename(from, to string) liberr.Error {
 	}
 }
 
-func (f *ftpClient) Delete(path string) liberr.Error {
+func (f *ftpClient) Delete(path string) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -321,7 +319,7 @@ func (f *ftpClient) Delete(path string) liberr.Error {
 	}
 }
 
-func (f *ftpClient) RemoveDirRecur(path string) liberr.Error {
+func (f *ftpClient) RemoveDirRecur(path string) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -333,7 +331,7 @@ func (f *ftpClient) RemoveDirRecur(path string) liberr.Error {
 	}
 }
 
-func (f *ftpClient) MakeDir(path string) liberr.Error {
+func (f *ftpClient) MakeDir(path string) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -345,7 +343,7 @@ func (f *ftpClient) MakeDir(path string) liberr.Error {
 	}
 }
 
-func (f *ftpClient) RemoveDir(path string) liberr.Error {
+func (f *ftpClient) RemoveDir(path string) error {
 	if err := f.Check(); err != nil {
 		return err
 	}
@@ -357,7 +355,7 @@ func (f *ftpClient) RemoveDir(path string) liberr.Error {
 	}
 }
 
-func (f *ftpClient) Walk(root string) (*libftp.Walker, liberr.Error) {
+func (f *ftpClient) Walk(root string) (*libftp.Walker, error) {
 	if err := f.Check(); err != nil {
 		return nil, err
 	}

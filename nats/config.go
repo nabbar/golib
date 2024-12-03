@@ -38,7 +38,6 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
-	liberr "github.com/nabbar/golib/errors"
 	libiot "github.com/nabbar/golib/ioutils"
 	liblog "github.com/nabbar/golib/logger"
 	loglvl "github.com/nabbar/golib/logger/level"
@@ -63,7 +62,7 @@ type Config struct {
 	Customs *ConfigCustom `mapstructure:"-" json:"-" yaml:"-" toml:"-"`
 }
 
-func (c Config) Validate() liberr.Error {
+func (c Config) Validate() error {
 	err := ErrorConfigValidation.Error(nil)
 
 	if er := libval.New().Struct(c); er != nil {
@@ -84,7 +83,7 @@ func (c Config) Validate() liberr.Error {
 	return nil
 }
 
-func (c Config) LogConfigJson() liberr.Error {
+func (c Config) LogConfigJson() error {
 	if c.Logs.LogFile == "" {
 		return nil
 	}
@@ -129,7 +128,7 @@ func (c Config) LogConfigJson() liberr.Error {
 	return nil
 }
 
-func (c Config) NatsOption(defaultTls libtls.TLSConfig, log liblog.Logger) (*natsrv.Options, liberr.Error) {
+func (c Config) NatsOption(defaultTls libtls.TLSConfig, log liblog.Logger) (*natsrv.Options, error) {
 	cfg := &natsrv.Options{
 		CheckConfig: false,
 	}
@@ -187,7 +186,7 @@ func (c Config) NatsOption(defaultTls libtls.TLSConfig, log liblog.Logger) (*nat
 	return cfg, nil
 }
 
-func (c *ConfigCustom) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) liberr.Error {
+func (c *ConfigCustom) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) error {
 	if cfg == nil {
 		return ErrorParamsInvalid.Error(nil)
 	}
@@ -209,8 +208,8 @@ func (c *ConfigCustom) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) lib
 	}
 
 	if c.AccountResolverTLS {
-		if t, e := c.AccountResolverTLSConfig.NewFrom(defTls); e != nil {
-			return e
+		if t := c.AccountResolverTLSConfig.NewFrom(defTls); t == nil {
+			return fmt.Errorf("no valid tls config")
 		} else {
 			cfg.AccountResolverTLSConfig = t.TlsConfig("")
 		}
@@ -221,7 +220,7 @@ func (c *ConfigCustom) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) lib
 	return nil
 }
 
-func (c ConfigAuth) makeOpt(cfg *natsrv.Options) liberr.Error {
+func (c ConfigAuth) makeOpt(cfg *natsrv.Options) error {
 	if cfg == nil {
 		return ErrorParamsInvalid.Error(nil)
 	}
@@ -285,7 +284,7 @@ func (c ConfigAuth) makeOpt(cfg *natsrv.Options) liberr.Error {
 	return nil
 }
 
-func (c ConfigNkey) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.NkeyUser, liberr.Error) {
+func (c ConfigNkey) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.NkeyUser, error) {
 	if cfg == nil {
 		return nil, ErrorParamsInvalid.Error(nil)
 	}
@@ -342,7 +341,7 @@ func (c ConfigNkey) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.NkeyU
 	}, nil
 }
 
-func (c ConfigUser) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.User, liberr.Error) {
+func (c ConfigUser) makeOpt(auth ConfigAuth, cfg *natsrv.Options) (*natsrv.User, error) {
 	if cfg == nil {
 		return nil, ErrorParamsInvalid.Error(nil)
 	}
@@ -473,7 +472,7 @@ func (c ConfigPermissionResponse) makeOpt() *natsrv.ResponsePermission {
 	return res
 }
 
-func (c ConfigLogger) makeOpt(log liblog.Logger, cfg *natsrv.Options) liberr.Error {
+func (c ConfigLogger) makeOpt(log liblog.Logger, cfg *natsrv.Options) error {
 	if cfg == nil {
 		return ErrorParamsInvalid.Error(nil)
 	}
@@ -540,7 +539,7 @@ func (c ConfigLogger) makeOpt(log liblog.Logger, cfg *natsrv.Options) liberr.Err
 	return nil
 }
 
-func (c ConfigLimits) makeOpt(cfg *natsrv.Options) liberr.Error {
+func (c ConfigLimits) makeOpt(cfg *natsrv.Options) error {
 	if cfg == nil {
 		return ErrorParamsInvalid.Error(nil)
 	}
@@ -604,7 +603,7 @@ func (c ConfigLimits) makeOpt(cfg *natsrv.Options) liberr.Error {
 	return nil
 }
 
-func (c ConfigSrv) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) liberr.Error {
+func (c ConfigSrv) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) error {
 	if cfg == nil {
 		return ErrorParamsInvalid.Error(nil)
 	}
@@ -733,8 +732,8 @@ func (c ConfigSrv) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) liberr.
 	if c.TLS {
 		cfg.TLS = true
 
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return fmt.Errorf("no valid tls config")
 		} else {
 			cfg.TLSConfig = t.TlsConfig("")
 		}
@@ -757,7 +756,7 @@ func (c ConfigSrv) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) liberr.
 	return nil
 }
 
-func (c ConfigCluster) makeOpt(defTls libtls.TLSConfig) (natsrv.ClusterOpts, liberr.Error) {
+func (c ConfigCluster) makeOpt(defTls libtls.TLSConfig) (natsrv.ClusterOpts, error) {
 	cfg := natsrv.ClusterOpts{
 		Name:              c.Name,
 		Host:              c.Host,
@@ -786,8 +785,8 @@ func (c ConfigCluster) makeOpt(defTls libtls.TLSConfig) (natsrv.ClusterOpts, lib
 	}
 
 	if c.TLS {
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return cfg, e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return cfg, fmt.Errorf("no valid tls config")
 		} else {
 			cfg.TLSConfig = t.TlsConfig("")
 		}
@@ -803,7 +802,7 @@ func (c ConfigCluster) makeOpt(defTls libtls.TLSConfig) (natsrv.ClusterOpts, lib
 	return cfg, nil
 }
 
-func (c ConfigGateway) makeOpt(defTls libtls.TLSConfig) (natsrv.GatewayOpts, liberr.Error) {
+func (c ConfigGateway) makeOpt(defTls libtls.TLSConfig) (natsrv.GatewayOpts, error) {
 	cfg := natsrv.GatewayOpts{
 		Name:              c.Name,
 		Host:              c.Host,
@@ -826,8 +825,8 @@ func (c ConfigGateway) makeOpt(defTls libtls.TLSConfig) (natsrv.GatewayOpts, lib
 	}
 
 	if c.TLS {
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return cfg, e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return cfg, fmt.Errorf("no valid tls config")
 		} else {
 			cfg.TLSConfig = t.TlsConfig("")
 		}
@@ -850,7 +849,7 @@ func (c ConfigGateway) makeOpt(defTls libtls.TLSConfig) (natsrv.GatewayOpts, lib
 	return cfg, nil
 }
 
-func (c ConfigGatewayRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteGatewayOpts, liberr.Error) {
+func (c ConfigGatewayRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteGatewayOpts, error) {
 	res := &natsrv.RemoteGatewayOpts{
 		Name:       "",
 		TLSConfig:  nil,
@@ -863,8 +862,8 @@ func (c ConfigGatewayRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteGat
 	}
 
 	if c.TLS {
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return nil, e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return nil, fmt.Errorf("no valid tls config")
 		} else {
 			res.TLSConfig = t.TlsConfig("")
 		}
@@ -891,7 +890,7 @@ func (c ConfigGatewayRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteGat
 	return res, nil
 }
 
-func (c ConfigLeaf) makeOpt(cfg *natsrv.Options, auth ConfigAuth, defTls libtls.TLSConfig) (natsrv.LeafNodeOpts, liberr.Error) {
+func (c ConfigLeaf) makeOpt(cfg *natsrv.Options, auth ConfigAuth, defTls libtls.TLSConfig) (natsrv.LeafNodeOpts, error) {
 	res := natsrv.LeafNodeOpts{
 		Host:              c.Host,
 		Port:              c.Port,
@@ -924,8 +923,8 @@ func (c ConfigLeaf) makeOpt(cfg *natsrv.Options, auth ConfigAuth, defTls libtls.
 	}
 
 	if c.TLS {
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return res, e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return res, fmt.Errorf("no valid tls config")
 		} else {
 			res.TLSConfig = t.TlsConfig("")
 		}
@@ -951,7 +950,7 @@ func (c ConfigLeaf) makeOpt(cfg *natsrv.Options, auth ConfigAuth, defTls libtls.
 	return res, nil
 }
 
-func (c ConfigLeafRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteLeafOpts, liberr.Error) {
+func (c ConfigLeafRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteLeafOpts, error) {
 	res := &natsrv.RemoteLeafOpts{
 		LocalAccount: c.LocalAccount,
 		URLs:         make([]*url.URL, 0),
@@ -974,8 +973,8 @@ func (c ConfigLeafRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteLeafOp
 	if c.TLS {
 		res.TLS = true
 
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return nil, e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return nil, fmt.Errorf("no valid tls config")
 		} else {
 			res.TLSConfig = t.TlsConfig("")
 		}
@@ -1009,7 +1008,7 @@ func (c ConfigLeafRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteLeafOp
 	return res, nil
 }
 
-func (c ConfigWebsocket) makeOpt(defTls libtls.TLSConfig) (natsrv.WebsocketOpts, liberr.Error) {
+func (c ConfigWebsocket) makeOpt(defTls libtls.TLSConfig) (natsrv.WebsocketOpts, error) {
 	cfg := natsrv.WebsocketOpts{
 		Host:             c.Host,
 		Port:             c.Port,
@@ -1044,8 +1043,8 @@ func (c ConfigWebsocket) makeOpt(defTls libtls.TLSConfig) (natsrv.WebsocketOpts,
 	if !c.NoTLS {
 		cfg.NoTLS = false
 
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return cfg, e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return cfg, fmt.Errorf("no valid tls config")
 		} else {
 			cfg.TLSConfig = t.TlsConfig("")
 		}
@@ -1063,7 +1062,7 @@ func (c ConfigWebsocket) makeOpt(defTls libtls.TLSConfig) (natsrv.WebsocketOpts,
 	return cfg, nil
 }
 
-func (c ConfigMQTT) makeOpt(defTls libtls.TLSConfig) (natsrv.MQTTOpts, liberr.Error) {
+func (c ConfigMQTT) makeOpt(defTls libtls.TLSConfig) (natsrv.MQTTOpts, error) {
 	cfg := natsrv.MQTTOpts{
 		Host:          c.Host,
 		Port:          c.Port,
@@ -1084,8 +1083,8 @@ func (c ConfigMQTT) makeOpt(defTls libtls.TLSConfig) (natsrv.MQTTOpts, liberr.Er
 	}
 
 	if !c.TLS {
-		if t, e := c.TLSConfig.NewFrom(defTls); e != nil {
-			return cfg, e
+		if t := c.TLSConfig.NewFrom(defTls); t == nil {
+			return cfg, fmt.Errorf("no valid tls config")
 		} else {
 			cfg.TLSConfig = t.TlsConfig("")
 		}

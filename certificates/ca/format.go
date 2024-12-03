@@ -24,39 +24,38 @@
  *
  */
 
-package tlsversion
+package ca
 
 import (
-	"reflect"
-
-	libmap "github.com/mitchellh/mapstructure"
+	"bytes"
+	"crypto/x509"
+	"encoding/pem"
 )
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
+func (o *mod) String() string {
+	s, _ := o.Chain()
+	return s
+}
 
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
+func (o *mod) Chain() (string, error) {
+	var buf = bytes.NewBuffer(make([]byte, 0))
 
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
+	for _, c := range o.c {
+		if c == nil {
+			continue
+		} else if e := pem.Encode(buf, &pem.Block{Type: "CERTIFICATE", Bytes: c.Raw}); e != nil {
+			return "", e
 		}
+	}
 
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
+	return buf.String(), nil
+}
+
+func (o *mod) AppendPool(p *x509.CertPool) {
+	for _, c := range o.c {
+		if c == nil {
+			continue
 		}
+		p.AddCert(c)
 	}
 }

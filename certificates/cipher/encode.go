@@ -24,7 +24,7 @@
  *
  */
 
-package tlsversion
+package curves
 
 import (
 	"fmt"
@@ -32,12 +32,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func (v *Version) unmarshall(val []byte) error {
+func (v *Cipher) unmarshall(val []byte) error {
 	*v = parseBytes(val)
 	return nil
 }
 
-func (v Version) MarshalJSON() ([]byte, error) {
+func (v Cipher) MarshalJSON() ([]byte, error) {
 	t := v.String()
 	b := make([]byte, 0, len(t)+2)
 	b = append(b, '"')
@@ -46,44 +46,44 @@ func (v Version) MarshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-func (v *Version) UnmarshalJSON(bytes []byte) error {
+func (v *Cipher) UnmarshalJSON(bytes []byte) error {
 	return v.unmarshall(bytes)
 }
 
-func (v Version) MarshalYAML() (interface{}, error) {
+func (v Cipher) MarshalYAML() (interface{}, error) {
 	return []byte(v.String()), nil
 }
 
-func (v *Version) UnmarshalYAML(value *yaml.Node) error {
+func (v *Cipher) UnmarshalYAML(value *yaml.Node) error {
 	return v.unmarshall([]byte(value.Value))
 }
 
-func (v Version) MarshalTOML() ([]byte, error) {
+func (v Cipher) MarshalTOML() ([]byte, error) {
 	return []byte(v.String()), nil
 }
 
-func (v *Version) UnmarshalTOML(i interface{}) error {
+func (v *Cipher) UnmarshalTOML(i interface{}) error {
 	if p, k := i.([]byte); k {
 		return v.unmarshall(p)
 	}
 	if p, k := i.(string); k {
 		return v.unmarshall([]byte(p))
 	}
-	return fmt.Errorf("size: value not in valid format")
+	return fmt.Errorf("cipher: value not in valid format")
 }
 
-func (v Version) MarshalText() ([]byte, error) {
+func (v Cipher) MarshalText() ([]byte, error) {
 	return []byte(v.String()), nil
 }
 
-func (v *Version) UnmarshalText(bytes []byte) error {
+func (v *Cipher) UnmarshalText(bytes []byte) error {
 	return v.unmarshall(bytes)
 }
 
-func (v Version) MarshalCBOR() ([]byte, error) {
+func (v Cipher) MarshalCBOR() ([]byte, error) {
 	return []byte(v.String()), nil
 }
 
-func (v *Version) UnmarshalCBOR(bytes []byte) error {
+func (v *Cipher) UnmarshalCBOR(bytes []byte) error {
 	return v.unmarshall(bytes)
 }

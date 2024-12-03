@@ -24,39 +24,29 @@
  *
  */
 
-package tlsversion
+package certificates
 
-import (
-	"reflect"
+import tlscpr "github.com/nabbar/golib/certificates/cipher"
 
-	libmap "github.com/mitchellh/mapstructure"
-)
+func (o *config) SetCipherList(c []tlscpr.Cipher) {
+	o.cipherList = make([]tlscpr.Cipher, 0)
+	o.AddCiphers(c...)
+}
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
+func (o *config) AddCiphers(c ...tlscpr.Cipher) {
+	for _, i := range c {
+		o.cipherList = append(o.cipherList, i)
+	}
+}
 
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
+func (o *config) GetCiphers() []tlscpr.Cipher {
+	var res = make([]tlscpr.Cipher, 0)
 
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
-
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
+	for _, i := range o.cipherList {
+		if tlscpr.Check(i.Uint16()) {
+			res = append(res, i)
 		}
 	}
+
+	return res
 }

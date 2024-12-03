@@ -37,7 +37,6 @@ import (
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
 	libdur "github.com/nabbar/golib/duration"
-	liberr "github.com/nabbar/golib/errors"
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
@@ -210,12 +209,9 @@ func (c *Config) Clone() Config {
 		TLS: libtls.Config{
 			CurveList:            c.TLS.CurveList,
 			CipherList:           c.TLS.CipherList,
-			RootCAString:         c.TLS.RootCAString,
-			RootCAFile:           c.TLS.RootCAFile,
-			ClientCAString:       c.TLS.ClientCAString,
-			ClientCAFiles:        c.TLS.ClientCAFiles,
-			CertPairString:       c.TLS.CertPairString,
-			CertPairFile:         c.TLS.CertPairFile,
+			RootCA:               c.TLS.RootCA,
+			ClientCA:             c.TLS.ClientCA,
+			Certs:                c.TLS.Certs,
 			VersionMin:           c.TLS.VersionMin,
 			VersionMax:           c.TLS.VersionMax,
 			AuthClient:           c.TLS.AuthClient,
@@ -239,17 +235,21 @@ func (c *Config) SetContext(f libctx.FuncContext) {
 	c.getParentContext = f
 }
 
-func (c *Config) GetTLS() (libtls.TLSConfig, liberr.Error) {
+func (c *Config) GetTLS() (libtls.TLSConfig, error) {
 	var def libtls.TLSConfig
 
 	if c.TLS.InheritDefault && c.getTLSDefault != nil {
 		def = c.getTLSDefault()
 	}
 
-	return c.TLS.NewFrom(def)
+	if cfg := c.TLS.NewFrom(def); cfg != nil {
+		return cfg, nil
+	}
+
+	return nil, fmt.Errorf("no tls configuration found")
 }
 
-func (c *Config) CheckTLS() (libtls.TLSConfig, liberr.Error) {
+func (c *Config) CheckTLS() (libtls.TLSConfig, error) {
 	if ssl, err := c.GetTLS(); err != nil {
 		return nil, err
 	} else if ssl == nil || ssl.LenCertificatePair() < 1 {
@@ -337,7 +337,7 @@ func (c *Config) GetHandlerKey() string {
 	return c.HandlerKey
 }
 
-func (c *Config) Validate() liberr.Error {
+func (c *Config) Validate() error {
 	err := ErrorServerValidate.Error(nil)
 
 	if er := libval.New().Struct(c); er != nil {

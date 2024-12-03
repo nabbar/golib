@@ -27,329 +27,212 @@
 package certificates
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
-	"os"
-	"strings"
+	"io"
 
-	liberr "github.com/nabbar/golib/errors"
+	tlsaut "github.com/nabbar/golib/certificates/auth"
+	tlscas "github.com/nabbar/golib/certificates/ca"
+	tlscrt "github.com/nabbar/golib/certificates/certs"
+	tlscpr "github.com/nabbar/golib/certificates/cipher"
+	tlscrv "github.com/nabbar/golib/certificates/curves"
+	tlsvrs "github.com/nabbar/golib/certificates/tlsversion"
 )
 
 type config struct {
-	cert                  []tls.Certificate
-	cipherList            []uint16
-	curveList             []tls.CurveID
-	caRoot                *x509.CertPool
-	clientAuth            tls.ClientAuthType
-	clientCA              *x509.CertPool
-	tlsMinVersion         uint16
-	tlsMaxVersion         uint16
+	rand                  io.Reader
+	cert                  []tlscrt.Cert
+	cipherList            []tlscpr.Cipher
+	curveList             []tlscrv.Curves
+	caRoot                []tlscas.Cert
+	clientAuth            tlsaut.ClientAuth
+	clientCA              []tlscas.Cert
+	tlsMinVersion         tlsvrs.Version
+	tlsMaxVersion         tlsvrs.Version
 	dynSizingDisabled     bool
 	ticketSessionDisabled bool
 }
 
-func (c *config) checkFile(pemFiles ...string) liberr.Error {
-	for _, f := range pemFiles {
-		if f == "" {
-			return ErrorParamEmpty.Error(nil)
+func (o *config) RegisterRand(rand io.Reader) {
+	o.rand = rand
+}
+
+func (o *config) SetVersionMin(v tlsvrs.Version) {
+	o.tlsMinVersion = v
+}
+
+func (o *config) GetVersionMin() tlsvrs.Version {
+	return o.tlsMinVersion
+}
+
+func (o *config) SetVersionMax(v tlsvrs.Version) {
+	o.tlsMaxVersion = v
+}
+
+func (o *config) GetVersionMax() tlsvrs.Version {
+	return o.tlsMaxVersion
+}
+
+func (o *config) SetDynamicSizingDisabled(flag bool) {
+	o.dynSizingDisabled = flag
+}
+
+func (o *config) SetSessionTicketDisabled(flag bool) {
+	o.ticketSessionDisabled = flag
+}
+
+func (o *config) Clone() TLSConfig {
+	cfg := &config{
+		rand:                  o.rand,
+		cert:                  make([]tlscrt.Cert, 0),
+		cipherList:            make([]tlscpr.Cipher, 0),
+		curveList:             make([]tlscrv.Curves, 0),
+		caRoot:                make([]tlscas.Cert, 0),
+		clientAuth:            o.clientAuth,
+		clientCA:              make([]tlscas.Cert, 0),
+		tlsMinVersion:         o.tlsMinVersion,
+		tlsMaxVersion:         o.tlsMaxVersion,
+		dynSizingDisabled:     o.dynSizingDisabled,
+		ticketSessionDisabled: o.ticketSessionDisabled,
+	}
+
+	if len(o.cert) > 0 {
+		for _, c := range o.cert {
+			cfg.cert = append(cfg.cert, c)
 		}
+	}
 
-		if _, e := os.Stat(f); e != nil {
-			return ErrorFileStat.Error(e)
-		}
-
-		/* #nosec */
-		b, e := ioutil.ReadFile(f)
-		if e != nil {
-			return ErrorFileRead.Error(e)
-		}
-
-		b = bytes.Trim(b, "\n")
-		b = bytes.Trim(b, "\r")
-		b = bytes.TrimSpace(b)
-
-		if len(b) < 1 {
-			return ErrorFileEmpty.Error(nil)
+	if len(o.cipherList) > 0 {
+		for _, c := range o.cipherList {
+			if tlscpr.Check(c.Uint16()) {
+				cfg.cipherList = append(cfg.cipherList, c)
+			}
 		}
 	}
 
-	return nil
+	if len(o.curveList) > 0 {
+		for _, c := range o.curveList {
+			if tlscpr.Check(c.Uint16()) {
+				cfg.curveList = append(cfg.curveList, c)
+			}
+		}
+	}
+
+	if len(o.caRoot) > 0 {
+		for _, c := range o.caRoot {
+			cfg.caRoot = append(cfg.caRoot, c)
+		}
+	}
+
+	if len(o.clientCA) > 0 {
+		for _, c := range o.clientCA {
+			cfg.clientCA = append(cfg.clientCA, c)
+		}
+	}
+
+	return cfg
 }
 
-func (c *config) AddRootCAString(rootCA string) bool {
-	if c.caRoot == nil {
-		c.caRoot = SystemRootCA()
-	}
-
-	if rootCA != "" {
-		return c.caRoot.AppendCertsFromPEM([]byte(rootCA))
-	}
-
-	return false
+func (o *config) TlsConfig(serverName string) *tls.Config {
+	return o.TLS(serverName)
 }
 
-func (c *config) AddRootCAFile(pemFile string) liberr.Error {
-	if e := c.checkFile(pemFile); e != nil {
-		return e
-	}
-
-	if c.caRoot == nil {
-		c.caRoot = SystemRootCA()
-	}
-
-	//nolint #nosec
-	/* #nosec */
-	b, _ := ioutil.ReadFile(pemFile)
-
-	if c.caRoot.AppendCertsFromPEM(b) {
-		return nil
-	}
-
-	return ErrorCertAppend.Error(nil)
-}
-
-func (c *config) AddClientCAString(ca string) bool {
-	if c.clientCA == nil {
-		c.clientCA = x509.NewCertPool()
-	}
-
-	if ca != "" {
-		return c.clientCA.AppendCertsFromPEM([]byte(ca))
-	}
-
-	return false
-}
-
-func (c *config) AddClientCAFile(pemFile string) liberr.Error {
-	if e := c.checkFile(pemFile); e != nil {
-		return e
-	}
-
-	if c.clientCA == nil {
-		c.clientCA = x509.NewCertPool()
-	}
-
-	//nolint #nosec
-	/* #nosec */
-	b, _ := ioutil.ReadFile(pemFile)
-
-	if c.clientCA.AppendCertsFromPEM(b) {
-		return nil
-	}
-
-	return ErrorCertAppend.Error(nil)
-}
-
-func (c *config) AddCertificatePairString(key, crt string) liberr.Error {
-	if len(c.cert) == 0 {
-		c.cert = make([]tls.Certificate, 0)
-	}
-
-	key = strings.Trim(key, "\n")
-	crt = strings.Trim(crt, "\n")
-
-	key = strings.Trim(key, "\r")
-	crt = strings.Trim(crt, "\r")
-
-	key = strings.TrimSpace(key)
-	crt = strings.TrimSpace(crt)
-
-	if len(key) < 1 || len(crt) < 1 {
-		return ErrorParamEmpty.Error(nil)
-	}
-
-	p, err := tls.X509KeyPair([]byte(crt), []byte(key))
-	if err != nil {
-		return ErrorCertKeyPairParse.Error(err)
-	}
-
-	c.cert = append(c.cert, p)
-	return nil
-}
-
-func (c *config) AddCertificatePairFile(keyFile, crtFile string) liberr.Error {
-	if e := c.checkFile(keyFile, crtFile); e != nil {
-		return e
-	}
-
-	if len(c.cert) == 0 {
-		c.cert = make([]tls.Certificate, 0)
-	}
-
-	if p, e := tls.LoadX509KeyPair(crtFile, keyFile); e != nil {
-		return ErrorCertKeyPairLoad.Error(e)
-	} else {
-		c.cert = append(c.cert, p)
-		return nil
-	}
-}
-
-func (c *config) TlsConfig(serverName string) *tls.Config {
+func (o *config) TLS(serverName string) *tls.Config {
 	/* #nosec */
 	cnf := &tls.Config{
-		InsecureSkipVerify: false,
+		Rand:                        nil,
+		Certificates:                make([]tls.Certificate, 0),
+		RootCAs:                     SystemRootCA(),
+		ServerName:                  "",
+		ClientAuth:                  tls.NoClientCert,
+		ClientCAs:                   x509.NewCertPool(),
+		InsecureSkipVerify:          false,
+		CipherSuites:                make([]uint16, 0),
+		SessionTicketsDisabled:      false,
+		MinVersion:                  0,
+		MaxVersion:                  0,
+		CurvePreferences:            make([]tls.CurveID, 0),
+		DynamicRecordSizingDisabled: false,
+		Renegotiation:               tls.RenegotiateNever,
 	}
 
 	if serverName != "" {
 		cnf.ServerName = serverName
 	}
 
-	if c.ticketSessionDisabled {
+	if o.ticketSessionDisabled {
 		cnf.SessionTicketsDisabled = true
 	}
 
-	if c.dynSizingDisabled {
+	if o.dynSizingDisabled {
 		cnf.DynamicRecordSizingDisabled = true
 	}
 
-	if c.tlsMinVersion != 0 {
-		cnf.MinVersion = c.tlsMinVersion
+	if o.tlsMinVersion != tlsvrs.VersionUnknown {
+		cnf.MinVersion = o.tlsMinVersion.TLS()
 	}
 
-	if c.tlsMaxVersion != 0 {
-		cnf.MaxVersion = c.tlsMaxVersion
+	if o.tlsMaxVersion != tlsvrs.VersionUnknown {
+		cnf.MaxVersion = o.tlsMaxVersion.TLS()
 	}
 
-	if len(c.cipherList) > 0 {
-		cnf.PreferServerCipherSuites = true
-		cnf.CipherSuites = c.cipherList
+	if len(o.cipherList) > 0 {
+		for _, c := range o.cipherList {
+			if c != tlscpr.Unknown {
+				cnf.CipherSuites = append(cnf.CipherSuites, c.TLS())
+			}
+		}
 	}
 
-	if len(c.curveList) > 0 {
-		cnf.CurvePreferences = c.curveList
+	if len(o.curveList) > 0 {
+		for _, c := range o.curveList {
+			if c != tlscrv.Unknown {
+				cnf.CurvePreferences = append(cnf.CurvePreferences, c.TLS())
+			}
+		}
 	}
 
-	if c.caRoot != nil {
-		cnf.RootCAs = c.caRoot
+	if o.caRoot != nil {
+		for _, c := range o.caRoot {
+			c.AppendPool(cnf.RootCAs)
+		}
 	}
 
-	if len(c.cert) > 0 {
-		cnf.Certificates = c.cert
+	if len(o.cert) > 0 {
+		for _, c := range o.cert {
+			cnf.Certificates = append(cnf.Certificates, c.TLS())
+		}
 	}
 
-	if c.clientAuth != tls.NoClientCert {
-		cnf.ClientAuth = c.clientAuth
-		if c.clientCA != nil {
-			cnf.ClientCAs = c.clientCA
+	if o.clientAuth != tlsaut.NoClientCert {
+		cnf.ClientAuth = o.clientAuth.TLS()
+		if len(o.clientCA) > 0 {
+			for _, c := range o.clientCA {
+				c.AppendPool(cnf.ClientCAs)
+			}
 		}
 	}
 
 	return cnf
 }
 
-func (c *config) cloneCipherList() []uint16 {
-	if c.cipherList == nil {
-		return nil
+func (o *config) Config() *Config {
+	var crt = make([]tlscrt.Certif, 0)
+	for _, c := range o.cert {
+		crt = append(crt, c.Model())
 	}
 
-	return append(make([]uint16, 0), c.cipherList...)
-}
-
-func (c *config) cloneCurveList() []tls.CurveID {
-	if c.curveList == nil {
-		return nil
+	return &Config{
+		CurveList:            o.curveList,
+		CipherList:           o.cipherList,
+		RootCA:               o.caRoot,
+		ClientCA:             o.clientCA,
+		Certs:                crt,
+		VersionMin:           o.tlsMinVersion,
+		VersionMax:           o.tlsMaxVersion,
+		AuthClient:           o.clientAuth,
+		InheritDefault:       false,
+		DynamicSizingDisable: o.dynSizingDisabled,
+		SessionTicketDisable: o.ticketSessionDisabled,
 	}
-
-	return append(make([]tls.CurveID, 0), c.curveList...)
-}
-
-func (c *config) cloneCertificates() []tls.Certificate {
-	if c.cert == nil {
-		return nil
-	}
-
-	return append(make([]tls.Certificate, 0), c.cert...)
-}
-
-func (c *config) cloneRootCA() *x509.CertPool {
-	if c.caRoot == nil {
-		return nil
-	}
-
-	list := *c.caRoot
-
-	return &list
-}
-
-func (c *config) cloneClientCA() *x509.CertPool {
-	if c.clientCA == nil {
-		return nil
-	}
-
-	list := *c.clientCA
-
-	return &list
-}
-
-func (c *config) Clone() TLSConfig {
-	return &config{
-		caRoot:                c.cloneRootCA(),
-		cert:                  c.cloneCertificates(),
-		tlsMinVersion:         c.tlsMinVersion,
-		tlsMaxVersion:         c.tlsMaxVersion,
-		cipherList:            c.cloneCipherList(),
-		curveList:             c.cloneCurveList(),
-		dynSizingDisabled:     c.dynSizingDisabled,
-		ticketSessionDisabled: c.ticketSessionDisabled,
-		clientAuth:            c.clientAuth,
-		clientCA:              c.cloneClientCA(),
-	}
-}
-
-func asStruct(cfg TLSConfig) *config {
-	if c, ok := cfg.(*config); ok {
-		return c
-	}
-
-	return nil
-}
-
-func (c *config) GetRootCA() *x509.CertPool {
-	return c.caRoot
-}
-
-func (c *config) GetClientCA() *x509.CertPool {
-	return c.clientCA
-}
-
-func (c *config) LenCertificatePair() int {
-	return len(c.cert)
-}
-
-func (c *config) CleanCertificatePair() {
-	c.cert = make([]tls.Certificate, 0)
-}
-
-func (c *config) GetCertificatePair() []tls.Certificate {
-	return c.cert
-}
-
-func (c *config) SetVersionMin(vers uint16) {
-	c.tlsMinVersion = vers
-}
-
-func (c *config) SetVersionMax(vers uint16) {
-	c.tlsMaxVersion = vers
-}
-
-func (c *config) SetClientAuth(cAuth tls.ClientAuthType) {
-	c.clientAuth = cAuth
-}
-
-func (c *config) SetCipherList(cipher []uint16) {
-	c.cipherList = cipher
-}
-
-func (c *config) SetCurveList(curves []tls.CurveID) {
-	c.curveList = curves
-}
-
-func (c *config) SetDynamicSizingDisabled(flag bool) {
-	c.dynSizingDisabled = flag
-}
-
-func (c *config) SetSessionTicketDisabled(flag bool) {
-	c.ticketSessionDisabled = flag
 }

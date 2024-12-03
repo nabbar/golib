@@ -24,39 +24,75 @@
  *
  */
 
-package tlsversion
+package curves
 
 import (
-	"reflect"
-
-	libmap "github.com/mitchellh/mapstructure"
+	"crypto/tls"
+	"strings"
 )
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
-
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
-
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
-
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
-		}
+func (v Curves) String() string {
+	switch v {
+	case X25519:
+		return "X25519"
+	case P256:
+		return "P256"
+	case P384:
+		return "P384"
+	case P521:
+		return "P521"
+	default:
+		return ""
 	}
+}
+
+func (v Curves) Code() string {
+	return strings.ToLower(v.String())
+}
+
+func (v Curves) CurveID() tls.CurveID {
+	switch v {
+	case X25519:
+		return tls.X25519
+	case P256:
+		return tls.CurveP256
+	case P384:
+		return tls.CurveP384
+	case P521:
+		return tls.CurveP521
+	default:
+		return 0
+	}
+}
+
+func (v Curves) TLS() tls.CurveID {
+	return v.CurveID()
+}
+
+func (v Curves) Uint16() uint16 {
+	return uint16(v.CurveID())
+}
+
+func (v Curves) Uint() uint {
+	return uint(v.CurveID())
+}
+
+func (v Curves) Uint32() uint32 {
+	return uint32(v.CurveID())
+}
+
+func (v Curves) Uint64() uint64 {
+	return uint64(v.CurveID())
+}
+
+func (v Curves) Int() int {
+	return int(v.CurveID())
+}
+
+func (v Curves) Int32() int32 {
+	return int32(v.CurveID())
+}
+
+func (v Curves) Int64() int64 {
+	return int64(v.CurveID())
 }

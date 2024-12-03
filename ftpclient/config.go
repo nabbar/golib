@@ -34,7 +34,6 @@ import (
 	libval "github.com/go-playground/validator/v10"
 	libftp "github.com/jlaffaye/ftp"
 	libtls "github.com/nabbar/golib/certificates"
-	liberr "github.com/nabbar/golib/errors"
 )
 
 type ConfigTimeZone struct {
@@ -81,7 +80,7 @@ type Config struct {
 }
 
 // Validate allow checking if the config' struct is valid with the awaiting model
-func (c *Config) Validate() liberr.Error {
+func (c *Config) Validate() error {
 	var e = ErrorValidatorError.Error(nil)
 
 	if err := libval.New().Struct(c); err != nil {
@@ -110,11 +109,11 @@ func (c *Config) RegisterDefaultTLS(fct func() libtls.TLSConfig) {
 	c.ftls = fct
 }
 
-func (c *Config) New() (*libftp.ServerConn, liberr.Error) {
+func (c *Config) New() (*libftp.ServerConn, error) {
 	var opt = make([]libftp.DialOption, 0)
 
-	if tls, err := c.TLS.NewFrom(c.ftls()); err != nil {
-		return nil, err
+	if tls := c.TLS.NewFrom(c.ftls()); tls == nil {
+		return nil, fmt.Errorf("no tls configured")
 	} else if c.ForceTLS {
 		opt = append(opt, libftp.DialWithExplicitTLS(tls.TlsConfig("")))
 	} else {

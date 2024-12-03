@@ -24,18 +24,25 @@
  *
  */
 
-package tlsversion
+package ca
 
 import (
+	"crypto/x509"
 	"reflect"
 
 	libmap "github.com/mitchellh/mapstructure"
 )
 
+type mod struct {
+	c []*x509.Certificate
+}
+
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
-			z = Version(0)
+			z = &mod{
+				c: make([]*x509.Certificate, 0),
+			}
 			t string
 			k bool
 		)
@@ -53,7 +60,7 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 		}
 
 		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
+		if e := z.unMarshall([]byte(t)); e != nil {
 			return nil, e
 		} else {
 			return z, nil

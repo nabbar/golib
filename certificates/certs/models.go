@@ -24,18 +24,31 @@
  *
  */
 
-package tlsversion
+package certs
 
 import (
+	"crypto/tls"
 	"reflect"
 
 	libmap "github.com/mitchellh/mapstructure"
 )
 
+type Certif struct {
+	c tls.Certificate
+}
+
+func (o *Certif) Cert() Cert {
+	return o
+}
+
+func (o *Certif) Model() Certif {
+	return *o
+}
+
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
-			z = Version(0)
+			z = &Certif{c: tls.Certificate{}}
 			t string
 			k bool
 		)
@@ -53,7 +66,7 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 		}
 
 		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
+		if e := z.unMarshall([]byte(t)); e != nil {
 			return nil, e
 		} else {
 			return z, nil

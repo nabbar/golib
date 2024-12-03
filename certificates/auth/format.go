@@ -24,39 +24,32 @@
  *
  */
 
-package tlsversion
+package auth
 
 import (
-	"reflect"
-
-	libmap "github.com/mitchellh/mapstructure"
+	"crypto/tls"
+	"strings"
 )
 
-func ViperDecoderHook() libmap.DecodeHookFuncType {
-	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-		var (
-			z = Version(0)
-			t string
-			k bool
-		)
-
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
-
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
-
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
-		}
+func (a ClientAuth) String() string {
+	switch a {
+	case RequireAndVerifyClientCert:
+		return strict + " " + require + " " + verify
+	case VerifyClientCertIfGiven:
+		return verify
+	case RequireAnyClientCert:
+		return require
+	case RequestClientCert:
+		return request
+	default:
+		return none
 	}
+}
+
+func (a ClientAuth) Code() string {
+	return strings.ToLower(a.String())
+}
+
+func (a ClientAuth) TLS() tls.ClientAuthType {
+	return tls.ClientAuthType(a)
 }
