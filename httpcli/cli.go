@@ -29,9 +29,9 @@ package httpcli
 import (
 	"context"
 	"net/http"
-	"sync/atomic"
 	"time"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
 	libdur "github.com/nabbar/golib/duration"
 	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
@@ -41,20 +41,10 @@ const (
 	ClientTimeout5Sec = 5 * time.Second
 )
 
-var (
-	dns = new(atomic.Value)
-	ctx context.Context
-	cnl context.CancelFunc
-)
+var dns = libatm.NewValue[htcdns.DNSMapper]()
 
 func initDNSMapper() htcdns.DNSMapper {
-	if cnl != nil {
-		cnl()
-	}
-
-	ctx, cnl = context.WithCancel(context.Background())
-
-	return htcdns.New(ctx, &htcdns.Config{
+	return htcdns.New(context.Background(), &htcdns.Config{
 		DNSMapper:  make(map[string]string),
 		TimerClean: libdur.ParseDuration(3 * time.Minute),
 		Transport: htcdns.TransportConfig{
@@ -77,17 +67,11 @@ func initDNSMapper() htcdns.DNSMapper {
 }
 
 func DefaultDNSMapper() htcdns.DNSMapper {
-	if i := dns.Load(); i == nil {
-		d := initDNSMapper()
-		dns.Store(d)
-		return d
-	} else if d, k := i.(htcdns.DNSMapper); !k {
-		d = initDNSMapper()
-		dns.Store(d)
-		return d
-	} else {
-		return d
+	if dns.Load() == nil {
+		SetDefaultDNSMapper(initDNSMapper())
 	}
+
+	return dns.Load()
 }
 
 func SetDefaultDNSMapper(d htcdns.DNSMapper) {
@@ -95,11 +79,9 @@ func SetDefaultDNSMapper(d htcdns.DNSMapper) {
 		return
 	}
 
-	if cnl != nil {
-		cnl()
+	if o := dns.Swap(d); o != nil {
+		_ = o.Close()
 	}
-
-	dns.Store(d)
 }
 
 type FctHttpClient func() *http.Client

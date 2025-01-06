@@ -28,28 +28,37 @@ package dns_mapper
 
 import (
 	"context"
+	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
 )
 
 type dmp struct {
 	d *sync.Map
 	z *sync.Map
-	c *atomic.Value // *Config
-	t *atomic.Value // *http transport
-	f libtls.FctRootCA
+	c libatm.Value[*Config]
+	t libatm.Value[*http.Transport]
+	n libatm.Value[context.CancelFunc]
+	x libatm.Value[context.Context]
+	f libtls.FctRootCACert
 	i func(msg string)
+}
+
+func (o *dmp) Close() error {
+	if i := o.n.Swap(func() {}); i != nil {
+		i()
+	}
+
+	return nil
 }
 
 func (o *dmp) config() *Config {
 	var cfg = &Config{}
 
-	if i := o.c.Load(); i == nil {
-		return cfg
-	} else if c, k := i.(*Config); !k {
+	if c := o.c.Load(); c == nil {
 		return cfg
 	} else {
 		*cfg = *c
@@ -82,20 +91,35 @@ func (o *dmp) TimeCleaner(ctx context.Context, dur time.Duration) {
 		dur = 5 * time.Minute
 	}
 
+	var (
+		x context.Context
+		n context.CancelFunc
+	)
+
+	if ctx != nil {
+		x, n = context.WithCancel(ctx)
+		o.x.Store(x)
+		if i := o.n.Swap(n); i != nil {
+			i()
+		}
+	}
+
 	go func() {
-		var tck = time.NewTicker(dur)
-		defer tck.Stop()
+		var (
+			tk = time.NewTicker(dur)
+			cx = o.x.Load()
+		)
+
+		defer func() {
+			tk.Stop()
+		}()
 
 		for {
-			if ctx.Err() != nil {
-				return
-			}
-
 			select {
-			case <-tck.C:
-				o.DefaultTransport().CloseIdleConnections()
-			case <-ctx.Done():
+			case <-cx.Done():
 				return
+			case <-tk.C:
+				o.DefaultTransport().CloseIdleConnections()
 			}
 		}
 	}()

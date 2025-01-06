@@ -29,11 +29,11 @@ package request
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 
 	liberr "github.com/nabbar/golib/errors"
 )
@@ -67,10 +67,10 @@ func (r *request) makeRequest(ctx context.Context, u *url.URL, mtd string, body 
 	return req, nil
 }
 
-func (r *request) checkResponse(rsp *http.Response, validStatus ...int) (*bytes.Buffer, error) {
+func (r *request) checkResponse(rsp *http.Response, validStatus ...int) ([]byte, error) {
 	var (
 		e error
-		b = bytes.NewBuffer(make([]byte, 0))
+		b []byte
 	)
 
 	defer func() {
@@ -80,11 +80,11 @@ func (r *request) checkResponse(rsp *http.Response, validStatus ...int) (*bytes.
 	}()
 
 	if rsp == nil {
-		return b, ErrorResponseInvalid.Error(nil)
+		return nil, ErrorResponseInvalid.Error(nil)
 	}
 
 	if rsp.Body != nil {
-		if _, e = io.Copy(b, rsp.Body); e != nil {
+		if b, e = io.ReadAll(rsp.Body); e != nil {
 			return b, ErrorResponseLoadBody.Error(e)
 		}
 	}
@@ -110,15 +110,15 @@ func (r *request) isValidCode(listValid []int, statusCode int) bool {
 	return false
 }
 
-func (r *request) isValidContents(contains []string, buf *bytes.Buffer) bool {
+func (r *request) isValidContents(contains []string, buf []byte) bool {
 	if len(contains) < 1 {
 		return true
-	} else if buf.Len() < 1 {
+	} else if len(buf) < 1 {
 		return false
 	}
 
 	for _, c := range contains {
-		if strings.Contains(buf.String(), c) {
+		if bytes.Contains(buf, []byte(c)) {
 			return true
 		}
 	}
@@ -135,7 +135,6 @@ func (r *request) Do() (*http.Response, error) {
 	}
 
 	var (
-		e   error
 		req *http.Request
 		rer *requestError
 		rsp *http.Response
@@ -153,22 +152,19 @@ func (r *request) Do() (*http.Response, error) {
 		return nil, ErrorCreateRequest.Error(err)
 	}
 
-	rsp, e = r.client().Do(req)
+	rsp, err = r.client().Do(req)
 
-	if e != nil {
-		rer.err = e
+	if err != nil {
+		rer.err = err
 		r.setError(rer)
-		return nil, ErrorSendRequest.Error(e)
+		return nil, ErrorSendRequest.Error(err)
 	}
 
 	return rsp, nil
 }
 
-func (r *request) DoParse(model interface{}, validStatus ...int) error {
+func (r *request) doParse(opt *DoRequestOptions) error {
 	var (
-		e error
-		b = bytes.NewBuffer(make([]byte, 0))
-
 		err error
 		rsp *http.Response
 		rer *requestError
@@ -184,10 +180,9 @@ func (r *request) DoParse(model interface{}, validStatus ...int) error {
 		rer.status = rsp.Status
 	}
 
-	b, err = r.checkResponse(rsp, validStatus...)
-	rer.bufBody = b
+	rer.bufBody, err = r.checkResponse(rsp, opt.ValidStatusCodes...)
 
-	if er := liberr.Get(err); er != nil && er.HasCode(ErrorResponseStatus) {
+	if liberr.Has(err, ErrorResponseStatus) {
 		rer.statusErr = true
 	} else if err != nil {
 		rer.err = err
@@ -195,23 +190,39 @@ func (r *request) DoParse(model interface{}, validStatus ...int) error {
 		return err
 	}
 
-	if b.Len() > 0 {
-		if e = json.Unmarshal(b.Bytes(), model); e != nil {
+	if len(rer.bufBody) > 0 {
+		v := sha256.Sum256(rer.bufBody)
+		rer.checksum = v[:]
+
+		if len(opt.Checksum256) > 0 && len(rer.checksum) > 0 {
+			if bytes.Equal(rer.CheckSum(), opt.Checksum256) {
+				rer.isSame = true
+				return nil
+			}
+		}
+
+		if err = json.Unmarshal(rer.bufBody, opt.Model); err != nil {
 			rer.bodyErr = true
-			rer.err = e
+			rer.err = err
 			r.setError(rer)
-			return ErrorResponseUnmarshall.Error(e)
+			return ErrorResponseUnmarshall.Error(err)
 		}
 	}
 
 	return nil
 }
 
-func (r *request) DoParseRetry(retry int, model interface{}, validStatus ...int) error {
-	var e error
+func (r *request) DoWithOptions(opt *DoRequestOptions) error {
+	var (
+		e error
+	)
 
-	for i := 0; i < retry; i++ {
-		if e = r.DoParse(model, validStatus...); e != nil {
+	if opt.Retry < 1 {
+		opt.Retry = 1
+	}
+
+	for i := 0; i < opt.Retry; i++ {
+		if e = r.doParse(opt); e != nil {
 			continue
 		} else if r.IsError() {
 			continue

@@ -164,8 +164,8 @@ func (o *componentTls) _runCli() error {
 	} else if tls = cfg.New(); tls == nil {
 		return prt.Error(fmt.Errorf("cannot use tls config for new instance"))
 	} else if o.f != nil {
-		for _, s := range o.f() {
-			tls.AddRootCAString(s)
+		if v := o.f(); v != nil && v.Len() > 0 {
+			tls.AddRootCA(v)
 		}
 	}
 

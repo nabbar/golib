@@ -38,26 +38,64 @@ func (v Cipher) Code() []string {
 	switch v {
 	case TLS_RSA_WITH_AES_128_GCM_SHA256:
 		return []string{"rsa", "aes", "128", "gcm", "sha256"}
+	case TLS_RSA_WITH_AES_128_GCM:
+		return []string{"rsa", "aes", "128", "gcm"}
+	case TLS_RSA_WITH_AES128_GCM:
+		return []string{"rsa", "aes128", "gcm"}
 	case TLS_RSA_WITH_AES_256_GCM_SHA384:
 		return []string{"rsa", "aes", "256", "gcm", "sha384"}
+	case TLS_RSA_WITH_AES_256_GCM:
+		return []string{"rsa", "aes", "256", "gcm"}
+	case TLS_RSA_WITH_AES256_GCM:
+		return []string{"rsa", "aes256", "gcm"}
 	case TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:
 		return []string{"ecdhe", "rsa", "aes", "128", "gcm", "sha256"}
+	case TLS_ECDHE_RSA_WITH_AES_128_GCM:
+		return []string{"ecdhe", "rsa", "aes", "128", "gcm"}
+	case TLS_ECDHE_RSA_WITH_AES128_GCM:
+		return []string{"ecdhe", "rsa", "aes128", "gcm"}
 	case TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
 		return []string{"ecdhe", "ecdsa", "aes", "128", "gcm", "sha256"}
+	case TLS_ECDHE_ECDSA_WITH_AES_128_GCM:
+		return []string{"ecdhe", "ecdsa", "aes", "128", "gcm"}
+	case TLS_ECDHE_ECDSA_WITH_AES128_GCM:
+		return []string{"ecdhe", "ecdsa", "aes128", "gcm"}
 	case TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:
 		return []string{"ecdhe", "rsa", "aes", "256", "gcm", "sha384"}
+	case TLS_ECDHE_RSA_WITH_AES_256_GCM:
+		return []string{"ecdhe", "rsa", "aes", "256", "gcm"}
+	case TLS_ECDHE_RSA_WITH_AES256_GCM:
+		return []string{"ecdhe", "rsa", "aes256", "gcm"}
 	case TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:
 		return []string{"ecdhe", "ecdsa", "aes", "256", "gcm", "sha384"}
+	case TLS_ECDHE_ECDSA_WITH_AES_256_GCM:
+		return []string{"ecdhe", "ecdsa", "aes", "256", "gcm"}
+	case TLS_ECDHE_ECDSA_WITH_AES256_GCM:
+		return []string{"ecdhe", "ecdsa", "aes256", "gcm"}
 	case TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:
 		return []string{"ecdhe", "rsa", "chacha20", "poly1305", "sha256"}
+	case TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305:
+		return []string{"ecdhe", "rsa", "chacha20", "poly1305"}
 	case TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:
 		return []string{"ecdhe", "ecdsa", "chacha20", "poly1305", "sha256"}
+	case TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305:
+		return []string{"ecdhe", "ecdsa", "chacha20", "poly1305"}
 	case TLS_AES_128_GCM_SHA256:
 		return []string{"aes", "128", "gcm", "sha256"}
+	case TLS_AES_128_GCM:
+		return []string{"aes", "128", "gcm"}
+	case TLS_AES128_GCM:
+		return []string{"aes128", "gcm"}
 	case TLS_AES_256_GCM_SHA384:
 		return []string{"aes", "256", "gcm", "sha384"}
+	case TLS_AES_256_GCM:
+		return []string{"aes", "256", "gcm"}
+	case TLS_AES256_GCM:
+		return []string{"aes256", "gcm"}
 	case TLS_CHACHA20_POLY1305_SHA256:
 		return []string{"chacha20", "poly1305", "sha256"}
+	case TLS_CHACHA20_POLY1305:
+		return []string{"chacha20", "poly1305"}
 	default:
 		return []string{}
 	}

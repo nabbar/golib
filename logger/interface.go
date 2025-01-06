@@ -34,8 +34,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	iotclo "github.com/nabbar/golib/ioutils/mapCloser"
-
 	libctx "github.com/nabbar/golib/context"
 	logcfg "github.com/nabbar/golib/logger/config"
 	logent "github.com/nabbar/golib/logger/entry"
@@ -133,7 +131,6 @@ func New(ctx libctx.FuncContext) Logger {
 		c: new(atomic.Value),
 	}
 
-	l.c.Store(iotclo.New(ctx))
 	l.SetLevel(loglvl.InfoLevel)
 
 	return l

@@ -124,7 +124,7 @@ var _ = Describe("socket/server/unix", func() {
 		})
 
 		It("Create new server based on config must succeed", func() {
-			sck, err = srv.New(Handler)
+			sck, err = srv.New(nil, Handler)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sck).ToNot(BeNil())
 		})
@@ -226,7 +226,7 @@ var _ = Describe("socket/server/unix", func() {
 		})
 
 		It("Create new server based on config must succeed", func() {
-			sck, err = srv.New(Handler)
+			sck, err = srv.New(nil, Handler)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sck).ToNot(BeNil())
 		})

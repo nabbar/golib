@@ -52,10 +52,11 @@ func init() {
 }
 
 type srv struct {
-	hdl *atomic.Value // handler
-	msg *atomic.Value // chan []byte
-	stp *atomic.Value // chan struct{}
-	run *atomic.Bool  // is Running
+	upd libsck.UpdateConn // updateConn
+	hdl libsck.Handler    // handler
+	msg *atomic.Value     // chan []byte
+	stp *atomic.Value     // chan struct{}
+	run *atomic.Bool      // is Running
 
 	fe *atomic.Value // function error
 	fi *atomic.Value // function info
@@ -227,17 +228,4 @@ func (o *srv) fctInfoSrv(msg string, args ...interface{}) {
 	if v != nil {
 		v.(libsck.FuncInfoSrv)(fmt.Sprintf(msg, args...))
 	}
-}
-
-func (o *srv) handler() libsck.Handler {
-	if o == nil {
-		return nil
-	}
-
-	v := o.hdl.Load()
-	if v != nil {
-		return v.(libsck.Handler)
-	}
-
-	return nil
 }

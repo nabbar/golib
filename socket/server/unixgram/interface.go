@@ -43,15 +43,12 @@ type ServerUnixGram interface {
 	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
 }
 
-func New(h libsck.Handler) ServerUnixGram {
+func New(u libsck.UpdateConn, h libsck.Handler) ServerUnixGram {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 
 	s := new(atomic.Value)
 	s.Store(make(chan struct{}))
-
-	f := new(atomic.Value)
-	f.Store(h)
 
 	// socket file
 	sf := new(atomic.Value)
@@ -66,7 +63,8 @@ func New(h libsck.Handler) ServerUnixGram {
 	sg.Store(0)
 
 	return &srv{
-		hdl: f,
+		upd: u,
+		hdl: h,
 		msg: c,
 		stp: s,
 		run: new(atomic.Bool),

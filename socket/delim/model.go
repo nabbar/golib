@@ -29,82 +29,18 @@ package delim
 import (
 	"bufio"
 	"io"
-	"sync/atomic"
-
-	libsiz "github.com/nabbar/golib/size"
 )
 
 type dlm struct {
-	i *atomic.Value  // input io.ReadCloser
-	d *atomic.Int32  // delimiter rune
-	s *atomic.Uint64 // buffer libsiz.Size
-	r *atomic.Value  // *bufio.Reader
+	i io.ReadCloser // input io.ReadCloser
+	r *bufio.Reader // *bufio.Reader
+	d rune          // delimiter rune
 }
 
-func (o *dlm) SetDelim(delim rune) {
-	o.d.Store(delim)
-}
-
-func (o *dlm) GetDelim() rune {
-	return o.d.Load()
+func (o *dlm) Delim() rune {
+	return o.d
 }
 
 func (o *dlm) getDelimByte() byte {
-	return byte(o.GetDelim())
-}
-
-func (o *dlm) SetBufferSize(b libsiz.Size) {
-	o.s.Store(b.Uint64())
-}
-
-func (o *dlm) GetBufferSize() libsiz.Size {
-	return libsiz.Size(o.s.Load())
-}
-
-func (o *dlm) SetInput(i io.ReadCloser) {
-	if i == nil {
-		i = &DiscardCloser{}
-	}
-
-	o.i.Store(i)
-}
-
-func (o *dlm) getInput() io.ReadCloser {
-	if i := o.i.Load(); i == nil {
-		return &DiscardCloser{}
-	} else if v, k := i.(io.ReadCloser); !k {
-		return &DiscardCloser{}
-	} else {
-		return v
-	}
-}
-
-func (o *dlm) newReader() *bufio.Reader {
-	if siz := o.GetBufferSize(); siz > 0 {
-		return bufio.NewReaderSize(o.getInput(), siz.Int())
-	} else {
-		return bufio.NewReader(o.getInput())
-	}
-}
-
-func (o *dlm) setReader(r *bufio.Reader) {
-	if r == nil {
-		r = o.newReader()
-	}
-
-	o.r.Store(r)
-}
-
-func (o *dlm) getReader() *bufio.Reader {
-	if i := o.r.Load(); i == nil {
-		r := o.newReader()
-		o.setReader(r)
-		return r
-	} else if v, k := i.(*bufio.Reader); !k {
-		r := o.newReader()
-		o.setReader(r)
-		return r
-	} else {
-		return v
-	}
+	return byte(o.d)
 }

@@ -27,8 +27,8 @@
 package delim
 
 import (
+	"bufio"
 	"io"
-	"sync/atomic"
 
 	libsiz "github.com/nabbar/golib/size"
 )
@@ -37,29 +37,25 @@ type BufferDelim interface {
 	io.ReadCloser
 	io.WriterTo
 
-	SetDelim(d rune)
-	GetDelim() rune
-
-	SetBufferSize(b libsiz.Size)
-	GetBufferSize() libsiz.Size
-
-	SetInput(i io.ReadCloser)
+	Delim() rune
 	Reader() io.ReadCloser
 	Copy(w io.Writer) (n int64, err error)
 	ReadBytes() ([]byte, error)
+	UnRead() ([]byte, error)
 }
 
 func New(r io.ReadCloser, delim rune, sizeBufferRead libsiz.Size) BufferDelim {
-	d := &dlm{
-		i: new(atomic.Value),
-		d: new(atomic.Int32),
-		s: new(atomic.Uint64),
-		r: new(atomic.Value),
+	var b *bufio.Reader
+
+	if sizeBufferRead > 0 {
+		b = bufio.NewReaderSize(r, sizeBufferRead.Int())
+	} else {
+		b = bufio.NewReader(r)
 	}
 
-	d.SetDelim(delim)
-	d.SetBufferSize(sizeBufferRead)
-	d.SetInput(r)
-
-	return d
+	return &dlm{
+		i: r,
+		r: b,
+		d: delim,
+	}
 }

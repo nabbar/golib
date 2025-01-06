@@ -46,11 +46,13 @@ type Error interface {
 	StatusCode() int
 	Status() string
 	Body() *bytes.Buffer
+	CheckSum() []byte
 	Error() error
 
 	IsError() bool
 	IsStatusError() bool
 	IsBodyError() bool
+	IsBodySame() bool
 
 	ParseBody(i interface{}) bool
 }
@@ -105,6 +107,7 @@ type Request interface {
 
 	Clone() (Request, error)
 	New() (Request, error)
+	Free()
 
 	GetOption() *Options
 	SetOption(opt *Options) error
@@ -116,7 +119,13 @@ type Request interface {
 	IsError() bool
 
 	Do() (*http.Response, error)
+	DoWithOptions(opt *DoRequestOptions) error
+
+	// DoParse
+	//Deprecated: use DoWithOptions instead of DoParse
 	DoParse(model interface{}, validStatus ...int) error
+	// DoParseRetry
+	//Deprecated: use DoWithOptions instead of DoParseRetry
 	DoParseRetry(retry int, model interface{}, validStatus ...int) error
 
 	Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error)

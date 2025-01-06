@@ -40,6 +40,11 @@ const DefaultBufferSize = 32 * 1024
 // EOL is the end of line, default delimiter of the socket
 const EOL byte = '\n'
 
+// error to be filtered
+var (
+	errFilterClosed = "use of closed network connection"
+)
+
 // ConnState is used to process state connection
 type ConnState uint8
 
@@ -88,6 +93,9 @@ type FuncInfo func(local, remote net.Addr, state ConnState)
 
 // Handler is used to process request
 type Handler func(request Reader, response Writer)
+
+// UpdateConn is used to update new connection before used it
+type UpdateConn func(co net.Conn)
 
 // Response is used to process response
 type Response func(r io.Reader)
@@ -166,4 +174,16 @@ type Client interface {
 	// ctx context.Context, request io.Reader, fct Response.
 	// error.
 	Once(ctx context.Context, request io.Reader, fct Response) error
+}
+
+func ErrorFilter(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if err.Error() == errFilterClosed {
+		return nil
+	}
+
+	return err
 }

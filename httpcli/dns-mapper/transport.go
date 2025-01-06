@@ -87,8 +87,8 @@ func (o *dmp) Transport(cfg TransportConfig) *http.Transport {
 		ssl.SetVersionMax(tls.VersionTLS13)
 	}
 
-	for _, c := range o.f() {
-		ssl.AddRootCAString(c)
+	if v := o.f(); v != nil && v.Len() > 0 {
+		ssl.AddRootCA(v)
 	}
 
 	if cfg.TimeoutGlobal == 0 {
@@ -150,9 +150,7 @@ func (o *dmp) Client(cfg TransportConfig) *http.Client {
 func (o *dmp) DefaultTransport() *http.Transport {
 	i := o.t.Load()
 	if i != nil {
-		if t, k := i.(*http.Transport); k {
-			return t
-		}
+		return i
 	}
 
 	t := o.Transport(o.config().Transport)

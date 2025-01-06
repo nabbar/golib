@@ -67,6 +67,7 @@ func (o *Certif) UnmarshalText(text []byte) error {
 	} else if crt == nil || len(crt.Certificate) == 0 {
 		return ErrInvalidPairCertificate
 	} else {
+		o.g = &chn
 		o.c = *crt
 		return nil
 	}
@@ -81,8 +82,22 @@ func (o *Certif) UnmarshalBinary(data []byte) error {
 }
 
 func (o *Certif) MarshalJSON() ([]byte, error) {
-	t := o.String()
-	return json.Marshal(t)
+	var cfg any
+
+	if o == nil || o.g == nil {
+		return []byte(""), nil
+	} else if p := o.g.GetCerts(); len(p) == 1 {
+		cfg = ConfigChain(o.g.GetCerts()[0])
+	} else if len(p) == 2 {
+		cfg = ConfigPair{
+			Key: p[0],
+			Pub: p[1],
+		}
+	} else {
+		cfg = o.g
+	}
+
+	return json.Marshal(cfg)
 }
 
 func (o *Certif) UnmarshalJSON(bytes []byte) error {
@@ -93,21 +108,23 @@ func (o *Certif) UnmarshalJSON(bytes []byte) error {
 		err error
 	)
 
-	if err = json.Unmarshal(bytes, &cfg); err == nil {
+	if err = json.Unmarshal(bytes, &cfg); err == nil && len(cfg.Key) > 0 && len(cfg.Pub) > 0 {
 		if crt, err = cfg.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
+			o.g = &cfg
 			o.c = *crt
 			return nil
 		}
-	} else if err = json.Unmarshal(bytes, &chn); err == nil {
+	} else if err = json.Unmarshal(bytes, &chn); err == nil && len(chn) > 0 {
 		if crt, err = chn.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
+			o.g = &chn
 			o.c = *crt
 			return nil
 		}
@@ -117,8 +134,22 @@ func (o *Certif) UnmarshalJSON(bytes []byte) error {
 }
 
 func (o *Certif) MarshalYAML() (interface{}, error) {
-	t := o.String()
-	return yaml.Marshal(t)
+	var cfg any
+
+	if o == nil || o.g == nil {
+		return []byte(""), nil
+	} else if p := o.g.GetCerts(); len(p) == 1 {
+		cfg = ConfigChain(o.g.GetCerts()[0])
+	} else if len(p) == 2 {
+		cfg = ConfigPair{
+			Key: p[0],
+			Pub: p[1],
+		}
+	} else {
+		cfg = o.g
+	}
+
+	return yaml.Marshal(cfg)
 }
 
 func (o *Certif) UnmarshalYAML(value *yaml.Node) error {
@@ -130,21 +161,23 @@ func (o *Certif) UnmarshalYAML(value *yaml.Node) error {
 		err error
 	)
 
-	if err = yaml.Unmarshal(src, &cfg); err == nil {
+	if err = yaml.Unmarshal(src, &cfg); err == nil && len(cfg.Key) > 0 && len(cfg.Pub) > 0 {
 		if crt, err = cfg.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
+			o.g = &cfg
 			o.c = *crt
 			return nil
 		}
-	} else if err = yaml.Unmarshal(src, &chn); err == nil {
+	} else if err = yaml.Unmarshal(src, &chn); err == nil && len(chn) > 0 {
 		if crt, err = chn.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
+			o.g = &chn
 			o.c = *crt
 			return nil
 		}
@@ -154,8 +187,22 @@ func (o *Certif) UnmarshalYAML(value *yaml.Node) error {
 }
 
 func (o *Certif) MarshalTOML() ([]byte, error) {
-	t := o.String()
-	return toml.Marshal(t)
+	var cfg any
+
+	if o == nil || o.g == nil {
+		return []byte(""), nil
+	} else if p := o.g.GetCerts(); len(p) == 1 {
+		cfg = ConfigChain(o.g.GetCerts()[0])
+	} else if len(p) == 2 {
+		cfg = ConfigPair{
+			Key: p[0],
+			Pub: p[1],
+		}
+	} else {
+		cfg = o.g
+	}
+
+	return toml.Marshal(cfg)
 }
 
 func (o *Certif) UnmarshalTOML(i interface{}) error {
@@ -184,21 +231,23 @@ func (o *Certif) UnmarshalTOML(i interface{}) error {
 		err error
 	)
 
-	if err = toml.Unmarshal(p, &cfg); err == nil {
+	if err = toml.Unmarshal(p, &cfg); err == nil && len(cfg.Key) > 0 && len(cfg.Pub) > 0 {
 		if crt, err = cfg.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
+			o.g = &cfg
 			o.c = *crt
 			return nil
 		}
-	} else if err = toml.Unmarshal(p, &chn); err == nil {
+	} else if err = toml.Unmarshal(p, &chn); err == nil && len(chn) > 0 {
 		if crt, err = chn.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
+			o.g = &chn
 			o.c = *crt
 			return nil
 		}
@@ -208,8 +257,22 @@ func (o *Certif) UnmarshalTOML(i interface{}) error {
 }
 
 func (o *Certif) MarshalCBOR() ([]byte, error) {
-	t := o.String()
-	return cbor.Marshal(t)
+	var cfg any
+
+	if o == nil || o.g == nil {
+		return []byte(""), nil
+	} else if p := o.g.GetCerts(); len(p) == 1 {
+		cfg = ConfigChain(o.g.GetCerts()[0])
+	} else if len(p) == 2 {
+		cfg = ConfigPair{
+			Key: p[0],
+			Pub: p[1],
+		}
+	} else {
+		cfg = o.g
+	}
+
+	return cbor.Marshal(cfg)
 }
 
 func (o *Certif) UnmarshalCBOR(bytes []byte) error {
@@ -220,21 +283,23 @@ func (o *Certif) UnmarshalCBOR(bytes []byte) error {
 		err error
 	)
 
-	if err = cbor.Unmarshal(bytes, &cfg); err == nil {
+	if err = cbor.Unmarshal(bytes, &cfg); err == nil && len(cfg.Key) > 0 && len(cfg.Pub) > 0 {
 		if crt, err = cfg.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
+			o.g = &cfg
 			o.c = *crt
 			return nil
 		}
-	} else if err = cbor.Unmarshal(bytes, &chn); err == nil {
+	} else if err = cbor.Unmarshal(bytes, &chn); err == nil && len(chn) > 0 {
 		if crt, err = chn.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
+			o.g = &chn
 			o.c = *crt
 			return nil
 		}

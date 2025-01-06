@@ -43,10 +43,12 @@ import (
 type FctHttpClient func(def TLSConfig, servername string) *http.Client
 type FctTLSDefault func() TLSConfig
 type FctRootCA func() []string
+type FctRootCACert func() tlscas.Cert
 
 type TLSConfig interface {
 	RegisterRand(rand io.Reader)
 
+	AddRootCA(rootCA tlscas.Cert) bool
 	AddRootCAString(rootCA string) bool
 	AddRootCAFile(pemFile string) error
 	GetRootCA() []tlscas.Cert

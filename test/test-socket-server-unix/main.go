@@ -79,7 +79,7 @@ func checkPanic(err ...error) {
 }
 
 func main() {
-	srv, err := config().New(Handler)
+	srv, err := config().New(nil, Handler)
 	checkPanic(err)
 
 	srv.RegisterFuncError(func(e ...error) {

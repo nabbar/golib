@@ -43,7 +43,7 @@ type ServerUnix interface {
 	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
 }
 
-func New(h libsck.Handler) ServerUnix {
+func New(u libsck.UpdateConn, h libsck.Handler) ServerUnix {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 
@@ -52,9 +52,6 @@ func New(h libsck.Handler) ServerUnix {
 
 	r := new(atomic.Value)
 	r.Store(make(chan struct{}))
-
-	f := new(atomic.Value)
-	f.Store(h)
 
 	// socket file
 	sf := new(atomic.Value)
@@ -69,7 +66,8 @@ func New(h libsck.Handler) ServerUnix {
 	sg.Store(0)
 
 	return &srv{
-		hdl: f,
+		upd: u,
+		hdl: h,
 		msg: c,
 		stp: s,
 		rst: r,

@@ -58,7 +58,10 @@ type Cert interface {
 	cbor.Unmarshaler
 	fmt.Stringer
 
+	Len() int
 	AppendPool(p *x509.CertPool)
+	AppendBytes(p []byte) error
+	AppendString(str string) error
 }
 
 func Parse(str string) (Cert, error) {

@@ -35,6 +35,14 @@ import (
 	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
 )
 
+func (o *componentHttpClient) Close() error {
+	if d := o.getDNSMapper(); d != nil {
+		return d.Close()
+	}
+
+	return nil
+}
+
 func (o *componentHttpClient) Add(from string, to string) {
 	if d := o.getDNSMapper(); d != nil {
 		d.Add(from, to)

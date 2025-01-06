@@ -38,6 +38,8 @@ import (
 )
 
 type closer struct {
+	c *atomic.Bool
+	f func() // Context Func Cancel
 	i *atomic.Uint64
 	x libctx.Config[uint64]
 }
@@ -130,7 +132,12 @@ func (o *closer) Clone() Closer {
 	i := new(atomic.Uint64)
 	i.Store(o.idx())
 
+	c := new(atomic.Bool)
+	c.Store(o.c.Load())
+
 	return &closer{
+		c: c,
+		f: o.f,
 		i: i,
 		x: o.x.Clone(nil),
 	}
@@ -141,7 +148,15 @@ func (o *closer) Close() error {
 
 	if o == nil {
 		return fmt.Errorf("not initialized")
-	} else if o.x == nil {
+	}
+
+	o.c.Store(true)
+
+	if o.f != nil {
+		defer o.f()
+	}
+
+	if o.x == nil {
 		return fmt.Errorf("not initialized")
 	} else if o.x.Err() != nil {
 		return o.x.Err()

@@ -37,7 +37,7 @@ type ServerTcp interface {
 	RegisterServer(address string) error
 }
 
-func New(h libsck.Handler) ServerTcp {
+func New(u libsck.UpdateConn, h libsck.Handler) ServerTcp {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 
@@ -47,12 +47,10 @@ func New(h libsck.Handler) ServerTcp {
 	r := new(atomic.Value)
 	r.Store(make(chan struct{}))
 
-	f := new(atomic.Value)
-	f.Store(h)
-
 	return &srv{
 		ssl: new(atomic.Value),
-		hdl: f,
+		upd: u,
+		hdl: h,
 		msg: c,
 		stp: s,
 		rst: r,

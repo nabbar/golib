@@ -42,6 +42,7 @@ import (
 // New creates a new server based on the network protocol specified.
 //
 // Parameters:
+// - upd: a Update Connection function or nil
 // - handler: the handler for the server
 // - delim: the delimiter to use to separate messages
 // - proto: the network protocol to use
@@ -50,14 +51,14 @@ import (
 // - perm: the file mode permissions for the socket, not applicable for non unix
 // - gid: the group ID for the socket permissions, not applicable for non unix
 // Return type(s): libsck.Server, error
-func New(handler libsck.Handler, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
+func New(upd libsck.UpdateConn, handler libsck.Handler, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
 	switch proto {
 	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
-		s := scksrt.New(handler)
+		s := scksrt.New(upd, handler)
 		e := s.RegisterServer(address)
 		return s, e
 	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
-		s := scksru.New(handler)
+		s := scksru.New(upd, handler)
 		e := s.RegisterServer(address)
 		return s, e
 	}

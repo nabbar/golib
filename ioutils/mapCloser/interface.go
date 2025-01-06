@@ -28,8 +28,10 @@
 package mapCloser
 
 import (
+	"context"
 	"io"
 	"sync/atomic"
+	"time"
 
 	libctx "github.com/nabbar/golib/context"
 )
@@ -44,19 +46,33 @@ type Closer interface {
 	Close() error
 }
 
-func New(ctx libctx.FuncContext) Closer {
+func New(ctx context.Context) Closer {
+	var (
+		x, n = context.WithCancel(ctx)
+		fx   = func() context.Context {
+			return x
+		}
+	)
+
 	c := &closer{
+		f: n,
 		i: new(atomic.Uint64),
-		x: libctx.NewConfig[uint64](ctx),
+		c: new(atomic.Bool),
+		x: libctx.NewConfig[uint64](fx),
 	}
 
+	c.c.Store(false)
 	c.i.Store(0)
 
 	go func() {
-		select {
-		case <-c.x.Done():
-			_ = c.Close()
-			return
+		for !c.c.Load() {
+			select {
+			case <-c.x.Done():
+				_ = c.Close()
+				return
+			default:
+				time.Sleep(time.Millisecond * 100)
+			}
 		}
 	}()
 

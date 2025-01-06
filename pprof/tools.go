@@ -33,6 +33,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"runtime/pprof"
 	"time"
 
@@ -132,6 +133,7 @@ func ProfilingMemRun(ctx context.Context, tck *time.Ticker) error {
 		}()
 
 		runtime.GC()
+		debug.FreeOSMemory()
 
 		if e = pprof.WriteHeapProfile(h); e != nil {
 			return e

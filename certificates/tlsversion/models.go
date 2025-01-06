@@ -32,6 +32,21 @@ import (
 	libmap "github.com/mitchellh/mapstructure"
 )
 
+func (v Version) Check() bool {
+	switch v {
+	case VersionTLS10:
+		return true
+	case VersionTLS11:
+		return true
+	case VersionTLS12:
+		return true
+	case VersionTLS13:
+		return true
+	default:
+		return false
+	}
+}
+
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (

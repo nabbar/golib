@@ -37,6 +37,30 @@ type mod struct {
 	c []*x509.Certificate
 }
 
+func (m *mod) Len() int {
+	return len(m.c)
+}
+
+func (m *mod) AppendBytes(p []byte) error {
+	c := &mod{
+		c: make([]*x509.Certificate, 0),
+	}
+
+	if e := c.unMarshall(p); e != nil {
+		return e
+	}
+
+	for _, i := range c.c {
+		m.c = append(m.c, i)
+	}
+
+	return nil
+}
+
+func (m *mod) AppendString(str string) error {
+	return m.AppendBytes([]byte(str))
+}
+
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (

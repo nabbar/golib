@@ -27,9 +27,6 @@ package certificates_test
 
 import (
 	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -44,32 +41,23 @@ import (
 
 type EmptyStruct struct{}
 
-var (
-	keyFile string
-	pubFile string
+const (
+	keyFile = "test_ed25519.key"
+	pubFile = "test_ed25519.pub"
 )
 
 // TestGolibEncodingAESHelper tests the Golib AES Encoding Helper function.
-func TestGolibArchiveHelper(t *testing.T) {
+func TestGolibCertificatesHelper(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)       // Adding delay for better testing synchronization
 	RegisterFailHandler(Fail)                // Registering fail handler for better test failure reporting
 	RunSpecs(t, "Certificates Helper Suite") // Running the test suite for Encoding AES Helper
 }
 
-var _ = BeforeSuite(func() {
-	keyFile = filepath.Join(os.Getenv("GOPATH"), "src", strings.Replace(reflect.TypeOf(EmptyStruct{}).PkgPath(), "_test", "", -1), "test_ed25519.key")
-	pubFile = filepath.Join(os.Getenv("GOPATH"), "src", strings.Replace(reflect.TypeOf(EmptyStruct{}).PkgPath(), "_test", "", -1), "test_ed25519.pub")
-})
-
 var _ = AfterSuite(func() {
-	if keyFile != "" {
-		if _, e := os.Stat(keyFile); e == nil {
-			Expect(os.Remove(keyFile)).ToNot(HaveOccurred())
-		}
+	if _, e := os.Stat(keyFile); e == nil {
+		Expect(os.Remove(keyFile)).ToNot(HaveOccurred())
 	}
-	if pubFile != "" {
-		if _, e := os.Stat(pubFile); e == nil {
-			Expect(os.Remove(pubFile)).ToNot(HaveOccurred())
-		}
+	if _, e := os.Stat(pubFile); e == nil {
+		Expect(os.Remove(pubFile)).ToNot(HaveOccurred())
 	}
 })

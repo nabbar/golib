@@ -29,7 +29,9 @@ package httpcli
 import (
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
+	tlscas "github.com/nabbar/golib/certificates/ca"
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
@@ -46,19 +48,33 @@ type ComponentHTTPClient interface {
 	SetFuncMessage(f htcdns.FuncMessage)
 }
 
-func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCA, isDeftHTTPClient bool, msg htcdns.FuncMessage) ComponentHTTPClient {
+func GetRootCaCert(fct libtls.FctRootCA) tlscas.Cert {
+	var res tlscas.Cert
+
+	for _, c := range fct() {
+		if res == nil {
+			res, _ = tlscas.Parse(c)
+		} else {
+			_ = res.AppendString(c)
+		}
+	}
+
+	return res
+}
+
+func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCACert, isDeftHTTPClient bool, msg htcdns.FuncMessage) ComponentHTTPClient {
 	c := &componentHttpClient{
 		x: libctx.NewConfig[uint8](ctx),
-		c: new(atomic.Value),
-		d: new(atomic.Value),
-		f: new(atomic.Value),
+		c: libatm.NewValue[*htcdns.Config](),
+		d: libatm.NewValue[htcdns.DNSMapper](),
+		f: libatm.NewValue[libtls.FctRootCACert](),
+		m: libatm.NewValue[htcdns.FuncMessage](),
 		s: new(atomic.Bool),
-		m: new(atomic.Value),
 	}
 
 	if defCARoot == nil {
-		defCARoot = func() []string {
-			return make([]string, 0)
+		defCARoot = func() tlscas.Cert {
+			return nil
 		}
 	}
 
@@ -77,7 +93,7 @@ func Register(cfg libcfg.Config, key string, cpt ComponentHTTPClient) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot libtls.FctRootCA, isDeftHTTPClient bool, msg htcdns.FuncMessage) {
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot libtls.FctRootCACert, isDeftHTTPClient bool, msg htcdns.FuncMessage) {
 	cfg.ComponentSet(key, New(ctx, defCARoot, isDeftHTTPClient, msg))
 }
 

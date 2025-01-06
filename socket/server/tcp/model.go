@@ -49,13 +49,14 @@ func init() {
 }
 
 type srv struct {
-	ssl *atomic.Value // tls config
-	hdl *atomic.Value // handler
-	msg *atomic.Value // chan []byte
-	stp *atomic.Value // chan struct{}
-	rst *atomic.Value // chan struct{}
-	run *atomic.Bool  // is Running
-	gon *atomic.Bool  // is Running
+	ssl *atomic.Value     // tls config
+	upd libsck.UpdateConn // updateConn
+	hdl libsck.Handler    // handler
+	msg *atomic.Value     // chan []byte
+	stp *atomic.Value     // chan struct{}
+	rst *atomic.Value     // chan struct{}
+	run *atomic.Bool      // is Running
+	gon *atomic.Bool      // is Running
 
 	fe *atomic.Value // function error
 	fi *atomic.Value // function info
@@ -292,19 +293,6 @@ func (o *srv) fctInfoSrv(msg string, args ...interface{}) {
 	if v != nil {
 		v.(libsck.FuncInfoSrv)(fmt.Sprintf(msg, args...))
 	}
-}
-
-func (o *srv) handler() libsck.Handler {
-	if o == nil {
-		return nil
-	}
-
-	v := o.hdl.Load()
-	if v != nil {
-		return v.(libsck.Handler)
-	}
-
-	return nil
 }
 
 func (o *srv) getTLS() *tls.Config {

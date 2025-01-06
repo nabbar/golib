@@ -49,6 +49,6 @@ type ServerConfig struct {
 // New returns a new server with the given handler and based on the ServerConfig
 // handler libsck.Handler
 // (libsck.Server, error)
-func (o ServerConfig) New(handler libsck.Handler) (libsck.Server, error) {
-	return scksrv.New(handler, o.Network, o.Address, o.PermFile, o.GroupPerm)
+func (o ServerConfig) New(updateCon libsck.UpdateConn, handler libsck.Handler) (libsck.Server, error) {
+	return scksrv.New(updateCon, handler, o.Network, o.Address, o.PermFile, o.GroupPerm)
 }

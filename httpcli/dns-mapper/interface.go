@@ -31,10 +31,11 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
+	tlscas "github.com/nabbar/golib/certificates/ca"
 	libdur "github.com/nabbar/golib/duration"
 )
 
@@ -58,9 +59,24 @@ type DNSMapper interface {
 	DefaultClient() *http.Client
 
 	TimeCleaner(ctx context.Context, dur time.Duration)
+	Close() error
 }
 
-func New(ctx context.Context, cfg *Config, fct libtls.FctRootCA, msg FuncMessage) DNSMapper {
+func GetRootCaCert(fct libtls.FctRootCA) tlscas.Cert {
+	var res tlscas.Cert
+
+	for _, c := range fct() {
+		if res == nil {
+			res, _ = tlscas.Parse(c)
+		} else {
+			_ = res.AppendString(c)
+		}
+	}
+
+	return res
+}
+
+func New(ctx context.Context, cfg *Config, fct libtls.FctRootCACert, msg FuncMessage) DNSMapper {
 	if cfg == nil {
 		cfg = &Config{
 			DNSMapper:  make(map[string]string),
@@ -73,8 +89,8 @@ func New(ctx context.Context, cfg *Config, fct libtls.FctRootCA, msg FuncMessage
 	}
 
 	if fct == nil {
-		fct = func() []string {
-			return make([]string, 0)
+		fct = func() tlscas.Cert {
+			return nil
 		}
 	}
 
@@ -85,10 +101,12 @@ func New(ctx context.Context, cfg *Config, fct libtls.FctRootCA, msg FuncMessage
 	d := &dmp{
 		d: new(sync.Map),
 		z: new(sync.Map),
-		c: new(atomic.Value),
-		t: new(atomic.Value),
+		c: libatm.NewValue[*Config](),
+		t: libatm.NewValue[*http.Transport](),
 		f: fct,
 		i: msg,
+		n: libatm.NewValue[context.CancelFunc](),
+		x: libatm.NewValue[context.Context](),
 	}
 
 	for edp, adr := range cfg.DNSMapper {

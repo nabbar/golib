@@ -35,8 +35,10 @@ type requestError struct {
 	code      int
 	status    string
 	statusErr bool
-	bufBody   *bytes.Buffer
+	bufBody   []byte
 	bodyErr   bool
+	checksum  []byte
+	isSame    bool
 	err       error
 }
 
@@ -49,7 +51,16 @@ func (r *requestError) Status() string {
 }
 
 func (r *requestError) Body() *bytes.Buffer {
-	return r.bufBody
+	if len(r.bufBody) > 0 {
+		b := make([]byte, 0, len(r.bufBody))
+		copy(b, r.bufBody)
+		return bytes.NewBuffer(b)
+	}
+	return bytes.NewBuffer(make([]byte, 0))
+}
+
+func (r *requestError) CheckSum() []byte {
+	return r.checksum
 }
 
 func (r *requestError) Error() error {
@@ -68,9 +79,13 @@ func (r *requestError) IsBodyError() bool {
 	return r.bodyErr
 }
 
+func (r *requestError) IsBodySame() bool {
+	return r.isSame
+}
+
 func (r *requestError) ParseBody(i interface{}) bool {
-	if r.bufBody != nil && r.bufBody.Len() > 0 {
-		if e := json.Unmarshal(r.bufBody.Bytes(), i); e == nil {
+	if len(r.bufBody) > 0 {
+		if e := json.Unmarshal(r.bufBody, i); e == nil {
 			return true
 		}
 	}
@@ -78,13 +93,22 @@ func (r *requestError) ParseBody(i interface{}) bool {
 	return false
 }
 
+func (r *requestError) Free() {
+	if len(r.bufBody) > 0 {
+		r.bufBody = r.bufBody[:0]
+	}
+	r.bufBody = nil
+}
+
 func (r *request) newError() {
 	r.err.Store(&requestError{
 		code:      0,
 		status:    "",
 		statusErr: false,
-		bufBody:   bytes.NewBuffer(make([]byte, 0)),
+		bufBody:   nil,
 		bodyErr:   false,
+		checksum:  nil,
+		isSame:    false,
 		err:       nil,
 	})
 }
@@ -100,8 +124,10 @@ func (r *request) getError() *requestError {
 		code:      0,
 		status:    "",
 		statusErr: false,
-		bufBody:   bytes.NewBuffer(make([]byte, 0)),
+		bufBody:   nil,
 		bodyErr:   false,
+		checksum:  nil,
+		isSame:    false,
 		err:       nil,
 	}
 }
@@ -112,8 +138,10 @@ func (r *request) setError(e *requestError) {
 			code:      0,
 			status:    "",
 			statusErr: false,
-			bufBody:   bytes.NewBuffer(make([]byte, 0)),
+			bufBody:   nil,
 			bodyErr:   false,
+			checksum:  nil,
+			isSame:    false,
 			err:       nil,
 		}
 	}

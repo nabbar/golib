@@ -64,15 +64,15 @@ type Test struct {
 }
 
 type Standard struct {
-	A int      `json:"a" yaml:"a" toml:"a"`
-	b int      
+	A int `json:"a" yaml:"a" toml:"a"`
+	b int
 	C string   `json:"C" yaml:"C" toml:"C"`
 	D []string `json:"d" yaml:"d" toml:"d"`
 }
 
 type Address struct {
-	Street  string `json:"street" `
-	City    string `json:"city,omitempty"`
+	Street string `json:"street" `
+	City   string `json:"city,omitempty"`
 }
 
 type Status int

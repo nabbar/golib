@@ -32,6 +32,21 @@ import (
 	libmap "github.com/mitchellh/mapstructure"
 )
 
+func (v Curves) Check() bool {
+	switch v {
+	case X25519:
+		return true
+	case P256:
+		return true
+	case P384:
+		return true
+	case P521:
+		return true
+	default:
+		return false
+	}
+}
+
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (

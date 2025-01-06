@@ -29,7 +29,9 @@ package httpcli
 import (
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
+	tlscas "github.com/nabbar/golib/certificates/ca"
 	libctx "github.com/nabbar/golib/context"
 	libhtc "github.com/nabbar/golib/httpcli"
 	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
@@ -37,32 +39,30 @@ import (
 
 type componentHttpClient struct {
 	x libctx.Config[uint8]
-	c *atomic.Value // htcdns.Config
-	d *atomic.Value // htcdns.DNSMapper
-	f *atomic.Value // FuncDefaultCARoot
-	s *atomic.Bool  // is Default at start / update
-	m *atomic.Value // htcdns.FctMessage
+
+	c libatm.Value[*htcdns.Config]       // htcdns.Config
+	d libatm.Value[htcdns.DNSMapper]     // htcdns.DNSMapper
+	f libatm.Value[libtls.FctRootCACert] // FuncDefaultCARoot
+	m libatm.Value[htcdns.FuncMessage]   // htcdns.FctMessage
+
+	s *atomic.Bool // is Default at start / update
 }
 
-func (o *componentHttpClient) getRootCA() []string {
+func (o *componentHttpClient) getRootCA() tlscas.Cert {
 	if i := o.f.Load(); i == nil {
-		return make([]string, 0)
-	} else if v, k := i.(libtls.FctRootCA); !k {
-		return make([]string, 0)
-	} else if r := v(); len(r) < 1 {
-		return make([]string, 0)
+		return nil
+	} else if v := i(); v != nil && v.Len() < 1 {
+		return nil
 	} else {
-		return r
+		return v
 	}
 }
 
 func (o *componentHttpClient) getMessage() htcdns.FuncMessage {
 	if i := o.m.Load(); i == nil {
 		return nil
-	} else if v, k := i.(htcdns.FuncMessage); !k {
-		return nil
 	} else {
-		return v
+		return i
 	}
 }
 
@@ -87,18 +87,22 @@ func (o *componentHttpClient) setDNSMapper(dns htcdns.DNSMapper) {
 		defer o.SetDefault()
 	}
 
+	var old htcdns.DNSMapper
+
 	if dns != nil {
-		o.d.Store(dns)
+		old = o.d.Swap(dns)
+	}
+
+	if old != nil {
+		_ = old.Close()
 	}
 }
 
 func (o *componentHttpClient) Config() htcdns.Config {
 	if i := o.c.Load(); i == nil {
 		return htcdns.Config{}
-	} else if v, k := i.(*htcdns.Config); !k {
-		return htcdns.Config{}
 	} else {
-		return *v
+		return *i
 	}
 }
 

@@ -142,7 +142,6 @@ func (o *srv) Listen(ctx context.Context) error {
 
 		loc *net.UnixAddr
 		con *net.UnixConn
-		hdl libsck.Handler
 		cnl context.CancelFunc
 		cor libsck.Reader
 		cow libsck.Writer
@@ -153,7 +152,7 @@ func (o *srv) Listen(ctx context.Context) error {
 	if u, e = o.getSocketFile(); e != nil {
 		o.fctError(e)
 		return e
-	} else if hdl = o.handler(); hdl == nil {
+	} else if o.hdl == nil {
 		o.fctError(ErrInvalidHandler)
 		return ErrInvalidHandler
 	} else if loc, e = net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), u); e != nil {
@@ -162,6 +161,10 @@ func (o *srv) Listen(ctx context.Context) error {
 	} else if con, e = o.getListen(u, loc); e != nil {
 		o.fctError(e)
 		return e
+	}
+
+	if o.upd != nil {
+		o.upd(con)
 	}
 
 	ctx, cnl = context.WithCancel(ctx)
@@ -189,7 +192,7 @@ func (o *srv) Listen(ctx context.Context) error {
 	}()
 
 	// get handler or exit if nil
-	go hdl(cor, cow)
+	go o.hdl(cor, cow)
 
 	for {
 		select {
@@ -218,7 +221,7 @@ func (o *srv) getReadWriter(ctx context.Context, con *net.UnixConn, loc net.Addr
 
 	fctClose := func() error {
 		o.fctInfo(loc, fg(), libsck.ConnectionClose)
-		return con.Close()
+		return libsck.ErrorFilter(con.Close())
 	}
 
 	rdr := libsck.NewReader(

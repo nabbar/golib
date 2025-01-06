@@ -34,6 +34,7 @@ import (
 )
 
 type Certif struct {
+	g Config
 	c tls.Certificate
 }
 
@@ -42,7 +43,38 @@ func (o *Certif) Cert() Cert {
 }
 
 func (o *Certif) Model() Certif {
+	if o == nil {
+		return Certif{}
+	}
 	return *o
+}
+
+func (o *Certif) IsChain() bool {
+	if o == nil {
+		return false
+	}
+	return o.g.IsChain()
+}
+
+func (o *Certif) IsPair() bool {
+	if o == nil {
+		return false
+	}
+	return o.g.IsPair()
+}
+
+func (o *Certif) IsFile() bool {
+	if o == nil {
+		return false
+	}
+	return o.g.IsFile()
+}
+
+func (o *Certif) GetCerts() []string {
+	if o == nil {
+		return make([]string, 0)
+	}
+	return o.g.GetCerts()
 }
 
 func ViperDecoderHook() libmap.DecodeHookFuncType {

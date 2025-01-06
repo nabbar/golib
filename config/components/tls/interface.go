@@ -30,6 +30,7 @@ import (
 	"sync"
 
 	libtls "github.com/nabbar/golib/certificates"
+	tlscas "github.com/nabbar/golib/certificates/ca"
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
@@ -42,7 +43,21 @@ type ComponentTlS interface {
 	SetTLS(tls libtls.TLSConfig)
 }
 
-func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCA) ComponentTlS {
+func GetRootCaCert(fct libtls.FctRootCA) tlscas.Cert {
+	var res tlscas.Cert
+
+	for _, c := range fct() {
+		if res == nil {
+			res, _ = tlscas.Parse(c)
+		} else {
+			_ = res.AppendString(c)
+		}
+	}
+
+	return res
+}
+
+func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCACert) ComponentTlS {
 	return &componentTls{
 		m: sync.RWMutex{},
 		x: libctx.NewConfig[uint8](ctx),
@@ -56,7 +71,7 @@ func Register(cfg libcfg.Config, key string, cpt ComponentTlS) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot libtls.FctRootCA) {
+func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot libtls.FctRootCACert) {
 	cfg.ComponentSet(key, New(ctx, defCARoot))
 }
 

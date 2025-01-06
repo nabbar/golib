@@ -34,11 +34,19 @@ import (
 )
 
 func (o *Certif) String() string {
-	str, _ := o.Chain()
-	return str
+	if o == nil {
+		return ""
+	}
+
+	s, _ := o.Chain()
+	return cleanPem(s)
 }
 
 func (o *Certif) Pair() (pub string, key string, err error) {
+	if o == nil {
+		return "", "", ErrInvalidPairCertificate
+	}
+
 	var (
 		bufPub = bytes.NewBuffer(make([]byte, 0))
 		bufKey = bytes.NewBuffer(make([]byte, 0))
@@ -82,5 +90,8 @@ func (o *Certif) Chain() (string, error) {
 }
 
 func (o *Certif) TLS() tls.Certificate {
+	if o == nil {
+		return tls.Certificate{}
+	}
 	return o.c
 }

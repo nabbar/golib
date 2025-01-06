@@ -37,44 +37,67 @@ func (o *dlm) Copy(w io.Writer) (n int64, err error) {
 }
 
 func (o *dlm) Read(p []byte) (n int, err error) {
-	if r := o.getReader(); r == nil {
+	if o == nil || o.r == nil {
 		return 0, ErrInstance
-	} else {
-		b, e := r.ReadBytes(o.getDelimByte())
-
-		if len(b) > 0 {
-			if cap(p) < len(b) {
-				p = append(p, make([]byte, len(b)-len(p))...)
-			}
-			copy(p, b)
-		}
-
-		return len(b), e
 	}
+
+	b, e := o.r.ReadBytes(byte(o.d))
+
+	if len(b) > 0 {
+		if cap(p) < len(b) {
+			p = append(p, make([]byte, len(b)-len(p))...)
+		}
+		copy(p, b)
+	}
+
+	return len(b), e
+}
+
+func (o *dlm) UnRead() ([]byte, error) {
+	if o == nil || o.r == nil {
+		return nil, ErrInstance
+	}
+
+	if s := o.r.Buffered(); s > 0 {
+		b := make([]byte, s)
+		_, e := o.r.Read(b)
+		return b, e
+	}
+
+	return nil, nil
 }
 
 func (o *dlm) ReadBytes() ([]byte, error) {
-	if r := o.getReader(); r == nil {
-		return make([]byte, 0), ErrInstance
-	} else {
-		return r.ReadBytes(o.getDelimByte())
+	if o.r == nil {
+		return nil, ErrInstance
 	}
+
+	return o.r.ReadBytes(byte(o.d))
 }
 
 func (o *dlm) Close() error {
-	return o.getInput().Close()
+	o.r.Reset(nil)
+	o.r = nil
+
+	return o.i.Close()
 }
 
 func (o *dlm) WriteTo(w io.Writer) (n int64, err error) {
 	var (
-		i int
-		s = 1
 		e error
+		i int
 		b []byte
+
+		s = 1
+		d = o.getDelimByte()
 	)
 
-	for err == nil && s > 0 {
-		b, err = o.ReadBytes()
+	if o.r == nil {
+		return 0, ErrInstance
+	}
+
+	for err == nil {
+		b, err = o.r.ReadBytes(d)
 		s = len(b)
 
 		if s > 0 {

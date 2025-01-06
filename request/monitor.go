@@ -27,7 +27,6 @@
 package request
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -76,12 +75,18 @@ func (r *request) HealthCheck(ctx context.Context) error {
 	}
 
 	var (
-		e   error
 		err error
-		buf *bytes.Buffer
+		buf []byte
 		req *http.Request
 		rsp *http.Response
 	)
+
+	defer func() {
+		if len(buf) > 0 {
+			buf = buf[:0]
+			buf = nil
+		}
+	}()
 
 	if ent != nil {
 		ent.FieldAdd("endpoint", ednp)
@@ -92,23 +97,23 @@ func (r *request) HealthCheck(ctx context.Context) error {
 
 	if err != nil {
 		if ent != nil {
-			ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
+			ent.ErrorAdd(true, err).Log()
 		}
 		return err
 	}
 
-	rsp, e = r.client().Do(req)
-	if e != nil {
-		err = ErrorSendRequest.Error(e)
+	rsp, err = r.client().Do(req)
+	if err != nil {
+		err = ErrorSendRequest.Error(err)
 		if ent != nil {
-			ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
+			ent.ErrorAdd(true, err).Log()
 		}
 		return err
 	}
 
 	if buf, err = r.checkResponse(rsp); err != nil {
 		if ent != nil {
-			ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
+			ent.ErrorAdd(true, err).Log()
 		}
 		return err
 	}
@@ -117,7 +122,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 		if !r.isValidCode(opts.Health.Result.ValidHTTPCode, rsp.StatusCode) {
 			err = ErrorResponseStatus.Error(fmt.Errorf("status: %s", rsp.Status))
 			if ent != nil {
-				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
+				ent.ErrorAdd(true, err).Log()
 			}
 			return err
 		}
@@ -125,7 +130,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 		if r.isValidCode(opts.Health.Result.InvalidHTTPCode, rsp.StatusCode) {
 			err = ErrorResponseStatus.Error(fmt.Errorf("status: %s", rsp.Status))
 			if ent != nil {
-				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
+				ent.ErrorAdd(true, err).Log()
 			}
 			return err
 		}
@@ -135,7 +140,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 		if !r.isValidContents(opts.Health.Result.Contain, buf) {
 			err = ErrorResponseContainsNotFound.Error(nil)
 			if ent != nil {
-				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
+				ent.ErrorAdd(true, err).Log()
 			}
 			return err
 		}
@@ -143,7 +148,7 @@ func (r *request) HealthCheck(ctx context.Context) error {
 		if r.isValidContents(opts.Health.Result.NotContain, buf) {
 			err = ErrorResponseNotContainsFound.Error(nil)
 			if ent != nil {
-				ent.ErrorAdd(true, err).Check(loglvl.NilLevel)
+				ent.ErrorAdd(true, err).Log()
 			}
 			return err
 		}

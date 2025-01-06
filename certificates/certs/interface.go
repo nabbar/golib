@@ -54,6 +54,12 @@ type Cert interface {
 
 	TLS() tls.Certificate
 	Model() Certif
+
+	IsChain() bool
+	IsPair() bool
+
+	IsFile() bool
+	GetCerts() []string
 }
 
 func Parse(chain string) (Cert, error) {
@@ -71,6 +77,6 @@ func parseCert(cfg Config) (Cert, error) {
 	} else if c == nil {
 		return nil, ErrInvalidPairCertificate
 	} else {
-		return &Certif{c: *c}, nil
+		return &Certif{g: cfg, c: *c}, nil
 	}
 }

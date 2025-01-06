@@ -128,6 +128,15 @@ func (r *request) New() (Request, error) {
 	return n, nil
 }
 
+func (r *request) Free() {
+	if i := r.err.Load(); i != nil {
+		if v, k := i.(*requestError); !k {
+			v.Free()
+			r.err.Store(&requestError{})
+		}
+	}
+}
+
 func (r *request) RegisterDefaultLogger(fct liblog.FuncLog) {
 	if fct == nil {
 		fct = func() liblog.Logger {

@@ -50,6 +50,15 @@ func (o *config) GetRootCAPool() *x509.CertPool {
 	return res
 }
 
+func (o *config) AddRootCA(rootCA tlscas.Cert) bool {
+	if rootCA != nil && rootCA.Len() > 0 {
+		o.caRoot = append(o.caRoot, rootCA)
+		return true
+	}
+
+	return false
+}
+
 func (o *config) AddRootCAString(rootCA string) bool {
 	if rootCA != "" {
 		if c, e := tlscas.Parse(rootCA); e == nil {

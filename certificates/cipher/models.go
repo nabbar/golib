@@ -32,6 +32,35 @@ import (
 	libmap "github.com/mitchellh/mapstructure"
 )
 
+func (v Cipher) Check() bool {
+	switch v {
+	case TLS_RSA_WITH_AES_128_GCM_SHA256:
+		return true
+	case TLS_RSA_WITH_AES_256_GCM_SHA384:
+		return true
+	case TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256:
+		return true
+	case TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256:
+		return true
+	case TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:
+		return true
+	case TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:
+		return true
+	case TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256:
+		return true
+	case TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256:
+		return true
+	case TLS_AES_128_GCM_SHA256:
+		return true
+	case TLS_AES_256_GCM_SHA384:
+		return true
+	case TLS_CHACHA20_POLY1305_SHA256:
+		return true
+	default:
+		return false
+	}
+}
+
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (

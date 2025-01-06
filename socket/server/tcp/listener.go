@@ -76,7 +76,7 @@ func (o *srv) Listen(ctx context.Context) error {
 	if len(a) == 0 {
 		o.fctError(ErrInvalidHandler)
 		return ErrInvalidAddress
-	} else if hdl := o.handler(); hdl == nil {
+	} else if o.hdl == nil {
 		o.fctError(ErrInvalidHandler)
 		return ErrInvalidHandler
 	} else if l, e = o.getListen(a); e != nil {
@@ -141,13 +141,17 @@ func (o *srv) Listen(ctx context.Context) error {
 
 func (o *srv) Conn(ctx context.Context, con net.Conn) {
 	var (
-		hdl libsck.Handler
 		cnl context.CancelFunc
 		cor libsck.Reader
 		cow libsck.Writer
 	)
 
 	o.nc.Add(1) // inc nb connection
+
+	if o.upd != nil {
+		o.upd(con)
+	}
+
 	ctx, cnl = context.WithCancel(ctx)
 	cor, cow = o.getReadWriter(ctx, cnl, con)
 
@@ -181,10 +185,10 @@ func (o *srv) Conn(ctx context.Context, con net.Conn) {
 	}()
 
 	// get handler or exit if nil
-	if hdl = o.handler(); hdl == nil {
+	if o.hdl == nil {
 		return
 	} else {
-		go hdl(cor, cow)
+		go o.hdl(cor, cow)
 	}
 
 	for {
@@ -213,12 +217,12 @@ func (o *srv) getReadWriter(ctx context.Context, cnl context.CancelFunc, con net
 		if cr, ok := con.(*net.TCPConn); ok {
 			rc.Store(true)
 			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionCloseRead)
-			return cr.CloseRead()
+			return libsck.ErrorFilter(cr.CloseRead())
 		} else {
 			rc.Store(true)
 			rw.Store(true)
 			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
-			return con.Close()
+			return libsck.ErrorFilter(con.Close())
 		}
 	}
 
@@ -232,12 +236,12 @@ func (o *srv) getReadWriter(ctx context.Context, cnl context.CancelFunc, con net
 		if cr, ok := con.(*net.TCPConn); ok {
 			rw.Store(true)
 			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionCloseWrite)
-			return cr.CloseRead()
+			return libsck.ErrorFilter(cr.CloseRead())
 		} else {
 			rc.Store(true)
 			rw.Store(true)
 			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
-			return con.Close()
+			return libsck.ErrorFilter(con.Close())
 		}
 	}
 

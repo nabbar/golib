@@ -74,7 +74,6 @@ func (o *srv) Listen(ctx context.Context) error {
 
 		loc *net.UDPAddr
 		con *net.UDPConn
-		hdl libsck.Handler
 		cnl context.CancelFunc
 		cor libsck.Reader
 		cow libsck.Writer
@@ -85,12 +84,16 @@ func (o *srv) Listen(ctx context.Context) error {
 	if len(a) == 0 {
 		o.fctError(ErrInvalidInstance)
 		return ErrInvalidAddress
-	} else if hdl = o.handler(); hdl == nil {
+	} else if o.hdl == nil {
 		o.fctError(ErrInvalidInstance)
 		return ErrInvalidHandler
 	} else if loc, con, e = o.getListen(a); e != nil {
 		o.fctError(e)
 		return e
+	}
+
+	if o.upd != nil {
+		o.upd(con)
 	}
 
 	ctx, cnl = context.WithCancel(ctx)
@@ -114,7 +117,7 @@ func (o *srv) Listen(ctx context.Context) error {
 	}()
 
 	// get handler or exit if nil
-	go hdl(cor, cow)
+	go o.hdl(cor, cow)
 
 	for {
 		select {
@@ -143,7 +146,7 @@ func (o *srv) getReadWriter(ctx context.Context, con *net.UDPConn, loc net.Addr)
 
 	fctClose := func() error {
 		o.fctInfo(loc, fg(), libsck.ConnectionClose)
-		return con.Close()
+		return libsck.ErrorFilter(con.Close())
 	}
 
 	rdr := libsck.NewReader(

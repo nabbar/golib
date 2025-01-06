@@ -24,40 +24,29 @@
  *
  */
 
-package tls
+package request
 
-import (
-	"sync"
-
-	libtls "github.com/nabbar/golib/certificates"
-	libctx "github.com/nabbar/golib/context"
-)
-
-type componentTls struct {
-	m sync.RWMutex
-	x libctx.Config[uint8]
-	t libtls.TLSConfig
-	c *libtls.Config
-	f libtls.FctRootCACert
+type DoRequestOptions struct {
+	Retry            int
+	Checksum256      []byte
+	ValidStatusCodes []int
+	Model            interface{}
 }
 
-func (o *componentTls) Config() *libtls.Config {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	return o.c
+func (r *request) DoParse(model interface{}, validStatus ...int) error {
+	return r.DoWithOptions(&DoRequestOptions{
+		Retry:            0,
+		Checksum256:      nil,
+		ValidStatusCodes: validStatus,
+		Model:            model,
+	})
 }
 
-func (o *componentTls) GetTLS() libtls.TLSConfig {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	return o.t
-}
-
-func (o *componentTls) SetTLS(tls libtls.TLSConfig) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.t = tls
+func (r *request) DoParseRetry(retry int, model interface{}, validStatus ...int) error {
+	return r.DoWithOptions(&DoRequestOptions{
+		Retry:            retry,
+		Checksum256:      nil,
+		ValidStatusCodes: validStatus,
+		Model:            model,
+	})
 }

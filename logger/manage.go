@@ -52,16 +52,31 @@ func (o *logger) getCloser() iotclo.Closer {
 		return c
 	}
 
-	c := iotclo.New(o.x.GetContext)
+	c := o.newCloser()
 	o.c.Store(c)
 
 	return c
 }
 
-func (o *logger) switchCloser(c iotclo.Closer) iotclo.Closer {
-	b := o.getCloser()
-	o.c.Store(c)
-	return b
+func (o *logger) switchCloser(c iotclo.Closer) {
+	if o == nil {
+		return
+	} else if c == nil {
+		c = o.newCloser()
+	}
+
+	i := o.c.Swap(c)
+
+	if i == nil {
+		return
+	} else if v, k := i.(iotclo.Closer); k && v != nil {
+		go func() {
+			// temp waiting all still calling log finish
+			time.Sleep(10 * time.Second)
+			_ = v.Close()
+			v = nil
+		}()
+	}
 }
 
 func (o *logger) newCloser() iotclo.Closer {
@@ -69,7 +84,21 @@ func (o *logger) newCloser() iotclo.Closer {
 		return nil
 	}
 
-	return iotclo.New(o.x.GetContext)
+	return iotclo.New(o.x.GetContext())
+}
+
+func (o *logger) hasCloser() bool {
+	if o == nil || o.x == nil {
+		return false
+	}
+
+	if i := o.c.Load(); i != nil {
+		if _, k := i.(iotclo.Closer); k {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (o *logger) Clone() Logger {
@@ -222,23 +251,23 @@ func (o *logger) SetOptions(opt *logcfg.Options) error {
 		}
 	}
 
-	var clo = o.newCloser()
+	if len(hkl) > 0 {
+		var clo = o.newCloser()
 
-	for _, h := range hkl {
-		clo.Add(h)
-		h.RegisterHook(obj)
-		go h.Run(o.x.GetContext())
+		for _, h := range hkl {
+			clo.Add(h)
+			h.RegisterHook(obj)
+			go h.Run(o.x.GetContext())
+		}
+
+		o.switchCloser(clo)
+	} else if o.hasCloser() {
+		o.switchCloser(nil)
 	}
 
 	o.x.Store(keyOptions, opt)
 	o.x.Store(keyLogrus, obj)
 	o.runFuncUpdateLogger()
-
-	clo = o.switchCloser(clo)
-	go func(c iotclo.Closer) {
-		time.Sleep(3 * time.Second)
-		_ = c.Close()
-	}(clo)
 
 	return nil
 }

@@ -27,6 +27,7 @@
 package certs
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
@@ -58,8 +59,28 @@ func cleanPem(s string) string {
 	return strings.TrimSpace(s)
 }
 
+func cleanPemByte(s []byte) []byte {
+	s = bytes.TrimSpace(s)
+
+	// remove \n\r
+	s = bytes.Trim(s, "\n")
+	s = bytes.Trim(s, "\r")
+
+	// do again if \r\n
+	s = bytes.Trim(s, "\n")
+	s = bytes.Trim(s, "\r")
+
+	return bytes.TrimSpace(s)
+}
+
 type Config interface {
 	Cert() (*tls.Certificate, error)
+
+	IsChain() bool
+	IsPair() bool
+
+	IsFile() bool
+	GetCerts() []string
 }
 
 type ConfigPair struct {
@@ -68,32 +89,73 @@ type ConfigPair struct {
 }
 
 func (c *ConfigPair) Cert() (*tls.Certificate, error) {
-	c.Key = cleanPem(c.Key)
-	c.Pub = cleanPem(c.Pub)
-
 	if c == nil {
 		return nil, ErrInvalidPairCertificate
-	} else if len(c.Key) < 1 || len(c.Pub) < 1 {
+	}
+
+	var (
+		k = cleanPemByte([]byte(c.Key))
+		p = cleanPemByte([]byte(c.Pub))
+	)
+
+	if len(k) < 1 || len(p) < 1 {
 		return nil, ErrInvalidPairCertificate
 	}
 
-	if _, e := os.Stat(c.Key); e == nil {
-		if b, e := os.ReadFile(c.Key); e == nil {
-			c.Key = cleanPem(string(b))
+	if _, e := os.Stat(string(k)); e == nil {
+		if b, e := os.ReadFile(string(k)); e == nil {
+			k = cleanPemByte(b)
 		}
 	}
 
-	if _, e := os.Stat(c.Pub); e == nil {
-		if b, e := os.ReadFile(c.Pub); e == nil {
-			c.Pub = cleanPem(string(b))
+	if _, e := os.Stat(string(p)); e == nil {
+		if b, e := os.ReadFile(string(p)); e == nil {
+			p = cleanPemByte(b)
 		}
 	}
 
-	if crt, err := tls.X509KeyPair([]byte(c.Pub), []byte(c.Key)); err != nil {
+	if crt, err := tls.X509KeyPair(p, k); err != nil {
 		return nil, err
 	} else {
 		return &crt, nil
 	}
+}
+
+func (c *ConfigPair) IsChain() bool {
+	return false
+}
+
+func (c *ConfigPair) IsPair() bool {
+	return true
+}
+
+func (c *ConfigPair) IsFile() bool {
+	if c == nil {
+		return false
+	}
+
+	var (
+		k = cleanPemByte([]byte(c.Key))
+		p = cleanPemByte([]byte(c.Pub))
+	)
+
+	if len(k) < 1 || len(p) < 1 {
+		return false
+	}
+
+	if _, e := os.Stat(string(k)); e == nil {
+		return true
+	}
+
+	if _, e := os.Stat(string(p)); e == nil {
+		return true
+	}
+
+	return false
+}
+
+func (c *ConfigPair) GetCerts() []string {
+	return []string{c.Key, c.Pub}
 }
 
 type ConfigChain string
@@ -162,4 +224,27 @@ func (c *ConfigChain) getPrivateKey(der []byte) (crypto.PrivateKey, error) {
 		return key, nil
 	}
 	return nil, ErrInvalidPrivateKey
+}
+func (c *ConfigChain) IsChain() bool {
+	return true
+}
+
+func (c *ConfigChain) IsPair() bool {
+	return false
+}
+
+func (c *ConfigChain) IsFile() bool {
+	if c == nil {
+		return false
+	}
+
+	if _, e := os.Stat(string(*c)); e == nil {
+		return true
+	}
+
+	return false
+}
+
+func (c *ConfigChain) GetCerts() []string {
+	return []string{string(*c)}
 }

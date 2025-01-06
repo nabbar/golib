@@ -35,21 +35,11 @@ import (
 )
 
 func (o *logger) Close() error {
-	if o == nil {
-		return nil
+	if o != nil && o.hasCloser() {
+		o.switchCloser(nil)
 	}
 
-	c := o.newCloser()
-	if c == nil {
-		return nil
-	}
-
-	s := o.switchCloser(c)
-	if s == nil {
-		return nil
-	}
-
-	return s.Close()
+	return nil
 }
 
 func (o *logger) Write(p []byte) (n int, err error) {
