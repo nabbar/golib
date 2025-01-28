@@ -50,7 +50,12 @@ func NewConfigJsonUnmashal(p []byte) (libaws.Config, error) {
 	return &awsModel{
 		Model:     c,
 		retryer:   nil,
+		endpoint:  nil,
 		mapRegion: nil,
+		checksum: checksumOptions{
+			Request:  sdkaws.RequestChecksumCalculationWhenRequired,
+			Response: sdkaws.ResponseChecksumValidationWhenRequired,
+		},
 	}, nil
 }
 
@@ -64,6 +69,10 @@ func NewConfigStatusJsonUnmashal(p []byte) (libaws.Config, error) {
 		Model:     c.Config,
 		retryer:   nil,
 		mapRegion: nil,
+		checksum: checksumOptions{
+			Request:  sdkaws.RequestChecksumCalculationWhenRequired,
+			Response: sdkaws.ResponseChecksumValidationWhenRequired,
+		},
 	}, nil
 }
 
@@ -79,6 +88,10 @@ func NewConfig(bucket, accessKey, secretKey string, endpoint *url.URL, region st
 		endpoint:  endpoint,
 		retryer:   nil,
 		mapRegion: make(map[string]*url.URL),
+		checksum: checksumOptions{
+			Request:  sdkaws.RequestChecksumCalculationWhenRequired,
+			Response: sdkaws.ResponseChecksumValidationWhenRequired,
+		},
 	}
 }
 
@@ -100,6 +113,10 @@ func (c *awsModel) Clone() libaws.Config {
 		retryer:   c.retryer,
 		endpoint:  c.endpoint,
 		mapRegion: m,
+		checksum: checksumOptions{
+			Request:  c.checksum.Request,
+			Response: c.checksum.Response,
+		},
 	}
 }
 
@@ -122,6 +139,18 @@ func (c *awsModel) GetConfig(ctx context.Context, cli libhtc.HttpClient) (*sdkaw
 		cfg.HTTPClient = cli
 	}
 
+	if c.checksum.Request != sdkaws.RequestChecksumCalculationWhenSupported {
+		cfg.RequestChecksumCalculation = sdkaws.RequestChecksumCalculationWhenRequired
+	} else {
+		cfg.RequestChecksumCalculation = sdkaws.RequestChecksumCalculationWhenSupported
+	}
+
+	if c.checksum.Response != sdkaws.ResponseChecksumValidationWhenSupported {
+		cfg.ResponseChecksumValidation = sdkaws.ResponseChecksumValidationWhenRequired
+	} else {
+		cfg.ResponseChecksumValidation = sdkaws.ResponseChecksumValidationWhenSupported
+	}
+
 	return cfg, nil
 }
 
@@ -135,4 +164,11 @@ func (c *awsModel) SetBucketName(bucket string) {
 
 func (c *awsModel) JSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", " ")
+}
+
+func (c *awsModel) SetChecksumValidation(req sdkaws.RequestChecksumCalculation, rsp sdkaws.ResponseChecksumValidation) {
+	c.checksum = checksumOptions{
+		Request:  req,
+		Response: rsp,
+	}
 }

@@ -50,9 +50,15 @@ type ModelStatus struct {
 	Monitor libreq.OptionsHealth `json:"health" yaml:"health" toml:"health" mapstructure:"health" validate:""`
 }
 
+type checksumOptions struct {
+	Request  sdkaws.RequestChecksumCalculation
+	Response sdkaws.ResponseChecksumValidation
+}
+
 type awsModel struct {
 	Model
-	retryer func() sdkaws.Retryer
+	retryer  func() sdkaws.Retryer
+	checksum checksumOptions
 }
 
 func validateBucketS3(fl libval.FieldLevel) bool {

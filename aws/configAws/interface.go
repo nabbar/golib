@@ -49,6 +49,10 @@ func NewConfigJsonUnmashal(p []byte) (libaws.Config, error) {
 	return &awsModel{
 		Model:   c,
 		retryer: nil,
+		checksum: checksumOptions{
+			Request:  sdkaws.RequestChecksumCalculationWhenSupported,
+			Response: sdkaws.ResponseChecksumValidationWhenSupported,
+		},
 	}, nil
 }
 
@@ -61,6 +65,10 @@ func NewConfigStatusJsonUnmashal(p []byte) (libaws.Config, error) {
 	return &awsModel{
 		Model:   c.Config,
 		retryer: nil,
+		checksum: checksumOptions{
+			Request:  sdkaws.RequestChecksumCalculationWhenSupported,
+			Response: sdkaws.ResponseChecksumValidationWhenSupported,
+		},
 	}, nil
 }
 
@@ -73,6 +81,10 @@ func NewConfig(bucket, accessKey, secretKey, region string) libaws.Config {
 			Bucket:    bucket,
 		},
 		retryer: nil,
+		checksum: checksumOptions{
+			Request:  sdkaws.RequestChecksumCalculationWhenSupported,
+			Response: sdkaws.ResponseChecksumValidationWhenSupported,
+		},
 	}
 }
 
@@ -85,6 +97,10 @@ func (c *awsModel) Clone() libaws.Config {
 			Bucket:    c.Bucket,
 		},
 		retryer: c.retryer,
+		checksum: checksumOptions{
+			Request:  c.checksum.Request,
+			Response: c.checksum.Response,
+		},
 	}
 }
 
@@ -111,6 +127,18 @@ func (c *awsModel) GetConfig(ctx context.Context, cli libhtc.HttpClient) (*sdkaw
 		cfg.HTTPClient = cli
 	}
 
+	if c.checksum.Request != sdkaws.RequestChecksumCalculationWhenRequired {
+		cfg.RequestChecksumCalculation = sdkaws.RequestChecksumCalculationWhenSupported
+	} else {
+		cfg.RequestChecksumCalculation = sdkaws.RequestChecksumCalculationWhenRequired
+	}
+
+	if c.checksum.Response != sdkaws.ResponseChecksumValidationWhenRequired {
+		cfg.ResponseChecksumValidation = sdkaws.ResponseChecksumValidationWhenSupported
+	} else {
+		cfg.ResponseChecksumValidation = sdkaws.ResponseChecksumValidationWhenRequired
+	}
+
 	return &cfg, nil
 }
 
@@ -124,4 +152,11 @@ func (c *awsModel) SetBucketName(bucket string) {
 
 func (c *awsModel) JSON() ([]byte, error) {
 	return json.MarshalIndent(c, "", " ")
+}
+
+func (c *awsModel) SetChecksumValidation(req sdkaws.RequestChecksumCalculation, rsp sdkaws.ResponseChecksumValidation) {
+	c.checksum = checksumOptions{
+		Request:  req,
+		Response: rsp,
+	}
 }

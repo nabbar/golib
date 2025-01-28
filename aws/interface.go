@@ -73,6 +73,8 @@ type Config interface {
 
 	GetBucketName() string
 	SetBucketName(bucket string)
+
+	SetChecksumValidation(req sdkaws.RequestChecksumCalculation, rsp sdkaws.ResponseChecksumValidation)
 }
 
 type AWS interface {
