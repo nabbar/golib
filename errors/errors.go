@@ -133,7 +133,7 @@ func (e *ers) HasCode(code CodeError) bool {
 	}
 
 	for _, p := range e.p {
-		if p.IsCode(code) {
+		if p.HasCode(code) {
 			return true
 		}
 	}
@@ -280,6 +280,31 @@ func (e *ers) GetErrorSlice() []error {
 		}
 
 		r = append(r, v.GetErrorSlice()...)
+	}
+
+	return r
+}
+
+func (e *ers) Unwrap() []error {
+	var r = []error{
+		&ers{
+			c: e.c,
+			e: e.e,
+			p: nil,
+			t: e.t,
+		},
+	}
+
+	if len(e.p) < 1 {
+		return r
+	}
+
+	for _, v := range e.p {
+		if v == nil {
+			continue
+		}
+
+		r = append(r, v.Unwrap()...)
 	}
 
 	return r

@@ -95,6 +95,8 @@ type Error interface {
 	GetError() error
 	//GetErrorSlice is used to return a slice of new error interface, based of the current error and all parent
 	GetErrorSlice() []error
+	//Unwrap will set compliance with errors As/Is functions
+	Unwrap() []error
 
 	//GetTrace will return a comped string for the trace of the current Error
 	GetTrace() string
@@ -137,7 +139,6 @@ func Is(e error) bool {
 
 func Get(e error) Error {
 	var err Error
-
 	if errors.As(e, &err) {
 		return err
 	}
