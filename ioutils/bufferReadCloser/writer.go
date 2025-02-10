@@ -25,21 +25,35 @@
 
 package bufferReadCloser
 
-import "bytes"
+import (
+	"bufio"
+	"io"
+)
 
-type buf struct {
-	b *bytes.Buffer
+type wrt struct {
+	b *bufio.Writer
+	f FuncClose
 }
 
-func (b *buf) Read(p []byte) (n int, err error) {
-	return b.b.Read(p)
+func (b *wrt) ReadFrom(r io.Reader) (n int64, err error) {
+	return b.b.ReadFrom(r)
 }
 
-func (b *buf) Write(p []byte) (n int, err error) {
+func (b *wrt) Write(p []byte) (n int, err error) {
 	return b.b.Write(p)
 }
 
-func (b *buf) Close() error {
-	b.b.Reset()
+func (b *wrt) WriteString(s string) (n int, err error) {
+	return b.b.WriteString(s)
+}
+
+func (b *wrt) Close() error {
+	_ = b.b.Flush()
+	b.b.Reset(nil)
+
+	if b.f != nil {
+		return b.f()
+	}
+
 	return nil
 }

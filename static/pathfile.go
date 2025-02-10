@@ -142,7 +142,7 @@ func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error)
 	} else if err != nil {
 		return nil, ErrorFileOpen.Error(err)
 	} else {
-		return libbuf.New(bytes.NewBuffer(obj)), nil
+		return libbuf.NewBuffer(bytes.NewBuffer(obj), nil), nil
 	}
 }
 

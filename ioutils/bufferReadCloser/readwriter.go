@@ -27,71 +27,43 @@ package bufferReadCloser
 
 import (
 	"bufio"
-	"bytes"
 	"io"
 )
 
-type FuncClose func() error
-
-type Buffer interface {
-	io.Reader
-	io.ReaderFrom
-	io.ByteReader
-	io.RuneReader
-	io.Writer
-	io.WriterTo
-	io.ByteWriter
-	io.StringWriter
-	io.Closer
+type rwt struct {
+	b *bufio.ReadWriter
+	f FuncClose
 }
 
-// @deprecated use NewBuffer instead of New
-func New(b *bytes.Buffer) Buffer {
-	return NewBuffer(b, nil)
+func (b *rwt) Read(p []byte) (n int, err error) {
+	return b.b.Read(p)
 }
 
-func NewBuffer(b *bytes.Buffer, fct FuncClose) Buffer {
-	return &buf{
-		b: b,
-		f: fct,
+func (b *rwt) WriteTo(w io.Writer) (n int64, err error) {
+	return b.b.WriteTo(w)
+}
+
+func (b *rwt) ReadFrom(r io.Reader) (n int64, err error) {
+	return b.b.ReadFrom(r)
+}
+
+func (b *rwt) Write(p []byte) (n int, err error) {
+	return b.b.Write(p)
+}
+
+func (b *rwt) WriteString(s string) (n int, err error) {
+	return b.b.WriteString(s)
+}
+
+func (b *rwt) Close() error {
+	_ = b.b.Flush()
+
+	// cannot call Reset => ambigous func can be Reader and Writer
+	// b.b.Reset(nil)
+
+	if b.f != nil {
+		return b.f()
 	}
-}
 
-type Reader interface {
-	io.Reader
-	io.WriterTo
-	io.Closer
-}
-
-func NewReader(b *bufio.Reader, fct FuncClose) Reader {
-	return &rdr{
-		b: b,
-		f: fct,
-	}
-}
-
-type Writer interface {
-	io.Writer
-	io.StringWriter
-	io.ReaderFrom
-	io.Closer
-}
-
-func NewWriter(b *bufio.Writer, fct FuncClose) Writer {
-	return &wrt{
-		b: b,
-		f: fct,
-	}
-}
-
-type ReadWriter interface {
-	Reader
-	Writer
-}
-
-func NewReadWriter(b *bufio.ReadWriter, fct FuncClose) ReadWriter {
-	return &rwt{
-		b: b,
-		f: fct,
-	}
+	return nil
 }
