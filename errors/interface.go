@@ -49,6 +49,9 @@ type Error interface {
 	//GetParentCode return a slice of CodeError value of all parent Error and the code of the current Error
 	GetParentCode() []CodeError
 
+	//Is implement compatiblity with GOROOT/src/errors/wrap Is fucntion
+	Is(e error) bool
+
 	//IsError check if the given error params is a valid error and not a nil pointer
 	IsError(e error) bool
 	//HasError check if the given error in params is still in parent error

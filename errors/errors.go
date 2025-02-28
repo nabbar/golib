@@ -86,6 +86,14 @@ func (e *ers) is(err *ers) bool {
 	return false
 }
 
+func (e *ers) Is(err error) bool {
+	if er, ok := err.(*ers); ok {
+		return e.is(er)
+	} else {
+		return e.IsError(err)
+	}
+}
+
 func (e *ers) Add(parent ...error) {
 	for _, v := range parent {
 		if v == nil {
@@ -124,7 +132,7 @@ func (e *ers) IsCode(code CodeError) bool {
 }
 
 func (e *ers) IsError(err error) bool {
-	return e.e == err.Error()
+	return strings.EqualFold(e.e, err.Error())
 }
 
 func (e *ers) HasCode(code CodeError) bool {
@@ -286,25 +294,18 @@ func (e *ers) GetErrorSlice() []error {
 }
 
 func (e *ers) Unwrap() []error {
-	var r = []error{
-		&ers{
-			c: e.c,
-			e: e.e,
-			p: nil,
-			t: e.t,
-		},
+	if len(e.p) < 1 {
+		return nil
 	}
 
-	if len(e.p) < 1 {
-		return r
-	}
+	var r = make([]error, 0)
 
 	for _, v := range e.p {
 		if v == nil {
 			continue
 		}
 
-		r = append(r, v.Unwrap()...)
+		r = append(r, v)
 	}
 
 	return r
