@@ -68,11 +68,11 @@ func (cli *client) VersionList(prefix, keyMarker, markerId string) (version []sd
 	}
 }
 
-func (cli *client) VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) error {
-	return cli.VersionWalkPrefix("", fv, fd)
+func (cli *client) VersionWalk(md WalkFuncMetadata, fv WalkFuncVersion, fd WalkFuncDelMak) error {
+	return cli.VersionWalkPrefix("", md, fv, fd)
 }
 
-func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) error {
+func (cli *client) VersionWalkPrefix(prefix string, md WalkFuncMetadata, fv WalkFuncVersion, fd WalkFuncDelMak) error {
 	in := sdksss.ListObjectVersionsInput{
 		Bucket:  cli.GetBucketAws(),
 		MaxKeys: sdkaws.Int32(1000),
@@ -98,6 +98,13 @@ func (cli *client) VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMa
 
 		if err != nil {
 			return cli.GetError(err)
+		} else if out == nil {
+			return libhlp.ErrorResponse.Error(nil)
+		} else if md != nil {
+			e = md(e, Metadata{
+				Versions:      len(out.Versions),
+				DeleteMarkers: len(out.DeleteMarkers),
+			})
 		}
 
 		for _, o := range out.Versions {

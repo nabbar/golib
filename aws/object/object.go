@@ -71,11 +71,11 @@ func (cli *client) ListPrefix(continuationToken string, prefix string) ([]sdktps
 	}
 }
 
-func (cli *client) Walk(f WalkFunc) error {
-	return cli.WalkPrefix("", f)
+func (cli *client) Walk(md WalkFuncMetadata, f WalkFunc) error {
+	return cli.WalkPrefix("", md, f)
 }
 
-func (cli *client) WalkPrefix(prefix string, f WalkFunc) error {
+func (cli *client) WalkPrefix(prefix string, md WalkFuncMetadata, f WalkFunc) error {
 	in := sdksss.ListObjectsV2Input{
 		Bucket: cli.GetBucketAws(),
 	}
@@ -98,6 +98,12 @@ func (cli *client) WalkPrefix(prefix string, f WalkFunc) error {
 
 		if err != nil {
 			return cli.GetError(err)
+		} else if out == nil {
+			return libhlp.ErrorResponse.Error()
+		} else if md != nil {
+			e = md(e, Metadata{
+				Objects: len(out.Contents),
+			})
 		}
 
 		for _, o := range out.Contents {

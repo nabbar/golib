@@ -30,14 +30,12 @@ import (
 	"io"
 	"time"
 
-	libmpu "github.com/nabbar/golib/aws/multipart"
-
-	libsiz "github.com/nabbar/golib/size"
-
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
+	libmpu "github.com/nabbar/golib/aws/multipart"
+	libsiz "github.com/nabbar/golib/size"
 )
 
 type client struct {
@@ -46,19 +44,26 @@ type client struct {
 	s3  *sdksss.Client
 }
 
+type Metadata struct {
+	Objects       int
+	Versions      int
+	DeleteMarkers int
+}
+
 type WalkFunc func(err error, obj sdktps.Object) error
-type VersionWalkFunc func(err error, obj sdktps.ObjectVersion) error
-type DelMakWalkFunc func(err error, del sdktps.DeleteMarkerEntry) error
+type WalkFuncMetadata func(err error, md Metadata) error
+type WalkFuncVersion func(err error, obj sdktps.ObjectVersion) error
+type WalkFuncDelMak func(err error, del sdktps.DeleteMarkerEntry) error
 
 type Object interface {
 	Find(regex string) ([]string, error)
 	Size(object string) (size int64, err error)
 
 	List(continuationToken string) ([]sdktps.Object, string, int64, error)
-	Walk(f WalkFunc) error
+	Walk(md WalkFuncMetadata, f WalkFunc) error
 
 	ListPrefix(continuationToken string, prefix string) ([]sdktps.Object, string, int64, error)
-	WalkPrefix(prefix string, f WalkFunc) error
+	WalkPrefix(prefix string, md WalkFuncMetadata, f WalkFunc) error
 
 	Head(object string) (*sdksss.HeadObjectOutput, error)
 	Get(object string) (*sdksss.GetObjectOutput, error)
@@ -80,8 +85,8 @@ type Object interface {
 	SetWebsite(object, redirect string) error
 
 	VersionList(prefix, keyMarker, markerId string) (version []sdktps.ObjectVersion, delMarker []sdktps.DeleteMarkerEntry, nextKeyMarker, nextMarkerId string, count int64, err error)
-	VersionWalk(fv VersionWalkFunc, fd DelMakWalkFunc) error
-	VersionWalkPrefix(prefix string, fv VersionWalkFunc, fd DelMakWalkFunc) error
+	VersionWalk(md WalkFuncMetadata, fv WalkFuncVersion, fd WalkFuncDelMak) error
+	VersionWalkPrefix(prefix string, md WalkFuncMetadata, fv WalkFuncVersion, fd WalkFuncDelMak) error
 
 	VersionGet(object, version string) (*sdksss.GetObjectOutput, error)
 	VersionHead(object, version string) (*sdksss.HeadObjectOutput, error)
