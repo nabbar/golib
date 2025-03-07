@@ -28,6 +28,7 @@ package httpcli
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 	"time"
@@ -146,4 +147,27 @@ func (o *componentHttpClient) SearchWithCache(endpoint string) (string, error) {
 	}
 
 	return "", ErrorComponentNotInitialized.Error()
+}
+
+func (o *componentHttpClient) TransportWithTLS(cfg htcdns.TransportConfig, ssl *tls.Config) *http.Transport {
+	if d := o.getDNSMapper(); d != nil {
+		return d.TransportWithTLS(cfg, ssl)
+	}
+
+	return nil
+}
+
+func (o *componentHttpClient) GetConfig() htcdns.Config {
+	if d := o.getDNSMapper(); d != nil {
+		return d.GetConfig()
+	}
+
+	return htcdns.Config{}
+}
+
+func (o *componentHttpClient) RegisterTransport(t *http.Transport) {
+	if d := o.getDNSMapper(); d != nil {
+		d.RegisterTransport(t)
+		o.setDNSMapper(d)
+	}
 }
