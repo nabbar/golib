@@ -29,6 +29,7 @@ package dns_mapper
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -65,6 +66,7 @@ type Config struct {
 	DNSMapper  map[string]string `json:"dns-mapper,omitempty" yaml:"dns-mapper,omitempty" toml:"dns-mapper,omitempty" mapstructure:"dns-mapper,omitempty"`
 	TimerClean libdur.Duration   `json:"timer-clean,omitempty" yaml:"timer-clean,omitempty" toml:"timer-clean,omitempty" mapstructure:"timer-clean,omitempty"`
 	Transport  TransportConfig   `json:"transport,omitempty" yaml:"transport,omitempty" toml:"transport,omitempty" mapstructure:"transport,omitempty"`
+	TLSConfig  *tls.Config       `json:"tls-config,omitempty" yaml:"tls-config,omitempty" toml:"tls-config,omitempty" mapstructure:"tls-config,omitempty"`
 }
 
 func DefaultConfig(indent string) []byte {

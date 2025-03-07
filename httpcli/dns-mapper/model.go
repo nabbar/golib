@@ -66,6 +66,16 @@ func (o *dmp) config() *Config {
 	}
 }
 
+func (o *dmp) GetConfig() Config {
+	var cfg = Config{}
+
+	if c := o.config(); c != nil {
+		cfg = *c
+	}
+
+	return cfg
+}
+
 func (o *dmp) configDialerTimeout() time.Duration {
 	if cfg := o.config(); cfg == nil {
 		return 30 * time.Second

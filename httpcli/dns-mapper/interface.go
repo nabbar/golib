@@ -28,6 +28,7 @@ package dns_mapper
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 	"sync"
@@ -53,10 +54,14 @@ type DNSMapper interface {
 
 	DialContext(ctx context.Context, network, address string) (net.Conn, error)
 	Transport(cfg TransportConfig) *http.Transport
+	TransportWithTLS(cfg TransportConfig, ssl *tls.Config) *http.Transport
 	Client(cfg TransportConfig) *http.Client
 
 	DefaultTransport() *http.Transport
 	DefaultClient() *http.Client
+
+	GetConfig() Config
+	RegisterTransport(t *http.Transport)
 
 	TimeCleaner(ctx context.Context, dur time.Duration)
 	Close() error

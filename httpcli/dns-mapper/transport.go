@@ -33,10 +33,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"time"
 
 	libtls "github.com/nabbar/golib/certificates"
-	libdur "github.com/nabbar/golib/duration"
 )
 
 func (o *dmp) dialer() *net.Dialer {
@@ -68,6 +66,10 @@ func (o *dmp) DialContext(ctx context.Context, network, address string) (net.Con
 }
 
 func (o *dmp) Transport(cfg TransportConfig) *http.Transport {
+	return o.TransportWithTLS(cfg, nil)
+}
+
+func (o *dmp) TransportWithTLS(cfg TransportConfig, ssl *tls.Config) *http.Transport {
 	var prx func(*http.Request) (*url.URL, error)
 	if cfg.Proxy == nil {
 		prx = http.ProxyFromEnvironment
@@ -75,6 +77,29 @@ func (o *dmp) Transport(cfg TransportConfig) *http.Transport {
 		prx = http.ProxyURL(cfg.Proxy)
 	}
 
+	if ssl != nil {
+		ssl = o.getTransportTLS(cfg)
+	}
+
+	return &http.Transport{
+		Proxy:                 prx,
+		Dial:                  o.Dial,
+		DialContext:           o.DialContext,
+		TLSClientConfig:       ssl,
+		TLSHandshakeTimeout:   cfg.TimeoutTLSHandshake.Time(),
+		DisableKeepAlives:     cfg.DisableKeepAlive,
+		DisableCompression:    cfg.DisableCompression,
+		MaxIdleConns:          cfg.MaxIdleConns,
+		MaxIdleConnsPerHost:   cfg.MaxIdleConnsPerHost,
+		MaxConnsPerHost:       cfg.MaxConnsPerHost,
+		IdleConnTimeout:       cfg.TimeoutIdleConn.Time(),
+		ResponseHeaderTimeout: cfg.TimeoutResponseHeader.Time(),
+		ExpectContinueTimeout: cfg.TimeoutExpectContinue.Time(),
+		ForceAttemptHTTP2:     !cfg.DisableHTTP2,
+	}
+}
+
+func (o *dmp) getTransportTLS(cfg TransportConfig) *tls.Config {
 	var ssl libtls.TLSConfig
 
 	if cfg.TLSConfig == nil {
@@ -91,59 +116,18 @@ func (o *dmp) Transport(cfg TransportConfig) *http.Transport {
 		ssl.AddRootCA(v)
 	}
 
-	if cfg.TimeoutGlobal == 0 {
-		cfg.TimeoutGlobal = libdur.ParseDuration(30 * time.Second)
-	}
-
-	if cfg.TimeoutKeepAlive == 0 {
-		cfg.TimeoutKeepAlive = libdur.ParseDuration(15 * time.Second)
-	}
-
-	if cfg.TimeoutTLSHandshake == 0 {
-		cfg.TimeoutTLSHandshake = libdur.ParseDuration(10 * time.Second)
-	}
-
-	if cfg.TimeoutExpectContinue == 0 {
-		cfg.TimeoutExpectContinue = libdur.ParseDuration(3 * time.Second)
-	}
-
-	if cfg.TimeoutIdleConn == 0 {
-		cfg.TimeoutIdleConn = libdur.ParseDuration(90 * time.Second)
-	}
-
-	if cfg.MaxConnsPerHost == 0 {
-		cfg.MaxIdleConns = 25
-	}
-
-	if cfg.MaxIdleConnsPerHost == 0 {
-		cfg.MaxIdleConnsPerHost = 5
-	}
-
-	if cfg.MaxIdleConns == 0 {
-		cfg.MaxIdleConns = 25
-	}
-
-	return &http.Transport{
-		Proxy:                 prx,
-		Dial:                  o.Dial,
-		DialContext:           o.DialContext,
-		TLSClientConfig:       ssl.TlsConfig(""),
-		TLSHandshakeTimeout:   cfg.TimeoutTLSHandshake.Time(),
-		DisableKeepAlives:     cfg.DisableKeepAlive,
-		DisableCompression:    cfg.DisableCompression,
-		MaxIdleConns:          cfg.MaxIdleConns,
-		MaxIdleConnsPerHost:   cfg.MaxIdleConnsPerHost,
-		MaxConnsPerHost:       cfg.MaxConnsPerHost,
-		IdleConnTimeout:       cfg.TimeoutIdleConn.Time(),
-		ResponseHeaderTimeout: cfg.TimeoutResponseHeader.Time(),
-		ExpectContinueTimeout: cfg.TimeoutExpectContinue.Time(),
-		ForceAttemptHTTP2:     !cfg.DisableHTTP2,
-	}
+	return ssl.TlsConfig("")
 }
 
 func (o *dmp) Client(cfg TransportConfig) *http.Client {
 	return &http.Client{
 		Transport: o.Transport(cfg),
+	}
+}
+
+func (o *dmp) RegisterTransport(t *http.Transport) {
+	if t != nil {
+		o.t.Store(t)
 	}
 }
 
@@ -153,7 +137,9 @@ func (o *dmp) DefaultTransport() *http.Transport {
 		return i
 	}
 
-	t := o.Transport(o.config().Transport)
+	c := o.config()
+
+	t := o.TransportWithTLS(c.Transport, c.TLSConfig)
 	o.t.Store(t)
 	return t
 }
