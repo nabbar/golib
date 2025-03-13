@@ -197,16 +197,26 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient libhtc.HttpClient,
 			Retryer:            ret,
 			HTTPClient:         httpClient,
 			UsePathStyle:       c.p,
-		})
+		}, c.updateConfigS3)
 	} else {
 		opt := cli.Options()
 		opt.HTTPClient = httpClient
 		opt.HTTPSignerV4 = sig
 		opt.UsePathStyle = c.p
-		sss = sdksss.New(opt)
+		sss = sdksss.New(opt, c.updateConfigS3)
 	}
 
 	return sss, nil
+}
+
+func (c *client) updateConfigIAM(opt *sdkiam.Options) {
+
+}
+
+func (c *client) updateConfigS3(opt *sdksss.Options) {
+	req, rsp := c.c.GetChecksumValidation()
+	opt.RequestChecksumCalculation = req
+	opt.ResponseChecksumValidation = rsp
 }
 
 func (c *client) NewForConfig(ctx context.Context, cfg Config) (AWS, error) {

@@ -160,3 +160,7 @@ func (c *awsModel) SetChecksumValidation(req sdkaws.RequestChecksumCalculation, 
 		Response: rsp,
 	}
 }
+
+func (c *awsModel) GetChecksumValidation() (req sdkaws.RequestChecksumCalculation, rsp sdkaws.ResponseChecksumValidation) {
+	return c.checksum.Request, c.checksum.Response
+}

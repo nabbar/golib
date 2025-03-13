@@ -75,6 +75,7 @@ type Config interface {
 	SetBucketName(bucket string)
 
 	SetChecksumValidation(req sdkaws.RequestChecksumCalculation, rsp sdkaws.ResponseChecksumValidation)
+	GetChecksumValidation() (req sdkaws.RequestChecksumCalculation, rsp sdkaws.ResponseChecksumValidation)
 }
 
 type AWS interface {
