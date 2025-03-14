@@ -51,23 +51,26 @@ type Coder interface {
 	//
 	// r io.Reader
 	// io.Reader
-	EncodeReader(r io.Reader) io.Reader
+	EncodeReader(r io.Reader) io.ReadCloser
 
 	// DecodeReader return a io.Reader that can be used to decode the given byte slice
 	//
 	// r io.Reader
 	// io.Reader
-	DecodeReader(r io.Reader) io.Reader
+	DecodeReader(r io.Reader) io.ReadCloser
 
 	// EncodeWriter return a io.writer that can be used to encode the given byte slice
 	//
 	// w io.Writer parameter.
 	// io.Writer return type.
-	EncodeWriter(w io.Writer) io.Writer
+	EncodeWriter(w io.Writer) io.WriteCloser
 
 	// DecodeWriter return a io.writer that can be used to decode the given byte slice
 	//
 	// w io.Writer parameter.
 	// io.Writer return type.
-	DecodeWriter(w io.Writer) io.Writer
+	DecodeWriter(w io.Writer) io.WriteCloser
+
+	// Reset will free memory
+	Reset()
 }

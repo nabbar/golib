@@ -50,6 +50,12 @@ var _ = Describe("encoding/aes", func() {
 			hnb [12]byte
 		)
 
+		defer func() {
+			if crp != nil {
+				crp.Reset()
+			}
+		}()
+
 		It("Create key must succeed", func() {
 			key, err = encaes.GenKey()
 			Expect(key).ToNot(BeNil())
@@ -91,6 +97,7 @@ var _ = Describe("encoding/aes", func() {
 		})
 
 		It("Create new instance must succeed", func() {
+			crp.Reset()
 			crp, err = encaes.New(hkb, hnb)
 			Expect(crp).ToNot(BeNil())
 			Expect(err).ToNot(HaveOccurred())
@@ -106,6 +113,12 @@ var _ = Describe("encoding/aes", func() {
 			key [32]byte
 			non [12]byte
 		)
+
+		defer func() {
+			if crp != nil {
+				crp.Reset()
+			}
+		}()
 
 		It("Create key must succeed", func() {
 			key, err = encaes.GenKey()
@@ -149,9 +162,15 @@ var _ = Describe("encoding/aes", func() {
 			key [32]byte
 			non [12]byte
 			buf = bytes.NewBuffer(make([]byte, 0, 32*1024))
-			rdr io.Reader
-			wrt io.Writer
+			rdr io.ReadCloser
+			wrt io.WriteCloser
 		)
+
+		defer func() {
+			if crp != nil {
+				crp.Reset()
+			}
+		}()
 
 		It("Create key must succeed", func() {
 			key, err = encaes.GenKey()
@@ -178,6 +197,7 @@ var _ = Describe("encoding/aes", func() {
 			nbr, err = wrt.Write(msg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nbr).To(BeEquivalentTo(len(msg)))
+			Expect(wrt.Close()).ToNot(HaveOccurred())
 		})
 
 		It("Create and reading an io.reader to decode must succeed", func() {
@@ -188,6 +208,7 @@ var _ = Describe("encoding/aes", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nbr).To(BeEquivalentTo(11))
 			Expect(res[:nbr]).To(BeEquivalentTo(msg[:nbr]))
+			Expect(rdr.Close()).ToNot(HaveOccurred())
 		})
 
 		It("Create an io.reader and read from it to encode string but with small buffer occurs error", func() {
@@ -201,6 +222,7 @@ var _ = Describe("encoding/aes", func() {
 
 			nbr, err = rdr.Read(res)
 			Expect(err).To(HaveOccurred())
+			Expect(rdr.Close()).ToNot(HaveOccurred())
 		})
 
 		It("Create an io.reader and read from it to encode string must succeed", func() {
@@ -214,6 +236,7 @@ var _ = Describe("encoding/aes", func() {
 
 			nbr, err = rdr.Read(res)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(rdr.Close()).ToNot(HaveOccurred())
 			res = res[:nbr]
 		})
 
@@ -228,6 +251,7 @@ var _ = Describe("encoding/aes", func() {
 			Expect(nbr).To(BeNumerically(">", len(msg)))
 			Expect(buf.Len()).To(BeEquivalentTo(len(msg)))
 			Expect(buf.Bytes()).To(BeEquivalentTo(msg[:buf.Len()]))
+			Expect(wrt.Close()).ToNot(HaveOccurred())
 		})
 	})
 })

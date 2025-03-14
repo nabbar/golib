@@ -24,45 +24,47 @@
  *
  */
 
-package hexa_test
+package sha256_test
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"io"
 
 	libenc "github.com/nabbar/golib/encoding"
-	enchex "github.com/nabbar/golib/encoding/hexa"
+	encsha "github.com/nabbar/golib/encoding/sha256"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("encoding/hexa", func() {
+var _ = Describe("encoding/sha256", func() {
 	Context("Simple encoding/decoding", func() {
 		var (
 			err error
-			msg []byte
-			res []byte
+			msg = []byte("Hello World")
 			sig []byte
 			crp libenc.Coder
+			chk = sha256.Sum256(msg)
 		)
 
 		It("Create new instance must succeed", func() {
-			crp = enchex.New()
+			crp = encsha.New()
 			Expect(crp).ToNot(BeNil())
 		})
 
-		It("Encode must succeed", func() {
-			msg = []byte("Hello World")
+		It("must succeed to encode", func() {
 			sig = crp.Encode(msg)
 			Expect(sig).ToNot(BeNil())
+			Expect(sig).To(BeEquivalentTo(chk[:])) // bytes.Equal(msg, []byte("Hello World"))(BeNil())
+			crp.Reset()
 		})
 
-		It("Decode must succeed", func() {
-			res, err = crp.Decode(sig)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res).ToNot(BeNil())
-			Expect(res).To(BeEquivalentTo(msg)) // bytes.Equal(msg, []byte("Hello World"))(BeNil())
-			crp.Reset()
+		It("must return error when decode is call", func() {
+			crp = encsha.New()
+			Expect(crp).ToNot(BeNil())
+
+			_, err = crp.Decode(msg)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -76,10 +78,11 @@ var _ = Describe("encoding/hexa", func() {
 			buf = bytes.NewBuffer(make([]byte, 0, 32*1024))
 			rdr io.ReadCloser
 			wrt io.WriteCloser
+			chk = (sha256.Sum256(msg))
 		)
 
 		It("Create new instance must succeed", func() {
-			crp = enchex.New()
+			crp = encsha.New()
 			Expect(crp).ToNot(BeNil())
 		})
 
@@ -90,61 +93,43 @@ var _ = Describe("encoding/hexa", func() {
 			nbr, err = wrt.Write(msg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nbr).To(BeEquivalentTo(len(msg)))
+			Expect(buf.Bytes()).To(BeEquivalentTo(msg))
+			Expect(crp.Encode(nil)).To(BeEquivalentTo(chk))
 			Expect(wrt.Close()).ToNot(HaveOccurred())
 		})
 
-		It("Create and reading an io.reader to decode must succeed", func() {
-			rdr = crp.DecodeReader(buf)
-			Expect(rdr).ToNot(BeNil())
-
-			nbr, err = rdr.Read(res)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(nbr).To(BeEquivalentTo(11))
-			Expect(res[:nbr]).To(BeEquivalentTo(msg[:nbr]))
-			Expect(rdr.Close()).ToNot(HaveOccurred())
-		})
-
-		It("Create an io.reader and read from it to encode string but use too small buffer must occur an error", func() {
-			res = make([]byte, 1)
-
-			rdr = crp.EncodeReader(buf)
-			Expect(rdr).ToNot(BeNil())
-
-			buf.Reset()
-			buf.Write(msg)
-
-			nbr, err = rdr.Read(res)
-			Expect(err).To(HaveOccurred())
-			Expect(rdr.Close()).ToNot(HaveOccurred())
+		It("Reset and Create new instance must succeed", func() {
+			crp.Reset()
+			crp = encsha.New()
+			Expect(crp).ToNot(BeNil())
 		})
 
 		It("Create an io.reader and read from it to encode string must succeed", func() {
-			res = make([]byte, cap(msg)*3)
+			buf.Reset()
+			buf.Write(msg)
 
 			rdr = crp.EncodeReader(buf)
 			Expect(rdr).ToNot(BeNil())
 
-			buf.Reset()
-			buf.Write(msg)
-
-			nbr, err = rdr.Read(res)
+			res, err = io.ReadAll(rdr)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(len(res)).To(BeEquivalentTo(len(msg)))
+			Expect(res).To(BeEquivalentTo(msg))
+			Expect(crp.Encode(nil)).To(BeEquivalentTo(chk))
 			Expect(rdr.Close()).ToNot(HaveOccurred())
-			res = res[:nbr]
+			crp.Reset()
 		})
 
-		It("Create an io.writer and write on it to decode must succeed", func() {
-			wrt = crp.DecodeWriter(buf)
-			Expect(wrt).ToNot(BeNil())
+		It("must return error when reader/writer decoder is call", func() {
+			crp = encsha.New()
+			Expect(crp).ToNot(BeNil())
+
+			rdr = crp.DecodeReader(bytes.NewReader(msg))
+			Expect(rdr).To(BeNil())
 
 			buf.Reset()
-			nbr, err = wrt.Write(res)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(nbr).To(BeNumerically(">", len(msg)))
-			Expect(buf.Len()).To(BeEquivalentTo(len(msg)))
-			Expect(buf.Bytes()).To(BeEquivalentTo(msg[:buf.Len()]))
-			Expect(wrt.Close()).ToNot(HaveOccurred())
+			wrt = crp.DecodeWriter(buf)
+			Expect(rdr).To(BeNil())
 		})
 	})
 })

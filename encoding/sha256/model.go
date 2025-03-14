@@ -24,173 +24,96 @@
  *
  */
 
-package aes
+package sha256
 
 import (
-	"crypto/cipher"
-	"errors"
 	"fmt"
+	"hash"
 	"io"
 )
 
-var (
-	ErrInvalidBufferSize = errors.New("invalid buffer size")
-)
-
 type crt struct {
-	a cipher.AEAD
-	n []byte
+	hsh hash.Hash
 }
 
 func (o *crt) Encode(p []byte) []byte {
-	if len(p) < 1 || o.a == nil {
+	if o.hsh == nil {
 		return make([]byte, 0)
 	}
-	return o.a.Seal(nil, o.n, p, nil)
+
+	if len(p) > 0 {
+		if _, e := o.hsh.Write(p); e != nil {
+			return make([]byte, 0)
+		}
+	}
+
+	if q := o.hsh.Sum(nil); len(q) < 1 {
+		return make([]byte, 0)
+	} else {
+		return q[:]
+	}
 }
 
 func (o *crt) Decode(p []byte) ([]byte, error) {
-	if len(p) < 1 || o.a == nil {
-		return make([]byte, 0), nil
-	}
-	return o.a.Open(nil, o.n, p, nil)
+	return nil, fmt.Errorf("unexpected call function")
 }
 
 func (o *crt) EncodeReader(r io.Reader) io.ReadCloser {
-	fct := func(p []byte) (n int, err error) {
-		var b []byte
+	f := func(p []byte) (n int, err error) {
+		n, err = r.Read(p)
 
-		if cap(p) < 1+o.a.Overhead() {
-			return 0, ErrInvalidBufferSize
-		} else {
-			b = make([]byte, cap(p)-o.a.Overhead())
+		if n > 0 && o.hsh != nil {
+			o.hsh.Write(p[0:n])
 		}
 
-		if n, err = r.Read(b); err != nil {
-			return 0, err
-		} else {
-			b = o.Encode(b[:n])
-			n = len(b)
-
-			if n > cap(p) {
-				return 0, ErrInvalidBufferSize
-			} else {
-				copy(p, b)
-			}
-
-			clear(b)
-			b = b[:0]
-
-			return n, err
-		}
+		return n, err
 	}
 
-	clo := func() error {
+	c := func() error {
 		if rc, ok := r.(io.Closer); ok {
 			return rc.Close()
+		} else {
+			return nil
 		}
-
-		return nil
 	}
 
-	return &reader{
-		f: fct,
-		c: clo,
-	}
+	return &reader{f: f, c: c}
 }
 
 func (o *crt) DecodeReader(r io.Reader) io.ReadCloser {
-	fct := func(p []byte) (n int, err error) {
-		var b = make([]byte, cap(p)+o.a.Overhead())
-
-		if n, err = r.Read(b); err != nil {
-			return 0, err
-		} else {
-			b, err = o.Decode(b[:n])
-			n = len(b)
-
-			if n > cap(p) {
-				return 0, ErrInvalidBufferSize
-			} else {
-				copy(p, b)
-			}
-
-			clear(b)
-			b = b[:0]
-
-			return n, err
-		}
-	}
-
-	clo := func() error {
-		if rc, ok := r.(io.Closer); ok {
-			return rc.Close()
-		}
-
-		return nil
-	}
-
-	return &reader{
-		f: fct,
-		c: clo,
-	}
+	return nil
 }
 
 func (o *crt) EncodeWriter(w io.Writer) io.WriteCloser {
-	fct := func(p []byte) (n int, err error) {
-		n = len(p)
-		if _, err = w.Write(o.Encode(p)); err != nil {
-			return 0, err
-		} else {
-			return n, nil
+	f := func(p []byte) (n int, err error) {
+		n, err = w.Write(p)
+
+		if n > 0 && o.hsh != nil {
+			o.hsh.Write(p[0:n])
 		}
+
+		return n, err
 	}
 
-	clo := func() error {
+	c := func() error {
 		if wc, ok := w.(io.Closer); ok {
 			return wc.Close()
+		} else {
+			return nil
 		}
-
-		return nil
 	}
 
-	return &writer{
-		f: fct,
-		c: clo,
-	}
+	return &writer{f: f, c: c}
 }
 
 func (o *crt) DecodeWriter(w io.Writer) io.WriteCloser {
-	fct := func(p []byte) (n int, err error) {
-		n = len(p)
-		if p, err = o.Decode(p); err != nil {
-			return 0, err
-		} else if _, err = w.Write(p); err != nil {
-			return 0, err
-		} else {
-			return n, nil
-		}
-	}
-
-	clo := func() error {
-		if wc, ok := w.(io.Closer); ok {
-			return wc.Close()
-		}
-
-		return nil
-	}
-
-	return &writer{
-		f: fct,
-		c: clo,
-	}
+	return nil
 }
 
 func (o *crt) Reset() {
-	o.a = nil
-
-	clear(o.n)
-	o.n = o.n[:0]
+	if o.hsh != nil {
+		o.hsh.Reset()
+	}
 }
 
 type reader struct {

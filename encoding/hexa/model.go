@@ -63,7 +63,7 @@ func (o *crt) Decode(p []byte) ([]byte, error) {
 	return d, e
 }
 
-func (o *crt) EncodeReader(r io.Reader) io.Reader {
+func (o *crt) EncodeReader(r io.Reader) io.ReadCloser {
 	f := func(p []byte) (n int, err error) {
 		var b []byte
 
@@ -94,18 +94,46 @@ func (o *crt) EncodeReader(r io.Reader) io.Reader {
 		return n, err
 	}
 
-	return &reader{f: f}
+	c := func() error {
+		if rc, ok := r.(io.Closer); ok {
+			return rc.Close()
+		}
+
+		return nil
+	}
+
+	return &reader{f: f, c: c}
 }
 
-func (o *crt) DecodeReader(r io.Reader) io.Reader {
-	return hex.NewDecoder(r)
+func (o *crt) DecodeReader(r io.Reader) io.ReadCloser {
+	var h = hex.NewDecoder(r)
+	f := func(p []byte) (n int, err error) {
+		return h.Read(p)
+	}
+	c := func() error {
+		if rc, ok := r.(io.Closer); ok {
+			return rc.Close()
+		}
+		return nil
+	}
+	return &reader{f: f, c: c}
 }
 
-func (o *crt) EncodeWriter(w io.Writer) io.Writer {
-	return hex.NewEncoder(w)
+func (o *crt) EncodeWriter(w io.Writer) io.WriteCloser {
+	var h = hex.NewEncoder(w)
+	f := func(p []byte) (n int, err error) {
+		return h.Write(p)
+	}
+	c := func() error {
+		if wc, ok := w.(io.Closer); ok {
+			return wc.Close()
+		}
+		return nil
+	}
+	return &writer{f: f, c: c}
 }
 
-func (o *crt) DecodeWriter(w io.Writer) io.Writer {
+func (o *crt) DecodeWriter(w io.Writer) io.WriteCloser {
 	f := func(p []byte) (n int, err error) {
 		var b []byte
 		n = len(p)
@@ -125,11 +153,21 @@ func (o *crt) DecodeWriter(w io.Writer) io.Writer {
 			}
 		}
 	}
-	return &writer{f: f}
+	c := func() error {
+		if wc, ok := w.(io.Closer); ok {
+			return wc.Close()
+		}
+		return nil
+	}
+	return &writer{f: f, c: c}
+}
+
+func (o *crt) Reset() {
 }
 
 type reader struct {
 	f func(p []byte) (n int, err error)
+	c func() error
 }
 
 func (r *reader) Read(p []byte) (n int, err error) {
@@ -140,8 +178,17 @@ func (r *reader) Read(p []byte) (n int, err error) {
 	}
 }
 
+func (r *reader) Close() error {
+	if r.c == nil {
+		return fmt.Errorf("invalid closer")
+	} else {
+		return r.c()
+	}
+}
+
 type writer struct {
 	f func(p []byte) (n int, err error)
+	c func() error
 }
 
 func (r *writer) Write(p []byte) (n int, err error) {
@@ -149,5 +196,13 @@ func (r *writer) Write(p []byte) (n int, err error) {
 		return 0, fmt.Errorf("invalid reader")
 	} else {
 		return r.f(p)
+	}
+}
+
+func (r *writer) Close() error {
+	if r.c == nil {
+		return fmt.Errorf("invalid closer")
+	} else {
+		return r.c()
 	}
 }
