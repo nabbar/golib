@@ -77,7 +77,7 @@ func (o *dmp) TransportWithTLS(cfg TransportConfig, ssl *tls.Config) *http.Trans
 		prx = http.ProxyURL(cfg.Proxy)
 	}
 
-	if ssl != nil {
+	if ssl == nil {
 		ssl = o.getTransportTLS(cfg)
 	}
 
