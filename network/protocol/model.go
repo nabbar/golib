@@ -31,7 +31,7 @@ import (
 	"reflect"
 	"strings"
 
-	libmap "github.com/mitchellh/mapstructure"
+	libmap "github.com/go-viper/mapstructure/v2"
 )
 
 func (n NetworkProtocol) String() string {
