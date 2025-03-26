@@ -23,7 +23,7 @@
  *
  */
 
-package duration
+package big
 
 import (
 	"encoding/json"
