@@ -23,64 +23,40 @@
  *
  */
 
-package duration
+package big
 
 import (
-	"encoding/json"
-	"fmt"
+	"reflect"
 
-	"github.com/fxamacker/cbor/v2"
-	"gopkg.in/yaml.v3"
+	libmap "github.com/mitchellh/mapstructure"
 )
 
-func (d Duration) MarshalJSON() ([]byte, error) {
-	var s = d.String()
-	return json.Marshal(s)
-}
+const (
+	minDuration Duration = -1 << 63
+	maxDuration Duration = 1<<63 - 1
+)
 
-func (d *Duration) UnmarshalJSON(bytes []byte) error {
-	return d.unmarshall(bytes)
-}
+func ViperDecoderHook() libmap.DecodeHookFuncType {
+	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+		var (
+			z = Duration(0)
+			t string
+			k bool
+		)
 
-func (d Duration) MarshalYAML() (interface{}, error) {
-	var s = d.String()
-	return s, nil
-}
+		// Check if the data type matches the expected one
+		if from.Kind() != reflect.String {
+			return data, nil
+		} else if t, k = data.(string); !k {
+			return data, nil
+		}
 
-func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
-	return d.unmarshall([]byte(value.Value))
-}
+		// Check if the target type matches the expected one
+		if to != reflect.TypeOf(z) {
+			return data, nil
+		}
 
-func (d Duration) MarshalTOML() ([]byte, error) {
-	var s = d.String()
-	return []byte("\"" + s + "\""), nil
-}
-
-func (d *Duration) UnmarshalTOML(i interface{}) error {
-	if b, k := i.([]byte); k {
-		return d.unmarshall(b)
+		// Format/decode/parse the data and return the new value
+		return parseString(t)
 	}
-
-	if b, k := i.(string); k {
-		return d.parseString(b)
-	}
-
-	return fmt.Errorf("size: value not in valid format")
-}
-
-func (d Duration) MarshalText() ([]byte, error) {
-	return []byte(d.String()), nil
-}
-
-func (d *Duration) UnmarshalText(bytes []byte) error {
-	return d.unmarshall(bytes)
-}
-
-func (d Duration) MarshalCBOR() ([]byte, error) {
-	var s = d.String()
-	return cbor.Marshal(s)
-}
-
-func (d *Duration) UnmarshalCBOR(bytes []byte) error {
-	return d.unmarshall(bytes)
 }

@@ -23,26 +23,20 @@
  *
  */
 
-package duration
+package big
 
 import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 )
 
 var errLeadingInt = errors.New("time: bad [0-9]*") // never printed
 var unitMap = map[string]uint64{
-	"ns": uint64(time.Nanosecond),
-	"us": uint64(time.Microsecond),
-	"µs": uint64(time.Microsecond), // U+00B5 = micro symbol
-	"μs": uint64(time.Microsecond), // U+03BC = Greek letter mu
-	"ms": uint64(time.Millisecond),
-	"s":  uint64(time.Second),
-	"m":  uint64(time.Minute),
-	"h":  uint64(time.Hour),
-	"d":  uint64(24 * time.Hour),
+	"s": uint64(Second),
+	"m": uint64(Minute),
+	"h": uint64(Hour),
+	"d": uint64(Day),
 }
 
 func parseString(s string) (Duration, error) {
@@ -77,7 +71,7 @@ func (d *Duration) unmarshall(val []byte) error {
 // A duration string is a possibly signed sequence of
 // decimal numbers, each with optional fraction and a unit suffix,
 // such as "300ms", "-1.5h" or "2h45m".
-// Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h", "d".
+// Valid time units are "s", "m", "h", "d".
 func parseDuration(s string) (Duration, error) {
 	// [-+]?([0-9]*(\.[0-9]*)?[a-z]+)+
 	orig := s
@@ -119,6 +113,7 @@ func parseDuration(s string) (Duration, error) {
 		// Consume [0-9]*
 		pl := len(s)
 		v, s, err = leadingInt(s)
+
 		if err != nil {
 			return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 		}
@@ -127,6 +122,7 @@ func parseDuration(s string) (Duration, error) {
 
 		// Consume (\.[0-9]*)?
 		post := false
+
 		if s != "" && s[0] == '.' {
 			s = s[1:]
 			pl := len(s)
@@ -141,9 +137,9 @@ func parseDuration(s string) (Duration, error) {
 
 		// Consume unit.
 		i := 0
+
 		for ; i < len(s); i++ {
 			c := s[i]
-
 			if c == '.' || '0' <= c && c <= '9' {
 				break
 			}
@@ -178,7 +174,6 @@ func parseDuration(s string) (Duration, error) {
 				return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 			}
 		}
-
 		d += v
 
 		if d > 1<<63 {
@@ -193,7 +188,6 @@ func parseDuration(s string) (Duration, error) {
 	if d > 1<<63-1 {
 		return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 	}
-
 	return Duration(d), nil
 }
 
@@ -202,24 +196,19 @@ func leadingInt[bytes []byte | string](s bytes) (x uint64, rem bytes, err error)
 	i := 0
 	for ; i < len(s); i++ {
 		c := s[i]
-
 		if c < '0' || c > '9' {
 			break
 		}
-
 		if x > 1<<63/10 {
 			// overflow
 			return 0, rem, errLeadingInt
 		}
-
 		x = x*10 + uint64(c) - '0'
-
 		if x > 1<<63 {
 			// overflow
 			return 0, rem, errLeadingInt
 		}
 	}
-
 	return x, s[i:], nil
 }
 
@@ -230,34 +219,26 @@ func leadingFraction(s string) (x uint64, scale float64, rem string) {
 	i := 0
 	scale = 1
 	overflow := false
-
 	for ; i < len(s); i++ {
 		c := s[i]
-
 		if c < '0' || c > '9' {
 			break
 		}
-
 		if overflow {
 			continue
 		}
-
 		if x > (1<<63-1)/10 {
 			// It's possible for overflow to give a positive number, so take care.
 			overflow = true
 			continue
 		}
-
 		y := x*10 + uint64(c) - '0'
-
 		if y > 1<<63 {
 			overflow = true
 			continue
 		}
-
 		x = y
 		scale *= 10
 	}
-
 	return x, scale, s[i:]
 }

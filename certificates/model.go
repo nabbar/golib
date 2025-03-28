@@ -98,6 +98,9 @@ func (o *config) Clone() TLSConfig {
 
 	if len(o.cert) > 0 {
 		for _, c := range o.cert {
+			if c == nil {
+				continue
+			}
 			cfg.cert = append(cfg.cert, c)
 		}
 	}
@@ -120,12 +123,18 @@ func (o *config) Clone() TLSConfig {
 
 	if len(o.caRoot) > 0 {
 		for _, c := range o.caRoot {
+			if c == nil {
+				continue
+			}
 			cfg.caRoot = append(cfg.caRoot, c)
 		}
 	}
 
 	if len(o.clientCA) > 0 {
 		for _, c := range o.clientCA {
+			if c == nil {
+				continue
+			}
 			cfg.clientCA = append(cfg.clientCA, c)
 		}
 	}
@@ -194,12 +203,18 @@ func (o *config) TLS(serverName string) *tls.Config {
 
 	if o.caRoot != nil {
 		for _, c := range o.caRoot {
+			if c == nil {
+				continue
+			}
 			c.AppendPool(cnf.RootCAs)
 		}
 	}
 
 	if len(o.cert) > 0 {
 		for _, c := range o.cert {
+			if c == nil {
+				continue
+			}
 			cnf.Certificates = append(cnf.Certificates, c.TLS())
 		}
 	}
@@ -208,6 +223,9 @@ func (o *config) TLS(serverName string) *tls.Config {
 		cnf.ClientAuth = o.clientAuth.TLS()
 		if len(o.clientCA) > 0 {
 			for _, c := range o.clientCA {
+				if c == nil {
+					continue
+				}
 				c.AppendPool(cnf.ClientCAs)
 			}
 		}
@@ -219,6 +237,9 @@ func (o *config) TLS(serverName string) *tls.Config {
 func (o *config) Config() *Config {
 	var crt = make([]tlscrt.Certif, 0)
 	for _, c := range o.cert {
+		if c == nil {
+			continue
+		}
 		crt = append(crt, c.Model())
 	}
 
