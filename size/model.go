@@ -32,7 +32,7 @@ import (
 	"math"
 	"reflect"
 
-	libmap "github.com/mitchellh/mapstructure"
+	libmap "github.com/go-viper/mapstructure/v2"
 )
 
 func (s Size) Code(unit rune) string {

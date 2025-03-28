@@ -28,7 +28,7 @@ package duration
 import (
 	"reflect"
 
-	libmap "github.com/mitchellh/mapstructure"
+	libmap "github.com/go-viper/mapstructure/v2"
 )
 
 func ViperDecoderHook() libmap.DecodeHookFuncType {

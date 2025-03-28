@@ -30,7 +30,7 @@ import (
 	"crypto/x509"
 	"reflect"
 
-	libmap "github.com/mitchellh/mapstructure"
+	libmap "github.com/go-viper/mapstructure/v2"
 )
 
 type mod struct {
