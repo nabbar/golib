@@ -146,7 +146,7 @@ func parseDuration(s string) (Duration, error) {
 		}
 
 		if i == 0 {
-			return 0, fmt.Errorf("time: missing unit in duration '%s'" + orig)
+			return 0, fmt.Errorf("time: missing unit in duration '%s'", orig)
 		}
 
 		u := s[:i]
