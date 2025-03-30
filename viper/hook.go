@@ -31,7 +31,7 @@ import (
 	"math"
 	"reflect"
 
-	libmap "github.com/mitchellh/mapstructure"
+	libmap "github.com/go-viper/mapstructure/v2"
 	spfvpr "github.com/spf13/viper"
 )
 

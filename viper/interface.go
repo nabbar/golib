@@ -33,7 +33,7 @@ import (
 
 	liblog "github.com/nabbar/golib/logger"
 
-	libmap "github.com/mitchellh/mapstructure"
+	libmap "github.com/go-viper/mapstructure/v2"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	loglvl "github.com/nabbar/golib/logger/level"
