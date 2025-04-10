@@ -28,6 +28,7 @@ package auth
 
 import (
 	"reflect"
+	"strings"
 
 	libmap "github.com/go-viper/mapstructure/v2"
 )
@@ -48,13 +49,19 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 		}
 
 		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
+		if to.Kind() != reflect.Int {
 			return data, nil
+		}
+
+		if strings.Contains(cleanString(t), none) {
+			return NoClientCert, nil
 		}
 
 		// Format/decode/parse the data and return the new value
 		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
+			return data, nil
+		} else if z == NoClientCert {
+			return data, nil
 		} else {
 			return z, nil
 		}

@@ -38,13 +38,13 @@ import (
 func (o *Certif) unMarshall(p []byte) error {
 	if o.UnmarshalJSON(p) == nil {
 		return nil
-	} else if o.UnmarshalYAML(&yaml.Node{Value: string(p)}) != nil {
+	} else if o.UnmarshalYAML(&yaml.Node{Value: string(p)}) == nil {
 		return nil
-	} else if o.UnmarshalTOML(p) != nil {
+	} else if o.UnmarshalTOML(p) == nil {
 		return nil
-	} else if o.UnmarshalCBOR(p) != nil {
+	} else if o.UnmarshalCBOR(p) == nil {
 		return nil
-	} else if o.UnmarshalText(p) != nil {
+	} else if o.UnmarshalText(p) == nil {
 		return nil
 	}
 

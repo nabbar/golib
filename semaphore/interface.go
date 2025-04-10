@@ -38,6 +38,8 @@ type Semaphore interface {
 	context.Context
 	semtps.Sem
 	semtps.Progress
+
+	Clone() Semaphore
 }
 
 func MaxSimultaneous() int {

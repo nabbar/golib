@@ -59,11 +59,15 @@ func List() []ClientAuth {
 	}
 }
 
-func Parse(s string) ClientAuth {
+func cleanString(s string) string {
 	s = strings.ToLower(s)
 	s = strings.Replace(s, "\"", "", -1)
 	s = strings.Replace(s, "'", "", -1)
-	s = strings.TrimSpace(s)
+	return strings.TrimSpace(s)
+}
+
+func Parse(s string) ClientAuth {
+	s = cleanString(s)
 
 	switch {
 	case strings.Contains(s, strict) || (strings.Contains(s, require) && strings.Contains(s, verify)):

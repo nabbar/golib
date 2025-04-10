@@ -79,10 +79,15 @@ func ParseDuration(d time.Duration) Duration {
 }
 
 func ParseFloat64(f float64) Duration {
-	const mx float64 = math.MaxInt64
+	const (
+		mx float64 = math.MaxInt64
+		mi         = -mx
+	)
 
 	if f > mx {
 		return Duration(math.MaxInt64)
+	} else if f < mi {
+		return Duration(-math.MaxInt64)
 	} else {
 		return Duration(math.Round(f))
 	}

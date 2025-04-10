@@ -56,6 +56,13 @@ func (o *sem) Weighted() int64 {
 	return o.s.Weighted()
 }
 
+func (o *sem) Clone() Semaphore {
+	return &sem{
+		s: o.s.New(),
+		m: o.m,
+	}
+}
+
 func (o *sem) New() semtps.Sem {
 	return o.s.New()
 }

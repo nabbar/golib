@@ -28,6 +28,7 @@ package certs
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"reflect"
 
 	libmap "github.com/go-viper/mapstructure/v2"
@@ -80,28 +81,28 @@ func (o *Certif) GetCerts() []string {
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
-			z = &Certif{c: tls.Certificate{}}
-			t string
-			k bool
+			ok bool
+			z  = &Certif{c: tls.Certificate{}}
 		)
 
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
+		if _, ok = data.(map[string]interface{}); ok {
+			if p, e := json.Marshal(data); e != nil {
+				return data, nil
+			} else if e = z.UnmarshalJSON(p); e != nil {
+				return data, nil
+			} else {
+				return z, nil
+			}
+		} else if _, ok = data.(string); !ok {
+			if p, e := json.Marshal(data); e != nil {
+				return data, nil
+			} else if e = z.UnmarshalJSON(p); e != nil {
+				return data, nil
+			} else {
+				return z, nil
+			}
 		}
 
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
-			return data, nil
-		}
-
-		// Format/decode/parse the data and return the new value
-		if e := z.unMarshall([]byte(t)); e != nil {
-			return nil, e
-		} else {
-			return z, nil
-		}
+		return data, nil
 	}
 }
