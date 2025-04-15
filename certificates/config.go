@@ -28,6 +28,7 @@ package certificates
 
 import (
 	"fmt"
+	"strings"
 
 	libval "github.com/go-playground/validator/v10"
 	tlsaut "github.com/nabbar/golib/certificates/auth"
@@ -72,6 +73,70 @@ func (c *Config) Validate() liberr.Error {
 	}
 
 	return nil
+}
+
+func (c *Config) GetConfigOld() ConfigOld {
+	cfg := ConfigOld{
+		CurveList:            make([]string, 0),
+		CipherList:           make([]string, 0),
+		RootCAString:         make([]string, 0),
+		RootCAFile:           make([]string, 0),
+		ClientCAString:       make([]string, 0),
+		ClientCAFiles:        make([]string, 0),
+		CertPairString:       make([]CertifOld, 0),
+		CertPairFile:         make([]CertifOld, 0),
+		VersionMin:           c.VersionMin.Code(),
+		VersionMax:           c.VersionMax.Code(),
+		AuthClient:           c.AuthClient.Code(),
+		InheritDefault:       c.InheritDefault,
+		DynamicSizingDisable: c.DynamicSizingDisable,
+		SessionTicketDisable: c.SessionTicketDisable,
+	}
+
+	for _, i := range c.CurveList {
+		if i == tlscrv.Unknown {
+			continue
+		}
+		cfg.CurveList = append(cfg.CurveList, i.Code())
+	}
+
+	for _, i := range c.CipherList {
+		if i == tlscpr.Unknown {
+			continue
+		}
+		cfg.CipherList = append(cfg.CipherList, strings.Join(i.Code(), "_"))
+	}
+
+	for _, i := range c.RootCA {
+		if i == nil {
+			continue
+		}
+		cfg.RootCAString = append(cfg.RootCAString, i.String())
+	}
+
+	for _, i := range c.ClientCA {
+		if i == nil {
+			continue
+		}
+		cfg.ClientCAString = append(cfg.ClientCAString, i.String())
+	}
+
+	for _, i := range c.Certs {
+		if !i.IsPair() {
+			continue
+		}
+
+		if k, p, e := i.Pair(); e != nil {
+			continue
+		} else {
+			cfg.CertPairString = append(cfg.CertPairString, CertifOld{
+				Key: k,
+				Pem: p,
+			})
+		}
+	}
+
+	return cfg
 }
 
 func (c *Config) New() TLSConfig {

@@ -27,58 +27,30 @@
 package types
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
+	"time"
 
 	libval "github.com/go-playground/validator/v10"
-	cfgtps "github.com/nabbar/golib/config/const"
 	libdur "github.com/nabbar/golib/duration"
 	liberr "github.com/nabbar/golib/errors"
 	logcfg "github.com/nabbar/golib/logger/config"
 )
 
-var _defaultConfig = []byte(`{
-  "name": "",
-  "check-timeout": "",
-  "interval-check": "",
-  "interval-fall": "",
-  "interval-rise": "",
-  "fall-count-ko": "",
-  "fall-count-warn": "",
-  "rise-count-ko": "",
-  "rise-count-warn": "",
-  "logger": ` + string(logcfg.DefaultConfig(cfgtps.JSONIndent+cfgtps.JSONIndent)) + `
-}`)
-
-func SetDefaultConfig(cfg []byte) {
-	_defaultConfig = cfg
-}
-
-func DefaultConfig(indent string) []byte {
-	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, _defaultConfig, indent, cfgtps.JSONIndent); err != nil {
-		return _defaultConfig
-	} else {
-		return res.Bytes()
-	}
-}
-
-type Config struct {
+type ConfigCompat struct {
 	// Name define the name of the monitor
 	Name string `json:"name" yaml:"name" toml:"name" mapstructure:"name"`
 
 	// CheckTimeout define the timeout use for healthcheck. Default is 5 second.
-	CheckTimeout libdur.Duration `json:"check-timeout" yaml:"check-timeout" toml:"check-timeout" mapstructure:"check-timeout"`
+	CheckTimeout time.Duration `json:"check-timeout" yaml:"check-timeout" toml:"check-timeout" mapstructure:"check-timeout"`
 
 	// IntervalCheck define the time waiting between 2 healthcheck. Default is 5 second.
-	IntervalCheck libdur.Duration `json:"interval-check" yaml:"interval-check" toml:"interval-check" mapstructure:"interval-check"`
+	IntervalCheck time.Duration `json:"interval-check" yaml:"interval-check" toml:"interval-check" mapstructure:"interval-check"`
 
 	// IntervalFall define the time waiting between 2 healthcheck when last check is KO. Default is 5 second.
-	IntervalFall libdur.Duration `json:"interval-fall" yaml:"interval-fall" toml:"interval-fall" mapstructure:"interval-down"`
+	IntervalFall time.Duration `json:"interval-fall" yaml:"interval-fall" toml:"interval-fall" mapstructure:"interval-down"`
 
 	// IntervalRise define the time waiting between 2 healthcheck when status is KO or Warn but last check is OK. Default is 5 second.
-	IntervalRise libdur.Duration `json:"interval-rise" yaml:"interval-rise" toml:"interval-rise" mapstructure:"interval-rise"`
+	IntervalRise time.Duration `json:"interval-rise" yaml:"interval-rise" toml:"interval-rise" mapstructure:"interval-rise"`
 
 	// FallCountKO define the number of KO before considerate the component as down.
 	FallCountKO uint8 `json:"fall-count-ko" yaml:"fall-count-ko" toml:"fall-count-ko" mapstructure:"fall-count-ko"`
@@ -96,7 +68,7 @@ type Config struct {
 	Logger logcfg.Options `json:"logger" yaml:"logger" toml:"logger" mapstructure:"logger"`
 }
 
-func (o Config) Validate() liberr.Error {
+func (o ConfigCompat) Validate() liberr.Error {
 	var e = ErrorValidatorError.Error(nil)
 
 	if err := libval.New().Struct(o); err != nil {
@@ -117,8 +89,8 @@ func (o Config) Validate() liberr.Error {
 	return e
 }
 
-func (o Config) Clone() Config {
-	return Config{
+func (o ConfigCompat) Clone() ConfigCompat {
+	return ConfigCompat{
 		Name:          o.Name,
 		CheckTimeout:  o.CheckTimeout,
 		IntervalCheck: o.IntervalCheck,
@@ -132,13 +104,13 @@ func (o Config) Clone() Config {
 	}
 }
 
-func (o Config) Compat() ConfigCompat {
-	return ConfigCompat{
+func (o ConfigCompat) Config() Config {
+	return Config{
 		Name:          o.Name,
-		CheckTimeout:  o.CheckTimeout.Time(),
-		IntervalCheck: o.IntervalCheck.Time(),
-		IntervalFall:  o.IntervalFall.Time(),
-		IntervalRise:  o.IntervalRise.Time(),
+		CheckTimeout:  libdur.ParseDuration(o.CheckTimeout),
+		IntervalCheck: libdur.ParseDuration(o.IntervalCheck),
+		IntervalFall:  libdur.ParseDuration(o.IntervalFall),
+		IntervalRise:  libdur.ParseDuration(o.IntervalRise),
 		FallCountKO:   o.FallCountKO,
 		FallCountWarn: o.FallCountWarn,
 		RiseCountKO:   o.RiseCountKO,
