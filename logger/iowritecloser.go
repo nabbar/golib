@@ -82,14 +82,43 @@ func (o *logger) GetIOWriterLevel() loglvl.Level {
 	}
 }
 
-func (o *logger) SetIOWriterFilter(pattern string) {
+func (o *logger) SetIOWriterFilter(pattern ...string) {
 	if o == nil {
 		return
 	} else if o.x == nil {
 		return
 	}
 
-	o.x.Store(keyFilter, []byte(pattern))
+	var p = make([][]byte, 0, len(pattern))
+	for _, s := range pattern {
+		p = append(p, []byte(s))
+	}
+
+	o.x.Store(keyFilter, p)
+}
+
+func (o *logger) AddIOWriterFilter(pattern ...string) {
+	if o == nil {
+		return
+	} else if o.x == nil {
+		return
+	}
+
+	var p = make([][]byte, 0, len(pattern))
+
+	if i, l := o.x.Load(keyFilter); !l {
+		// nothing
+	} else if v, k := i.([][]byte); !k {
+		// nothing
+	} else {
+		p = append(make([][]byte, 0, len(pattern)+len(v)), v...)
+	}
+
+	for _, s := range pattern {
+		p = append(p, []byte(s))
+	}
+
+	o.x.Store(keyFilter, p)
 }
 
 func (o *logger) IOWriterFilter(p []byte) []byte {
@@ -99,11 +128,15 @@ func (o *logger) IOWriterFilter(p []byte) []byte {
 		return p
 	} else if i, l := o.x.Load(keyFilter); !l {
 		return p
-	} else if v, k := i.([]byte); !k {
+	} else if v, k := i.([][]byte); !k {
 		return p
-	} else if bytes.Contains(p, v) {
-		return make([]byte, 0)
 	} else {
+		for _, b := range v {
+			if bytes.Contains(p, b) {
+				return make([]byte, 0)
+			}
+		}
+
 		return p
 	}
 }

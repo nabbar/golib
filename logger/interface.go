@@ -59,8 +59,13 @@ type Logger interface {
 	//GetIOWriterLevel return the minimal level of log message for io.WriterCloser interface
 	GetIOWriterLevel() loglvl.Level
 
-	// SetIOWriterFilter allow to filter message that contained the given pattern. If the pattern is found, the log is drop.
-	SetIOWriterFilter(pattern string)
+	// SetIOWriterFilter allow to filter message that contained the given pattern.
+	// When received any message, if one pattern is found, the log is drop.
+	// If the given pattern is empty, the pattern list is truncated to no one pattern.
+	SetIOWriterFilter(pattern ...string)
+
+	// SetIOWriterFilter allow to add a filter pattern into the filter message pattern list.
+	AddIOWriterFilter(pattern ...string)
 
 	//SetOptions allow to set or update the options for the logger
 	SetOptions(opt *logcfg.Options) error

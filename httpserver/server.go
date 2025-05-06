@@ -99,9 +99,11 @@ func (o *srv) setServer(ctx context.Context) error {
 		Handler: o.HandlerLoadFct(),
 	}
 
+	stdlog.SetIOWriterFilter("connection reset by peer")
+
 	if ssl != nil && ssl.LenCertificatePair() > 0 {
 		s.TLSConfig = ssl.TlsConfig("")
-		stdlog.SetIOWriterFilter("http: TLS handshake error from 127.0.0.1")
+		stdlog.AddIOWriterFilter("TLS handshake error")
 	}
 
 	if e := o.cfgGetServer().initServer(s); e != nil {
