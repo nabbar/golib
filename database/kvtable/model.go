@@ -35,18 +35,6 @@ type tbl[K comparable, M any] struct {
 	d libkvt.KVDriver[K, M]
 }
 
-func (o *tbl[K, M]) getDriver() libkvt.KVDriver[K, M] {
-	if o == nil {
-		return nil
-	}
-
-	if o.d == nil {
-		return nil
-	} else {
-		return o.d
-	}
-}
-
 func (o *tbl[K, M]) Get(key K) (libkvt.KVItem[K, M], error) {
 	if drv := o.getDriver(); drv == nil {
 		return nil, ErrorBadDriver.Error(nil)
@@ -65,18 +53,6 @@ func (o *tbl[K, M]) Del(key K) error {
 	}
 }
 
-func (o *tbl[K, M]) Walk(fct libkvt.FuncWalk[K, M]) error {
-	if drv := o.getDriver(); drv == nil {
-		return ErrorBadDriver.Error(nil)
-	} else {
-		return drv.Walk(func(key K, model M) bool {
-			kvi := libkvs.New[K, M](drv.New(), key)
-			kvi.Set(model)
-			return fct(kvi)
-		})
-	}
-}
-
 func (o *tbl[K, M]) List() ([]libkvt.KVItem[K, M], error) {
 	var res = make([]libkvt.KVItem[K, M], 0)
 
@@ -90,5 +66,45 @@ func (o *tbl[K, M]) List() ([]libkvt.KVItem[K, M], error) {
 		}
 
 		return res, nil
+	}
+}
+
+func (o *tbl[K, M]) Search(pattern K) ([]libkvt.KVItem[K, M], error) {
+	var res = make([]libkvt.KVItem[K, M], 0)
+
+	if drv := o.getDriver(); drv == nil {
+		return nil, ErrorBadDriver.Error(nil)
+	} else if l, e := drv.Search(pattern); e != nil {
+		return nil, e
+	} else {
+		for _, k := range l {
+			res = append(res, libkvs.New[K, M](drv.New(), k))
+		}
+
+		return res, nil
+	}
+}
+
+func (o *tbl[K, M]) Walk(fct libkvt.FuncWalk[K, M]) error {
+	if drv := o.getDriver(); drv == nil {
+		return ErrorBadDriver.Error(nil)
+	} else {
+		return drv.Walk(func(key K, model M) bool {
+			kvi := libkvs.New[K, M](drv.New(), key)
+			kvi.Set(model)
+			return fct(kvi)
+		})
+	}
+}
+
+func (o *tbl[K, M]) getDriver() libkvt.KVDriver[K, M] {
+	if o == nil {
+		return nil
+	}
+
+	if o.d == nil {
+		return nil
+	} else {
+		return o.d
 	}
 }

@@ -37,6 +37,8 @@ const pkgName = "golib/database/kvdriver"
 const (
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgDatabaseKVDrv
 	ErrorBadInstance
+	ErrorCompareFunctionEqual
+	ErrorCompareFunctionContain
 	ErrorGetFunction
 	ErrorSetFunction
 	ErrorDelFunction
@@ -59,6 +61,10 @@ func getMessage(code liberr.CodeError) (message string) {
 		return "given parameters is empty"
 	case ErrorBadInstance:
 		return "bad instance of " + pkgName
+	case ErrorCompareFunctionEqual:
+		return "missing comparable equal function of " + pkgName
+	case ErrorCompareFunctionContain:
+		return "missing comparable contain function of " + pkgName
 	case ErrorGetFunction:
 		return "missing get function of " + pkgName
 	case ErrorSetFunction:

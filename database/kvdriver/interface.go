@@ -34,25 +34,34 @@ type FuncNew[K comparable, M any] func() libkvt.KVDriver[K, M]
 type FuncGet[K comparable, M any] func(key K) (M, error)
 type FuncSet[K comparable, M any] func(key K, model M) error
 type FuncDel[K comparable] func(key K) error
-type FuncList[K comparable, M any] func() ([]K, error)
+type FuncList[K comparable] func() ([]K, error)
+type FuncSearch[K comparable] func(prefix K) ([]K, error)
 type FuncWalk[K comparable, M any] func(fct libkvt.FctWalk[K, M]) error
 
 type drv[K comparable, M any] struct {
-	FctNew  FuncNew[K, M]
-	FctGet  FuncGet[K, M]
-	FctSet  FuncSet[K, M]
-	FctDel  FuncDel[K]
-	FctList FuncList[K, M]
-	FctWalk FuncWalk[K, M] // optional
+	cmp Compare[K]
+
+	fctNew FuncNew[K, M]
+	fctGet FuncGet[K, M]
+	fctSet FuncSet[K, M]
+	fctDel FuncDel[K]
+	fctLst FuncList[K]
+
+	fctSch FuncSearch[K]  // optional
+	fctWlk FuncWalk[K, M] // optional
 }
 
-func New[K comparable, M any](fn FuncNew[K, M], fg FuncGet[K, M], fs FuncSet[K, M], fd FuncDel[K], fl FuncList[K, M], fw FuncWalk[K, M]) libkvt.KVDriver[K, M] {
+func New[K comparable, M any](cmp Compare[K], fn FuncNew[K, M], fg FuncGet[K, M], fs FuncSet[K, M], fd FuncDel[K], fl FuncList[K], fh FuncSearch[K], fw FuncWalk[K, M]) libkvt.KVDriver[K, M] {
 	return &drv[K, M]{
-		FctNew:  fn,
-		FctGet:  fg,
-		FctSet:  fs,
-		FctDel:  fd,
-		FctList: fl,
-		FctWalk: fw,
+		cmp: cmp, // compare instance
+
+		fctNew: fn,
+		fctGet: fg,
+		fctSet: fs,
+		fctDel: fd,
+		fctLst: fl,
+
+		fctSch: fh, // optional
+		fctWlk: fw, // optional
 	}
 }

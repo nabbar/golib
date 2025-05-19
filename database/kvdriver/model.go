@@ -31,27 +31,29 @@ import (
 )
 
 func (o *drv[K, M]) New() libkvt.KVDriver[K, M] {
-	if o.FctNew != nil {
-		return o.FctNew()
+	if o.fctNew != nil {
+		return o.fctNew()
 	}
 
 	return &drv[K, M]{
-		FctNew:  o.FctNew,
-		FctGet:  o.FctGet,
-		FctSet:  o.FctSet,
-		FctDel:  o.FctDel,
-		FctList: o.FctList,
-		FctWalk: o.FctWalk,
+		cmp:    o.cmp,
+		fctNew: o.fctNew,
+		fctGet: o.fctGet,
+		fctSet: o.fctSet,
+		fctDel: o.fctDel,
+		fctLst: o.fctLst,
+		fctSch: o.fctSch,
+		fctWlk: o.fctWlk,
 	}
 }
 
 func (o *drv[K, M]) Get(key K, model *M) error {
 	if o == nil {
 		return ErrorBadInstance.Error(nil)
-	} else if o.FctGet == nil {
+	} else if o.fctGet == nil {
 		return ErrorGetFunction.Error(nil)
 	} else {
-		m, e := o.FctGet(key)
+		m, e := o.fctGet(key)
 		*model = m
 		return e
 	}
@@ -60,30 +62,44 @@ func (o *drv[K, M]) Get(key K, model *M) error {
 func (o *drv[K, M]) Set(key K, model M) error {
 	if o == nil {
 		return ErrorBadInstance.Error(nil)
-	} else if o.FctSet == nil {
+	} else if o.fctSet == nil {
 		return ErrorSetFunction.Error(nil)
 	} else {
-		return o.FctSet(key, model)
+		return o.fctSet(key, model)
 	}
 }
 
 func (o *drv[K, M]) Del(key K) error {
 	if o == nil {
 		return ErrorBadInstance.Error(nil)
-	} else if o.FctDel == nil {
+	} else if o.fctDel == nil {
 		return ErrorSetFunction.Error(nil)
 	} else {
-		return o.FctDel(key)
+		return o.fctDel(key)
 	}
 }
 
 func (o *drv[K, M]) List() ([]K, error) {
 	if o == nil {
 		return nil, ErrorBadInstance.Error(nil)
-	} else if o.FctList == nil {
+	} else if o.fctLst == nil {
 		return nil, ErrorListFunction.Error(nil)
 	} else {
-		return o.FctList()
+		return o.fctLst()
+	}
+}
+
+func (o *drv[K, M]) Search(pattern K) ([]K, error) {
+	if o == nil {
+		return nil, ErrorBadInstance.Error(nil)
+	} else if o.cmp == nil {
+		return nil, ErrorBadInstance.Error(nil)
+	} else if o.cmp.IsEmpty(pattern) {
+		return o.List()
+	} else if o.fctSch != nil {
+		return o.fctSch(pattern)
+	} else {
+		return o.fakeSrch(pattern)
 	}
 }
 
@@ -92,10 +108,24 @@ func (o *drv[K, M]) Walk(fct libkvt.FctWalk[K, M]) error {
 		return ErrorBadInstance.Error(nil)
 	} else if fct == nil {
 		return ErrorFunctionParams.Error(nil)
-	} else if o.FctWalk == nil {
+	} else if o.fctWlk == nil {
 		return o.fakeWalk(fct)
 	} else {
-		return o.FctWalk(fct)
+		return o.fctWlk(fct)
+	}
+}
+
+func (o *drv[K, M]) fakeSrch(pattern K) ([]K, error) {
+	if l, e := o.List(); e != nil {
+		return nil, e
+	} else {
+		var res = make([]K, 0)
+		for _, k := range l {
+			if o.cmp.IsContains(k, pattern) {
+				res = append(res, k)
+			}
+		}
+		return res, nil
 	}
 }
 

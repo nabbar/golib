@@ -34,5 +34,6 @@ type KVDriver[K comparable, M any] interface {
 	Set(key K, model M) error
 	Del(key K) error
 	List() ([]K, error)
+	Search(pattern K) ([]K, error)
 	Walk(fct FctWalk[K, M]) error
 }

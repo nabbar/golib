@@ -32,5 +32,6 @@ type KVTable[K comparable, M any] interface {
 	Get(key K) (KVItem[K, M], error)
 	Del(key K) error
 	List() ([]KVItem[K, M], error)
+	Search(pattern K) ([]KVItem[K, M], error)
 	Walk(fct FuncWalk[K, M]) error
 }
