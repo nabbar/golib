@@ -28,34 +28,36 @@ package policy
 import (
 	"context"
 
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
+	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	libhlp "github.com/nabbar/golib/aws/helper"
 )
 
 type client struct {
 	libhlp.Helper
-	iam *iam.Client
-	s3  *s3.Client
+	iam *sdkiam.Client
+	s3  *sdksss.Client
 }
-type PolicyFunc func(policyArn string) bool
+type FuncWalkPolicy func(pol iamtps.Policy) bool
+
 type Policy interface {
 	List() (map[string]string, error)
-	Get(arn string) (*types.Policy, error)
+	Get(arn string) (*iamtps.Policy, error)
 	Add(name, desc, policy string) (string, error)
 	Update(polArn, polContents string) error
 	Delete(polArn string) error
 	VersionList(arn string, maxItem int32, noDefaultVersion bool) (map[string]string, error)
-	VersionGet(arn string, vers string) (*types.PolicyVersion, error)
+	VersionGet(arn string, vers string) (*iamtps.PolicyVersion, error)
 	VersionAdd(arn string, doc string) error
 	VersionDel(arn string, vers string) error
 	CompareUpdate(arn string, doc string) (upd bool, err error)
-	Walk(prefix string, fct PolicyFunc) error
+
+	Walk(prefix string, fct FuncWalkPolicy) error
 	GetAllPolicies(prefix string) ([]string, error)
 }
 
-func New(ctx context.Context, bucket, region string, iam *iam.Client, s3 *s3.Client) Policy {
+func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Policy {
 	return &client{
 		Helper: libhlp.New(ctx, bucket, region),
 		iam:    iam,

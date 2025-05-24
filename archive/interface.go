@@ -33,18 +33,35 @@ import (
 	arccmp "github.com/nabbar/golib/archive/compress"
 )
 
+// ParseCompression is a convenience function to parse a string and return the corresponding Compress/Algorithm.
+// It returns the compression algorithm.
+// If the parsing fails, it returns the None algorithm.
+// Note: The returned algorithm should be used to create a compression reader.
 func ParseCompression(s string) arccmp.Algorithm {
 	return arccmp.Parse(s)
 }
 
+// DetectCompression is a convenience function to detect the compression
+// algorithm used in the provided io.Reader and return the compression read
+// closer associated.
+// It returns the compression algorithm, the compression reader, and an error if any.
+// Note: The returned read closer should be closed by the caller to release resources.
 func DetectCompression(r io.Reader) (arccmp.Algorithm, io.ReadCloser, error) {
 	return arccmp.Detect(r)
 }
 
+// ParseArchive is a convenience function to parse a string and return the corresponding Archive/Algorithm.
+// It returns the archive algorithm.
+// If the parsing fails, it returns the None algorithm.
 func ParseArchive(s string) arcarc.Algorithm {
 	return arcarc.Parse(s)
 }
 
+// DetectArchive is a convenience function to detect the archive algorithm used in
+// the provided io.ReadCloser and return the archive read closer associated.
+// It returns the archive algorithm, the archive reader, and the original read closer.
+// If the detection fails, it returns an error.
+// Note: The returned read closer should be closed by the caller to release resources.
 func DetectArchive(r io.ReadCloser) (arcarc.Algorithm, arctps.Reader, io.ReadCloser, error) {
 	return arcarc.Detect(r)
 }

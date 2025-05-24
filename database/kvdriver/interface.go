@@ -39,7 +39,7 @@ type FuncSearch[K comparable] func(prefix K) ([]K, error)
 type FuncWalk[K comparable, M any] func(fct libkvt.FctWalk[K, M]) error
 
 type drv[K comparable, M any] struct {
-	cmp Compare[K]
+	cmp libkvt.Compare[K]
 
 	fctNew FuncNew[K, M]
 	fctGet FuncGet[K, M]
@@ -51,7 +51,7 @@ type drv[K comparable, M any] struct {
 	fctWlk FuncWalk[K, M] // optional
 }
 
-func New[K comparable, M any](cmp Compare[K], fn FuncNew[K, M], fg FuncGet[K, M], fs FuncSet[K, M], fd FuncDel[K], fl FuncList[K], fh FuncSearch[K], fw FuncWalk[K, M]) libkvt.KVDriver[K, M] {
+func New[K comparable, M any](cmp libkvt.Compare[K], fn FuncNew[K, M], fg FuncGet[K, M], fs FuncSet[K, M], fd FuncDel[K], fl FuncList[K], fh FuncSearch[K], fw FuncWalk[K, M]) libkvt.KVDriver[K, M] {
 	return &drv[K, M]{
 		cmp: cmp, // compare instance
 

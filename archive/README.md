@@ -1,114 +1,576 @@
-# Package Archive
-This package will try to do all uncompress/unarchive and extract one file or all file.
-This package will expose 2 functions :
-- ExtractFile : for one file extracted
-- ExtractAll : to extract all file 
+# Golib Archive
 
-## Example of implementation
+**Golang utilities for archive and compression management**
 
-### Example of one file extracted
+---
 
-To use `ExtractFile` function, you will need this parameters :
-- `src` : is the source file into a `ioutils.FileProgress` struct to expose an `os.File` pointer with interface `io.WriteTo`, `io.ReadFrom`, `io.ReaderAt` and progress capabilities
-- `dst` : is the source file into a `ioutils.FileProgress` struct to expose an `os.File` pointer with interface `io.WriteTo`, `io.ReadFrom`, `io.ReaderAt` and progress capabilities
-- `filenameContain` : is a `string` to search in the file name to find it and extract it. This string will be search into the `strings.Contains` function
-- `filenameRegex` : is a regex pattern `string` to search in the file name any match and extract it. This string will be search into the `regexp.MatchString` function
+## Overview
 
-You can implement this function as it. This example is available in [`test/test-archive`](../test/test-archive/main.go) folder.
+This package provides tools to manipulate archive files (ZIP, TAR, etc.), compress/decompress streams (GZIP, BZIP2, etc.), and helpers to simplify common file operations in Go.
+
+---
+
+## Installation
+
+Add the dependency to your Go project:
+
+```shell
+go get github.com/nabbar/golib/archive
+```
+
+Or in your `go.mod`:
+
 ```go
- import (
-	"io"
-	"io/ioutil"
+require github.com/nabbar/golib/archive vX.Y.Z
+```
 
-	"github.com/nabbar/golib/archive"
-	"github.com/nabbar/golib/ioutils"
+---
+
+## Package Structure
+
+- **archive**: Create, extract, and list archives (ZIP, TAR, etc.), see [Subpackage `archive`](#archive-subpackage) for details.
+- **compress**: Compress/decompress files or streams (GZIP, BZIP2, etc.), see [Subpackage `compress`](#compress-subpackage) for details.
+- **helper**: Utility functions for file and stream manipulation, including a unified interface for compression and decompression, see [Subpackage `helper`](#helper-subpackage) for details.
+
+---
+
+## Quick Start
+
+### Extract any type of Archive / Compressed File
+
+```go
+import "github.com/nabbar/golib/archive"
+
+in, err := os.Open("archive.zip")
+
+if err != nil {
+    panic(err)
+}
+
+defer in.Close()
+
+err := archive.ExtractAll("archive.zip", "archive", "destination_folder")
+
+if err != nil {
+    panic(err)
+}
+
+```
+
+### Detect Archive Type
+
+```go
+package main 
+
+import (
+	"fmt"
+    "os"
+	
+	libarc "github.com/nabbar/golib/archive"
+	arcarc "github.com/nabbar/golib/archive/archive"
+	arctps "github.com/nabbar/golib/archive/archive/types"
 )
 
-const fileName = "fullpath to my archive file"
+func main() {
+    var (
+        in *os.File
+		alg arcarc.Algorithm
+        arc arctps.Reader
+        lst []string
+        err   error
+    )
+  
+	in, err = os.Open("archive.zip")
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer in.Close()
+
+	alg, arc, _, err = libarc.DetectArchive(in)
+
+	if err != nil {
+		panic(err)
+	}
+	
+	defer arc.Close()
+	
+	fmt.Println("Archive type detected:", alg.String())
+
+	lst, err = arc.List()
+
+	if err != nil {
+		panic(err)
+	}
+
+	for _, f := range lst {
+		fmt.Println("File in archive:", f)
+	}
+}
+
+```
+
+### Detect Compression Type
+
+```go
+package main 
+
+import (
+	"fmt"
+    "io"
+    "os"
+	
+	libarc "github.com/nabbar/golib/archive"
+    arccmp "github.com/nabbar/golib/archive/compress"
+)
 
 func main() {
-	var (
-		src ioutils.FileProgress
-		dst ioutils.FileProgress
-		err errors.Error
-	)
+    var (
+		in *os.File
+        alg arccmp.Algorithm
+        rdr io.ReadCloser
+        err   error
+    )
 
-	// register closing function in output function callback
-  defer func() {
-		if src != nil {
-			_ = src.Close()
-		}
-		if dst != nil {
-			_ = dst.Close()
-		}
-	}()
+    in, err = os.Open("archive.gz")
 
-	// open archive with a ioutils NewFileProgress function
-  if src, err = ioutils.NewFileProgressPathOpen(fileName); err != nil {
+	if err != nil {
 		panic(err)
 	}
 
-	// open a destination with a ioutils NewFileProgress function, as a temporary file
-	if dst, err = ioutils.NewFileProgressTemp(); err != nil {
-		panic(err)
-	}
+	defer in.Close()
 
-  // call the extract file function
-	if err = archive.ExtractFile(tmp, rio, "path/to/my/file/into/archive", "archive name regex"); err != nil {
+	alg, rdr, err = libarc.DetectCompression(in)
+
+	if err != nil {
 		panic(err)
 	}
-  
+	
+	defer rdr.Close()
+	
+	fmt.Println("Compression type detected:", alg.String())
+
+    // Read the decompressed data
+	_, err = io.Copy(io.Discard, rdr)
+
+	if err != nil {
+		panic(err)
+	}
+}
+
+```
+
+---
+
+# `archive` Subpackage
+
+The `archive` subpackage provides tools to manage archive files (such as ZIP and TAR), including creation, extraction, listing, and detection of archive types. It is designed to work with multiple files and directories, and supports both reading and writing operations.
+
+## Features
+
+- Create archives (ZIP, TAR) from files or directories
+- Extract archives to a destination folder
+- List the contents of an archive
+- Detect archive type from a stream
+- Read and write archives using unified interfaces
+- Support for streaming and random access (when possible)
+
+---
+
+## Main Types
+
+- **Algorithm**: Enum for supported archive formats (`Tar`, `Zip`, `None`)
+- **Reader/Writer**: Interfaces for reading and writing archive entries
+
+---
+
+## API Overview
+
+### Detect Archive Type
+
+Detect the archive algorithm from an `io.ReadCloser` and get a compatible reader.
+
+```go
+import (
+    "os"
+    "github.com/nabbar/golib/archive/archive"
+)
+
+file, _ := os.Open("archive.tar")
+alg, reader, closer, err := archive.Detect(file)
+if err != nil {
+    // handle error
+}
+defer closer.Close()
+fmt.Println("Archive type:", alg.String())
+```
+
+### Create an Archive
+
+Create a new archive (ZIP or TAR) and add files/directories.
+
+```go
+import (
+    "os"
+    "github.com/nabbar/golib/archive/archive"
+)
+
+out, _ := os.Create("myarchive.zip")
+writer, err := archive.Zip.Writer(out)
+if err != nil {
+    // handle error
+}
+// Use writer to add files/directories (see Writer interface)
+```
+
+### Extract an Archive
+
+Extract all files from an archive to a destination.
+
+```go
+import (
+    "os"
+    "github.com/nabbar/golib/archive/archive"
+)
+
+in, _ := os.Open("myarchive.tar")
+alg, reader, closer, err := archive.Detect(in)
+if err != nil {
+    // handle error
+}
+defer closer.Close()
+
+// Use reader to walk through files and extract them
+```
+
+### List Archive Contents
+
+List all files in an archive.
+
+```go
+import (
+    "os"
+    "github.com/nabbar/golib/archive/archive"
+)
+
+in, _ := os.Open("archive.zip")
+alg, reader, closer, err := archive.Detect(in)
+if err != nil {
+    // handle error
+}
+defer closer.Close()
+
+files, err := reader.List()
+if err != nil {
+    // handle error
+}
+for _, f := range files {
+    fmt.Println(f)
 }
 ```
 
+---
 
-### Example of all files extracted
+## Error Handling
 
-To use `ExtractAll` function, you will need this parameters :
-- `src` : is the source file into a `ioutils.FileProgress` struct to expose an `os.File` pointer with interface `io.WriteTo`, `io.ReadFrom`, `io.ReaderAt` and progress capabilities
-- `originalName` : is a `string` to define the originalName of the archive. This params is used to create a unique file created into the outputPath if the archive is not an archive or just compressed with a not catalogued compress type like gzip or bzip2.
-- `outputPath` : is a `string` to precise the destination output directory (full path). All extracted file will be extracted with this directory as base of path.
-- `defaultDirPerm` : is a `os.FileMode` to precise the permission of directory. This parameters is usefull if the output directory is not existing.
+All functions return an `error` value. Always check and handle errors when working with archives.
 
-You can implement this function as it. This example is available in [`test/test-archive-all`](../test/test-archive-all/main.go) folder.
+---
+
+## Notes
+
+- The archive type is detected by reading the file header.
+- For ZIP archives, random access is required (`io.ReaderAt`).
+- For TAR archives, streaming is supported.
+- Use the `Walk` method (if available) to iterate over archive entries efficiently.
+
+---
+
+For more details, refer to the GoDoc or the source code in `archive/archive`.
+
+---
+
+# `compress` Subpackage
+
+The `compress` subpackage provides utilities to handle compression and decompression of single files or data streams using various algorithms. It supports GZIP, BZIP2, LZ4, XZ, and offers a unified interface for detection, reading, and writing compressed data.
+
+## Features
+
+- Detect compression algorithm from a stream
+- Compress and decompress data using GZIP, BZIP2, LZ4, XZ
+- Unified `Reader` and `Writer` interfaces for all supported algorithms
+- Simple API for marshaling/unmarshaling algorithm types
+- Support for both streaming and random access (when possible)
+
+---
+
+## Supported Algorithms
+
+- `None` (no compression)
+- `Gzip`
+- `Bzip2`
+- `LZ4`
+- `XZ`
+
+---
+
+## Main Types
+
+- **Algorithm**: Enum for supported compression formats
+- **Reader/Writer**: Interfaces for reading from and writing to compressed streams
+
+---
+
+## API Overview
+
+### Detect Compression Algorithm
+
+Detect the compression algorithm from an `io.Reader` and get a compatible decompressor.
+
 ```go
- import (
-	"io"
-	"io/ioutil"
-
-	"github.com/nabbar/golib/archive"
-	"github.com/nabbar/golib/ioutils"
+import (
+    "os"
+    "github.com/nabbar/golib/archive/compress"
 )
 
-const fileName = "fullpath to my archive file"
+file, _ := os.Open("file.txt.gz")
+alg, reader, err := compress.Detect(file)
+if err != nil {
+    // handle error
+}
+defer reader.Close()
+fmt.Println("Compression type:", alg.String())
+```
+
+### Compress Data
+
+Create a compressed file using a specific algorithm.
+
+```go
+import (
+    "os"
+    "github.com/nabbar/golib/archive/compress"
+)
+
+in, _ := os.Open("file.txt")
+out, _ := os.Create("file.txt.gz")
+writer, err := compress.Gzip.Writer(out)
+if err != nil {
+    // handle error
+}
+defer writer.Close()
+_, err = io.Copy(writer, in)
+```
+
+### Decompress Data
+
+Decompress a file using the detected algorithm.
+
+```go
+import (
+    "os"
+    "github.com/nabbar/golib/archive/compress"
+)
+
+in, _ := os.Open("file.txt.gz")
+alg, reader, err := compress.Detect(in)
+if err != nil {
+    // handle error
+}
+defer reader.Close()
+out, _ := os.Create("file.txt")
+_, err = io.Copy(out, reader)
+```
+
+### Parse and Marshal Algorithm
+
+Convert between string and `Algorithm` type.
+
+```go
+alg := compress.Parse("gzip")
+fmt.Println(alg.String()) // Output: gzip
+```
+
+---
+
+## Error Handling
+
+All functions return an `error` value. Always check and handle errors when working with compression streams.
+
+---
+
+## Notes
+
+- The algorithm is detected by reading the file header.
+- For writing, use the `Writer` method of the chosen algorithm.
+- For reading, use the `Reader` method or `Detect` for auto-detection.
+- The package supports both marshaling to/from text and JSON for the `Algorithm` type.
+
+---
+
+For more details, refer to the GoDoc or the source code in `archive/compress`.
+
+---
+
+# `helper` Subpackage
+
+The `helper` subpackage provides advanced utilities to simplify compression and decompression workflows for files and streams. It offers a unified interface to handle both compression and decompression using various algorithms, and can be used as a drop-in `io.ReadWriteCloser` for flexible data processing.
+
+## Features
+
+- Unified `Helper` interface for compressing and decompressing data
+- Supports all algorithms from the `compress` subpackage (GZIP, BZIP2, LZ4, XZ, None)
+- Can be used as a reader or writer, depending on the operation
+- Handles both file and stream sources/destinations
+- Thread-safe buffer management for streaming operations
+- Error handling for invalid sources or operations
+
+---
+
+## Main Types
+
+- **Helper**: Interface implementing `io.ReadWriteCloser` for compression/decompression
+- **Operation**: Enum (`Compress`, `Decompress`) to specify the desired operation
+
+---
+
+## API Overview
+
+### Create a Helper
+
+Create a new helper for compression or decompression, using a specific algorithm and source (reader or writer).
+
+```go
+package main
+
+import (
+    "io"
+    "os"
+    "strings"
+
+    "github.com/nabbar/golib/archive/compress"
+    "github.com/nabbar/golib/archive/helper"
+)
 
 func main() {
-	var (
-		src ioutils.FileProgress
-		tmp ioutils.FileProgress
-		out string
-		err error
-	)
- 
-  // open archive with a ioutils NewFileProgress function 
-	if src, err = ioutils.NewFileProgressPathOpen(fileName); err != nil {
+	// For compression (writing compressed data)
+	out, err := os.Create("file.txt.gz")
+	if err != nil {
+		panic(err)
+	}
+	defer out.Close()
+
+	h, err := helper.NewWriter(compress.Gzip, helper.Compress, out)
+	if err != nil {
+		panic(err)
+	}
+	defer h.Close()
+
+	_, err = io.Copy(h, strings.NewReader("data to compress"))
+	if err != nil {
 		panic(err)
 	}
 
-  // create an new temporary file to use his name as output path
-	if tmp, err = ioutils.NewFileProgressTemp(); err != nil {
-		panic(err)
-	} else {
-    // get the filename of the temporary file
-		out = tmp.FilePath()
-    
-    // close the temporary file will call the delete temporary file
-		_ = tmp.Close()
-	}
-  
-  if err = archive.ExtractAll(src, path.Base(src.FilePath()), out, 0775); err != nil {
+	// For decompression (reading decompressed data)
+	in, err := os.Open("file.txt.gz")
+	if err != nil {
 		panic(err)
 	}
-  
+	defer in.Close()
+
+	h, err = helper.NewReader(compress.Gzip, helper.Decompress, in)
+	if err != nil {
+		panic(err)
+	}
+	defer h.Close()
+
+	_, err = io.Copy(os.Stdout, h)
+	if err != nil {
+		panic(err)
+	}
+
+	// For compression (writing compressed data)
+	out, err := os.Create("file.txt.gz")
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer out.Close()
+
+	h, err := helper.NewWriter(compress.Gzip, helper.Compress, out)
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer h.Close()
+
+	_, err = io.copy(h, strings.NewReader("data to compress"))
+	if err != nil {
+		panic(err)
+	}
+
+	// For decompression (reading decompressed data)
+	in, err := os.Open("file.txt.gz")
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer in.Close()
+
+	h, err = helper.NewReader(compress.Gzip, helper.Decompress, in)
+
+	if err != nil {
+		panic(err)
+	}
+
+	defer h.Close()
+
+	_, err = io.Copy(os.Stdout, h)
+
+	if err != nil {
+		panic(err)
+	}
+
 }
 ```
+
+### Use as Reader or Writer
+
+You can use the helper as a standard `io.Reader`, `io.Writer`, or `io.ReadWriteCloser` depending on the operation.
+
+```go
+// Compress data from a file to another file
+in, _ := os.Open("file.txt")
+out, _ := os.Create("file.txt.gz")
+h, _ := helper.New(compress.Gzip, helper.Compress, out)
+defer h.Close()
+io.Copy(h, in)
+
+// Decompress data from a file to another file
+in, _ := os.Open("file.txt.gz")
+out, _ := os.Create("file.txt")
+h, _ := helper.New(compress.Gzip, helper.Decompress, in)
+defer h.Close()
+io.Copy(out, h)
+```
+
+### Error Handling
+
+All helper constructors and methods return errors. Typical errors include invalid source, closed resource, or invalid operation.
+
+---
+
+## Notes
+
+- The `Helper` interface adapts to the source type: use a `Reader` for decompression, a `Writer` for compression.
+- The `New` function auto-detects the source type and operation.
+- Thread-safe buffers are used internally for streaming and chunked operations.
+- For advanced use, you can directly use `NewReader` or `NewWriter` to specify the direction.
+
+---
+
+For more details, refer to the GoDoc or the source code in `archive/helper`.

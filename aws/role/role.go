@@ -31,22 +31,19 @@ import (
 	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 )
 
-func (cli *client) List() ([]iamtps.Role, error) {
-	out, err := cli.iam.ListRoles(cli.GetContext(), &sdkiam.ListRolesInput{})
-
-	if err != nil {
-		return nil, cli.GetError(err)
-	} else {
-		return out.Roles, nil
-	}
-}
-func (cli *client) Walk(prefix string, fct RoleFunc) error {
+func (cli *client) Walk(prefix string, fct FuncWalkRole) error {
 	var (
 		err error
 		out *sdkiam.ListRolesOutput
 		mrk *string
 		trk = true
 	)
+
+	if fct == nil {
+		fct = func(role iamtps.Role) bool {
+			return false
+		}
+	}
 
 	for trk {
 		in := &sdkiam.ListRolesInput{}
@@ -64,8 +61,8 @@ func (cli *client) Walk(prefix string, fct RoleFunc) error {
 			return cli.GetError(err)
 		}
 
-		for _, role := range out.Roles {
-			if !fct(*role.RoleName) {
+		for i := range out.Roles {
+			if !fct(out.Roles[i]) {
 				return nil
 			}
 		}
@@ -80,45 +77,14 @@ func (cli *client) Walk(prefix string, fct RoleFunc) error {
 	return nil
 }
 
-func (cli *client) detachPoliciesFromRole(roleName string) error {
-	attachedPoliciesOutput, err := cli.iam.ListAttachedRolePolicies(cli.GetContext(),
-		&sdkiam.ListAttachedRolePoliciesInput{
-			RoleName: sdkaws.String(roleName),
-		})
-	if err != nil {
-		return cli.GetError(err)
-	}
-
-	for _, policy := range attachedPoliciesOutput.AttachedPolicies {
-		_, err := cli.iam.DetachRolePolicy(cli.GetContext(),
-			&sdkiam.DetachRolePolicyInput{
-				RoleName:  sdkaws.String(roleName),
-				PolicyArn: policy.PolicyArn,
-			})
-		if err != nil {
-			return cli.GetError(err)
-		}
-	}
-
-	return nil
-}
-
-func (cli *client) DetachRoles(prefix string) ([]string, error) {
-	var detachedRoleNames []string
-	err := cli.Walk(prefix, func(roleName string) bool {
-		if err := cli.detachPoliciesFromRole(roleName); err != nil {
-			return false
-		}
-
-		detachedRoleNames = append(detachedRoleNames, roleName)
-		return true
-	})
+func (cli *client) List() ([]iamtps.Role, error) {
+	out, err := cli.iam.ListRoles(cli.GetContext(), &sdkiam.ListRolesInput{})
 
 	if err != nil {
-		return nil, err
+		return nil, cli.GetError(err)
+	} else {
+		return out.Roles, nil
 	}
-
-	return detachedRoleNames, nil
 }
 
 func (cli *client) Check(name string) (string, error) {

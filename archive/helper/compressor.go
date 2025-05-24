@@ -29,7 +29,26 @@ import (
 	"bytes"
 	"io"
 	"sync/atomic"
+
+	arccmp "github.com/nabbar/golib/archive/compress"
+	iotnwc "github.com/nabbar/golib/ioutils/nopwritecloser"
 )
+
+func makeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err error) {
+	wc, ok := src.(io.WriteCloser)
+
+	if !ok {
+		wc = iotnwc.New(src)
+	}
+
+	if wc, err = algo.Writer(wc); err != nil {
+		return nil, err
+	} else {
+		return &compressWriter{
+			dst: wc,
+		}, nil
+	}
+}
 
 type compressWriter struct {
 	dst io.WriteCloser
@@ -47,7 +66,28 @@ func (o *compressWriter) Close() error {
 	return o.dst.Close()
 }
 
-// compressor handles data compression in chunks.
+func makeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err error) {
+	rc, ok := src.(io.ReadCloser)
+
+	if !ok {
+		rc = io.NopCloser(src)
+	}
+
+	var (
+		buf = bytes.NewBuffer(make([]byte, 0))
+		wrt io.WriteCloser
+	)
+
+	wrt, err = algo.Writer(iotnwc.New(buf))
+
+	return &compressReader{
+		src: rc,
+		wrt: wrt,
+		buf: buf,
+		clo: new(atomic.Bool),
+	}, nil
+}
+
 type compressReader struct {
 	src io.ReadCloser
 	wrt io.WriteCloser

@@ -30,6 +30,7 @@ import (
 	"io"
 )
 
+// Parse is a convenience function to parse a string and return the corresponding Algorithm.
 func Parse(s string) Algorithm {
 	var alg = None
 	if e := alg.UnmarshalText([]byte(s)); e != nil {
@@ -39,6 +40,8 @@ func Parse(s string) Algorithm {
 	}
 }
 
+// Detect is a convenience function to detect the compression algorithm used in
+// the provided io.Reader and return the compression read closer associated.
 func Detect(r io.Reader) (Algorithm, io.ReadCloser, error) {
 	var (
 		err error
@@ -55,6 +58,7 @@ func Detect(r io.Reader) (Algorithm, io.ReadCloser, error) {
 	}
 }
 
+// DetectOnly is a function that detects the compression algorithm used in the provided io.Reader
 func DetectOnly(r io.Reader) (Algorithm, io.ReadCloser, error) {
 	var (
 		err error
