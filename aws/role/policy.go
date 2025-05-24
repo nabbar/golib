@@ -85,12 +85,18 @@ func (cli *client) PolicyAttachedList(roleName, marker string) ([]sdktps.Attache
 	}
 }
 
-func (cli *client) PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) error {
+func (cli *client) PolicyAttachedWalk(roleName string, fct FuncWalkPolicies) error {
 	var m *string
 
 	in := &sdkiam.ListAttachedRolePoliciesInput{
 		RoleName: sdkaws.String(roleName),
 		MaxItems: sdkaws.Int32(1000),
+	}
+
+	if fct == nil {
+		fct = func(pol sdktps.AttachedPolicy) bool {
+			return false
+		}
 	}
 
 	for {
@@ -108,13 +114,10 @@ func (cli *client) PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) err
 			return nil
 		}
 
-		var e error
-		for _, p := range lst.AttachedPolicies {
-			e = fct(e, p)
-		}
-
-		if e != nil {
-			return e
+		for i := range lst.AttachedPolicies {
+			if !fct(lst.AttachedPolicies[i]) {
+				return nil
+			}
 		}
 
 		if lst.IsTruncated && lst.Marker != nil {
@@ -123,4 +126,63 @@ func (cli *client) PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) err
 			return nil
 		}
 	}
+}
+
+func (cli *client) PolicyDetachRoles(prefix string) ([]string, error) {
+	var (
+		e   error
+		err error
+		res = make([]string, 0)
+		fct = func(role sdktps.Role) bool {
+			if role.RoleName == nil || len(*role.RoleName) == 0 {
+				return true
+			} else if role.Arn == nil || len(*role.Arn) == 0 {
+				return true
+			} else if e = cli.detachPolicyDetachRoles(*role.RoleName); e != nil {
+				return false
+			}
+
+			res = append(res, *role.RoleName)
+			return true
+		}
+	)
+
+	err = cli.Walk(prefix, fct)
+
+	if err != nil {
+		return nil, err
+	} else if e != nil {
+		return nil, e
+	} else {
+		return res, nil
+	}
+}
+
+func (cli *client) detachPolicyDetachRoles(roleName string) error {
+	out, err := cli.iam.ListAttachedRolePolicies(cli.GetContext(), &sdkiam.ListAttachedRolePoliciesInput{
+		RoleName: sdkaws.String(roleName),
+	})
+
+	if err != nil {
+		return cli.GetError(err)
+	} else if out == nil || out.AttachedPolicies == nil {
+		return nil
+	}
+
+	for i := range out.AttachedPolicies {
+		if out.AttachedPolicies[i].PolicyArn == nil || len(*out.AttachedPolicies[i].PolicyArn) == 0 {
+			continue
+		}
+
+		_, err = cli.iam.DetachRolePolicy(cli.GetContext(), &sdkiam.DetachRolePolicyInput{
+			RoleName:  sdkaws.String(roleName),
+			PolicyArn: out.AttachedPolicies[i].PolicyArn,
+		})
+
+		if err != nil {
+			return cli.GetError(err)
+		}
+	}
+
+	return nil
 }

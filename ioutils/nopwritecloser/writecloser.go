@@ -23,7 +23,7 @@
  *
  */
 
-package archive
+package nopwritecloser
 
 import "io"
 
