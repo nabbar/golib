@@ -106,6 +106,12 @@ func (cli *client) List() ([]sdkstp.Bucket, error) {
 }
 
 func (cli *client) Walk(f WalkFunc) error {
+	if f == nil {
+		f = func(bucket sdkstp.Bucket) bool {
+			return false
+		}
+	}
+
 	out, err := cli.s3.ListBuckets(cli.GetContext(), nil)
 
 	if err != nil {
@@ -114,15 +120,15 @@ func (cli *client) Walk(f WalkFunc) error {
 		return libhlp.ErrorAwsEmpty.Error(nil)
 	}
 
-	var e error
 	for _, b := range out.Buckets {
 		if b.Name == nil || b.CreationDate == nil || len(*b.Name) < 3 || b.CreationDate.IsZero() {
 			continue
 		}
-		if f != nil {
-			e = f(e, b)
+
+		if !f(b) {
+			return nil
 		}
 	}
 
-	return e
+	return nil
 }

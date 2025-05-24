@@ -86,7 +86,34 @@ func (cli *client) VersionWalkPrefix(prefix string, md WalkFuncMetadata, fv Walk
 		e  error
 		km = sdkaws.String("")
 		mi = sdkaws.String("")
+
+		okm = true
+		fmd = func(md Metadata) bool {
+			return false
+		}
+
+		okv = true
+		fov = func(obj sdktps.ObjectVersion) bool {
+			return false
+		}
+
+		okd = true
+		fod = func(del sdktps.DeleteMarkerEntry) bool {
+			return false
+		}
 	)
+
+	if md != nil {
+		fmd = md
+	}
+
+	if fv != nil {
+		fov = fv
+	}
+
+	if fd != nil {
+		fod = fd
+	}
 
 	for {
 		if len(*km) > 0 && len(*mi) > 0 {
@@ -100,38 +127,44 @@ func (cli *client) VersionWalkPrefix(prefix string, md WalkFuncMetadata, fv Walk
 			return cli.GetError(err)
 		} else if out == nil {
 			return libhlp.ErrorResponse.Error(nil)
-		} else if md != nil {
-			e = md(e, Metadata{
+		} else if okm {
+			okm = fmd(Metadata{
 				Versions:      len(out.Versions),
 				DeleteMarkers: len(out.DeleteMarkers),
 			})
 		}
 
-		for _, o := range out.Versions {
-			if o.Key == nil || len(*o.Key) < 1 {
-				continue
-			} else if o.VersionId == nil || len(*o.VersionId) < 1 {
-				continue
-			}
+		if okv {
+			for _, o := range out.Versions {
+				if !okv {
+					break
+				} else if o.Key == nil || len(*o.Key) < 1 {
+					continue
+				} else if o.VersionId == nil || len(*o.VersionId) < 1 {
+					continue
+				}
 
-			if fv != nil {
-				e = fv(e, o)
-			}
-		}
-
-		for _, o := range out.DeleteMarkers {
-			if o.Key == nil || len(*o.Key) < 1 {
-				continue
-			} else if o.VersionId == nil || len(*o.VersionId) < 1 {
-				continue
-			}
-
-			if fd != nil {
-				e = fd(e, o)
+				okv = fov(o)
 			}
 		}
 
-		if out != nil && out.IsTruncated != nil && *out.IsTruncated {
+		if okd {
+			for _, o := range out.DeleteMarkers {
+				if !okd {
+					break
+				} else if o.Key == nil || len(*o.Key) < 1 {
+					continue
+				} else if o.VersionId == nil || len(*o.VersionId) < 1 {
+					continue
+				}
+
+				okd = fod(o)
+			}
+		}
+
+		if !okm && !okv && !okd {
+			return e
+		} else if out != nil && out.IsTruncated != nil && *out.IsTruncated {
 			km = out.NextKeyMarker
 			mi = out.NextVersionIdMarker
 		} else {

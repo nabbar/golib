@@ -26,39 +26,69 @@
 package policy
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	libhlp "github.com/nabbar/golib/aws/helper"
 )
 
 func (cli *client) List() (map[string]string, error) {
-	out, err := cli.iam.ListPolicies(cli.GetContext(), &iam.ListPoliciesInput{})
+	var (
+		err error
+		res = make(map[string]string)
+		fct = func(pol iamtps.Policy) bool {
+			if pol.PolicyName == nil || len(*pol.PolicyName) == 0 {
+				return true
+			} else if pol.Arn == nil || len(*pol.Arn) == 0 {
+				return true
+			}
 
-	if err != nil {
-		return nil, cli.GetError(err)
-	} else {
-		var res = make(map[string]string)
-
-		for _, p := range out.Policies {
-			res[*p.PolicyName] = *p.Arn
+			res[*pol.PolicyName] = *pol.Arn
+			return true
 		}
+	)
 
-		return res, nil
-	}
+	err = cli.Walk("", fct)
+	return res, err
 }
 
-func (cli *client) Walk(prefix string, fct PolicyFunc) error {
+func (cli *client) GetAllPolicies(prefix string) ([]string, error) {
+	var (
+		err error
+		res = make([]string, 0)
+		fct = func(pol iamtps.Policy) bool {
+			if pol.PolicyName == nil || len(*pol.PolicyName) == 0 {
+				return true
+			} else if pol.Arn == nil || len(*pol.Arn) == 0 {
+				return true
+			}
+
+			res = append(res, *pol.Arn)
+			return true
+		}
+	)
+
+	err = cli.Walk(prefix, fct)
+	return res, err
+}
+
+func (cli *client) Walk(prefix string, fct FuncWalkPolicy) error {
 	var (
 		mrk *string
 		trk = true
 	)
 
+	if fct == nil {
+		fct = func(pol iamtps.Policy) bool {
+			return false
+		}
+	}
+
 	for trk {
-		in := &iam.ListPoliciesInput{}
+		in := &sdkiam.ListPoliciesInput{}
 
 		if len(prefix) > 0 {
-			in.PathPrefix = aws.String(prefix)
+			in.PathPrefix = sdkaws.String(prefix)
 		}
 
 		if mrk != nil && len(*mrk) > 0 {
@@ -70,8 +100,8 @@ func (cli *client) Walk(prefix string, fct PolicyFunc) error {
 			return cli.GetError(err)
 		}
 
-		for _, policy := range out.Policies {
-			if !fct(*policy.Arn) {
+		for i := range out.Policies {
+			if !fct(out.Policies[i]) {
 				return nil
 			}
 		}
@@ -86,23 +116,9 @@ func (cli *client) Walk(prefix string, fct PolicyFunc) error {
 	return nil
 }
 
-func (cli *client) GetAllPolicies(prefix string) ([]string, error) {
-	var policies []string
-
-	err := cli.Walk(prefix, func(policyArn string) bool {
-		policies = append(policies, policyArn)
-		return true
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return policies, nil
-}
-
-func (cli *client) Get(arn string) (*types.Policy, error) {
-	out, err := cli.iam.GetPolicy(cli.GetContext(), &iam.GetPolicyInput{
-		PolicyArn: aws.String(arn),
+func (cli *client) Get(arn string) (*iamtps.Policy, error) {
+	out, err := cli.iam.GetPolicy(cli.GetContext(), &sdkiam.GetPolicyInput{
+		PolicyArn: sdkaws.String(arn),
 	})
 
 	if err != nil {
@@ -115,10 +131,10 @@ func (cli *client) Get(arn string) (*types.Policy, error) {
 }
 
 func (cli *client) Add(name, desc, policy string) (string, error) {
-	out, err := cli.iam.CreatePolicy(cli.GetContext(), &iam.CreatePolicyInput{
-		PolicyName:     aws.String(name),
-		Description:    aws.String(desc),
-		PolicyDocument: aws.String(policy),
+	out, err := cli.iam.CreatePolicy(cli.GetContext(), &sdkiam.CreatePolicyInput{
+		PolicyName:     sdkaws.String(name),
+		Description:    sdkaws.String(desc),
+		PolicyDocument: sdkaws.String(policy),
 	})
 
 	if err != nil {
@@ -130,7 +146,7 @@ func (cli *client) Add(name, desc, policy string) (string, error) {
 
 func (cli *client) Update(polArn, polContents string) error {
 	var (
-		pol *types.Policy
+		pol *iamtps.Policy
 		lst map[string]string
 		err error
 	)
@@ -157,8 +173,8 @@ func (cli *client) Update(polArn, polContents string) error {
 }
 
 func (cli *client) Delete(polArn string) error {
-	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &iam.ListPolicyVersionsInput{
-		PolicyArn: aws.String(polArn),
+	out, err := cli.iam.ListPolicyVersions(cli.GetContext(), &sdkiam.ListPolicyVersionsInput{
+		PolicyArn: sdkaws.String(polArn),
 	})
 
 	if err != nil {
@@ -170,8 +186,8 @@ func (cli *client) Delete(polArn string) error {
 			}
 
 			if !v.IsDefaultVersion {
-				_, _ = cli.iam.DeletePolicyVersion(cli.GetContext(), &iam.DeletePolicyVersionInput{
-					PolicyArn: aws.String(polArn),
+				_, _ = cli.iam.DeletePolicyVersion(cli.GetContext(), &sdkiam.DeletePolicyVersionInput{
+					PolicyArn: sdkaws.String(polArn),
 					VersionId: v.VersionId,
 				})
 			}
@@ -182,8 +198,8 @@ func (cli *client) Delete(polArn string) error {
 		return nil
 	}
 
-	_, err = cli.iam.DeletePolicy(cli.GetContext(), &iam.DeletePolicyInput{
-		PolicyArn: aws.String(polArn),
+	_, err = cli.iam.DeletePolicy(cli.GetContext(), &sdkiam.DeletePolicyInput{
+		PolicyArn: sdkaws.String(polArn),
 	})
 
 	return cli.GetError(err)

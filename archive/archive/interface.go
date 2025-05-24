@@ -85,7 +85,7 @@ func Detect(r io.ReadCloser) (Algorithm, arctps.Reader, io.ReadCloser, error) {
 		if z, e := Zip.Reader(bfr); e != nil {
 			return None, nil, nil, e
 		} else {
-			return Zip, z, r, nil
+			return Zip, z, bfr, nil
 		}
 
 	default:

@@ -40,22 +40,27 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
+type PoliciesWalkFunc func(pol sdktps.AttachedPolicy) bool
+type FuncWalkGroupForUser func(grp sdktps.Group) bool
 type GroupFunc func(group sdktps.Group) bool
+
 type Group interface {
+	WalkGroupForUser(username string, fct FuncWalkGroupForUser) error
 	UserList(username string) ([]string, error)
 	DetachGroups(prefix string) ([]string, error)
 	UserCheck(username, groupName string) (error, bool)
 	UserAdd(username, groupName string) error
 	UserRemove(username, groupName string) error
+
 	Walk(prefix string, fct GroupFunc) error
 	List() (map[string]string, error)
 	Add(groupName string) error
 	Remove(groupName string) error
+
 	PolicyList(groupName string) (map[string]string, error)
 	PolicyAttach(groupName, polArn string) error
 	PolicyDetach(groupName, polArn string) error
-	PolicyAttachedList(groupName, marker string) ([]sdktps.AttachedPolicy, string, error)
+	PolicyAttachedList(groupName string) ([]sdktps.AttachedPolicy, error)
 	PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) error
 }
 

@@ -87,7 +87,25 @@ func (cli *client) WalkPrefix(prefix string, md WalkFuncMetadata, f WalkFunc) er
 	var (
 		e error
 		t = sdkaws.String("")
+
+		om = true
+		fm = func(md Metadata) bool {
+			return false
+		}
+
+		ov = true
+		fo = func(obj sdktps.Object) bool {
+			return false
+		}
 	)
+
+	if md != nil {
+		fm = md
+	}
+
+	if f != nil {
+		fo = f
+	}
 
 	for {
 		if len(*t) > 0 {
@@ -100,23 +118,27 @@ func (cli *client) WalkPrefix(prefix string, md WalkFuncMetadata, f WalkFunc) er
 			return cli.GetError(err)
 		} else if out == nil {
 			return libhlp.ErrorResponse.Error()
-		} else if md != nil {
-			e = md(e, Metadata{
+		} else if om {
+			om = fm(Metadata{
 				Objects: len(out.Contents),
 			})
 		}
 
-		for _, o := range out.Contents {
-			if o.Key == nil || len(*o.Key) < 1 {
-				continue
-			}
+		if ov {
+			for _, o := range out.Contents {
+				if !ov {
+					break
+				} else if o.Key == nil || len(*o.Key) < 1 {
+					continue
+				}
 
-			if f != nil {
-				e = f(e, o)
+				ov = fo(o)
 			}
 		}
 
-		if out != nil && out.IsTruncated != nil && *out.IsTruncated {
+		if !ov && !om {
+			return e
+		} else if out != nil && out.IsTruncated != nil && *out.IsTruncated {
 			t = out.NextContinuationToken
 		} else {
 			return e

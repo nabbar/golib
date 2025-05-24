@@ -40,6 +40,8 @@ type FuncMap func(e error) bool
 type ReturnError func(code int, msg string, file string, line int)
 
 type Error interface {
+	error
+
 	//IsCode check if the given error code is matching with the current Error
 	IsCode(code CodeError) bool
 	//HasCode check if current error or parent has the given error code

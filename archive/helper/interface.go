@@ -26,13 +26,9 @@
 package helper
 
 import (
-	"bytes"
 	"errors"
 	"io"
-	"sync"
-	"sync/atomic"
 
-	libarc "github.com/nabbar/golib/archive"
 	arccmp "github.com/nabbar/golib/archive/compress"
 )
 
@@ -48,6 +44,10 @@ type Helper interface {
 	io.ReadWriteCloser
 }
 
+// New creates a new Helper instance based on the provided algorithm, operation, and source.
+// Algo is the compression algorithm to use, which can be one of the predefined algorithms in the arccmp package.
+// Operation defines the type of operation to perform with the archive helper. It can be either Compress or Decompress.
+// The source can be an io.Reader for reading or an io.Writer for writing.
 func New(algo arccmp.Algorithm, ope Operation, src any) (h Helper, err error) {
 	if r, k := src.(io.Reader); k {
 		return NewReader(algo, ope, r)
@@ -58,6 +58,9 @@ func New(algo arccmp.Algorithm, ope Operation, src any) (h Helper, err error) {
 	return nil, ErrInvalidSource
 }
 
+// NewReader creates a new Helper instance for reading data from the provided io.Reader.
+// It uses the specified compression algorithm and operation type (Compress or Decompress).
+// The returned Helper can be used to read compressed or decompressed data based on the operation specified.
 func NewReader(algo arccmp.Algorithm, ope Operation, src io.Reader) (Helper, error) {
 	switch ope {
 	case Compress:
@@ -69,6 +72,9 @@ func NewReader(algo arccmp.Algorithm, ope Operation, src io.Reader) (Helper, err
 	return nil, ErrInvalidOperation
 }
 
+// NewWriter creates a new Helper instance for writing data to the provided io.Writer.
+// It uses the specified compression algorithm and operation type (Compress or Decompress).
+// The returned Helper can be used to write compressed or decompressed data based on the operation specified.
 func NewWriter(algo arccmp.Algorithm, ope Operation, dst io.Writer) (Helper, error) {
 	switch ope {
 	case Compress:
@@ -78,78 +84,4 @@ func NewWriter(algo arccmp.Algorithm, ope Operation, dst io.Writer) (Helper, err
 	}
 
 	return nil, ErrInvalidOperation
-}
-
-func makeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err error) {
-	wc, ok := src.(io.WriteCloser)
-
-	if !ok {
-		wc = libarc.NopWriteCloser(src)
-	}
-
-	if wc, err = algo.Writer(wc); err != nil {
-		return nil, err
-	} else {
-		return &compressWriter{
-			dst: wc,
-		}, nil
-	}
-}
-
-func makeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err error) {
-	rc, ok := src.(io.ReadCloser)
-
-	if !ok {
-		rc = io.NopCloser(src)
-	}
-
-	var (
-		buf = bytes.NewBuffer(make([]byte, 0))
-		wrt io.WriteCloser
-	)
-
-	wrt, err = algo.Writer(libarc.NopWriteCloser(buf))
-
-	return &compressReader{
-		src: rc,
-		wrt: wrt,
-		buf: buf,
-		clo: new(atomic.Bool),
-	}, nil
-}
-
-func makeDeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err error) {
-	rc, ok := src.(io.ReadCloser)
-
-	if !ok {
-		rc = io.NopCloser(src)
-	}
-
-	if rc, err = algo.Reader(rc); err != nil {
-		return nil, err
-	} else {
-		return &deCompressReader{
-			src: rc,
-		}, nil
-	}
-}
-
-func makeDeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err error) {
-	wc, ok := src.(io.WriteCloser)
-
-	if !ok {
-		wc = libarc.NopWriteCloser(src)
-	}
-
-	return &deCompressWriter{
-		alg: algo,
-		wrt: wc,
-		buf: &bufNoEOF{
-			m: sync.Mutex{},
-			b: bytes.NewBuffer(make([]byte, 0)),
-			c: new(atomic.Bool),
-		},
-		clo: new(atomic.Bool),
-		run: new(atomic.Bool),
-	}, nil
 }

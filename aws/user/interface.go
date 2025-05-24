@@ -40,27 +40,32 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
-type UserFunc func(user sdktps.User) bool
+type FuncWalkPolicies func(pol sdktps.AttachedPolicy) bool
+type FuncWalkUsers func(user sdktps.User) bool
+
 type User interface {
 	List() (map[string]string, error)
+	Walk(prefix string, fct FuncWalkUsers) error
+
 	Get(username string) (*sdktps.User, error)
 	Create(username string) error
 	Delete(username string) error
+
 	PolicyPut(policyDocument, policyName, username string) error
 	PolicyAttach(policyARN, username string) error
 	PolicyDetach(policyARN, username string) error
-	PolicyAttachedList(username, marker string) ([]sdktps.AttachedPolicy, string, error)
-	PolicyAttachedWalk(username string, fct PoliciesWalkFunc) error
+	PolicyAttachedList(username string) ([]sdktps.AttachedPolicy, error)
+	PolicyAttachedWalk(username string, fct FuncWalkPolicies) error
+	PolicyDetachUsers(prefix string) ([]string, error)
+
 	LoginCheck(username string) error
 	LoginCreate(username, password string) error
 	LoginDelete(username string) error
+
 	AccessListAll(username string) ([]sdktps.AccessKeyMetadata, error)
 	AccessList(username string) (map[string]bool, error)
 	AccessCreate(username string) (string, string, error)
 	AccessDelete(username, accessKey string) error
-	Walk(prefix string, fct UserFunc) error
-	DetachUsers(prefix string) ([]string, error)
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) User {

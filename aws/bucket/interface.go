@@ -40,7 +40,7 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type WalkFunc func(err error, bucket sdkstp.Bucket) error
+type WalkFunc func(bucket sdkstp.Bucket) bool
 
 type Bucket interface {
 	Check() error
