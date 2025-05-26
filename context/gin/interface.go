@@ -31,7 +31,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	ginsdk "github.com/gin-gonic/gin"
 	liblog "github.com/nabbar/golib/logger"
 )
 
@@ -39,7 +39,7 @@ type GinTonic interface {
 	context.Context
 
 	//generic
-	GinContext() *gin.Context
+	GinContext() *ginsdk.Context
 	CancelOnSignal(s ...os.Signal)
 
 	//gin context metadata
@@ -59,4 +59,35 @@ type GinTonic interface {
 	GetStringMapStringSlice(key string) (smss map[string][]string)
 
 	SetLogger(log liblog.FuncLog)
+}
+
+func New(c *ginsdk.Context, log liblog.FuncLog) GinTonic {
+	if c == nil {
+		c = &ginsdk.Context{
+			Request:  nil,
+			Writer:   nil,
+			Params:   make(ginsdk.Params, 0),
+			Keys:     make(map[string]interface{}),
+			Errors:   make([]*ginsdk.Error, 0),
+			Accepted: make([]string, 0),
+		}
+	}
+
+	var (
+		x context.Context
+		l context.CancelFunc
+	)
+
+	if c.Request != nil && c.Request.Context() != nil {
+		x, l = context.WithCancel(c.Request.Context())
+	} else {
+		x, l = context.WithCancel(c)
+	}
+
+	return &ctxGinTonic{
+		l: log,
+		g: c,
+		x: x,
+		c: l,
+	}
 }

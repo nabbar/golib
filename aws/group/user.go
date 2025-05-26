@@ -28,6 +28,8 @@ package group
 import (
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	libhlp "github.com/nabbar/golib/aws/helper"
 )
 
 func (cli *client) UserCheck(username, groupName string) (error, bool) {
@@ -49,21 +51,44 @@ func (cli *client) UserCheck(username, groupName string) (error, bool) {
 }
 
 func (cli *client) UserList(username string) ([]string, error) {
+	var (
+		res = make([]string, 0)
+		fct = func(grp types.Group) bool {
+			if grp.GroupName != nil && len(*grp.GroupName) > 3 {
+				res = append(res, *grp.GroupName)
+			}
+			return true
+		}
+	)
+
+	err := cli.WalkGroupForUser(username, fct)
+	return res, err
+}
+
+func (cli *client) WalkGroupForUser(username string, fct FuncWalkGroupForUser) error {
 	out, err := cli.iam.ListGroupsForUser(cli.GetContext(), &sdkiam.ListGroupsForUserInput{
 		UserName: sdkaws.String(username),
 	})
 
-	if err != nil {
-		return nil, cli.GetError(err)
-	} else {
-		var res = make([]string, 0)
-
-		for _, g := range out.Groups {
-			res = append(res, *g.GroupName)
+	if fct == nil {
+		fct = func(grp types.Group) bool {
+			return false
 		}
-
-		return res, nil
 	}
+
+	if err != nil {
+		return cli.GetError(err)
+	} else if out == nil {
+		return libhlp.ErrorAwsEmpty.Error(nil)
+	} else {
+		for i := range out.Groups {
+			if !fct(out.Groups[i]) {
+				return nil
+			}
+		}
+	}
+
+	return nil
 }
 
 func (cli *client) UserAdd(username, groupName string) error {

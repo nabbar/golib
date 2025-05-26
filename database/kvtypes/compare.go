@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2019 Nicolas JUHEL
+ * Copyright (c) 2023 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,53 +21,55 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
+ *
  */
 
-package ioutils
+package kvtypes
 
-import "io"
+type CompareEqual[K comparable] func(ref, part K) bool
+type CompareContains[K comparable] func(ref, part K) bool
+type CompareEmpty[K comparable] func(part K) bool
 
-type IOWrapper struct {
-	iow   interface{}
-	read  func(p []byte) []byte
-	write func(p []byte) []byte
+type Compare[K comparable] interface {
+	IsEqual(ref, part K) bool
+	IsContains(ref, part K) bool
+	IsEmpty(part K) bool
 }
 
-func NewIOWrapper(ioInput interface{}) *IOWrapper {
-	return &IOWrapper{
-		iow: ioInput,
+func NewCompare[K comparable](eq CompareEqual[K], cn CompareContains[K], em CompareEmpty[K]) Compare[K] {
+	return &cmp[K]{
+		feq: eq,
+		fcn: cn,
+		fem: em,
 	}
 }
 
-func (w *IOWrapper) SetWrapper(read func(p []byte) []byte, write func(p []byte) []byte) {
-	if read != nil {
-		w.read = read
-	}
-	if write != nil {
-		w.write = write
-	}
+type cmp[K comparable] struct {
+	feq CompareEqual[K]
+	fcn CompareContains[K]
+	fem CompareEmpty[K]
 }
 
-func (w IOWrapper) Read(p []byte) (n int, err error) {
-	if w.read != nil {
-		return w.iow.(io.Reader).Read(w.read(p))
+func (o *cmp[K]) IsEqual(ref, part K) bool {
+	if o == nil || o.feq == nil {
+		return false
 	}
 
-	return w.iow.(io.Reader).Read(p)
+	return o.feq(ref, part)
 }
 
-func (w IOWrapper) Write(p []byte) (n int, err error) {
-	if w.write != nil {
-		return w.iow.(io.Writer).Write(w.write(p))
+func (o *cmp[K]) IsContains(ref, part K) bool {
+	if o == nil || o.fcn == nil {
+		return false
 	}
 
-	return w.iow.(io.Writer).Write(p)
+	return o.fcn(ref, part)
 }
 
-func (w IOWrapper) Seek(offset int64, whence int) (int64, error) {
-	return w.iow.(io.Seeker).Seek(offset, whence)
-}
+func (o *cmp[K]) IsEmpty(part K) bool {
+	if o == nil || o.fem == nil {
+		return false
+	}
 
-func (w IOWrapper) Close() error {
-	return w.iow.(io.Closer).Close()
+	return o.fem(part)
 }

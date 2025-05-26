@@ -50,10 +50,10 @@ type Metadata struct {
 	DeleteMarkers int
 }
 
-type WalkFunc func(err error, obj sdktps.Object) error
-type WalkFuncMetadata func(err error, md Metadata) error
-type WalkFuncVersion func(err error, obj sdktps.ObjectVersion) error
-type WalkFuncDelMak func(err error, del sdktps.DeleteMarkerEntry) error
+type WalkFunc func(obj sdktps.Object) bool
+type WalkFuncMetadata func(md Metadata) bool
+type WalkFuncVersion func(obj sdktps.ObjectVersion) bool
+type WalkFuncDelMak func(del sdktps.DeleteMarkerEntry) bool
 
 type Object interface {
 	Find(regex string) ([]string, error)

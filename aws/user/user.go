@@ -26,71 +26,33 @@
 package user
 
 import (
-	"fmt"
-
 	sdkaws "github.com/aws/aws-sdk-go-v2/aws"
 	sdkiam "github.com/aws/aws-sdk-go-v2/service/iam"
-	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	iamtps "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	awshlp "github.com/nabbar/golib/aws/helper"
 )
 
 func (cli *client) List() (map[string]string, error) {
-	out, err := cli.iam.ListUsers(cli.GetContext(), &sdkiam.ListUsersInput{})
+	var (
+		err error
+		res = make(map[string]string, 0)
+		fct = func(user iamtps.User) bool {
+			if user.UserName == nil || len(*user.UserName) == 0 {
+				return true
+			} else if user.UserId == nil || len(*user.UserId) == 0 {
+				return true
+			}
 
-	if err != nil {
-		return nil, cli.GetError(err)
-	} else if out.Users == nil {
-		return nil, awshlp.ErrorResponse.Error(nil)
-	} else {
-		var res = make(map[string]string)
-
-		for _, u := range out.Users {
-			res[*u.UserId] = *u.UserName
+			res[*user.UserName] = *user.UserId
+			return true
 		}
+	)
 
-		return res, nil
-	}
-}
-func (cli *client) detachUserFromGroupsAndPolicies(username string) error {
-	groups, err := cli.iam.ListGroupsForUser(cli.GetContext(), &sdkiam.ListGroupsForUserInput{
-		UserName: sdkaws.String(username),
-	})
-	if err != nil {
-		return cli.GetError(err)
-	}
-
-	for _, group := range groups.Groups {
-		_, err := cli.iam.RemoveUserFromGroup(cli.GetContext(), &sdkiam.RemoveUserFromGroupInput{
-			UserName:  sdkaws.String(username),
-			GroupName: group.GroupName,
-		})
-		if err != nil {
-			return cli.GetError(err)
-		}
-	}
-
-	attachedPoliciesOutput, err := cli.iam.ListAttachedUserPolicies(cli.GetContext(), &sdkiam.ListAttachedUserPoliciesInput{
-		UserName: sdkaws.String(username),
-	})
-	if err != nil {
-		return cli.GetError(err)
-	}
-
-	for _, policy := range attachedPoliciesOutput.AttachedPolicies {
-		_, err := cli.iam.DetachUserPolicy(cli.GetContext(), &sdkiam.DetachUserPolicyInput{
-			UserName:  sdkaws.String(username),
-			PolicyArn: policy.PolicyArn,
-		})
-		if err != nil {
-			return cli.GetError(err)
-		}
-	}
-
-	return nil
+	err = cli.Walk("", fct)
+	return res, err
 }
 
-func (cli *client) Walk(prefix string, fct UserFunc) error {
+func (cli *client) Walk(prefix string, fct FuncWalkUsers) error {
 	var (
 		err error
 		out *sdkiam.ListUsersOutput
@@ -98,11 +60,19 @@ func (cli *client) Walk(prefix string, fct UserFunc) error {
 		trk = true
 	)
 
+	if fct == nil {
+		fct = func(user iamtps.User) bool {
+			return false
+		}
+	}
+
 	for trk {
 		var in = &sdkiam.ListUsersInput{}
+
 		if len(prefix) > 0 {
 			in.PathPrefix = sdkaws.String(prefix)
 		}
+
 		if mrk != nil && len(*mrk) > 0 {
 			in.Marker = mrk
 		}
@@ -118,8 +88,8 @@ func (cli *client) Walk(prefix string, fct UserFunc) error {
 			mrk = nil
 		}
 
-		for _, u := range out.Users {
-			if !fct(u) {
+		for i := range out.Users {
+			if !fct(out.Users[i]) {
 				return nil
 			}
 		}
@@ -130,25 +100,6 @@ func (cli *client) Walk(prefix string, fct UserFunc) error {
 		}
 	}
 	return nil
-}
-
-func (cli *client) DetachUsers(prefix string) ([]string, error) {
-	var detachedUsernames []string
-
-	err := cli.Walk(prefix, func(user types.User) bool {
-		if err := cli.detachUserFromGroupsAndPolicies(*user.UserName); err != nil {
-			fmt.Println(err)
-			return false
-		}
-		detachedUsernames = append(detachedUsernames, *user.UserName)
-		return true
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return detachedUsernames, nil
 }
 
 func (cli *client) Get(username string) (*iamtps.User, error) {

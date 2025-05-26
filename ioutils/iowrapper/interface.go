@@ -23,22 +23,30 @@
  *
  */
 
-package archive
+package iowrapper
 
 import "io"
 
-func NopWriteCloser(w io.Writer) io.WriteCloser {
-	return &wrp{w: w}
+type FuncRead func(p []byte) []byte
+type FuncWrite func(p []byte) []byte
+type FuncSeek func(offset int64, whence int) (int64, error)
+type FuncClose func() error
+
+// IOWrapper is an interface that wraps basic I/O operations.
+type IOWrapper interface {
+	io.Reader
+	io.Writer
+	io.Seeker
+	io.Closer
+
+	SetRead(read FuncRead)
+	SetWrite(write FuncWrite)
+	SetSeek(seek FuncSeek)
+	SetClose(close FuncClose)
 }
 
-type wrp struct {
-	w io.Writer
-}
-
-func (o *wrp) Write(p []byte) (n int, err error) {
-	return o.w.Write(p)
-}
-
-func (o *wrp) Close() error {
-	return nil
+func New(in any) IOWrapper {
+	return &iow{
+		i: in,
+	}
 }

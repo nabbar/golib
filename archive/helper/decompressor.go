@@ -34,7 +34,24 @@ import (
 	"time"
 
 	arccmp "github.com/nabbar/golib/archive/compress"
+	iotnwc "github.com/nabbar/golib/ioutils/nopwritecloser"
 )
+
+func makeDeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err error) {
+	rc, ok := src.(io.ReadCloser)
+
+	if !ok {
+		rc = io.NopCloser(src)
+	}
+
+	if rc, err = algo.Reader(rc); err != nil {
+		return nil, err
+	} else {
+		return &deCompressReader{
+			src: rc,
+		}, nil
+	}
+}
 
 const workBufSizeDeCompressWrite = 32 * 1024 // 32kB for buffer
 
@@ -127,6 +144,26 @@ func (o *bufNoEOF) writeBuff(p []byte) (n int, err error) {
 	o.m.Lock()
 	defer o.m.Unlock()
 	return o.b.Write(p)
+}
+
+func makeDeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err error) {
+	wc, ok := src.(io.WriteCloser)
+
+	if !ok {
+		wc = iotnwc.New(src)
+	}
+
+	return &deCompressWriter{
+		alg: algo,
+		wrt: wc,
+		buf: &bufNoEOF{
+			m: sync.Mutex{},
+			b: bytes.NewBuffer(make([]byte, 0)),
+			c: new(atomic.Bool),
+		},
+		clo: new(atomic.Bool),
+		run: new(atomic.Bool),
+	}, nil
 }
 
 type deCompressWriter struct {

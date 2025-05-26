@@ -40,20 +40,22 @@ type client struct {
 	s3  *sdksss.Client
 }
 
-type PoliciesWalkFunc func(err error, pol sdktps.AttachedPolicy) error
-type RoleFunc func(roleName string) bool
+type FuncWalkPolicies func(pol sdktps.AttachedPolicy) bool
+type FuncWalkRole func(role sdktps.Role) bool
+
 type Role interface {
+	Walk(prefix string, fct FuncWalkRole) error
 	List() ([]sdktps.Role, error)
 	Check(name string) (string, error)
 	Add(name, role string) (string, error)
 	Delete(roleName string) error
+
 	PolicyAttach(policyARN, roleName string) error
 	PolicyDetach(policyARN, roleName string) error
 	PolicyListAttached(roleName string) ([]sdktps.AttachedPolicy, error)
 	PolicyAttachedList(roleName, marker string) ([]sdktps.AttachedPolicy, string, error)
-	PolicyAttachedWalk(roleName string, fct PoliciesWalkFunc) error
-	Walk(prefix string, fct RoleFunc) error
-	DetachRoles(prefix string) ([]string, error)
+	PolicyAttachedWalk(roleName string, fct FuncWalkPolicies) error
+	PolicyDetachRoles(prefix string) ([]string, error)
 }
 
 func New(ctx context.Context, bucket, region string, iam *sdkiam.Client, s3 *sdksss.Client) Role {

@@ -32,19 +32,24 @@ import (
 )
 
 func (cli *client) PolicyList(groupName string) (map[string]string, error) {
-	out, _, err := cli.PolicyAttachedList(groupName, "")
+	var (
+		err error
+		res = make(map[string]string, 0)
+		fct = func(pol sdktps.AttachedPolicy) bool {
+			if pol.PolicyArn == nil || len(*pol.PolicyArn) == 0 {
+				return true
+			} else if pol.PolicyName == nil || len(*pol.PolicyName) == 0 {
+				return true
+			} else {
+				res[*pol.PolicyName] = *pol.PolicyArn
+			}
 
-	if err != nil {
-		return nil, err
-	} else {
-		var res = make(map[string]string)
-
-		for _, p := range out {
-			res[*p.PolicyName] = *p.PolicyArn
+			return true
 		}
+	)
 
-		return res, nil
-	}
+	err = cli.PolicyAttachedWalk(groupName, fct)
+	return res, err
 }
 
 func (cli *client) PolicyAttach(groupName, polArn string) error {
@@ -65,27 +70,19 @@ func (cli *client) PolicyDetach(groupName, polArn string) error {
 	return cli.GetError(err)
 }
 
-func (cli *client) PolicyAttachedList(groupName, marker string) ([]sdktps.AttachedPolicy, string, error) {
-	in := &sdkiam.ListAttachedGroupPoliciesInput{
-		GroupName: sdkaws.String(groupName),
-		MaxItems:  sdkaws.Int32(1000),
-	}
+func (cli *client) PolicyAttachedList(groupName string) ([]sdktps.AttachedPolicy, error) {
+	var (
+		err error
+		res = make([]sdktps.AttachedPolicy, 0)
+		fct = func(pol sdktps.AttachedPolicy) bool {
+			res = append(res, pol)
+			return true
+		}
+	)
 
-	if marker != "" {
-		in.Marker = sdkaws.String(marker)
-	}
+	err = cli.PolicyAttachedWalk(groupName, fct)
 
-	lst, err := cli.iam.ListAttachedGroupPolicies(cli.GetContext(), in)
-
-	if err != nil {
-		return nil, "", cli.GetError(err)
-	} else if lst == nil || lst.AttachedPolicies == nil {
-		return nil, "", nil
-	} else if lst.IsTruncated && lst.Marker != nil {
-		return lst.AttachedPolicies, *lst.Marker, nil
-	} else {
-		return lst.AttachedPolicies, "", nil
-	}
+	return res, err
 }
 
 func (cli *client) PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) error {
@@ -94,6 +91,12 @@ func (cli *client) PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) er
 	in := &sdkiam.ListAttachedGroupPoliciesInput{
 		GroupName: sdkaws.String(groupName),
 		MaxItems:  sdkaws.Int32(1000),
+	}
+
+	if fct == nil {
+		fct = func(pol sdktps.AttachedPolicy) bool {
+			return false
+		}
 	}
 
 	for {
@@ -111,13 +114,10 @@ func (cli *client) PolicyAttachedWalk(groupName string, fct PoliciesWalkFunc) er
 			return nil
 		}
 
-		var e error
-		for _, p := range lst.AttachedPolicies {
-			e = fct(e, p)
-		}
-
-		if e != nil {
-			return e
+		for i := range lst.AttachedPolicies {
+			if !fct(lst.AttachedPolicies[i]) {
+				return nil
+			}
 		}
 
 		if lst.IsTruncated && lst.Marker != nil {
