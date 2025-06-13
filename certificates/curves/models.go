@@ -63,7 +63,7 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 		}
 
 		// Check if the target type matches the expected one
-		if to.Kind() != reflect.Uint16 {
+		if reflect.TypeOf(z) != to {
 			return data, nil
 		}
 

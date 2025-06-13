@@ -67,6 +67,7 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 			z = &mod{
 				c: make([]*x509.Certificate, 0),
 			}
+			y Cert
 			t string
 			k bool
 		)
@@ -79,7 +80,7 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 		}
 
 		// Check if the target type matches the expected one
-		if to.Kind() != reflect.Interface {
+		if reflect.TypeOf(y) != to {
 			return data, nil
 		}
 

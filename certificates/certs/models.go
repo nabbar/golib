@@ -83,7 +83,12 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 		var (
 			ok bool
 			z  = &Certif{c: tls.Certificate{}}
+			y  Cert
 		)
+
+		if reflect.TypeOf(y) != to {
+			return data, nil
+		}
 
 		if _, ok = data.(map[string]interface{}); ok {
 			if p, e := json.Marshal(data); e != nil {
