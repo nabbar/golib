@@ -30,6 +30,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/go-ldap/ldap/v3"
@@ -547,37 +548,64 @@ func (lc *HelperLDAP) UserInfoByField(username string, fieldOfUnicValue string) 
 func (lc *HelperLDAP) GroupInfo(groupname string) (map[string]interface{}, liberr.Error) {
 	return lc.GroupInfoByField(groupname, groupFieldCN)
 }
-func (lc *HelperLDAP) AttributeFilter(search string,
-	filter string, attribute string) (map[string][]string,
-	liberr.Error) {
 
+func (lc *HelperLDAP) AttributeFilter(search string, filter string, allAttribute bool, attribute ...string) (map[string]map[string]string, liberr.Error) {
 	var (
 		err     liberr.Error
 		src     *ldap.SearchResult
-		grpInfo map[string][]string
+		grpInfo = make(map[string]map[string]string, 0)
 	)
 
-	src, err = lc.runSearch(fmt.Sprintf("(&(objectClass~=groupOfNames)(%s=%s))", filter, search), []string{})
+	if !slices.Contains(attribute, "cn") {
+		attribute = append(append(make([]string, 0, len(attribute)+1), "cn"), attribute...)
+	}
+
+	if len(filter) > 0 && len(search) > 0 {
+		src, err = lc.runSearch(fmt.Sprintf("(&(objectClass~=groupOfNames)(%s=%s))", filter, search), attribute)
+	} else {
+		src, err = lc.runSearch("(&(objectClass~=groupOfNames))", attribute)
+	}
 
 	if err != nil {
 		return grpInfo, err
-	}
-
-	if len(src.Entries) == 0 {
+	} else if len(src.Entries) == 0 {
 		return nil, ErrorLDAPGroupNotFound.Error(nil)
 	}
 
-	grpInfo = make(map[string][]string, len(src.Entries))
+	for i := range src.Entries {
+		if src.Entries[i] == nil {
+			continue
+		} else if len(src.Entries[i].Attributes) < 1 {
+			continue
+		}
 
-	for _, entry := range src.Entries {
-		for _, entryAttribute := range entry.Attributes {
-			if entryAttribute.Name == attribute {
-				grpInfo[entryAttribute.Name] = append(grpInfo[entryAttribute.Name], entryAttribute.Values...)
+		var g = make(map[string]string, 0)
+
+		for j := range src.Entries[i].Attributes {
+			if src.Entries[i].Attributes[j] == nil {
+				continue
+			} else if len(src.Entries[i].Attributes[j].Name) < 1 {
+				continue
+			} else if len(src.Entries[i].Attributes[j].Values) < 1 {
+				continue
+			} else if slices.Contains(attribute, src.Entries[i].Attributes[j].Name) {
+				g[src.Entries[i].Attributes[j].Name] = strings.Join(src.Entries[i].Attributes[j].Values, " ")
 			}
+		}
+
+		if len(g) < 1 {
+			continue
+		} else if allAttribute && len(g) != len(attribute) {
+			continue
+		}
+
+		if _, k := g["cn"]; k {
+			grpInfo[g["cn"]] = g
+			continue
 		}
 	}
 
-	lc.getLogEntry(loglvl.DebugLevel, "ldap group find success").FieldAdd("ldap.group", search).FieldAdd("ldap.map", grpInfo).Log()
+	lc.getLogEntry(loglvl.DebugLevel, "ldap group find success").FieldAdd("ldap.group", search).FieldAdd("ldap.attributes", strings.Join(attribute, ",")).FieldAdd("ldap.result.len", len(grpInfo)).Log()
 	return grpInfo, nil
 }
 
