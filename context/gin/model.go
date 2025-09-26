@@ -48,7 +48,7 @@ func (c *ctxGinTonic) SetLogger(fct liblog.FuncLog) {
 	c.l = fct
 }
 
-func (c *ctxGinTonic) log(lvl loglvl.Level, msg string, args ...interface{}) {
+func (c *ctxGinTonic) log(lvl loglvl.Level, msg string, args ...any) {
 	if c.l != nil {
 		c.l().Entry(lvl, msg, args...).Log()
 	} else {
@@ -89,7 +89,7 @@ func (c *ctxGinTonic) Err() error {
 	return c.x.Err()
 }
 
-func (c *ctxGinTonic) Value(key interface{}) interface{} {
+func (c *ctxGinTonic) Value(key any) any {
 	return c.g.Value(key)
 }
 
@@ -97,58 +97,58 @@ func (c *ctxGinTonic) GinContext() *ginsdk.Context {
 	return c.g
 }
 
-func (c *ctxGinTonic) Set(key string, value interface{}) {
+func (c *ctxGinTonic) Set(key any, value any) {
 	c.g.Set(key, value)
 }
 
-func (c *ctxGinTonic) Get(key string) (value interface{}, exists bool) {
+func (c *ctxGinTonic) Get(key any) (value any, exists bool) {
 	return c.g.Get(key)
 }
 
-func (c *ctxGinTonic) MustGet(key string) interface{} {
+func (c *ctxGinTonic) MustGet(key any) any {
 	return c.g.MustGet(key)
 }
 
-func (c *ctxGinTonic) GetString(key string) (s string) {
+func (c *ctxGinTonic) GetString(key any) (s string) {
 	return c.g.GetString(key)
 }
 
-func (c *ctxGinTonic) GetBool(key string) (b bool) {
+func (c *ctxGinTonic) GetBool(key any) (b bool) {
 	return c.g.GetBool(key)
 }
 
-func (c *ctxGinTonic) GetInt(key string) (i int) {
+func (c *ctxGinTonic) GetInt(key any) (i int) {
 	return c.g.GetInt(key)
 }
 
-func (c *ctxGinTonic) GetInt64(key string) (i64 int64) {
+func (c *ctxGinTonic) GetInt64(key any) (i64 int64) {
 	return c.g.GetInt64(key)
 }
 
-func (c *ctxGinTonic) GetFloat64(key string) (f64 float64) {
+func (c *ctxGinTonic) GetFloat64(key any) (f64 float64) {
 	return c.g.GetFloat64(key)
 }
 
-func (c *ctxGinTonic) GetTime(key string) (t time.Time) {
+func (c *ctxGinTonic) GetTime(key any) (t time.Time) {
 	return c.g.GetTime(key)
 }
 
-func (c *ctxGinTonic) GetDuration(key string) (d time.Duration) {
+func (c *ctxGinTonic) GetDuration(key any) (d time.Duration) {
 	return c.g.GetDuration(key)
 }
 
-func (c *ctxGinTonic) GetStringSlice(key string) (ss []string) {
+func (c *ctxGinTonic) GetStringSlice(key any) (ss []string) {
 	return c.g.GetStringSlice(key)
 }
 
-func (c *ctxGinTonic) GetStringMap(key string) (sm map[string]interface{}) {
+func (c *ctxGinTonic) GetStringMap(key any) (sm map[string]any) {
 	return c.g.GetStringMap(key)
 }
 
-func (c *ctxGinTonic) GetStringMapString(key string) (sms map[string]string) {
+func (c *ctxGinTonic) GetStringMapString(key any) (sms map[string]string) {
 	return c.g.GetStringMapString(key)
 }
 
-func (c *ctxGinTonic) GetStringMapStringSlice(key string) (smss map[string][]string) {
+func (c *ctxGinTonic) GetStringMapStringSlice(key any) (smss map[string][]string) {
 	return c.g.GetStringMapStringSlice(key)
 }

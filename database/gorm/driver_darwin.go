@@ -32,7 +32,6 @@ package gorm
 import (
 	"strings"
 
-	drvclk "gorm.io/driver/clickhouse"
 	drvmys "gorm.io/driver/mysql"
 	drvpsq "gorm.io/driver/postgres"
 	drvsrv "gorm.io/driver/sqlserver"
@@ -44,7 +43,6 @@ const (
 	DriverMysql      = "mysql"
 	DriverPostgreSQL = "psql"
 	DriverSQLServer  = "sqlserver"
-	DriverClikHouse  = "clickhouse"
 )
 
 type Driver string
@@ -60,9 +58,6 @@ func DriverFromString(drv string) Driver {
 
 	case strings.ToLower(DriverSQLServer):
 		return DriverSQLServer
-
-	case strings.ToLower(DriverClikHouse):
-		return DriverClikHouse
 
 	default:
 		return DriverNone
@@ -84,9 +79,6 @@ func (d Driver) Dialector(dsn string) gormdb.Dialector {
 
 	case DriverSQLServer:
 		return drvsrv.Open(dsn)
-
-	case DriverClikHouse:
-		return drvclk.Open(dsn)
 
 	default:
 		return nil

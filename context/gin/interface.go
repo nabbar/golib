@@ -43,20 +43,20 @@ type GinTonic interface {
 	CancelOnSignal(s ...os.Signal)
 
 	//gin context metadata
-	Set(key string, value interface{})
-	Get(key string) (value interface{}, exists bool)
-	MustGet(key string) interface{}
-	GetString(key string) (s string)
-	GetBool(key string) (b bool)
-	GetInt(key string) (i int)
-	GetInt64(key string) (i64 int64)
-	GetFloat64(key string) (f64 float64)
-	GetTime(key string) (t time.Time)
-	GetDuration(key string) (d time.Duration)
-	GetStringSlice(key string) (ss []string)
-	GetStringMap(key string) (sm map[string]interface{})
-	GetStringMapString(key string) (sms map[string]string)
-	GetStringMapStringSlice(key string) (smss map[string][]string)
+	Set(key any, value any)
+	Get(key any) (value any, exists bool)
+	MustGet(key any) any
+	GetString(key any) (s string)
+	GetBool(key any) (b bool)
+	GetInt(key any) (i int)
+	GetInt64(key any) (i64 int64)
+	GetFloat64(key any) (f64 float64)
+	GetTime(key any) (t time.Time)
+	GetDuration(key any) (d time.Duration)
+	GetStringSlice(key any) (ss []string)
+	GetStringMap(key any) (sm map[string]any)
+	GetStringMapString(key any) (sms map[string]string)
+	GetStringMapStringSlice(key any) (smss map[string][]string)
 
 	SetLogger(log liblog.FuncLog)
 }
@@ -67,7 +67,7 @@ func New(c *ginsdk.Context, log liblog.FuncLog) GinTonic {
 			Request:  nil,
 			Writer:   nil,
 			Params:   make(ginsdk.Params, 0),
-			Keys:     make(map[string]interface{}),
+			Keys:     make(map[any]any),
 			Errors:   make([]*ginsdk.Error, 0),
 			Accepted: make([]string, 0),
 		}
