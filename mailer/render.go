@@ -29,7 +29,7 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/matcornic/hermes/v2"
+	"github.com/matcornic/hermes"
 	liberr "github.com/nabbar/golib/errors"
 )
 

@@ -28,7 +28,7 @@ package mailer
 import (
 	"strings"
 
-	"github.com/matcornic/hermes/v2"
+	"github.com/matcornic/hermes"
 )
 
 type Themes uint8

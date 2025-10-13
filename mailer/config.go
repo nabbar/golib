@@ -30,7 +30,7 @@ import (
 	"fmt"
 
 	libval "github.com/go-playground/validator/v10"
-	libhms "github.com/matcornic/hermes/v2"
+	libhms "github.com/matcornic/hermes"
 	liberr "github.com/nabbar/golib/errors"
 )
 

@@ -25,7 +25,7 @@
 
 package mailer
 
-import "github.com/matcornic/hermes/v2"
+import "github.com/matcornic/hermes"
 
 type email struct {
 	p hermes.Product

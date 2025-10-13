@@ -59,7 +59,7 @@ A configuration struct for easy mapping from config files or environment variabl
 ```go
 import (
     "github.com/nabbar/golib/mailer"
-    "github.com/matcornic/hermes/v2"
+    "github.com/matcornic/hermes"
 )
 
 m := mailer.New()

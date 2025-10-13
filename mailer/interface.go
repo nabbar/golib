@@ -28,7 +28,7 @@ package mailer
 import (
 	"bytes"
 
-	"github.com/matcornic/hermes/v2"
+	"github.com/matcornic/hermes"
 	liberr "github.com/nabbar/golib/errors"
 )
 
