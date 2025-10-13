@@ -31,10 +31,18 @@ import (
 	"encoding/json"
 )
 
+type InfoData interface {
+	Info() map[string]interface{}
+}
+
+type InfoName interface {
+	Name() string
+}
+
 type Info interface {
 	encoding.TextMarshaler
 	json.Marshaler
 
-	Name() string
-	Info() map[string]interface{}
+	InfoName
+	InfoData
 }
