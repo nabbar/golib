@@ -63,8 +63,11 @@ func GetSize(s string) (sizeBytes Size, success bool) {
 }
 
 func SizeFromInt64(val int64) Size {
-	v := uint64(val)
-	return Size(v)
+	if val < 0 {
+		return Size(uint64(-val))
+	} else {
+		return Size(uint64(val))
+	}
 }
 
 func SizeFromFloat64(val float64) Size {
@@ -74,8 +77,10 @@ func SizeFromFloat64(val float64) Size {
 		return Size(uint64(math.MaxUint64))
 	} else if -val > math.MaxUint64 {
 		return Size(uint64(math.MaxUint64))
-	} else {
+	} else if val > 0 {
 		return Size(uint64(val))
+	} else {
+		return Size(uint64(-val))
 	}
 }
 

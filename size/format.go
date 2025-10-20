@@ -61,7 +61,7 @@ func (s Size) Int64() int64 {
 		return math.MaxInt64
 	}
 
-	return int64(s)
+	return int64(s) // #nosec
 }
 
 func (s Size) Int32() int32 {
@@ -70,7 +70,7 @@ func (s Size) Int32() int32 {
 		return math.MaxInt32
 	}
 
-	return int32(s)
+	return int32(s) // #nosec
 }
 
 func (s Size) Int() int {
@@ -79,7 +79,7 @@ func (s Size) Int() int {
 		return math.MaxInt
 	}
 
-	return int(s)
+	return int(s) // #nosec
 }
 
 func (s Size) Uint64() uint64 {
@@ -92,7 +92,7 @@ func (s Size) Uint32() uint32 {
 		return math.MaxUint32
 	}
 
-	return uint32(s)
+	return uint32(s) // #nosec
 }
 
 func (s Size) Uint() uint {
@@ -101,7 +101,7 @@ func (s Size) Uint() uint {
 		return math.MaxUint
 	}
 
-	return uint(s)
+	return uint(s) // #nosec
 }
 
 func (s Size) Float64() float64 {
@@ -110,7 +110,7 @@ func (s Size) Float64() float64 {
 		return math.MaxFloat64
 	}
 
-	return float64(s)
+	return float64(s) // #nosec
 }
 
 func (s Size) Float32() float32 {
@@ -119,7 +119,7 @@ func (s Size) Float32() float32 {
 		return math.MaxFloat32
 	}
 
-	return float32(s)
+	return float32(s) // #nosec
 }
 
 func (s Size) Format(format string) string {
