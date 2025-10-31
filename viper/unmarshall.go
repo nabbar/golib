@@ -27,8 +27,18 @@
 
 package viper
 
+import "encoding/json"
+
 func (v *viper) UnmarshalKey(key string, rawVal interface{}) error {
-	return v.v.UnmarshalKey(key, rawVal, v.hookFuncViperDecoder())
+	if !v.v.IsSet(key) {
+		return ErrorParamMissing.Error()
+	} else if c := v.v.Get(key); c == nil {
+		return nil
+	} else if p, e := json.Marshal(c); e != nil {
+		return e
+	} else {
+		return json.Unmarshal(p, rawVal)
+	}
 }
 
 func (v *viper) Unmarshal(rawVal interface{}) error {
