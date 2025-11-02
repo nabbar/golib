@@ -33,27 +33,25 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
-func (o *componentDatabase) RegisterMonitorPool(fct montps.FuncPool) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.p = fct
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
+	o.x.Store(keyFctMonitorPool, fct)
 }
 
-func (o *componentDatabase) _getMonitorPool() montps.Pool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.p == nil {
+func (o *mod) _getMonitorPool() montps.Pool {
+	if i, l := o.x.Load(keyFctMonitorPool); !l {
 		return nil
-	} else if p := o.p(); p == nil {
+	} else if i == nil {
+		return nil
+	} else if f, k := i.(montps.FuncPool); !k {
+		return nil
+	} else if p := f(); p == nil {
 		return nil
 	} else {
 		return p
 	}
 }
 
-func (o *componentDatabase) _registerMonitor(cfg *libdbs.Config) error {
+func (o *mod) _registerMonitor(cfg *libdbs.Config) error {
 	var (
 		e   error
 		key = o._getKey()
@@ -83,7 +81,7 @@ func (o *componentDatabase) _registerMonitor(cfg *libdbs.Config) error {
 		cfg.Monitor.Name = key
 	}
 
-	if e = mon.SetConfig(o.x.GetContext, cfg.Monitor); e != nil {
+	if e = mon.SetConfig(o.x, cfg.Monitor); e != nil {
 		return e
 	}
 
@@ -96,10 +94,10 @@ func (o *componentDatabase) _registerMonitor(cfg *libdbs.Config) error {
 	return nil
 }
 
-func (o *componentDatabase) _newMonitor(vrs libver.Version) (libmon.Monitor, error) {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	if c, e := o.d.Monitor(vrs); e != nil {
+func (o *mod) _newMonitor(vrs libver.Version) (libmon.Monitor, error) {
+	if d := o.GetDatabase(); d == nil {
+		return nil, ErrorComponentNotInitialized.Error(nil)
+	} else if c, e := d.Monitor(vrs); e != nil {
 		return nil, e
 	} else {
 		c.RegisterLoggerDefault(o.getLogger)
@@ -107,7 +105,7 @@ func (o *componentDatabase) _newMonitor(vrs libver.Version) (libmon.Monitor, err
 	}
 }
 
-func (o *componentDatabase) _getMonitor(key string) libmon.Monitor {
+func (o *mod) _getMonitor(key string) libmon.Monitor {
 	var (
 		mon libmon.Monitor
 		pol = o._getMonitorPool()
@@ -126,7 +124,7 @@ func (o *componentDatabase) _getMonitor(key string) libmon.Monitor {
 	return mon
 }
 
-func (o *componentDatabase) _setMonitor(mon libmon.Monitor) error {
+func (o *mod) _setMonitor(mon libmon.Monitor) error {
 	var pol = o._getMonitorPool()
 
 	if pol == nil {

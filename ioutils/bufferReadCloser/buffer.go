@@ -30,43 +30,55 @@ import (
 	"io"
 )
 
+// buf is the internal implementation of the Buffer interface.
+// It wraps a bytes.Buffer with optional close functionality.
 type buf struct {
 	b *bytes.Buffer
 	f FuncClose
 }
 
+// Read reads up to len(p) bytes from the buffer.
 func (b *buf) Read(p []byte) (n int, err error) {
 	return b.b.Read(p)
 }
 
+// ReadFrom reads data from r until EOF and appends it to the buffer.
 func (b *buf) ReadFrom(r io.Reader) (n int64, err error) {
 	return b.b.ReadFrom(r)
 }
 
+// ReadByte reads and returns the next byte from the buffer.
 func (b *buf) ReadByte() (byte, error) {
 	return b.b.ReadByte()
 }
 
+// ReadRune reads and returns the next UTF-8 encoded Unicode character from the buffer.
 func (b *buf) ReadRune() (r rune, size int, err error) {
 	return b.b.ReadRune()
 }
 
+// Write appends the contents of p to the buffer.
 func (b *buf) Write(p []byte) (n int, err error) {
 	return b.b.Write(p)
 }
 
+// WriteString appends the contents of s to the buffer.
 func (b *buf) WriteString(s string) (n int, err error) {
 	return b.b.WriteString(s)
 }
 
+// WriteTo writes data to w until the buffer is drained or an error occurs.
 func (b *buf) WriteTo(w io.Writer) (n int64, err error) {
 	return b.b.WriteTo(w)
 }
 
+// WriteByte appends the byte c to the buffer.
 func (b *buf) WriteByte(c byte) error {
 	return b.b.WriteByte(c)
 }
 
+// Close resets the buffer (clears all data) and calls the custom close function if provided.
+// Returns any error from the custom close function.
 func (b *buf) Close() error {
 	b.b.Reset()
 

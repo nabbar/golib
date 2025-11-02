@@ -53,6 +53,8 @@ func TLSModeFromString(str string) TLSMode {
 func TLSModeFromInt(i int64) TLSMode {
 	if i > math.MaxUint8 {
 		return TLSNone
+	} else if i < 0 {
+		return TLSNone
 	}
 
 	switch TLSMode(i) {
@@ -60,9 +62,9 @@ func TLSModeFromInt(i int64) TLSMode {
 		return TLSStrictTLS
 	case TLSStartTLS:
 		return TLSStartTLS
+	default:
+		return TLSNone
 	}
-
-	return TLSNone
 }
 
 func (tlm TLSMode) String() string {

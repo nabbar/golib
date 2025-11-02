@@ -27,8 +27,10 @@
 package tls
 
 import (
+	"context"
+
+	libtls "github.com/nabbar/golib/certificates"
 	cfgtps "github.com/nabbar/golib/config/types"
-	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -50,22 +52,11 @@ const (
 	keyFctMonitorPool
 )
 
-func (o *componentTls) Type() string {
+func (o *mod) Type() string {
 	return ComponentType
 }
 
-func (o *componentTls) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.x == nil {
-		o.x = libctx.NewConfig[uint8](ctx)
-	} else {
-		x := libctx.NewConfig[uint8](ctx)
-		x.Merge(o.x)
-		o.x = x
-	}
-
+func (o *mod) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -73,52 +64,50 @@ func (o *componentTls) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncC
 	o.x.Store(keyCptLogger, log)
 }
 
-func (o *componentTls) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctStaBef, before)
 	o.x.Store(keyFctStaAft, after)
 }
 
-func (o *componentTls) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctRelBef, before)
 	o.x.Store(keyFctRelAft, after)
 }
 
-func (o *componentTls) IsStarted() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.t != nil
+func (o *mod) IsStarted() bool {
+	if !o.r.Load() {
+		return false
+	} else if c, e := o._getConfig(); e != nil || c == nil {
+		return false
+	} else {
+		return o.t.Load() != nil
+	}
 }
 
-func (o *componentTls) IsRunning() bool {
+func (o *mod) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentTls) Start() error {
+func (o *mod) Start() error {
 	return o._run()
 }
 
-func (o *componentTls) Reload() error {
+func (o *mod) Reload() error {
 	return o._run()
 }
 
-func (o *componentTls) Stop() {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.t = nil
-	return
+func (o *mod) Stop() {
+	o.r.Store(false)
+	o.t.Store(libtls.New())
+	o.c.Store(func() *libtls.Config {
+		return nil
+	})
 }
 
-func (o *componentTls) Dependencies() []string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) Dependencies() []string {
 	var def = make([]string, 0)
 
-	if o == nil {
-		return def
-	} else if o.x == nil {
+	if o == nil || o.x == nil {
 		return def
 	} else if i, l := o.x.Load(keyCptDependencies); !l {
 		return def
@@ -131,24 +120,11 @@ func (o *componentTls) Dependencies() []string {
 	}
 }
 
-func (o *componentTls) SetDependencies(d []string) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.x == nil {
+func (o *mod) SetDependencies(d []string) error {
+	if o == nil || o.x == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {
 		o.x.Store(keyCptDependencies, d)
 		return nil
-	}
-}
-
-func (o *componentTls) getLogger() liblog.Logger {
-	if i, l := o.x.Load(keyCptLogger); !l {
-		return nil
-	} else if v, k := i.(liblog.FuncLog); !k {
-		return nil
-	} else {
-		return v()
 	}
 }

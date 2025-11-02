@@ -27,35 +27,27 @@
 package smtp
 
 import (
-	"sync"
-
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
-	montps "github.com/nabbar/golib/monitor/types"
 	libsmtp "github.com/nabbar/golib/smtp"
 )
 
-type componentSmtp struct {
-	m sync.RWMutex
+type mod struct {
 	x libctx.Config[uint8]
-	p montps.FuncPool
-	t string
-	s libsmtp.SMTP
+	t libatm.Value[string] // TLS Key
+	s libatm.Value[libsmtp.SMTP]
 }
 
-func (o *componentSmtp) SetTLSKey(tlsKey string) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.t = tlsKey
+func (o *mod) SetTLSKey(tlsKey string) {
+	o.t.Store(tlsKey)
 }
 
-func (o *componentSmtp) GetSMTP() (libsmtp.SMTP, error) {
+func (o *mod) GetSMTP() (libsmtp.SMTP, error) {
 	if !o.IsStarted() {
 		return nil, ErrorComponentNotInitialized.Error(nil)
+	} else if s := o.s.Load(); s != nil {
+		return s.Clone(), nil
 	}
 
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	return o.s.Clone(), nil
+	return nil, ErrorComponentNotInitialized.Error(nil)
 }

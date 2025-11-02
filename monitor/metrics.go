@@ -33,13 +33,20 @@ import (
 
 	monsts "github.com/nabbar/golib/monitor/status"
 	libprm "github.com/nabbar/golib/prometheus"
+	librun "github.com/nabbar/golib/runner"
 )
 
+// RegisterMetricsName registers metric names for Prometheus collection.
+// This replaces any previously registered names.
 func (o *mon) RegisterMetricsName(names ...string) {
+	defer librun.RecoveryCaller("golib/monitor/RegisterMetricsName", recover())
 	o.x.Store(keyMetricsName, names)
 }
 
+// RegisterMetricsAddName adds metric names to the existing list.
+// Duplicate names are ignored.
 func (o *mon) RegisterMetricsAddName(names ...string) {
+	defer librun.RecoveryCaller("golib/monitor/RegisterMetricsAddName", recover())
 	var n []string
 	if i, l := o.x.Load(keyMetricsName); !l || i == nil {
 		n = make([]string, 0)
@@ -58,35 +65,47 @@ func (o *mon) RegisterMetricsAddName(names ...string) {
 	o.x.Store(keyMetricsName, n)
 }
 
+// RegisterCollectMetrics registers a function for collecting metrics to Prometheus.
+// This function will be called after each health check execution.
 func (o *mon) RegisterCollectMetrics(fct libprm.FuncCollectMetrics) {
+	defer librun.RecoveryCaller("golib/monitor/RegisterCollectMetrics", recover())
 	o.x.Store(keyMetricsFunc, fct)
 }
 
+// CollectLatency returns the latency of the last health check for metrics collection.
 func (o *mon) CollectLatency() time.Duration {
 	return o.Latency()
 }
 
+// CollectUpTime returns the total uptime for metrics collection.
 func (o *mon) CollectUpTime() time.Duration {
 	return o.Uptime()
 }
 
+// CollectDownTime returns the total downtime for metrics collection.
 func (o *mon) CollectDownTime() time.Duration {
 	return o.Downtime()
 }
 
+// CollectRiseTime returns the total rise time for metrics collection.
 func (o *mon) CollectRiseTime() time.Duration {
 	return o.getLastCheck().RiseTime()
 }
 
+// CollectFallTime returns the total fall time for metrics collection.
 func (o *mon) CollectFallTime() time.Duration {
 	return o.getLastCheck().FallTime()
 }
 
+// CollectStatus returns the current status and transition flags for metrics collection.
 func (o *mon) CollectStatus() (sts monsts.Status, rise bool, fall bool) {
 	return o.Status(), o.IsRise(), o.IsFall()
 }
 
+// collectMetrics calls the registered metrics collection function with the configured metric names.
+// This is called automatically after each health check execution.
 func (o *mon) collectMetrics(ctx context.Context) {
+	defer librun.RecoveryCaller("golib/monitor/collectMetrics", recover())
 	var (
 		n []string
 		f libprm.FuncCollectMetrics

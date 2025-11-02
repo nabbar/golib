@@ -81,13 +81,13 @@ func (o *crt) EncodeReader(r io.Reader) io.ReadCloser {
 
 			if n > cap(p) {
 				clear(b)
-				b = b[:0]
+				b = b[:0] // nolint
 				err = ErrInvalidBufferSize
 				n = 0
 			} else {
 				copy(p, b)
 				clear(b)
-				b = b[:0]
+				b = b[:0] // nolint
 			}
 		}
 
@@ -144,7 +144,7 @@ func (o *crt) DecodeWriter(w io.Writer) io.WriteCloser {
 			_, err = w.Write(b)
 
 			clear(b)
-			b = b[:0]
+			b = b[:0] // nolint
 
 			if err != nil {
 				return 0, err

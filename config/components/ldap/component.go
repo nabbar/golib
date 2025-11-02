@@ -27,8 +27,9 @@
 package ldap
 
 import (
+	"context"
+
 	cfgtps "github.com/nabbar/golib/config/types"
-	libctx "github.com/nabbar/golib/context"
 	lbldap "github.com/nabbar/golib/ldap"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
@@ -51,11 +52,11 @@ const (
 	keyFctMonitorPool
 )
 
-func (o *componentLDAP) Type() string {
+func (o *mod) Type() string {
 	return ComponentType
 }
 
-func (o *componentLDAP) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
+func (o *mod) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -63,17 +64,17 @@ func (o *componentLDAP) Init(key string, ctx libctx.FuncContext, get cfgtps.Func
 	o.x.Store(keyCptLogger, log)
 }
 
-func (o *componentLDAP) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctStaBef, before)
 	o.x.Store(keyFctStaAft, after)
 }
 
-func (o *componentLDAP) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctRelBef, before)
 	o.x.Store(keyFctRelAft, after)
 }
 
-func (o *componentLDAP) IsStarted() bool {
+func (o *mod) IsStarted() bool {
 	if o == nil {
 		return false
 	} else if i := o.l.Load(); i == nil {
@@ -87,19 +88,19 @@ func (o *componentLDAP) IsStarted() bool {
 	}
 }
 
-func (o *componentLDAP) IsRunning() bool {
+func (o *mod) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentLDAP) Start() error {
+func (o *mod) Start() error {
 	return o._run()
 }
 
-func (o *componentLDAP) Reload() error {
+func (o *mod) Reload() error {
 	return o._run()
 }
 
-func (o *componentLDAP) Stop() {
+func (o *mod) Stop() {
 	if i := o.l.Swap(&lbldap.HelperLDAP{}); i == nil {
 		return
 	} else if v, k := i.(*lbldap.HelperLDAP); !k {
@@ -109,7 +110,7 @@ func (o *componentLDAP) Stop() {
 	}
 }
 
-func (o *componentLDAP) Dependencies() []string {
+func (o *mod) Dependencies() []string {
 	var def = make([]string, 0)
 
 	if o == nil {
@@ -125,7 +126,7 @@ func (o *componentLDAP) Dependencies() []string {
 	}
 }
 
-func (o *componentLDAP) SetDependencies(d []string) error {
+func (o *mod) SetDependencies(d []string) error {
 	if o.x == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {
@@ -138,7 +139,7 @@ func (o *componentLDAP) SetDependencies(d []string) error {
 	}
 }
 
-func (o *componentLDAP) getLogger() liblog.Logger {
+func (o *mod) getLogger() liblog.Logger {
 	if i, l := o.x.Load(keyCptLogger); !l {
 		return nil
 	} else if v, k := i.(liblog.FuncLog); !k {

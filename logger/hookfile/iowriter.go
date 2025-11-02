@@ -47,11 +47,12 @@ func (o *hkf) Write(p []byte) (n int, err error) {
 }
 
 func (o *hkf) Close() error {
-	//fmt.Printf("closing hook for log file '%s'\n", o.getFilepath())
-
+	// Wait for pending Hook to complete
+	time.Sleep(100 * time.Millisecond)
 	o.d.Store(closeByte)
-	time.Sleep(10 * time.Millisecond)
 
+	// Wait for pending writes to complete
+	time.Sleep(100 * time.Millisecond)
 	o.s.Store(closeStruct)
 	return nil
 }

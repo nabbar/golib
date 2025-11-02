@@ -37,7 +37,7 @@ import (
 	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
 )
 
-type componentHttpClient struct {
+type mod struct {
 	x libctx.Config[uint8]
 
 	c libatm.Value[*htcdns.Config]       // htcdns.Config
@@ -48,7 +48,7 @@ type componentHttpClient struct {
 	s *atomic.Bool // is Default at start / update
 }
 
-func (o *componentHttpClient) getRootCA() tlscas.Cert {
+func (o *mod) getRootCA() tlscas.Cert {
 	if i := o.f.Load(); i == nil {
 		return nil
 	} else if v := i(); v != nil && v.Len() < 1 {
@@ -58,7 +58,7 @@ func (o *componentHttpClient) getRootCA() tlscas.Cert {
 	}
 }
 
-func (o *componentHttpClient) getMessage() htcdns.FuncMessage {
+func (o *mod) getMessage() htcdns.FuncMessage {
 	if i := o.m.Load(); i == nil {
 		return nil
 	} else {
@@ -66,23 +66,21 @@ func (o *componentHttpClient) getMessage() htcdns.FuncMessage {
 	}
 }
 
-func (o *componentHttpClient) SetFuncMessage(f htcdns.FuncMessage) {
+func (o *mod) SetFuncMessage(f htcdns.FuncMessage) {
 	if f != nil {
 		o.m.Store(f)
 	}
 }
 
-func (o *componentHttpClient) getDNSMapper() htcdns.DNSMapper {
+func (o *mod) getDNSMapper() htcdns.DNSMapper {
 	if i := o.d.Load(); i == nil {
 		return nil
-	} else if v, k := i.(htcdns.DNSMapper); !k {
-		return nil
 	} else {
-		return v
+		return i
 	}
 }
 
-func (o *componentHttpClient) setDNSMapper(dns htcdns.DNSMapper) {
+func (o *mod) setDNSMapper(dns htcdns.DNSMapper) {
 	if o.s.Load() {
 		defer o.SetDefault()
 	}
@@ -98,7 +96,7 @@ func (o *componentHttpClient) setDNSMapper(dns htcdns.DNSMapper) {
 	}
 }
 
-func (o *componentHttpClient) Config() htcdns.Config {
+func (o *mod) Config() htcdns.Config {
 	if i := o.c.Load(); i == nil {
 		return htcdns.Config{}
 	} else {
@@ -106,14 +104,14 @@ func (o *componentHttpClient) Config() htcdns.Config {
 	}
 }
 
-func (o *componentHttpClient) setConfig(cfg htcdns.Config) {
+func (o *mod) setConfig(cfg htcdns.Config) {
 	o.c.Store(&cfg)
 }
 
-func (o *componentHttpClient) SetDefault() {
+func (o *mod) SetDefault() {
 	libhtc.SetDefaultDNSMapper(o.getDNSMapper())
 }
 
-func (o *componentHttpClient) SetAsDefaultHTTPClient(flag bool) {
+func (o *mod) SetAsDefaultHTTPClient(flag bool) {
 	o.s.Store(flag)
 }

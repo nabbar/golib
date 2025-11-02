@@ -28,6 +28,7 @@
 package logger
 
 import (
+	"context"
 	"io"
 	"log"
 	"sync"
@@ -42,8 +43,14 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 )
 
+// FuncLog is a function type that returns a Logger instance.
+// This is used for dependency injection and lazy initialization of loggers.
 type FuncLog func() Logger
 
+// Logger is the main interface for structured logging operations.
+// It extends io.WriteCloser to allow using the logger as a standard Go writer.
+// The logger supports multiple output destinations (file, syslog, stdout/stderr),
+// level-based filtering, custom fields injection, and integration with popular frameworks.
 type Logger interface {
 	io.WriteCloser
 
@@ -82,7 +89,7 @@ type Logger interface {
 	GetFields() logfld.Fields
 
 	//Clone allow to duplicate the logger with a copy of the logger
-	Clone() Logger
+	Clone() (Logger, error)
 
 	//SetSPF13Level allow to plus spf13 logger (jww) to this logger
 	SetSPF13Level(lvl loglvl.Level, log *jww.Notepad)
@@ -127,11 +134,15 @@ type Logger interface {
 	Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) logent.Entry
 }
 
-// New return a new logger interface pointer
-func New(ctx libctx.FuncContext) Logger {
+// New returns a new Logger instance with the given context.
+// The context is used to configure the logger fields.
+// The logger level is set to InfoLevel by default.
+// The returned logger can be used to log messages at different levels.
+// The logger can also be used to set the default golang log.logger instance.
+func New(ctx context.Context) Logger {
 	l := &logger{
 		m: sync.RWMutex{},
-		x: libctx.NewConfig[uint8](ctx),
+		x: libctx.New[uint8](ctx),
 		f: logfld.New(ctx),
 		c: new(atomic.Value),
 	}

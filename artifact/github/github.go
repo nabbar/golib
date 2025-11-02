@@ -30,12 +30,19 @@ import (
 	"net/http"
 	"strings"
 
-	github "github.com/google/go-github/v33/github"
+	github "github.com/google/go-github/v76/github"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
 )
 
-func getOrgProjectFromRepos(repos string) (owner string, project string) {
+// GetOrgProjectFromRepos parses a GitHub repository path and extracts the owner and project name.
+// The repos parameter should be in the format "owner/project" (with or without leading/trailing slashes).
+//
+// Example:
+//
+//	owner, project := GetOrgProjectFromRepos("google/go-github")
+//	// Returns: owner="google", project="go-github"
+func GetOrgProjectFromRepos(repos string) (owner string, project string) {
 	if strings.HasPrefix(repos, "/") || strings.HasSuffix(repos, "/") {
 		repos = strings.Trim(repos, "/")
 	}
@@ -44,15 +51,22 @@ func getOrgProjectFromRepos(repos string) (owner string, project string) {
 	return lst[0], lst[1]
 }
 
+// NewGithub returns a new Github client.
+//
+// The context is used to set the http client.
+// The httpcli parameter is used to set the http client.
+// The repos parameter is used to get the owner and project from the repository path.
+//
+// The returned client can be used to list releases and download artifacts.
 func NewGithub(ctx context.Context, httpcli *http.Client, repos string) (cli libart.Client, err error) {
-	o, p := getOrgProjectFromRepos(repos)
+	o, p := GetOrgProjectFromRepos(repos)
 
 	a := &githubModel{
-		ClientHelper: artcli.ClientHelper{},
-		c:            github.NewClient(httpcli),
-		x:            ctx,
-		o:            o,
-		p:            p,
+		Helper: artcli.Helper{},
+		c:      github.NewClient(httpcli),
+		x:      ctx,
+		o:      o,
+		p:      p,
 	}
 
 	a.F = a.ListReleases
@@ -60,15 +74,22 @@ func NewGithub(ctx context.Context, httpcli *http.Client, repos string) (cli lib
 	return a, err
 }
 
+// NewGithubWithTokenOAuth returns a new Github client with OAuth2 authentication.
+//
+// The context is used to set the http client.
+// The repos parameter is used to get the owner and project from the repository path.
+// The oauth2client parameter is used to set the OAuth2 authenticated http client.
+//
+// The returned client can be used to list releases and download artifacts.
 func NewGithubWithTokenOAuth(ctx context.Context, repos string, oauth2client *http.Client) (cli libart.Client, err error) {
-	o, p := getOrgProjectFromRepos(repos)
+	o, p := GetOrgProjectFromRepos(repos)
 
 	a := &githubModel{
-		ClientHelper: artcli.ClientHelper{},
-		c:            github.NewClient(oauth2client),
-		x:            ctx,
-		o:            o,
-		p:            p,
+		Helper: artcli.Helper{},
+		c:      github.NewClient(oauth2client),
+		x:      ctx,
+		o:      o,
+		p:      p,
 	}
 
 	a.F = a.ListReleases

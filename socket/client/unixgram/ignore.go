@@ -1,5 +1,4 @@
-//go:build !linux
-// +build !linux
+//go:build !linux && !darwin
 
 /*
  * MIT License
@@ -27,16 +26,46 @@
  *
  */
 
-// this file is to prevent error on build with system not compatible with unix
+// This file provides stub implementations for non-Linux platforms where
+// UNIX domain datagram sockets are not available. It prevents compilation errors
+// while making it clear that UNIX datagram sockets are platform-specific.
 
 package unixgram
 
 import libsck "github.com/nabbar/golib/socket"
 
+// ClientUnix represents a UNIX domain datagram socket client interface.
+// On non-Linux platforms, this is a stub interface that cannot be instantiated.
+//
+// UNIX domain datagram sockets require platform-specific support and are only
+// available on Linux and Darwin (macOS) systems. Attempting to use this on other
+// platforms will result in a nil client.
+//
+// See github.com/nabbar/golib/socket.Client for the base interface definition.
 type ClientUnix interface {
 	libsck.Client
 }
 
+// New returns nil on non-Linux platforms as UNIX datagram sockets are not supported.
+//
+// UNIX domain datagram sockets are a platform-specific feature available only on
+// Linux and Darwin systems. This stub implementation allows code to compile on other
+// platforms but will always return nil, indicating that UNIX datagram sockets are
+// unavailable.
+//
+// Parameters:
+//   - unixfile: Socket file path (ignored on this platform)
+//
+// Returns:
+//   - nil: Always, as UNIX datagram sockets are not available on this platform
+//
+// For cross-platform code, check for nil before using:
+//
+//	client := unixgram.New("/tmp/app.sock")
+//	if client == nil {
+//	    log.Println("UNIX datagram sockets not available on this platform")
+//	    // Use UDP or TCP instead
+//	}
 func New(unixfile string) ClientUnix {
 	return nil
 }

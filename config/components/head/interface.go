@@ -27,8 +27,9 @@
 package head
 
 import (
-	"sync/atomic"
+	"context"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 
 	libcfg "github.com/nabbar/golib/config"
@@ -36,32 +37,34 @@ import (
 	librtr "github.com/nabbar/golib/router/header"
 )
 
-type ComponentHead interface {
+type CptHead interface {
 	cfgtps.Component
 
 	GetHeaders() librtr.Headers
 	SetHeaders(head librtr.Headers)
 }
 
-func New(ctx libctx.FuncContext) ComponentHead {
-	return &componentHead{
-		x: libctx.NewConfig[uint8](ctx),
-		h: new(atomic.Value),
+func New(ctx context.Context) CptHead {
+	return &mod{
+		x: libctx.New[uint8](ctx),
+		h: libatm.NewValue[librtr.Headers](),
 	}
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentHead) {
+func Register(cfg libcfg.Config, key string, cpt CptHead) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, key string) {
 	cfg.ComponentSet(key, New(ctx))
 }
 
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentHead {
-	if c := getCpt(key); c == nil {
+func Load(getCpt cfgtps.FuncCptGet, key string) CptHead {
+	if getCpt == nil {
 		return nil
-	} else if h, ok := c.(ComponentHead); !ok {
+	} else if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(CptHead); !ok {
 		return nil
 	} else {
 		return h

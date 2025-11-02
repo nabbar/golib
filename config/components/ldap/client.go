@@ -29,12 +29,10 @@ package ldap
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	lbldap "github.com/nabbar/golib/ldap"
-	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
-	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentLDAP) _getKey() string {
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -46,7 +44,7 @@ func (o *componentLDAP) _getKey() string {
 	}
 }
 
-func (o *componentLDAP) _getFctVpr() libvpr.FuncViper {
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -58,7 +56,7 @@ func (o *componentLDAP) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentLDAP) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -68,41 +66,7 @@ func (o *componentLDAP) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentLDAP) _getSPFViper() *spfvbr.Viper {
-	if f := o._getViper(); f == nil {
-		return nil
-	} else if v := f.Viper(); v == nil {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentLDAP) _getFctCpt() cfgtps.FuncCptGet {
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentLDAP) _getVersion() libver.Version {
-	if i, l := o.x.Load(keyCptVersion); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if v, k := i.(libver.Version); !k {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentLDAP) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -110,7 +74,7 @@ func (o *componentLDAP) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	}
 }
 
-func (o *componentLDAP) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -122,7 +86,7 @@ func (o *componentLDAP) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentLDAP) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -130,7 +94,7 @@ func (o *componentLDAP) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *componentLDAP) _runCli() error {
+func (o *mod) _runCli() error {
 	var (
 		e   error
 		err error
@@ -158,7 +122,7 @@ func (o *componentLDAP) _runCli() error {
 	return nil
 }
 
-func (o *componentLDAP) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

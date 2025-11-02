@@ -31,70 +31,187 @@ import (
 	"errors"
 	"io"
 	"net"
-	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
 
+// Internal atomic map keys for storing client state.
+// Using uint8 keys for efficient memory usage and fast lookups.
+const (
+	keyNetAddr uint8 = iota // Network address (string)
+	keyFctErr               // Error callback function (libsck.FuncError)
+	keyFctInfo              // Info callback function (libsck.FuncInfo)
+	keyNetConn              // Active UDP socket (net.Conn)
+)
+
+// cli is the internal implementation of ClientUDP interface.
+// It uses an atomic map to store all client state in a thread-safe manner,
+// matching the architecture of the TCP client but adapted for UDP's connectionless nature.
+//
+// State management:
+//   - All state is stored in a thread-safe atomic.Map[uint8]
+//   - Keys can be safely deleted to represent "no value" without storing nil
+//   - Multiple goroutines can safely call methods concurrently
+//   - State changes trigger registered callbacks asynchronously
+//
+// UDP-specific notes:
+//   - "Connection" is just socket association, not a real connection
+//   - Each Write() sends one complete datagram
+//   - Each Read() receives one complete datagram
+//   - No connection state tracking like TCP
 type cli struct {
-	a *atomic.Value // address: hostname + port
-	e *atomic.Value // function error
-	i *atomic.Value // function info
-	c *atomic.Value // net.Conn
+	m libatm.Map[uint8] // Atomic map storing all client state by key
 }
 
+// SetTLS is a no-op for UDP clients as UDP doesn't support TLS.
+// UDP is a connectionless protocol and doesn't have the concept of TLS.
+// For secure UDP communication, consider using DTLS (Datagram TLS) which
+// requires a different implementation.
+//
+// This method always returns nil to maintain interface compatibility with
+// github.com/nabbar/golib/socket.Client.
+//
+// Parameters are ignored:
+//   - enable: Ignored
+//   - config: Ignored
+//   - serverName: Ignored
+//
+// Returns:
+//   - nil: Always, as UDP doesn't support TLS
 func (o *cli) SetTLS(enable bool, config libtls.TLSConfig, serverName string) error {
 	return nil
 }
 
+// RegisterFuncError registers a callback function for error notifications.
+//
+// The callback is invoked asynchronously (in a separate goroutine) whenever
+// an error occurs during client operations, including:
+//   - Connection failures (socket creation errors)
+//   - Read/Write errors (network errors, buffer issues)
+//   - Address resolution errors
+//
+// Pass nil to unregister the current error callback. Only one error callback
+// can be registered at a time; calling this method replaces any existing callback.
+//
+// The callback is executed asynchronously to avoid blocking datagram operations.
+// Ensure your callback handles errors appropriately and returns quickly.
+//
+// Example:
+//
+//	client, _ := udp.New("localhost:8080")
+//	client.RegisterFuncError(func(errs ...error) {
+//	    for _, err := range errs {
+//	        log.Printf("UDP client error: %v", err)
+//	    }
+//	})
+//
+// See github.com/nabbar/golib/socket.FuncError for callback signature details.
 func (o *cli) RegisterFuncError(f libsck.FuncError) {
 	if o == nil {
 		return
 	}
 
-	o.e.Store(f)
+	if f == nil {
+		o.m.Delete(keyFctErr)
+	} else {
+		o.m.Store(keyFctErr, f)
+	}
 }
 
+// RegisterFuncInfo registers a callback function for datagram operation notifications.
+//
+// The callback is invoked asynchronously (in a separate goroutine) for various
+// datagram operations:
+//   - ConnectionDial: When socket creation starts
+//   - ConnectionNew: When socket is associated with remote address
+//   - ConnectionRead: Before each datagram read
+//   - ConnectionWrite: Before each datagram write
+//   - ConnectionClose: When socket is closed
+//
+// The callback receives:
+//   - local: Local socket address (may be nil during dial)
+//   - remote: Remote socket address (may be nil during dial)
+//   - state: Operation state from github.com/nabbar/golib/socket.ConnState
+//
+// Pass nil to unregister the current info callback. Only one info callback
+// can be registered at a time; calling this method replaces any existing callback.
+//
+// The callback is executed asynchronously to avoid blocking datagram I/O.
+// Keep callback execution time minimal to avoid impacting performance.
+//
+// Example:
+//
+//	client, _ := udp.New("localhost:8080")
+//	client.RegisterFuncInfo(func(local, remote net.Addr, state socket.ConnState) {
+//	    log.Printf("UDP state: %v (local: %v, remote: %v)", state, local, remote)
+//	})
+//
+// See github.com/nabbar/golib/socket.FuncInfo and ConnState for details.
 func (o *cli) RegisterFuncInfo(f libsck.FuncInfo) {
 	if o == nil {
 		return
 	}
 
-	o.i.Store(f)
+	if f == nil {
+		o.m.Delete(keyFctInfo)
+	} else {
+		o.m.Store(keyFctInfo, f)
+	}
 }
 
+// fctError invokes the registered error callback if present.
+// This internal method is called whenever an error occurs during client operations.
+// The callback is executed in a separate goroutine to avoid blocking.
+// If no callback is registered or the error is nil, this method does nothing.
 func (o *cli) fctError(e error) {
-	if o == nil {
+	if o == nil || e == nil {
 		return
 	}
 
-	v := o.e.Load()
-	if v != nil {
-		v.(libsck.FuncError)(e)
+	if v, k := o.m.Load(keyFctErr); k && v != nil {
+		if fn, ok := v.(libsck.FuncError); ok && fn != nil {
+			go fn(e)
+		}
 	}
 }
 
+// fctInfo invokes the registered info callback if present.
+// This internal method is called for datagram operation state changes.
+// The callback is executed in a separate goroutine to avoid blocking I/O operations.
+// If no callback is registered, this method does nothing.
 func (o *cli) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 	if o == nil {
 		return
 	}
 
-	v := o.i.Load()
-	if v != nil {
-		v.(libsck.FuncInfo)(local, remote, state)
+	if v, k := o.m.Load(keyFctInfo); k && v != nil {
+		if fn, ok := v.(libsck.FuncInfo); ok && fn != nil {
+			go fn(local, remote, state)
+		}
 	}
 }
 
+// dial creates the UDP socket and associates it with the remote address.
+// This internal method uses net.Dialer to create a UDP connection.
+//
+// Important: For UDP, "dial" doesn't establish a connection in the TCP sense.
+// It creates a UDP socket and associates it with the remote address, allowing
+// subsequent Write() calls to send datagrams to that address without specifying
+// the destination each time.
+//
+// Returns:
+//   - net.Conn: The UDP socket (actually *net.UDPConn)
+//   - error: ErrInstance if client is nil, ErrAddress if address is invalid,
+//     or a network error if socket creation fails
 func (o *cli) dial(ctx context.Context) (net.Conn, error) {
 	if o == nil {
 		return nil, ErrInstance
 	}
 
-	v := o.a.Load()
-
-	if v == nil {
+	if v, k := o.m.Load(keyNetAddr); !k || v == nil {
 		return nil, ErrAddress
 	} else if adr, ok := v.(string); !ok {
 		return nil, ErrAddress
@@ -104,20 +221,83 @@ func (o *cli) dial(ctx context.Context) (net.Conn, error) {
 	}
 }
 
+// IsConnected checks if the client has an associated UDP socket.
+//
+// This method checks the local socket state by verifying that a socket
+// object exists in the client's state. For UDP, this doesn't mean there's
+// an actual connection (UDP is connectionless), but rather that a socket
+// has been created and associated with a remote address.
+//
+// Important notes:
+//   - Returns true if a socket was created and not yet closed
+//   - Returns false if never connected or after Close() was called
+//   - UDP is connectionless, so "connected" means "socket associated"
+//   - Doesn't verify if the remote endpoint is reachable
+//   - Doesn't verify if datagrams can actually be sent/received
+//
+// Thread-safe and can be called from multiple goroutines concurrently.
+//
+// Example:
+//
+//	if client.IsConnected() {
+//	    // Socket is ready for datagram operations
+//	    _, err := client.Write([]byte("data"))
+//	    if err != nil {
+//	        log.Printf("Send failed: %v", err)
+//	    }
+//	}
 func (o *cli) IsConnected() bool {
 	if o == nil {
 		return false
-	} else if i := o.c.Load(); i == nil {
-		return false
-	} else if c, k := i.(net.Conn); !k {
-		return false
-	} else if _, e := c.Write(nil); e != nil {
-		return false
-	} else {
-		return true
 	}
+
+	if i, k := o.m.Load(keyNetConn); !k || i == nil {
+		return false
+	} else if c, k := i.(net.Conn); !k || c == nil {
+		return false
+	}
+
+	return true
 }
 
+// Connect creates a UDP socket and associates it with the remote address.
+//
+// For UDP, this method doesn't establish a connection in the traditional sense
+// (UDP is connectionless). Instead, it:
+//  1. Creates a UDP socket
+//  2. Associates it with the remote address specified in New()
+//  3. Allows subsequent Write() calls without specifying destination
+//
+// The context parameter controls timeouts and cancellation:
+//   - Use context.WithTimeout() to set a socket creation timeout
+//   - Use context.WithCancel() to allow cancelling the operation
+//   - The context is only used during socket creation
+//
+// Operation states:
+//   - Triggers ConnectionDial callback when socket creation starts
+//   - Triggers ConnectionNew callback when socket is ready
+//   - Triggers error callback if operation fails
+//
+// If a socket already exists, it is replaced. The old socket is closed
+// automatically.
+//
+// Returns:
+//   - nil: Socket created and associated successfully
+//   - ErrInstance: If client is nil
+//   - network error: If socket creation fails
+//
+// Example:
+//
+//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+//	defer cancel()
+//
+//	err := client.Connect(ctx)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Close()
+//
+// Thread-safe: Can be called concurrently, but only one socket is active at a time.
 func (o *cli) Connect(ctx context.Context) error {
 	if o == nil {
 		return ErrInstance
@@ -135,59 +315,250 @@ func (o *cli) Connect(ctx context.Context) error {
 	}
 
 	o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionNew)
-	o.c.Store(con)
+
+	// Replace old connection if exists
+	if i, k := o.m.Swap(keyNetConn, con); k && i != nil {
+		if c, k := i.(net.Conn); k && c != nil {
+			_ = c.Close() // Close old connection
+		}
+	}
 
 	return nil
 }
 
+// Read reads one complete datagram from the UDP socket into the provided buffer.
+//
+// This method implements io.Reader interface and reads data from the underlying
+// UDP socket. Each Read() call receives exactly one complete datagram.
+//
+// Parameters:
+//   - p: Buffer to read datagram into. The buffer should be large enough to
+//     hold the complete datagram (typically 1500 bytes for Ethernet, up to 65507 bytes max).
+//
+// Returns:
+//   - n: Number of bytes in the received datagram (0 to len(p))
+//   - err: nil on success, or an error:
+//   - ErrInstance if client is nil
+//   - ErrConnection if not connected (call Connect() first)
+//   - network error for other failures
+//
+// Important UDP behavior:
+//   - Blocks until a datagram arrives or an error occurs
+//   - If the datagram is larger than len(p), the excess bytes are discarded
+//   - Each call receives one complete datagram (message boundaries preserved)
+//   - No guarantee datagrams arrive in order or at all
+//   - Thread-safe: Multiple goroutines should NOT call Read concurrently on the
+//     same client (underlying UDP socket is not safe for concurrent reads)
+//
+// Example:
+//
+//	buf := make([]byte, 1500) // Typical MTU size
+//	n, err := client.Read(buf)
+//	if err != nil {
+//	    log.Printf("Read error: %v", err)
+//	    return
+//	}
+//	log.Printf("Received %d bytes: %s", n, buf[:n])
 func (o *cli) Read(p []byte) (n int, err error) {
 	if o == nil {
 		return 0, ErrInstance
-	} else if i := o.c.Load(); i == nil {
-		return 0, ErrConnection
-	} else if c, k := i.(net.Conn); !k {
-		return 0, ErrConnection
+	}
+
+	if i, k := o.m.Load(keyNetConn); !k || i == nil {
+		err = ErrConnection
+		o.fctError(err)
+		return 0, err
+	} else if c, k := i.(net.Conn); !k || c == nil {
+		err = ErrConnection
+		o.fctError(err)
+		return 0, err
 	} else {
 		o.fctInfo(c.LocalAddr(), c.RemoteAddr(), libsck.ConnectionRead)
-		return c.Read(p)
+		n, err = c.Read(p)
+		if err != nil {
+			o.fctError(err)
+		}
+		return n, err
 	}
 }
 
+// Write sends one complete datagram to the remote address.
+//
+// This method implements io.Writer interface and sends data to the remote
+// UDP address. Each Write() call sends exactly one complete datagram.
+//
+// Parameters:
+//   - p: Buffer containing data to send. All len(p) bytes will be sent as one datagram.
+//
+// Returns:
+//   - n: Number of bytes sent (0 to len(p))
+//   - err: nil if datagram sent successfully, or an error:
+//   - ErrInstance if client is nil
+//   - ErrConnection if not connected (call Connect() first)
+//   - network error if send fails
+//
+// Important UDP behavior:
+//   - Each Write() sends one complete datagram
+//   - Maximum datagram size is typically 65507 bytes (65535 - 8 byte UDP header - 20 byte IP header)
+//   - Consider MTU limitations (typically 1500 bytes for Ethernet) to avoid fragmentation
+//   - No guarantee of delivery (unreliable protocol)
+//   - No automatic retransmission
+//   - Thread-safe: Multiple goroutines should NOT call Write concurrently on the
+//     same client (underlying UDP socket is not safe for concurrent writes)
+//
+// Recommended datagram sizes:
+//   - < 508 bytes: Guaranteed to fit in a single IP packet (safe)
+//   - < 1472 bytes: Fits in single Ethernet frame without fragmentation
+//   - > 1472 bytes: May require IP fragmentation (less reliable)
+//
+// Example:
+//
+//	data := []byte("Hello, UDP!")
+//	n, err := client.Write(data)
+//	if err != nil {
+//	    log.Printf("Write error: %v", err)
+//	    return
+//	}
+//	if n != len(data) {
+//	    log.Printf("Partial write: %d of %d bytes", n, len(data))
+//	}
 func (o *cli) Write(p []byte) (n int, err error) {
 	if o == nil {
 		return 0, ErrInstance
-	} else if i := o.c.Load(); i == nil {
-		return 0, ErrConnection
-	} else if c, k := i.(net.Conn); !k {
-		return 0, ErrConnection
+	}
+
+	if i, k := o.m.Load(keyNetConn); !k || i == nil {
+		err = ErrConnection
+		o.fctError(err)
+		return 0, err
+	} else if c, k := i.(net.Conn); !k || c == nil {
+		err = ErrConnection
+		o.fctError(err)
+		return 0, err
 	} else {
 		o.fctInfo(c.LocalAddr(), c.RemoteAddr(), libsck.ConnectionWrite)
-		return c.Write(p)
+		n, err = c.Write(p)
+		if err != nil {
+			o.fctError(err)
+		}
+		return n, err
 	}
 }
 
+// Close closes the UDP socket and releases associated resources.
+//
+// This method closes the underlying UDP socket and removes it from the
+// client's state. After calling Close(), IsConnected() will return false and
+// any subsequent Read() or Write() calls will return ErrConnection.
+//
+// Behavior:
+//   - Triggers ConnectionClose callback before closing
+//   - Closes the underlying UDP socket
+//   - Removes socket from client state atomically
+//   - Safe to call multiple times (subsequent calls return ErrConnection)
+//   - Thread-safe: Can be called concurrently with other operations
+//
+// Returns:
+//   - nil: Socket closed successfully
+//   - ErrInstance: If client is nil
+//   - ErrConnection: If no socket exists (already closed or never connected)
+//   - network error: If underlying Close() fails (rare)
+//
+// Best practice: Always defer Close() after successful Connect() to ensure
+// proper cleanup even if errors occur.
+//
+// Example:
+//
+//	client, err := udp.New("localhost:8080")
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//
+//	if err := client.Connect(ctx); err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Close() // Ensure cleanup
+//
+//	// ... use client ...
 func (o *cli) Close() error {
 	if o == nil {
 		return ErrInstance
-	} else if i := o.c.Load(); i == nil {
+	}
+
+	// Use LoadAndDelete to atomically remove the connection
+	if i, k := o.m.LoadAndDelete(keyNetConn); !k || i == nil {
 		return ErrConnection
-	} else if c, k := i.(net.Conn); !k {
+	} else if c, k := i.(net.Conn); !k || c == nil {
 		return ErrConnection
 	} else {
 		o.fctInfo(c.LocalAddr(), c.RemoteAddr(), libsck.ConnectionClose)
-		e := c.Close()
-		o.c.Store(c)
-		return e
+		return c.Close()
 	}
 }
 
+// Once performs a one-shot datagram send operation.
+//
+// This method is a convenience function that:
+//  1. Creates and associates a UDP socket
+//  2. Sends all data from the request reader as datagrams
+//  3. Invokes the response callback to handle received datagrams (if provided)
+//  4. Closes the socket automatically
+//
+// This is useful for simple request/response patterns where you don't need
+// to maintain a persistent socket association.
+//
+// Parameters:
+//   - ctx: Context for socket creation timeout and cancellation
+//   - request: Reader containing the data to send. Data is read until EOF.
+//     Note: For UDP, consider the data size - large data may result in multiple
+//     datagrams or fragmentation.
+//   - fct: Callback function to handle responses. Receives the client as io.Reader.
+//     Can be nil if no response is expected (fire-and-forget).
+//
+// The response callback receives the client itself, allowing you to read
+// response datagrams using client.Read().
+//
+// Behavior:
+//   - Automatically creates socket if not connected
+//   - Reads all data from request until io.EOF
+//   - Calls response callback (if provided)
+//   - Automatically closes socket via defer
+//   - Triggers all appropriate state callbacks
+//   - Error callback triggered for any errors
+//
+// Returns:
+//   - nil: Operation completed successfully
+//   - ErrInstance: If client is nil
+//   - Socket creation or I/O errors if operation fails
+//
+// Important UDP considerations:
+//   - No guarantee the datagram(s) will be received
+//   - Response callback may timeout waiting for datagrams that never arrive
+//   - Consider using a timeout context for response reading
+//
+// Example:
+//
+//	request := bytes.NewBufferString("Query")
+//	err := client.Once(ctx, request, func(reader io.Reader) {
+//	    buf := make([]byte, 1500)
+//	    n, _ := reader.Read(buf)
+//	    fmt.Printf("Response: %s\n", buf[:n])
+//	})
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	// Socket automatically closed
+//
+// See github.com/nabbar/golib/socket.Response for callback signature details.
 func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) error {
 	if o == nil {
 		return ErrInstance
 	}
 
 	defer func() {
-		o.fctError(o.Close())
+		if err := o.Close(); err != nil {
+			o.fctError(err)
+		}
 	}()
 
 	var (

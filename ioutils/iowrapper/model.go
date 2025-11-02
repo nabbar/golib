@@ -31,12 +31,14 @@ import (
 	libatm "github.com/nabbar/golib/atomic"
 )
 
+// iow is the internal implementation of IOWrapper.
+// It stores the underlying object and atomic values for custom functions.
 type iow struct {
-	i any
-	r libatm.Value[FuncRead]
-	w libatm.Value[FuncWrite]
-	s libatm.Value[FuncSeek]
-	c libatm.Value[FuncClose]
+	i any                     // Underlying I/O object
+	r libatm.Value[FuncRead]  // Atomic custom read function
+	w libatm.Value[FuncWrite] // Atomic custom write function
+	s libatm.Value[FuncSeek]  // Atomic custom seek function
+	c libatm.Value[FuncClose] // Atomic custom close function
 }
 
 func (o *iow) SetRead(read FuncRead) {
@@ -74,8 +76,9 @@ func (o *iow) SetClose(close FuncClose) {
 func (o *iow) Read(p []byte) (n int, err error) {
 	var r []byte
 
-	if o.r != nil {
-		r = o.r.Load()(p)
+	fn := o.r.Load()
+	if fn != nil {
+		r = fn(p)
 	} else {
 		r = o.fakeRead(p)
 	}
@@ -84,15 +87,17 @@ func (o *iow) Read(p []byte) (n int, err error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 
-	copy(p, r)
-	return len(r), nil
+	// Copy returns the number of elements copied, which is min(len(p), len(r))
+	n = copy(p, r)
+	return n, nil
 }
 
 func (o *iow) Write(p []byte) (n int, err error) {
 	var r []byte
 
-	if o.w != nil {
-		r = o.w.Load()(p)
+	fn := o.w.Load()
+	if fn != nil {
+		r = fn(p)
 	} else {
 		r = o.fakeWrite(p)
 	}
@@ -101,26 +106,29 @@ func (o *iow) Write(p []byte) (n int, err error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 
-	copy(p, r)
+	// For Write, we return the length of the data we processed (r)
+	// The custom function should return the bytes that were written
 	return len(r), nil
 }
 
 func (o *iow) Seek(offset int64, whence int) (int64, error) {
-	if o.s != nil {
-		return o.s.Load()(offset, whence)
-	} else {
-		return o.fakeSeek(offset, whence)
+	fn := o.s.Load()
+	if fn != nil {
+		return fn(offset, whence)
 	}
+	return o.fakeSeek(offset, whence)
 }
 
 func (o *iow) Close() error {
-	if o.c != nil {
-		return o.c.Load()()
-	} else {
-		return o.fakeClose()
+	fn := o.c.Load()
+	if fn != nil {
+		return fn()
 	}
+	return o.fakeClose()
 }
 
+// fakeRead is the default read function that delegates to the underlying io.Reader.
+// Returns nil if the underlying object doesn't implement io.Reader.
 func (o *iow) fakeRead(p []byte) []byte {
 	if r, k := o.i.(io.Reader); k {
 		n, err := r.Read(p)
@@ -133,6 +141,8 @@ func (o *iow) fakeRead(p []byte) []byte {
 	}
 }
 
+// fakeWrite is the default write function that delegates to the underlying io.Writer.
+// Returns nil if the underlying object doesn't implement io.Writer.
 func (o *iow) fakeWrite(p []byte) []byte {
 	if r, k := o.i.(io.Writer); k {
 		n, err := r.Write(p)
@@ -145,6 +155,8 @@ func (o *iow) fakeWrite(p []byte) []byte {
 	}
 }
 
+// fakeSeek is the default seek function that delegates to the underlying io.Seeker.
+// Returns io.ErrUnexpectedEOF if the underlying object doesn't implement io.Seeker.
 func (o *iow) fakeSeek(offset int64, whence int) (int64, error) {
 	if r, k := o.i.(io.Seeker); k {
 		return r.Seek(offset, whence)
@@ -153,6 +165,8 @@ func (o *iow) fakeSeek(offset int64, whence int) (int64, error) {
 	}
 }
 
+// fakeClose is the default close function that delegates to the underlying io.Closer.
+// Returns nil if the underlying object doesn't implement io.Closer (no error on non-closeable objects).
 func (o *iow) fakeClose() error {
 	if r, k := o.i.(io.Closer); k {
 		return r.Close()

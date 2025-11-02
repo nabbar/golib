@@ -30,6 +30,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"os"
+	"path/filepath"
 	"runtime"
 )
 
@@ -45,16 +46,7 @@ func SystemRootCA() *x509.CertPool {
 
 func checkFile(fct func(p []byte) error, pemFiles ...string) error {
 	for _, f := range pemFiles {
-		if f == "" {
-			return ErrorParamEmpty.Error(nil)
-		}
-
-		if _, e := os.Stat(f); e != nil {
-			return e
-		}
-
-		/* #nosec */
-		b, e := os.ReadFile(f)
+		b, e := getFile(f)
 		if e != nil {
 			return e
 		}
@@ -75,4 +67,26 @@ func checkFile(fct func(p []byte) error, pemFiles ...string) error {
 	}
 
 	return nil
+}
+func getFile(file string) ([]byte, error) {
+	if file == "" {
+		return nil, ErrorParamEmpty.Error(nil)
+	}
+
+	if _, e := os.Stat(file); e != nil {
+		return nil, e
+	}
+
+	r, e := os.OpenRoot(filepath.Dir(file))
+	defer func() {
+		if r != nil {
+			_ = r.Close()
+		}
+	}()
+
+	if e != nil {
+		return nil, e
+	}
+
+	return r.ReadFile(filepath.Base(file))
 }

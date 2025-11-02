@@ -32,20 +32,41 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// Error codes for the console package.
+// These codes are registered with the golib/errors package for structured error handling.
 const (
+	// ErrorParamEmpty indicates that required parameters were not provided or are empty.
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgConsole
+
+	// ErrorColorIOFprintf indicates a failure to write formatted output to an io.Writer.
 	ErrorColorIOFprintf
+
+	// ErrorColorBufWrite indicates a failure to write data to a buffer.
 	ErrorColorBufWrite
+
+	// ErrorColorBufUndefined indicates that a required buffer was nil or not defined.
+	// This occurs when BuffPrintf is called with a nil io.Writer.
 	ErrorColorBufUndefined
 )
 
 func init() {
+	// Register error messages with the golib/errors package.
+	// Panic if there's a code collision with another package.
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
 		panic(fmt.Errorf("error code collision with package golib/console"))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
+// getMessage returns the human-readable error message for a given error code.
+// This function is registered with the golib/errors package and called automatically
+// when error messages are needed.
+//
+// Parameters:
+//   - code: The error code to get the message for
+//
+// Returns:
+//   - string: The error message, or liberr.NullMessage if code is unknown
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:

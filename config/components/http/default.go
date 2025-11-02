@@ -105,10 +105,54 @@ var _defaultConfig = []byte(`[
    }
 ]`)
 
+// SetDefaultConfig replaces the default HTTP server configuration.
+// This function is useful for customizing default server configurations
+// in different deployment environments.
+//
+// Parameters:
+//   - cfg: JSON-encoded array of HTTP server configurations
+//
+// The configuration should be a JSON array of server configurations.
+// Each server configuration should include fields like name, handler_key,
+// listen address, expose URL, TLS settings, etc.
+//
+// Example:
+//
+//	customCfg := []byte(`[
+//	    {
+//	        "name": "api",
+//	        "handler_key": "api",
+//	        "listen": "0.0.0.0:8080",
+//	        "expose": "https://api.example.com"
+//	    }
+//	]`)
+//	http.SetDefaultConfig(customCfg)
 func SetDefaultConfig(cfg []byte) {
 	_defaultConfig = cfg
 }
 
+// DefaultConfig returns the default HTTP server configuration with optional indentation.
+//
+// Parameters:
+//   - indent: Indentation string for formatting (empty for compact, "  " for 2-space indent, etc.)
+//
+// Returns:
+//   - JSON-encoded array of HTTP server configurations
+//
+// The default configuration includes:
+//   - Status HTTP server (port 6080)
+//   - API HTTP server (port 7080)
+//   - Metrics HTTP server (port 8080)
+//
+// Each server includes monitor configuration, TLS settings, and logger configuration.
+//
+// Example:
+//
+//	// Get compact JSON
+//	cfg := http.DefaultConfig("")
+//
+//	// Get formatted JSON with 2-space indentation
+//	cfg := http.DefaultConfig("  ")
 func DefaultConfig(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
 	if err := json.Indent(res, _defaultConfig, indent, cfgcst.JSONIndent); err != nil {
@@ -118,6 +162,15 @@ func DefaultConfig(indent string) []byte {
 	}
 }
 
-func (o *componentHttp) DefaultConfig(indent string) []byte {
+// DefaultConfig returns the default HTTP server configuration with optional indentation.
+// This method delegates to the package-level DefaultConfig function.
+// This implements the cfgtps.Component interface.
+//
+// Parameters:
+//   - indent: Indentation string for formatting
+//
+// Returns:
+//   - JSON-encoded array of HTTP server configurations
+func (o *mod) DefaultConfig(indent string) []byte {
 	return DefaultConfig(indent)
 }

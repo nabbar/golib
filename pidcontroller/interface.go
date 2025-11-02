@@ -25,7 +25,16 @@
 
 package pidcontroller
 
+import "context"
+
 type PID interface {
+	// RangeCtx generates a list of numbers between min and max, using the PID to
+	// control the step. The context is used to stop the generation when the
+	// context is cancelled.
+	//
+	// It will return the list of numbers generated so far if the context is cancelled
+	// during the execution of this function.
+	RangeCtx(ctx context.Context, min, max float64) []float64
 	Range(min, max float64) []float64
 }
 

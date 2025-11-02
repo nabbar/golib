@@ -26,13 +26,13 @@
 package multipart
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math"
 	"sync"
 
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
-	libctx "github.com/nabbar/golib/context"
 	libsiz "github.com/nabbar/golib/size"
 )
 
@@ -48,7 +48,7 @@ type FuncClientS3 func() *sdksss.Client
 type MultiPart interface {
 	io.WriteCloser
 
-	RegisterContext(fct libctx.FuncContext)
+	RegisterContext(ctx context.Context)
 	RegisterClientS3(fct FuncClientS3)
 	RegisterMultipartID(id string)
 	RegisterWorkingFile(file string, truncate bool) error
@@ -103,7 +103,7 @@ func GetOptimalPartSize(objectSize, partSize libsiz.Size) (libsiz.Size, error) {
 		return 0, fmt.Errorf("object size need exceed the maximum number of part with the maximum size of part")
 	} else if objectSize > MaxObjectSize {
 		return 0, fmt.Errorf("object size is over allowed maximum size of object")
-	} else if uint64(obj) > uint64(lim) || uint64(prt) > uint64(lim) || uint64(obj/prt) > uint64(lim) {
+	} else if int64Uin64(obj) > flot64Uint64(lim) || int64Uin64(prt) > flot64Uint64(lim) || int64Uin64(obj/prt) > flot64Uint64(lim) {
 		return GetOptimalPartSize(objectSize, libsiz.SizeFromInt64(prt*2))
 	} else if nbr = int64(math.Ceil(float64(obj) / float64(prt))); nbr > int64(MaxNumberPart) {
 		return GetOptimalPartSize(objectSize, libsiz.SizeFromInt64(prt*2))
@@ -112,4 +112,22 @@ func GetOptimalPartSize(objectSize, partSize libsiz.Size) (libsiz.Size, error) {
 	}
 
 	return libsiz.SizeFromInt64(prt), nil
+}
+
+func int64Uin64(i int64) uint64 {
+	if i <= 0 {
+		return uint64(0)
+	} else {
+		return uint64(i)
+	}
+}
+
+func flot64Uint64(i float64) uint64 {
+	if i <= 0 {
+		return uint64(0)
+	} else if i > float64(math.MaxUint64) {
+		return uint64(math.MaxUint64)
+	} else {
+		return uint64(i)
+	}
 }

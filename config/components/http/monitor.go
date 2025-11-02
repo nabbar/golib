@@ -32,33 +32,39 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
-func (o *componentHttp) RegisterMonitorPool(fct montps.FuncPool) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.p = fct
+// RegisterMonitorPool registers a monitor pool function for health monitoring integration.
+// This implements the cfgtps.Component interface.
+//
+// Parameters:
+//   - fct: Function that returns the monitor pool instance
+//
+// The monitor pool is used to register and manage health monitors for the HTTP servers.
+// Each server in the pool can have its own health monitor that tracks server status,
+// request metrics, and availability.
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
+	if fct == nil {
+		return
+	}
+	o.x.Store(keyFctMonitorPool, fct)
 }
 
-func (o *componentHttp) _getMonitorPool() montps.Pool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.p == nil {
+func (o *mod) _getMonitorPool() montps.Pool {
+	if i, l := o.x.Load(keyFctMonitorPool); !l || i == nil {
 		return nil
-	} else if p := o.p(); p == nil {
+	} else if f := i.(montps.FuncPool); f == nil {
 		return nil
 	} else {
-		return p
+		return f()
 	}
 }
 
-func (o *componentHttp) _registerMonitor(err liberr.CodeError) error {
+func (o *mod) _registerMonitor(err liberr.CodeError) error {
 	var (
 		e   error
 		key = o._getKey()
 		mon []montps.Monitor
 		vrs = o._getVersion()
-		ctx = o.x.GetContext
+		ctx = o.x
 	)
 
 	if o._getMonitorPool() == nil {
@@ -83,7 +89,7 @@ func (o *componentHttp) _registerMonitor(err liberr.CodeError) error {
 			}
 		}
 
-		if e = m.Restart(ctx()); e != nil {
+		if e = m.Restart(ctx); e != nil {
 			return err.Error(e)
 		} else if e = o._setMonitor(m); e != nil {
 			return err.Error(e)
@@ -93,11 +99,10 @@ func (o *componentHttp) _registerMonitor(err liberr.CodeError) error {
 	return nil
 }
 
-func (o *componentHttp) _newMonitor(vrs libver.Version) ([]montps.Monitor, error) {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if c, e := o.s.Monitor(vrs); e != nil {
+func (o *mod) _newMonitor(vrs libver.Version) ([]montps.Monitor, error) {
+	if p := o.GetPool(); p == nil || p.Len() == 0 {
+		return nil, ErrorComponentNotInitialized.Error(nil)
+	} else if c, e := p.Monitor(vrs); e != nil {
 		return nil, e
 	} else {
 		for k := range c {
@@ -109,7 +114,7 @@ func (o *componentHttp) _newMonitor(vrs libver.Version) ([]montps.Monitor, error
 	}
 }
 
-func (o *componentHttp) _getMonitor(key string) montps.Monitor {
+func (o *mod) _getMonitor(key string) montps.Monitor {
 	var (
 		mon montps.Monitor
 		pol = o._getMonitorPool()
@@ -128,7 +133,7 @@ func (o *componentHttp) _getMonitor(key string) montps.Monitor {
 	return mon
 }
 
-func (o *componentHttp) _setMonitor(mon montps.Monitor) error {
+func (o *mod) _setMonitor(mon montps.Monitor) error {
 	var pol = o._getMonitorPool()
 
 	if pol == nil {

@@ -39,7 +39,7 @@ import (
 )
 
 type s3awsModel struct {
-	artcli.ClientHelper
+	artcli.Helper
 
 	c     libaws.AWS
 	x     context.Context
@@ -123,7 +123,7 @@ func (s *s3awsModel) GetArtifact(containName string, regexName string, release *
 		} else if v.Equal(release) {
 			uri := s.c.Config().GetEndpoint()
 			uri.Path += "/" + s.c.GetBucketName() + "/" + o
-			uri.Path = strings.Replace(uri.Path, "//", "/", -1)
+			uri.Path = strings.Replace(uri.Path, "//", "/", -1) // nolint
 
 			if containName != "" && strings.Contains(o, containName) {
 				return uri.String(), nil

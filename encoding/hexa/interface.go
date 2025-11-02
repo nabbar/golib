@@ -24,10 +24,81 @@
  *
  */
 
+// Package hexa provides hexadecimal encoding and decoding with streaming I/O support.
+//
+// This package implements the encoding.Coder interface for consistent hex operations.
+// It uses Go's standard encoding/hex package internally for RFC 4648 compliant encoding.
+//
+// Features:
+//   - Standard hexadecimal encoding (0-9, a-f)
+//   - Case-insensitive decoding (accepts both uppercase and lowercase)
+//   - Streaming encoding/decoding via io.Reader interfaces
+//   - Memory efficient operations
+//   - Stateless and thread-safe
+//   - Lossless round-trip encoding/decoding
+//
+// Encoding converts each byte to two hexadecimal characters:
+//   - Input size N bytes → Output size 2N bytes
+//   - Output format: lowercase hex (e.g., "48656c6c6f")
+//   - Character set: 0-9, a-f
+//
+// Decoding converts hexadecimal strings back to binary:
+//   - Input size 2N bytes → Output size N bytes
+//   - Accepts uppercase, lowercase, or mixed case
+//   - Rejects invalid hex characters or odd length
+//
+// Example usage:
+//
+//	import enchex "github.com/nabbar/golib/encoding/hexa"
+//
+//	// Create coder
+//	coder := enchex.New()
+//
+//	// Encode binary to hex
+//	plaintext := []byte("Hello")
+//	hex := coder.Encode(plaintext)
+//	fmt.Println(string(hex))  // Output: 48656c6c6f
+//
+//	// Decode hex to binary
+//	decoded, err := coder.Decode(hex)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	fmt.Println(string(decoded))  // Output: Hello
+//
+// Common use cases:
+//   - Display binary data in readable format
+//   - Store binary data in text files/databases
+//   - Debug binary protocols
+//   - Encode checksums and hashes
 package hexa
 
 import libenc "github.com/nabbar/golib/encoding"
 
+// New creates a new hexadecimal coder instance.
+//
+// The returned coder implements the encoding.Coder interface and provides
+// hexadecimal encoding and decoding functionality. The coder is stateless
+// and safe for concurrent use.
+//
+// Returns:
+//   - A new hexadecimal coder instance
+//
+// Example:
+//
+//	coder := enchex.New()
+//	hex := coder.Encode([]byte("Hello"))
+//	fmt.Println(string(hex))  // Output: 48656c6c6f
+//
+// Encoding format:
+//   - Each byte becomes two hex characters
+//   - Output is lowercase (0-9, a-f)
+//   - No delimiters or spacing
+//
+// Decoding format:
+//   - Accepts uppercase, lowercase, or mixed case
+//   - Requires even length input
+//   - Rejects invalid hex characters
 func New() libenc.Coder {
 	return &crt{}
 }

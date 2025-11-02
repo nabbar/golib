@@ -36,6 +36,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -175,7 +176,7 @@ func (c *ConfigChain) Cert() (*tls.Certificate, error) {
 	s := string(*c)
 
 	if _, e := os.Stat(s); e == nil {
-		if b, e := os.ReadFile(s); e == nil {
+		if b, e := c.readFile(s); e == nil {
 			s = cleanPem(string(b))
 		}
 	}
@@ -206,6 +207,22 @@ func (c *ConfigChain) Cert() (*tls.Certificate, error) {
 	}
 
 	return &crt, nil
+}
+
+func (o *ConfigChain) readFile(fs string) ([]byte, error) {
+	r, e := os.OpenRoot(filepath.Dir(fs))
+
+	defer func() {
+		if r != nil {
+			_ = r.Close()
+		}
+	}()
+
+	if e != nil {
+		return nil, e
+	} else {
+		return r.ReadFile(filepath.Base(fs))
+	}
 }
 
 func (c *ConfigChain) getPrivateKey(der []byte) (crypto.PrivateKey, error) {

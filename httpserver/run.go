@@ -35,123 +35,65 @@ import (
 
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	loglvl "github.com/nabbar/golib/logger/level"
-	librun "github.com/nabbar/golib/server/runner/startStop"
+	libsrv "github.com/nabbar/golib/runner"
+	librun "github.com/nabbar/golib/runner/startStop"
 )
 
 func (o *srv) newRun(ctx context.Context) error {
-	if o == nil {
+	if o == nil || o.r == nil {
 		return ErrorServerValidate.Error(nil)
 	}
 
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.r != nil {
-		if e := o.r.Stop(ctx); e != nil {
+	r := o.r.Swap(librun.New(o.runFuncStart, o.runFuncStop))
+	if r != nil && r.IsRunning() {
+		if e := r.Stop(ctx); e != nil {
 			return e
 		}
 	}
 
-	o.r = librun.New(o.runFuncStart, o.runFuncStop)
-	return nil
-}
-
-func (o *srv) delRun(ctx context.Context) error {
-	if o == nil {
-		return ErrorServerValidate.Error(nil)
-	}
-
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.r != nil {
-		if e := o.r.Stop(ctx); e != nil {
-			return e
-		}
-	}
-
-	o.r = nil
 	return nil
 }
 
 func (o *srv) runStart(ctx context.Context) error {
-	if o == nil {
+	if o == nil || o.r == nil {
 		return ErrorServerValidate.Error(nil)
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r == nil {
-		return ErrorServerValidate.Error(nil)
+	r := o.r.Load()
+	if r == nil {
+		if e := o.newRun(ctx); e != nil {
+			return e
+		} else if r = o.r.Load(); r == nil {
+			return ErrorServerValidate.Error(nil)
+		}
 	}
 
-	if e := o.r.Start(ctx); e != nil {
+	defer func() {
+		if r != nil {
+			o.r.Store(r)
+		}
+	}()
+
+	if e := r.Start(ctx); e != nil {
 		return e
 	}
 
-	var x, n = context.WithTimeout(ctx, 30*time.Second)
+	var t = time.NewTicker(5 * time.Second)
+	defer t.Stop()
 
-	defer n()
-
-	for !o.r.IsRunning() {
+	for !r.IsRunning() {
 		select {
-		case <-x.Done():
+		case <-ctx.Done():
 			return errNotRunning
 		default:
 			time.Sleep(100 * time.Millisecond)
-			if o.r.IsRunning() {
+			if r.IsRunning() {
 				return o.GetError()
 			}
 		}
 	}
 
 	return o.GetError()
-}
-
-func (o *srv) runStop(ctx context.Context) error {
-	if o == nil {
-		return ErrorServerValidate.Error(nil)
-	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r == nil {
-		return ErrorServerValidate.Error(nil)
-	}
-
-	return o.r.Stop(ctx)
-}
-
-func (o *srv) runRestart(ctx context.Context) error {
-	if o == nil {
-		return ErrorServerValidate.Error(nil)
-	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r == nil {
-		return ErrorServerValidate.Error(nil)
-	}
-
-	return o.r.Restart(ctx)
-}
-
-func (o *srv) runIsRunning() bool {
-	if o == nil {
-		return false
-	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r == nil {
-		return false
-	}
-
-	return o.r.IsRunning()
 }
 
 func (o *srv) runFuncStart(ctx context.Context) (err error) {
@@ -161,6 +103,7 @@ func (o *srv) runFuncStart(ctx context.Context) (err error) {
 	)
 
 	defer func() {
+		libsrv.RecoveryCaller("golib/httpserver/run/fctStart", recover())
 		if tls {
 			ent := o.logger().Entry(loglvl.InfoLevel, "TLS HTTP Server stopped")
 			ent.ErrorAdd(true, err)
@@ -216,6 +159,7 @@ func (o *srv) runFuncStop(ctx context.Context) (err error) {
 	)
 
 	defer func() {
+		libsrv.RecoveryCaller("golib/httpserver/run/fctStop", recover())
 		o.delServer()
 		if tls {
 			ent := o.logger().Entry(loglvl.InfoLevel, "Shutdown of TLS HTTP Server has been called")
@@ -244,39 +188,33 @@ func (o *srv) runFuncStop(ctx context.Context) (err error) {
 		o.logger().Entry(loglvl.InfoLevel, "Calling HTTP Server shutdown").Log()
 	}
 
-	err = ser.Shutdown(x)
-
-	return err
+	return ser.Shutdown(x)
 }
 
+// Uptime returns the duration since the server was started.
+// Returns 0 if the server is not running.
 func (o *srv) Uptime() time.Duration {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r != nil {
-		return o.r.Uptime()
+	if r := o.r.Load(); r != nil {
+		return r.Uptime()
 	}
 
 	return 0
 }
 
+// IsError returns true if the server encountered any errors during operation.
 func (o *srv) IsError() bool {
-	if el := o.r.ErrorsList(); len(el) > 0 {
-		for _, e := range el {
-			if e != nil {
-				return true
-			}
-		}
+	if r := o.r.Load(); r != nil {
+		return r.ErrorsLast() != nil
 	}
 
 	return false
 }
 
+// GetError returns the last error that occurred during server operation.
+// Returns nil if no errors occurred.
 func (o *srv) GetError() error {
-	var err = ErrorServerStart.Error(o.r.ErrorsList()...)
-
-	if err.HasParent() {
-		return err
+	if r := o.r.Load(); r != nil {
+		return ErrorServerStart.IfError(r.ErrorsList()...)
 	}
 
 	return nil

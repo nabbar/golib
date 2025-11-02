@@ -27,42 +27,46 @@
 package config
 
 import (
-	"sync"
+	"context"
+	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
+	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
 )
 
+// Internal constants for function registry keys.
+// These are used to store registered functions in the fct context map.
 const (
-	fctViper uint8 = iota + 1
-	fctStartBefore
-	fctStartAfter
-	fctReloadBefore
-	fctReloadAfter
-	fctStopBefore
-	fctStopAfter
-	fctVersion
-	fctLoggerDef
-	fctMonitorPool
+	fctViper        uint8 = iota + 1 // Viper configuration provider function
+	fctStartBefore                   // Before-start hook function
+	fctStartAfter                    // After-start hook function
+	fctReloadBefore                  // Before-reload hook function
+	fctReloadAfter                   // After-reload hook function
+	fctStopBefore                    // Before-stop hook function
+	fctStopAfter                     // After-stop hook function
+	fctVersion                       // Application version information
+	fctLoggerDef                     // Default logger provider function
+	fctMonitorPool                   // Monitor pool provider function
 )
 
-type configModel struct {
-	m sync.RWMutex
-
-	ctx libctx.Config[string]
-	cpt libctx.Config[string]
-	fct libctx.Config[uint8]
-
-	fcnl []func()
-}
-
-func (c *configModel) _ComponentGetConfig(key string, model interface{}) error {
-	if vpr := c.getViper(); vpr == nil {
-		return ErrorConfigMissingViper.Error(nil)
-	} else if vip := vpr.Viper(); vip == nil {
-		return ErrorConfigMissingViper.Error(nil)
-	} else if err := vpr.Viper().UnmarshalKey(key, model); err != nil {
-		return ErrorComponentConfigError.Error(err)
-	}
-
-	return nil
+// model is the internal implementation of the Config interface.
+// It provides thread-safe component orchestration and lifecycle management.
+//
+// Fields:
+//   - ctx: Shared application context for component communication
+//   - cpt: Component registry (thread-safe map of components)
+//   - fct: Function registry for hooks and providers (thread-safe map)
+//   - cnl: Slice of custom cancel functions (mutex-protected)
+//
+// Thread Safety:
+//   - Component operations are thread-safe via context synchronization
+//   - Cancel function list is protected by mutex m
+//   - Hook registrations are thread-safe via context storage
+type model struct {
+	ctx libctx.Config[string]                       // Shared application context
+	cpt libatm.MapTyped[string, cfgtps.Component]   // Component registry
+	fct libatm.MapTyped[uint8, any]                 // Function and hook registry
+	cnl libatm.MapTyped[uint64, context.CancelFunc] // Custom cancel functions (mutex-protected)
+	seq *atomic.Uint64                              // sequence for cancel function
 }

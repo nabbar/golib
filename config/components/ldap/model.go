@@ -33,30 +33,31 @@ import (
 	lbldap "github.com/nabbar/golib/ldap"
 )
 
-type componentLDAP struct {
+type mod struct {
 	a *atomic.Value // slice attributes []string
 	c *atomic.Value // config
 	l *atomic.Value // client LDAP
 	x libctx.Config[uint8]
 }
 
-func (o *componentLDAP) GetConfig() *lbldap.Config {
+func (o *mod) GetConfig() *lbldap.Config {
 	if i := o.c.Load(); i == nil {
 		return nil
 	} else if v, k := i.(*lbldap.Config); !k {
+		return nil
+	} else if v == nil {
 		return nil
 	} else if len(v.Uri) < 1 {
 		return nil
 	} else if v.PortLdap < 1 && v.Portldaps < 1 {
 		return nil
 	} else {
-		var cfg = lbldap.Config{}
-		cfg = *v
+		var cfg = *v
 		return &cfg
 	}
 }
 
-func (o *componentLDAP) SetConfig(opt *lbldap.Config) {
+func (o *mod) SetConfig(opt *lbldap.Config) {
 	if opt == nil {
 		opt = &lbldap.Config{}
 	}
@@ -64,7 +65,7 @@ func (o *componentLDAP) SetConfig(opt *lbldap.Config) {
 	o.c.Store(opt)
 }
 
-func (o *componentLDAP) GetLDAP() *lbldap.HelperLDAP {
+func (o *mod) GetLDAP() *lbldap.HelperLDAP {
 	if i := o.l.Load(); i == nil {
 		return nil
 	} else if v, k := i.(*lbldap.HelperLDAP); !k {
@@ -81,7 +82,7 @@ func (o *componentLDAP) GetLDAP() *lbldap.HelperLDAP {
 	}
 }
 
-func (o *componentLDAP) SetLDAP(l *lbldap.HelperLDAP) {
+func (o *mod) SetLDAP(l *lbldap.HelperLDAP) {
 	if l == nil {
 		l = &lbldap.HelperLDAP{}
 	}
@@ -89,7 +90,7 @@ func (o *componentLDAP) SetLDAP(l *lbldap.HelperLDAP) {
 	o.l.Store(l)
 }
 
-func (o *componentLDAP) GetAttributes() []string {
+func (o *mod) GetAttributes() []string {
 	if i := o.a.Load(); i == nil {
 		return make([]string, 0)
 	} else if v, k := i.([]string); !k {
@@ -101,7 +102,7 @@ func (o *componentLDAP) GetAttributes() []string {
 	}
 }
 
-func (o *componentLDAP) SetAttributes(att []string) {
+func (o *mod) SetAttributes(att []string) {
 	if att == nil {
 		att = make([]string, 0)
 	}

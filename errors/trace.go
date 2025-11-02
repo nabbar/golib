@@ -48,7 +48,7 @@ var (
 )
 
 func ConvPathFromLocal(str string) string {
-	return strings.Replace(str, string(filepath.Separator), PathSeparator, -1)
+	return strings.Replace(str, string(filepath.Separator), PathSeparator, -1) // nolint
 }
 
 func init() {
@@ -147,7 +147,7 @@ func frameInSlice(s []runtime.Frame, f runtime.Frame) bool {
 			continue
 		}
 
-		if i.Line != i.Line {
+		if i.Line != f.Line {
 			continue
 		}
 

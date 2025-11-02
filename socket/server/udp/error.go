@@ -24,16 +24,48 @@
  *
  */
 
+// Package udp provides a UDP server implementation with connectionless datagram support.
+//
+// This package implements the github.com/nabbar/golib/socket.Server interface
+// for UDP protocol, providing a stateless datagram server with features including:
+//   - Connectionless UDP datagram handling
+//   - Single handler for all incoming datagrams
+//   - Callback hooks for errors and informational messages
+//   - Graceful shutdown support
+//   - Atomic state management
+//   - Context-aware operations
+//
+// Unlike TCP servers, UDP servers operate in a stateless mode where each datagram
+// is processed independently without maintaining persistent connections.
+//
+// See github.com/nabbar/golib/socket for the Server interface definition.
 package udp
 
 import "fmt"
 
 var (
-	ErrInvalidAddress  = fmt.Errorf("invalid listen address")
-	ErrContextClosed   = fmt.Errorf("context closed")
-	ErrServerClosed    = fmt.Errorf("server closed")
-	ErrInvalidHandler  = fmt.Errorf("invalid handler")
+	// ErrInvalidAddress is returned when the server address is empty or malformed.
+	// The address must be in the format "host:port" or ":port" for all interfaces.
+	ErrInvalidAddress = fmt.Errorf("invalid listen address")
+
+	// ErrContextClosed is returned when an operation is cancelled due to context cancellation.
+	ErrContextClosed = fmt.Errorf("context closed")
+
+	// ErrServerClosed is returned when attempting to perform operations on a closed server.
+	ErrServerClosed = fmt.Errorf("server closed")
+
+	// ErrInvalidHandler is returned when attempting to start a server without a valid handler function.
+	// A handler must be provided via the New() constructor.
+	ErrInvalidHandler = fmt.Errorf("invalid handler")
+
+	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
+	// This typically happens when StopListen() takes longer than expected.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
-	ErrGoneTimeout     = fmt.Errorf("timeout on closing connections")
+
+	// ErrGoneTimeout is returned when connection draining exceeds the context timeout.
+	// Note: For UDP servers, this is rarely used as there are no persistent connections.
+	ErrGoneTimeout = fmt.Errorf("timeout on closing connections")
+
+	// ErrInvalidInstance is returned when operating on a nil server instance.
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

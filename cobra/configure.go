@@ -42,8 +42,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var cfgFile string
-
 func (c *cobra) getDefaultPath(baseName string) (string, error) {
 	path := ""
 
@@ -68,12 +66,12 @@ func (c *cobra) getDefaultPath(baseName string) (string, error) {
 func (c *cobra) ConfigureCheckArgs(basename string, args []string) error {
 	if len(args) < 1 {
 		var err error
-		cfgFile, err = c.getDefaultPath(basename)
+		c.f, err = c.getDefaultPath(basename)
 		return err
 	} else if len(args) > 1 {
 		return fmt.Errorf("arguments error: too many file path specify")
 	} else {
-		cfgFile = args[0]
+		c.f = args[0]
 	}
 
 	return nil
@@ -82,19 +80,38 @@ func (c *cobra) ConfigureCheckArgs(basename string, args []string) error {
 func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Reader, printMsg func(pkg, file string)) error {
 	pkg := c.getPackageName()
 
-	if basename == "" && pkg != "" {
-		basename = "." + strings.ToLower(pkg)
+	// Use c.f (set by ConfigureCheckArgs) if available, otherwise use basename
+	filePath := c.f
+	if len(filePath) < 1 {
+		filePath = basename
+	}
+
+	if len(filePath) < 1 && len(pkg) > 0 {
+		filePath = "." + strings.ToLower(pkg)
 	}
 
 	var (
 		fs  *os.File
+		rt  *os.Root
 		ext string
 		buf io.Reader
 		nbr int64
 		err error
 	)
 
-	ext = strings.ToLower(filepath.Ext(cfgFile))
+	defer func() {
+		if rt != nil {
+			_ = rt.Close()
+		}
+	}()
+
+	defer func() {
+		if fs != nil {
+			_ = fs.Close()
+		}
+	}()
+
+	ext = strings.ToLower(filepath.Ext(filePath))
 
 	switch ext {
 	case ".toml", ".tml":
@@ -107,19 +124,22 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 		}
 	default:
 		buf = defaultConfig()
-		cfgFile = strings.TrimSuffix(cfgFile, ext) + ".json"
+		filePath = strings.TrimSuffix(filePath, ext) + ".json"
 	}
 
-	// #nosec
-	fs, err = os.OpenFile(cfgFile, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	// Update c.f with the final file path
+	c.f = filePath
+
+	rt, err = os.OpenRoot(filepath.Dir(filePath))
+
 	if err != nil {
 		return err
-	} else {
-		defer func() {
-			if fs != nil {
-				_ = fs.Close()
-			}
-		}()
+	}
+
+	fs, err = rt.OpenFile(filepath.Base(filePath), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+
+	if err != nil {
+		return err
 	}
 
 	if nbr, err = io.Copy(fs, buf); err != nil {
@@ -133,17 +153,17 @@ func (c *cobra) ConfigureWriteConfig(basename string, defaultConfig func() io.Re
 		fs = nil
 	}
 
-	err = os.Chmod(cfgFile, 0600)
+	err = os.Chmod(filePath, 0600)
 	if err != nil {
 		return err
 	}
 
 	if printMsg == nil {
-		println(fmt.Sprintf("\n\t>> Config File '%s' has been created and file permission have been set.", cfgFile))
+		println(fmt.Sprintf("\n\t>> Config File '%s' has been created and file permission have been set.", filePath))
 		println("\t>> To explicitly specify this config file when you call this tool, use the '-c' flag like this: ")
-		println(fmt.Sprintf("\t\t\t %s -c %s <cmd>...\n", pkg, cfgFile))
+		println(fmt.Sprintf("\t\t\t %s -c %s <cmd>...\n", pkg, filePath))
 	} else {
-		printMsg(pkg, cfgFile)
+		printMsg(pkg, filePath)
 	}
 
 	return nil

@@ -24,18 +24,61 @@
  *
  */
 
+// Package retro provides retrocompatibility support for struct serialization across different versions.
+// It allows structs to be marshaled and unmarshaled with version-specific field inclusion/exclusion
+// based on semantic versioning constraints defined in struct tags.
+//
+// The package supports multiple serialization formats (JSON, YAML, TOML) and enables backward
+// compatibility by controlling which fields are included based on the struct's version field.
+//
+// Example usage:
+//
+//	type MyStruct struct {
+//	    Version string `json:"version"`
+//	    Name    string `json:"name" retro:">=v1.0.0"`
+//	    OldField string `json:"old_field" retro:"<v2.0.0"`
+//	}
+//
+//	model := retro.Model[MyStruct]{
+//	    Struct: MyStruct{Version: "v1.5.0", Name: "test"},
+//	}
+//	data, _ := model.MarshalJSON()
+//
+// See also:
+//   - encoding/json for JSON marshaling
+//   - gopkg.in/yaml.v3 for YAML marshaling
+//   - github.com/pelletier/go-toml for TOML marshaling
 package retro
 
+// Format represents a serialization format supported by the retro package.
 type Format string
 
 const (
+	// FormatJSON represents JSON serialization format.
+	// Uses encoding/json for marshaling and unmarshaling.
 	FormatJSON Format = "json"
+
+	// FormatYAML represents YAML serialization format.
+	// Uses gopkg.in/yaml.v3 for marshaling and unmarshaling.
 	FormatYAML Format = "yaml"
+
+	// FormatTOML represents TOML serialization format.
+	// Uses github.com/pelletier/go-toml for marshaling and unmarshaling.
 	FormatTOML Format = "toml"
 )
 
+// SupportedFormats is the list of all serialization formats supported by this package.
 var SupportedFormats = []Format{FormatJSON, FormatYAML, FormatTOML}
 
+// Valid checks if the format is one of the supported serialization formats.
+// Returns true if the format is FormatJSON, FormatYAML, or FormatTOML.
+//
+// Example:
+//
+//	format := retro.FormatJSON
+//	if format.Valid() {
+//	    // Format is supported
+//	}
 func (f Format) Valid() bool {
 	for _, validFormat := range SupportedFormats {
 		if f == validFormat {

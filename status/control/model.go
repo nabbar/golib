@@ -33,23 +33,91 @@ import (
 	libmap "github.com/go-viper/mapstructure/v2"
 )
 
+// String returns the string representation of the Mode.
+//
+// The string representation uses PascalCase for readability:
+//   - Should -> "Should"
+//   - Must -> "Must"
+//   - AnyOf -> "AnyOf"
+//   - Quorum -> "Quorum"
+//   - Ignore -> "" (empty string)
+//
+// This method is used by the fmt package when printing Mode values.
+//
+// Example:
+//
+//	mode := control.Must
+//	fmt.Println(mode.String()) // Output: Must
 func (c Mode) String() string {
 	switch c {
-	case Must:
-		return "Must"
-	case One:
-		return "One"
 	case Should:
 		return "Should"
+	case Must:
+		return "Must"
+	case AnyOf:
+		return "AnyOf"
+	case Quorum:
+		return "Quorum"
 	}
 
 	return ""
 }
 
+// Code returns the lowercase code representation of the Mode.
+//
+// This is a convenience method that returns the lowercase version of String().
+// It's useful for case-insensitive comparisons and configuration files.
+//
+// Returns:
+//   - Should -> "should"
+//   - Must -> "must"
+//   - AnyOf -> "anyof"
+//   - Quorum -> "quorum"
+//   - Ignore -> "" (empty string)
+//
+// Example:
+//
+//	mode := control.Must
+//	fmt.Println(mode.Code()) // Output: must
 func (c Mode) Code() string {
 	return strings.ToLower(c.String())
 }
 
+// ViperDecoderHook returns a mapstructure decode hook for Viper configuration.
+//
+// This hook allows Mode values to be automatically decoded from configuration
+// files (YAML, JSON, TOML, etc.) when using Viper. The hook converts string
+// values to Mode types during configuration unmarshaling.
+//
+// The decoding is case-insensitive and supports all Mode string representations.
+//
+// Usage with Viper:
+//
+//	import (
+//	    "github.com/spf13/viper"
+//	    "github.com/nabbar/golib/status/control"
+//	)
+//
+//	v := viper.New()
+//	v.SetConfigType("yaml")
+//
+//	// Register the decode hook
+//	decoderConfig := &mapstructure.DecoderConfig{
+//	    DecodeHook: control.ViperDecoderHook(),
+//	    Result:     &config,
+//	}
+//
+// Configuration file example (YAML):
+//
+//	mandatory:
+//	  mode: must
+//	  keys:
+//	    - database
+//	    - cache
+//
+// The "must" string will be automatically decoded to control.Must.
+//
+// See also: github.com/spf13/viper for Viper configuration management.
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
@@ -58,15 +126,15 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 			k bool
 		)
 
+		// Check if the target type matches the expected one
+		if to != reflect.TypeOf(z) {
+			return data, nil
+		}
+
 		// Check if the data type matches the expected one
 		if from.Kind() != reflect.String {
 			return data, nil
 		} else if t, k = data.(string); !k {
-			return data, nil
-		}
-
-		// Check if the target type matches the expected one
-		if to != reflect.TypeOf(z) {
 			return data, nil
 		}
 

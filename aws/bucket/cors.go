@@ -40,7 +40,7 @@ func (cli *client) GetCORS() ([]sdkstp.CORSRule, error) {
 		return nil, cli.GetError(err)
 	} else if out == nil {
 		return nil, libhlp.ErrorResponse.Error(nil)
-	} else if out.CORSRules == nil || len(out.CORSRules) < 1 {
+	} else if len(out.CORSRules) < 1 {
 		return make([]sdkstp.CORSRule, 0), nil
 	}
 

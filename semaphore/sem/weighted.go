@@ -35,56 +35,71 @@ import (
 	goxsem "golang.org/x/sync/semaphore"
 )
 
+// sem is a weighted semaphore implementation with concurrency limits.
 type sem struct {
-	c context.CancelFunc
-	x context.Context
+	c context.CancelFunc // Context cancellation function
+	x context.Context    // Context for goroutine lifecycle
 
-	s *goxsem.Weighted
-	n int64 // max concurrent process
+	s *goxsem.Weighted // Weighted semaphore from golang.org/x/sync
+	n int64            // Maximum concurrent processes allowed
 }
 
+// Deadline implements context.Context interface.
 func (o *sem) Deadline() (deadline time.Time, ok bool) {
 	return o.x.Deadline()
 }
 
+// Done implements context.Context interface.
 func (o *sem) Done() <-chan struct{} {
 	return o.x.Done()
 }
 
+// Err implements context.Context interface.
 func (o *sem) Err() error {
 	return o.x.Err()
 }
 
+// Value implements context.Context interface.
 func (o *sem) Value(key any) any {
 	return o.x.Value(key)
 }
 
+// NewWorker acquires a worker slot, blocking until one is available or context is cancelled.
 func (o *sem) NewWorker() error {
 	return o.s.Acquire(o.x, 1)
 }
 
+// NewWorkerTry attempts to acquire a worker slot without blocking.
+// Returns true if successful, false if no slots available.
 func (o *sem) NewWorkerTry() bool {
 	return o.s.TryAcquire(1)
 }
 
+// DeferWorker releases a worker slot.
+// Should be called with defer after NewWorker() succeeds.
 func (o *sem) DeferWorker() {
 	o.s.Release(1)
 }
 
+// DeferMain cancels the context and releases all resources.
+// Should be called with defer in the main goroutine.
 func (o *sem) DeferMain() {
 	if o.c != nil {
 		o.c()
 	}
 }
 
+// WaitAll blocks until all worker slots are available (all workers completed).
 func (o *sem) WaitAll() error {
 	return o.s.Acquire(o.x, o.n)
 }
 
+// Weighted returns the maximum number of concurrent workers allowed.
 func (o *sem) Weighted() int64 {
 	return o.n
 }
 
+// New creates a new independent semaphore with the same weight.
 func (o *sem) New() semtps.Sem {
 	var (
 		x context.Context

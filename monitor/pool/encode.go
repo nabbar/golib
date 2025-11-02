@@ -33,6 +33,9 @@ import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
+// MarshalText implements encoding.TextMarshaler.
+// It returns a human-readable text representation of all monitors in the pool,
+// with each monitor on a separate line.
 func (o *pool) MarshalText() (text []byte, err error) {
 	var buf = bytes.NewBuffer(make([]byte, 0))
 
@@ -54,6 +57,8 @@ func (o *pool) MarshalText() (text []byte, err error) {
 	return buf.Bytes(), nil
 }
 
+// MarshalJSON implements json.Marshaler.
+// It returns a JSON object with monitor names as keys and monitor status as values.
 func (o *pool) MarshalJSON() ([]byte, error) {
 	var res = make(map[string]montps.MonitorStatus, 0)
 

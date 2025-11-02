@@ -32,7 +32,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
 
 	libhtc "github.com/nabbar/golib/httpcli"
@@ -50,7 +49,7 @@ type request struct {
 	mux sync.Mutex
 
 	opt *atomic.Value // Options
-	ctx *atomic.Value // Context function: libctx.FuncContext
+	ctx *atomic.Value // Context function: context.Context
 	log *atomic.Value // Default logger : liblog.FuncLog
 	uri *url.URL      // endpoint url
 	hdr sync.Map      // header values
@@ -157,18 +156,18 @@ func (r *request) _getDefaultLogger() liblog.Logger {
 	}
 }
 
-func (r *request) RegisterContext(fct libctx.FuncContext) {
-	if fct == nil {
-		fct = context.Background
+func (r *request) RegisterContext(ctx context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	r.ctx.Store(fct)
+	r.ctx.Store(ctx)
 }
 
-func (r *request) getFuncContext() libctx.FuncContext {
+func (r *request) getFuncContext() context.Context {
 	if i := r.ctx.Load(); i == nil {
 		return nil
-	} else if v, k := i.(libctx.FuncContext); !k {
+	} else if v, k := i.(context.Context); !k {
 		return nil
 	} else {
 		return v
@@ -179,7 +178,7 @@ func (r *request) context() context.Context {
 	if f := r.getFuncContext(); f == nil {
 		return context.Background()
 	} else {
-		return f()
+		return f
 	}
 }
 

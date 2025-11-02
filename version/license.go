@@ -26,19 +26,44 @@ package version
 
 import "fmt"
 
+// license represents the type of open-source license.
+// This type is not exported; use the exported License_* constants instead.
 type license uint8
 
+// Supported open-source license types.
+// These constants can be passed to NewVersion to specify the application's license.
 const (
+	// License_MIT represents the MIT License - a permissive license.
 	License_MIT license = iota
+
+	// License_GNU_GPL_v3 represents the GNU General Public License v3.0 - a strong copyleft license.
 	License_GNU_GPL_v3
+
+	// License_GNU_Affero_GPL_v3 represents the GNU Affero General Public License v3.0 - GPL with network use clause.
 	License_GNU_Affero_GPL_v3
+
+	// License_GNU_Lesser_GPL_v3 represents the GNU Lesser General Public License v3.0 - weak copyleft for libraries.
 	License_GNU_Lesser_GPL_v3
+
+	// License_Mozilla_PL_v2 represents the Mozilla Public License v2.0 - weak copyleft, file-level.
 	License_Mozilla_PL_v2
+
+	// License_Apache_v2 represents the Apache License v2.0 - permissive with patent grant.
 	License_Apache_v2
+
+	// License_Unlicense represents the Unlicense - public domain dedication.
 	License_Unlicense
+
+	// License_Creative_Common_Zero_v1 represents CC0 1.0 Universal - public domain dedication.
 	License_Creative_Common_Zero_v1
+
+	// License_Creative_Common_Attribution_v4_int represents CC BY 4.0 - requires attribution.
 	License_Creative_Common_Attribution_v4_int
+
+	// License_Creative_Common_Attribution_Share_Alike_v4_int represents CC BY-SA 4.0 - attribution + share-alike.
 	License_Creative_Common_Attribution_Share_Alike_v4_int
+
+	// License_SIL_Open_Font_1_1 represents the SIL Open Font License v1.1 - for fonts.
 	License_SIL_Open_Font_1_1
 )
 

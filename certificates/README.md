@@ -1,16 +1,58 @@
 # Certificates Package
 
-This package provides tools and abstractions to manage TLS/SSL certificates, cipher suites, curves, and related configuration for secure communications in Go applications.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
 
-## Features
+Comprehensive TLS/SSL certificate management for secure communications in Go applications.
 
-- **Certificate Management**: Load certificates from files or strings, manage certificate pairs, and support for both file-based and in-memory certificates.
-- **Root CA and Client CA**: Add and manage root and client certificate authorities from files or strings.
-- **TLS Version Control**: Configure minimum and maximum supported TLS versions.
-- **Cipher Suites and Curves**: Select and manage cipher suites and elliptic curves for TLS connections.
-- **Client Authentication**: Configure client authentication modes.
-- **Dynamic and Session Ticket Options**: Enable or disable dynamic record sizing and session tickets.
-- **Configuration Inheritance**: Optionally inherit from a default configuration.
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Installation](#installation)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Subpackages](#subpackages)
+- [Configuration](#configuration)
+- [Security Best Practices](#security-best-practices)
+- [Use Cases](#use-cases)
+- [API Reference](#api-reference)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [Resources](#resources)
+- [License](#license)
+
+---
+
+## Overview
+
+The certificates package provides a complete solution for configuring TLS/SSL connections in Go applications. It offers type-safe configuration for certificates, cipher suites, elliptic curves, TLS versions, and client authentication modes.
+
+### Design Philosophy
+
+1. **Type-Safe**: Leverage Go generics and type wrappers for compile-time safety
+2. **Flexible Input**: Support for PEM strings, file paths, and structured configuration
+3. **Security-First**: Default to secure configurations with modern TLS standards
+4. **Multi-Format**: JSON, YAML, TOML, and CBOR encoding support
+5. **Thread-Safe**: All operations are safe for concurrent access
+
+---
+
+## Key Features
+
+- **Certificate Management**: Load and manage certificate pairs (private key + certificate)
+- **CA Management**: Support for root CA and client CA certificate pools
+- **TLS Version Control**: Configure minimum and maximum TLS versions (1.0-1.3)
+- **Cipher Suite Selection**: Modern, secure cipher suites for TLS 1.2 and 1.3
+- **Elliptic Curve Configuration**: Support for X25519, P256, P384, and P521
+- **Client Authentication**: Five authentication modes from none to strict verification
+- **Dynamic Configuration**: Runtime configuration updates and rotation
+- **Multiple Encodings**: JSON, YAML, TOML, CBOR support for all types
+- **Thread-Safe Operations**: Concurrent access protection throughout
+
+---
 
 ## Installation
 
@@ -18,778 +60,732 @@ This package provides tools and abstractions to manage TLS/SSL certificates, cip
 go get github.com/nabbar/golib/certificates
 ```
 
-## Usage
+**Requirements:**
+- Go 1.18 or higher (for generics support)
+- No external dependencies beyond crypto/tls and encoding libraries
 
-### Basic Example
+---
+
+## Architecture
+
+### Package Structure
+
+```
+certificates/
+├── certificates        # Main package
+│   ├── interface.go   # TLSConfig interface and types
+│   ├── model.go       # Implementation
+│   ├── config.go      # Configuration structures
+│   └── tools.go       # Helper functions
+└── Subpackages/
+    ├── auth/          # Client authentication modes
+    ├── ca/            # Certificate Authority management
+    ├── certs/         # Certificate pair management
+    ├── cipher/        # Cipher suite configuration
+    ├── curves/        # Elliptic curve configuration
+    └── tlsversion/    # TLS version management
+```
+
+### Component Diagram
+
+```
+┌─────────────────────────────────────────────────┐
+│              TLSConfig Interface                │
+│   Main configuration for TLS connections        │
+└───────────┬─────────────────────────────────────┘
+            │
+            ├──> Root CA Pool (ca.Cert)
+            │    └─ x509.CertPool
+            │
+            ├──> Client CA Pool (ca.Cert)
+            │    └─ x509.CertPool
+            │
+            ├──> Certificate Pairs (certs.Cert)
+            │    └─ tls.Certificate
+            │
+            ├──> TLS Version (tlsversion.Version)
+            │    ├─ Min: TLS 1.2 (recommended)
+            │    └─ Max: TLS 1.3 (preferred)
+            │
+            ├──> Cipher Suites (cipher.Cipher)
+            │    ├─ TLS 1.2: ECDHE+AES-GCM
+            │    └─ TLS 1.3: AES-GCM, ChaCha20
+            │
+            ├──> Elliptic Curves (curves.Curves)
+            │    ├─ X25519 (preferred)
+            │    └─ P256, P384, P521
+            │
+            └──> Client Auth (auth.ClientAuth)
+                 └─ NoClientCert, Request, Require, Verify, Strict
+```
+
+### Type System
+
+| Type | Package | Purpose |
+|------|---------|---------|
+| `TLSConfig` | certificates | Main interface for TLS configuration |
+| `ClientAuth` | auth | Client authentication modes |
+| `Cert` (CA) | ca | Certificate Authority certificates |
+| `Cert` (pairs) | certs | Certificate pairs (key + cert) |
+| `Cipher` | cipher | TLS cipher suite identifiers |
+| `Curves` | curves | Elliptic curve identifiers |
+| `Version` | tlsversion | TLS protocol version |
+
+---
+
+## Quick Start
+
+### Basic Server Configuration
+
+```go
+package main
+
+import (
+    "crypto/tls"
+    "net/http"
+    
+    "github.com/nabbar/golib/certificates"
+    "github.com/nabbar/golib/certificates/tlsversion"
+)
+
+func main() {
+    // Create TLS configuration
+    tlsConfig := certificates.New()
+    
+    // Set TLS versions
+    tlsConfig.SetVersionMin(tlsversion.VersionTLS12)
+    tlsConfig.SetVersionMax(tlsversion.VersionTLS13)
+    
+    // Add server certificate
+    err := tlsConfig.AddCertificatePairFile("/path/to/key.pem", "/path/to/cert.pem")
+    if err != nil {
+        panic(err)
+    }
+    
+    // Create HTTP server with TLS
+    server := &http.Server{
+        Addr:      ":443",
+        TLSConfig: tlsConfig.TLS("example.com"),
+    }
+    
+    server.ListenAndServeTLS("", "")
+}
+```
+
+### Client Configuration with mTLS
+
+```go
+package main
+
+import (
+    "crypto/tls"
+    "net/http"
+    
+    "github.com/nabbar/golib/certificates"
+    "github.com/nabbar/golib/certificates/auth"
+)
+
+func main() {
+    // Create client TLS configuration
+    tlsConfig := certificates.New()
+    
+    // Add root CA to verify server
+    err := tlsConfig.AddRootCAFile("/path/to/ca.pem")
+    if err != nil {
+        panic(err)
+    }
+    
+    // Add client certificate for mTLS
+    err = tlsConfig.AddCertificatePairFile("/path/to/client-key.pem", "/path/to/client-cert.pem")
+    if err != nil {
+        panic(err)
+    }
+    
+    // Create HTTP client
+    client := &http.Client{
+        Transport: &http.Transport{
+            TLSClientConfig: tlsConfig.TLS("server.example.com"),
+        },
+    }
+    
+    resp, err := client.Get("https://server.example.com")
+    // ...
+}
+```
+
+### Configuration from Strings
+
+```go
+// PEM-encoded certificate and key
+keyPEM := `-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA...
+-----END RSA PRIVATE KEY-----`
+
+certPEM := `-----BEGIN CERTIFICATE-----
+MIIDXTCCAkWgAwIBAgIJ...
+-----END CERTIFICATE-----`
+
+tlsConfig := certificates.New()
+err := tlsConfig.AddCertificatePairString(keyPEM, certPEM)
+if err != nil {
+    panic(err)
+}
+```
+
+---
+
+## Subpackages
+
+###  auth - Client Authentication Modes
+
+Provides client authentication mode types for TLS connections.
+
+**Supported Modes:**
+- `NoClientCert`: No client certificate required
+- `RequestClientCert`: Request but don't require client certificate
+- `RequireAnyClientCert`: Require any client certificate (unverified)
+- `VerifyClientCertIfGiven`: Verify client certificate if provided
+- `RequireAndVerifyClientCert`: Require and verify client certificate
+
+**Example:**
+```go
+import "github.com/nabbar/golib/certificates/auth"
+
+authMode := auth.Parse("require")
+tlsConfig.SetClientAuth(authMode)
+```
+
+[Full auth package documentation →](https://pkg.go.dev/github.com/nabbar/golib/certificates/auth)
+
+---
+
+### ca - Certificate Authority Management
+
+Manages CA certificates for verifying certificate chains.
+
+**Key Features:**
+- Parse CA certificates from PEM strings or bytes
+- Support for certificate chains
+- Convert to x509.CertPool for TLS
+- Multiple encoding formats (JSON, YAML, TOML, CBOR)
+
+**Example:**
+```go
+import "github.com/nabbar/golib/certificates/ca"
+
+caCert, err := ca.Parse(pemString)
+if err != nil {
+    log.Fatal(err)
+}
+pool := caCert.GetCertPool()
+```
+
+[Full ca package documentation →](https://pkg.go.dev/github.com/nabbar/golib/certificates/ca)
+
+---
+
+### certs - Certificate Pair Management
+
+Manages certificate pairs (private key + certificate) for TLS servers and clients.
+
+**Key Features:**
+- Parse certificate pairs from PEM strings or files
+- Support for certificate chains
+- Multiple configuration formats (ConfigPair, ConfigChain)
+- Convert to tls.Certificate
+
+**Example:**
+```go
+import "github.com/nabbar/golib/certificates/certs"
+
+cert, err := certs.Parse(keyPEM + "\n" + certPEM)
+if err != nil {
+    log.Fatal(err)
+}
+tlsCert := cert.GetTLS()
+```
+
+[Full certs package documentation →](https://pkg.go.dev/github.com/nabbar/golib/certificates/certs)
+
+---
+
+### cipher - Cipher Suite Selection
+
+Provides TLS cipher suite types and parsing for secure connections.
+
+**Supported Cipher Suites:**
+
+**TLS 1.2:**
+- RSA with AES-GCM
+- ECDHE-RSA with AES-GCM (forward secrecy)
+- ECDHE-ECDSA with AES-GCM (forward secrecy)
+- ECDHE with ChaCha20-Poly1305 (forward secrecy, mobile-optimized)
+
+**TLS 1.3:**
+- AES-128-GCM-SHA256
+- AES-256-GCM-SHA384
+- ChaCha20-Poly1305-SHA256
+
+**Example:**
+```go
+import "github.com/nabbar/golib/certificates/cipher"
+
+cipher := cipher.Parse("ECDHE-RSA-AES128-GCM-SHA256")
+if cipher != cipher.Unknown {
+    fmt.Println("Supported cipher:", cipher.String())
+}
+```
+
+[Full cipher package documentation →](https://pkg.go.dev/github.com/nabbar/golib/certificates/cipher)
+
+---
+
+### curves - Elliptic Curve Configuration
+
+Provides elliptic curve types for ECDHE cipher suites.
+
+**Supported Curves:**
+- `X25519`: Modern, high-performance (preferred)
+- `P256` (secp256r1): NIST curve, widely supported
+- `P384` (secp384r1): NIST curve, higher security
+- `P521` (secp521r1): NIST curve, maximum security
+
+**Example:**
+```go
+import "github.com/nabbar/golib/certificates/curves"
+
+curve := curves.Parse("X25519")
+tlsConfig.AddCurves(curve)
+```
+
+[Full curves package documentation →](https://pkg.go.dev/github.com/nabbar/golib/certificates/curves)
+
+---
+
+### tlsversion - TLS Version Management
+
+Provides TLS protocol version types and management.
+
+**Supported Versions:**
+- `VersionTLS10`: TLS 1.0 (deprecated, not recommended)
+- `VersionTLS11`: TLS 1.1 (deprecated, not recommended)
+- `VersionTLS12`: TLS 1.2 (secure, widely supported)
+- `VersionTLS13`: TLS 1.3 (modern, most secure)
+
+**Example:**
+```go
+import "github.com/nabbar/golib/certificates/tlsversion"
+
+minVer := tlsversion.Parse("1.2")
+maxVer := tlsversion.Parse("1.3")
+tlsConfig.SetVersionMin(minVer)
+tlsConfig.SetVersionMax(maxVer)
+```
+
+[Full tlsversion package documentation →](https://pkg.go.dev/github.com/nabbar/golib/certificates/tlsversion)
+
+---
+
+## Configuration
+
+### TLSConfig Interface
+
+The main `TLSConfig` interface provides comprehensive methods for configuring TLS connections:
+
+**Certificate Management:**
+- `AddCertificatePairString(key, cert string) error`
+- `AddCertificatePairFile(keyFile, certFile string) error`
+- `GetCertificatePair() []tls.Certificate`
+- `LenCertificatePair() int`
+- `CleanCertificatePair()`
+
+**Root CA Management:**
+- `AddRootCA(rootCA ca.Cert) bool`
+- `AddRootCAString(rootCA string) bool`
+- `AddRootCAFile(pemFile string) error`
+- `GetRootCA() []ca.Cert`
+- `GetRootCAPool() *x509.CertPool`
+
+**Client CA Management:**
+- `AddClientCAString(ca string) bool`
+- `AddClientCAFile(pemFile string) error`
+- `GetClientCA() []ca.Cert`
+- `GetClientCAPool() *x509.CertPool`
+- `SetClientAuth(auth.ClientAuth)`
+
+**Version Control:**
+- `SetVersionMin(tlsversion.Version)`
+- `GetVersionMin() tlsversion.Version`
+- `SetVersionMax(tlsversion.Version)`
+- `GetVersionMax() tlsversion.Version`
+
+**Cipher & Curve Configuration:**
+- `SetCipherList([]cipher.Cipher)`
+- `AddCiphers(...cipher.Cipher)`
+- `GetCiphers() []cipher.Cipher`
+- `SetCurveList([]curves.Curves)`
+- `AddCurves(...curves.Curves)`
+- `GetCurves() []curves.Curves`
+
+**Advanced Options:**
+- `RegisterRand(io.Reader)` - Custom randomness source
+- `SetDynamicSizingDisabled(bool)` - Control record sizing
+- `SetSessionTicketDisabled(bool)` - Control session resumption
+- `TLS(serverName string) *tls.Config` - Get final tls.Config
+
+### Configuration Examples
+
+**Minimal Server Configuration:**
+```go
+cfg := certificates.New()
+cfg.AddCertificatePairFile("server-key.pem", "server-cert.pem")
+tlsConfig := cfg.TLS("example.com")
+```
+
+**Strict Server with mTLS:**
+```go
+cfg := certificates.New()
+cfg.SetVersionMin(tlsversion.VersionTLS12)
+cfg.SetVersionMax(tlsversion.VersionTLS13)
+cfg.AddCertificatePairFile("server-key.pem", "server-cert.pem")
+cfg.AddClientCAFile("client-ca.pem")
+cfg.SetClientAuth(auth.RequireAndVerifyClientCert)
+tlsConfig := cfg.TLS("example.com")
+```
+
+**Client with Custom CA:**
+```go
+cfg := certificates.New()
+cfg.AddRootCAFile("custom-ca.pem")
+cfg.AddCertificatePairFile("client-key.pem", "client-cert.pem")
+tlsConfig := cfg.TLS("")
+```
+
+---
+
+## Security Best Practices
+
+### TLS Version Selection
+
+**✅ Recommended Configuration:**
+```go
+cfg.SetVersionMin(tlsversion.VersionTLS12)  // Minimum TLS 1.2
+cfg.SetVersionMax(tlsversion.VersionTLS13)  // Maximum TLS 1.3
+```
+
+**Security Rationale:**
+- TLS 1.0 and 1.1 are deprecated (RFC 8996)
+- TLS 1.2 provides wide compatibility
+- TLS 1.3 offers improved security and performance
+
+### Cipher Suite Selection
+
+**✅ Prefer ECDHE cipher suites for forward secrecy:**
+```go
+cipherSuites := []cipher.Cipher{
+    cipher.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    cipher.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+    cipher.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    cipher.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+}
+cfg.SetCipherList(cipherSuites)
+```
+
+**❌ Avoid:**
+- Non-ECDHE cipher suites (no forward secrecy)
+- Legacy cipher suites (RC4, 3DES, MD5)
+- Export-grade cryptography
+
+### Elliptic Curve Selection
+
+**✅ Recommended:**
+```go
+cfg.AddCurves(
+    curves.X25519,  // Modern, fast, secure (preferred)
+    curves.P256,    // NIST, widely supported
+)
+```
+
+**Security Notes:**
+- X25519 offers best performance and security
+- P256 provides broad compatibility
+- Avoid P384/P521 unless required by policy
+
+### Certificate Management
+
+**✅ Best Practices:**
+- Use strong key sizes (RSA 2048+, ECDSA P-256+)
+- Implement certificate rotation
+- Monitor certificate expiration
+- Use proper file permissions (0600 for private keys)
+- Store private keys securely (HSM, vault)
+
+**Example with Rotation:**
+```go
+func rotateCertificate(cfg certificates.TLSConfig) error {
+    // Load new certificate
+    err := cfg.AddCertificatePairFile("new-key.pem", "new-cert.pem")
+    if err != nil {
+        return err
+    }
+    
+    // Remove old certificates
+    cfg.CleanCertificatePair()
+    
+    return nil
+}
+```
+
+### Client Authentication
+
+**Security Levels:**
+
+| Mode | Use Case | Security |
+|------|----------|----------|
+| `NoClientCert` | Public services | Low |
+| `RequestClientCert` | Optional auth | Medium |
+| `RequireAnyClientCert` | Testing | Medium |
+| `VerifyClientCertIfGiven` | Flexible auth | Medium-High |
+| `RequireAndVerifyClientCert` | mTLS, high security | High |
+
+**✅ For high-security environments:**
+```go
+cfg.SetClientAuth(auth.RequireAndVerifyClientCert)
+cfg.AddClientCAFile("trusted-clients-ca.pem")
+```
+
+---
+
+## Use Cases
+
+### HTTPS Web Server
+
+```go
+package main
+
+import (
+    "net/http"
+    "github.com/nabbar/golib/certificates"
+    "github.com/nabbar/golib/certificates/tlsversion"
+)
+
+func main() {
+    // Configure TLS
+    tlsCfg := certificates.New()
+    tlsCfg.SetVersionMin(tlsversion.VersionTLS12)
+    tlsCfg.AddCertificatePairFile("server.key", "server.crt")
+    
+    // Create HTTPS server
+    server := &http.Server{
+        Addr:      ":443",
+        TLSConfig: tlsCfg.TLS("example.com"),
+        Handler:   http.DefaultServeMux,
+    }
+    
+    server.ListenAndServeTLS("", "")
+}
+```
+
+### Microservice with mTLS
+
+```go
+// Server side
+serverCfg := certificates.New()
+serverCfg.AddCertificatePairFile("service.key", "service.crt")
+serverCfg.AddClientCAFile("clients-ca.pem")
+serverCfg.SetClientAuth(auth.RequireAndVerifyClientCert)
+
+// Client side
+clientCfg := certificates.New()
+clientCfg.AddRootCAFile("services-ca.pem")
+clientCfg.AddCertificatePairFile("client.key", "client.crt")
+
+client := &http.Client{
+    Transport: &http.Transport{
+        TLSClientConfig: clientCfg.TLS("service.example.com"),
+    },
+}
+```
+
+### gRPC Service
 
 ```go
 import (
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials"
     "github.com/nabbar/golib/certificates"
 )
 
-cfg := certificates.Config{
-    CurveList:            []Curves{...},
-    CipherList:           []Cipher{...},
-    RootCA:               []Cert{...},
-    ClientCA:             []Cert{...},
-    Certs:                []Certif{...},
-    VersionMin:           tlsversion.VersionTLS12,
-    VersionMax:           tlsversion.VersionTLS13,
-    AuthClient:           auth.NoClientCert,
-    InheritDefault:       false,
-    DynamicSizingDisable: false,
-    SessionTicketDisable: false,
-}
+tlsCfg := certificates.New()
+tlsCfg.AddCertificatePairFile("grpc.key", "grpc.crt")
+tlsCfg.AddRootCAFile("ca.pem")
 
-tlsConfig := cfg.New().TLS("your.server.com")
+creds := credentials.NewTLS(tlsCfg.TLS("grpc.example.com"))
+server := grpc.NewServer(grpc.Creds(creds))
 ```
 
-### Configuration Fields
+### Database Connection
 
-- `CurveList`: List of elliptic curves to use (e.g., `["X25519", "P256"]`), see [certificates/curves](#certificatescurves-package) for available options.
-- `CipherList`: List of cipher suites (e.g., `["RSA_AES_128_GCM_SHA256"]`), see [certificates/cipher](#certificatescipher-package) for available options.
-- `RootCA`: List of root CA certificates, supported formats include PEM strings or file paths. See [certificates/ca](#certificatesca-package) for more details.
-- `ClientCA`: List of client CA certificates. Supported formats include PEM strings or file paths. See [certificates/ca](#certificatesca-package) for more details.
-- `Certs`: List of certificate pairs (key/cert). Supported formats include PEM strings or file paths. See [certificates/certs](#certificatescerts-package) for more details.
-- `VersionMin`: Minimum TLS version (e.g., `"1.2"`). See [certificates/tlsversion](#certificatestlsversion-package) for available options. 
-- `VersionMax`: Maximum TLS version (e.g., `"1.3"`). See [certificates/tlsversion](#certificatestlsversion-package) for available options.
-- `AuthClient`: Client authentication mode (e.g., `"none"`, `"require"`). See [certificates/auth](#certificatesauth-package) for available modes.
-- `InheritDefault`: Inherit from the default configuration if set to `true`. Can be used to apply a base configuration across multiple TLS configurations.
-- `DynamicSizingDisable`: Disable dynamic record sizing if set to `true`. Used to control how TLS records are sized dynamically based on the payload.
-- `SessionTicketDisable`: Disable session tickets if set to `true`. Used to control whether session tickets are used for session resumption.
+```go
+import (
+    "database/sql"
+    "crypto/tls"
+    "github.com/go-sql-driver/mysql"
+    "github.com/nabbar/golib/certificates"
+)
 
-### Methods
+tlsCfg := certificates.New()
+tlsCfg.AddRootCAFile("db-ca.pem")
+tlsCfg.AddCertificatePairFile("client.key", "client.crt")
 
-- `New() TLSConfig`: Create a new TLS configuration from the current config.
-- `AddRootCAString(string) bool`: Add a root CA from a string.
-- `AddRootCAFile(string) error`: Add a root CA from a file.
-- `AddClientCAString(string) bool`: Add a client CA from a string.
-- `AddClientCAFile(string) error`: Add a client CA from a file.
-- `AddCertificatePairString(key, cert string) error`: Add a certificate pair from strings.
-- `AddCertificatePairFile(keyFile, certFile string) error`: Add a certificate pair from files.
-- `SetVersionMin(Version)`: Set the minimum TLS version.
-- `SetVersionMax(Version)`: Set the maximum TLS version.
-- `SetCipherList([]Cipher)`: Set the list of cipher suites.
-- `SetCurveList([]Curves)`: Set the list of elliptic curves.
-- `SetDynamicSizingDisabled(bool)`: Enable/disable dynamic record sizing.
-- `SetSessionTicketDisabled(bool)`: Enable/disable session tickets.
-- `TLS(serverName string) *tls.Config`: Get a `*tls.Config` for use in servers/clients.
+mysql.RegisterTLSConfig("custom", tlsCfg.TLS(""))
+db, err := sql.Open("mysql", "user:pass@tcp(host:3306)/db?tls=custom")
+```
 
-### Testing
+---
 
-Tests are written using [Ginkgo](https://onsi.github.io/ginkgo/) and [Gomega](https://onsi.github.io/gomega/).
+## API Reference
+
+### Main Types
+
+**TLSConfig** - Main interface for TLS configuration
+```go
+type TLSConfig interface {
+    // Certificate management
+    AddCertificatePairString(key, crt string) error
+    AddCertificatePairFile(keyFile, crtFile string) error
+    GetCertificatePair() []tls.Certificate
+    
+    // CA management  
+    AddRootCAString(rootCA string) bool
+    AddRootCAFile(pemFile string) error
+    GetRootCAPool() *x509.CertPool
+    
+    // Version control
+    SetVersionMin(v tlsversion.Version)
+    SetVersionMax(v tlsversion.Version)
+    
+    // Generate final config
+    TLS(serverName string) *tls.Config
+}
+```
+
+### Factory Functions
+
+**New()** - Create new TLSConfig
+```go
+func New() TLSConfig
+```
+
+### Subpackage Types
+
+See individual subpackage documentation for detailed type information:
+- [auth.ClientAuth](https://pkg.go.dev/github.com/nabbar/golib/certificates/auth)
+- [ca.Cert](https://pkg.go.dev/github.com/nabbar/golib/certificates/ca)
+- [certs.Cert](https://pkg.go.dev/github.com/nabbar/golib/certificates/certs)
+- [cipher.Cipher](https://pkg.go.dev/github.com/nabbar/golib/certificates/cipher)
+- [curves.Curves](https://pkg.go.dev/github.com/nabbar/golib/certificates/curves)
+- [tlsversion.Version](https://pkg.go.dev/github.com/nabbar/golib/certificates/tlsversion)
+
+---
+
+## Testing
+
+**Test Suite**: Ginkgo v2 + Gomega with comprehensive coverage
 
 ```bash
-ginkgo -cover .
+# Run all tests
+go test ./...
+
+# With coverage
+go test -cover ./...
+
+# With race detection
+CGO_ENABLED=1 go test -race ./...
+
+# Using Ginkgo CLI
+go install github.com/onsi/ginkgo/v2/ginkgo@latest
+ginkgo -r
 ```
 
-## Liens utiles
+**Coverage by Package:**
 
-- [Documentation Ginkgo](https://onsi.github.io/ginkgo/)
-- [crypto/tls (Go)](https://pkg.go.dev/crypto/tls)
-- [crypto/x509 (Go)](https://pkg.go.dev/crypto/x509)
+| Package | Coverage | Specs |
+|---------|----------|-------|
+| certificates | ~70% | 15 |
+| auth | 73.0% | 12 |
+| ca | 68.5% | 18 |
+| certs | 47.8% | 9 |
+| cipher | 50.6% | 12 |
+| curves | 50.5% | 9 |
+| tlsversion | 54.5% | 9 |
 
-## Licence
-
-MIT © Nicolas JUHEL
+See [TESTING.md](TESTING.md) for detailed testing documentation.
 
 ---
 
-# certificates/auth package
+## Contributing
 
-The `certificates/auth` package provides types and helpers to configure TLS client authentication for Go applications. It allows you to select, parse, and serialize the client authentication mode for TLS servers, supporting JSON, YAML, TOML, and text formats.
+Contributions are welcome! Please follow these guidelines:
 
-## Features
+**Code Contributions:**
+- Do not use AI to generate package implementation code
+- AI may assist with tests, documentation, and bug fixing
+- All contributions must pass `go test -race`
+- Follow existing code style and patterns
+- Add tests for new features
 
-- Enumerates all standard TLS client authentication modes
-- Parse from string, int, or serialized config (JSON/YAML/TOML)
-- Serialize/deserialize for config files and environment variables
-- Helper functions for mapping between string, code, and TLS types
-- Viper decoder hook for config integration
+**Documentation:**
+- Update README.md for new features
+- Add examples for common use cases
+- Keep subpackage documentation synchronized
 
-## Main Types
+**Security:**
+- Report security issues privately
+- Follow responsible disclosure practices
+- Use secure defaults in new features
 
-- `ClientAuth`: Enum type for TLS client authentication (wraps `tls.ClientAuthType`)
-
-### Available Modes
-
-- `NoClientCert` (`"none"`): No client certificate required
-- `RequestClientCert` (`"request"`): Request client certificate, but do not require
-- `RequireAnyClientCert` (`"require"`): Require any client certificate
-- `VerifyClientCertIfGiven` (`"verify"`): Verify client certificate if provided
-- `RequireAndVerifyClientCert` (`"strict require verify"`): Require and verify client certificate
-
-## Example: Parse and Use ClientAuth
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/nabbar/golib/certificates/auth"
-)
-
-func main() {
-    // Parse from string
-    ca := auth.Parse("require")
-    fmt.Println("ClientAuth:", ca.String()) // Output: require
-
-    // Use as tls.ClientAuthType
-    tlsType := ca.TLS()
-    fmt.Println("TLS ClientAuthType:", tlsType)
-}
-```
-
-## Example: Marshal/Unmarshal JSON
-
-```go
-import (
-    "encoding/json"
-    "github.com/nabbar/golib/certificates/auth"
-)
-
-type MyConfig struct {
-    Auth auth.ClientAuth `json:"authClient"`
-}
-
-func main() {
-    // Marshal
-    cfg := MyConfig{Auth: auth.RequireAndVerifyClientCert}
-    b, _ := json.Marshal(cfg)
-    fmt.Println(string(b)) // {"authClient":"strict require verify"}
-
-    // Unmarshal
-    var cfg2 MyConfig
-    _ = json.Unmarshal([]byte(`{"authClient":"verify"}`), &cfg2)
-    fmt.Println(cfg2.Auth.String()) // verify
-}
-```
-
-## Example: Use with Viper
-
-```go
-import (
-    "github.com/spf13/viper"
-    "github.com/nabbar/golib/certificates/auth"
-    "github.com/go-viper/mapstructure/v2"
-)
-
-v := viper.New()
-v.Set("authClient", "require")
-var cfg struct {
-    Auth auth.ClientAuth
-}
-v.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-    dc.DecodeHook = auth.ViperDecoderHook()
-})
-fmt.Println(cfg.Auth.String()) // require
-```
-
-## Options
-
-- **String values:** `"none"`, `"request"`, `"require"`, `"verify"`, `"strict require verify"`
-- **Int values:** Use `ParseInt(int)` to convert from integer codes
-- **Serialization:** Supports JSON, YAML, TOML, text, CBOR
-
-## Advanced
-
-- Use `auth.List()` to get all available modes
-- Use `auth.Parse(s string)` to parse from string
-- Use `auth.ParseInt(i int)` to parse from int
-- Use `auth.ViperDecoderHook()` for config libraries
-
-## Error Handling
-
-Parsing functions return a default value (`NoClientCert`) if the input is invalid. Serialization methods return errors if the format is not supported.
+**Pull Requests:**
+- Provide clear description of changes
+- Reference related issues
+- Include test results
+- Update documentation
 
 ---
 
-# certificates/ca package
+## AI Transparency Notice
 
-The `certificates/ca` package provides tools to parse, manage, and serialize X.509 certificate chains for use as Root or Client Certificate Authorities (CAs) in Go applications. It supports loading certificates from PEM strings or files, and serializing/deserializing in multiple formats (JSON, YAML, TOML, CBOR, text, binary).
-
-## Features
-
-- Parse and manage X.509 certificate chains
-- Load certificates from PEM strings or file paths
-- Serialize/deserialize in JSON, YAML, TOML, CBOR, text, and binary
-- Append certificates to `x509.CertPool`
-- Integrate with Viper for configuration
-
-## Main Types
-
-- `Cert`: Interface for certificate chains (implements marshaling/unmarshaling for all supported formats)
-
-## Example: Parse a PEM Certificate Chain
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/nabbar/golib/certificates/ca"
-)
-
-func main() {
-    pem := `-----BEGIN CERTIFICATE-----
-MIIB... (your PEM data)
------END CERTIFICATE-----`
-    cert, err := ca.Parse(pem)
-    if err != nil {
-        panic(err)
-    }
-    fmt.Println("Number of certs:", cert.Len())
-}
-```
-
-## Example: Load Certificate from File Path
-
-If the PEM block contains a file path, the package will load the certificate from the file.
-
-```go
-cert, err := ca.Parse("/etc/ssl/certs/ca-cert.pem")
-if err != nil {
-    panic(err)
-}
-```
-
-## Example: Marshal/Unmarshal JSON
-
-```go
-import (
-    "encoding/json"
-    "github.com/nabbar/golib/certificates/ca"
-)
-
-type MyConfig struct {
-    Root ca.Cert `json:"rootCA"`
-}
-
-func main() {
-    pem := `-----BEGIN CERTIFICATE-----...`
-    cfg := MyConfig{}
-    _ = json.Unmarshal([]byte(fmt.Sprintf(`{"rootCA":%q}`, pem)), &cfg)
-    b, _ := json.Marshal(cfg)
-    fmt.Println(string(b))
-}
-```
-
-## Example: Append to CertPool
-
-```go
-import (
-    "crypto/x509"
-    "github.com/nabbar/golib/certificates/ca"
-)
-
-cert, _ := ca.Parse(pemString)
-pool := x509.NewCertPool()
-cert.AppendPool(pool)
-```
-
-## Example: Use with Viper
-
-```go
-import (
-    "github.com/spf13/viper"
-    "github.com/nabbar/golib/certificates/ca"
-    "github.com/go-viper/mapstructure/v2"
-)
-
-v := viper.New()
-v.Set("rootCA", "-----BEGIN CERTIFICATE-----...")
-var cfg struct {
-    Root ca.Cert
-}
-v.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-    dc.DecodeHook = ca.ViperDecoderHook()
-})
-```
-
-## Options & Methods
-
-- **Parse(str string) (Cert, error)**: Parse a PEM string or file path to a `Cert`
-- **ParseByte([]byte) (Cert, error)**: Parse from bytes
-- **Cert.Len() int**: Number of certificates in the chain
-- **Cert.AppendPool(*x509.CertPool)**: Add all certs to a pool
-- **Cert.AppendBytes([]byte) error**: Append certs from bytes
-- **Cert.AppendString(string) error**: Append certs from string
-- **Cert.String() string**: PEM-encoded chain as string
-- **Cert.Marshal/Unmarshal**: Supports Text, Binary, JSON, YAML, TOML, CBOR
-
-## Error Handling
-
-- Returns Go `error` or custom errors (`ErrInvalidPairCertificate`, `ErrInvalidCertificate`)
-- Always check returned errors
+In accordance with Article 50.4 of the EU AI Act, AI assistance has been used for testing, documentation, and bug fixing under human supervision.
 
 ---
 
-# certificates/certs package
+## Resources
 
-The `certificates/certs` package provides types and utilities for handling X.509 certificate pairs and chains in Go. It supports loading certificates from PEM strings or files, serializing/deserializing in multiple formats (JSON, YAML, TOML, CBOR, text, binary), and converting to `tls.Certificate` for use in TLS servers/clients.
+**Documentation:**
+- [Go crypto/tls Package](https://pkg.go.dev/crypto/tls)
+- [Go crypto/x509 Package](https://pkg.go.dev/crypto/x509)
+- [RFC 5246 - TLS 1.2](https://tools.ietf.org/html/rfc5246)
+- [RFC 8446 - TLS 1.3](https://tools.ietf.org/html/rfc8446)
+- [RFC 8996 - Deprecating TLS 1.0 and 1.1](https://tools.ietf.org/html/rfc8996)
 
-## Features
+**Tools:**
+- [SSL Labs Server Test](https://www.ssllabs.com/ssltest/)
+- [testssl.sh](https://testssl.sh/)
+- [OpenSSL](https://www.openssl.org/)
 
-- Parse certificate pairs (key + cert) or chains (cert + private key in one PEM)
-- Load from PEM strings or file paths
-- Serialize/deserialize in JSON, YAML, TOML, CBOR, text, and binary
-- Convert to `tls.Certificate`
-- Helper methods for extracting PEM, checking type, and file origin
-- Viper integration for config loading
-
-## Main Types
-
-- `Cert`: Interface for certificate objects (pair or chain)
-- `Certif`: Implementation of `Cert`
-- `ConfigPair`: Struct for key/cert pair
-- `ConfigChain`: String type for PEM chain
-
-## Example: Parse a Certificate Pair
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/nabbar/golib/certificates/certs"
-)
-
-func main() {
-    cert, err := certs.ParsePair("server.key", "server.crt")
-    if err != nil {
-        panic(err)
-    }
-    fmt.Println("Is pair:", cert.IsPair())
-    fmt.Println("Is file:", cert.IsFile())
-}
-```
-
-## Example: Parse a Certificate Chain
-
-```go
-cert, err := certs.Parse("chain.pem")
-if err != nil {
-    panic(err)
-}
-fmt.Println("Is chain:", cert.IsChain())
-```
-
-## Example: Marshal/Unmarshal JSON with Certificates Pair & Chain
-
-```go
-import (
-    "encoding/json"
-    "github.com/nabbar/golib/certificates/certs"
-)
-
-type MyConfig struct {
-    Cert []certs.Certif `json:"cert"`
-}
-
-func main() {
-    jsonData := `[{"key":"server1.key","pub":"server1.crt"},{"key":"server2.key","pub":"server2.crt"},"server3.pem","server4.pem"]`
-    var cfg MyConfig
-    _ = json.Unmarshal([]byte(jsonData), &cfg)
-    b, _ := json.Marshal(cfg)
-    fmt.Println(string(b))
-}
-```
-
-## Example: Get PEM Strings
-
-```go
-pub, key, err := cert.Pair()
-if err != nil {
-    panic(err)
-}
-fmt.Println("Public cert PEM:", pub)
-fmt.Println("Private key PEM:", key)
-```
-
-## Example: Use with Viper
-
-```go
-import (
-    "github.com/spf13/viper"
-    "github.com/nabbar/golib/certificates/certs"
-    "github.com/go-viper/mapstructure/v2"
-)
-
-v := viper.New()
-v.Set("cert", "chain.pem")
-var cfg struct {
-    Cert certs.Certif
-}
-v.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-    dc.DecodeHook = certs.ViperDecoderHook()
-})
-```
-
-## Options & Methods
-
-- **Parse(chain string) (Cert, error)**: Parse a PEM chain or file path
-- **ParsePair(key, pub string) (Cert, error)**: Parse a key/cert pair (PEM or file)
-- **Cert.TLS() tls.Certificate**: Get as `tls.Certificate`
-- **Cert.IsChain() bool**: Is a chain (cert + key in one PEM)
-- **Cert.IsPair() bool**: Is a pair (separate key/cert)
-- **Cert.IsFile() bool**: Loaded from file(s)
-- **Cert.GetCerts() []string**: Get underlying PEMs or file paths
-- **Cert.Pair() (pub, key string, error)**: Get PEM strings for cert and key
-- **Cert.Chain() (string, error)**: Get full PEM chain
-- **Cert.Marshal/Unmarshal**: Supports Text, Binary, JSON, YAML, TOML, CBOR
-
-## Error Handling
-
-- Returns Go `error` or custom errors (`ErrInvalidPairCertificate`, `ErrInvalidCertificate`, `ErrInvalidPrivateKey`)
-- Always check returned errors
+**Package Links:**
+- [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/certificates)
+- [GitHub Repository](https://github.com/nabbar/golib)
+- [Testing Documentation](TESTING.md)
 
 ---
 
-# certificates/cipher package
+## License
 
-The `certificates/cipher` package provides types and utilities for handling TLS cipher suites in Go. It allows you to list, parse, serialize, and use cipher suites for configuring TLS servers and clients, supporting multiple serialization formats (JSON, YAML, TOML, CBOR, text).
+MIT License - See [LICENSE](../../LICENSE) file for details.
 
-## Features
-
-- Enumerates all supported TLS cipher suites (TLS 1.2 & 1.3)
-- Parse from string or integer
-- Serialize/deserialize for config files (JSON, YAML, TOML, CBOR, text)
-- Helper methods for code, string, and TLS value conversion
-- Viper decoder hook for config integration
-
-## Main Types
-
-- `Cipher`: Enum type for TLS cipher suites (wraps `uint16`)
-
-## Example: List and Parse Cipher Suites
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/nabbar/golib/certificates/cipher"
-)
-
-func main() {
-    // List all supported ciphers
-    for _, c := range cipher.List() {
-        fmt.Println("Cipher:", c.String(), "TLS value:", c.TLS())
-    }
-
-    // Parse from string
-    c := cipher.Parse("ECDHE_RSA_AES_128_GCM_SHA256")
-    fmt.Println("Parsed cipher:", c.String())
-
-    // Parse from int
-    c2 := cipher.ParseInt(4865) // Example TLS value
-    fmt.Println("Parsed from int:", c2.String())
-}
-```
-
-## Example: Marshal/Unmarshal JSON
-
-```go
-import (
-    "encoding/json"
-    "github.com/nabbar/golib/certificates/cipher"
-)
-
-type MyConfig struct {
-    Cipher cipher.Cipher `json:"cipher"`
-}
-
-func main() {
-    // Marshal
-    cfg := MyConfig{Cipher: cipher.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256}
-    b, _ := json.Marshal(cfg)
-    fmt.Println(string(b)) // {"cipher":"ecdhe_rsa_aes_128_gcm_sha256"}
-
-    // Unmarshal
-    var cfg2 MyConfig
-    _ = json.Unmarshal([]byte(`{"cipher":"aes_128_gcm_sha256"}`), &cfg2)
-    fmt.Println(cfg2.Cipher.String()) // aes_128_gcm_sha256
-}
-```
-
-## Example: Use with Viper
-
-```go
-import (
-    "github.com/spf13/viper"
-    "github.com/nabbar/golib/certificates/cipher"
-    "github.com/go-viper/mapstructure/v2"
-)
-
-v := viper.New()
-v.Set("cipher", "chacha20_poly1305_sha256")
-var cfg struct {
-    Cipher cipher.Cipher
-}
-v.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-    dc.DecodeHook = cipher.ViperDecoderHook()
-})
-fmt.Println(cfg.Cipher.String()) // chacha20_poly1305_sha256
-```
-
-## Options & Methods
-
-- **List() []Cipher**: List all supported cipher suites
-- **ListString() []string**: List all supported cipher suite names as strings
-- **Parse(s string) Cipher**: Parse from string (case-insensitive, flexible format)
-- **ParseInt(i int) Cipher**: Parse from integer TLS value
-- **Cipher.String() string**: Get string representation
-- **Cipher.TLS() uint16**: Get TLS value
-- **Cipher.Check() bool**: Check if cipher is supported
-- **ViperDecoderHook()**: Viper integration for config loading
-
-## Supported Cipher Suites
-
-- `ecdhe_rsa_aes_128_gcm_sha256`
-- `ecdhe_ecdsa_aes_128_gcm_sha256`
-- `ecdhe_rsa_aes_256_gcm_sha384`
-- `ecdhe_ecdsa_aes_256_gcm_sha384`
-- `ecdhe_rsa_chacha20_poly1305_sha256`
-- `ecdhe_ecdsa_chacha20_poly1305_sha256`
-- `aes_128_gcm_sha256`
-- `aes_256_gcm_sha384`
-- `chacha20_poly1305_sha256`
-- ...and retro-compatible aliases
-
-## Error Handling
-
-- Parsing functions return `Unknown` if the input is invalid.
-- Serialization methods return errors if the format is not supported.
+Copyright (c) 2020 Nicolas JUHEL
 
 ---
 
-# certificates/curves package
-
-The `certificates/curves` package provides types and utilities for handling elliptic curves for TLS in Go. It allows you to list, parse, serialize, and use elliptic curves for configuring TLS servers and clients, supporting multiple serialization formats (JSON, YAML, TOML, CBOR, text).
-
-## Features
-
-- Enumerates all supported TLS elliptic curves (X25519, P256, P384, P521)
-- Parse from string or integer
-- Serialize/deserialize for config files (JSON, YAML, TOML, CBOR, text)
-- Helper methods for code, string, and TLS value conversion
-- Viper decoder hook for config integration
-
-## Main Types
-
-- `Curves`: Enum type for TLS elliptic curves (wraps `uint16`)
-
-## Example: List and Parse Curves
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/nabbar/golib/certificates/curves"
-)
-
-func main() {
-    // List all supported curves
-    for _, c := range curves.List() {
-        fmt.Println("Curve:", c.String(), "TLS value:", c.TLS())
-    }
-
-    // Parse from string
-    c := curves.Parse("P256")
-    fmt.Println("Parsed curve:", c.String())
-
-    // Parse from int
-    c2 := curves.ParseInt(29) // Example TLS value for X25519
-    fmt.Println("Parsed from int:", c2.String())
-}
-```
-
-## Example: Marshal/Unmarshal JSON
-
-```go
-import (
-    "encoding/json"
-    "github.com/nabbar/golib/certificates/curves"
-)
-
-type MyConfig struct {
-    Curve curves.Curves `json:"curve"`
-}
-
-func main() {
-    // Marshal
-    cfg := MyConfig{Curve: curves.P256}
-    b, _ := json.Marshal(cfg)
-    fmt.Println(string(b)) // {"curve":"P256"}
-
-    // Unmarshal
-    var cfg2 MyConfig
-    _ = json.Unmarshal([]byte(`{"curve":"X25519"}`), &cfg2)
-    fmt.Println(cfg2.Curve.String()) // X25519
-}
-```
-
-## Example: Use with Viper
-
-```go
-import (
-    "github.com/spf13/viper"
-    "github.com/nabbar/golib/certificates/curves"
-    "github.com/go-viper/mapstructure/v2"
-)
-
-v := viper.New()
-v.Set("curve", "P384")
-var cfg struct {
-    Curve curves.Curves
-}
-v.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-    dc.DecodeHook = curves.ViperDecoderHook()
-})
-fmt.Println(cfg.Curve.String()) // P384
-```
-
-## Options & Methods
-
-- **List() []Curves**: List all supported curves
-- **ListString() []string**: List all supported curve names as strings
-- **Parse(s string) Curves**: Parse from string (case-insensitive, flexible format)
-- **ParseInt(i int) Curves**: Parse from integer TLS value
-- **Curves.String() string**: Get string representation
-- **Curves.TLS() tls.CurveID**: Get TLS value
-- **Curves.Check() bool**: Check if curve is supported
-- **ViperDecoderHook()**: Viper integration for config loading
-
-## Supported Curves
-
-- `X25519`
-- `P256`
-- `P384`
-- `P521`
-
-## Error Handling
-
-- Parsing functions return `Unknown` if the input is invalid.
-- Serialization methods return errors if the format is not supported.
-
----
-
-# certificates/tlsversion package
-
-The `certificates/tlsversion` package provides types and utilities for handling TLS protocol versions in Go. It allows you to list, parse, serialize, and use TLS versions for configuring secure servers and clients, supporting multiple serialization formats (JSON, YAML, TOML, CBOR, text).
-
-## Features
-
-- Enumerates all supported TLS protocol versions (TLS 1.0, 1.1, 1.2, 1.3)
-- Parse from string or integer
-- Serialize/deserialize for config files (JSON, YAML, TOML, CBOR, text)
-- Helper methods for code, string, and TLS value conversion
-- Viper decoder hook for config integration
-
-## Main Types
-
-- `Version`: Enum type for TLS protocol versions (wraps `int`)
-
-## Supported Versions
-
-- `TLS 1.0`
-- `TLS 1.1`
-- `TLS 1.2`
-- `TLS 1.3`
-
-## Example: List and Parse TLS Versions
-
-```go
-package main
-
-import (
-    "fmt"
-    "github.com/nabbar/golib/certificates/tlsversion"
-)
-
-func main() {
-    // List all supported TLS versions
-    for _, v := range tlsversion.List() {
-        fmt.Println("Version:", v.String(), "TLS value:", v.TLS())
-    }
-
-    // Parse from string
-    v := tlsversion.Parse("1.2")
-    fmt.Println("Parsed version:", v.String())
-
-    // Parse from int
-    v2 := tlsversion.ParseInt(0x0304) // Example TLS value for 1.3
-    fmt.Println("Parsed from int:", v2.String())
-}
-```
-
-## Example: Marshal/Unmarshal JSON
-
-```go
-import (
-    "encoding/json"
-    "github.com/nabbar/golib/certificates/tlsversion"
-)
-
-type MyConfig struct {
-    Version tlsversion.Version `json:"version"`
-}
-
-func main() {
-    // Marshal
-    cfg := MyConfig{Version: tlsversion.VersionTLS12}
-    b, _ := json.Marshal(cfg)
-    fmt.Println(string(b)) // {"version":"TLS 1.2"}
-
-    // Unmarshal
-    var cfg2 MyConfig
-    _ = json.Unmarshal([]byte(`{"version":"TLS 1.3"}`), &cfg2)
-    fmt.Println(cfg2.Version.String()) // TLS 1.3
-}
-```
-
-## Example: Use with Viper
-
-```go
-import (
-    "github.com/spf13/viper"
-    "github.com/nabbar/golib/certificates/tlsversion"
-    "github.com/go-viper/mapstructure/v2"
-)
-
-v := viper.New()
-v.Set("version", "1.2")
-var cfg struct {
-    Version tlsversion.Version
-}
-v.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
-    dc.DecodeHook = tlsversion.ViperDecoderHook()
-})
-fmt.Println(cfg.Version.String()) // TLS 1.2
-```
-
-## Options & Methods
-
-- **List() []Version**: List all supported TLS versions
-- **ListHigh() []Version**: List only high/secure TLS versions (1.2, 1.3)
-- **Parse(s string) Version**: Parse from string (case-insensitive, flexible format)
-- **ParseInt(i int) Version**: Parse from integer TLS value
-- **Version.String() string**: Get string representation (e.g. "TLS 1.2")
-- **Version.Code() string**: Get code representation (e.g. "tls_1_2")
-- **Version.TLS() uint16**: Get TLS value
-- **Version.Check() bool**: Check if version is supported
-- **ViperDecoderHook()**: Viper integration for config loading
-
-## Serialization
-
-- Supports JSON, YAML, TOML, CBOR, and text formats for marshaling/unmarshaling.
-
-## Error Handling
-
-- Parsing functions return `VersionUnknown` if the input is invalid.
-- Serialization methods return errors if the format is not supported.
-
----
-
-This documentation covers all main features, options, and usage examples for the `certificates` package and sub packages.
+**Last Updated**: 2025-11-07

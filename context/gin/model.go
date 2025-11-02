@@ -52,11 +52,7 @@ func (c *ctxGinTonic) log(lvl loglvl.Level, msg string, args ...any) {
 	if c.l != nil {
 		c.l().Entry(lvl, msg, args...).Log()
 	} else {
-		l := liblog.New(func() context.Context {
-			return c
-		})
-
-		l.Entry(lvl, msg, args...).Log()
+		liblog.New(c).Entry(lvl, msg, args...).Log()
 	}
 }
 

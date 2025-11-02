@@ -27,48 +27,63 @@
 package http
 
 import (
-	"sync"
-
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	htpool "github.com/nabbar/golib/httpserver/pool"
 	srvtps "github.com/nabbar/golib/httpserver/types"
-	montps "github.com/nabbar/golib/monitor/types"
 )
 
-type componentHttp struct {
-	m sync.RWMutex
-	x libctx.Config[uint8]
-	r bool
-	t string
-	h srvtps.FuncHandler
-	s htpool.Pool
-	p montps.FuncPool
+// mod is the internal implementation of the CptHttp interface.
+// It uses atomic values for thread-safe access to configuration and state.
+type mod struct {
+	x libctx.Config[uint8]             // Context configuration storage for component state
+	t libatm.Value[string]             // TLS component key
+	h libatm.Value[srvtps.FuncHandler] // HTTP handler function
+	s libatm.Value[htpool.Pool]        // Server pool instance
 }
 
-func (o *componentHttp) SetTLSKey(tlsKey string) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.t = tlsKey
+// SetTLSKey updates the TLS component key used for TLS configuration.
+// This method is thread-safe.
+//
+// Parameters:
+//   - tlsKey: The new TLS component key
+func (o *mod) SetTLSKey(tlsKey string) {
+	o.t.Store(tlsKey)
 }
 
-func (o *componentHttp) SetHandler(fct srvtps.FuncHandler) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.h = fct
+// SetHandler updates the HTTP handler function.
+// The handler function is called when building or updating the server pool.
+// This method is thread-safe.
+//
+// Parameters:
+//   - fct: Function that returns a map of route keys to HTTP handlers
+func (o *mod) SetHandler(fct srvtps.FuncHandler) {
+	o.h.Store(fct)
 }
 
-func (o *componentHttp) GetPool() htpool.Pool {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	return o.s
+// GetPool returns the current HTTP server pool.
+// This method is thread-safe.
+//
+// Returns:
+//   - The current server pool, or nil if not initialized
+func (o *mod) GetPool() htpool.Pool {
+	return o.s.Load()
 }
 
-func (o *componentHttp) SetPool(pool htpool.Pool) {
-	o.m.Lock()
-	defer o.m.Unlock()
+// SetPool sets the HTTP server pool.
+// If nil is passed, a new empty pool is created with the current handler.
+// This method is thread-safe.
+//
+// Parameters:
+//   - pool: The new server pool, or nil to create a new one
+//
+// Note: When setting a non-nil pool, it is used directly.
+// When setting nil, a new pool is created but it will be empty until
+// the component is started or reloaded with configuration.
+func (o *mod) SetPool(pool htpool.Pool) {
+	if pool == nil {
+		pool = htpool.New(o.x, o.h.Load())
+	}
 
-	o.s = pool
+	o.s.Store(pool)
 }

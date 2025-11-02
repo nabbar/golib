@@ -36,22 +36,54 @@ import (
 )
 
 const (
+	// headVerbose is the HTTP header name for controlling verbosity.
+	// Value should be "true" or "false". If "false", full component details are included.
 	headVerbose = "X-Verbose"
-	headFormat  = "Accept"
-	keyVerbose  = "short"
-	keyFormat   = "format"
+
+	// headFormat is the HTTP header name for content negotiation (Accept header).
+	// Supports "application/json" and "text/plain".
+	headFormat = "Accept"
+
+	// keyVerbose is the query parameter name for controlling verbosity.
+	// Value should be "true" or "1" for short output (no component details).
+	keyVerbose = "short"
+
+	// keyFormat is the query parameter name for output format.
+	// Value should be "text" for plain text or "json" for JSON output.
+	keyFormat = "format"
 )
 
-// Expose adds metric path to a given router.
-// The router can be different with the one passed to UseWithoutExposingEndpoint.
-// This allows to expose ginMet on different port.
+// Expose handles the status endpoint request from a generic context.
+// If the context is a Gin context (*ginsdk.Context), it delegates to MiddleWare.
+// This method allows using the status handler with generic context.Context.
+//
+// This is useful when integrating with frameworks that use context.Context
+// instead of directly passing *gin.Context.
 func (o *sts) Expose(ctx context.Context) {
 	if c, ok := ctx.(*ginsdk.Context); ok {
 		o.MiddleWare(c)
 	}
 }
 
-// MiddleWare as gin monitor middleware HandleFunc.
+// MiddleWare is the Gin middleware handler that processes status requests.
+// It supports multiple ways to control the response format:
+//
+// Verbosity control (short vs full output):
+//   - Query parameter "short=true" or "short=1": returns only overall status
+//   - Header "X-Verbose: false": returns only overall status
+//   - Default: returns full status with all component details
+//
+// Format control (JSON vs plain text):
+//   - Query parameter "format=text": returns plain text output
+//   - Header "Accept: text/plain": returns plain text output
+//   - Header "Accept: application/json": returns JSON output (default)
+//
+// Response headers:
+//   - X-Verbose: "True" or "False" indicating the verbosity level used
+//   - Connection: "Close" to prevent keep-alive
+//
+// HTTP status codes are determined by the configured return codes (see SetConfig).
+// Default codes: 200 (OK), 207 (Warn), 500 (KO).
 func (o *sts) MiddleWare(c *ginsdk.Context) {
 	var (
 		err liberr.Error
@@ -67,7 +99,7 @@ func (o *sts) MiddleWare(c *ginsdk.Context) {
 		return
 	}
 
-	if shr {
+	if shr { // if short if true0, so Verbose if false
 		c.Header("X-Verbose", "False")
 	} else {
 		c.Header("X-Verbose", "True")
@@ -77,6 +109,19 @@ func (o *sts) MiddleWare(c *ginsdk.Context) {
 	enc.GinRender(c, txt, shr)
 }
 
+// isText determines if the response should be in plain text format.
+// It checks both query parameters and Accept headers.
+//
+// Priority:
+//  1. Query parameter "format=text" forces text output
+//  2. Accept header "application/json" forces JSON output
+//  3. Accept header "text/plain" forces text output
+//
+// Parameters:
+//   - query: value of the "format" query parameter
+//   - header: value of the "Accept" header (may contain multiple MIME types)
+//
+// Returns true if text format should be used, false for JSON.
 func (o *sts) isText(query, header string) bool {
 	var txt = false
 
@@ -104,6 +149,18 @@ func (o *sts) isText(query, header string) bool {
 	return txt
 }
 
+// isShort determines if the response should be in short format (no component details).
+// It checks both query parameters and X-Verbose headers.
+//
+// Priority:
+//  1. Query parameter "short=true" or "short=1" enables short mode
+//  2. Header "X-Verbose: false" enables short mode (inverted logic)
+//
+// Parameters:
+//   - query: value of the "short" query parameter
+//   - header: value of the "X-Verbose" header
+//
+// Returns true if short format should be used (verbose=false).
 func (o *sts) isShort(query, header string) bool {
 	var shr = false
 
@@ -124,7 +181,12 @@ func (o *sts) isShort(query, header string) bool {
 	return shr
 }
 
-// MiddleWare as gin monitor middleware HandleFunc.
+// getErrorReturn retrieves the configured error return formatter.
+// If no custom formatter is set via SetErrorReturn, returns a default formatter.
+// This method is thread-safe.
+//
+// Returns a ReturnGin instance for formatting error responses.
+// See github.com/nabbar/golib/errors for ReturnGin interface details.
 func (o *sts) getErrorReturn() liberr.ReturnGin {
 	o.m.RLock()
 	defer o.m.RUnlock()
@@ -138,7 +200,15 @@ func (o *sts) getErrorReturn() liberr.ReturnGin {
 	}
 }
 
-// SetErrorReturn allow to register a return model use to export error to output.
+// SetErrorReturn registers a custom error return model factory.
+// The provided function should return a new ReturnGin instance for each call.
+// This allows customizing how errors are formatted in HTTP responses.
+//
+// Parameters:
+//   - f: factory function that creates a new ReturnGin instance
+//
+// If not set, a default return model from github.com/nabbar/golib/errors is used.
+// This method is thread-safe.
 func (o *sts) SetErrorReturn(f func() liberr.ReturnGin) {
 	o.m.Lock()
 	defer o.m.Unlock()

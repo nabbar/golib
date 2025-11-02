@@ -57,12 +57,12 @@ const (
 func (o *pool) normalizeName(name string) string {
 	name = strings.ToLower(name)
 
-	name = strings.Replace(name, " ", "_", -1)
-	name = strings.Replace(name, "-", "_", -1)
-	name = strings.Replace(name, ".", "", -1)
+	name = strings.Replace(name, " ", "_", -1) // nolint
+	name = strings.Replace(name, "-", "_", -1) // nolint
+	name = strings.Replace(name, ".", "", -1)  // nolint
 
 	for strings.Contains(name, "__") {
-		name = strings.Replace(name, "__", "_", -1)
+		name = strings.Replace(name, "__", "_", -1) // nolint
 	}
 
 	return name
@@ -424,12 +424,12 @@ func (o *pool) createMetricsSLis() error {
 
 func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 	var (
-		log         = o.getLog()
-		min float64 = 1
-		max float64 = 0
-		cur float64 = 0
-		cnt int     = 0
-		sum float64 = 0
+		log          = o.getLog()
+		vMin float64 = 1
+		vMax float64 = 0
+		cur  float64 = 0
+		cnt          = 0
+		sum  float64 = 0
 	)
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
@@ -453,11 +453,11 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 		sum += cur
 		cnt++
 
-		if cur < min {
-			min = cur
+		if cur < vMin {
+			vMin = cur
 		}
-		if cur > max {
-			max = cur
+		if cur > vMax {
+			vMax = cur
 		}
 
 		if e := m.SetGaugeValue([]string{name}, cur); e != nil {
@@ -472,19 +472,17 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 	})
 
 	mns := sum / float64(cnt)
-	min = min
-	max = max
 
 	if mns < 0 {
 		mns = 0
 	}
 
-	if min < 0 {
-		min = 0
+	if vMin < 0 {
+		vMin = 0
 	}
 
-	if max < 0 {
-		max = 0
+	if vMax < 0 {
+		vMax = 0
 	}
 
 	if e := m.SetGaugeValue([]string{monitorMeans}, mns); e != nil {
@@ -495,7 +493,7 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 		ent.Log()
 	}
 
-	if e := m.SetGaugeValue([]string{monitorMin}, min); e != nil {
+	if e := m.SetGaugeValue([]string{monitorMin}, vMin); e != nil {
 		ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
 		ent.FieldAdd("monitor", monitorMin)
 		ent.FieldAdd("metric", metricSLis)
@@ -503,7 +501,7 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 		ent.Log()
 	}
 
-	if e := m.SetGaugeValue([]string{monitorMax}, max); e != nil {
+	if e := m.SetGaugeValue([]string{monitorMax}, vMax); e != nil {
 		ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
 		ent.FieldAdd("monitor", monitorMax)
 		ent.FieldAdd("metric", metricSLis)

@@ -27,6 +27,7 @@ package pusher
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"time"
@@ -427,13 +428,6 @@ func (o *Config) getCreateMultipartUploadInput() *sdksss.CreateMultipartUploadIn
 	}
 }
 
-func (o *Config) getListMultipartUploadsInput() *sdksss.ListMultipartUploadsInput {
-	return &sdksss.ListMultipartUploadsInput{
-		Bucket:     o.ObjectS3Options.Bucket,
-		MaxUploads: sdkaws.Int32(1000),
-	}
-}
-
 func (o *Config) getCompleteMultipartUploadInput() *sdksss.CompleteMultipartUploadInput {
 	return &sdksss.CompleteMultipartUploadInput{
 		Bucket: o.ObjectS3Options.Bucket,
@@ -468,8 +462,19 @@ func (o *Config) getWorkingFile() (*os.File, error) {
 		return nil, err
 	} else if inf.IsDir() {
 		return o.createTempWorkingFile(wrk)
+	}
+
+	r, e := os.OpenRoot(path.Dir(wrk))
+	defer func() {
+		if r != nil {
+			_ = r.Close()
+		}
+	}()
+
+	if e != nil {
+		return nil, e
 	} else {
-		return os.Create(wrk)
+		return r.Create(path.Base(wrk))
 	}
 }
 

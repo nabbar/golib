@@ -36,13 +36,18 @@ import (
 	libftp "github.com/jlaffaye/ftp"
 )
 
+// ftpClient is the internal implementation of the FTPClient interface.
+// It uses atomic values for thread-safe configuration and connection management.
+// All public methods automatically handle connection health checks and reconnection.
 type ftpClient struct {
-	m sync.Mutex
+	m sync.Mutex // Protects access to atomic values
 
-	cfg *atomic.Value
-	cli *atomic.Value
+	cfg *atomic.Value // Stores *Config
+	cli *atomic.Value // Stores *libftp.ServerConn
 }
 
+// getConfig retrieves the current configuration in a thread-safe manner.
+// Returns nil if the configuration is not set or invalid.
 func (f *ftpClient) getConfig() *Config {
 	f.m.Lock()
 	defer f.m.Unlock()
@@ -58,6 +63,8 @@ func (f *ftpClient) getConfig() *Config {
 	}
 }
 
+// setConfig stores a new configuration in a thread-safe manner.
+// Creates a new atomic.Value if not already initialized.
 func (f *ftpClient) setConfig(cfg *Config) {
 	f.m.Lock()
 	defer f.m.Unlock()
@@ -69,6 +76,8 @@ func (f *ftpClient) setConfig(cfg *Config) {
 	f.cfg.Store(cfg)
 }
 
+// getClient retrieves the current FTP connection in a thread-safe manner.
+// Returns nil if no connection is established or if the connection is invalid.
 func (f *ftpClient) getClient() *libftp.ServerConn {
 	f.m.Lock()
 	defer f.m.Unlock()
@@ -84,6 +93,8 @@ func (f *ftpClient) getClient() *libftp.ServerConn {
 	}
 }
 
+// setClient stores a new FTP connection in a thread-safe manner.
+// Creates a new atomic.Value if not already initialized.
 func (f *ftpClient) setClient(cli *libftp.ServerConn) {
 	f.m.Lock()
 	defer f.m.Unlock()
@@ -95,6 +106,14 @@ func (f *ftpClient) setClient(cli *libftp.ServerConn) {
 	f.cli.Store(cli)
 }
 
+// Connect establishes a connection to the FTP server using the registered configuration.
+// If a connection already exists and is healthy (NOOP check passes), it returns immediately.
+// Otherwise, it creates a new connection, validates it with a NOOP command, and stores it.
+//
+// Returns an error if:
+//   - The configuration is not initialized
+//   - The connection cannot be established
+//   - The NOOP health check fails
 func (f *ftpClient) Connect() error {
 	var (
 		e   error
@@ -126,6 +145,16 @@ func (f *ftpClient) Connect() error {
 	return nil
 }
 
+// Check validates the current connection to the FTP server.
+// If no connection exists, it attempts to establish one via Connect().
+// For existing connections, it sends a NOOP command to verify the connection is alive.
+//
+// This method is called automatically before all FTP operations to ensure
+// connection health and trigger reconnection if needed.
+//
+// Returns an error if:
+//   - Unable to establish a connection
+//   - The NOOP health check fails
 func (f *ftpClient) Check() error {
 	var cli *libftp.ServerConn
 
@@ -145,6 +174,13 @@ func (f *ftpClient) Check() error {
 	return nil
 }
 
+// Close gracefully terminates the FTP connection by sending a QUIT command.
+// This method is safe to call multiple times or when no connection exists.
+// It does not return an error; any QUIT command errors are silently ignored.
+//
+// Always call Close() when done with the client to free server resources:
+//
+//	defer client.Close()
 func (f *ftpClient) Close() {
 	if cli := f.getClient(); cli != nil {
 		_ = cli.Quit()

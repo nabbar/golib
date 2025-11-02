@@ -59,7 +59,7 @@ func (n *NetworkProtocol) UnmarshalJSON(bytes []byte) error {
 }
 
 func (n NetworkProtocol) MarshalYAML() (interface{}, error) {
-	return []byte(n.String()), nil
+	return n.String(), nil
 }
 
 func (n *NetworkProtocol) UnmarshalYAML(value *yaml.Node) error {
@@ -77,7 +77,7 @@ func (n *NetworkProtocol) UnmarshalTOML(i interface{}) error {
 	if p, k := i.(string); k {
 		return n.unmarshall([]byte(p))
 	}
-	return fmt.Errorf("size: value not in valid format")
+	return fmt.Errorf("network protocol: value not in valid format")
 }
 
 func (n NetworkProtocol) MarshalText() ([]byte, error) {

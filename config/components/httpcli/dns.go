@@ -36,7 +36,7 @@ import (
 	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
 )
 
-func (o *componentHttpClient) Close() error {
+func (o *mod) Close() error {
 	if d := o.getDNSMapper(); d != nil {
 		return d.Close()
 	}
@@ -44,28 +44,28 @@ func (o *componentHttpClient) Close() error {
 	return nil
 }
 
-func (o *componentHttpClient) Add(from string, to string) {
+func (o *mod) Add(from string, to string) {
 	if d := o.getDNSMapper(); d != nil {
 		d.Add(from, to)
 		o.setDNSMapper(d)
 	}
 }
 
-func (o *componentHttpClient) Get(from string) string {
+func (o *mod) Get(from string) string {
 	if d := o.getDNSMapper(); d != nil {
 		return d.Get(from)
 	}
 	return ""
 }
 
-func (o *componentHttpClient) Del(from string) {
+func (o *mod) Del(from string) {
 	if d := o.getDNSMapper(); d != nil {
 		d.Del(from)
 		o.setDNSMapper(d)
 	}
 }
 
-func (o *componentHttpClient) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+func (o *mod) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	if d := o.getDNSMapper(); d != nil {
 		return d.DialContext(ctx, network, address)
 	}
@@ -73,7 +73,7 @@ func (o *componentHttpClient) DialContext(ctx context.Context, network, address 
 	return nil, ErrorComponentNotInitialized.Error()
 }
 
-func (o *componentHttpClient) Transport(cfg htcdns.TransportConfig) *http.Transport {
+func (o *mod) Transport(cfg htcdns.TransportConfig) *http.Transport {
 	if d := o.getDNSMapper(); d != nil {
 		return d.Transport(cfg)
 	}
@@ -81,7 +81,7 @@ func (o *componentHttpClient) Transport(cfg htcdns.TransportConfig) *http.Transp
 	return nil
 }
 
-func (o *componentHttpClient) Client(cfg htcdns.TransportConfig) *http.Client {
+func (o *mod) Client(cfg htcdns.TransportConfig) *http.Client {
 	if d := o.getDNSMapper(); d != nil {
 		return d.Client(cfg)
 	}
@@ -89,7 +89,7 @@ func (o *componentHttpClient) Client(cfg htcdns.TransportConfig) *http.Client {
 	return nil
 }
 
-func (o *componentHttpClient) DefaultTransport() *http.Transport {
+func (o *mod) DefaultTransport() *http.Transport {
 	if d := o.getDNSMapper(); d != nil {
 		return d.DefaultTransport()
 	}
@@ -97,7 +97,7 @@ func (o *componentHttpClient) DefaultTransport() *http.Transport {
 	return nil
 }
 
-func (o *componentHttpClient) DefaultClient() *http.Client {
+func (o *mod) DefaultClient() *http.Client {
 	if d := o.getDNSMapper(); d != nil {
 		return d.DefaultClient()
 	}
@@ -105,13 +105,13 @@ func (o *componentHttpClient) DefaultClient() *http.Client {
 	return nil
 }
 
-func (o *componentHttpClient) TimeCleaner(ctx context.Context, dur time.Duration) {
+func (o *mod) TimeCleaner(ctx context.Context, dur time.Duration) {
 	if d := o.getDNSMapper(); d != nil {
 		d.TimeCleaner(ctx, dur)
 	}
 }
 
-func (o *componentHttpClient) Len() int {
+func (o *mod) Len() int {
 	if d := o.getDNSMapper(); d != nil {
 		return d.Len()
 	}
@@ -119,13 +119,13 @@ func (o *componentHttpClient) Len() int {
 	return 0
 }
 
-func (o *componentHttpClient) Walk(f func(from string, to string) bool) {
+func (o *mod) Walk(f func(from string, to string) bool) {
 	if d := o.getDNSMapper(); d != nil {
 		d.Walk(f)
 	}
 }
 
-func (o *componentHttpClient) Clean(endpoint string) (host string, port string, err error) {
+func (o *mod) Clean(endpoint string) (host string, port string, err error) {
 	if d := o.getDNSMapper(); d != nil {
 		return d.Clean(endpoint)
 	}
@@ -133,7 +133,7 @@ func (o *componentHttpClient) Clean(endpoint string) (host string, port string, 
 	return "", "", ErrorComponentNotInitialized.Error()
 }
 
-func (o *componentHttpClient) Search(endpoint string) (string, error) {
+func (o *mod) Search(endpoint string) (string, error) {
 	if d := o.getDNSMapper(); d != nil {
 		return d.Search(endpoint)
 	}
@@ -141,7 +141,7 @@ func (o *componentHttpClient) Search(endpoint string) (string, error) {
 	return "", ErrorComponentNotInitialized.Error()
 }
 
-func (o *componentHttpClient) SearchWithCache(endpoint string) (string, error) {
+func (o *mod) SearchWithCache(endpoint string) (string, error) {
 	if d := o.getDNSMapper(); d != nil {
 		return d.SearchWithCache(endpoint)
 	}
@@ -149,7 +149,7 @@ func (o *componentHttpClient) SearchWithCache(endpoint string) (string, error) {
 	return "", ErrorComponentNotInitialized.Error()
 }
 
-func (o *componentHttpClient) TransportWithTLS(cfg htcdns.TransportConfig, ssl *tls.Config) *http.Transport {
+func (o *mod) TransportWithTLS(cfg htcdns.TransportConfig, ssl *tls.Config) *http.Transport {
 	if d := o.getDNSMapper(); d != nil {
 		return d.TransportWithTLS(cfg, ssl)
 	}
@@ -157,7 +157,7 @@ func (o *componentHttpClient) TransportWithTLS(cfg htcdns.TransportConfig, ssl *
 	return nil
 }
 
-func (o *componentHttpClient) GetConfig() htcdns.Config {
+func (o *mod) GetConfig() htcdns.Config {
 	if d := o.getDNSMapper(); d != nil {
 		return d.GetConfig()
 	}
@@ -165,7 +165,7 @@ func (o *componentHttpClient) GetConfig() htcdns.Config {
 	return htcdns.Config{}
 }
 
-func (o *componentHttpClient) RegisterTransport(t *http.Transport) {
+func (o *mod) RegisterTransport(t *http.Transport) {
 	if d := o.getDNSMapper(); d != nil {
 		d.RegisterTransport(t)
 		o.setDNSMapper(d)

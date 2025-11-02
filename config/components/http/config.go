@@ -34,11 +34,20 @@ import (
 	spfcbr "github.com/spf13/cobra"
 )
 
-func (o *componentHttp) RegisterFlag(Command *spfcbr.Command) error {
+// RegisterFlag registers command-line flags for this component.
+// Currently, this component does not register any flags.
+// This implements the cfgtps.Component interface.
+//
+// Parameters:
+//   - Command: The cobra command to register flags with
+//
+// Returns:
+//   - Always returns nil
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentHttp) _getConfig() (*htpool.Config, error) {
+func (o *mod) _getConfig() (*htpool.Config, error) {
 	var (
 		key string
 		cfg htpool.Config
@@ -57,14 +66,14 @@ func (o *componentHttp) _getConfig() (*htpool.Config, error) {
 	}
 
 	cfg.SetDefaultTLS(o._GetTLS)
-	cfg.SetContext(o.x.GetContext)
+	cfg.SetContext(o.x)
 	cfg.SetHandlerFunc(o._GetHandler)
 
 	if err = cfg.Validate(); err != nil {
 		return nil, ErrorConfigInvalid.Error(err)
-	} else if o.h == nil {
-		return nil, ErrorComponentNotInitialized.Error(fmt.Errorf("missing handler"))
-	} else if len(o.h()) < 1 {
+	} else if o._GetTLS() == nil {
+		return nil, ErrorComponentNotInitialized.Error(fmt.Errorf("missing TLS component"))
+	} else if len(o._GetHandler()) < 1 {
 		return nil, ErrorComponentNotInitialized.Error(fmt.Errorf("missing handler"))
 	}
 

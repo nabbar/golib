@@ -96,9 +96,7 @@ func (lc *HelperLDAP) SetLogger(fct liblog.FuncLog) {
 }
 
 func (lc *HelperLDAP) getLogDefault() liblog.Logger {
-	return liblog.New(func() context.Context {
-		return lc.ctx
-	})
+	return liblog.New(lc.ctx)
 }
 
 func (lc *HelperLDAP) getLogEntry(lvl loglvl.Level, msg string, args ...interface{}) logent.Entry {
@@ -162,9 +160,10 @@ func (lc *HelperLDAP) ForceTLSMode(tlsMode TLSMode, tlsConfig *tls.Config) {
 	if tlsConfig != nil {
 		lc.tlsConfig = tlsConfig
 	} else {
-		//nolint #nosec
-		/* #nosec */
-		lc.tlsConfig = &tls.Config{}
+		lc.tlsConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS13,
+		}
 	}
 
 	switch tlsMode {
@@ -198,11 +197,7 @@ func (lc *HelperLDAP) dialTLS() (*ldap.Conn, liberr.Error) {
 		return nil, ErrorLDAPServerTLS.Error(err)
 	}
 
-	c = tls.Client(c, lc.tlsConfig)
-
-	if c == nil {
-		return nil, ErrorLDAPServerTLS.Error(ErrorLDAPServerConnection.Error(nil))
-	}
+	c = tls.Client(c, lc.tlsConfig) // nolint
 
 	l := ldap.NewConn(c, true)
 	if l == nil {

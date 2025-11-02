@@ -42,7 +42,7 @@ const (
 	defaultNameMonitor = "AWS Client"
 )
 
-func (o *componentAws) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Config) error {
+func (o *mod) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Config) error {
 	var (
 		e   error
 		key = o._getKey()
@@ -96,7 +96,7 @@ func (o *componentAws) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Co
 		opt.Monitor.Name = key
 	}
 
-	if e = mon.SetConfig(o.x.GetContext, opt.Monitor); e != nil {
+	if e = mon.SetConfig(o.x, opt.Monitor); e != nil {
 		return e
 	}
 
@@ -111,7 +111,7 @@ func (o *componentAws) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Co
 	return nil
 }
 
-func (o *componentAws) _getEndpoint(opt *libreq.OptionsHealth, aws libaws.Config) string {
+func (o *mod) _getEndpoint(opt *libreq.OptionsHealth, aws libaws.Config) string {
 	if req := o.getRequest(); req != nil && len(opt.Endpoint) > 0 {
 		return opt.Endpoint
 	} else {
@@ -119,8 +119,8 @@ func (o *componentAws) _getEndpoint(opt *libreq.OptionsHealth, aws libaws.Config
 	}
 }
 
-func (o *componentAws) _newMonitor(inf montps.Info) (montps.Monitor, error) {
-	if c, e := libmon.New(o.x.GetContext, inf); e != nil {
+func (o *mod) _newMonitor(inf montps.Info) (montps.Monitor, error) {
+	if c, e := libmon.New(o.x, inf); e != nil {
 		return nil, e
 	} else if c != nil {
 		c.RegisterLoggerDefault(o.getLogger)
@@ -130,7 +130,7 @@ func (o *componentAws) _newMonitor(inf montps.Info) (montps.Monitor, error) {
 	}
 }
 
-func (o *componentAws) _getMonitor(key string, inf montps.Info) montps.Monitor {
+func (o *mod) _getMonitor(key string, inf montps.Info) montps.Monitor {
 	var (
 		mon libmon.Monitor
 		pol = o.getPool()
@@ -150,7 +150,7 @@ func (o *componentAws) _getMonitor(key string, inf montps.Info) montps.Monitor {
 	return mon
 }
 
-func (o *componentAws) _setMonitor(mon montps.Monitor) error {
+func (o *mod) _setMonitor(mon montps.Monitor) error {
 	var pol = o.getPool()
 
 	if pol == nil {
@@ -160,7 +160,7 @@ func (o *componentAws) _setMonitor(mon montps.Monitor) error {
 	return pol.MonitorSet(mon)
 }
 
-func (o *componentAws) HealthCheck(ctx context.Context) error {
+func (o *mod) HealthCheck(ctx context.Context) error {
 	if cli := o.GetAws(); cli == nil {
 		return fmt.Errorf("component not started")
 	} else if req := o.getRequest(); req == nil {

@@ -28,63 +28,68 @@ package monitor
 
 import (
 	"context"
+	"math"
 	"time"
 
 	montps "github.com/nabbar/golib/monitor/types"
-	librun "github.com/nabbar/golib/server/runner/ticker"
+	librun "github.com/nabbar/golib/runner"
+	runtck "github.com/nabbar/golib/runner/ticker"
 )
 
 const (
-	MaxPoolStart  = 15 * time.Second
-	MaxTickPooler = 50 * time.Millisecond
+	// MaxPoolStart is the maximum time to wait for the monitor to start.
+	MaxPoolStart = 3 * time.Second
+	// MaxTickPooler is the polling interval when waiting for the monitor to start.
+	MaxTickPooler = 5 * time.Millisecond
 )
 
+// Start begins the periodic health check execution.
+// It initializes the runner and waits for it to start successfully.
+// Returns an error if the monitor is invalid or fails to start within MaxPoolStart.
 func (o *mon) Start(ctx context.Context) error {
-	if o.IsRunning() {
-		_ = o.Stop(ctx)
-	}
-
-	if o == nil {
+	defer librun.RecoveryCaller("golib/monitor/Start", recover())
+	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return ErrorInvalid.Error(nil)
 	}
 
-	o.setRunner(ctx)
+	var c = o.getCfg()
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-	if o.r == nil {
-		return ErrorInvalid.Error(nil)
+	r := runtck.New(c.intervalCheck, o.runFunc)
+	e := r.Start(ctx)
+	r = o.r.Swap(r)
+
+	if r != nil && r.IsRunning() {
+		_ = r.Stop(ctx)
 	}
 
-	if e := o.r.Start(ctx); e != nil {
+	if e != nil {
 		return e
 	} else {
 		return o.poolIsRunning(ctx)
 	}
 }
 
+// Stop halts the periodic health check execution.
+// It gracefully shuts down the runner and cleans up resources.
+// Returns an error if the monitor is invalid or the runner fails to stop.
 func (o *mon) Stop(ctx context.Context) error {
-	defer o.delRunner(ctx)
-
-	if o == nil {
+	defer librun.RecoveryCaller("golib/monitor/Stop", recover())
+	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return ErrorInvalid.Error(nil)
-	} else if !o.IsRunning() {
-		return nil
+	} else {
+		r := o.r.Swap(runtck.New(time.Duration(math.MaxInt64), nil))
+		if r != nil && r.IsRunning() {
+			return r.Stop(ctx)
+		} else {
+			return nil
+		}
 	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r == nil {
-		return ErrorInvalid.Error(nil)
-	} else if e := o.r.Stop(ctx); e != nil {
-		return e
-	}
-
-	return nil
 }
 
+// Restart stops and then starts the monitor.
+// Returns an error if either operation fails.
 func (o *mon) Restart(ctx context.Context) error {
+	defer librun.RecoveryCaller("golib/monitor/Restart", recover())
 	if e := o.Stop(ctx); e != nil {
 		return e
 	} else if e = o.Start(ctx); e != nil {
@@ -94,25 +99,24 @@ func (o *mon) Restart(ctx context.Context) error {
 	return nil
 }
 
+// IsRunning returns true if the monitor is currently executing health checks.
 func (o *mon) IsRunning() bool {
-	if o == nil {
+	defer librun.RecoveryCaller("golib/monitor/IsRunning", recover())
+	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return false
-	}
-
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r == nil {
+	} else if r := o.r.Load(); r == nil {
 		return false
 	} else {
-		return o.r.IsRunning()
+		return r.IsRunning()
 	}
 }
 
+// poolIsRunning polls until the runner is confirmed to be running or a timeout occurs.
+// Returns an error if the context is cancelled or MaxPoolStart is exceeded.
 func (o *mon) poolIsRunning(ctx context.Context) error {
-	if o == nil {
+	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return ErrorInvalid.Error(nil)
-	} else if o.IsRunning() {
+	} else if r := o.r.Load(); r != nil && r.IsRunning() {
 		return nil
 	}
 
@@ -137,62 +141,26 @@ func (o *mon) poolIsRunning(ctx context.Context) error {
 	}
 }
 
-func (o *mon) setRunner(ctx context.Context) {
-	if o == nil {
-		return
-	}
-
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.r != nil {
-		_ = o.r.Stop(ctx)
-	}
-
-	var (
-		cfg = o.getCfg()
-	)
-
-	o.r = librun.New(cfg.intervalCheck, o.runFunc)
-}
-
-func (o *mon) delRunner(ctx context.Context) {
-	if o == nil {
-		return
-	}
-
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.r != nil {
-		_ = o.r.Stop(ctx)
-	}
-
-	o.r = nil
-}
-
+// runFunc is the function executed on each health check tick.
+// It runs the health check and adjusts the ticker interval based on status transitions.
 func (o *mon) runFunc(ctx context.Context, tck *time.Ticker) error {
-	var (
-		cfg = o.getCfg()
-		chg = false
-	)
+	var cfg = o.getCfg()
 
 	o.check(ctx, cfg)
 
 	if o.IsRise() {
 		tck.Reset(cfg.intervalRise)
-		chg = true
 	} else if o.IsFall() {
 		tck.Reset(cfg.intervalFall)
-		chg = true
-	} else if chg {
+	} else {
 		tck.Reset(cfg.intervalCheck)
-		chg = false
 	}
 
 	return nil
 }
 
+// check executes a single health check using the registered health check function.
+// It handles missing health check or configuration errors, and collects metrics after execution.
 func (o *mon) check(ctx context.Context, cfg *runCfg) {
 	var fct montps.HealthCheck
 

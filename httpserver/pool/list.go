@@ -40,16 +40,16 @@ func (o *pool) Clean() {
 	o.p.Clean()
 }
 
-func (o *pool) Walk(fct FuncWalk) bool {
-	return o.WalkLimit(fct)
+func (o *pool) Walk(fct FuncWalk) {
+	o.WalkLimit(fct)
 }
 
-func (o *pool) WalkLimit(fct FuncWalk, onlyBindAddress ...string) bool {
+func (o *pool) WalkLimit(fct FuncWalk, onlyBindAddress ...string) {
 	if fct == nil {
-		return false
+		return
 	}
 
-	return o.p.WalkLimit(func(key string, val interface{}) bool {
+	o.p.WalkLimit(func(key string, val interface{}) bool {
 		if v, k := val.(libhtp.Server); !k {
 			return true
 		} else {
@@ -117,7 +117,7 @@ func (o *pool) Len() int {
 
 func (o *pool) Filter(field srvtps.FieldType, pattern, regex string) Pool {
 	var (
-		r = o.Clone(nil)
+		r = o.Clone(nil) // nolint
 		f string
 	)
 

@@ -32,10 +32,22 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// Error codes for the version package.
+// These codes are used with the github.com/nabbar/golib/errors package.
 const (
+	// ErrorParamEmpty indicates that a required parameter is empty or missing.
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgVersion
+
+	// ErrorGoVersionInit indicates a failure to initialize the Go version constraint parser.
+	// This typically occurs when the constraint string is malformed.
 	ErrorGoVersionInit
+
+	// ErrorGoVersionRuntime indicates a failure to extract the current Go runtime version.
+	// This is rare and usually indicates a problem with the Go installation.
 	ErrorGoVersionRuntime
+
+	// ErrorGoVersionConstraint indicates that the current Go version does not satisfy
+	// the required version constraint.
 	ErrorGoVersionConstraint
 )
 

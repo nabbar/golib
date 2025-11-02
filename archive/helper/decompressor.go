@@ -53,8 +53,6 @@ func makeDeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err e
 	}
 }
 
-const workBufSizeDeCompressWrite = 32 * 1024 // 32kB for buffer
-
 type deCompressReader struct {
 	src io.ReadCloser
 }
@@ -78,11 +76,11 @@ type bufNoEOF struct {
 }
 
 func (o *bufNoEOF) Read(p []byte) (n int, err error) {
-	if o.c.Load() && o.b.Len() < 1 {
+	if o.c.Load() && o.Len() < 1 {
 		return 0, io.EOF
 	}
 
-	for o.b.Len() < 1 && !o.c.Load() {
+	for o.Len() < 1 && !o.c.Load() {
 		time.Sleep(100 * time.Microsecond)
 	}
 
@@ -172,6 +170,7 @@ type deCompressWriter struct {
 	buf *bufNoEOF
 	clo *atomic.Bool
 	run *atomic.Bool
+	wg  sync.WaitGroup
 }
 
 func (o *deCompressWriter) Read(p []byte) (n int, err error) {
@@ -192,7 +191,9 @@ func (o *deCompressWriter) Write(p []byte) (n int, err error) {
 	if r, e := o.alg.Reader(o.buf); e != nil {
 		return n, e
 	} else {
+		o.wg.Add(1)
 		go func() {
+			defer o.wg.Done()
 			_, _ = io.Copy(o.wrt, r)
 		}()
 	}
@@ -205,9 +206,8 @@ func (o *deCompressWriter) Close() error {
 	o.run.Store(false)
 	_ = o.buf.Close()
 
-	for o.buf.Len() > 0 {
-		time.Sleep(time.Millisecond)
-	}
+	// Wait for the goroutine to finish copying
+	o.wg.Wait()
 
 	if err := o.wrt.Close(); err != nil {
 		return err

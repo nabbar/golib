@@ -29,6 +29,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"testing"
 	"time"
@@ -42,10 +43,13 @@ import (
 	Running with $> ginkgo -cover .
 */
 
-var srv = &http.Server{
-	Addr:    ":8080",
-	Handler: Hello(),
-}
+var (
+	addr = fmt.Sprintf("127.0.0.1:%d", GetFreePort())
+	srv  = &http.Server{
+		Addr:    addr,
+		Handler: Hello(),
+	}
+)
 
 var (
 	ctx, cnl = context.WithCancel(context.Background())
@@ -84,4 +88,26 @@ func Hello() http.HandlerFunc {
 		_, _ = fmt.Fprintf(writer, "Requested Uri: %s\n", request.RequestURI)
 		_, _ = fmt.Fprintf(writer, "Requested: %s\n", request.RemoteAddr)
 	}
+}
+
+func GetFreePort() int {
+	var (
+		addr *net.TCPAddr
+		lstn *net.TCPListener
+		err  error
+	)
+
+	if addr, err = net.ResolveTCPAddr("tcp", "localhost:0"); err != nil {
+		panic(err)
+	}
+
+	if lstn, err = net.ListenTCP("tcp", addr); err != nil {
+		panic(err)
+	}
+
+	defer func() {
+		_ = lstn.Close()
+	}()
+
+	return lstn.Addr().(*net.TCPAddr).Port
 }

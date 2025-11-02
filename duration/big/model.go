@@ -36,6 +36,11 @@ const (
 	maxDuration Duration = 1<<63 - 1
 )
 
+// ViperDecoderHook is a libmap.DecodeHookFuncType that is used to decode strings into Duration values.
+// It takes a reflect.Type, a reflect.Type, and an interface{} as parameters, and returns an interface{} and an error.
+// If the data type is not a string, it returns the data as is and a nil error.
+// If the target type is not a Duration, it returns the data as is and a nil error.
+// Otherwise, it formats/decodes/parses the data and returns the new value.
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (

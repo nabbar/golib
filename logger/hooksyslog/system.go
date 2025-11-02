@@ -30,11 +30,10 @@ package hooksyslog
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
-	libsrv "github.com/nabbar/golib/server"
+	libsrv "github.com/nabbar/golib/runner"
 )
 
 func (o *hks) Run(ctx context.Context) {
@@ -50,6 +49,7 @@ func (o *hks) Run(ctx context.Context) {
 			w.Wait()
 			_ = s.Close()
 		}
+		o.r.Store(false)
 	}()
 
 	for {
@@ -63,6 +63,10 @@ func (o *hks) Run(ctx context.Context) {
 
 	o.prepareChan()
 	//fmt.Printf("starting hook for log syslog '%s'\n", o.getSyslogInfo())
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		o.r.Store(true)
+	}()
 
 	for {
 		select {
@@ -74,46 +78,51 @@ func (o *hks) Run(ctx context.Context) {
 
 		case i := <-o.Data():
 			w.Add(1)
-			go o.writeWrapper(s, i, w.Done)
+			go o.writeWrapper(s, w.Done, i...)
 		}
 	}
 }
 
-func (o *hks) writeWrapper(w Wrapper, d data, done func()) {
+func (o *hks) IsRunning() bool {
+	return o.r.Load()
+}
+
+func (o *hks) writeWrapper(w Wrapper, done func(), d ...data) {
 	var err error
 
 	defer func() {
-		if rec := recover(); rec != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "recovering panic thread on writeWrapper function in golib/logger/hooksyslog/system\n%v\n", rec)
-		}
+		libsrv.RecoveryCaller("golib/logger/hooksyslog/system", recover())
 		done()
 	}()
 
 	if w == nil {
 		return
-	} else if len(d.p) < 1 {
+	} else if len(d) < 1 {
 		return
 	}
 
-	switch d.s {
-	case SyslogSeverityAlert:
-		_, err = w.Panic(d.p)
-	case SyslogSeverityCrit:
-		_, err = w.Fatal(d.p)
-	case SyslogSeverityErr:
-		_, err = w.Error(d.p)
-	case SyslogSeverityWarning:
-		_, err = w.Warning(d.p)
-	case SyslogSeverityInfo:
-		_, err = w.Info(d.p)
-	case SyslogSeverityDebug:
-		_, err = w.Debug(d.p)
-	default:
-		_, err = w.Write(d.p)
+	for k := range d {
+		if len(d[k].p) < 1 {
+			continue
+		}
+		switch d[k].s {
+		case SyslogSeverityAlert:
+			_, err = w.Panic(d[k].p)
+		case SyslogSeverityCrit:
+			_, err = w.Fatal(d[k].p)
+		case SyslogSeverityErr:
+			_, err = w.Error(d[k].p)
+		case SyslogSeverityWarning:
+			_, err = w.Warning(d[k].p)
+		case SyslogSeverityInfo:
+			_, err = w.Info(d[k].p)
+		case SyslogSeverityDebug:
+			_, err = w.Debug(d[k].p)
+		default:
+			_, err = w.Write(d[k].p)
+		}
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	}
-
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
 }

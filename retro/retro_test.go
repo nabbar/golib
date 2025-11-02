@@ -80,7 +80,7 @@ type Status int
 const (
 	Inactive Status = iota
 	Active
-	Pending
+	StatusPending
 )
 
 func (s Status) MarshalJSON() ([]byte, error) {
@@ -89,7 +89,7 @@ func (s Status) MarshalJSON() ([]byte, error) {
 		return json.Marshal("inactive")
 	case Active:
 		return json.Marshal("active")
-	case Pending:
+	case StatusPending:
 		return json.Marshal("pending")
 	default:
 		return json.Marshal("unknown")
@@ -109,7 +109,7 @@ func (s *Status) UnmarshalJSON(data []byte) error {
 	case "active":
 		*s = Active
 	case "pending":
-		*s = Pending
+		*s = StatusPending
 	default:
 		*s = Inactive
 	}

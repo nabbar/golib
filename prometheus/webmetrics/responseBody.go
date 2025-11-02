@@ -35,11 +35,59 @@ import (
 	prmtps "github.com/nabbar/golib/prometheus/types"
 )
 
+// MetricResponseBody creates a Counter metric that tracks the cumulative size of all response
+// bodies sent by the server, measured in bytes.
+//
+// # Metric Type
+//
+// Counter - Accumulates the total bytes of all outgoing response bodies.
+//
+// # Metric Name
+//
+// {prefix}_response_body_total (e.g., "gin_response_body_total")
+//
+// # Labels
+//
+// No labels. Provides an aggregate view of outbound data volume.
+//
+// # Use Cases
+//
+//   - Monitor bandwidth consumption for outgoing responses
+//   - Track egress data transfer costs
+//   - Capacity planning for network infrastructure
+//   - Detect abnormal response sizes
+//   - Analyze API payload efficiency
+//
+// # Dashboard Queries
+//
+//	// Outgoing data rate (MB/s)
+//	rate(gin_response_body_total[5m]) / 1024 / 1024
+//
+//	// Total data sent in last hour (GB)
+//	increase(gin_response_body_total[1h]) / 1024 / 1024 / 1024
+//
+//	// Average response body size (bytes)
+//	rate(gin_response_body_total[5m]) / rate(gin_request_total[5m])
+//
+//	// Bandwidth utilization (in/out ratio)
+//	rate(gin_response_body_total[5m]) / rate(gin_request_body_total[5m])
+//
+// # Parameters
+//
+//   - prefixName: The prefix for the metric name. If empty, defaults to "gin"
+//
+// # Returns
+//
+//   - A configured Metric instance ready to be added to a Prometheus pool
+//
+// # Example
+//
+//	pool := prometheus.GetPool()
+//	metric := webmetrics.MetricResponseBody("myapp")
+//	pool.Add(metric)
 func MetricResponseBody(prefixName string) prmmet.Metric {
-	var met prmmet.Metric
-
-	met = prmmet.NewMetrics(getDefaultPrefix(prefixName, "response_body_total"), prmtps.Counter)
-	met.SetDesc("the server send response body size, unit byte")
+	met := prmmet.NewMetrics(getDefaultPrefix(prefixName, "response_body_total"), prmtps.Counter)
+	met.SetDesc("Cumulative size of all HTTP response bodies in bytes")
 	met.SetCollect(func(ctx context.Context, m prmmet.Metric) {
 		var (
 			c  *ginsdk.Context
@@ -56,8 +104,4 @@ func MetricResponseBody(prefixName string) prmmet.Metric {
 	})
 
 	return met
-}
-
-func collectResponseBody(ctx context.Context, m prmmet.Metric) {
-
 }

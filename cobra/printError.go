@@ -28,6 +28,7 @@ package cobra
 
 import (
 	"fmt"
+	"math"
 	"sort"
 
 	liberr "github.com/nabbar/golib/errors"
@@ -47,13 +48,22 @@ func (c *cobra) AddCommandPrintErrorCode(fct FuncPrintErrorCode) {
 			)
 
 			for c := range lst {
-				key = append(key, int(c.GetUint16()))
+				key = append(key, int(c.Uint16()))
 			}
 
 			sort.Ints(key)
 
 			for _, c := range key {
-				fct(fmt.Sprintf("%d", c), lst[liberr.CodeError(uint16(c))])
+				var i liberr.CodeError
+				if c <= 0 {
+					i = 0
+				} else if c > math.MaxUint16 {
+					i = math.MaxUint16
+				} else {
+					i = liberr.CodeError(c)
+				}
+
+				fct(fmt.Sprintf("%d", c), lst[i])
 			}
 		},
 	})

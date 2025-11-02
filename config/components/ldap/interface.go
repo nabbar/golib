@@ -27,6 +27,7 @@
 package ldap
 
 import (
+	"context"
 	"sync/atomic"
 
 	libcfg "github.com/nabbar/golib/config"
@@ -37,9 +38,10 @@ import (
 
 // @TODO: refactor LDAP Package
 
-type ComponentLDAP interface {
+type CptLDAP interface {
 	cfgtps.Component
 
+	GetAttributes() []string
 	SetAttributes(att []string)
 
 	GetConfig() *lbldap.Config
@@ -49,7 +51,7 @@ type ComponentLDAP interface {
 	SetLDAP(l *lbldap.HelperLDAP)
 }
 
-func New(ctx libctx.FuncContext) ComponentLDAP {
+func New(ctx context.Context) CptLDAP {
 	var (
 		a = new(atomic.Value)
 		c = new(atomic.Value)
@@ -60,26 +62,28 @@ func New(ctx libctx.FuncContext) ComponentLDAP {
 	c.Store(&lbldap.Config{})
 	l.Store(&lbldap.HelperLDAP{})
 
-	return &componentLDAP{
+	return &mod{
 		a: a,
 		c: c,
 		l: l,
-		x: libctx.NewConfig[uint8](ctx),
+		x: libctx.New[uint8](ctx),
 	}
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentLDAP) {
+func Register(cfg libcfg.Config, key string, cpt CptLDAP) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, key string) {
 	cfg.ComponentSet(key, New(ctx))
 }
 
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentLDAP {
-	if c := getCpt(key); c == nil {
+func Load(getCpt cfgtps.FuncCptGet, key string) CptLDAP {
+	if getCpt == nil {
 		return nil
-	} else if h, ok := c.(ComponentLDAP); !ok {
+	} else if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(CptLDAP); !ok {
 		return nil
 	} else {
 		return h

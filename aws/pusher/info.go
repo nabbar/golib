@@ -26,6 +26,8 @@
 package pusher
 
 import (
+	"math"
+
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktps "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	libsiz "github.com/nabbar/golib/size"
@@ -176,7 +178,11 @@ func (o *psh) IsMPU() bool {
 }
 
 func (o *psh) Counter() int32 {
-	return int32(len(o.getPartList()))
+	if i := len(o.getPartList()); i > 0 && int64(i) < int64(math.MaxInt32) {
+		return int32(i)
+	} else {
+		return int32(math.MaxInt32)
+	}
 }
 
 func (o *psh) CounterLeft() int32 {

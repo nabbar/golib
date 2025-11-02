@@ -36,11 +36,67 @@ import (
 	prmtps "github.com/nabbar/golib/prometheus/types"
 )
 
+// MetricRequestURITotal creates a Counter metric that tracks the total number of requests
+// broken down by URI path, HTTP method, and response status code.
+//
+// # Metric Type
+//
+// Counter - Increments for every request, with labels providing dimensional data.
+//
+// # Metric Name
+//
+// {prefix}_request_uri_total (e.g., "gin_request_uri_total")
+//
+// # Labels
+//
+//   - uri: The route pattern (e.g., "/api/users/:id")
+//   - method: HTTP method (GET, POST, PUT, DELETE, etc.)
+//   - code: HTTP status code (200, 404, 500, etc.)
+//
+// # Use Cases
+//
+//   - Track request distribution across endpoints
+//   - Monitor success/error rates per endpoint
+//   - Identify most frequently accessed routes
+//   - Analyze endpoint-specific traffic patterns
+//   - Alert on unusual status codes for specific endpoints
+//
+// # Dashboard Queries
+//
+//	// Top 5 most requested endpoints
+//	topk(5, sum by(uri) (rate(gin_request_uri_total[5m])))
+//
+//	// 4xx error rate by endpoint
+//	sum by(uri) (rate(gin_request_uri_total{code=~"4.."}[5m]))
+//
+//	// Success rate (2xx) percentage
+//	sum(rate(gin_request_uri_total{code=~"2.."}[5m])) / sum(rate(gin_request_uri_total[5m])) * 100
+//
+//	// Requests per method
+//	sum by(method) (rate(gin_request_uri_total[5m]))
+//
+// # Important Note
+//
+// Use c.FullPath() which returns the route pattern (e.g., "/users/:id") rather than
+// c.Request.URL.Path which would return actual values (e.g., "/users/123"), preventing
+// cardinality explosion in Prometheus.
+//
+// # Parameters
+//
+//   - prefixName: The prefix for the metric name. If empty, defaults to "gin"
+//
+// # Returns
+//
+//   - A configured Metric instance ready to be added to a Prometheus pool
+//
+// # Example
+//
+//	pool := prometheus.GetPool()
+//	metric := webmetrics.MetricRequestURITotal("myapp")
+//	pool.Add(metric)
 func MetricRequestURITotal(prefixName string) prmmet.Metric {
-	var met prmmet.Metric
-
-	met = prmmet.NewMetrics(getDefaultPrefix(prefixName, "request_uri_total"), prmtps.Counter)
-	met.SetDesc("all the server received request num with every uri.")
+	met := prmmet.NewMetrics(getDefaultPrefix(prefixName, "request_uri_total"), prmtps.Counter)
+	met.SetDesc("Total number of requests by URI, method, and status code")
 	met.AddLabel("uri", "method", "code")
 	met.SetCollect(func(ctx context.Context, m prmmet.Metric) {
 		var (

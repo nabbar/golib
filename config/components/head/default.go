@@ -29,8 +29,6 @@ package head
 import (
 	"bytes"
 	"encoding/json"
-
-	cfgcst "github.com/nabbar/golib/config/const"
 )
 
 var _defaultConfig = []byte(`{
@@ -49,13 +47,16 @@ func SetDefaultConfig(cfg []byte) {
 
 func DefaultConfig(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
-	if err := json.Indent(res, _defaultConfig, indent, cfgcst.JSONIndent); err != nil {
+	if indent == "" {
+		return _defaultConfig
+	}
+	if err := json.Indent(res, _defaultConfig, "", indent); err != nil {
 		return _defaultConfig
 	} else {
 		return res.Bytes()
 	}
 }
 
-func (o *componentHead) DefaultConfig(indent string) []byte {
+func (o *mod) DefaultConfig(indent string) []byte {
 	return DefaultConfig(indent)
 }

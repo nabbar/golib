@@ -24,6 +24,60 @@
  *
  */
 
+// Package ftpclient provides a thread-safe FTP client with automatic reconnection
+// and connection pooling capabilities.
+//
+// This package wraps the github.com/jlaffaye/ftp library with additional features:
+//   - Thread-safe operations using atomic values and mutexes
+//   - Automatic connection management with health checks (NOOP)
+//   - Flexible configuration with TLS/SSL support
+//   - Context-aware operations for timeout control
+//   - Comprehensive error handling with custom error types
+//
+// Architecture:
+//
+//	┌──────────────┐
+//	│   FTPClient  │ ← Public Interface
+//	└──────────────┘
+//	       ↓
+//	┌──────────────┐
+//	│  ftpClient   │ ← Thread-safe implementation
+//	│  (atomic)    │
+//	└──────────────┘
+//	       ↓
+//	┌──────────────┐
+//	│ ServerConn   │ ← Underlying FTP connection
+//	└──────────────┘
+//
+// Basic usage:
+//
+//	import (
+//	    "context"
+//	    "github.com/nabbar/golib/ftpclient"
+//	)
+//
+//	cfg := &ftpclient.Config{
+//	    Hostname:    "ftp.example.com:21",
+//	    Login:       "user",
+//	    Password:    "pass",
+//	    ConnTimeout: 30 * time.Second,
+//	}
+//	cfg.RegisterContext(func() context.Context {
+//	    return context.Background()
+//	})
+//
+//	client, err := ftpclient.New(cfg)
+//	if err != nil {
+//	    panic(err)
+//	}
+//	defer client.Close()
+//
+//	// Upload a file
+//	file, _ := os.Open("local.txt")
+//	defer file.Close()
+//	err = client.Stor("remote.txt", file)
+//
+// See the Config struct for all available configuration options.
 package ftpclient
 
 import (
@@ -35,6 +89,9 @@ import (
 	libftp "github.com/jlaffaye/ftp"
 )
 
+// FTPClient defines the interface for FTP operations.
+// All methods are thread-safe and handle connection management automatically.
+// Failed connections will be automatically re-established on the next operation.
 type FTPClient interface {
 	// Connect establish the connection to server with the given configuration registered.
 	Connect() error
@@ -112,6 +169,24 @@ type FTPClient interface {
 	Walk(root string) (*libftp.Walker, error)
 }
 
+// New creates a new FTP client instance with the given configuration.
+// It immediately attempts to connect and validate the connection using a NOOP command.
+//
+// The client uses atomic operations for thread-safe configuration and connection management.
+// If the initial connection fails, an error is returned and the client is nil.
+//
+// Example:
+//
+//	cfg := &Config{
+//	    Hostname: "ftp.example.com:21",
+//	    Login:    "user",
+//	    Password: "pass",
+//	}
+//	client, err := New(cfg)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Close()
 func New(cfg *Config) (FTPClient, error) {
 	c := &ftpClient{
 		m:   sync.Mutex{},

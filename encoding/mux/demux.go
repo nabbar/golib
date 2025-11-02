@@ -31,6 +31,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"sync"
 
 	libcbr "github.com/fxamacker/cbor/v2"
 	enchex "github.com/nabbar/golib/encoding/hexa"
@@ -39,12 +40,12 @@ import (
 type dmux struct {
 	r *bufio.Reader
 	d byte
-	m map[rune]io.Writer
+	m sync.Map // map[rune]io.Writer
 }
 
 // Read defines a Read method for the dmux type in Go.
 // It reads data from dmux, handles error conditions, and performs data manipulation before writing the data to a specified channel.
-func (o *dmux) Read(p []byte) (n int, err error) {
+func (o *dmux) Read(p []byte) (n int, err error) { // nolint
 	if o == nil {
 		return 0, ErrInvalidInstance
 	}
@@ -73,17 +74,21 @@ func (o *dmux) Read(p []byte) (n int, err error) {
 
 	if len(d.D) < 1 {
 		return 0, nil
-	} else if p, err = h.Decode(d.D); err != nil {
+	} else if p, err = h.Decode(d.D); err != nil { // nolint
 		return 0, err
 	}
 
-	if len(o.m) < 1 {
+	v, ok := o.m.Load(d.K)
+	if !ok {
 		return 0, ErrInvalidChannel
-	} else if w, k := o.m[d.K]; !k {
-		return 0, ErrInvalidChannel
-	} else {
-		return w.Write(p)
 	}
+
+	w, ok := v.(io.Writer)
+	if !ok {
+		return 0, ErrInvalidChannel
+	}
+
+	return w.Write(p)
 }
 
 // Copy defines a method Copy for a type dmux
@@ -114,5 +119,5 @@ func (o *dmux) NewChannel(key rune, w io.Writer) {
 		return
 	}
 
-	o.m[key] = w
+	o.m.Store(key, w)
 }

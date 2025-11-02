@@ -44,6 +44,7 @@ type cobra struct {
 	s libver.Version
 	b bool
 	d string
+	f string // config file path
 
 	v FuncViper
 	i FuncInit
@@ -140,7 +141,7 @@ func (c *cobra) getLog() liblog.Logger {
 		return l
 	}
 
-	return liblog.New(context.Background)
+	return liblog.New(context.Background())
 }
 
 func (c *cobra) getPackageName() string {

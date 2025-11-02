@@ -43,9 +43,51 @@ import (
 type HookFile interface {
 	logtps.Hook
 
+	// Done returns a channel that will be closed when the hook is finished.
+	// Use this channel to wait until the hook is finished and then flush
+	// the buffer before exit function.
+	//
 	Done() <-chan struct{}
 }
 
+// New returns a new HookFile instance.
+//
+// The `opt` parameter is required and cannot be nil. If the `opt.Filepath`
+// field is empty, an error will be returned.
+//
+// The `format` parameter is optional and can be nil. If it is nil, the
+// default logrus formatter will be used.
+//
+// If the `opt.LogLevel` field is not empty, the levels will be parsed and set
+// on the hook. If the `opt.LogLevel` field is empty, all levels will be enabled.
+//
+// The `opt.Create` field is optional and can be false. If it is true, the
+// file will be created if it does not exist. The file mode is set to the value
+// of `opt.FileMode`. If the `opt.FileMode` field is empty, the file mode
+// will be set to 0644.
+//
+// The `opt.PathMode` field is optional and can be false. If it is true, the
+// parent directories of the file will be created if they do not exist. The parent
+// directory mode is set to the value of `opt.PathMode`. If the `opt.PathMode`
+// field is empty, the parent directory mode will be set to 0755.
+//
+// The `opt.FileBufferSize` field is optional and can be set to a value greater
+// than zero. If it is set to zero or a negative value, the default buffer size
+// will be used. The default buffer size is 4KB.
+//
+// The `opt.DisableStack` field is optional and can be false. If it is true,
+// the stack trace will be disabled on the hook.
+//
+// The `opt.DisableTimestamp` field is optional and can be false. If it is true,
+// the timestamp will be disabled on the hook.
+//
+// The `opt.EnableTrace` field is optional and can be false. If it is true,
+// the trace will be enabled on the hook.
+//
+// The `opt.EnableAccessLog` field is optional and can be false. If it is true,
+// the access log will be enabled on the hook.
+//
+// The returned hook is safe for use in multiple goroutines.
 func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 	if opt.Filepath == "" {
 		return nil, errMissingFilePath
@@ -93,6 +135,7 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 			fileMode:         opt.FileMode.FileMode(),
 			pathMode:         opt.PathMode.FileMode(),
 		},
+		r: new(atomic.Bool),
 	}
 
 	if opt.FileBufferSize <= libsiz.SizeKilo {

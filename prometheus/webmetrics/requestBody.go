@@ -35,11 +35,56 @@ import (
 	prmtps "github.com/nabbar/golib/prometheus/types"
 )
 
+// MetricRequestBody creates a Counter metric that tracks the cumulative size of all request
+// bodies received by the server, measured in bytes.
+//
+// # Metric Type
+//
+// Counter - Accumulates the total bytes of all incoming request bodies.
+//
+// # Metric Name
+//
+// {prefix}_request_body_total (e.g., "gin_request_body_total")
+//
+// # Labels
+//
+// No labels. Provides an aggregate view of inbound data volume.
+//
+// # Use Cases
+//
+//   - Monitor bandwidth consumption for incoming requests
+//   - Detect unusual data upload patterns
+//   - Capacity planning for network and storage
+//   - Track data ingestion rates
+//   - Cost analysis for data transfer
+//
+// # Dashboard Queries
+//
+//	// Incoming data rate (MB/s)
+//	rate(gin_request_body_total[5m]) / 1024 / 1024
+//
+//	// Total data received in last hour (GB)
+//	increase(gin_request_body_total[1h]) / 1024 / 1024 / 1024
+//
+//	// Average request body size (bytes)
+//	rate(gin_request_body_total[5m]) / rate(gin_request_total[5m])
+//
+// # Parameters
+//
+//   - prefixName: The prefix for the metric name. If empty, defaults to "gin"
+//
+// # Returns
+//
+//   - A configured Metric instance ready to be added to a Prometheus pool
+//
+// # Example
+//
+//	pool := prometheus.GetPool()
+//	metric := webmetrics.MetricRequestBody("myapp")
+//	pool.Add(metric)
 func MetricRequestBody(prefixName string) prmmet.Metric {
-	var met prmmet.Metric
-
-	met = prmmet.NewMetrics(getDefaultPrefix(prefixName, "request_body_total"), prmtps.Counter)
-	met.SetDesc("the server received request body size, unit byte")
+	met := prmmet.NewMetrics(getDefaultPrefix(prefixName, "request_body_total"), prmtps.Counter)
+	met.SetDesc("Cumulative size of all HTTP request bodies in bytes")
 	met.SetCollect(func(ctx context.Context, m prmmet.Metric) {
 		var (
 			c  *ginsdk.Context

@@ -34,27 +34,58 @@ import (
 	shlcmd "github.com/nabbar/golib/shell/command"
 )
 
+// FuncPool is a function type that returns a Pool instance.
+// This is used for dependency injection and lazy initialization of pools.
 type FuncPool func() Pool
 
+// PoolManage defines the interface for managing monitors within a pool.
+// It provides CRUD operations and iteration capabilities for monitors.
 type PoolManage interface {
+	// MonitorAdd adds a monitor to the pool.
+	// Returns an error if the monitor is nil or has an empty name.
+	// If the pool is running, the monitor is automatically started.
 	MonitorAdd(mon Monitor) error
+
+	// MonitorGet retrieves a monitor from the pool by name.
+	// Returns nil if the monitor is not found.
 	MonitorGet(name string) Monitor
+
+	// MonitorSet updates or adds a monitor in the pool.
+	// If the monitor doesn't exist, it will be added.
+	// Returns an error if the monitor is nil or has an empty name.
 	MonitorSet(mon Monitor) error
+
+	// MonitorDel removes a monitor from the pool by name.
+	// Does nothing if the monitor doesn't exist.
 	MonitorDel(name string)
+
+	// MonitorList returns a slice of all monitor names in the pool.
 	MonitorList() []string
+
+	// MonitorWalk iterates over monitors in the pool, calling the provided function for each.
+	// The iteration stops if the function returns false.
+	// The validName parameter optionally filters which monitors to visit.
 	MonitorWalk(fct func(name string, val Monitor) bool, validName ...string)
 }
 
+// PoolStatus combines pool management with encoding capabilities.
+// It allows pools to be marshaled to text and JSON formats.
 type PoolStatus interface {
 	encoding.TextMarshaler
 	json.Marshaler
 	PoolManage
 }
 
+// PoolShell provides shell command interface for pool operations.
+// This enables CLI-style control of the pool and its monitors.
 type PoolShell interface {
+	// GetShellCommand returns a list of available shell commands for pool operations.
+	// Common commands include: list, info, start, stop, restart, and status.
 	GetShellCommand(ctx context.Context) []shlcmd.Command
 }
 
+// Pool is the main interface for monitor pool management.
+// It combines status tracking, monitor management, and shell command capabilities.
 type Pool interface {
 	PoolStatus
 	PoolShell

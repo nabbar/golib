@@ -43,7 +43,7 @@ const (
 
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision with package golib/smtp"))
+		panic(fmt.Errorf("error code collision with package golib/smtp/config"))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }

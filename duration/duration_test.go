@@ -57,7 +57,7 @@ func tomlDuration() []byte {
 `)
 }
 
-var _ = Describe("duration/big", func() {
+var _ = Describe("Duration Encoding/Decoding", func() {
 	Context("decoding value from json, yaml, toml", func() {
 		var (
 			err error

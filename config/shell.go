@@ -33,6 +33,24 @@ import (
 	shlcmd "github.com/nabbar/golib/shell/command"
 )
 
+// ShellCommandInfo returns metadata for all available shell commands.
+// This is used by shell integration packages to discover available commands
+// without creating the full command implementations.
+//
+// Returns:
+//   - Slice of CommandInfo containing name and description for each command
+//
+// Available commands:
+//   - list: Display all registered components
+//   - start: Start components (optionally specify component keys as arguments)
+//   - stop: Stop components (optionally specify component keys as arguments)
+//   - restart: Restart components by stopping then starting them
+//
+// Example usage in shell integration:
+//
+//	for _, info := range config.ShellCommandInfo() {
+//	    fmt.Printf("%s: %s\n", info.Name(), info.Description())
+//	}
 func ShellCommandInfo() []shlcmd.CommandInfo {
 	var res = make([]shlcmd.CommandInfo, 0)
 
@@ -44,53 +62,109 @@ func ShellCommandInfo() []shlcmd.CommandInfo {
 	return res
 }
 
-func (c *configModel) GetShellCommand() []shlcmd.Command {
-	var res = make([]shlcmd.Command, 0)
+// GetShellCommand returns executable shell commands for runtime component management.
+// These commands can be integrated into CLI applications or interactive shells
+// for manual component control during development or operations.
+//
+// Returns:
+//   - Slice of Command objects that can be executed with Run(stdout, stderr, args)
+//
+// Available commands:
+//
+// 1. list:
+//   - Lists all registered components in dependency order
+//   - Arguments: none
+//   - Output: One component key per line to stdout
+//
+// 2. start:
+//   - Starts specified components or all if no arguments provided
+//   - Arguments: component keys (optional)
+//   - Output: Progress messages to stdout, errors to stderr
+//   - Starts components in dependency order
+//
+// 3. stop:
+//   - Stops specified components or all if no arguments provided
+//   - Arguments: component keys (optional)
+//   - Output: Progress messages to stdout
+//   - Stops components in reverse dependency order
+//
+// 4. restart:
+//   - Restarts components by stopping then starting them
+//   - Arguments: component keys (optional)
+//   - Output: Progress messages to stdout, errors to stderr
+//   - Executes stop (reverse order) then start (dependency order)
+//
+// Example usage:
+//
+//	commands := cfg.GetShellCommand()
+//	for _, cmd := range commands {
+//	    if cmd.Name() == "list" {
+//	        cmd.Run(os.Stdout, os.Stderr, nil)
+//	    }
+//	}
+//
+// Thread Safety:
+// These commands access the component registry which is thread-safe.
+// However, concurrent execution of start/stop/restart commands may lead
+// to unpredictable results and should be avoided.
+func (o *model) GetShellCommand() []shlcmd.Command {
+	return []shlcmd.Command{
+		o.shellCmdList(),
+		o.shellCmdStart(),
+		o.shellCmdStop(),
+		o.shellCmdRestart(),
+	}
+}
 
-	res = append(res, shlcmd.New("list", "list all components", func(buf io.Writer, err io.Writer, args []string) {
-		for _, key := range c.ComponentDependencies() {
+func (o *model) shellCmdList() shlcmd.Command {
+	return shlcmd.New("list", "list all components", func(buf io.Writer, err io.Writer, args []string) {
+		for _, key := range o.ComponentDependencies() {
 			if len(key) < 1 {
 				continue
-			} else if cpt := c.ComponentGet(key); cpt == nil {
+			} else if cpt := o.ComponentGet(key); cpt == nil {
 				continue
 			} else {
-				_, _ = fmt.Fprintln(buf, key)
+				_, _ = fmt.Fprintln(buf, key) // nolint
 			}
 		}
-	}))
+	})
+}
 
-	res = append(res, shlcmd.New("start", "Starting components (leave args empty to start all components)", func(buf io.Writer, err io.Writer, args []string) {
+func (o *model) shellCmdStart() shlcmd.Command {
+	return shlcmd.New("start", "Starting components (leave args empty to start all components)", func(buf io.Writer, err io.Writer, args []string) {
 		var list []string
 		if len(args) > 0 {
 			list = args
 		} else {
-			list = c.ComponentDependencies()
+			list = o.ComponentDependencies()
 		}
 
 		for _, key := range list {
 			if len(key) < 1 {
 				continue
-			} else if cpt := c.ComponentGet(key); cpt == nil {
+			} else if cpt := o.ComponentGet(key); cpt == nil {
 				continue
 			} else {
-				_, _ = fmt.Fprintln(buf, fmt.Sprintf("Starting component '%s'", key))
+				_, _ = fmt.Fprintln(buf, fmt.Sprintf("Starting component '%s'", key)) // nolint
 				e := cpt.Start()
-				c.componentUpdate(key, cpt)
+				o.componentUpdate(key, cpt)
 				if e != nil {
-					_, _ = fmt.Fprintln(err, e)
+					_, _ = fmt.Fprintln(err, e) // nolint
 				} else if !cpt.IsStarted() {
-					_, _ = fmt.Fprintln(err, fmt.Errorf("component is not started"))
+					_, _ = fmt.Fprintln(err, fmt.Errorf("component is not started")) // nolint
 				}
 			}
 		}
-	}))
+	})
+}
 
-	res = append(res, shlcmd.New("stop", "Stopping components (leave args empty to start all components)", func(buf io.Writer, err io.Writer, args []string) {
+func (o *model) shellCmdStop() shlcmd.Command {
+	return shlcmd.New("stop", "Stopping components (leave args empty to start all components)", func(buf io.Writer, err io.Writer, args []string) {
 		var list []string
 		if len(args) > 0 {
 			list = args
 		} else {
-			list = c.ComponentDependencies()
+			list = o.ComponentDependencies()
 		}
 
 		for i := len(list) - 1; i >= 0; i-- {
@@ -98,21 +172,23 @@ func (c *configModel) GetShellCommand() []shlcmd.Command {
 
 			if len(key) < 1 {
 				continue
-			} else if cpt := c.ComponentGet(key); cpt == nil {
+			} else if cpt := o.ComponentGet(key); cpt == nil {
 				continue
 			} else {
-				_, _ = fmt.Fprintln(buf, fmt.Sprintf("Stopping component '%s'", key))
+				_, _ = fmt.Fprintln(buf, fmt.Sprintf("Stopping component '%s'", key)) // nolint
 				cpt.Stop()
 			}
 		}
-	}))
+	})
+}
 
-	res = append(res, shlcmd.New("restart", "Restarting (stop, start) components (leave args empty to restart all components)", func(buf io.Writer, err io.Writer, args []string) {
+func (o *model) shellCmdRestart() shlcmd.Command {
+	return shlcmd.New("restart", "Restarting (stop, start) components (leave args empty to restart all components)", func(buf io.Writer, err io.Writer, args []string) {
 		var list []string
 		if len(args) > 0 {
 			list = args
 		} else {
-			list = c.ComponentDependencies()
+			list = o.ComponentDependencies()
 		}
 
 		for i := len(list) - 1; i >= 0; i-- {
@@ -120,33 +196,31 @@ func (c *configModel) GetShellCommand() []shlcmd.Command {
 
 			if len(key) < 1 {
 				continue
-			} else if cpt := c.ComponentGet(key); cpt == nil {
+			} else if cpt := o.ComponentGet(key); cpt == nil {
 				continue
 			} else {
-				_, _ = fmt.Fprintln(buf, fmt.Sprintf("Stopping component '%s'", key))
+				_, _ = fmt.Fprintln(buf, fmt.Sprintf("Stopping component '%s'", key)) // nolint
 				cpt.Stop()
 			}
 		}
 
-		_, _ = fmt.Fprintln(buf, "")
+		_, _ = fmt.Fprintln(buf, "") // nolint
 
 		for _, key := range list {
 			if len(key) < 1 {
 				continue
-			} else if cpt := c.ComponentGet(key); cpt == nil {
+			} else if cpt := o.ComponentGet(key); cpt == nil {
 				continue
 			} else {
-				_, _ = fmt.Fprintln(buf, fmt.Sprintf("Starting component '%s'", key))
+				_, _ = fmt.Fprintln(buf, fmt.Sprintf("Starting component '%s'", key)) // nolint
 				e := cpt.Start()
-				c.componentUpdate(key, cpt)
+				o.componentUpdate(key, cpt)
 				if e != nil {
-					_, _ = fmt.Fprintln(err, e)
+					_, _ = fmt.Fprintln(err, e) // nolint
 				} else if !cpt.IsStarted() {
-					_, _ = fmt.Fprintln(err, fmt.Errorf("component is not started"))
+					_, _ = fmt.Fprintln(err, fmt.Errorf("component is not started")) // nolint
 				}
 			}
 		}
-	}))
-
-	return res
+	})
 }

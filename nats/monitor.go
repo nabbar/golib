@@ -32,7 +32,6 @@ import (
 	"runtime"
 	"time"
 
-	libctx "github.com/nabbar/golib/context"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
@@ -62,7 +61,7 @@ func (s *server) HealthCheck(ctx context.Context) error {
 	return fmt.Errorf("node not ready")
 }
 
-func (s *server) Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error) {
+func (s *server) Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
 
 	var (
 		e   error
@@ -111,7 +110,7 @@ func (s *server) Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Mon
 		return nil, e
 	}
 
-	if e = mon.Start(ctx()); e != nil {
+	if e = mon.Start(ctx); e != nil {
 		return nil, e
 	}
 

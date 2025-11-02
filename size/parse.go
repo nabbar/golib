@@ -25,7 +25,7 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package size
 
 import (
 	"errors"
@@ -86,10 +86,11 @@ func parseString(s string) (Size, error) {
 		orig = s
 		neg  bool
 
-		d          uint64
-		errInvalid = fmt.Errorf("size: invalid size '%s'", orig)
-		errUnit    = fmt.Errorf("size: missing unit '%s'", orig)
-		errUnkUnit = fmt.Errorf("size: unknown unit '%s'", orig)
+		d           uint64
+		errNegative = fmt.Errorf("size: negative size '%s'", orig)
+		errInvalid  = fmt.Errorf("size: invalid size '%s'", orig)
+		errUnit     = fmt.Errorf("size: missing unit '%s'", orig)
+		errUnkUnit  = fmt.Errorf("size: unknown unit '%s'", orig)
 	)
 
 	s = strings.TrimSpace(s)
@@ -109,6 +110,8 @@ func parseString(s string) (Size, error) {
 	// Special case: if all that is left is "0", this is zero.
 	if s == "" {
 		return 0, errInvalid
+	} else if neg {
+		return 0, errNegative
 	}
 
 	for s != "" {
@@ -120,7 +123,7 @@ func parseString(s string) (Size, error) {
 		var err error
 
 		// The next character must be [0-9.]
-		if !(s[0] == '.' || '0' <= s[0] && s[0] <= '9') {
+		if !(s[0] == '.' || '0' <= s[0] && s[0] <= '9') { // nolint
 			return 0, errInvalid
 		}
 
@@ -188,14 +191,6 @@ func parseString(s string) (Size, error) {
 		if d > 1<<63 {
 			return 0, errInvalid
 		}
-	}
-
-	if neg {
-		return -Size(d), nil
-	}
-
-	if d > 1<<63-1 {
-		return 0, errInvalid
 	}
 
 	return Size(d), nil

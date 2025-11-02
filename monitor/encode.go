@@ -34,45 +34,58 @@ import (
 
 	monsts "github.com/nabbar/golib/monitor/status"
 	moninf "github.com/nabbar/golib/monitor/types"
+	librun "github.com/nabbar/golib/runner"
 )
 
 const (
-	encTextSepStatus = ": "
-	encTextSepPart   = " | "
-	encTextSepTime   = " / "
+	// Text encoding separators for human-readable output
+	encTextSepStatus = ": "  // Separator between status and details
+	encTextSepPart   = " | " // Separator between different parts
+	encTextSepTime   = " / " // Separator between time durations
 )
 
+// Encode provides methods for converting monitor state to different formats.
 type Encode interface {
-	String() string
-	Bytes() []byte
+	String() string // Returns a human-readable string representation
+	Bytes() []byte  // Returns the byte representation of the string
 }
 
-type encodeModel struct {
-	Status monsts.Status
-	Name   string
-	Info   moninf.Info
+// encMod holds the data needed for encoding monitor state.
+type encMod struct {
+	Status monsts.Status // Current health status
+	Name   string        // Monitor name
+	Info   moninf.Info   // Metadata information
 
-	Latency  string
-	Uptime   string
-	Downtime string
+	Latency  string // Formatted latency duration
+	Uptime   string // Formatted uptime duration
+	Downtime string // Formatted downtime duration
 
-	Message string
+	Message string // Error message if any
 }
 
-func (e *encodeModel) Bytes() []byte {
+// Bytes returns the byte representation of the encoded monitor state.
+func (e *encMod) Bytes() []byte {
+	defer librun.RecoveryCaller("golib/monitor/encMod/Bytes", recover())
 	return []byte(e.String())
 }
 
-func (e *encodeModel) String() string {
+// String returns a human-readable representation of the monitor state.
+// Format: "<STATUS>: <name> (<info>) | <latency> / <uptime> / <downtime> | <message>"
+func (e *encMod) String() string {
+	defer librun.RecoveryCaller("golib/monitor/encMod/String", recover())
 	return e.Status.String() + encTextSepStatus + e.stringPart()
 }
 
-func (e *encodeModel) stringDuration() string {
+// stringDuration formats the duration metrics as a string.
+func (e *encMod) stringDuration() string {
+	defer librun.RecoveryCaller("golib/monitor/encMod/stringDuration", recover())
 	part := append(make([]string, 0), e.Latency, e.Uptime, e.Downtime)
 	return strings.Join(part, encTextSepTime)
 }
 
-func (e *encodeModel) stringName() string {
+// stringName formats the name and info as a string.
+func (e *encMod) stringName() string {
+	defer librun.RecoveryCaller("golib/monitor/encMod/stringName", recover())
 	var inf string
 
 	if e.Info != nil {
@@ -87,7 +100,9 @@ func (e *encodeModel) stringName() string {
 	}
 }
 
-func (e *encodeModel) stringPart() string {
+// stringPart combines all parts into a formatted string.
+func (e *encMod) stringPart() string {
+	defer librun.RecoveryCaller("golib/monitor/encMod/stringPart", recover())
 	item := make([]string, 0)
 	item = append(item, e.stringName())
 	item = append(item, e.stringDuration())
@@ -99,8 +114,10 @@ func (e *encodeModel) stringPart() string {
 	return strings.Join(item, encTextSepPart)
 }
 
-func (o *mon) getEncodeModel() Encode {
-	return &encodeModel{
+// getEncMod creates an Encode instance from the current monitor state.
+func (o *mon) getEncMod() Encode {
+	defer librun.RecoveryCaller("golib/monitor/getEncMod", recover())
+	return &encMod{
 		Status:   o.Status(),
 		Name:     o.Name(),
 		Info:     o.InfoGet(),
@@ -111,10 +128,16 @@ func (o *mon) getEncodeModel() Encode {
 	}
 }
 
+// MarshalText implements encoding.TextMarshaler.
+// It returns a human-readable text representation of the monitor state.
 func (o *mon) MarshalText() (text []byte, err error) {
-	return o.getEncodeModel().Bytes(), nil
+	defer librun.RecoveryCaller("golib/monitor/MarshalText", recover())
+	return o.getEncMod().Bytes(), nil
 }
 
+// MarshalJSON implements json.Marshaler.
+// It returns a JSON representation of the monitor state.
 func (o *mon) MarshalJSON() (text []byte, err error) {
-	return json.Marshal(o.getEncodeModel())
+	defer librun.RecoveryCaller("golib/monitor/MarshalJSON", recover())
+	return json.Marshal(o.getEncMod())
 }

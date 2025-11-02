@@ -39,101 +39,127 @@ import (
 	spfcbr "github.com/spf13/cobra"
 )
 
-func (c *configModel) ComponentHas(key string) bool {
-	if i, l := c.cpt.Load(key); !l {
-		return false
+// ComponentHas checks if a component with the given key is registered.
+// Returns true if the component exists, false otherwise.
+func (o *model) ComponentHas(key string) bool {
+	return o.ComponentGet(key) != nil
+}
+
+// ComponentGet retrieves a component by its key.
+// Returns the component if found, nil otherwise.
+// This method is thread-safe for concurrent access.
+func (o *model) ComponentGet(key string) cfgtps.Component {
+	if i, l := o.cpt.Load(key); !l {
+		return nil
 	} else {
-		_, k := i.(cfgtps.Component)
-		return k
+		return i
 	}
 }
 
-func (c *configModel) ComponentType(key string) string {
-	if v := c.ComponentGet(key); v == nil {
+// ComponentType returns the type identifier of a component.
+// Returns an empty string if the component is not found.
+func (o *model) ComponentType(key string) string {
+	if v := o.ComponentGet(key); v == nil {
 		return ""
 	} else {
 		return v.Type()
 	}
 }
 
-func (c *configModel) ComponentGet(key string) cfgtps.Component {
-	if i, l := c.cpt.Load(key); !l {
-		return nil
-	} else if v, k := i.(cfgtps.Component); !k {
-		return nil
-	} else {
-		return v
+// ComponentDel removes a component from the registry.
+// This does not call Stop() on the component - stop it first if needed.
+func (o *model) ComponentDel(key string) {
+	o.cpt.Delete(key)
+}
+
+// ComponentSet registers a new component or replaces an existing one.
+// The component is initialized with the provided key and necessary dependencies
+// (context, viper, version, logger, monitor pool).
+// If cpt is nil, this method does nothing.
+func (o *model) ComponentSet(key string, cpt cfgtps.Component) {
+	if cpt == nil {
+		return
 	}
-}
 
-func (c *configModel) ComponentDel(key string) {
-	c.cpt.Delete(key)
-}
+	cpt.Init(key, o.ctx, o.ComponentGet, o.getViper, o.getVersion(), o.getDefaultLogger)
 
-func (c *configModel) ComponentSet(key string, cpt cfgtps.Component) {
-	cpt.Init(key, c.ctx.GetContext, c.ComponentGet, c.getViper, c.getVersion(), c.getDefaultLogger)
-	if f := c.getFctMonitorPool(); f != nil {
+	if f := o.getFctMonitorPool(); f != nil {
 		cpt.RegisterMonitorPool(f)
 	} else {
-		cpt.RegisterMonitorPool(c.getMonitorPool)
+		cpt.RegisterMonitorPool(o.getMonitorPool)
 	}
-	c.cpt.Store(key, cpt)
+
+	o.cpt.Store(key, cpt)
 }
 
-func (c *configModel) componentUpdate(key string, cpt cfgtps.Component) {
-	c.cpt.Store(key, cpt)
+func (o *model) componentUpdate(key string, cpt cfgtps.Component) {
+	if cpt == nil {
+		return
+	}
+
+	o.cpt.Store(key, cpt)
 }
 
-func (c *configModel) ComponentList() map[string]cfgtps.Component {
-	var res = make(map[string]cfgtps.Component, 0)
-	c.cpt.Walk(func(key string, val interface{}) bool {
-		if v, k := val.(cfgtps.Component); k {
-			res[key] = v
+// ComponentList returns all registered components as a map.
+// Keys are component identifiers, values are the component instances.
+// This creates a snapshot of the current component registry.
+func (o *model) ComponentList() map[string]cfgtps.Component {
+	var res = make(map[string]cfgtps.Component)
+
+	o.cpt.Range(func(key string, val cfgtps.Component) bool {
+		if len(key) > 0 && val != nil {
+			res[key] = val
 		} else {
-			c.cpt.Delete(key)
+			o.cpt.Delete(key)
 		}
 		return true
 	})
+
 	return res
 }
 
-func (c *configModel) ComponentKeys() []string {
+// ComponentKeys returns a list of all registered component keys.
+// This creates a snapshot of current component keys in the registry.
+func (o *model) ComponentKeys() []string {
 	var res = make([]string, 0)
-	c.cpt.Walk(func(key string, val interface{}) bool {
-		if _, k := val.(cfgtps.Component); k {
+
+	o.cpt.Range(func(key string, val cfgtps.Component) bool {
+		if len(key) > 0 && val != nil {
 			res = append(res, key)
 		} else {
-			c.cpt.Delete(key)
+			o.cpt.Delete(key)
 		}
+
 		return true
 	})
+
 	return res
 }
 
-func (c *configModel) ComponentStart() error {
+// ComponentStart starts all registered components in dependency order.
+// Components are started sequentially according to their declared dependencies.
+// If any component fails to start, an error is returned containing all failures.
+// Logging is performed for each component start attempt.
+func (o *model) ComponentStart() error {
 	var err = ErrorComponentStart.Error(nil)
 
-	for _, key := range c.ComponentDependencies() {
+	for _, key := range o.ComponentDependencies() {
 		if len(key) < 1 {
 			continue
-		} else if cpt := c.ComponentGet(key); cpt == nil {
+		} else if cpt := o.ComponentGet(key); cpt == nil {
 			continue
 		} else {
-			if l := c.getDefaultLogger(); l != nil {
-				l.Entry(loglvl.InfoLevel, fmt.Sprintf("starting component '%s'", key)).Log()
-			}
+			o.logEntry(loglvl.InfoLevel, fmt.Sprintf("starting component '%s'", key)).Log()
+
 			e := cpt.Start()
-			c.componentUpdate(key, cpt)
+			o.componentUpdate(key, cpt)
+
 			if e != nil {
-				if l := c.getDefaultLogger(); l != nil {
-					l.Entry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' starting return an error", key)).ErrorAdd(true, e).Log()
-				}
+				o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' starting return an error", key)).ErrorAdd(true, e).Log()
 				err.Add(e)
 			} else if !cpt.IsStarted() {
 				e = fmt.Errorf("component '%s' has been call to start, but is not started", key)
-				if l := c.getDefaultLogger(); l != nil {
-					l.Entry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' is not started", key)).ErrorAdd(true, e).Log()
-				}
+				o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' is not started", key)).ErrorAdd(true, e).Log()
 				err.Add(e)
 			}
 		}
@@ -146,49 +172,47 @@ func (c *configModel) ComponentStart() error {
 	return nil
 }
 
-func (c *configModel) ComponentIsStarted() bool {
-	isOk := false
+// ComponentIsStarted checks if all components are in the started state.
+// Returns true only if all registered components report IsStarted() as true.
+func (o *model) ComponentIsStarted() bool {
+	isOk := true
 
-	c.cpt.Walk(func(key string, val interface{}) bool {
-		if v, k := val.(cfgtps.Component); !k {
-			c.cpt.Delete(key)
-		} else if v == nil {
-			c.cpt.Delete(key)
-		} else if v.IsStarted() {
-			isOk = true
-			return false
+	o.cpt.Range(func(key string, val cfgtps.Component) bool {
+		if len(key) > 0 && val != nil {
+			isOk = isOk && val.IsStarted()
+		} else {
+			o.cpt.Delete(key)
 		}
-
-		return true
+		return isOk
 	})
 
 	return isOk
 }
 
-func (c *configModel) ComponentReload() error {
+// ComponentReload reloads all registered components in dependency order.
+// This allows components to refresh their configuration without a full restart.
+// If any component fails to reload, an error is returned containing all failures.
+// Components must remain in the started state after reload.
+func (o *model) ComponentReload() error {
 	var err = ErrorComponentReload.Error(nil)
 
-	for _, key := range c.ComponentDependencies() {
+	for _, key := range o.ComponentDependencies() {
 		if len(key) < 1 {
 			continue
-		} else if cpt := c.ComponentGet(key); cpt == nil {
+		} else if cpt := o.ComponentGet(key); cpt == nil {
 			continue
 		} else {
-			if l := c.getDefaultLogger(); l != nil {
-				l.Entry(loglvl.InfoLevel, fmt.Sprintf("reloading component '%s'", key)).Log()
-			}
+			o.logEntry(loglvl.InfoLevel, fmt.Sprintf("reloading component '%s'", key)).Log()
+
 			e := cpt.Reload()
-			c.componentUpdate(key, cpt)
+			o.componentUpdate(key, cpt)
+
 			if e != nil {
-				if l := c.getDefaultLogger(); l != nil {
-					l.Entry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' reloading return an error", key)).ErrorAdd(true, e).Log()
-				}
+				o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' reloading return an error", key)).ErrorAdd(true, e).Log()
 				err.Add(e)
 			} else if !cpt.IsStarted() {
 				e = fmt.Errorf("component '%s' has been call to reload, but is not started", key)
-				if l := c.getDefaultLogger(); l != nil {
-					l.Entry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' is not started after a reload", key)).ErrorAdd(true, e).Log()
-				}
+				o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' is not started after a reload", key)).ErrorAdd(true, e).Log()
 				err.Add(fmt.Errorf("component '%s' has been call to reload, but is not started", key))
 			}
 		}
@@ -201,15 +225,19 @@ func (c *configModel) ComponentReload() error {
 	return nil
 }
 
-func (c *configModel) ComponentStop() {
-	lst := c.ComponentDependencies()
+// ComponentStop stops all registered components in reverse dependency order.
+// Components are stopped in the opposite order they were started to ensure
+// proper cleanup of dependencies (e.g., API stops before database).
+// This method does not return errors - it performs best-effort cleanup.
+func (o *model) ComponentStop() {
+	lst := o.ComponentDependencies()
 
 	for i := len(lst) - 1; i >= 0; i-- {
 		key := lst[i]
 
 		if len(key) < 1 {
 			continue
-		} else if cpt := c.ComponentGet(key); cpt == nil {
+		} else if cpt := o.ComponentGet(key); cpt == nil {
 			continue
 		} else {
 			cpt.Stop()
@@ -217,28 +245,23 @@ func (c *configModel) ComponentStop() {
 	}
 }
 
-func (c *configModel) ComponentIsRunning(atLeast bool) bool {
+// ComponentIsRunning checks if components are in the running state.
+// If atLeast is true, returns true if at least one component is running.
+// If atLeast is false, returns true only if all components are running.
+func (o *model) ComponentIsRunning(atLeast bool) bool {
 	isOk := false
 
-	c.cpt.Walk(func(key string, val interface{}) bool {
-		v, k := val.(cfgtps.Component)
-
-		if !k {
-			c.cpt.Delete(key)
-			return true
-		} else if v == nil {
-			c.cpt.Delete(key)
-			return true
-		}
-
-		if v.IsRunning() {
-			isOk = true
-		}
-
-		if atLeast && isOk {
-			return false
-		} else if !atLeast && !isOk {
-			return false
+	o.cpt.Range(func(key string, val cfgtps.Component) bool {
+		if len(key) > 0 && val != nil {
+			if !atLeast {
+				isOk = isOk && val.IsRunning()
+				return isOk
+			} else if val.IsRunning() {
+				isOk = true
+				return false
+			}
+		} else {
+			o.cpt.Delete(key)
 		}
 
 		return true
@@ -247,30 +270,30 @@ func (c *configModel) ComponentIsRunning(atLeast bool) bool {
 	return isOk
 }
 
-func (c *configModel) ComponentDependencies() []string {
+// ComponentDependencies returns all component keys in topological dependency order.
+// Components with no dependencies come first, followed by components that depend on them.
+// This order is used for starting components (forward) and stopping (reverse).
+// The ordering algorithm performs a topological sort of the dependency graph.
+func (o *model) ComponentDependencies() []string {
 	var (
-		list = make(map[string][]string, 0)
+		list = make(map[string][]string)
 		keys = make([]string, 0)
 	)
 
-	c.cpt.Walk(func(key string, val interface{}) bool {
-
-		if v, k := val.(cfgtps.Component); !k {
-			c.cpt.Delete(key)
-		} else if v == nil {
-			c.cpt.Delete(key)
-		} else {
-			list[key] = v.Dependencies()
+	o.cpt.Range(func(key string, val cfgtps.Component) bool {
+		if len(key) > 0 && val != nil {
 			keys = append(keys, key)
+			list[key] = val.Dependencies()
+		} else {
+			o.cpt.Delete(key)
 		}
-
 		return true
 	})
 
-	return c.orderDependencies(list, keys)
+	return o.orderDependencies(list, keys)
 }
 
-func (c *configModel) orderDependencies(list map[string][]string, dep []string) []string {
+func (o *model) orderDependencies(list map[string][]string, dep []string) []string {
 	var res = make([]string, 0)
 
 	if len(list) < 1 || len(dep) < 1 {
@@ -283,7 +306,7 @@ func (c *configModel) orderDependencies(list map[string][]string, dep []string) 
 		}
 
 		if len(list[d]) > 0 {
-			for _, j := range c.orderDependencies(list, list[d]) {
+			for _, j := range o.orderDependencies(list, list[d]) {
 				if len(j) < 1 {
 					continue
 				} else if slices.Contains(res, j) {
@@ -301,7 +324,11 @@ func (c *configModel) orderDependencies(list map[string][]string, dep []string) 
 	return res
 }
 
-func (c *configModel) DefaultConfig() io.Reader {
+// DefaultConfig generates a default configuration file for all registered components.
+// Returns an io.Reader containing a JSON object with default configuration for each component.
+// Each component contributes its default config under its registered key.
+// The output is formatted JSON with proper indentation for readability.
+func (o *model) DefaultConfig() io.Reader {
 	var buffer = bytes.NewBuffer(make([]byte, 0))
 
 	buffer.WriteString("{")
@@ -309,23 +336,18 @@ func (c *configModel) DefaultConfig() io.Reader {
 
 	n := buffer.Len()
 
-	c.cpt.Walk(func(key string, val interface{}) bool {
-		v, k := val.(cfgtps.Component)
-
-		if !k {
-			c.ComponentDel(key)
-			return true
-		} else if v == nil {
-			c.ComponentDel(key)
+	o.cpt.Range(func(key string, val cfgtps.Component) bool {
+		if len(key) < 1 || val == nil {
+			o.cpt.Delete(key)
 			return true
 		}
 
-		if p := v.DefaultConfig(cfgcst.JSONIndent); len(p) > 0 {
+		if p := val.DefaultConfig(cfgcst.JSONIndent); len(p) > 0 {
 			if buffer.Len() > n {
 				buffer.WriteString(",")
 				buffer.WriteString("\n")
 			}
-			buffer.WriteString(fmt.Sprintf("%s\"%s\": ", cfgcst.JSONIndent, key))
+			buffer.WriteString(fmt.Sprintf("%s\"%s\": ", cfgcst.JSONIndent, key)) // nolint
 			buffer.Write(p)
 		}
 
@@ -349,16 +371,20 @@ func (c *configModel) DefaultConfig() io.Reader {
 	return ind
 }
 
-func (c *configModel) RegisterFlag(Command *spfcbr.Command) error {
+// RegisterFlag registers CLI flags for all components with the given Cobra command.
+// Each component can register its own flags for configuration via command-line.
+// Returns an error containing all registration failures, if any.
+func (o *model) RegisterFlag(Command *spfcbr.Command) error {
 	var err = ErrorComponentFlagError.Error(nil)
 
-	for _, k := range c.ComponentKeys() {
-		if cpt := c.ComponentGet(k); cpt == nil {
+	for _, k := range o.ComponentKeys() {
+		if cpt := o.ComponentGet(k); cpt == nil {
 			continue
 		} else if e := cpt.RegisterFlag(Command); e != nil {
+			o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' register flag error", k)).ErrorAdd(true, e).Log()
 			err.Add(e)
 		} else {
-			c.ComponentSet(k, cpt)
+			o.ComponentSet(k, cpt)
 		}
 	}
 
@@ -369,16 +395,16 @@ func (c *configModel) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (c *configModel) ComponentWalk(fct cfgtps.ComponentListWalkFunc) {
-	c.cpt.Walk(func(key string, val interface{}) bool {
-		if v, k := val.(cfgtps.Component); !k {
-			c.cpt.Delete(key)
-			return true
-		} else if v == nil {
-			c.cpt.Delete(key)
-			return true
-		} else {
-			return fct(key, v)
+// ComponentWalk iterates over all registered components, calling the provided function for each.
+// The iteration continues until all components are visited or the function returns false.
+// Invalid entries (empty key or nil component) are automatically removed during iteration.
+func (o *model) ComponentWalk(fct cfgtps.ComponentListWalkFunc) {
+	o.cpt.Range(func(key string, val cfgtps.Component) bool {
+		if len(key) > 0 && val != nil {
+			return fct(key, val)
 		}
+
+		o.cpt.Delete(key)
+		return true
 	})
 }

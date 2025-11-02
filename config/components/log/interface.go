@@ -27,8 +27,10 @@
 package log
 
 import (
-	"sync"
+	"context"
+	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
@@ -42,7 +44,7 @@ const (
 	DefaultLevel = loglvl.InfoLevel
 )
 
-type ComponentLog interface {
+type CptLog interface {
 	cfgtps.Component
 
 	Log() liblog.Logger
@@ -57,27 +59,34 @@ type ComponentLog interface {
 	GetOptions() *logcfg.Options
 }
 
-func New(ctx libctx.FuncContext, lvl loglvl.Level) ComponentLog {
-	return &componentLog{
-		m: sync.RWMutex{},
-		x: libctx.NewConfig[uint8](ctx),
-		l: nil,
-		v: lvl,
+func New(ctx context.Context, lvl loglvl.Level) CptLog {
+	c := &mod{
+		x: libctx.New[uint8](ctx),
+		l: libatm.NewValue[liblog.Logger](),
+		r: new(atomic.Bool),
+		v: new(atomic.Uint32),
 	}
+
+	c.r.Store(false)
+	c.v.Store(lvl.Uint32())
+
+	return c
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentLog) {
+func Register(cfg libcfg.Config, key string, cpt CptLog) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, lvl loglvl.Level) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, key string, lvl loglvl.Level) {
 	cfg.ComponentSet(key, New(ctx, lvl))
 }
 
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentLog {
-	if c := getCpt(key); c == nil {
+func Load(getCpt cfgtps.FuncCptGet, key string) CptLog {
+	if getCpt == nil {
 		return nil
-	} else if h, ok := c.(ComponentLog); !ok {
+	} else if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(CptLog); !ok {
 		return nil
 	} else {
 		return h

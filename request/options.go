@@ -27,11 +27,11 @@
 package request
 
 import (
+	"context"
 	"fmt"
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
-	libctx "github.com/nabbar/golib/context"
 	libhtc "github.com/nabbar/golib/httpcli"
 	liblog "github.com/nabbar/golib/logger"
 	moncfg "github.com/nabbar/golib/monitor/types"
@@ -119,14 +119,6 @@ func (o *OptionsHealth) Validate() error {
 	return e
 }
 
-func (o *Options) defaultTLS() libtls.TLSConfig {
-	if o.tls != nil {
-		return o.tls()
-	}
-
-	return nil
-}
-
 func (o *Options) SetDefaultTLS(fct libtls.FctTLSDefault) {
 	o.tls = fct
 }
@@ -135,7 +127,7 @@ func (o *Options) SetDefaultLog(fct liblog.FuncLog) {
 	o.log = fct
 }
 
-func (o *Options) New(ctx libctx.FuncContext, cli libhtc.HttpClient) (Request, error) {
+func (o *Options) New(ctx context.Context, cli libhtc.HttpClient) (Request, error) {
 	if n, e := New(ctx, o, cli); e != nil {
 		return nil, e
 	} else {
@@ -153,7 +145,7 @@ func (o *Options) New(ctx libctx.FuncContext, cli libhtc.HttpClient) (Request, e
 	}
 }
 
-func (o *Options) Update(ctx libctx.FuncContext, req Request) (Request, error) {
+func (o *Options) Update(ctx context.Context, req Request) (Request, error) {
 	var (
 		e error
 		n Request
@@ -213,13 +205,5 @@ func (r *request) SetOption(opt *Options) error {
 	}
 
 	r.opt.Store(opt)
-	return nil
-}
-
-func (r *request) defaultTLS() libtls.TLSConfig {
-	if cfg := r.options(); cfg != nil {
-		return cfg.defaultTLS()
-	}
-
 	return nil
 }

@@ -34,10 +34,11 @@ import (
 	"io"
 	"math"
 	"os"
+	"path/filepath"
 	"time"
 
 	libiot "github.com/nabbar/golib/ioutils"
-	libsrv "github.com/nabbar/golib/server"
+	libsrv "github.com/nabbar/golib/runner"
 )
 
 const sizeBuffer = 32 * 1024
@@ -67,6 +68,7 @@ func (o *hkf) newBuffer(size int) *bytes.Buffer {
 func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 	var (
 		e error
+		r *os.Root
 		h *os.File
 		p = o.getFilepath()
 		m = o.getFileMode()
@@ -83,17 +85,27 @@ func (o *hkf) writeBuffer(buf *bytes.Buffer) error {
 
 	defer func() {
 		libsrv.RecoveryCaller("golib/logger/hookfile/system", recover())
+
 		if h != nil {
 			_ = h.Close()
 		}
+
+		if r != nil {
+			_ = r.Close()
+		}
 	}()
 
-	// #nosec
-	h, e = os.OpenFile(p, f, m)
+	if r, e = os.OpenRoot(filepath.Dir(p)); e != nil {
+		return e
+	}
+
+	h, e = r.OpenFile(filepath.Base(p), f, m)
 
 	if e != nil {
 		return e
-	} else if _, e = h.Seek(0, io.SeekEnd); e != nil {
+	}
+
+	if _, e = h.Seek(0, io.SeekEnd); e != nil {
 		return e
 	} else if _, e = h.Write(buf.Bytes()); e != nil {
 		return e
@@ -140,6 +152,7 @@ func (o *hkf) Run(ctx context.Context) {
 			}
 			b.Reset()
 		}
+		o.r.Store(false)
 	}()
 
 	o.prepareChan()
@@ -154,6 +167,7 @@ func (o *hkf) Run(ctx context.Context) {
 			return
 
 		case <-t.C:
+			o.r.Store(true)
 			if b.Len() < 1 {
 				continue
 			} else if e = o.writeBuffer(b); e != nil {
@@ -172,4 +186,8 @@ func (o *hkf) Run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (o *hkf) IsRunning() bool {
+	return o.r.Load()
 }

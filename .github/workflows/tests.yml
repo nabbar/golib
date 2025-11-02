@@ -1,0 +1,59 @@
+name: test-ginkgo
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  testing:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v4
+        with:
+          go-version: '>=1.25.0'
+
+      - name: Check Go Version
+        run: go version
+
+      - name: Link workspace with GOPATH
+        continue-on-error: false
+        run: |
+          sudo mkdir -vp $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo chown -R ${USER}:users $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo chmod ug+rw $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo ln -svf $(pwd) ${GOPATH}/src/github.com/${GITHUB_REPOSITORY}
+
+#      - name: Check out tools into the Go module directory
+#        continue-on-error: false
+#        run: go install github.com/onsi/ginkgo/v2/ginkgo@latest
+
+      - name: Update vendor or dependancies
+        continue-on-error: false
+        run: |
+          go mod download all
+          go mod tidy
+          go mod vendor
+          wget --quiet --output-document="aws/minio" "https://dl.min.io/server/minio/release/linux-amd64/minio" 
+          chmod -v +x "aws/minio"
+
+      - name: Check tests
+        continue-on-error: false
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 1
+          GINKGO_RACE_DETECTION: true
+          GINKGO_NO_COLOR: TRUE
+        run: |
+          go version
+          go test -race -timeout=30m -cover -covermode=atomic ./... --ginkgo.succinct --ginkgo.github-output --ginkgo.timeout=30m
+#          ginkgo version
+#          ginkgo --timeout=15m --keep-going --race --cover --covermode=atomic --github-output --succinct -r

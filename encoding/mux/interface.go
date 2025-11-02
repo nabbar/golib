@@ -24,6 +24,65 @@
  *
  */
 
+// Package mux provides thread-safe multiplexing and demultiplexing for routing multiple
+// logical channels over a single I/O stream.
+//
+// This package enables multiple writers to share a single io.Writer (multiplexing) and
+// a single reader to route data to multiple io.Writers (demultiplexing). It uses CBOR
+// encoding for message structure and hexadecimal encoding for payload safety.
+//
+// Features:
+//   - Multiple logical channels over single physical stream
+//   - Rune-based channel identification (Unicode keys)
+//   - Delimiter-based message framing
+//   - Thread-safe concurrent access
+//   - Lock-free demultiplexing with sync.Map
+//   - CBOR encoding for compact message structure
+//   - Hexadecimal payload encoding for safety
+//
+// Message format:
+//
+//	CBOR{K: rune, D: hex_string} + delimiter
+//
+// Example usage (Multiplexer):
+//
+//	import encmux "github.com/nabbar/golib/encoding/mux"
+//
+//	// Create multiplexer
+//	mux := encmux.NewMultiplexer(outputStream, '\n')
+//
+//	// Create channels
+//	channelA := mux.NewChannel('a')
+//	channelB := mux.NewChannel('b')
+//
+//	// Write to channels (thread-safe)
+//	channelA.Write([]byte("Message A"))
+//	channelB.Write([]byte("Message B"))
+//
+// Example usage (DeMultiplexer):
+//
+//	import encmux "github.com/nabbar/golib/encoding/mux"
+//
+//	// Create demultiplexer
+//	demux := encmux.NewDeMultiplexer(inputStream, '\n', 4096)
+//
+//	// Register output channels
+//	demux.NewChannel('a', outputA)
+//	demux.NewChannel('b', outputB)
+//
+//	// Start routing (blocks until EOF)
+//	err := demux.Copy()
+//
+// Thread safety:
+//   - Multiplexer uses mutex for atomic message writes
+//   - DeMultiplexer uses sync.Map for lock-free channel lookup
+//   - Safe for concurrent goroutine access
+//
+// Use cases:
+//   - Network protocol multiplexing
+//   - Log aggregation from multiple sources
+//   - Test output routing by category
+//   - Multi-channel communication over single connection
 package mux
 
 import (
@@ -38,18 +97,28 @@ var (
 )
 
 type Multiplexer interface {
-	// NewChannel returns an io.Writer that can be used to mux the given byte slice with other channel into the main writer
+
+	// NewChannel returns a new io.Writer that writes to the multiplexer.
+	// The returned io.Writer is a channel associated with the given key.
 	//
-	// key is a rune/byte parameter to identify the channel.
-	// io.Writer is the return type.
+	// Parameters:
+	//   key: rune/byte parameter to identify the channel.
+	//
+	// Returns:
+	//   io.Writer: the io.Writer associated with the channel.
 	NewChannel(key rune) io.Writer
 }
 
-// NewMultiplexer creates a new Multiplexer with the given io.Writer and delimiter.
+// NewMultiplexer creates a new Multiplexer using the given io.Writer and delimiter byte.
 //
-// w: io.Writer to write to.
-// delim: byte delimiter to use.
-// Returns a Multiplexer.
+// Parameters:
+//
+//	w io.Writer - the output writer
+//	delim byte - the delimiter byte used to identify each block of data
+//
+// Returns:
+//
+//	Multiplexer: the newly created Multiplexer
 func NewMultiplexer(w io.Writer, delim byte) Multiplexer {
 	return &mux{
 		w: w,
@@ -60,30 +129,36 @@ func NewMultiplexer(w io.Writer, delim byte) Multiplexer {
 type DeMultiplexer interface {
 	io.Reader
 
-	// Copy launch a continuously reading from the main io.Reader and writing to the correct channel io.Writer
-	// A good use case is to use it in a goroutine.
+	// Copy continuously reads data from the demultiplexer and writes it to the
+	// corresponding channels until an error occurs, which is then returned.
 	//
-	// returns any error.
+	// If the error is io.EOF, it is ignored and the function will return nil.
+	//
+	// Parameters: None
+	//
+	// Returns:
+	//   error: an error if any occurred during the copy process.
 	Copy() error
 
-	// NewChannel registers a new channel to the given io.Writer for the given key as discriminant
+	// NewChannel adds a new channel to the demultiplexer by mapping the given key to the provided writer.
 	//
 	// Parameters:
-	//   key is a rune/byte parameter to identify the channel.
-	//   w io.Writer the io.writer to write to.
+	//   key: rune/byte parameter to identify the channel
+	//   w: io.Writer parameter to write the channel data to
 	NewChannel(key rune, w io.Writer)
 }
 
-// NewDeMultiplexer creates a new DeMultiplexer using the given io.Reader, delimiter byte, and optional buffer size.
-// If the buffer size is 0, a default buffer size of 4096 will be used.
+// NewDeMultiplexer creates a new DeMultiplexer using the given io.Reader and delimiter byte.
 //
 // Parameters:
 //
 //	r io.Reader - the input reader
 //	delim byte - the delimiter byte used to identify each block of data
-//	size int - the buffer size
+//	size int - the size of the buffered reader, 0 for no buffering
 //
-// Return type: DeMultiplexer
+// Returns:
+//
+//	DeMultiplexer: the newly created DeMultiplexer
 func NewDeMultiplexer(r io.Reader, delim byte, size int) DeMultiplexer {
 	var rb *bufio.Reader
 
@@ -96,6 +171,6 @@ func NewDeMultiplexer(r io.Reader, delim byte, size int) DeMultiplexer {
 	return &dmux{
 		r: rb,
 		d: delim,
-		m: make(map[rune]io.Writer),
+		// m is a sync.Map, no initialization needed
 	}
 }

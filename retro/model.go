@@ -36,19 +36,64 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Model => The generic struct that handles retro functionality
+// Model is a generic wrapper that provides version-aware serialization for any struct type T.
+// It supports both standard serialization (using default marshaling) and retrocompatibility mode
+// where fields are included/excluded based on version constraints in struct tags.
+//
+// Fields:
+//   - Struct: The wrapped struct instance of type T
+//   - Standard: If true, uses standard marshaling without version filtering.
+//     If false, applies version-based field filtering using "retro" tags.
+//
+// The wrapped struct must have a "Version" field (string type) to enable version-based filtering.
+// Version constraints in "retro" tags follow semantic versioning with operators:
+//   - ">=v1.0.0" - Include field for versions >= v1.0.0
+//   - "<v2.0.0" - Include field for versions < v2.0.0
+//   - "v1.0.0-v2.0.0" - Include field for versions in range [v1.0.0, v2.0.0]
+//
+// Example:
+//
+//	type Config struct {
+//	    Version  string `json:"version"`
+//	    NewField string `json:"new_field" retro:">=v2.0.0"`
+//	    OldField string `json:"old_field" retro:"<v2.0.0"`
+//	}
+//
+//	model := Model[Config]{
+//	    Struct: Config{Version: "v1.5.0", OldField: "value"},
+//	    Standard: false,
+//	}
+//	data, _ := model.MarshalJSON() // Only includes OldField, not NewField
 type Model[T any] struct {
 	Struct   T
 	Standard bool
 }
 
+// marshal serializes the wrapped struct to the specified format with version-aware field filtering.
+// If Standard is true, uses default marshaling. Otherwise, applies version constraints from "retro" tags.
+//
+// The method:
+//  1. Validates the format is supported
+//  2. If Standard mode, delegates to standard marshaling
+//  3. Otherwise, builds a map with only version-compatible fields
+//  4. Respects "omitempty" tags to exclude empty values
+//  5. Marshals the filtered map to the target format
+//
+// Parameters:
+//   - format: Target serialization format (JSON, YAML, or TOML)
+//
+// Returns:
+//   - []byte: Serialized data
+//   - error: Error if format is unsupported or marshaling fails
+//
+// The wrapped struct must have a "Version" field. If missing or empty, "default" is used.
 func (m Model[T]) marshal(format Format) ([]byte, error) {
 
 	if !format.Valid() {
 		return nil, errors.New("unsupported format")
 	}
 
-	if m.Standard == true {
+	if m.Standard {
 		switch format {
 		case FormatJSON:
 			return json.Marshal(m.Struct)
@@ -121,13 +166,34 @@ func (m Model[T]) marshal(format Format) ([]byte, error) {
 	}
 }
 
+// unmarshal deserializes data into the wrapped struct with version-aware field filtering.
+// If Standard is true, uses default unmarshaling. Otherwise, only populates fields that match
+// version constraints in "retro" tags.
+//
+// The method:
+//  1. Validates the format is supported
+//  2. If Standard mode, delegates to standard unmarshaling
+//  3. Otherwise, unmarshals to a temporary map
+//  4. Extracts version from the map (defaults to "default" if missing)
+//  5. For each struct field, checks version compatibility
+//  6. Populates only compatible fields, respecting custom unmarshalers
+//
+// Parameters:
+//   - data: Serialized data to unmarshal
+//   - format: Source serialization format (JSON, YAML, or TOML)
+//
+// Returns:
+//   - error: Error if format is unsupported, data is invalid, or unmarshaling fails
+//
+// The method supports custom unmarshalers (json.Unmarshaler, yaml.Unmarshaler, toml.Unmarshaler)
+// for individual fields.
 func (m *Model[T]) unmarshal(data []byte, format Format) error {
 
 	if !format.Valid() {
 		return errors.New("unsupported format")
 	}
 
-	if m.Standard == true {
+	if m.Standard {
 		switch format {
 		case FormatJSON:
 			return json.Unmarshal(data, &m.Struct)
@@ -197,7 +263,7 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 				field = field.Addr()
 			}
 
-			if format == FormatJSON {
+			if format == FormatJSON { // nolint
 
 				if unmarshaler, ok := field.Interface().(json.Unmarshaler); ok {
 
@@ -220,7 +286,7 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 					}
 				}
 
-			} else if format == FormatYAML {
+			} else if format == FormatYAML { // nolint
 
 				if unmarshaler, ok := field.Interface().(yaml.Unmarshaler); ok {
 
@@ -249,7 +315,7 @@ func (m *Model[T]) unmarshal(data []byte, format Format) error {
 					}
 				}
 
-			} else if format == FormatTOML {
+			} else if format == FormatTOML { // nolint
 
 				if unmarshaler, ok := field.Interface().(toml.Unmarshaler); ok {
 

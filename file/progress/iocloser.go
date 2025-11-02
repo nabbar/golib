@@ -26,39 +26,75 @@
 
 package progress
 
-import "os"
+import (
+	"os"
+)
 
 func (o *progress) clean(e error) error {
 	if o == nil {
 		return nil
 	}
 
-	o.fos = nil
+	o.r = nil
+	o.f = nil
+
 	return e
 }
 
 func (o *progress) Close() error {
-	if o == nil || o.fos == nil {
+	if o == nil {
 		return nil
 	}
 
-	return o.clean(o.fos.Close())
+	var e error
+
+	if o.f != nil {
+		e = o.f.Close()
+	}
+
+	if o.r != nil {
+		if er := o.r.Close(); er != nil && e == nil {
+			e = er
+		}
+	}
+
+	return o.clean(e)
 }
 
 func (o *progress) CloseDelete() error {
-	if o == nil || o.fos == nil {
+	if o == nil {
 		return nil
 	}
 
-	n := o.Path()
+	var (
+		e error
+		n = o.Path()
+	)
 
-	if e := o.clean(o.fos.Close()); e != nil {
-		return e
+	if o.f != nil {
+		e = o.f.Close()
+	}
+
+	if e != nil {
+		if o.r != nil {
+			_ = o.r.Close()
+		}
+		return o.clean(e)
 	}
 
 	if len(n) < 1 {
 		return nil
 	}
 
-	return os.Remove(n)
+	if o.r != nil {
+		e = o.r.Remove(n)
+
+		if er := o.r.Close(); er != nil && e == nil {
+			e = er
+		}
+	} else {
+		e = os.Remove(n)
+	}
+
+	return o.clean(e)
 }

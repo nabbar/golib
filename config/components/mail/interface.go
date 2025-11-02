@@ -27,40 +27,47 @@
 package mail
 
 import (
-	"sync"
+	"context"
+	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
 	libmail "github.com/nabbar/golib/mail"
 )
 
-type ComponentMail interface {
+type CptMail interface {
 	cfgtps.Component
 
 	GetMail() (libmail.Mail, error)
 }
 
-func New(ctx libctx.FuncContext) ComponentMail {
-	return &componentMail{
-		m: sync.RWMutex{},
-		x: libctx.NewConfig[uint8](ctx),
-		e: nil,
+func New(ctx context.Context) CptMail {
+	c := &mod{
+		x: libctx.New[uint8](ctx),
+		e: libatm.NewValue[libmail.Mail](),
+		r: new(atomic.Bool),
 	}
+
+	c.r.Store(false)
+	return c
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentMail) {
+func Register(cfg libcfg.Config, key string, cpt CptMail) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, key string) {
 	cfg.ComponentSet(key, New(ctx))
 }
 
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentMail {
-	if c := getCpt(key); c == nil {
+func Load(getCpt cfgtps.FuncCptGet, key string) CptMail {
+	if getCpt == nil {
 		return nil
-	} else if h, ok := c.(ComponentMail); !ok {
+	} else if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(CptMail); !ok {
 		return nil
 	} else {
 		return h

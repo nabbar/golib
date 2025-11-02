@@ -24,6 +24,8 @@
  *
  */
 
+// Package bar provides a semaphore wrapper with integrated progress bar support.
+// It combines semaphore functionality with visual progress tracking using the MPB library.
 package bar
 
 import (
@@ -34,6 +36,19 @@ import (
 	sdkmpb "github.com/vbauerster/mpb/v8"
 )
 
+// New creates a new progress bar-enabled semaphore.
+//
+// Parameters:
+//   - sem: The parent semaphore with progress support
+//   - tot: Total number of items/tasks to track
+//   - drop: If true, removes the bar from display when complete
+//   - opts: Additional MPB bar options
+//
+// Returns:
+//   - SemBar: A semaphore with integrated progress bar
+//
+// The returned SemBar implements both semaphore and progress bar interfaces,
+// allowing concurrent worker management with visual progress tracking.
 func New(sem semtps.SemPgb, tot int64, drop bool, opts ...sdkmpb.BarOption) semtps.SemBar {
 	if drop {
 		opts = append(opts, sdkmpb.BarRemoveOnComplete())
@@ -44,8 +59,8 @@ func New(sem semtps.SemPgb, tot int64, drop bool, opts ...sdkmpb.BarOption) semt
 		b = m.AddBar(tot, opts...)
 	}
 
-	ts := new(atomic.Value)
-	ts.Store(time.Now())
+	ts := new(atomic.Int64)
+	ts.Store(time.Now().UnixNano())
 
 	mx := new(atomic.Int64)
 	mx.Store(tot)

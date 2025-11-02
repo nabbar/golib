@@ -33,23 +33,23 @@ import (
 )
 
 func (o *progress) Read(p []byte) (n int, err error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
-	return o.analyze(o.fos.Read(p))
+	return o.analyze(o.f.Read(p))
 }
 
 func (o *progress) ReadAt(p []byte, off int64) (n int, err error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
-	return o.analyze(o.fos.ReadAt(p, off))
+	return o.analyze(o.f.ReadAt(p, off))
 }
 
 func (o *progress) ReadFrom(r io.Reader) (n int64, err error) {
-	if o == nil || r == nil || o.fos == nil {
+	if o == nil || r == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 

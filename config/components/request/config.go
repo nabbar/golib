@@ -34,11 +34,11 @@ import (
 	spfcbr "github.com/spf13/cobra"
 )
 
-func (o *componentRequest) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentRequest) _getConfig() (*libreq.Options, error) {
+func (o *mod) _getConfig() (*libreq.Options, error) {
 	var (
 		key string
 		cfg libreq.Options

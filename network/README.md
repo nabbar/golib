@@ -68,7 +68,7 @@ Now, we have all information to understand this example who's print all stat of 
 ```
 
 ## Example 
-You can find an example in [`test/test-network`](../test/test-network/main.go)
+You can find an example in [`test/test-network`](../zzz-test-standalone/test-network/main.go)
 
 There result of this example is like this : 
 ```shell

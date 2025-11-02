@@ -36,7 +36,7 @@ import (
 	libreq "github.com/nabbar/golib/request"
 )
 
-type componentAws struct {
+type mod struct {
 	x libctx.Config[uint8]
 	d ConfigDriver
 	p *atomic.Value // montps.FuncPool
@@ -46,7 +46,7 @@ type componentAws struct {
 	s *atomic.Bool  // status running == true
 }
 
-func (o *componentAws) RegisterHTTPClient(cli libhtc.HttpClient) {
+func (o *mod) RegisterHTTPClient(cli libhtc.HttpClient) {
 	if cli == nil {
 		cli = libhtc.GetClient()
 	}
@@ -54,7 +54,7 @@ func (o *componentAws) RegisterHTTPClient(cli libhtc.HttpClient) {
 	o.c.Store(cli)
 }
 
-func (o *componentAws) GetAws() libaws.AWS {
+func (o *mod) GetAws() libaws.AWS {
 	if o.s.Load() {
 		return o.getAws()
 	}
@@ -62,7 +62,7 @@ func (o *componentAws) GetAws() libaws.AWS {
 	return nil
 }
 
-func (o *componentAws) getAws() libaws.AWS {
+func (o *mod) getAws() libaws.AWS {
 	if i := o.a.Load(); i == nil {
 		return nil
 	} else if v, k := i.(libaws.AWS); !k {
@@ -72,13 +72,13 @@ func (o *componentAws) getAws() libaws.AWS {
 	}
 }
 
-func (o *componentAws) SetAws(cli libaws.AWS) {
+func (o *mod) SetAws(cli libaws.AWS) {
 	if cli != nil {
 		o.a.Store(cli)
 	}
 }
 
-func (o *componentAws) getPool() montps.Pool {
+func (o *mod) getPool() montps.Pool {
 	if i := o.p.Load(); i == nil {
 		return nil
 	} else if v, k := i.(montps.FuncPool); !k {
@@ -90,7 +90,7 @@ func (o *componentAws) getPool() montps.Pool {
 	}
 }
 
-func (o *componentAws) RegisterMonitorPool(fct montps.FuncPool) {
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 	if fct == nil {
 		fct = func() montps.Pool {
 			return nil
@@ -100,7 +100,7 @@ func (o *componentAws) RegisterMonitorPool(fct montps.FuncPool) {
 	o.p.Store(fct)
 }
 
-func (o *componentAws) getClient() libhtc.HttpClient {
+func (o *mod) getClient() libhtc.HttpClient {
 	if i := o.c.Load(); i == nil {
 		return libhtc.GetClient()
 	} else if v, k := i.(libhtc.HttpClient); !k {
@@ -110,7 +110,7 @@ func (o *componentAws) getClient() libhtc.HttpClient {
 	}
 }
 
-func (o *componentAws) getRequest() libreq.Request {
+func (o *mod) getRequest() libreq.Request {
 	if i := o.r.Load(); i == nil {
 		return nil
 	} else if v, k := i.(libreq.Request); !k {
@@ -120,7 +120,7 @@ func (o *componentAws) getRequest() libreq.Request {
 	}
 }
 
-func (o *componentAws) setRequest(req libreq.Request) {
+func (o *mod) setRequest(req libreq.Request) {
 	if req != nil {
 		o.r.Store(req)
 	}

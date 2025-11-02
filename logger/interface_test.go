@@ -29,7 +29,6 @@ package logger_test
 
 import (
 	"context"
-	"path/filepath"
 	"time"
 
 	liblog "github.com/nabbar/golib/logger"
@@ -41,28 +40,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func getLogFileTemp() string {
-	fsp, err := GetTempFile()
-	Expect(err).ToNot(HaveOccurred())
-
-	defer func() {
-		err = DelTempFile(fsp)
-		Expect(err).ToNot(HaveOccurred())
-	}()
-
-	return filepath.Base(fsp)
-}
-
 var _ = Describe("Logger", func() {
 	Context("Create New Logger with Default Config", func() {
 		It("Must succeed", func() {
-			log := liblog.New(GetContext)
+			log := liblog.New(GetContext())
 			defer func() {
 				Expect(log.Close()).ToNot(HaveOccurred())
 			}()
 			log.SetLevel(loglvl.DebugLevel)
 			err := log.SetOptions(&logcfg.Options{
-				Stdout: &logcfg.OptionsStd{},
+				Stdout: &logcfg.OptionsStd{
+					DisableStandard: true,
+				},
 			})
 			Expect(err).ToNot(HaveOccurred())
 			log.LogDetails(loglvl.InfoLevel, "test logger", nil, nil, nil)
@@ -70,14 +59,15 @@ var _ = Describe("Logger", func() {
 	})
 	Context("Create New Logger with Default Config and trace", func() {
 		It("Must succeed", func() {
-			log := liblog.New(GetContext)
+			log := liblog.New(GetContext())
 			defer func() {
 				Expect(log.Close()).ToNot(HaveOccurred())
 			}()
 			log.SetLevel(loglvl.DebugLevel)
 			err := log.SetOptions(&logcfg.Options{
 				Stdout: &logcfg.OptionsStd{
-					EnableTrace: true,
+					DisableStandard: true,
+					EnableTrace:     true,
 				},
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -86,41 +76,37 @@ var _ = Describe("Logger", func() {
 	})
 	Context("Create New Logger with field", func() {
 		It("Must succeed", func() {
-			log := liblog.New(GetContext)
+			log := liblog.New(GetContext())
 			defer func() {
 				Expect(log.Close()).ToNot(HaveOccurred())
 			}()
 			log.SetLevel(loglvl.DebugLevel)
 			err := log.SetOptions(&logcfg.Options{
 				Stdout: &logcfg.OptionsStd{
-					EnableTrace: true,
+					DisableStandard: true,
+					EnableTrace:     true,
 				},
 			})
-			log.SetFields(logfld.New(GetContext).Add("test-field", "ok"))
+			log.SetFields(logfld.New(GetContext()).Add("test-field", "ok"))
 			Expect(err).ToNot(HaveOccurred())
 			log.LogDetails(loglvl.InfoLevel, "test logger with field", nil, nil, nil)
 		})
 	})
 	Context("Create New Logger with file", func() {
 		It("Must succeed", func() {
-			log := liblog.New(GetContext)
+			fsp, err := GetTempFile()
+			Expect(err).ToNot(HaveOccurred())
+
+			log := liblog.New(GetContext())
 			defer func() {
 				Expect(log.Close()).ToNot(HaveOccurred())
 			}()
 			log.SetLevel(loglvl.DebugLevel)
 
-			fsp, err := GetTempFile()
-
-			defer func() {
-				err = DelTempFile(fsp)
-				Expect(err).ToNot(HaveOccurred())
-			}()
-
-			Expect(err).ToNot(HaveOccurred())
-
 			err = log.SetOptions(&logcfg.Options{
 				Stdout: &logcfg.OptionsStd{
-					EnableTrace: true,
+					DisableStandard: true,
+					EnableTrace:     true,
 				},
 				LogFile: []logcfg.OptionsFile{
 					{
@@ -136,30 +122,26 @@ var _ = Describe("Logger", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			log.SetFields(logfld.New(GetContext).Add("test-field", "ok"))
+			log.SetFields(logfld.New(GetContext()).Add("test-field", "ok"))
 			log.LogDetails(loglvl.InfoLevel, "test logger with field", nil, nil, nil)
+			// Wait for logs to be written to file
+			time.Sleep(200 * time.Millisecond)
 		})
 	})
 	Context("Create New Logger with file in multithreading mode", func() {
 		It("Must succeed", func() {
-			log := liblog.New(GetContext)
+			fsp, err := GetTempFile()
+			Expect(err).ToNot(HaveOccurred())
+
+			log := liblog.New(GetContext())
 			defer func() {
 				Expect(log.Close()).ToNot(HaveOccurred())
 			}()
 			log.SetLevel(loglvl.DebugLevel)
 
-			fsp, err := GetTempFile()
-
-			defer func() {
-				err = DelTempFile(fsp)
-				Expect(err).ToNot(HaveOccurred())
-			}()
-
-			Expect(err).ToNot(HaveOccurred())
-
 			err = log.SetOptions(&logcfg.Options{
 				Stdout: &logcfg.OptionsStd{
-					EnableTrace: true,
+					DisableStandard: true,
 				},
 				LogFile: []logcfg.OptionsFile{
 					{
@@ -175,25 +157,24 @@ var _ = Describe("Logger", func() {
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			log.SetFields(logfld.New(GetContext).Add("test-field", "ok"))
+			log.SetFields(logfld.New(GetContext()).Add("test-field", "ok"))
 			log.LogDetails(loglvl.InfoLevel, "test logger with field", nil, nil, nil)
 
 			var sub liblog.Logger
-			sub = log.Clone()
+			sub, err = log.Clone()
+			Expect(err).ToNot(HaveOccurred())
 
-			go func(log liblog.Logger) {
+			go func(l liblog.Logger) {
 				defer func() {
-					se := log.Close()
-					Expect(se).ToNot(HaveOccurred())
+					Expect(l.Close()).ToNot(HaveOccurred())
 				}()
-
-				log.SetFields(logfld.New(GetContext).Add("logger", "sub"))
+				l.SetFields(logfld.New(GetContext()).Add("logger", "sub"))
 				for i := 0; i < 10; i++ {
-					log.Entry(loglvl.InfoLevel, "test multithreading logger").FieldAdd("id", i).Log()
+					l.Entry(loglvl.InfoLevel, "test multithreading logger").FieldAdd("id", i).Log()
 				}
 			}(sub)
 
-			log.SetFields(logfld.New(GetContext).Add("logger", "main"))
+			log.SetFields(logfld.New(GetContext()).Add("logger", "main"))
 			sem := libsem.New(context.Background(), 0, false)
 			defer sem.DeferMain()
 
@@ -209,7 +190,8 @@ var _ = Describe("Logger", func() {
 			}
 
 			Expect(sem.WaitAll()).ToNot(HaveOccurred())
-			time.Sleep(100 * time.Millisecond)
+			// Wait for all logs to be written to file
+			time.Sleep(300 * time.Millisecond)
 		})
 	})
 })

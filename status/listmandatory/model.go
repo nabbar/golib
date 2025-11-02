@@ -29,147 +29,175 @@ package listmandatory
 import (
 	"slices"
 	"sort"
-	"sync"
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	stsctr "github.com/nabbar/golib/status/control"
 	stsmdt "github.com/nabbar/golib/status/mandatory"
 )
 
+// model is the internal implementation of the ListMandatory interface.
+//
+// It uses sync.Map for thread-safe concurrent access to the collection of
+// mandatory groups. Each group is stored with a unique int32 ID that is
+// atomically incremented.
 type model struct {
-	l sync.Map
-	k *atomic.Int32
+	// l stores mandatory groups with int32 keys
+	l libatm.MapTyped[uint32, stsmdt.Mandatory]
+
+	// k is an atomic counter for generating unique IDs
+	k *atomic.Uint32
 }
 
-func (o *model) inc() int32 {
-	i := o.k.Load()
-	i++
-	o.k.Store(i)
-	return i
-}
-
+// Len implements ListMandatory.Len.
+//
+// This method iterates through all entries in the sync.Map and counts valid
+// mandatory groups. Invalid entries (wrong key or value types) are automatically
+// deleted during the iteration.
+//
+// The operation is thread-safe.
 func (o *model) Len() int {
 	var l int
 
-	o.l.Range(func(key, value any) bool {
-		var k bool
-
-		if _, k = key.(int32); !k {
-			o.l.Delete(key)
-			return true
-		} else if _, k = value.(stsmdt.Mandatory); !k {
-			o.l.Delete(key)
-			return true
+	o.l.Range(func(k uint32, v stsmdt.Mandatory) bool {
+		if v == nil {
+			o.l.Delete(k)
+		} else {
+			l += 1
 		}
-
-		l++
 		return true
 	})
 
 	return l
 }
 
+// Walk implements ListMandatory.Walk.
+//
+// This method iterates through all mandatory groups in the sync.Map and calls
+// the provided function for each valid group. Invalid entries (wrong key or
+// value types) are automatically deleted during iteration.
+//
+// The iteration stops early if the function returns false.
+//
+// The operation is thread-safe.
 func (o *model) Walk(fct func(m stsmdt.Mandatory) bool) {
-	o.l.Range(func(key, value any) bool {
-		var (
-			k bool
-			v stsmdt.Mandatory
-		)
-
-		if _, k = key.(int32); !k {
-			o.l.Delete(key)
-			return true
-		} else if v, k = value.(stsmdt.Mandatory); !k {
-			o.l.Delete(key)
+	o.l.Range(func(k uint32, v stsmdt.Mandatory) bool {
+		if v == nil {
+			o.l.Delete(k)
 			return true
 		} else {
-			k = fct(v)
+			r := fct(v)
 			o.l.Store(k, v)
-			return k
+			return r
 		}
 	})
 }
 
+// Add implements ListMandatory.Add.
+//
+// This method adds one or more mandatory groups to the list. Each group is
+// assigned a unique ID using the atomic counter.
+//
+// The operation is thread-safe.
 func (o *model) Add(m ...stsmdt.Mandatory) {
 	for _, v := range m {
-		o.l.Store(o.inc(), v)
+		if m == nil {
+			continue
+		}
+
+		o.k.Add(1)
+		o.l.Store(o.k.Load(), v)
 	}
 }
 
+// Del implements ListMandatory.Del.
+//
+// This method removes a mandatory group from the list by comparing key lists.
+// The key lists are sorted before comparison to ensure order-independent matching.
+// Only the first matching group is removed.
+//
+// Invalid entries are cleaned up during the search.
+//
+// The operation is thread-safe.
 func (o *model) Del(m stsmdt.Mandatory) {
-	o.l.Range(func(key, value any) bool {
-		var (
-			k bool
-			v stsmdt.Mandatory
-		)
+	c := m.KeyList()
+	sort.Strings(c)
 
-		if _, k = key.(int32); !k {
-			o.l.Delete(key)
-			return true
-		} else if v, k = value.(stsmdt.Mandatory); !k {
-			o.l.Delete(key)
-			return true
-		} else {
-			u := v.KeyList()
-			sort.Strings(u)
-
-			n := m.KeyList()
-			sort.Strings(n)
-
-			if slices.Compare(u, n) != 0 {
-				return true
-			}
-
-			o.l.Delete(key)
-			return true
+	o.l.Range(func(k uint32, v stsmdt.Mandatory) bool {
+		if v == nil {
+			o.l.Delete(k)
 		}
+
+		u := v.KeyList()
+		sort.Strings(u)
+
+		if slices.Compare(c, u) == 0 {
+			o.l.Delete(k)
+		}
+		return true
 	})
 }
 
+// GetMode implements ListMandatory.GetMode.
+//
+// This method searches through all mandatory groups and returns the mode of
+// the first group that contains the specified key. If no group contains the
+// key, it returns control.Ignore.
+//
+// Invalid entries are cleaned up during the search.
+//
+// The operation is thread-safe.
 func (o *model) GetMode(key string) stsctr.Mode {
 	var res = stsctr.Ignore
-
-	o.l.Range(func(ref, value any) bool {
-		var (
-			k bool
-			v stsmdt.Mandatory
-		)
-
-		if _, k = ref.(int32); !k {
-			o.l.Delete(ref)
-			return true
-		} else if v, k = value.(stsmdt.Mandatory); !k {
-			o.l.Delete(ref)
-			return true
+	o.l.Range(func(k uint32, v stsmdt.Mandatory) bool {
+		if v == nil {
+			o.l.Delete(k)
 		} else if v.KeyHas(key) {
 			res = v.GetMode()
 			return false
-		} else {
-			return true
 		}
+		return true
 	})
-
 	return res
 }
 
+// SetMode implements ListMandatory.SetMode.
+//
+// This method searches through all mandatory groups and updates the mode of
+// the first group that contains the specified key. The search stops after
+// the first match.
+//
+// Invalid entries are cleaned up during the search.
+//
+// The operation is thread-safe.
 func (o *model) SetMode(key string, mod stsctr.Mode) {
-	o.l.Range(func(ref, value any) bool {
-		var (
-			k bool
-			v stsmdt.Mandatory
-		)
-
-		if _, k = ref.(int32); !k {
-			o.l.Delete(ref)
-			return true
-		} else if v, k = value.(stsmdt.Mandatory); !k {
-			o.l.Delete(ref)
-			return true
+	o.l.Range(func(k uint32, v stsmdt.Mandatory) bool {
+		if v == nil {
+			o.l.Delete(k)
 		} else if v.KeyHas(key) {
 			v.SetMode(mod)
+			o.l.Store(k, v)
 			return false
-		} else {
-			return true
 		}
+		return true
 	})
+}
+
+// GetList implements ListMandatory.GetList.
+//
+// This method iterates through all mandatory groups in the sync.Map and
+// collects them into a slice. Invalid entries (nil values) are automatically
+// deleted during iteration.
+//
+// The operation is thread-safe.
+func (o *model) GetList() []stsmdt.Mandatory {
+	var res []stsmdt.Mandatory
+	o.l.Range(func(k uint32, v stsmdt.Mandatory) bool {
+		if v == nil {
+			o.l.Delete(k)
+		}
+		res = append(res, v)
+		return true
+	})
+	return res
 }

@@ -32,11 +32,13 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// Error codes for HTTP client operations.
+// These errors are registered with the golib/errors package for consistent error handling.
 const (
-	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgHttpCli
-	ErrorParamInvalid
-	ErrorValidatorError
-	ErrorClientTransportHttp2
+	ErrorParamEmpty           liberr.CodeError = iota + liberr.MinPkgHttpCli // At least one given parameter is empty
+	ErrorParamInvalid                                                        // At least one given parameter is invalid
+	ErrorValidatorError                                                      // Configuration validation failed
+	ErrorClientTransportHttp2                                                // HTTP/2 transport configuration error
 )
 
 func init() {

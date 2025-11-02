@@ -205,7 +205,7 @@ func (o *_hclog) ImpliedArgs() []interface{} {
 
 	fields := lg.GetFields()
 
-	if i, l := fields.Load(HCLogArgs); !l {
+	if i, l := fields.Get(HCLogArgs); !l {
 		return make([]interface{}, 0)
 	} else if v, k := i.([]interface{}); k {
 		return v
@@ -234,7 +234,7 @@ func (o *_hclog) Name() string {
 
 	fields := lg.GetFields()
 
-	if i, l := fields.Load(HCLogName); !l {
+	if i, l := fields.Get(HCLogName); !l {
 		return ""
 	} else if v, k := i.(string); k {
 		return v

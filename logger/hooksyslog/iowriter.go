@@ -29,29 +29,19 @@ package hooksyslog
 
 import (
 	"fmt"
-	"time"
 )
 
 func (o *hks) Write(p []byte) (n int, err error) {
-	c := o.d.Load()
-
-	if c != nil {
-		if c.(chan data) != closeByte {
-			c.(chan data) <- newData(0, p)
-			return len(p), nil
-		}
-	}
-
-	return 0, errStreamClosed
-
+	return o.WriteSev(0, p)
 }
 
 func (o *hks) WriteSev(s SyslogSeverity, p []byte) (n int, err error) {
 	c := o.d.Load()
 
 	if c != nil {
-		if c.(chan data) != closeByte {
-			c.(chan data) <- newData(s, p)
+		if c.(chan []data) != closeByte {
+			// Send a slice containing a single data element
+			c.(chan []data) <- []data{newData(s, p)}
 			return len(p), nil
 		}
 	}
@@ -61,11 +51,7 @@ func (o *hks) WriteSev(s SyslogSeverity, p []byte) (n int, err error) {
 }
 
 func (o *hks) Close() error {
-	//fmt.Printf("closing hook for log syslog '%s'\n", o.getSyslogInfo())
-
 	o.d.Store(closeByte)
-	time.Sleep(10 * time.Millisecond)
-
 	o.s.Store(closeStruct)
 	return nil
 }

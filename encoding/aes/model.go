@@ -46,7 +46,7 @@ func (o *crt) Encode(p []byte) []byte {
 	if len(p) < 1 || o.a == nil {
 		return make([]byte, 0)
 	}
-	return o.a.Seal(nil, o.n, p, nil)
+	return o.a.Seal(nil, o.n, p, nil) // #nosec
 }
 
 func (o *crt) Decode(p []byte) ([]byte, error) {
@@ -79,7 +79,7 @@ func (o *crt) EncodeReader(r io.Reader) io.ReadCloser {
 			}
 
 			clear(b)
-			b = b[:0]
+			b = b[:0] // nolint
 
 			return n, err
 		}
@@ -116,7 +116,7 @@ func (o *crt) DecodeReader(r io.Reader) io.ReadCloser {
 			}
 
 			clear(b)
-			b = b[:0]
+			b = b[:0] // nolint
 
 			return n, err
 		}

@@ -147,7 +147,6 @@ func (o *config) TlsConfig(serverName string) *tls.Config {
 }
 
 func (o *config) TLS(serverName string) *tls.Config {
-	/* #nosec */
 	cnf := &tls.Config{
 		Rand:                        nil,
 		Certificates:                make([]tls.Certificate, 0),
@@ -158,8 +157,8 @@ func (o *config) TLS(serverName string) *tls.Config {
 		InsecureSkipVerify:          false,
 		CipherSuites:                make([]uint16, 0),
 		SessionTicketsDisabled:      false,
-		MinVersion:                  0,
-		MaxVersion:                  0,
+		MinVersion:                  tls.VersionTLS12,
+		MaxVersion:                  tls.VersionTLS13,
 		CurvePreferences:            make([]tls.CurveID, 0),
 		DynamicRecordSizingDisabled: false,
 		Renegotiation:               tls.RenegotiateNever,

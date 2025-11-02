@@ -36,21 +36,28 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
-	gitlab "github.com/xanzy/go-gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
 const (
-	gitlabPageSize = 100
+	gitlabPageSize = 100 // Maximum number of releases per API page
 )
 
+// gitlabModel implements the artifact.Client interface for GitLab Releases.
+// It uses the gitlab-org/api/client-go SDK to interact with the GitLab API.
 type gitlabModel struct {
-	artcli.ClientHelper
+	artcli.Helper
 
-	c *gitlab.Client
-	x context.Context
-	p int
+	c *gitlab.Client  // GitLab API client
+	x context.Context // Request context
+	p int             // Project ID
 }
 
+// ListReleases retrieves all stable releases from the GitLab project.
+// It automatically paginates through all available releases (100 per page)
+// and filters out pre-release versions using ValidatePreRelease.
+//
+// Returns a sorted collection of semantic versions in reverse order (newest first).
 func (g *gitlabModel) ListReleases() (releases hscvrs.Collection, err error) {
 	var (
 		e    error
@@ -89,6 +96,14 @@ func (g *gitlabModel) ListReleases() (releases hscvrs.Collection, err error) {
 	}
 }
 
+// GetArtifact retrieves the download URL for a specific artifact from a GitLab release.
+// It first fetches the release by tag name, then searches through the release asset links.
+//
+// Matching logic:
+//   - If regexName is provided, it takes precedence and matches against the asset name
+//   - Otherwise, containName is used for substring matching
+//
+// Returns the URL for the matched asset, or an error if not found.
 func (g *gitlabModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error) {
 	var (
 		vers *gitlab.Release
@@ -110,6 +125,15 @@ func (g *gitlabModel) GetArtifact(containName string, regexName string, release 
 	return "", ErrorGitlabNotFound.Error(nil)
 }
 
+// Download streams the artifact content directly from GitLab.
+// It retrieves the download URL via GetArtifact, then performs an HTTP GET request.
+//
+// Returns:
+//   - Content length in bytes
+//   - ReadCloser for streaming the content (caller must close)
+//   - Error if the artifact cannot be found or downloaded
+//
+// The method validates the HTTP response status (200-299) and ensures content is available.
 func (g *gitlabModel) Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error) {
 	var (
 		uri string

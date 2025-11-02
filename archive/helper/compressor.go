@@ -85,7 +85,7 @@ func makeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err err
 		wrt: wrt,
 		buf: buf,
 		clo: new(atomic.Bool),
-	}, nil
+	}, err
 }
 
 type compressReader struct {

@@ -27,8 +27,9 @@
 package log
 
 import (
-	"sync"
+	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
@@ -36,89 +37,91 @@ import (
 	loglvl "github.com/nabbar/golib/logger/level"
 )
 
-type componentLog struct {
-	m sync.RWMutex
+type mod struct {
 	x libctx.Config[uint8]
-
-	l liblog.Logger
-	v loglvl.Level
+	l libatm.Value[liblog.Logger]
+	r *atomic.Bool
+	v *atomic.Uint32
 }
 
-func (o *componentLog) Log() liblog.Logger {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.l != nil {
-		return o.l.Clone()
-	}
-
-	return nil
-}
-
-func (o *componentLog) SetLevel(lvl loglvl.Level) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.v = lvl
-
-	if o.l == nil {
-		return
-	}
-
-	o.l.SetLevel(lvl)
-}
-
-func (o *componentLog) GetLevel() loglvl.Level {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.v
-}
-
-func (o *componentLog) SetField(fields logfld.Fields) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.l == nil {
-		return
-	}
-
-	o.l.SetFields(fields)
-}
-
-func (o *componentLog) GetField() logfld.Fields {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.l == nil {
+func (o *mod) Log() liblog.Logger {
+	if i := o.getLog(); i == nil {
 		return nil
-	}
-
-	return o.l.GetFields()
-}
-
-func (o *componentLog) GetOptions() *logcfg.Options {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.l == nil {
+	} else if l, e := i.Clone(); e != nil {
 		return nil
+	} else {
+		return l
 	}
-
-	return o.l.GetOptions()
 }
 
-func (o *componentLog) SetOptions(opt *logcfg.Options) error {
-	o.m.Lock()
-	defer o.m.Unlock()
+func (o *mod) SetLevel(lvl loglvl.Level) {
+	o.v.Store(lvl.Uint32())
 
-	if o.l == nil {
+	if i := o.getLog(); i == nil {
+		return
+	} else {
+		i.SetLevel(lvl)
+		o.setLog(i)
+	}
+}
+
+func (o *mod) GetLevel() loglvl.Level {
+	if i := o.getLog(); i == nil {
+		return loglvl.ParseFromUint32(o.v.Load())
+	} else if l := i.GetLevel(); l.Uint32() != o.v.Load() {
+		o.SetLevel(l)
+	}
+	return loglvl.ParseFromUint32(o.v.Load())
+}
+
+func (o *mod) SetField(fields logfld.Fields) {
+	if i := o.getLog(); i == nil {
+		return
+	} else {
+		i.SetFields(fields)
+		o.setLog(i)
+	}
+}
+
+func (o *mod) GetField() logfld.Fields {
+	if i := o.getLog(); i == nil {
+		return logfld.New(o.x)
+	} else {
+		return i.GetFields()
+	}
+}
+
+func (o *mod) GetOptions() *logcfg.Options {
+	if i := o.getLog(); i == nil {
+		return nil
+	} else {
+		return i.GetOptions()
+	}
+}
+
+func (o *mod) SetOptions(opt *logcfg.Options) error {
+	if i := o.getLog(); i == nil {
 		return ErrorComponentNotInitialized.Error(nil)
+	} else {
+		e := i.SetOptions(opt)
+		o.setLog(i)
+		return ErrorConfigInvalid.IfError(e)
 	}
+}
 
-	if e := o.l.SetOptions(opt); e != nil {
-		return ErrorConfigInvalid.Error(e)
+func (o *mod) getLog() liblog.Logger {
+	if !o.r.Load() {
+		return nil
+	} else {
+		return o.l.Load()
 	}
+}
 
-	return nil
+func (o *mod) setLog(l liblog.Logger) {
+	if l == nil {
+		o.r.Store(false)
+	} else {
+		o.r.Store(true)
+		o.l.Store(l)
+	}
 }

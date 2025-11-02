@@ -31,7 +31,7 @@ import (
 	"strings"
 )
 
-var modeError = Default
+var modeError = ModeDefault
 
 func SetModeReturnError(mode ErrorMode) {
 	modeError = mode
@@ -44,65 +44,65 @@ func GetModeReturnError() ErrorMode {
 type ErrorMode uint8
 
 const (
-	Default ErrorMode = iota
-	ErrorReturnCode
-	ErrorReturnCodeFull
-	ErrorReturnCodeError
-	ErrorReturnCodeErrorFull
-	ErrorReturnCodeErrorTrace
-	ErrorReturnCodeErrorTraceFull
-	ErrorReturnStringError
-	ErrorReturnStringErrorFull
+	ModeDefault ErrorMode = iota
+	ModeReturnCode
+	ModeReturnCodeFull
+	ModeReturnCodeError
+	ModeReturnCodeErrorFull
+	ModeReturnCodeErrorTrace
+	ModeReturnCodeErrorTraceFull
+	ModeReturnStringError
+	ModeReturnStringErrorFull
 )
 
 func (m ErrorMode) String() string {
 	//nolint exhaustive
 	switch m {
-	case Default:
+	case ModeDefault:
 		return "default"
-	case ErrorReturnCode:
+	case ModeReturnCode:
 		return "Code"
-	case ErrorReturnCodeFull:
+	case ModeReturnCodeFull:
 		return "CodeFull"
-	case ErrorReturnCodeError:
+	case ModeReturnCodeError:
 		return "CodeError"
-	case ErrorReturnCodeErrorFull:
+	case ModeReturnCodeErrorFull:
 		return "CodeErrorFull"
-	case ErrorReturnCodeErrorTrace:
+	case ModeReturnCodeErrorTrace:
 		return "CodeErrorTrace"
-	case ErrorReturnCodeErrorTraceFull:
+	case ModeReturnCodeErrorTraceFull:
 		return "CodeErrorTraceFull"
-	case ErrorReturnStringError:
+	case ModeReturnStringError:
 		return "StringError"
-	case ErrorReturnStringErrorFull:
+	case ModeReturnStringErrorFull:
 		return "StringErrorFull"
 	}
 
-	return Default.String()
+	return ModeDefault.String()
 }
 
 func (m ErrorMode) error(e *ers) string {
 	//nolint exhaustive
 	switch m {
-	case Default:
+	case ModeDefault:
 		return e.StringError()
-	case ErrorReturnCode:
+	case ModeReturnCode:
 		return fmt.Sprintf("%v", e.Code())
-	case ErrorReturnCodeFull:
+	case ModeReturnCodeFull:
 		return fmt.Sprintf("%v", e.CodeSlice())
-	case ErrorReturnCodeError:
+	case ModeReturnCodeError:
 		return e.CodeError("")
-	case ErrorReturnCodeErrorFull:
+	case ModeReturnCodeErrorFull:
 		return strings.Join(e.CodeErrorSlice(""), "\n")
-	case ErrorReturnCodeErrorTrace:
+	case ModeReturnCodeErrorTrace:
 		return e.CodeErrorTrace("")
-	case ErrorReturnCodeErrorTraceFull:
+	case ModeReturnCodeErrorTraceFull:
 		return strings.Join(e.CodeErrorTraceSlice(""), "\n")
-	case ErrorReturnStringError:
+	case ModeReturnStringError:
 		return e.StringError()
-	case ErrorReturnStringErrorFull:
+	case ModeReturnStringErrorFull:
 		return strings.Join(e.StringErrorSlice(), "\n")
 	}
 
-	return Default.error(e)
+	return ModeDefault.error(e)
 }

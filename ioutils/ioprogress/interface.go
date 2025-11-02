@@ -30,13 +30,54 @@ import (
 	"io"
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libfpg "github.com/nabbar/golib/file/progress"
 )
 
 type Progress interface {
+	// RegisterFctIncrement registers a function to be called when an increment of size n is done.
+	//
+	// The function takes one argument, the size of the increment in bytes.
+	// If the function is nil, it will be ignored.
+	//
+	// The function will be called immediately after the increment is done.
+	// The function will be called on the same goroutine as the Reader or Writer.
+	// The function will be called with the size of the increment, even if the Read or Write failed.
+	// The function will be called until it returns an error.
+	//
+	// The function must not block.
 	RegisterFctIncrement(fct libfpg.FctIncrement)
+	// RegisterFctReset registers a function to be called when a reset is done.
+	//
+	// The function takes two arguments, the maximum size of the progress in bytes and the current size of the progress in bytes.
+	// If the function is nil, it will be ignored.
+	//
+	// The function will be called immediately after the reset is done.
+	// The function will be called on the same goroutine as the Reader or Writer.
+	// The function will be called until it returns an error.
+	//
+	// The function must not block.
 	RegisterFctReset(fct libfpg.FctReset)
+	// RegisterFctEOF registers a function to be called when the end of the file is reached.
+	//
+	// The function takes no argument.
+	// If the function is nil, it will be ignored.
+	//
+	// The function will be called immediately after the end of the file is reached.
+	// The function will be called on the same goroutine as the Reader or Writer.
+	// The function will be called until it returns an error.
+	//
+	// The function must not block.
 	RegisterFctEOF(fct libfpg.FctEOF)
+	// Reset resets the progress to the given maximum size.
+	//
+	// The function takes one argument, the maximum size of the progress in bytes.
+	//
+	// The function will be called immediately after the reset is done.
+	// The function will be called on the same goroutine as the Reader or Writer.
+	// The function will be called until it returns an error.
+	//
+	// The function must not block.
 	Reset(max int64)
 }
 
@@ -50,22 +91,68 @@ type Writer interface {
 	Progress
 }
 
+// NewReadCloser creates a new io.ReadCloser from the given io.ReadCloser, and
+// returns a Reader compatible with the ioprogress interface.
+//
+// The returned Reader implements the io.ReadCloser interface, and
+// the Progress interface.
+//
+// The returned Reader is a wrapper around the given io.ReadCloser.
+// It keeps track of the current progress, and can register functions to
+// be called when an increment of size n is done, when the end of the file
+// is reached, and when the progress is reset.
+//
+// The returned Reader is safe to use concurrently.
+//
+// The returned Reader is not a clone of the given io.ReadCloser. It is
+// a wrapper around the given io.ReadCloser. This means that any
+// operations done on the returned Reader will affect the given io.ReadCloser.
+//
+// The returned Reader is valid until the given io.ReadCloser is closed.
+// Once the given io.ReadCloser is closed, the returned Reader is invalid.
 func NewReadCloser(r io.ReadCloser) Reader {
-	return &rdr{
+	o := &rdr{
 		r:  r,
 		cr: new(atomic.Int64),
-		fi: new(atomic.Value),
-		fe: new(atomic.Value),
-		fr: new(atomic.Value),
+		fi: libatm.NewValue[libfpg.FctIncrement](),
+		fe: libatm.NewValue[libfpg.FctEOF](),
+		fr: libatm.NewValue[libfpg.FctReset](),
 	}
+	o.RegisterFctIncrement(nil)
+	o.RegisterFctEOF(nil)
+	o.RegisterFctReset(nil)
+	return o
 }
 
+// NewWriteCloser creates a new io.WriteCloser from the given io.WriteCloser, and
+// returns a Writer compatible with the ioprogress interface.
+//
+// The returned Writer implements the io.WriteCloser interface, and
+// the Progress interface.
+//
+// The returned Writer is a wrapper around the given io.WriteCloser.
+// It keeps track of the current progress, and can register functions to
+// be called when an increment of size n is done, when the end of the file
+// is reached, and when the progress is reset.
+//
+// The returned Writer is safe to use concurrently.
+//
+// The returned Writer is not a clone of the given io.WriteCloser. It is
+// a wrapper around the given io.WriteCloser. This means that any
+// operations done on the returned Writer will affect the given io.WriteCloser.
+//
+// The returned Writer is valid until the given io.WriteCloser is closed.
+// Once the given io.WriteCloser is closed, the returned Writer is invalid.
 func NewWriteCloser(w io.WriteCloser) Writer {
-	return &wrt{
+	o := &wrt{
 		w:  w,
 		cr: new(atomic.Int64),
-		fi: new(atomic.Value),
-		fe: new(atomic.Value),
-		fr: new(atomic.Value),
+		fi: libatm.NewValue[libfpg.FctIncrement](),
+		fe: libatm.NewValue[libfpg.FctEOF](),
+		fr: libatm.NewValue[libfpg.FctReset](),
 	}
+	o.RegisterFctIncrement(nil)
+	o.RegisterFctEOF(nil)
+	o.RegisterFctReset(nil)
+	return o
 }

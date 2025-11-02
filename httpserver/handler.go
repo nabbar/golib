@@ -33,18 +33,26 @@ import (
 )
 
 func (o *srv) Handler(h srvtps.FuncHandler) {
-	o.m.Lock()
-	defer o.m.Unlock()
-	o.h = h
+	if h == nil {
+		h = func() map[string]http.Handler {
+			return map[string]http.Handler{}
+		}
+	}
+
+	o.h.Store(h)
+}
+
+func (o *srv) HandlerHas(key string) bool {
+	if l := o.getHandler(); len(l) < 1 {
+		return false
+	} else {
+		_, k := l[key]
+		return k
+	}
 }
 
 func (o *srv) HandlerGet(key string) http.Handler {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.h == nil {
-		return srvtps.NewBadHandler()
-	} else if l := o.h(); len(l) < 1 {
+	if l := o.getHandler(); len(l) < 1 {
 		return srvtps.NewBadHandler()
 	} else if h, k := l[key]; !k {
 		return srvtps.NewBadHandler()
@@ -69,20 +77,6 @@ func (o *srv) HandlerGetValidKey() string {
 	}
 }
 
-func (o *srv) HandlerHas(key string) bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.h == nil {
-		return false
-	} else if l := o.h(); len(l) < 1 {
-		return false
-	} else {
-		_, k := l[key]
-		return k
-	}
-}
-
 func (o *srv) HandlerStoreFct(key string) {
 	o.c.Store(cfgHandler, func() http.Handler {
 		return o.HandlerGet(key)
@@ -99,5 +93,15 @@ func (o *srv) HandlerLoadFct() http.Handler {
 		return srvtps.NewBadHandler()
 	} else {
 		return h
+	}
+}
+
+func (o *srv) getHandler() map[string]http.Handler {
+	if o == nil || o.h == nil {
+		return nil
+	} else if f := o.h.Load(); f == nil {
+		return nil
+	} else {
+		return f()
 	}
 }

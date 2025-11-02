@@ -36,10 +36,10 @@ import (
 )
 
 type resolverIam struct {
-	r func(service, region string) (sdkaws.Endpoint, error)
+	r func(service, region string) (sdkaws.Endpoint, error) // nolint
 }
 
-func (r *resolverIam) ResolveEndpoint(region string, options sdkiam.EndpointResolverOptions) (sdkaws.Endpoint, error) {
+func (r *resolverIam) ResolveEndpoint(region string, options sdkiam.EndpointResolverOptions) (sdkaws.Endpoint, error) { // nolint
 	return r.r("iam", region)
 }
 
@@ -52,10 +52,10 @@ func (r *resolverIamV2) ResolveEndpoint(ctx context.Context, params sdkiam.Endpo
 }
 
 type resolverS3 struct {
-	r func(service, region string) (sdkaws.Endpoint, error)
+	r func(service, region string) (sdkaws.Endpoint, error) // nolint
 }
 
-func (r *resolverS3) ResolveEndpoint(region string, options sdksss.EndpointResolverOptions) (sdkaws.Endpoint, error) {
+func (r *resolverS3) ResolveEndpoint(region string, options sdksss.EndpointResolverOptions) (sdkaws.Endpoint, error) { // nolint
 	return r.r("s3", region)
 }
 
@@ -69,7 +69,7 @@ func (r *resolverS3V2) ResolveEndpoint(ctx context.Context, params sdksss.Endpoi
 
 func (c *client) _NewIAMResolver(cfg *sdkaws.Config) sdkiam.EndpointResolver {
 	return &resolverIam{
-		r: cfg.EndpointResolver.ResolveEndpoint,
+		r: cfg.EndpointResolver.ResolveEndpoint, // nolint
 	}
 }
 
@@ -95,7 +95,7 @@ func (c *client) _NewIAMResolverV2(cfg Config) sdkiam.EndpointResolverV2 {
 
 func (c *client) _NewS3Resolver(cfg *sdkaws.Config) sdksss.EndpointResolver {
 	return &resolverS3{
-		r: cfg.EndpointResolver.ResolveEndpoint,
+		r: cfg.EndpointResolver.ResolveEndpoint, // nolint
 	}
 }
 

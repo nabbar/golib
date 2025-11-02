@@ -76,7 +76,7 @@ func (s *staticHandler) _getLogger() liblog.Logger {
 }
 
 func (s *staticHandler) _getDefaultLogger() liblog.Logger {
-	return liblog.New(s.d.GetContext)
+	return liblog.New(s.d)
 }
 
 func (s *staticHandler) RegisterLogger(log liblog.FuncLog) {

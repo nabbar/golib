@@ -1,5 +1,4 @@
-//go:build linux
-// +build linux
+//go:build linux || darwin
 
 /*
  * MIT License
@@ -27,16 +26,61 @@
  *
  */
 
+// Package unixgram provides a Unix domain datagram socket server implementation.
+//
+// This package implements the github.com/nabbar/golib/socket.Server interface
+// for Unix domain sockets in datagram mode (SOCK_DGRAM), providing a connectionless
+// server with features including:
+//   - Unix domain socket file creation and management
+//   - File permissions and group ownership control
+//   - Datagram handling without persistent connections
+//   - Single handler for all incoming datagrams
+//   - Callback hooks for errors and datagram events
+//   - Graceful shutdown support
+//   - Atomic state management
+//   - Context-aware operations
+//
+// Unix datagram sockets provide connectionless inter-process communication (IPC)
+// on the same host. Like UDP, they operate in datagram mode but use filesystem
+// paths instead of IP addresses and ports. They appear as special files.
+//
+// Key differences from unix package (connection-oriented):
+//   - No persistent connections (like UDP vs TCP)
+//   - Single handler processes all datagrams
+//   - OpenConnections() returns 1 when running, 0 when stopped
+//   - No per-client state maintained
+//
+// Platform support: Linux only (see ignore.go for non-Linux platforms).
+//
+// See github.com/nabbar/golib/socket for the Server interface definition.
+// See github.com/nabbar/golib/socket/server/unix for connection-oriented Unix sockets.
 package unixgram
 
 import "fmt"
 
 var (
-	ErrContextClosed   = fmt.Errorf("context closed")
-	ErrServerClosed    = fmt.Errorf("server closed")
-	ErrInvalidGroup    = fmt.Errorf("invalid unix group for socket group permission")
-	ErrInvalidHandler  = fmt.Errorf("invalid handler")
+	// ErrContextClosed is returned when an operation is cancelled due to context cancellation.
+	ErrContextClosed = fmt.Errorf("context closed")
+
+	// ErrServerClosed is returned when attempting to perform operations on a closed server.
+	ErrServerClosed = fmt.Errorf("server closed")
+
+	// ErrInvalidGroup is returned when the specified GID exceeds the maximum allowed value (32767).
+	// Unix group IDs must be within the valid range for the operating system.
+	ErrInvalidGroup = fmt.Errorf("invalid unix group for socket group permission")
+
+	// ErrInvalidHandler is returned when attempting to start a server without a valid handler function.
+	// A handler must be provided via the New() constructor.
+	ErrInvalidHandler = fmt.Errorf("invalid handler")
+
+	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
+	// This typically happens when StopListen() takes longer than expected.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
-	ErrGoneTimeout     = fmt.Errorf("timeout on closing connections")
+
+	// ErrGoneTimeout is returned when waiting for server shutdown exceeds the timeout.
+	// Note: For datagram servers, this is rarely used as there are no persistent connections.
+	ErrGoneTimeout = fmt.Errorf("timeout on closing connections")
+
+	// ErrInvalidInstance is returned when operating on a nil server instance.
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

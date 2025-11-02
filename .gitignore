@@ -8,6 +8,12 @@
 # Test binary, built with `go test -c`
 *.test
 *.cover*
+*/cover*.out
+*/cover*.html
+*/*/cover*.out
+*/*/cover*.html
+*/**/cover*.out
+*/**/cover*.html
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out

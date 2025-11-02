@@ -35,8 +35,8 @@ import (
 )
 
 func parseString(s string) (Perm, error) {
-	s = strings.Replace(s, "\"", "", -1)
-	s = strings.Replace(s, "'", "", -1)
+	s = strings.Replace(s, "\"", "", -1) // nolint
+	s = strings.Replace(s, "'", "", -1)  // nolint
 
 	if v, e := strconv.ParseUint(s, 8, 32); e != nil {
 		return 0, e

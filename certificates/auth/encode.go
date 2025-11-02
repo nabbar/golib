@@ -27,23 +27,20 @@
 package auth
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"gopkg.in/yaml.v3"
 )
 
 func (a *ClientAuth) unmarshall(val []byte) error {
-	*a = parseBytes(val)
+	*a = ParseBytes(val)
 	return nil
 }
 
 func (a ClientAuth) MarshalJSON() ([]byte, error) {
-	t := a.String()
-	b := make([]byte, 0, len(t)+2)
-	b = append(b, '"')
-	b = append(b, []byte(t)...)
-	b = append(b, '"')
-	return b, nil
+	return json.Marshal(a.String())
 }
 
 func (a *ClientAuth) UnmarshalJSON(bytes []byte) error {
@@ -51,15 +48,18 @@ func (a *ClientAuth) UnmarshalJSON(bytes []byte) error {
 }
 
 func (a ClientAuth) MarshalYAML() (interface{}, error) {
-	return []byte(a.String()), nil
+	return a.String(), nil
 }
 
 func (a *ClientAuth) UnmarshalYAML(value *yaml.Node) error {
+	if value == nil {
+		return nil
+	}
 	return a.unmarshall([]byte(value.Value))
 }
 
 func (a ClientAuth) MarshalTOML() ([]byte, error) {
-	return []byte(a.String()), nil
+	return json.Marshal(a.String())
 }
 
 func (a *ClientAuth) UnmarshalTOML(i interface{}) error {
@@ -81,9 +81,14 @@ func (a *ClientAuth) UnmarshalText(bytes []byte) error {
 }
 
 func (a ClientAuth) MarshalCBOR() ([]byte, error) {
-	return []byte(a.String()), nil
+	return cbor.Marshal(a.String())
 }
 
-func (a *ClientAuth) UnmarshalCBOR(bytes []byte) error {
-	return a.unmarshall(bytes)
+func (a *ClientAuth) UnmarshalCBOR(p []byte) error {
+	var s string
+	if e := cbor.Unmarshal(p, &s); e != nil {
+		return e
+	} else {
+		return a.unmarshall([]byte(s))
+	}
 }

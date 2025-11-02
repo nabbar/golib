@@ -27,8 +27,9 @@
 package smtp
 
 import (
-	"sync"
+	"context"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libcfg "github.com/nabbar/golib/config"
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
@@ -36,38 +37,43 @@ import (
 	lbsmtp "github.com/nabbar/golib/smtp"
 )
 
-type ComponentSMTP interface {
+type CptSMTP interface {
 	cfgtps.Component
 
 	SetTLSKey(tlsKey string)
 	GetSMTP() (lbsmtp.SMTP, error)
 }
 
-func New(ctx libctx.FuncContext, tlsKey string) ComponentSMTP {
+func New(ctx context.Context, tlsKey string) CptSMTP {
 	if tlsKey == "" {
 		tlsKey = cpttls.ComponentType
 	}
 
-	return &componentSmtp{
-		m: sync.RWMutex{},
-		x: libctx.NewConfig[uint8](ctx),
-		t: tlsKey,
-		s: nil,
+	c := &mod{
+		x: libctx.New[uint8](ctx),
+		t: libatm.NewValue[string](),
+		s: libatm.NewValue[lbsmtp.SMTP](),
 	}
+
+	c.t.Store(tlsKey)
+
+	return c
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentSMTP) {
+func Register(cfg libcfg.Config, key string, cpt CptSMTP) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key, tlsKey string) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, key, tlsKey string) {
 	cfg.ComponentSet(key, New(ctx, tlsKey))
 }
 
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentSMTP {
-	if c := getCpt(key); c == nil {
+func Load(getCpt cfgtps.FuncCptGet, key string) CptSMTP {
+	if getCpt == nil {
 		return nil
-	} else if h, ok := c.(ComponentSMTP); !ok {
+	} else if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(CptSMTP); !ok {
 		return nil
 	} else {
 		return h

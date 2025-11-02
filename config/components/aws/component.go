@@ -27,8 +27,9 @@
 package aws
 
 import (
+	"context"
+
 	cfgtps "github.com/nabbar/golib/config/types"
-	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -50,11 +51,11 @@ const (
 	keyFctMonitorPool
 )
 
-func (o *componentAws) Type() string {
+func (o *mod) Type() string {
 	return ComponentType
 }
 
-func (o *componentAws) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
+func (o *mod) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -62,17 +63,17 @@ func (o *componentAws) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncC
 	o.x.Store(keyCptLogger, log)
 }
 
-func (o *componentAws) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctStaBef, before)
 	o.x.Store(keyFctStaAft, after)
 }
 
-func (o *componentAws) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctRelBef, before)
 	o.x.Store(keyFctRelAft, after)
 }
 
-func (o *componentAws) IsStarted() bool {
+func (o *mod) IsStarted() bool {
 	if o.s.Load() {
 		return o.getAws() != nil
 	}
@@ -80,25 +81,24 @@ func (o *componentAws) IsStarted() bool {
 	return false
 }
 
-func (o *componentAws) IsRunning() bool {
+func (o *mod) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentAws) Start() error {
+func (o *mod) Start() error {
 	o.s.Store(true)
 	return o._run()
 }
 
-func (o *componentAws) Reload() error {
+func (o *mod) Reload() error {
 	return o._run()
 }
 
-func (o *componentAws) Stop() {
+func (o *mod) Stop() {
 	o.s.Store(false)
-	return
 }
 
-func (o *componentAws) Dependencies() []string {
+func (o *mod) Dependencies() []string {
 	var def = make([]string, 0)
 
 	if o == nil {
@@ -116,7 +116,7 @@ func (o *componentAws) Dependencies() []string {
 	}
 }
 
-func (o *componentAws) SetDependencies(d []string) error {
+func (o *mod) SetDependencies(d []string) error {
 	if o.x == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {
@@ -125,7 +125,7 @@ func (o *componentAws) SetDependencies(d []string) error {
 	}
 }
 
-func (o *componentAws) getLogger() liblog.Logger {
+func (o *mod) getLogger() liblog.Logger {
 	if i, l := o.x.Load(keyCptLogger); !l {
 		return nil
 	} else if v, k := i.(liblog.FuncLog); !k {

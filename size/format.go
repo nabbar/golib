@@ -25,7 +25,7 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package size
 
 import (
 	"fmt"
@@ -56,30 +56,30 @@ func (s Size) String() string {
 }
 
 func (s Size) Int64() int64 {
-	if uint64(s) > math.MaxInt64 {
+	if i := uint64(s); i > uint64(math.MaxInt64) {
 		// overflow
 		return math.MaxInt64
+	} else {
+		return int64(i)
 	}
-
-	return int64(s) // #nosec
 }
 
 func (s Size) Int32() int32 {
-	if uint64(s) > math.MaxInt32 {
+	if i := uint64(s); i > uint64(math.MaxInt32) {
 		// overflow
 		return math.MaxInt32
+	} else {
+		return int32(i)
 	}
-
-	return int32(s) // #nosec
 }
 
 func (s Size) Int() int {
-	if uint64(s) > math.MaxInt {
+	if i := uint64(s); i > uint64(math.MaxInt) {
 		// overflow
 		return math.MaxInt
+	} else {
+		return int(i)
 	}
-
-	return int(s) // #nosec
 }
 
 func (s Size) Uint64() uint64 {
@@ -87,39 +87,39 @@ func (s Size) Uint64() uint64 {
 }
 
 func (s Size) Uint32() uint32 {
-	if uint64(s) > math.MaxUint32 {
+	if i := uint64(s); i > uint64(math.MaxUint32) {
 		// overflow
 		return math.MaxUint32
+	} else {
+		return uint32(i)
 	}
-
-	return uint32(s) // #nosec
 }
 
 func (s Size) Uint() uint {
-	if uint64(s) > math.MaxUint {
+	if i := uint64(s); i > uint64(math.MaxUint) {
 		// overflow
 		return math.MaxUint
+	} else {
+		return uint(i)
 	}
-
-	return uint(s) // #nosec
 }
 
 func (s Size) Float64() float64 {
-	if uint64(s) > _maxFloat64 {
+	if i := uint64(s); i > _maxFloat64 {
 		// overflow
 		return math.MaxFloat64
+	} else {
+		return float64(i)
 	}
-
-	return float64(s) // #nosec
 }
 
 func (s Size) Float32() float32 {
-	if uint64(s) > _maxFloat32 {
+	if i := uint64(s); i > _maxFloat32 {
 		// overflow
 		return math.MaxFloat32
+	} else {
+		return float32(i)
 	}
-
-	return float32(s) // #nosec
 }
 
 func (s Size) Format(format string) string {

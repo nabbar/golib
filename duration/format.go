@@ -31,10 +31,31 @@ import (
 	"time"
 )
 
+// Time returns a time.Duration representation of the duration.
+// It is a simple wrapper around the conversion of the underlying int64
+// value to a time.Duration.
+//
+// Time is useful when working with the time package, as it allows for
+// easy conversion between the duration package and the time package.
+//
+// Example:
+//
+// d := libdur.ParseDuration("1h30m")
+// td := d.Time()
+// fmt.Println(td) // Output: 1h30m0s
 func (d Duration) Time() time.Duration {
 	return time.Duration(d)
 }
 
+// String returns a string representation of the duration.
+// The string is in the format "NdNhNmNs" where N is a number.
+// The days are omitted if n is 0 or negative. The hours, minutes, and seconds
+// are omitted if they are 0.
+//
+// Example:
+//
+// d := libdur.ParseDuration("1d2h3m4s")
+// fmt.Println(d.String()) // Output: 1d2h3m4s
 func (d Duration) String() string {
 	var (
 		s string
@@ -54,6 +75,11 @@ func (d Duration) String() string {
 	return s
 }
 
+// Days returns the number of days in the duration.
+// The number of days is calculated by dividing the total number of hours
+// by 24 and rounding down to the nearest integer.
+// If the total number of hours is greater than the maximum value of int64,
+// the maximum value of int64 is returned.
 func (d Duration) Days() int64 {
 	t := math.Floor(d.Time().Hours() / 24)
 
@@ -64,6 +90,17 @@ func (d Duration) Days() int64 {
 	return int64(t)
 }
 
+// Float64 returns the underlying int64 value of the duration as a float64.
+//
+// This can be useful when working with libraries or functions that expect
+// a float64 value, as it allows for easy conversion between the duration
+// package and the required type.
+//
+// Example:
+//
+// d := libdur.ParseDuration("1h30m")
+// f := d.Float64()
+// fmt.Println(f) // Output: 5400.0
 func (d Duration) Float64() float64 {
 	return float64(d)
 }

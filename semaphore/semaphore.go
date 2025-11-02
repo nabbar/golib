@@ -28,18 +28,26 @@ package semaphore
 
 import semtps "github.com/nabbar/golib/semaphore/types"
 
+// NewWorker acquires a worker slot, blocking until one is available.
+// Returns an error if the context is cancelled before acquisition.
 func (o *sem) NewWorker() error {
 	return o.s.NewWorker()
 }
 
+// NewWorkerTry attempts to acquire a worker slot without blocking.
+// Returns true if successful, false if no slots are available.
 func (o *sem) NewWorkerTry() bool {
 	return o.s.NewWorkerTry()
 }
 
+// DeferWorker releases a worker slot.
+// Should be called with defer after NewWorker() or NewWorkerTry() succeeds.
 func (o *sem) DeferWorker() {
 	o.s.DeferWorker()
 }
 
+// DeferMain shuts down the MPB progress container (if enabled) and releases all resources.
+// Should be called with defer in the main goroutine.
 func (o *sem) DeferMain() {
 	if o.isMbp() {
 		o.m.Shutdown()
@@ -48,14 +56,19 @@ func (o *sem) DeferMain() {
 	o.s.DeferMain()
 }
 
+// WaitAll blocks until all worker slots are available (all workers completed).
 func (o *sem) WaitAll() error {
 	return o.s.WaitAll()
 }
 
+// Weighted returns the maximum number of concurrent workers allowed.
+// Returns -1 for unlimited concurrency.
 func (o *sem) Weighted() int64 {
 	return o.s.Weighted()
 }
 
+// Clone creates a new semaphore with independent worker management
+// but shared MPB progress container (if progress was enabled).
 func (o *sem) Clone() Semaphore {
 	return &sem{
 		s: o.s.New(),
@@ -63,6 +76,7 @@ func (o *sem) Clone() Semaphore {
 	}
 }
 
+// New creates a new independent base semaphore with the same concurrency limit.
 func (o *sem) New() semtps.Sem {
 	return o.s.New()
 }

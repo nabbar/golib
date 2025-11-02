@@ -32,6 +32,10 @@ import (
 	arctps "github.com/nabbar/golib/archive/archive/types"
 )
 
+// NewReader will create a new reader from the provided io.ReadCloser.
+// It returns the reader and a nil error if the creation succeed.
+// The reader is a io.ReadCloser compatible with the tar archive algorithm.
+// It is the caller responsibility to close the provided io.ReadCloser to release resources.
 func NewReader(r io.ReadCloser) (arctps.Reader, error) {
 	return &rdr{
 		r: r,
@@ -39,6 +43,10 @@ func NewReader(r io.ReadCloser) (arctps.Reader, error) {
 	}, nil
 }
 
+// NewWriter will create a new writer from the provided io.WriteCloser.
+// It returns the writer and a nil error if the creation succeed.
+// The writer is a io.WriteCloser compatible with the tar archive algorithm.
+// It is the caller responsibility to close the provided io.WriteCloser to release resources.
 func NewWriter(w io.WriteCloser) (arctps.Writer, error) {
 	return &wrt{
 		w: w,

@@ -34,11 +34,11 @@ import (
 	spfcbr "github.com/spf13/cobra"
 )
 
-func (o *componentLDAP) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentLDAP) _getConfig() (*lbldap.Config, error) {
+func (o *mod) _getConfig() (*lbldap.Config, error) {
 	var (
 		key string
 		cfg lbldap.Config

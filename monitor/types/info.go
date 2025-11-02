@@ -31,14 +31,24 @@ import (
 	"encoding/json"
 )
 
+// InfoData provides a method for retrieving dynamic information about a component.
+// Implementations can return runtime-generated metadata as a key-value map.
 type InfoData interface {
+	// Info returns a map of string to interface that contains information about the
+	// monitor. Common keys include "version", "build", "uptime", etc.
 	Info() map[string]interface{}
 }
 
+// InfoName provides a method for retrieving the component name.
+// This interface allows for static or dynamic name generation.
 type InfoName interface {
+	// Name returns the name of the component.
+	// The name is used to identify the component in logs and metrics.
 	Name() string
 }
 
+// Info is the main interface for component metadata management.
+// It combines name and data retrieval with encoding capabilities.
 type Info interface {
 	encoding.TextMarshaler
 	json.Marshaler

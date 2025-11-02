@@ -36,15 +36,15 @@ import (
 	spfvpr "github.com/spf13/viper"
 )
 
-func (o *componentSmtp) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	var (
 		key string
 		vpr *spfvpr.Viper
 	)
 
-	if vpr = o._getSPFViper(); vpr == nil {
+	if vpr = o.getSPFViper(); vpr == nil {
 		return ErrorComponentNotInitialized.Error(nil)
-	} else if key = o._getKey(); len(key) < 1 {
+	} else if key = o.getKey(); len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
 	}
 
@@ -57,7 +57,7 @@ func (o *componentSmtp) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentSmtp) _getConfig() (smtpcf.Config, *libmon.Config, error) {
+func (o *mod) _getConfig() (smtpcf.Config, *libmon.Config, error) {
 	var (
 		key string
 		cfg smtpcf.ConfigModel
@@ -65,9 +65,9 @@ func (o *componentSmtp) _getConfig() (smtpcf.Config, *libmon.Config, error) {
 		err error
 	)
 
-	if vpr = o._getViper(); vpr == nil {
+	if vpr = o.getViper(); vpr == nil {
 		return nil, nil, ErrorComponentNotInitialized.Error(nil)
-	} else if key = o._getKey(); len(key) < 1 {
+	} else if key = o.getKey(); len(key) < 1 {
 		return nil, nil, ErrorComponentNotInitialized.Error(nil)
 	} else if !vpr.Viper().IsSet(key) {
 		return nil, nil, ErrorParamInvalid.Error(fmt.Errorf("missing config key '%s'", key))

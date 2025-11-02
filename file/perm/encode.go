@@ -28,36 +28,78 @@
 package perm
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"gopkg.in/yaml.v3"
 )
 
+// MarshalJSON returns the JSON encoding of p.
+//
+// The JSON encoding is a simple string encoding of the Perm value,
+// surrounded by double quotes.
+//
+// The returned bytes are valid JSON.
+//
+// The function does not return an error.
 func (p Perm) MarshalJSON() ([]byte, error) {
-	t := p.String()
-	b := make([]byte, 0, len(t)+2)
-	b = append(b, '"')
-	b = append(b, []byte(t)...)
-	b = append(b, '"')
-	return b, nil
+	return json.Marshal(p.String())
 }
 
-func (p *Perm) UnmarshalJSON(bytes []byte) error {
-	return p.unmarshall(bytes)
+// UnmarshalJSON parses a JSON encoding of a file permission into a Perm.
+// The JSON encoding is expected to be a simple string encoding of the Perm value,
+// surrounded by double quotes.
+//
+// The function returns an error if the JSON encoding is not a valid file permission.
+//
+// The function does not return an error if the JSON encoding is valid.
+func (p *Perm) UnmarshalJSON(b []byte) error {
+	return p.unmarshall(b)
 }
 
+// MarshalYAML returns the YAML encoding of p.
+//
+// The YAML encoding is a simple string encoding of the Perm value.
+//
+// The returned value is valid YAML.
+//
+// The function does not return an error.
 func (p Perm) MarshalYAML() (interface{}, error) {
-	return p.MarshalJSON()
+	return p.String(), nil
 }
 
+// UnmarshalYAML parses a YAML encoding of a file permission into a Perm.
+// The YAML encoding is expected to be a simple string encoding of the Perm value.
+//
+// The function returns an error if the YAML encoding is not a valid file permission.
+//
+// The function does not return an error if the YAML encoding is valid.
 func (p *Perm) UnmarshalYAML(value *yaml.Node) error {
 	return p.unmarshall([]byte(value.Value))
 }
 
+// MarshalTOML returns the TOML encoding of p.
+//
+// The TOML encoding is equivalent to the JSON encoding returned by MarshalJSON.
+//
+// The returned bytes are valid TOML.
+//
+// The function does not return an error.
 func (p Perm) MarshalTOML() ([]byte, error) {
 	return p.MarshalJSON()
 }
 
+// UnmarshalTOML parses a TOML encoding of a file permission into a Perm.
+//
+// The TOML encoding is expected to be either a byte slice or a string.
+// If the TOML encoding is a byte slice, it is expected to be a valid TOML
+// encoding of a string. If the TOML encoding is a string, it is expected
+// to be a valid string representation of a file permission.
+//
+// The function returns an error if the TOML encoding is not a valid file
+// permission. The function does not return an error if the TOML encoding is
+// valid.
 func (p *Perm) UnmarshalTOML(i interface{}) error {
 	if b, k := i.([]byte); k {
 		return p.unmarshall(b)
@@ -67,21 +109,56 @@ func (p *Perm) UnmarshalTOML(i interface{}) error {
 		return p.parseString(b)
 	}
 
-	return fmt.Errorf("size: value not in valid format")
+	return fmt.Errorf("file perm: value not in valid format")
 }
 
+// MarshalText returns the text encoding of p.
+//
+// The text encoding is a simple string encoding of the Perm value.
+//
+// The returned bytes are valid text.
+//
+// The function does not return an error.
 func (p Perm) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *Perm) UnmarshalText(bytes []byte) error {
-	return p.unmarshall(bytes)
+// UnmarshalText parses a text encoding of a file permission into a Perm.
+//
+// The text encoding is expected to be a simple string encoding of the Perm value.
+//
+// The function returns an error if the text encoding is not a valid file permission.
+//
+// The function does not return an error if the text encoding is valid.
+func (p *Perm) UnmarshalText(b []byte) error {
+	return p.unmarshall(b)
 }
 
+// MarshalCBOR returns the CBOR encoding of p.
+//
+// The CBOR encoding is a byte slice that represents the Perm value as a string.
+//
+// The returned bytes are valid CBOR.
+//
+// The function does not return an error.
+//
+// The function returns the CBOR encoding of p.String().
 func (p Perm) MarshalCBOR() ([]byte, error) {
-	return []byte(p.String()), nil
+	return cbor.Marshal(p.String())
 }
 
-func (p *Perm) UnmarshalCBOR(bytes []byte) error {
-	return p.unmarshall(bytes)
+// UnmarshalCBOR parses a CBOR encoding of a file permission into a Perm.
+//
+// The CBOR encoding is expected to be a byte slice that represents the Perm value as a string.
+//
+// The function returns an error if the CBOR encoding is not a valid file permission.
+//
+// The function does not return an error if the CBOR encoding is valid.
+func (p *Perm) UnmarshalCBOR(b []byte) error {
+	var s string
+	if e := cbor.Unmarshal(b, &s); e != nil {
+		return e
+	} else {
+		return p.unmarshall([]byte(s))
+	}
 }

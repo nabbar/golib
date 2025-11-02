@@ -25,6 +25,11 @@
 
 package pidcontroller
 
+import (
+	"context"
+	"time"
+)
+
 // PID (Proportional Integral Derivative controller)
 type pid struct {
 	kp float64 // rate proportional
@@ -46,10 +51,14 @@ func (p *pid) calc(end, actual float64) float64 {
 	return output
 }
 
-func (p *pid) Range(min, max float64) []float64 {
+func (p *pid) RangeCtx(ctx context.Context, min, max float64) []float64 {
 	var res = make([]float64, 0)
 
 	for {
+		if ctx.Err() != nil {
+			return append(res, max)
+		}
+
 		min += p.calc(max, min)
 
 		if min > max {
@@ -58,4 +67,11 @@ func (p *pid) Range(min, max float64) []float64 {
 			res = append(res, min)
 		}
 	}
+}
+
+func (p *pid) Range(min, max float64) []float64 {
+	ctx, cnl := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cnl()
+
+	return p.RangeCtx(ctx, min, max)
 }

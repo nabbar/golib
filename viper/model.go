@@ -31,18 +31,17 @@ import (
 	"io"
 	"sync/atomic"
 
-	logent "github.com/nabbar/golib/logger/entry"
-	loglvl "github.com/nabbar/golib/logger/level"
-
-	liblog "github.com/nabbar/golib/logger"
-
 	libhom "github.com/mitchellh/go-homedir"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
+	liblog "github.com/nabbar/golib/logger"
+	logent "github.com/nabbar/golib/logger/entry"
+	loglvl "github.com/nabbar/golib/logger/level"
 	spfvpr "github.com/spf13/viper"
 )
 
+// Remote provider constants
 const (
+	// RemoteETCD is the identifier for ETCD remote configuration provider
 	RemoteETCD = "etcd"
 )
 
@@ -104,7 +103,7 @@ func (v *viper) SetDefaultConfig(fct func() io.Reader) {
 	v.deft = fct
 }
 
-func (v *viper) SetConfigFile(fileConfig string) liberr.Error {
+func (v *viper) SetConfigFile(fileConfig string) error {
 	if fileConfig != "" {
 		v.v.SetConfigFile(fileConfig)
 	} else {

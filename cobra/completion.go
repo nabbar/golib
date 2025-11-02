@@ -31,6 +31,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	libiot "github.com/nabbar/golib/ioutils"
 	loglvl "github.com/nabbar/golib/logger/level"
 	spfcbr "github.com/spf13/cobra"
 )
@@ -61,8 +62,7 @@ func (c *cobra) AddCommandCompletion() {
 				os.Exit(1)
 			} else if len(args) >= 2 {
 				file = filepath.Clean(args[1])
-				// #nosec
-				e := os.MkdirAll(filepath.Dir(file), 0755)
+				e := libiot.PathCheckCreate(false, filepath.Dir(file), 0644, 0755)
 				c.getLog().CheckError(loglvl.ErrorLevel, loglvl.NilLevel, "create file path", e)
 			}
 

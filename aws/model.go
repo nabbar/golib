@@ -73,6 +73,7 @@ func (c *client) SetHTTPTimeout(dur time.Duration) error {
 			Jar:           cli.Jar,
 			Timeout:       dur,
 		}
+		c.h = h
 	}
 
 	if cli, err := c._NewClientS3(c.x, h, c.s); err != nil {
@@ -207,10 +208,6 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient libhtc.HttpClient,
 	}
 
 	return sss, nil
-}
-
-func (c *client) updateConfigIAM(opt *sdkiam.Options) {
-
 }
 
 func (c *client) updateConfigS3(opt *sdksss.Options) {

@@ -28,68 +28,158 @@
 package protocol
 
 import (
+	"fmt"
+	"math"
 	"reflect"
-	"strings"
 
 	libmap "github.com/go-viper/mapstructure/v2"
 )
-
-func (n NetworkProtocol) String() string {
-	switch n {
-	case NetworkUnix:
-		return "unix"
-	case NetworkTCP:
-		return "tcp"
-	case NetworkTCP4:
-		return "tcp4"
-	case NetworkTCP6:
-		return "tcp6"
-	case NetworkUDP:
-		return "udp"
-	case NetworkUDP4:
-		return "udp4"
-	case NetworkUDP6:
-		return "udp6"
-	case NetworkIP:
-		return "ip"
-	case NetworkIP4:
-		return "ip4"
-	case NetworkIP6:
-		return "ip6"
-	case NetworkUnixGram:
-		return "UnixGram"
-	default:
-		return ""
-	}
-}
-
-func (n NetworkProtocol) Code() string {
-	return strings.ToLower(n.String())
-}
 
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
 			z = NetworkProtocol(0)
-			t string
-			k bool
+			f func() error
 		)
-
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
 
 		// Check if the target type matches the expected one
 		if to != reflect.TypeOf(z) {
 			return data, nil
 		}
 
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
+		// Check if the data type matches the expected one
+		if from.Kind() == reflect.Int {
+			if i, k := data.(int); k {
+				f = func() error {
+					if c := ParseInt64(int64(i)); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Int8 {
+			if i, k := data.(int8); k {
+				f = func() error {
+					if c := ParseInt64(int64(i)); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Int16 {
+			if i, k := data.(int16); k {
+				f = func() error {
+					if c := ParseInt64(int64(i)); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Int32 {
+			if i, k := data.(int32); k {
+				f = func() error {
+					if c := ParseInt64(int64(i)); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Int64 {
+			if i, k := data.(int64); k {
+				f = func() error {
+					if c := ParseInt64(i); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint {
+			if i, k := data.(uint); k {
+				f = func() error {
+					if uint64(i) > uint64(math.MaxUint16) {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else if c := ParseUint64(uint64(i)); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint8 {
+			if i, k := data.(uint8); k {
+				f = func() error {
+					if c := ParseUint64(uint64(i)); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint16 {
+			if i, k := data.(uint16); k {
+				f = func() error {
+					if c := ParseUint64(uint64(i)); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint32 {
+			if i, k := data.(uint32); k {
+				f = func() error {
+					if c := ParseUint64(uint64(i)); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint64 {
+			if i, k := data.(uint64); k {
+				f = func() error {
+					if i > uint64(math.MaxUint16) {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else if c := ParseUint64(i); c == NetworkEmpty {
+						return fmt.Errorf("network protocol: invalid value '%d'", i)
+					} else {
+						z = c
+					}
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.String {
+			if s, k := data.(string); k {
+				f = func() error {
+					return z.unmarshall([]byte(s))
+				}
+			}
+		} else if from.Kind() == reflect.Slice {
+			if p, k := data.([]byte); k {
+				f = func() error {
+					return z.unmarshall(p)
+				}
+			}
+		}
+
+		if f == nil {
+			return data, nil
+		} else if err := f(); err != nil {
+			return nil, err
 		} else {
 			return z, nil
 		}

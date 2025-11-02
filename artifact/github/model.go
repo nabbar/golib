@@ -32,25 +32,32 @@ import (
 	"sort"
 	"strings"
 
-	github "github.com/google/go-github/v33/github"
+	github "github.com/google/go-github/v76/github"
 	hscvrs "github.com/hashicorp/go-version"
 	libart "github.com/nabbar/golib/artifact"
 	artcli "github.com/nabbar/golib/artifact/client"
 )
 
 const (
-	githubPageSize = 100
+	githubPageSize = 100 // Maximum number of releases per API page
 )
 
+// githubModel implements the artifact.Client interface for GitHub Releases.
+// It uses the google/go-github SDK to interact with the GitHub API.
 type githubModel struct {
-	artcli.ClientHelper
+	artcli.Helper
 
-	c *github.Client
-	x context.Context
-	o string
-	p string
+	c *github.Client  // GitHub API client
+	x context.Context // Request context
+	o string          // Repository owner
+	p string          // Repository project/name
 }
 
+// ListReleases retrieves all stable releases from the GitHub repository.
+// It automatically paginates through all available releases (100 per page)
+// and filters out pre-release versions using ValidatePreRelease.
+//
+// Returns a sorted collection of semantic versions in reverse order (newest first).
 func (g *githubModel) ListReleases() (releases hscvrs.Collection, err error) {
 	var (
 		e    error
@@ -90,6 +97,14 @@ func (g *githubModel) ListReleases() (releases hscvrs.Collection, err error) {
 	}
 }
 
+// GetArtifact retrieves the download URL for a specific artifact from a GitHub release.
+// It first fetches the release by tag name, then searches through the release assets.
+//
+// Matching logic:
+//   - If regexName is provided, it takes precedence and matches against the asset name
+//   - Otherwise, containName is used for substring matching
+//
+// Returns the browser download URL for the matched asset, or an error if not found.
 func (g *githubModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error) {
 	var (
 		rels *github.RepositoryRelease
@@ -111,6 +126,15 @@ func (g *githubModel) GetArtifact(containName string, regexName string, release 
 	return "", ErrorGithubNotFound.Error(nil)
 }
 
+// Download streams the artifact content directly from GitHub.
+// It retrieves the download URL via GetArtifact, then performs an HTTP GET request.
+//
+// Returns:
+//   - Content length in bytes
+//   - ReadCloser for streaming the content (caller must close)
+//   - Error if the artifact cannot be found or downloaded
+//
+// The method validates the HTTP response status (200-299) and ensures content is available.
 func (g *githubModel) Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error) {
 	var (
 		uri string

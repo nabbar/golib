@@ -1,5 +1,4 @@
-//go:build linux
-// +build linux
+//go:build linux || darwin
 
 /*
  * MIT License
@@ -27,16 +26,52 @@
  *
  */
 
+// Package unix provides a Unix domain socket server implementation with session support.
+//
+// This package implements the github.com/nabbar/golib/socket.Server interface
+// for Unix domain sockets (AF_UNIX), providing a connection-oriented server with features including:
+//   - Unix domain socket file creation and management
+//   - File permissions and group ownership control
+//   - Persistent connections with session handling
+//   - Connection lifecycle management (accept, read, write, close)
+//   - Callback hooks for errors and connection events
+//   - Graceful shutdown with connection draining
+//   - Atomic state management
+//   - Context-aware operations
+//
+// Unix domain sockets provide inter-process communication (IPC) on the same host
+// with lower overhead than TCP sockets. They appear as special files in the filesystem.
+//
+// Platform support: Linux only (see ignore.go for non-Linux platforms).
+//
+// See github.com/nabbar/golib/socket for the Server interface definition.
 package unix
 
 import "fmt"
 
 var (
-	ErrContextClosed   = fmt.Errorf("context closed")
-	ErrServerClosed    = fmt.Errorf("server closed")
-	ErrInvalidGroup    = fmt.Errorf("invalid unix group for socket group permission")
-	ErrInvalidHandler  = fmt.Errorf("invalid handler")
+	// ErrContextClosed is returned when an operation is cancelled due to context cancellation.
+	ErrContextClosed = fmt.Errorf("context closed")
+
+	// ErrServerClosed is returned when attempting to perform operations on a closed server.
+	ErrServerClosed = fmt.Errorf("server closed")
+
+	// ErrInvalidGroup is returned when the specified GID exceeds the maximum allowed value (32767).
+	// Unix group IDs must be within the valid range for the operating system.
+	ErrInvalidGroup = fmt.Errorf("invalid unix group for socket group permission")
+
+	// ErrInvalidHandler is returned when attempting to start a server without a valid handler function.
+	// A handler must be provided via the New() constructor.
+	ErrInvalidHandler = fmt.Errorf("invalid handler")
+
+	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
+	// This typically happens when StopListen() takes longer than expected.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
-	ErrGoneTimeout     = fmt.Errorf("timeout on closing connections")
+
+	// ErrGoneTimeout is returned when connection draining exceeds the context timeout during StopGone().
+	// This happens when waiting for all connections to close takes longer than the allocated time.
+	ErrGoneTimeout = fmt.Errorf("timeout on closing connections")
+
+	// ErrInvalidInstance is returned when operating on a nil server instance.
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

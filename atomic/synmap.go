@@ -30,16 +30,12 @@ type mt[K comparable, V any] struct {
 	m Map[K]
 }
 
-func (o *mt[K, V]) cast(in any) (value V, ok bool) {
-	return Cast[V](in)
-}
-
 func (o *mt[K, V]) castBool(in any, chk bool) (value V, ok bool) {
-	if chk {
-		return Cast[V](in)
-	} else {
-		return value, false
+	if v, k := Cast[V](in); k {
+		return v, chk
 	}
+
+	return value, false
 }
 
 func (o *mt[K, V]) Load(key K) (value V, ok bool) {

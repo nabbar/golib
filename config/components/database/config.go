@@ -36,7 +36,7 @@ import (
 	spfvpr "github.com/spf13/viper"
 )
 
-func (o *componentDatabase) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	var (
 		key string
 		vpr *spfvpr.Viper
@@ -108,7 +108,7 @@ func (o *componentDatabase) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentDatabase) _getConfig() (*libdbs.Config, error) {
+func (o *mod) _getConfig() (*libdbs.Config, error) {
 	var (
 		key string
 		cfg libdbs.Config
@@ -126,60 +126,77 @@ func (o *componentDatabase) _getConfig() (*libdbs.Config, error) {
 		return nil, ErrorParamInvalid.Error(e)
 	}
 
-	cfg.RegisterLogger(o.getLogger, o.li, o.ls)
-	cfg.RegisterContext(o.x.GetContext)
+	cfg.RegisterLogger(o.getLogger, o.li.Load(), o.ls.Load().Time())
+	cfg.RegisterContext(o.x)
 
 	if val := vpr.GetString(key + ".driver"); val != "" {
 		cfg.Driver = libdbs.DriverFromString(val)
 	}
+
 	if val := vpr.GetString(key + ".name"); val != "" {
 		cfg.Name = val
 	}
+
 	if val := vpr.GetString(key + ".dsn"); val != "" {
 		cfg.DSN = val
 	}
+
 	if val := vpr.GetBool(key + ".skip-default-transaction"); val {
 		cfg.SkipDefaultTransaction = true
 	}
+
 	if val := vpr.GetBool(key + ".full-save-associations"); val {
 		cfg.FullSaveAssociations = true
 	}
+
 	if val := vpr.GetBool(key + ".dry-run"); val {
 		cfg.DryRun = true
 	}
+
 	if val := vpr.GetBool(key + ".prepare-stmt"); val {
 		cfg.PrepareStmt = true
 	}
+
 	if val := vpr.GetBool(key + ".disable-automatic-ping"); val {
 		cfg.DisableAutomaticPing = true
 	}
+
 	if val := vpr.GetBool(key + ".disable-foreign-key-constraint-when-migrating"); val {
 		cfg.DisableForeignKeyConstraintWhenMigrating = true
 	}
+
 	if val := vpr.GetBool(key + ".disable-nested-transaction"); val {
 		cfg.DisableNestedTransaction = true
 	}
+
 	if val := vpr.GetBool(key + ".allow-global-update"); val {
 		cfg.AllowGlobalUpdate = true
 	}
+
 	if val := vpr.GetBool(key + ".query-fields"); val {
 		cfg.QueryFields = true
 	}
+
 	if val := vpr.GetInt(key + ".create-batch-size"); val != 0 {
 		cfg.CreateBatchSize = val
 	}
+
 	if val := vpr.GetBool(key + ".enable-connection-pool"); val {
 		cfg.EnableConnectionPool = true
 	}
+
 	if val := vpr.GetInt(key + ".pool-max-idle-conns"); val != 0 {
 		cfg.PoolMaxIdleConns = val
 	}
+
 	if val := vpr.GetInt(key + ".pool-max-open-conns"); val != 0 {
 		cfg.PoolMaxOpenConns = val
 	}
+
 	if val := vpr.GetDuration(key + ".pool-conn-max-lifetime"); val != 0 {
 		cfg.PoolConnMaxLifetime = val
 	}
+
 	if val := vpr.GetBool(key + ".disabled"); val {
 		cfg.Disabled = true
 	}

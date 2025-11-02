@@ -34,7 +34,7 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
-func (o *componentRequest) _registerMonitor(cfg *libreq.Options) error {
+func (o *mod) _registerMonitor(cfg *libreq.Options) error {
 	var (
 		e   error
 		key = o._getKey()
@@ -73,7 +73,7 @@ func (o *componentRequest) _registerMonitor(cfg *libreq.Options) error {
 		cfg.Health.Monitor.Name = key
 	}
 
-	if e = mon.SetConfig(o.x.GetContext, cfg.Health.Monitor); e != nil {
+	if e = mon.SetConfig(o.x, cfg.Health.Monitor); e != nil {
 		return e
 	}
 
@@ -86,11 +86,11 @@ func (o *componentRequest) _registerMonitor(cfg *libreq.Options) error {
 	return nil
 }
 
-func (o *componentRequest) _newMonitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
+func (o *mod) _newMonitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
 	return o.getRequest().Monitor(ctx, vrs)
 }
 
-func (o *componentRequest) _getMonitor(key string) montps.Monitor {
+func (o *mod) _getMonitor(key string) montps.Monitor {
 	var (
 		mon montps.Monitor
 		pol = o.getPool()
@@ -104,7 +104,7 @@ func (o *componentRequest) _getMonitor(key string) montps.Monitor {
 	return mon
 }
 
-func (o *componentRequest) _setMonitor(mon montps.Monitor) error {
+func (o *mod) _setMonitor(mon montps.Monitor) error {
 	var pol = o.getPool()
 
 	if pol == nil {

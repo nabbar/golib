@@ -25,7 +25,7 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package size
 
 import (
 	"fmt"
@@ -56,6 +56,8 @@ func (s Size) Code(unit rune) string {
 	case SizeTera:
 		return fmt.Sprintf(uni, "T")
 	case SizePeta:
+		return fmt.Sprintf(uni, "P")
+	case SizeExa:
 		return fmt.Sprintf(uni, "E")
 	}
 
@@ -65,16 +67,12 @@ func (s Size) Code(unit rune) string {
 func (s Size) isMax(size Size) bool {
 	val := math.Abs(size.Float64())
 	uni := math.Abs(s.Float64())
-	return val >= (10 * uni)
+	return val > uni
 }
 
 func (s Size) sizeByUnit(unit Size) float64 {
-	if s > 0 && uint64(s/unit) > _maxFloat64 {
-		// overflow
+	if uint64(s/unit) > _maxFloat64 {
 		return math.MaxFloat64
-	} else if s < 0 && uint64(-s/unit) > _maxFloat64 {
-		// overflow
-		return -math.MaxFloat64
 	} else {
 		return float64(s / unit)
 	}
@@ -93,65 +91,121 @@ func (s *Size) unmarshall(val []byte) error {
 	}
 }
 
-func (s *Size) Mul(v float64) {
-	v = s.Float64() * v
-	if v > math.MaxUint64 {
-		*s = math.MaxUint64
-	} else {
-		*s = Size(v)
-	}
-}
-
-func (s *Size) Div(v float64) {
-	v = math.Ceil(s.Float64() / v)
-	if v > math.MaxUint64 {
-		*s = math.MaxUint64
-	} else {
-		*s = Size(v)
-	}
-}
-
-func (s *Size) Add(v uint64) {
-	v = s.Uint64() + v
-	if v > math.MaxUint64 {
-		*s = math.MaxUint64
-	} else {
-		*s = Size(v)
-	}
-}
-
-func (s *Size) Sub(v uint64) {
-	v = s.Uint64() - v
-	if v > math.MaxUint64 {
-		*s = math.MaxUint64
-	} else {
-		*s = Size(v)
-	}
-}
-
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
 			z = Size(0)
-			t string
-			k bool
+			f func() error
 		)
-
-		// Check if the data type matches the expected one
-		if from.Kind() != reflect.String {
-			return data, nil
-		} else if t, k = data.(string); !k {
-			return data, nil
-		}
 
 		// Check if the target type matches the expected one
 		if to != reflect.TypeOf(z) {
 			return data, nil
 		}
 
-		// Format/decode/parse the data and return the new value
-		if e := z.unmarshall([]byte(t)); e != nil {
-			return nil, e
+		// Check if the data type matches the expected one
+		if from.Kind() == reflect.Int {
+			if i, k := data.(int); k {
+				f = func() error {
+					z = ParseInt64(int64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Int8 {
+			if i, k := data.(int8); k {
+				f = func() error {
+					z = ParseInt64(int64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Int16 {
+			if i, k := data.(int16); k {
+				f = func() error {
+					z = ParseInt64(int64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Int32 {
+			if i, k := data.(int32); k {
+				f = func() error {
+					z = ParseInt64(int64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Int64 {
+			if i, k := data.(int64); k {
+				f = func() error {
+					z = ParseInt64(i)
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint {
+			if i, k := data.(uint); k {
+				f = func() error {
+					z = ParseUint64(uint64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint8 {
+			if i, k := data.(uint8); k {
+				f = func() error {
+					z = ParseUint64(uint64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint16 {
+			if i, k := data.(uint16); k {
+				f = func() error {
+					z = ParseUint64(uint64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint32 {
+			if i, k := data.(uint32); k {
+				f = func() error {
+					z = ParseUint64(uint64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Uint64 {
+			if i, k := data.(uint64); k {
+				f = func() error {
+					z = ParseUint64(i)
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Float32 {
+			if i, k := data.(float32); k {
+				f = func() error {
+					z = ParseFloat64(float64(i))
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.Float64 {
+			if i, k := data.(float64); k {
+				f = func() error {
+					z = ParseFloat64(i)
+					return nil
+				}
+			}
+		} else if from.Kind() == reflect.String {
+			if s, k := data.(string); k {
+				f = func() error {
+					return z.unmarshall([]byte(s))
+				}
+			}
+		} else if from.Kind() == reflect.Slice {
+			if p, k := data.([]byte); k {
+				f = func() error {
+					return z.unmarshall(p)
+				}
+			}
+		}
+
+		if f == nil {
+			return data, nil
+		} else if err := f(); err != nil {
+			return nil, err
 		} else {
 			return z, nil
 		}

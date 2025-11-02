@@ -27,11 +27,10 @@ package config
 import (
 	"fmt"
 
-	libmon "github.com/nabbar/golib/monitor/types"
-
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
+	libmon "github.com/nabbar/golib/monitor/types"
 )
 
 type ConfigModel struct {

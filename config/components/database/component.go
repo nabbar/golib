@@ -27,8 +27,9 @@
 package database
 
 import (
+	"context"
+
 	cfgtps "github.com/nabbar/golib/config/types"
-	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -50,22 +51,11 @@ const (
 	keyFctMonitorPool
 )
 
-func (o *componentDatabase) Type() string {
+func (o *mod) Type() string {
 	return ComponentType
 }
 
-func (o *componentDatabase) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.x == nil {
-		o.x = libctx.NewConfig[uint8](ctx)
-	} else {
-		x := libctx.NewConfig[uint8](ctx)
-		x.Merge(o.x)
-		o.x = x
-	}
-
+func (o *mod) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -73,24 +63,21 @@ func (o *componentDatabase) Init(key string, ctx libctx.FuncContext, get cfgtps.
 	o.x.Store(keyCptLogger, log)
 }
 
-func (o *componentDatabase) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctStaBef, before)
 	o.x.Store(keyFctStaAft, after)
 }
 
-func (o *componentDatabase) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctRelBef, before)
 	o.x.Store(keyFctRelAft, after)
 }
 
-func (o *componentDatabase) IsStarted() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o != nil && o.d != nil
+func (o *mod) IsStarted() bool {
+	return o.r.Load()
 }
 
-func (o *componentDatabase) IsRunning() bool {
+func (o *mod) IsRunning() bool {
 	if !o.IsStarted() {
 		return false
 	} else if db := o.GetDatabase(); db == nil {
@@ -102,36 +89,26 @@ func (o *componentDatabase) IsRunning() bool {
 	return true
 }
 
-func (o *componentDatabase) Start() error {
+func (o *mod) Start() error {
 	return o._run()
 }
 
-func (o *componentDatabase) Reload() error {
+func (o *mod) Reload() error {
 	return o._run()
 }
 
-func (o *componentDatabase) Stop() {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	if o.d != nil {
-		o.d.Close()
+func (o *mod) Stop() {
+	o.r.Store(false)
+	if i := o.d.Load(); i != nil {
+		i.Close()
+		o.d.Store(i)
 	}
-
-	o.d = nil
-
-	return
 }
 
-func (o *componentDatabase) Dependencies() []string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) Dependencies() []string {
 	var def = make([]string, 0)
 
-	if o == nil {
-		return def
-	} else if o.x == nil {
+	if o == nil || o.x == nil {
 		return def
 	} else if i, l := o.x.Load(keyCptDependencies); !l {
 		return def
@@ -144,11 +121,8 @@ func (o *componentDatabase) Dependencies() []string {
 	}
 }
 
-func (o *componentDatabase) SetDependencies(d []string) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.x == nil {
+func (o *mod) SetDependencies(d []string) error {
+	if o == nil || o.x == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {
 		o.x.Store(keyCptDependencies, d)
@@ -156,7 +130,7 @@ func (o *componentDatabase) SetDependencies(d []string) error {
 	}
 }
 
-func (o *componentDatabase) getLogger() liblog.Logger {
+func (o *mod) getLogger() liblog.Logger {
 	if i, l := o.x.Load(keyCptLogger); !l {
 		return nil
 	} else if v, k := i.(liblog.FuncLog); !k {

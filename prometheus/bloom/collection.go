@@ -27,57 +27,125 @@
 
 package bloom
 
-import "sync"
+import (
+	"sync"
+)
 
+// Collection manages multiple Bloom filters, one per metric name.
+//
+// This allows tracking unique values independently for different metrics without
+// cross-contamination. Each metric gets its own Bloom filter, created on-demand
+// when the first value is added.
+//
+// # Thread Safety
+//
+// All operations are thread-safe and can be called concurrently from multiple goroutines.
+//
+// # Use Case
+//
+// Commonly used in Prometheus webmetrics to track unique values per metric:
+//   - Unique IP addresses per endpoint
+//   - Unique user IDs per API route
+//   - Unique request IDs per service
+//
+// # Example
+//
+//	collection := bloom.New()
+//
+//	// Track unique IPs for different endpoints
+//	collection.Add("api_requests", "192.168.1.1")
+//	collection.Add("api_requests", "10.0.0.1")
+//	collection.Add("admin_requests", "192.168.1.100")
+//
+//	if collection.Contains("api_requests", "192.168.1.1") {
+//	    // IP might have been seen for api_requests
+//	}
 type Collection interface {
+	// Add inserts a value into the Bloom filter for the specified metric.
+	//
+	// If the metric doesn't exist yet, a new Bloom filter is automatically created.
+	// This operation is thread-safe and idempotent (adding the same value multiple
+	// times has the same effect as adding it once).
+	//
+	// Parameters:
+	//   - metricName: the name of the metric to associate the value with
+	//   - value: the value to add (e.g., IP address, user ID, request ID)
+	//
+	// Thread-safe: can be called concurrently from multiple goroutines.
 	Add(metricName, value string)
+
+	// Contains checks if a value might exist in the Bloom filter for the specified metric.
+	//
+	// Returns:
+	//   - false: if the metric doesn't exist OR the value is definitely not present
+	//   - true: if the value MIGHT be present (or could be a false positive)
+	//
+	// Parameters:
+	//   - metricName: the name of the metric to check
+	//   - value: the value to check for
+	//
+	// Thread-safe: can be called concurrently from multiple goroutines.
 	Contains(metricName, value string) bool
 }
 
+// colBf is the internal implementation of the Collection interface.
+// It uses a map to store separate Bloom filters for each metric name.
 type colBf struct {
-	m  sync.RWMutex
-	bf map[string]BloomFilter
+	mu sync.RWMutex           // Protects concurrent access to the map
+	b  map[string]BloomFilter // Map of metric name to Bloom filter
 }
 
+// New creates a new Collection of Bloom filters.
+//
+// The collection starts empty and creates Bloom filters on-demand as metrics
+// are added. Each metric gets its own independent Bloom filter.
+//
+// Returns a new Collection ready to use.
+//
+// Example:
+//
+//	collection := bloom.New()
+//	collection.Add("http_requests", "192.168.1.1")
+//	collection.Add("grpc_requests", "10.0.0.1")
 func New() Collection {
 	return &colBf{
-		m:  sync.RWMutex{},
-		bf: make(map[string]BloomFilter, 0),
+		b: make(map[string]BloomFilter),
 	}
 }
 
+// Add inserts a value into the Bloom filter for the specified metric name.
+// If the metric doesn't exist, a new Bloom filter is created for it.
 func (c *colBf) Add(metricName, value string) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	if len(c.bf) < 1 {
-		c.bf = make(map[string]BloomFilter, 0)
+	if c == nil {
+		return
 	}
 
-	var (
-		b  BloomFilter
-		ok bool
-	)
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if b, ok = c.bf[metricName]; !ok {
-		b = NewBloomFilter()
+	bf, exists := c.b[metricName]
+	if !exists {
+		bf = NewBloomFilter()
+		c.b[metricName] = bf
 	}
 
-	b.Add(value)
-	c.bf[metricName] = b
+	bf.Add(value)
 }
 
+// Contains checks if a value might exist in the Bloom filter for the specified metric.
+// Returns false if the metric doesn't exist or the value is definitely not present.
 func (c *colBf) Contains(metricName, value string) bool {
-	c.m.RLock()
-	defer c.m.RUnlock()
-
-	if len(c.bf) < 1 {
+	if c == nil {
 		return false
 	}
 
-	if b, ok := c.bf[metricName]; ok {
-		return b.Contains(value)
+	c.mu.RLock()
+	bf, exists := c.b[metricName]
+	c.mu.RUnlock()
+
+	if !exists {
+		return false
 	}
 
-	return false
+	return bf.Contains(value)
 }

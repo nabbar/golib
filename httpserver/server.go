@@ -35,46 +35,42 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	liberr "github.com/nabbar/golib/errors"
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	loglvl "github.com/nabbar/golib/logger/level"
-	libsrv "github.com/nabbar/golib/server"
+	libsrv "github.com/nabbar/golib/runner"
 )
 
 var errInvalid = errors.New("invalid instance")
 
 func (o *srv) getServer() *http.Server {
-	if o == nil {
+	if o == nil || o.s == nil {
 		return nil
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.s
+	return o.s.Load()
 }
 
 func (o *srv) delServer() {
-	if o == nil {
+	if o == nil || o.s == nil {
 		return
 	}
 
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.s = nil
+	o.s.Store(&http.Server{
+		ReadHeaderTimeout: time.Nanosecond,
+	})
 }
 
 func (o *srv) setServer(ctx context.Context) error {
-	if o == nil {
+	if o == nil || o.s == nil {
 		return errInvalid
 	}
 
 	var (
 		ssl  = o.cfgGetTLS()
 		bind = o.GetBindable()
-		name = o.GetName()
 
 		fctStop = func() {
 			_ = o.Stop(ctx)
@@ -87,16 +83,15 @@ func (o *srv) setServer(ctx context.Context) error {
 		ent.ErrorAdd(true, err)
 		ent.Log()
 		return err
-	} else if name == "" {
-		name = bind
 	}
 
 	var stdlog = o.logger()
 
 	// #nosec
 	s := &http.Server{
-		Addr:    bind,
-		Handler: o.HandlerLoadFct(),
+		Addr:              bind,
+		Handler:           o.HandlerLoadFct(),
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	stdlog.SetIOWriterFilter("connection reset by peer")
@@ -119,15 +114,12 @@ func (o *srv) setServer(ctx context.Context) error {
 		return e
 	}
 
-	o.m.Lock()
-	o.s = s
-	o.m.Unlock()
-
+	o.s.Store(s)
 	return nil
 }
 
 func (o *srv) Start(ctx context.Context) error {
-	// Register Server to runner
+	// Register Runner to runner
 	if o.getServer() != nil {
 		if e := o.Stop(ctx); e != nil {
 			return e
@@ -144,18 +136,16 @@ func (o *srv) Start(ctx context.Context) error {
 }
 
 func (o *srv) Stop(ctx context.Context) error {
-	if o == nil {
+	if o == nil || o.s == nil || o.r == nil {
 		return errInvalid
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r == nil {
+	r := o.r.Load()
+	if r == nil {
 		return nil
 	}
 
-	return o.r.Stop(ctx)
+	return r.Stop(ctx)
 }
 
 func (o *srv) Restart(ctx context.Context) error {
@@ -164,18 +154,16 @@ func (o *srv) Restart(ctx context.Context) error {
 }
 
 func (o *srv) IsRunning() bool {
-	if o == nil {
+	if o == nil || o.s == nil || o.r == nil {
 		return false
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.r == nil {
+	r := o.r.Load()
+	if r == nil {
 		return false
 	}
 
-	return o.r.IsRunning()
+	return r.IsRunning()
 }
 
 func (o *srv) PortInUse(ctx context.Context, listen string) liberr.Error {

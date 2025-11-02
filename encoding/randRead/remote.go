@@ -71,6 +71,8 @@ func (o *remote) Read(p []byte) (n int, err error) {
 	n, err = o.reader(p)
 	if n > 0 {
 		return n, nil
+	} else if err != io.EOF {
+		return 0, err
 	}
 
 	if err = o.readRemote(); err != nil {
@@ -80,9 +82,11 @@ func (o *remote) Read(p []byte) (n int, err error) {
 	n, err = o.reader(p)
 	if n > 0 {
 		return n, nil
+	} else if err != io.EOF {
+		return 0, err
 	}
 
-	return 0, err
+	return 0, io.EOF
 }
 
 func (o *remote) Close() error {

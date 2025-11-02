@@ -34,34 +34,22 @@ import (
 )
 
 type Encode interface {
+	// String returns the string representation of the encoding model.
+	// It concatenates all the key-value pairs of the Info map, separated by commas.
+	// The key is separated from the value by a colon.
 	String() string
+	// Bytes returns the byte representation of the encoding model.
+	// It is a JSON marshalled version of the encoding model.
+	//
 	Bytes() []byte
 }
 
-type encodingModel struct {
+type encMod struct {
 	Name string
 	Info map[string]interface{}
 }
 
-func (e *encodingModel) stringInfo() string {
-	var (
-		buf = bytes.NewBuffer(make([]byte, 0))
-	)
-
-	for n, i := range e.Info {
-		buf.WriteString(fmt.Sprintf("%s: %v,", n, i))
-	}
-
-	return strings.Trim(strings.TrimSpace(buf.String()), ",")
-}
-
-func (e *encodingModel) stringClean(str string) string {
-	str = strings.Replace(str, "\n", " ", -1)
-	str = strings.Replace(str, "\r", "", -1)
-	return str
-}
-
-func (e *encodingModel) String() string {
+func (e *encMod) String() string {
 	if i := e.stringInfo(); len(i) > 0 {
 		return e.stringClean(fmt.Sprintf("%s (%s)", e.Name, i))
 	} else {
@@ -69,21 +57,41 @@ func (e *encodingModel) String() string {
 	}
 }
 
-func (e *encodingModel) Bytes() []byte {
+func (e *encMod) Bytes() []byte {
 	return []byte(e.String())
 }
 
+func (e *encMod) stringInfo() string {
+	var buf = bytes.NewBuffer(make([]byte, 0))
+	for n, i := range e.Info {
+		buf.WriteString(fmt.Sprintf("%s: %v,", n, i)) // nolint
+	}
+	return strings.Trim(strings.TrimSpace(buf.String()), ",")
+}
+
+func (e *encMod) stringClean(str string) string {
+	str = strings.Replace(str, "\n", " ", -1) // nolint
+	str = strings.Replace(str, "\r", "", -1)  // nolint
+	return str
+}
+
 func (o *inf) getEncodeModel() Encode {
-	return &encodingModel{
+	return &encMod{
 		Name: o.Name(),
 		Info: o.Info(),
 	}
 }
 
+// MarshalText returns the text representation of the encoding model.
+// The returned text is a concatenation of the name and info fields, separated by a space.
+// If the info field is empty, only the name is returned.
+// The returned error is always nil.
 func (o *inf) MarshalText() (text []byte, err error) {
 	return o.getEncodeModel().Bytes(), nil
 }
 
+// MarshalJSON returns the JSON representation of the encoding model.
+// The returned error is always nil.
 func (o *inf) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.getEncodeModel())
 }

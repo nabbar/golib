@@ -31,8 +31,6 @@ import (
 	"io/fs"
 	"runtime"
 
-	libctx "github.com/nabbar/golib/context"
-
 	liberr "github.com/nabbar/golib/errors"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
@@ -44,7 +42,7 @@ const (
 	textEmbed = "Embed FS"
 )
 
-func (s *staticHandler) Monitor(ctx libctx.FuncContext, cfg montps.Config, vrs libver.Version) (montps.Monitor, error) {
+func (s *staticHandler) Monitor(ctx context.Context, cfg montps.Config, vrs libver.Version) (montps.Monitor, error) {
 	res := make(map[string]interface{}, 0)
 	res["runtime"] = runtime.Version()[2:]
 	res["release"] = vrs.GetRelease()
@@ -78,13 +76,13 @@ func (s *staticHandler) Monitor(ctx libctx.FuncContext, cfg montps.Config, vrs l
 		})
 	}
 
-	if mon, e = libmon.New(s.s.GetContext, inf); e != nil {
+	if mon, e = libmon.New(s.s, inf); e != nil {
 		return nil, e
 	} else if e = mon.SetConfig(ctx, cfg); e != nil {
 		return nil, e
 	} else {
 		mon.SetHealthCheck(s.HealthCheck)
-		if e = mon.Start(ctx()); e != nil {
+		if e = mon.Start(ctx); e != nil {
 			return nil, e
 		}
 	}

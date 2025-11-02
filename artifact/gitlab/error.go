@@ -55,7 +55,6 @@ var (
 	errResponseCode      = errors.New("response status code %s")
 	errResponseContents  = errors.New("response contents is empty")
 	errResponseBodyEmpty = errors.New("empty body response")
-	errMisMatchingSize   = errors.New("destination size and contentLength header are not matching")
 )
 
 func init() {

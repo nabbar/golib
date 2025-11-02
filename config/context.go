@@ -27,39 +27,76 @@
 package config
 
 import (
+	"context"
+
 	libctx "github.com/nabbar/golib/context"
 )
 
-func (c *configModel) Context() libctx.Config[string] {
-	return c.ctx
+// Context returns the shared application context for all components.
+// This context is used for:
+//   - Storing shared application state (key-value pairs)
+//   - Coordinating cancellation across components
+//   - Providing context to component operations
+//
+// The context is thread-safe and can be accessed concurrently by multiple components.
+func (o *model) Context() libctx.Config[string] {
+	return o.ctx
 }
 
-func (c *configModel) CancelAdd(fct ...func()) {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.fcnl = append(c.fcnl, fct...)
-}
-
-func (c *configModel) CancelClean() {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	c.fcnl = make([]func(), 0)
-}
-
-func (c *configModel) cancel() {
-	if l := c.getCancelCustom(); len(l) > 0 {
-		for _, f := range l {
-			f()
+// CancelAdd registers custom functions to execute on context cancellation.
+// These functions are called before Stop() when:
+//   - Application receives termination signals (SIGINT, SIGTERM, SIGQUIT)
+//   - Shutdown() is called explicitly
+//   - The shared context is cancelled
+//
+// Parameters:
+//   - fct: Variadic list of functions to register
+//
+// Use cases:
+//   - Flush buffers before shutdown
+//   - Close external connections
+//   - Save state to persistent storage
+//   - Send shutdown notifications
+//
+// Thread-safe: Uses mutex protection for concurrent access.
+func (o *model) CancelAdd(fct ...func()) {
+	for _, f := range fct {
+		if fct == nil {
+			continue
 		}
-	}
 
-	c.Stop()
+		o.seq.Add(1)
+		o.cnl.Store(o.seq.Load(), f)
+	}
 }
 
-func (c *configModel) getCancelCustom() []func() {
-	c.m.RLock()
-	defer c.m.RUnlock()
-	return c.fcnl
+// CancelClean removes all registered cancel functions.
+// This resets the cancellation handler list to empty.
+//
+// Typically used in testing or when reinitializing the configuration.
+// Does not affect components; only removes custom cancel handlers.
+//
+// Thread-safe: Uses mutex protection for concurrent access.
+func (o *model) CancelClean() {
+	o.cnl.Range(func(k uint64, _ context.CancelFunc) bool {
+		o.cnl.Delete(k)
+		return true
+	})
+}
+
+// cancel is the internal cancellation handler.
+// It executes all registered cancel functions and then stops all components.
+// Called automatically when the context is cancelled or Shutdown() is invoked.
+//
+// Execution order:
+//  1. Execute all registered cancel functions (from CancelAdd)
+//  2. Call Stop() to shutdown all components
+func (o *model) cancel() {
+	o.cnl.Range(func(k uint64, f context.CancelFunc) bool {
+		o.cnl.Delete(k)
+		f()
+		return true
+	})
+
+	o.Stop()
 }

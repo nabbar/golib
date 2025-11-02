@@ -1,5 +1,4 @@
-//go:build !linux
-// +build !linux
+//go:build !linux && !darwin
 
 /*
  * MIT License
@@ -27,8 +26,6 @@
  *
  */
 
-// this file is to prevent error on build with system not compatible with unix
-
 package unix
 
 import (
@@ -37,13 +34,21 @@ import (
 	libsck "github.com/nabbar/golib/socket"
 )
 
+// maxGID defines the maximum allowed Unix group ID value (32767).
 const maxGID = 32767
 
+// ServerUnix is a stub interface for non-Linux platforms.
+// On Linux, this interface extends libsck.Server with Unix socket-specific methods.
 type ServerUnix interface {
 	libsck.Server
+	// RegisterSocket would configure the Unix socket file path, permissions, and group.
+	// On non-Linux platforms, this is a no-op stub.
 	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
 }
 
+// New returns nil on non-Linux platforms.
+// Unix domain sockets are only supported on Linux.
+// On Linux systems, this creates a functional Unix socket server.
 func New(h libsck.Handler) ServerUnix {
 	return nil
 }

@@ -32,7 +32,6 @@ import (
 	"net/smtp"
 	"sync"
 
-	libctx "github.com/nabbar/golib/context"
 	montps "github.com/nabbar/golib/monitor/types"
 	smtpcf "github.com/nabbar/golib/smtp/config"
 	libver "github.com/nabbar/golib/version"
@@ -48,7 +47,7 @@ type SMTP interface {
 	Check(ctx context.Context) error
 	Send(ctx context.Context, from string, to []string, data io.WriterTo) error
 
-	Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error)
+	Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error)
 }
 
 // New return a SMTP interface to operation negotiation with a SMTP server.
@@ -58,9 +57,10 @@ type SMTP interface {
 //   - net acceptable are : tcp4, tcp6, unix.
 func New(cfg smtpcf.SMTP, tlsConfig *tls.Config) (SMTP, error) {
 	if tlsConfig == nil {
-		/* #nosec */
-		//nolint #nosec
-		tlsConfig = &tls.Config{}
+		tlsConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS13,
+		}
 	}
 
 	if cfg == nil {

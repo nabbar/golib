@@ -27,17 +27,24 @@
 package pool
 
 import (
+	"context"
+
 	libtls "github.com/nabbar/golib/certificates"
-	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	libhtp "github.com/nabbar/golib/httpserver"
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	liblog "github.com/nabbar/golib/logger"
 )
 
+// Config is a slice of server configurations used to create a pool of servers.
+// It provides convenience methods for bulk operations on multiple server configurations.
 type Config []libhtp.Config
+
+// FuncWalkConfig is a callback function for iterating over server configurations.
+// Return true to continue iteration, false to stop.
 type FuncWalkConfig func(cfg libhtp.Config) bool
 
+// SetHandlerFunc registers the same handler function with all server configurations in the slice.
+// This is useful for setting a shared handler across multiple servers before pool creation.
 func (p Config) SetHandlerFunc(hdl srvtps.FuncHandler) {
 	for i, c := range p {
 		c.RegisterHandlerFunc(hdl)
@@ -45,6 +52,8 @@ func (p Config) SetHandlerFunc(hdl srvtps.FuncHandler) {
 	}
 }
 
+// SetDefaultTLS sets the default TLS configuration provider for all server configurations.
+// This allows servers to inherit a shared TLS configuration when needed.
 func (p Config) SetDefaultTLS(f libtls.FctTLSDefault) {
 	for i, c := range p {
 		c.SetDefaultTLS(f)
@@ -52,14 +61,28 @@ func (p Config) SetDefaultTLS(f libtls.FctTLSDefault) {
 	}
 }
 
-func (p Config) SetContext(f libctx.FuncContext) {
+// SetContext sets the context provider function for all server configurations.
+// This provides a shared context source for all servers in the configuration.
+func (p Config) SetContext(f context.Context) {
 	for i, c := range p {
 		c.SetContext(f)
 		p[i] = c
 	}
 }
 
-func (p Config) Pool(ctx libctx.FuncContext, hdl srvtps.FuncHandler, defLog liblog.FuncLog) (Pool, liberr.Error) {
+// Pool creates a new server pool from the configurations.
+// All configurations are validated and instantiated as servers in the pool.
+// Returns an error if any configuration is invalid or server creation fails.
+//
+// Parameters:
+//   - ctx: Context provider for server operations (can be nil)
+//   - hdl: Handler function for all servers (can be nil if already set on configs)
+//   - defLog: Default logger function (can be nil)
+//
+// Returns:
+//   - Pool: Initialized pool with all servers
+//   - error: Aggregated errors from server creation, nil if all succeed
+func (p Config) Pool(ctx context.Context, hdl srvtps.FuncHandler, defLog liblog.FuncLog) (Pool, error) {
 	var (
 		r = New(ctx, hdl)
 		e = ErrorPoolAdd.Error(nil)
@@ -79,6 +102,9 @@ func (p Config) Pool(ctx libctx.FuncContext, hdl srvtps.FuncHandler, defLog libl
 	return r, e
 }
 
+// Walk iterates over all configurations, calling the provided function for each.
+// Iteration stops if the callback returns false or all configurations have been processed.
+// Does nothing if the callback function is nil.
 func (p Config) Walk(fct FuncWalkConfig) {
 	if fct == nil {
 		return
@@ -91,6 +117,11 @@ func (p Config) Walk(fct FuncWalkConfig) {
 	}
 }
 
+// Validate validates all server configurations in the slice.
+// Returns an aggregated error containing all validation failures, or nil if all are valid.
+//
+// Returns:
+//   - error: Aggregated validation errors, nil if all configurations are valid
 func (p Config) Validate() error {
 	var e = ErrorPoolValidate.Error(nil)
 

@@ -28,87 +28,111 @@ package prometheus
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 	"time"
 
 	ginsdk "github.com/gin-gonic/gin"
 	librtr "github.com/nabbar/golib/router"
-	sdkpht "github.com/prometheus/client_golang/prometheus/promhttp"
+	librun "github.com/nabbar/golib/runner"
 )
 
-func (m *prom) getHandler() http.Handler {
-	m.m.RLock()
-	defer m.m.RUnlock()
-
-	if m.handle != nil {
-		return m.handle
-	}
-
-	return nil
-}
-
-func (m *prom) setHandler() {
-	m.m.Lock()
-	defer m.m.Unlock()
-
-	m.handle = sdkpht.Handler()
-}
-
-// Expose adds metric path to a given router.
-// The router can be different with the one passed to UseWithoutExposingEndpoint.
-// This allows to expose ginMet on different port.
+// Expose handles the /metrics endpoint for Prometheus scraping.
+// It serves the metrics in Prometheus text format.
+//
+// This method accepts a generic context and delegates to ExposeGin if
+// the context is a Gin context. This allows for flexible integration
+// with different routing frameworks.
+//
+// The metrics endpoint can be exposed on a different port or router than
+// the main application for security or organizational reasons.
+//
+// Example:
+//
+//	router.GET("/metrics", func(c *gin.Context) {
+//	    prm.Expose(c)
+//	})
 func (m *prom) Expose(ctx context.Context) {
 	if c, ok := ctx.(*ginsdk.Context); ok {
 		m.ExposeGin(c)
 	}
 }
 
-// ExposeGin is like Expose but dedicated to gin context struct.
+// ExposeGin is the Gin-specific metrics endpoint handler.
+// It serves metrics in Prometheus text format for scraping by Prometheus server.
+//
+// This handler uses the standard prometheus/promhttp handler to generate
+// the metrics output in the format expected by Prometheus.
+//
+// Example:
+//
+//	// Simple setup
+//	router.GET("/metrics", prm.ExposeGin)
+//
+//	// With authentication
+//	metrics := router.Group("/")
+//	metrics.Use(authMiddleware)
+//	metrics.GET("/metrics", prm.ExposeGin)
 func (m *prom) ExposeGin(c *ginsdk.Context) {
-	if h := m.getHandler(); h != nil {
-		h.ServeHTTP(c.Writer, c.Request)
-		return
-	}
-
-	m.setHandler()
-	if h := m.getHandler(); h != nil {
-		h.ServeHTTP(c.Writer, c.Request)
-		return
-	}
-
-	_ = c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("cannot initiate prometheus handler"))
-	return
+	defer librun.RecoveryCaller("golib/prometheus/ExposeGin", recover())
+	m.hdl.ServeHTTP(c.Writer, c.Request)
 }
 
-// GinHandlerFunc adds metric path to a given router.
-// The router can be different with the one passed to UseWithoutExposingEndpoint.
-// This allows to expose ginMet on different port.
+// MiddleWareGin is the Gin-specific middleware for Prometheus metric collection.
+//
+// The middleware performs the following operations:
+//  1. Captures request start time (if not already set by another middleware)
+//  2. Captures request path including query parameters
+//  3. Calls c.Next() to execute the remaining handlers in the chain
+//  4. After the request completes, triggers metric collection (unless path is excluded)
+//
+// The start time and request path are stored in the Gin context using constants
+// from the router package (GinContextStartUnixNanoTime and GinContextRequestPath).
+//
+// Thread-safe: Can be used concurrently by multiple goroutines handling different requests.
+//
+// Example:
+//
+//	router := gin.Default()
+//	router.Use(gin.HandlerFunc(prm.MiddleWareGin))
+//
+//	// Or with method call
+//	router.Use(prm.MiddleWareGin)
 func (m *prom) MiddleWareGin(c *ginsdk.Context) {
+	defer librun.RecoveryCaller("golib/prometheus/MiddleWareGin", recover())
 	if c.GetInt64(librtr.GinContextStartUnixNanoTime) == 0 {
 		c.Set(librtr.GinContextStartUnixNanoTime, time.Now().UnixNano())
 	}
 
 	path := c.GetString(librtr.GinContextRequestPath)
-	if path == "" {
+	if len(path) < 1 {
 		path = c.Request.URL.Path
 		if raw := c.Request.URL.RawQuery; len(raw) > 0 {
 			path += "?" + raw
 		}
-	}
-
-	if m.isExclude(c.Request.URL.Path) {
-		return
+		c.Set(librtr.GinContextRequestPath, path)
 	}
 
 	// execute normal process.
 	c.Next()
 
+	if m.isExclude(c.Request.URL.Path) {
+		return
+	}
+
 	// after request
 	m.Collect(c)
 }
 
-// MiddleWare as gin monitor middleware.
+// MiddleWare is a generic middleware handler for metric collection.
+// It accepts a context and delegates to MiddleWareGin if the context is a Gin context.
+//
+// This method provides a context-agnostic interface for middleware integration,
+// allowing the same code to work with different context types.
+//
+// Example:
+//
+//	router.Use(func(c *gin.Context) {
+//	    prm.MiddleWare(c)
+//	})
 func (m *prom) MiddleWare(ctx context.Context) {
 	if c, ok := ctx.(*ginsdk.Context); !ok {
 		return

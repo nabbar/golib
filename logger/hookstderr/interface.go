@@ -33,6 +33,7 @@ import (
 
 	"github.com/mattn/go-colorable"
 	logcfg "github.com/nabbar/golib/logger/config"
+	loghkw "github.com/nabbar/golib/logger/hookwriter"
 	logtps "github.com/nabbar/golib/logger/types"
 	"github.com/sirupsen/logrus"
 )
@@ -41,33 +42,25 @@ type HookStdErr interface {
 	logtps.Hook
 }
 
+// New returns a new HookStdErr with the given options.
+// If opt is nil, or opt.DisableStandard is true, it will return nil.
+// If len(lvls) is less than 1, it will use all levels.
+// If opt.DisableColor is true, it will use os.Stderr, otherwise it will use a colorable stderr.
+// It will return nil and an error if there is an issue creating the HookStdErr.
 func New(opt *logcfg.OptionsStd, lvls []logrus.Level, f logrus.Formatter) (HookStdErr, error) {
+	return NewWithWriter(nil, opt, lvls, f)
+}
+
+func NewWithWriter(w io.Writer, opt *logcfg.OptionsStd, lvls []logrus.Level, f logrus.Formatter) (HookStdErr, error) {
+	if w == nil {
+		w = os.Stderr
+	}
+
 	if opt == nil || opt.DisableStandard {
 		return nil, nil
+	} else if opt.DisableColor {
+		w = colorable.NewColorableStdout()
 	}
 
-	if len(lvls) < 1 {
-		lvls = logrus.AllLevels
-	}
-
-	var w io.Writer
-
-	if opt.DisableColor {
-		w = os.Stderr
-	} else {
-		w = colorable.NewColorableStderr()
-	}
-
-	n := &hkerr{
-		w: w,
-		l: lvls,
-		f: f,
-		s: opt.DisableStack,
-		d: opt.DisableTimestamp,
-		t: opt.EnableTrace,
-		c: opt.DisableColor,
-		a: opt.EnableAccessLog,
-	}
-
-	return n, nil
+	return loghkw.New(w, opt, lvls, f)
 }

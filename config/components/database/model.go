@@ -27,41 +27,40 @@
 package database
 
 import (
-	"sync"
-	"time"
+	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	libdbs "github.com/nabbar/golib/database/gorm"
-	montps "github.com/nabbar/golib/monitor/types"
+	libdur "github.com/nabbar/golib/duration"
 )
 
-type componentDatabase struct {
-	m  sync.RWMutex
+type mod struct {
 	x  libctx.Config[uint8]
-	li bool
-	ls time.Duration
-	d  libdbs.Database
-	p  montps.FuncPool
+	li *atomic.Bool                  // ignore Record Not Found
+	ls libatm.Value[libdur.Duration] // slowThreshold
+	d  libatm.Value[libdbs.Database]
+	r  *atomic.Bool // is running
 }
 
-func (o *componentDatabase) SetLogOptions(ignoreRecordNotFoundError bool, slowThreshold time.Duration) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.li = ignoreRecordNotFoundError
-	o.ls = slowThreshold
+func (o *mod) SetLogOptions(ignoreRecordNotFoundError bool, slowThreshold libdur.Duration) {
+	o.li.Store(ignoreRecordNotFoundError)
+	o.ls.Store(slowThreshold)
 }
 
-func (o *componentDatabase) SetDatabase(db libdbs.Database) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.d = db
+func (o *mod) SetDatabase(db libdbs.Database) {
+	if db != nil {
+		o.d.Store(db)
+		o.r.Store(true)
+	} else {
+		o.r.Store(false)
+	}
 }
 
-func (o *componentDatabase) GetDatabase() libdbs.Database {
-	o.m.RLock()
-	defer o.m.RUnlock()
+func (o *mod) GetDatabase() libdbs.Database {
+	if o.r.Load() {
+		return o.d.Load()
+	}
 
-	return o.d
+	return nil
 }

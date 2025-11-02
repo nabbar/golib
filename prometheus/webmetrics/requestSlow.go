@@ -40,6 +40,73 @@ import (
 	librtr "github.com/nabbar/golib/router"
 )
 
+// MetricRequestSlow creates a Histogram metric that tracks requests exceeding a configured
+// slow request threshold, providing insights into performance issues.
+//
+// # Metric Type
+//
+// Histogram - Although named "total", this is implemented as a histogram to track the
+// distribution of slow requests. It increments only for requests exceeding the threshold.
+//
+// # Metric Name
+//
+// {prefix}_request_slow_total (e.g., "gin_request_slow_total")
+//
+// # Labels
+//
+//   - uri: The route pattern (e.g., "/api/users/:id")
+//   - method: HTTP method (GET, POST, etc.)
+//   - code: HTTP status code
+//
+// # Use Cases
+//
+//   - Identify consistently slow endpoints
+//   - Monitor SLA/SLO compliance
+//   - Detect performance regressions
+//   - Prioritize optimization efforts
+//   - Alert on degraded performance
+//
+// # Dashboard Queries
+//
+//	// Slow requests per second by endpoint
+//	sum by(uri) (rate(gin_request_slow_total_count[5m]))
+//
+//	// Percentage of slow requests
+//	sum(rate(gin_request_slow_total_count[5m])) / sum(rate(gin_request_total[5m])) * 100
+//
+//	// Endpoints with most slow requests
+//	topk(5, sum by(uri) (rate(gin_request_slow_total_count[5m])))
+//
+//	// Slow requests by status code
+//	sum by(code) (rate(gin_request_slow_total_count[5m]))
+//
+// # Slow Request Threshold
+//
+// The threshold for what constitutes a "slow" request is configured via the Prometheus
+// instance's GetSlowTime() method. The threshold is evaluated dynamically on each request,
+// allowing runtime adjustments.
+//
+// # Prerequisites
+//
+// Requires that the Gin middleware sets the GinContextStartUnixNanoTime value in the
+// context before request processing begins.
+//
+// # Parameters
+//
+//   - prefixName: The prefix for the metric name. If empty, defaults to "gin"
+//   - fct: Function that returns the Prometheus instance (used to get slow time threshold and duration buckets)
+//
+// # Returns
+//
+//   - A configured Metric instance, or nil if fct is nil or returns nil
+//
+// # Example
+//
+//	pool := prometheus.GetPool()
+//	metric := webmetrics.MetricRequestSlow("myapp", func() prometheus.Prometheus { return prm })
+//	if metric != nil {
+//	    pool.Add(metric)
+//	}
 func MetricRequestSlow(prefixName string, fct libprm.FuncGetPrometheus) prmmet.Metric {
 	var (
 		met prmmet.Metric
@@ -53,7 +120,7 @@ func MetricRequestSlow(prefixName string, fct libprm.FuncGetPrometheus) prmmet.M
 	}
 
 	met = prmmet.NewMetrics(getDefaultPrefix(prefixName, "request_slow_total"), prmtps.Histogram)
-	met.SetDesc(fmt.Sprintf("the server handled slow requests counter, t=%d.", prm.GetSlowTime()))
+	met.SetDesc(fmt.Sprintf("Requests exceeding slow threshold (threshold: %ds)", prm.GetSlowTime()))
 	met.AddLabel("uri", "method", "code")
 	met.AddBuckets(prm.GetDuration()...)
 	met.SetCollect(func(ctx context.Context, m prmmet.Metric) {

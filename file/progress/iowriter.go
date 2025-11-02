@@ -32,23 +32,23 @@ import (
 )
 
 func (o *progress) Write(p []byte) (n int, err error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
-	return o.analyze(o.fos.Write(p))
+	return o.analyze(o.f.Write(p))
 }
 
 func (o *progress) WriteAt(p []byte, off int64) (n int, err error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
-	return o.analyze(o.fos.WriteAt(p, off))
+	return o.analyze(o.f.WriteAt(p, off))
 }
 
 func (o *progress) WriteTo(w io.Writer) (n int64, err error) {
-	if o == nil || w == nil || o.fos == nil {
+	if o == nil || w == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
@@ -64,7 +64,7 @@ func (o *progress) WriteTo(w io.Writer) (n int64, err error) {
 
 		// code from io.copy
 
-		nr, er = o.fos.Read(bf)
+		nr, er = o.f.Read(bf)
 
 		if nr > 0 {
 			nw, ew = w.Write(bf[:nr])
@@ -96,9 +96,9 @@ func (o *progress) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (o *progress) WriteString(s string) (n int, err error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
-	return o.analyze(o.fos.WriteString(s))
+	return o.analyze(o.f.WriteString(s))
 }

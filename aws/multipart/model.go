@@ -32,14 +32,13 @@ import (
 
 	sdksss "github.com/aws/aws-sdk-go-v2/service/s3"
 	sdktyp "github.com/aws/aws-sdk-go-v2/service/s3/types"
-	libctx "github.com/nabbar/golib/context"
 	libfpg "github.com/nabbar/golib/file/progress"
 	libsiz "github.com/nabbar/golib/size"
 )
 
 type mpu struct {
 	m sync.RWMutex
-	x libctx.FuncContext
+	x context.Context
 	c FuncClientS3
 	s libsiz.Size            // part size
 	i string                 // upload id
@@ -55,7 +54,7 @@ type mpu struct {
 	fa func(nPart int, obj string, e error) // on abort
 }
 
-func (m *mpu) RegisterContext(fct libctx.FuncContext) {
+func (m *mpu) RegisterContext(ctx context.Context) {
 	if m == nil {
 		return
 	}
@@ -63,7 +62,7 @@ func (m *mpu) RegisterContext(fct libctx.FuncContext) {
 	m.m.Lock()
 	defer m.m.Unlock()
 
-	m.x = fct
+	m.x = ctx
 }
 
 func (m *mpu) getContext() context.Context {
@@ -76,10 +75,8 @@ func (m *mpu) getContext() context.Context {
 
 	if m.x == nil {
 		return context.Background()
-	} else if x := m.x(); x == nil {
-		return context.Background()
 	} else {
-		return x
+		return m.x
 	}
 }
 

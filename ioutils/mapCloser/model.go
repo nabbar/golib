@@ -37,17 +37,21 @@ import (
 	libctx "github.com/nabbar/golib/context"
 )
 
+// closer is the internal implementation of the Closer interface.
+// It uses atomic operations for thread-safe counter and state management.
 type closer struct {
-	c *atomic.Bool
-	f func() // Context Func Cancel
-	i *atomic.Uint64
-	x libctx.Config[uint64]
+	c *atomic.Bool          // Closed flag
+	f func()                // Context cancel function
+	i *atomic.Uint64        // Counter for registered closers
+	x libctx.Config[uint64] // Storage for closers indexed by counter
 }
 
+// idx returns the current counter value.
 func (o *closer) idx() uint64 {
 	return o.i.Load()
 }
 
+// idxInc increments the counter and returns the new value.
 func (o *closer) idxInc() uint64 {
 	o.i.Add(1)
 	return o.idx()
@@ -103,6 +107,8 @@ func (o *closer) Len() int {
 	}
 }
 
+// Len64 returns the counter as uint64 without overflow protection.
+// Not exported - use Len() for public API.
 func (o *closer) Len64() uint64 {
 	return o.idx()
 }
@@ -139,7 +145,7 @@ func (o *closer) Clone() Closer {
 		c: c,
 		f: o.f,
 		i: i,
-		x: o.x.Clone(nil),
+		x: o.x.Clone(nil), // nolint
 	}
 }
 

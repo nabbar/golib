@@ -28,18 +28,26 @@ package bar
 
 import "time"
 
+// Deadline implements context.Context interface.
+// Returns the deadline from the underlying semaphore context.
 func (o *bar) Deadline() (deadline time.Time, ok bool) {
 	return o.s.Deadline()
 }
 
+// Done implements context.Context interface.
+// Returns a channel that's closed when the underlying semaphore context is cancelled.
 func (o *bar) Done() <-chan struct{} {
 	return o.s.Done()
 }
 
+// Err implements context.Context interface.
+// Returns the error from the underlying semaphore context.
 func (o *bar) Err() error {
 	return o.s.Err()
 }
 
+// Value implements context.Context interface.
+// Returns the value associated with key from the underlying semaphore context.
 func (o *bar) Value(key any) any {
 	return o.s.Value(key)
 }

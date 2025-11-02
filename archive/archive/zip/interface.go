@@ -37,15 +37,18 @@ type readerSize interface {
 	Size() int64
 }
 
-type readerSeek interface {
-	io.Seeker
-}
-
 type readerAt interface {
 	io.ReadCloser
 	io.ReaderAt
 }
 
+// NewReader will create a new Reader from the given io.ReadCloser.
+// It will check if the given io.ReadCloser implements readerSize, readerAt and io.Seeker.
+// If one of the interface is not implemented, the function will return an error.
+// If the size of the given io.ReadCloser is equal or less than 0, the function will return an error.
+// If the seek to the beginning of the given io.ReadCloser fails, the function will return an error.
+// If the creation of the zip.Reader fails, the function will return an error.
+// Otherwise, the function will return a new Reader with the given io.ReadCloser and the created zip.Reader.
 func NewReader(r io.ReadCloser) (arctps.Reader, error) {
 	if s, k := r.(readerSize); !k {
 		return nil, fs.ErrInvalid
@@ -67,6 +70,10 @@ func NewReader(r io.ReadCloser) (arctps.Reader, error) {
 	}
 }
 
+// NewWriter will create a new Writer from the given io.WriteCloser.
+// It will return a new Writer with the given io.WriteCloser and the created zip.Writer.
+// If the creation of the zip.Writer fails, the function will return an error.
+// Otherwise, the function will return a new Writer with the given io.WriteCloser and the created zip.Writer.
 func NewWriter(w io.WriteCloser) (arctps.Writer, error) {
 	return &wrt{
 		w: w,

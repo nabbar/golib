@@ -27,12 +27,12 @@
 package gorm
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
 	libval "github.com/go-playground/validator/v10"
-	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	loggrm "github.com/nabbar/golib/logger/gorm"
@@ -103,7 +103,7 @@ type Config struct {
 
 	//@TODO : implement logger options with new logger
 
-	ctx  libctx.FuncContext
+	ctx  context.Context
 	flog func() gorlog.Interface
 }
 
@@ -139,7 +139,7 @@ func (c *Config) RegisterGORMLogger(fct FuncGormLog) {
 	c.flog = fct
 }
 
-func (c *Config) RegisterContext(fct libctx.FuncContext) {
+func (c *Config) RegisterContext(fct context.Context) {
 	c.ctx = fct
 }
 
@@ -183,7 +183,7 @@ func (c *Config) New(cfg *gormdb.Config) (*gormdb.DB, liberr.Error) {
 	}
 
 	if c.ctx != nil {
-		o.WithContext(c.ctx())
+		o.WithContext(c.ctx)
 	}
 
 	if c.EnableConnectionPool {

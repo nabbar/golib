@@ -38,6 +38,70 @@ import (
 	librtr "github.com/nabbar/golib/router"
 )
 
+// MetricRequestLatency creates a Histogram metric that measures the time taken to process
+// HTTP requests, providing detailed latency distribution per endpoint.
+//
+// # Metric Type
+//
+// Histogram - Captures the distribution of request durations with configurable buckets.
+// Provides _sum, _count, and _bucket metrics for calculating percentiles and averages.
+//
+// # Metric Name
+//
+// {prefix}_request_duration (e.g., "gin_request_duration")
+//
+// # Labels
+//
+//   - uri: The route pattern (e.g., "/api/users/:id")
+//
+// # Use Cases
+//
+//   - Monitor request latency distribution
+//   - Calculate latency percentiles (p50, p90, p95, p99)
+//   - Identify slow endpoints requiring optimization
+//   - Set SLO/SLA targets for response times
+//   - Detect performance degradation over time
+//
+// # Dashboard Queries
+//
+//	// 95th percentile latency by endpoint
+//	histogram_quantile(0.95, sum by(uri, le) (rate(gin_request_duration_bucket[5m])))
+//
+//	// Average request duration
+//	rate(gin_request_duration_sum[5m]) / rate(gin_request_duration_count[5m])
+//
+//	// Slowest endpoints (p99 latency)
+//	topk(5, histogram_quantile(0.99, sum by(uri, le) (rate(gin_request_duration_bucket[5m]))))
+//
+//	// Requests exceeding 500ms SLA
+//	sum(rate(gin_request_duration_bucket{le="0.5"}[5m])) / sum(rate(gin_request_duration_count[5m]))
+//
+// # Histogram Buckets
+//
+// Uses the duration buckets configured in the Prometheus instance (typically exponential
+// buckets covering microseconds to seconds).
+//
+// # Prerequisites
+//
+// Requires that the Gin middleware sets the GinContextStartUnixNanoTime value in the
+// context before request processing begins.
+//
+// # Parameters
+//
+//   - prefixName: The prefix for the metric name. If empty, defaults to "gin"
+//   - fct: Function that returns the Prometheus instance (used to get duration buckets)
+//
+// # Returns
+//
+//   - A configured Metric instance, or nil if fct is nil or returns nil
+//
+// # Example
+//
+//	pool := prometheus.GetPool()
+//	metric := webmetrics.MetricRequestLatency("myapp", func() prometheus.Prometheus { return prm })
+//	if metric != nil {
+//	    pool.Add(metric)
+//	}
 func MetricRequestLatency(prefixName string, fct libprm.FuncGetPrometheus) prmmet.Metric {
 	var (
 		met prmmet.Metric
@@ -51,7 +115,7 @@ func MetricRequestLatency(prefixName string, fct libprm.FuncGetPrometheus) prmme
 	}
 
 	met = prmmet.NewMetrics(getDefaultPrefix(prefixName, "request_duration"), prmtps.Histogram)
-	met.SetDesc("the time server took to handle the request.")
+	met.SetDesc("HTTP request latency distribution in seconds")
 	met.AddLabel("uri")
 	met.AddBuckets(prm.GetDuration()...)
 	met.SetCollect(func(ctx context.Context, m prmmet.Metric) {
@@ -72,8 +136,4 @@ func MetricRequestLatency(prefixName string, fct libprm.FuncGetPrometheus) prmme
 	})
 
 	return met
-}
-
-func collectRequestLatency(ctx context.Context, m prmmet.Metric) {
-
 }

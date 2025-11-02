@@ -30,15 +30,11 @@ import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
-	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentLog) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -50,10 +46,7 @@ func (o *componentLog) _getKey() string {
 	}
 }
 
-func (o *componentLog) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -65,7 +58,7 @@ func (o *componentLog) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentLog) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -75,7 +68,7 @@ func (o *componentLog) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentLog) _getSPFViper() *spfvbr.Viper {
+func (o *mod) _getSPFViper() *spfvbr.Viper {
 	if f := o._getViper(); f == nil {
 		return nil
 	} else if v := f.Viper(); v == nil {
@@ -85,37 +78,7 @@ func (o *componentLog) _getSPFViper() *spfvbr.Viper {
 	}
 }
 
-func (o *componentLog) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentLog) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if i, l := o.x.Load(keyCptVersion); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if v, k := i.(libver.Version); !k {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentLog) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -123,10 +86,7 @@ func (o *componentLog) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	}
 }
 
-func (o *componentLog) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -138,7 +98,7 @@ func (o *componentLog) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentLog) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -146,7 +106,7 @@ func (o *componentLog) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *componentLog) _runCli() error {
+func (o *mod) _runCli() error {
 	var (
 		e   error
 		err error
@@ -157,29 +117,23 @@ func (o *componentLog) _runCli() error {
 	if !o.IsStarted() {
 		prt = ErrorStartLog
 
-		o.m.Lock()
-
-		o.l = liblog.New(o.x.GetContext)
-		o.l.SetLevel(o.v)
-
-		o.m.Unlock()
+		l := liblog.New(o.x)
+		l.SetLevel(o.GetLevel())
+		o.setLog(l)
 	}
 
 	if cfg, err = o._getConfig(); err != nil {
 		return ErrorParamInvalid.Error(err)
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if e = o.l.SetOptions(cfg); e != nil {
+	if e = o.SetOptions(cfg); e != nil {
 		return prt.Error(e)
 	}
 
 	return nil
 }
 
-func (o *componentLog) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

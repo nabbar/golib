@@ -42,6 +42,11 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// TransportConfig defines HTTP transport configuration options.
+// This structure provides fine-grained control over HTTP transport behavior
+// including connection pooling, timeouts, and protocol features.
+//
+// All fields support JSON, YAML, TOML, and Viper configuration through struct tags.
 type TransportConfig struct {
 	Proxy     *url.URL       `json:"proxy,omitempty" yaml:"proxy,omitempty" toml:"proxy,omitempty" mapstructure:"proxy,omitempty"`
 	TLSConfig *libtls.Config `json:"tls-config,omitempty" yaml:"tls-config,omitempty" toml:"tls-config,omitempty" mapstructure:"tls-config,omitempty"`
@@ -62,6 +67,11 @@ type TransportConfig struct {
 	TimeoutResponseHeader libdur.Duration `json:"timeout-response-header,omitempty" yaml:"timeout-response-headern,omitempty" toml:"timeout-response-header,omitempty" mapstructure:"timeout-response-header,omitempty"`
 }
 
+// Config holds the complete DNS mapper configuration.
+// This structure combines DNS hostname mappings with HTTP transport settings
+// and cache management options.
+//
+// All fields support JSON, YAML, TOML, and Viper configuration through struct tags.
 type Config struct {
 	DNSMapper  map[string]string `json:"dns-mapper,omitempty" yaml:"dns-mapper,omitempty" toml:"dns-mapper,omitempty" mapstructure:"dns-mapper,omitempty"`
 	TimerClean libdur.Duration   `json:"timer-clean,omitempty" yaml:"timer-clean,omitempty" toml:"timer-clean,omitempty" mapstructure:"timer-clean,omitempty"`
@@ -69,6 +79,26 @@ type Config struct {
 	TLSConfig  *tls.Config       `json:"tls-config,omitempty" yaml:"tls-config,omitempty" toml:"tls-config,omitempty" mapstructure:"tls-config,omitempty"`
 }
 
+// DefaultConfig generates a default DNS mapper configuration in JSON format.
+// The returned configuration includes sensible defaults for all settings and
+// can be used as a template for custom configurations.
+//
+// Parameters:
+//   - indent: String to use for JSON indentation (e.g., "  " for 2 spaces)
+//
+// Returns a byte slice containing the JSON-formatted default configuration.
+//
+// Default settings include:
+//   - Example DNS mapping (localhost → 127.0.0.1)
+//   - 3-minute cache cleanup interval
+//   - 50 max idle connections
+//   - 30-second timeouts
+//   - HTTP/2 enabled
+//
+// Example:
+//
+//	config := DefaultConfig("  ")
+//	fmt.Println(string(config))
 func DefaultConfig(indent string) []byte {
 	var (
 		res = bytes.NewBuffer(make([]byte, 0))
@@ -102,6 +132,22 @@ func DefaultConfig(indent string) []byte {
 	}
 }
 
+// Validate checks if the Config is valid according to struct tag constraints.
+// It uses the validator package to verify all fields meet their specified requirements.
+//
+// Returns a liberr.Error containing all validation errors, or nil if validation succeeds.
+// The error includes detailed information about which fields failed validation.
+//
+// Example:
+//
+//	cfg := Config{
+//	    DNSMapper: map[string]string{
+//	        "api.example.com:443": "192.168.1.100:8443",
+//	    },
+//	}
+//	if err := cfg.Validate(); err != nil {
+//	    log.Fatal("Invalid configuration:", err)
+//	}
 func (o Config) Validate() liberr.Error {
 	var e = ErrorValidatorError.Error(nil)
 
@@ -123,6 +169,26 @@ func (o Config) Validate() liberr.Error {
 	return e
 }
 
+// New creates a new DNSMapper instance from this configuration.
+// This is a convenience method that calls the package-level New function
+// with this configuration.
+//
+// Parameters:
+//   - ctx: Context for lifecycle management and cancellation
+//   - fct: Function to retrieve root CA certificates for TLS (nil will use empty function)
+//   - msg: Callback function for messages/logging (nil will use no-op function)
+//
+// Returns a fully initialized DNSMapper instance based on this configuration.
+//
+// Example:
+//
+//	cfg := Config{
+//	    DNSMapper: map[string]string{
+//	        "api.example.com:443": "192.168.1.100:8443",
+//	    },
+//	}
+//	mapper := cfg.New(context.Background(), nil, nil)
+//	defer mapper.Close()
 func (o Config) New(ctx context.Context, fct libtls.FctRootCACert, msg FuncMessage) DNSMapper {
 	return New(ctx, &o, fct, msg)
 }

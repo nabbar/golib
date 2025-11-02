@@ -31,8 +31,12 @@ import (
 	"io"
 )
 
+// FuncClose is an optional custom close function that is called when a wrapper is closed.
+// It allows for additional cleanup logic beyond the default reset behavior.
 type FuncClose func() error
 
+// Buffer is a wrapper around bytes.Buffer that implements io.Closer.
+// It provides all the standard buffer interfaces with automatic reset on close.
 type Buffer interface {
 	io.Reader
 	io.ReaderFrom
@@ -45,11 +49,15 @@ type Buffer interface {
 	io.Closer
 }
 
-// @deprecated use NewBuffer instead of New
+// New creates a new Buffer from a bytes.Buffer without a custom close function.
+// Deprecated: use NewBuffer instead of New.
 func New(b *bytes.Buffer) Buffer {
 	return NewBuffer(b, nil)
 }
 
+// NewBuffer creates a new Buffer from a bytes.Buffer and an optional
+// FuncClose. If FuncClose is not nil, it is called when the Buffer is
+// closed.
 func NewBuffer(b *bytes.Buffer, fct FuncClose) Buffer {
 	return &buf{
 		b: b,
@@ -57,12 +65,17 @@ func NewBuffer(b *bytes.Buffer, fct FuncClose) Buffer {
 	}
 }
 
+// Reader is a wrapper around bufio.Reader that implements io.Closer.
+// It provides read operations with automatic reset on close.
 type Reader interface {
 	io.Reader
 	io.WriterTo
 	io.Closer
 }
 
+// NewReader creates a new Reader from a bufio.Reader and an optional
+// FuncClose. If FuncClose is not nil, it is called when the Reader is
+// closed.
 func NewReader(b *bufio.Reader, fct FuncClose) Reader {
 	return &rdr{
 		b: b,
@@ -70,6 +83,8 @@ func NewReader(b *bufio.Reader, fct FuncClose) Reader {
 	}
 }
 
+// Writer is a wrapper around bufio.Writer that implements io.Closer.
+// It provides write operations with automatic flush and reset on close.
 type Writer interface {
 	io.Writer
 	io.StringWriter
@@ -77,6 +92,9 @@ type Writer interface {
 	io.Closer
 }
 
+// NewWriter creates a new Writer from a bufio.Writer and an optional
+// FuncClose. If FuncClose is not nil, it is called when the Writer is
+// closed.
 func NewWriter(b *bufio.Writer, fct FuncClose) Writer {
 	return &wrt{
 		b: b,
@@ -84,11 +102,21 @@ func NewWriter(b *bufio.Writer, fct FuncClose) Writer {
 	}
 }
 
+// ReadWriter is a wrapper around bufio.ReadWriter that implements io.Closer.
+// It combines Reader and Writer interfaces with automatic flush on close.
+// Note: Reset is not called on close due to ambiguous method in bufio.ReadWriter.
 type ReadWriter interface {
 	Reader
 	Writer
 }
 
+// NewReadWriter creates a new ReadWriter from a bufio.ReadWriter and an optional
+// FuncClose. If FuncClose is not nil, it is called when the ReadWriter is closed.
+//
+// The ReadWriter implements both Reader and Writer interfaces, providing bidirectional
+// buffered I/O with automatic flush on close. Note that Reset cannot be called on
+// close due to the ambiguous Reset method in bufio.ReadWriter (both Reader and Writer
+// have Reset methods).
 func NewReadWriter(b *bufio.ReadWriter, fct FuncClose) ReadWriter {
 	return &rwt{
 		b: b,

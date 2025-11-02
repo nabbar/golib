@@ -38,7 +38,6 @@ func (o *logger) Close() error {
 	if o != nil && o.hasCloser() {
 		o.switchCloser(nil)
 	}
-
 	return nil
 }
 

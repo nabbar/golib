@@ -70,8 +70,15 @@ type OptionsFile struct {
 type OptionsFiles []OptionsFile
 
 func (o OptionsFile) Clone() OptionsFile {
+	// Deep copy LogLevel slice
+	var logLevel []string
+	if o.LogLevel != nil {
+		logLevel = make([]string, len(o.LogLevel))
+		copy(logLevel, o.LogLevel)
+	}
+
 	return OptionsFile{
-		LogLevel:         o.LogLevel,
+		LogLevel:         logLevel,
 		Filepath:         o.Filepath,
 		Create:           o.Create,
 		CreatePath:       o.CreatePath,
@@ -81,6 +88,7 @@ func (o OptionsFile) Clone() OptionsFile {
 		DisableTimestamp: o.DisableTimestamp,
 		EnableTrace:      o.EnableTrace,
 		EnableAccessLog:  o.EnableAccessLog,
+		FileBufferSize:   o.FileBufferSize,
 	}
 }
 

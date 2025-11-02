@@ -27,6 +27,7 @@
 package aws
 
 import (
+	"context"
 	"sync/atomic"
 
 	libaws "github.com/nabbar/golib/aws"
@@ -36,7 +37,7 @@ import (
 	libhtc "github.com/nabbar/golib/httpcli"
 )
 
-type ComponentAws interface {
+type CptAws interface {
 	cfgtps.Component
 
 	GetAws() libaws.AWS
@@ -45,8 +46,8 @@ type ComponentAws interface {
 	RegisterHTTPClient(cli libhtc.HttpClient)
 }
 
-func New(ctx libctx.FuncContext, drv ConfigDriver) ComponentAws {
-	return &componentAws{
+func New(ctx context.Context, drv ConfigDriver) CptAws {
+	return &mod{
 		x: libctx.NewConfig[uint8](ctx),
 		d: drv,
 		p: new(atomic.Value),
@@ -57,18 +58,20 @@ func New(ctx libctx.FuncContext, drv ConfigDriver) ComponentAws {
 	}
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentAws) {
+func Register(cfg libcfg.Config, key string, cpt CptAws) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, drv ConfigDriver, key string) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, drv ConfigDriver, key string) {
 	cfg.ComponentSet(key, New(ctx, drv))
 }
 
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentAws {
-	if c := getCpt(key); c == nil {
+func Load(getCpt cfgtps.FuncCptGet, key string) CptAws {
+	if getCpt == nil {
 		return nil
-	} else if h, ok := c.(ComponentAws); !ok {
+	} else if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(CptAws); !ok {
 		return nil
 	} else {
 		return h

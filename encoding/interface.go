@@ -24,12 +24,62 @@
  *
  */
 
+// Package encoding provides a unified Coder interface for encoding and decoding operations.
+//
+// This package defines the Coder interface which is implemented by various sub-packages
+// for different encoding/decoding operations including encryption, hashing, hex encoding,
+// multiplexing, and more.
+//
+// Sub-packages:
+//   - aes: AES-256-GCM authenticated encryption
+//   - hexa: Hexadecimal encoding and decoding
+//   - mux: Multiplexing/demultiplexing for multi-channel communication
+//   - randRead: Buffered random data reader from remote sources
+//   - sha256: SHA-256 cryptographic hashing
+//
+// The Coder interface provides:
+//   - Direct byte slice encoding/decoding
+//   - Streaming operations via io.Reader and io.Writer
+//   - State management with Reset()
+//
+// Example usage:
+//
+//	import (
+//	    enchex "github.com/nabbar/golib/encoding/hexa"
+//	    encsha "github.com/nabbar/golib/encoding/sha256"
+//	)
+//
+//	// Hex encoding
+//	hexCoder := enchex.New()
+//	encoded := hexCoder.Encode([]byte("Hello"))
+//	decoded, _ := hexCoder.Decode(encoded)
+//
+//	// SHA-256 hashing
+//	hasher := encsha.New()
+//	hash := hasher.Encode([]byte("data"))
+//
+// All implementations follow the same interface pattern, making it easy to swap
+// between different encoding schemes.
 package encoding
 
 import (
 	"io"
 )
 
+// Coder is the unified interface for encoding and decoding operations.
+//
+// This interface is implemented by all encoding sub-packages (aes, hexa, mux, sha256)
+// to provide a consistent API for encoding/decoding operations with both direct byte
+// slice manipulation and streaming I/O support.
+//
+// Implementations:
+//   - aes.New(): AES-256-GCM encryption/decryption
+//   - hexa.New(): Hexadecimal encoding/decoding
+//   - sha256.New(): SHA-256 hashing (Decode not applicable)
+//   - mux.NewChannel(): Channel writer (multiplexing)
+//
+// Thread safety depends on the implementation. Refer to specific sub-package
+// documentation for concurrency guarantees.
 type Coder interface {
 	// Encode encodes the given byte slice.
 	//
