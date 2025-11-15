@@ -27,9 +27,10 @@
 package request
 
 import (
+	"context"
+
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
-	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -51,11 +52,11 @@ const (
 	keyFctMonitorPool
 )
 
-func (o *componentRequest) Type() string {
+func (o *mod) Type() string {
 	return ComponentType
 }
 
-func (o *componentRequest) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
+func (o *mod) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -63,37 +64,37 @@ func (o *componentRequest) Init(key string, ctx libctx.FuncContext, get cfgtps.F
 	o.x.Store(keyCptLogger, log)
 }
 
-func (o *componentRequest) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctStaBef, before)
 	o.x.Store(keyFctStaAft, after)
 }
 
-func (o *componentRequest) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctRelBef, before)
 	o.x.Store(keyFctRelAft, after)
 }
 
-func (o *componentRequest) IsStarted() bool {
+func (o *mod) IsStarted() bool {
 	return o.getRequest() != nil
 }
 
-func (o *componentRequest) IsRunning() bool {
+func (o *mod) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentRequest) Start() error {
+func (o *mod) Start() error {
 	return o._run()
 }
 
-func (o *componentRequest) Reload() error {
+func (o *mod) Reload() error {
 	return o._run()
 }
 
-func (o *componentRequest) Stop() {
+func (o *mod) Stop() {
 	o.setRequest(nil)
 }
 
-func (o *componentRequest) Dependencies() []string {
+func (o *mod) Dependencies() []string {
 	var def = []string{cpttls.ComponentType}
 
 	if o == nil {
@@ -113,7 +114,7 @@ func (o *componentRequest) Dependencies() []string {
 	}
 }
 
-func (o *componentRequest) SetDependencies(d []string) error {
+func (o *mod) SetDependencies(d []string) error {
 	if o.x == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {
@@ -122,7 +123,7 @@ func (o *componentRequest) SetDependencies(d []string) error {
 	}
 }
 
-func (o *componentRequest) getLogger() liblog.Logger {
+func (o *mod) getLogger() liblog.Logger {
 	if i, l := o.x.Load(keyCptLogger); !l {
 		return nil
 	} else if v, k := i.(liblog.FuncLog); !k {

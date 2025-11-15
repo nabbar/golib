@@ -38,13 +38,7 @@ func (o *config) SetClientAuth(a tlsaut.ClientAuth) {
 }
 
 func (o *config) GetClientCA() []tlscas.Cert {
-	var res = make([]tlscas.Cert, 0)
-
-	for _, c := range o.clientCA {
-		res = append(res, c)
-	}
-
-	return res
+	return append(make([]tlscas.Cert, 0), o.clientCA...)
 }
 
 func (o *config) GetClientCAPool() *x509.CertPool {

@@ -24,8 +24,12 @@
  *
  */
 
+// Package _const provides constants used throughout the config package.
 package _const
 
 const (
+	// JSONIndent specifies the indentation string for JSON formatting.
+	// Used by DefaultConfig() when generating configuration files.
+	// Set to two spaces for readable, standard-compliant JSON output.
 	JSONIndent = "  "
 )

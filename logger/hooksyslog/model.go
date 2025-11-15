@@ -31,10 +31,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	libptc "github.com/nabbar/golib/network/protocol"
-
 	logtps "github.com/nabbar/golib/logger/types"
-
+	libptc "github.com/nabbar/golib/network/protocol"
 	"github.com/sirupsen/logrus"
 )
 
@@ -58,6 +56,7 @@ type hks struct {
 	s *atomic.Value // channel stop struct{}
 	d *atomic.Value // channel data []byte
 	o ohks          // config data
+	r *atomic.Bool  // running status
 }
 
 func (o *hks) Levels() []logrus.Level {

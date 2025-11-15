@@ -33,15 +33,24 @@ import (
 	monsts "github.com/nabbar/golib/monitor/status"
 )
 
+// timeCache is the default cache duration for status computation.
+// Status is recomputed only if the cached value is older than this duration.
 const timeCache = 3 * time.Second
 
+// ch is the internal cache structure for storing computed status.
+// It uses atomic operations for thread-safe access without locks.
 type ch struct {
-	m *atomic.Int32
-	t *atomic.Value
-	c *atomic.Int64
-	f func() monsts.Status
+	m *atomic.Int32        // Maximum cache duration in seconds
+	t *atomic.Value        // Last computation time (time.Time)
+	c *atomic.Int64        // Cached status value (as int64)
+	f func() monsts.Status // Function to compute fresh status
 }
 
+// Max returns the maximum cache duration.
+// If a custom duration is set (via configuration), it's used.
+// Otherwise, returns the default timeCache (3 seconds).
+//
+// Returns the cache duration as time.Duration.
 func (o *ch) Max() time.Duration {
 	if m := o.m.Load(); m > 0 {
 		return time.Duration(m) * time.Second
@@ -50,6 +59,10 @@ func (o *ch) Max() time.Duration {
 	}
 }
 
+// Time returns the timestamp of the last status computation.
+// Returns zero time if no computation has been performed yet.
+//
+// Returns the last computation time as time.Time.
 func (o *ch) Time() time.Time {
 	if t := o.t.Load(); t != nil {
 		return t.(time.Time)
@@ -58,6 +71,17 @@ func (o *ch) Time() time.Time {
 	}
 }
 
+// IsCache returns the cached status if still valid, or computes a fresh status.
+// The cache is considered valid if:
+//   - A previous computation exists (Time() is not zero)
+//   - The time since last computation is less than Max() duration
+//
+// If the cache is invalid or doesn't exist, it calls the registered function
+// to compute a fresh status and updates the cache.
+//
+// This method is thread-safe and uses atomic operations.
+//
+// Returns the current status (cached or freshly computed).
 func (o *ch) IsCache() monsts.Status {
 	if t := o.Time(); !t.IsZero() && time.Since(t) < o.Max() {
 		r := o.c.Load()
@@ -66,7 +90,7 @@ func (o *ch) IsCache() monsts.Status {
 
 	if o.f != nil {
 		c := o.f()
-		o.c.Store(c.Int())
+		o.c.Store(c.Int64())
 
 		t := time.Now()
 		o.t.Store(t)

@@ -27,19 +27,12 @@
 package tls
 
 import (
-	"fmt"
-
 	libtls "github.com/nabbar/golib/certificates"
 	cfgtps "github.com/nabbar/golib/config/types"
-	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
-	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentTls) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -51,10 +44,7 @@ func (o *componentTls) _getKey() string {
 	}
 }
 
-func (o *componentTls) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -66,7 +56,7 @@ func (o *componentTls) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentTls) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -76,47 +66,7 @@ func (o *componentTls) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentTls) _getSPFViper() *spfvbr.Viper {
-	if f := o._getViper(); f == nil {
-		return nil
-	} else if v := f.Viper(); v == nil {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentTls) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentTls) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if i, l := o.x.Load(keyCptVersion); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if v, k := i.(libver.Version); !k {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentTls) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -124,10 +74,7 @@ func (o *componentTls) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	}
 }
 
-func (o *componentTls) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -139,7 +86,7 @@ func (o *componentTls) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentTls) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -147,38 +94,36 @@ func (o *componentTls) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *componentTls) _runCli() error {
+func (o *mod) _runCli() error {
 	var (
-		err error
-		prt = ErrorComponentReload
-		tls libtls.TLSConfig
-		cfg *libtls.Config
+		e error
+		p = ErrorComponentReload
+		t libtls.TLSConfig
+		c *libtls.Config
 	)
 
 	if !o.IsStarted() {
-		prt = ErrorComponentStart
+		p = ErrorComponentStart
 	}
 
-	if cfg, err = o._getConfig(); err != nil {
-		return prt.Error(err)
-	} else if tls = cfg.New(); tls == nil {
-		return prt.Error(fmt.Errorf("cannot use tls config for new instance"))
+	if c, e = o._getConfig(); e != nil {
+		return p.Error(e)
 	} else if o.f != nil {
 		if v := o.f(); v != nil && v.Len() > 0 {
-			tls.AddRootCA(v)
+			t.AddRootCA(v)
 		}
 	}
 
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.t = tls
-	o.c = cfg
+	o.c.Store(func() *libtls.Config {
+		return c
+	})
+	o.t.Store(c.NewFrom(nil))
+	o.r.Store(true)
 
 	return nil
 }
 
-func (o *componentTls) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

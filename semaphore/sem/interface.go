@@ -24,6 +24,8 @@
  *
  */
 
+// Package sem provides semaphore implementations for controlling concurrent goroutine execution.
+// It offers two strategies: weighted semaphores (with limits) and WaitGroup-based (unlimited).
 package sem
 
 import (
@@ -35,10 +37,17 @@ import (
 	goxsem "golang.org/x/sync/semaphore"
 )
 
+// MaxSimultaneous returns the maximum number of concurrent goroutines
+// based on GOMAXPROCS.
 func MaxSimultaneous() int {
 	return runtime.GOMAXPROCS(0)
 }
 
+// SetSimultaneous calculates the actual simultaneous limit based on the requested value.
+// Returns:
+//   - MaxSimultaneous() if n < 1
+//   - MaxSimultaneous() if n > MaxSimultaneous()
+//   - n otherwise
 func SetSimultaneous(n int) int64 {
 	m := MaxSimultaneous()
 	if n < 1 {
@@ -50,6 +59,19 @@ func SetSimultaneous(n int) int64 {
 	}
 }
 
+// New creates a new semaphore instance.
+//
+// The behavior depends on nbrSimultaneous:
+//   - == 0: Uses MaxSimultaneous() as the limit (weighted semaphore)
+//   - > 0: Uses the provided value as the limit (weighted semaphore)
+//   - < 0: No limit, uses WaitGroup instead of semaphore
+//
+// Parameters:
+//   - ctx: Parent context for cancellation
+//   - nbrSimultaneous: Number of concurrent workers allowed
+//
+// Returns:
+//   - Sem: A semaphore instance implementing the Sem interface
 func New(ctx context.Context, nbrSimultaneous int) semtps.Sem {
 	var (
 		x context.Context

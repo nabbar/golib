@@ -34,11 +34,11 @@ import (
 	spfcbr "github.com/spf13/cobra"
 )
 
-func (o *componentHead) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentHead) _getConfig() (*librtr.HeadersConfig, error) {
+func (o *mod) _getConfig() (*librtr.HeadersConfig, error) {
 	var (
 		key string
 		cfg librtr.HeadersConfig

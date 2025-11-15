@@ -28,7 +28,10 @@ package http
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
+	"time"
 
 	libtls "github.com/nabbar/golib/certificates"
 	cpttls "github.com/nabbar/golib/config/components/tls"
@@ -36,13 +39,9 @@ import (
 	htpool "github.com/nabbar/golib/httpserver/pool"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
-	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentHttp) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -54,10 +53,7 @@ func (o *componentHttp) _getKey() string {
 	}
 }
 
-func (o *componentHttp) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -69,7 +65,7 @@ func (o *componentHttp) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentHttp) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -79,20 +75,7 @@ func (o *componentHttp) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentHttp) _getSPFViper() *spfvbr.Viper {
-	if f := o._getViper(); f == nil {
-		return nil
-	} else if v := f.Viper(); v == nil {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentHttp) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctCpt() cfgtps.FuncCptGet {
 	if i, l := o.x.Load(keyFctGetCpt); !l {
 		return nil
 	} else if i == nil {
@@ -104,17 +87,7 @@ func (o *componentHttp) _getFctCpt() cfgtps.FuncCptGet {
 	}
 }
 
-func (o *componentHttp) _getContext() context.Context {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.x.GetContext()
-}
-
-func (o *componentHttp) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getVersion() libver.Version {
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -126,15 +99,10 @@ func (o *componentHttp) _getVersion() libver.Version {
 	}
 }
 
-func (o *componentHttp) _GetTLS() libtls.TLSConfig {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.t == "" {
+func (o *mod) _GetTLS() libtls.TLSConfig {
+	if t := o.t.Load(); len(t) < 1 {
 		return nil
-	}
-
-	if i := cpttls.Load(o._getFctCpt(), o.t); i == nil {
+	} else if i := cpttls.Load(o._getFctCpt(), t); i == nil {
 		return nil
 	} else if tls := i.GetTLS(); tls == nil {
 		return nil
@@ -143,18 +111,15 @@ func (o *componentHttp) _GetTLS() libtls.TLSConfig {
 	}
 }
 
-func (o *componentHttp) _GetHandler() map[string]http.Handler {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.h == nil {
-		return nil
+func (o *mod) _GetHandler() map[string]http.Handler {
+	if h := o.h.Load(); h == nil {
+		return make(map[string]http.Handler)
 	} else {
-		return o.h()
+		return h()
 	}
 }
 
-func (o *componentHttp) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -162,10 +127,7 @@ func (o *componentHttp) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	}
 }
 
-func (o *componentHttp) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -177,7 +139,7 @@ func (o *componentHttp) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentHttp) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -185,7 +147,7 @@ func (o *componentHttp) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *componentHttp) _runCli() error {
+func (o *mod) _runCli() error {
 	var (
 		e   error
 		err error
@@ -202,37 +164,41 @@ func (o *componentHttp) _runCli() error {
 		return prt.Error(err)
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if pol, err = cfg.Pool(o.x.GetContext, o._GetHandler, o.getLogger); err != nil {
+	if pol, err = cfg.Pool(o.x, o._GetHandler, o.getLogger); err != nil {
 		return prt.Error(err)
-	}
-
-	if o.s != nil && o.s.Len() > 0 {
-		if e = o.s.Merge(pol, o.getLogger); e != nil {
-			return prt.Error(e)
-		}
+	} else if s := o.s.Load(); s == nil || s.Len() == 0 {
+		o.s.Store(pol)
+	} else if e = s.Merge(pol, o.getLogger); e != nil {
+		return prt.Error(e)
 	} else {
-		o.m.RUnlock()
-		o.m.Lock()
-		o.s = pol
-		o.m.Unlock()
-		o.m.RLock()
+		o.s.Store(s)
 	}
 
-	if e = o.s.Restart(o.x.GetContext()); e != nil {
+	s := o.s.Load()
+	if s == nil || s.Len() == 0 {
+		return prt.Error(ErrorComponentNotInitialized.Error())
+	} else if s.IsRunning() {
+		tm, cn := context.WithTimeout(o.x.GetContext(), 5*time.Second)
+		defer cn()
+		_ = s.Stop(tm)
+	}
+
+	tm, cn := context.WithTimeout(o.x.GetContext(), 5*time.Second)
+	defer cn()
+	e = s.Start(tm)
+
+	if e != nil && errors.Is(e, tm.Err()) {
+		return prt.Error(fmt.Errorf("timed out on starting server"))
+	} else if e != nil {
 		return prt.Error(e)
 	}
 
-	// Implement wait notify on main call
-	//o.s.StopWaitNotify()
-	//o.s.StartWaitNotify(o.x.GetContext())
+	o.s.Store(s)
 
 	return o._registerMonitor(prt)
 }
 
-func (o *componentHttp) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

@@ -32,11 +32,74 @@ import (
 	libsck "github.com/nabbar/golib/socket"
 )
 
+// ServerTcp defines the interface for a TCP server implementation.
+// It extends the base github.com/nabbar/golib/socket.Server interface
+// with TCP-specific functionality.
+//
+// The server supports:
+//   - TLS/SSL encryption via SetTLS()
+//   - Graceful shutdown with connection draining
+//   - Callback registration for connection events, errors, and server info
+//   - Atomic state management for thread-safe operations
+//
+// See github.com/nabbar/golib/socket.Server for inherited methods:
+//   - Listen(context.Context) error - Start accepting connections
+//   - Shutdown(context.Context) error - Graceful shutdown
+//   - Close() error - Immediate shutdown
+//   - IsRunning() bool - Check if server is accepting connections
+//   - IsGone() bool - Check if all connections are closed
+//   - OpenConnections() int64 - Get current connection count
+//   - Done() <-chan struct{} - Channel closed when server stops listening
+//   - SetTLS(bool, TLSConfig) error - Configure TLS
+//   - RegisterFuncError(FuncError) - Register error callback
+//   - RegisterFuncInfo(FuncInfo) - Register connection info callback
+//   - RegisterFuncInfoServer(FuncInfoSrv) - Register server info callback
 type ServerTcp interface {
 	libsck.Server
+
+	// RegisterServer sets the TCP address for the server to listen on.
+	// The address must be in the format "host:port" or ":port" to bind to all interfaces.
+	//
+	// Example addresses:
+	//   - "127.0.0.1:8080" - Listen on localhost port 8080
+	//   - ":8080" - Listen on all interfaces port 8080
+	//   - "0.0.0.0:8080" - Explicitly listen on all IPv4 interfaces
+	//
+	// This method must be called before Listen(). Returns ErrInvalidAddress
+	// if the address is empty or malformed.
 	RegisterServer(address string) error
 }
 
+// New creates a new TCP server instance.
+//
+// Parameters:
+//   - u: Optional UpdateConn callback invoked when a new connection is accepted,
+//     before the handler is called. Can be used to set connection options
+//     (e.g., TCP keepalive, buffer sizes). Pass nil if not needed.
+//   - h: Required Handler function that processes each connection.
+//     Receives Reader and Writer interfaces for the connection.
+//     The handler runs in its own goroutine per connection.
+//
+// The returned server must have RegisterServer() called to set the listen address
+// before calling Listen().
+//
+// Example usage:
+//
+//	handler := func(r socket.Reader, w socket.Writer) {
+//	    defer r.Close()
+//	    defer w.Close()
+//	    io.Copy(w, r) // Echo server
+//	}
+//
+//	srv := tcp.New(nil, handler)
+//	srv.RegisterServer(":8080")
+//	srv.Listen(context.Background())
+//
+// The server is safe for concurrent use and manages connection lifecycle,
+// including graceful shutdown and connection draining.
+//
+// See github.com/nabbar/golib/socket.Handler and socket.UpdateConn for
+// callback function signatures.
 func New(u libsck.UpdateConn, h libsck.Handler) ServerTcp {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))

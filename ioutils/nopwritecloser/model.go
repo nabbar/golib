@@ -27,14 +27,18 @@ package nopwritecloser
 
 import "io"
 
+// wrp is the internal implementation of the WriteCloser wrapper.
 type wrp struct {
-	w io.Writer
+	w io.Writer // Underlying writer for delegation
 }
 
+// Write delegates to the underlying writer.
 func (o *wrp) Write(p []byte) (n int, err error) {
 	return o.w.Write(p)
 }
 
+// Close is a no-operation that always returns nil.
+// The underlying writer is NOT closed.
 func (o *wrp) Close() error {
 	return nil
 }

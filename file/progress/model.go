@@ -34,7 +34,8 @@ import (
 )
 
 type progress struct {
-	fos *os.File
+	r *os.Root
+	f *os.File
 
 	b *atomic.Int32
 
@@ -63,15 +64,15 @@ func (o *progress) getBufferSize(size int) int {
 }
 
 func (o *progress) Path() string {
-	return filepath.Clean(o.fos.Name())
+	return filepath.Clean(o.f.Name())
 }
 
 func (o *progress) Stat() (os.FileInfo, error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return nil, ErrorNilPointer.Error(nil)
 	}
 
-	if i, e := o.fos.Stat(); e != nil {
+	if i, e := o.f.Stat(); e != nil {
 		return i, ErrorIOFileStat.Error(e)
 	} else {
 		return i, nil
@@ -79,7 +80,7 @@ func (o *progress) Stat() (os.FileInfo, error) {
 }
 
 func (o *progress) SizeBOF() (size int64, err error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
@@ -87,7 +88,7 @@ func (o *progress) SizeBOF() (size int64, err error) {
 }
 
 func (o *progress) SizeEOF() (size int64, err error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
@@ -109,20 +110,20 @@ func (o *progress) SizeEOF() (size int64, err error) {
 }
 
 func (o *progress) Truncate(size int64) error {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return ErrorNilPointer.Error(nil)
 	}
 
-	e := o.fos.Truncate(size)
+	e := o.f.Truncate(size)
 	o.reset()
 
 	return e
 }
 
 func (o *progress) Sync() error {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return ErrorNilPointer.Error(nil)
 	}
 
-	return o.fos.Sync()
+	return o.f.Sync()
 }

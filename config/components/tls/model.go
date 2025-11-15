@@ -27,37 +27,47 @@
 package tls
 
 import (
-	"sync"
+	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
 	libctx "github.com/nabbar/golib/context"
 )
 
-type componentTls struct {
-	m sync.RWMutex
+type mod struct {
 	x libctx.Config[uint8]
-	t libtls.TLSConfig
-	c *libtls.Config
+	t libatm.Value[libtls.TLSConfig]
+	c libatm.Value[func() *libtls.Config]
 	f libtls.FctRootCACert
+	r *atomic.Bool
 }
 
-func (o *componentTls) Config() *libtls.Config {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	return o.c
+func (o *mod) Config() *libtls.Config {
+	if f := o.c.Load(); f == nil {
+		return nil
+	} else if c := f(); c == nil {
+		return nil
+	} else {
+		v := *c
+		return &v
+	}
 }
 
-func (o *componentTls) GetTLS() libtls.TLSConfig {
-	o.m.Lock()
-	defer o.m.Unlock()
+func (o *mod) GetTLS() libtls.TLSConfig {
+	if t := o.t.Load(); t != nil {
+		return t.Clone()
+	}
 
-	return o.t
+	return nil
 }
 
-func (o *componentTls) SetTLS(tls libtls.TLSConfig) {
-	o.m.Lock()
-	defer o.m.Unlock()
+func (o *mod) SetTLS(t libtls.TLSConfig) {
+	if t == nil {
+		o.r.Store(false)
+		t = libtls.New()
+	} else {
+		o.r.Store(true)
+	}
 
-	o.t = tls
+	o.t.Store(t)
 }

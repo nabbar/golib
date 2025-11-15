@@ -34,21 +34,53 @@ import (
 	artcli "github.com/nabbar/golib/artifact/client"
 )
 
+// NewArtifactory creates a JFrog Artifactory artifact client using the Storage API.
+// Version extraction is performed via regex matching on artifact file names.
+//
+// Parameters:
+//   - ctx: Request context for API calls
+//   - Do: HTTP client Do function (e.g., http.Client.Do) for custom authentication/transport
+//   - uri: Artifactory base URL (e.g., "https://artifactory.example.com")
+//   - releaseRegex: Regex pattern to match artifacts and extract versions (must have at least one capture group)
+//   - releaseGroup: Capture group index (1-based) that contains the version string
+//   - reposPath: Repository path segments (e.g., "repo-name", "path", "to", "artifacts")
+//
+// The regex pattern must include a capture group for version extraction:
+//   - Pattern: `myapp-(\d+\.\d+\.\d+)\.tar\.gz` extracts "1.2.3" from "myapp-1.2.3.tar.gz"
+//   - Pattern: `release-v(\d+\.\d+\.\d+)-linux\.zip` extracts "2.1.0" from "release-v2.1.0-linux.zip"
+//
+// Returns a client implementing the artifact.Client interface for:
+//   - Listing releases by scanning repository files
+//   - Version extraction via regex
+//   - Direct artifact downloads
+//
+// Example:
+//
+//	ctx := context.Background()
+//	httpClient := &http.Client{}
+//	client, err := NewArtifactory(
+//	    ctx,
+//	    httpClient.Do,
+//	    "https://artifactory.example.com",
+//	    `myapp-(\d+\.\d+\.\d+)\.tar\.gz`,  // Regex with version capture
+//	    1,                                   // Group 1 contains version
+//	    "releases", "myapp",                 // Path: releases/myapp/
+//	)
 func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Response, error), uri, releaseRegex string, releaseGroup int, reposPath ...string) (libart.Client, error) {
 	if u, e := url.Parse(uri); e != nil {
 		return nil, ErrorURLParse.Error(e)
 	} else {
-		a := &artifactoryModel{
-			ClientHelper: artcli.ClientHelper{},
-			Do:           Do,
-			ctx:          ctx,
-			endpoint:     u,
-			path:         reposPath,
-			group:        releaseGroup,
-			regex:        releaseRegex,
+		a := &art{
+			Helper:   artcli.Helper{},
+			Do:       Do,
+			ctx:      ctx,
+			endpoint: u,
+			path:     reposPath,
+			group:    releaseGroup,
+			regex:    releaseRegex,
 		}
-
-		a.ClientHelper.F = a.ListReleases
+		// no more needed
+		//a.Helper.F = a.ListReleases
 
 		return a, nil
 	}

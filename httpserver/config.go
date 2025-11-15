@@ -35,7 +35,6 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	libtls "github.com/nabbar/golib/certificates"
-	libctx "github.com/nabbar/golib/context"
 	libdur "github.com/nabbar/golib/duration"
 	srvtps "github.com/nabbar/golib/httpserver/types"
 	liblog "github.com/nabbar/golib/logger"
@@ -80,7 +79,7 @@ type Config struct {
 	getTLSDefault libtls.FctTLSDefault
 
 	//private
-	getParentContext libctx.FuncContext
+	getParentContext context.Context
 
 	//private
 	getHandlerFunc srvtps.FuncHandler
@@ -184,6 +183,8 @@ type Config struct {
 	Logger logcfg.Options `mapstructure:"logger" json:"logger" yaml:"logger" toml:"logger"`
 }
 
+// Clone creates a deep copy of the Config structure.
+// All fields are copied, including function pointers.
 func (c *Config) Clone() Config {
 	return Config{
 		Disabled:                     c.Disabled,
@@ -223,42 +224,47 @@ func (c *Config) Clone() Config {
 	}
 }
 
+// RegisterHandlerFunc registers a handler function that provides HTTP handlers.
+// The function should return a map of handler keys to http.Handler instances.
 func (c *Config) RegisterHandlerFunc(hdl srvtps.FuncHandler) {
 	c.getHandlerFunc = hdl
 }
 
+// SetDefaultTLS registers a function that provides default TLS configuration.
+// This is used when TLS.InheritDefault is enabled.
 func (c *Config) SetDefaultTLS(f libtls.FctTLSDefault) {
 	c.getTLSDefault = f
 }
 
-func (c *Config) SetContext(f libctx.FuncContext) {
+// SetContext registers a function that provides the parent context for the server.
+// The context is used for lifecycle management and cancellation.
+func (c *Config) SetContext(f context.Context) {
 	c.getParentContext = f
 }
 
-func (c *Config) GetTLS() (libtls.TLSConfig, error) {
+// GetTLS returns the TLS configuration for the server.
+// If InheritDefault is true, it merges with the default TLS configuration.
+func (c *Config) GetTLS() libtls.TLSConfig {
 	var def libtls.TLSConfig
 
 	if c.TLS.InheritDefault && c.getTLSDefault != nil {
 		def = c.getTLSDefault()
 	}
 
-	if cfg := c.TLS.NewFrom(def); cfg != nil {
-		return cfg, nil
-	}
-
-	return nil, fmt.Errorf("no tls configuration found")
+	return c.TLS.NewFrom(def)
 }
 
+// CheckTLS validates the TLS configuration and returns it if valid.
+// Returns an error if no certificates are defined.
 func (c *Config) CheckTLS() (libtls.TLSConfig, error) {
-	if ssl, err := c.GetTLS(); err != nil {
-		return nil, err
-	} else if ssl == nil || ssl.LenCertificatePair() < 1 {
+	if ssl := c.GetTLS(); ssl.LenCertificatePair() < 1 {
 		return nil, ErrorServerValidate.Error(fmt.Errorf("not certificates defined"))
 	} else {
 		return ssl, nil
 	}
 }
 
+// IsTLS returns true if the server has a valid TLS configuration.
 func (c *Config) IsTLS() bool {
 	if _, err := c.CheckTLS(); err == nil {
 		return true
@@ -267,20 +273,8 @@ func (c *Config) IsTLS() bool {
 	return false
 }
 
-func (c *Config) context() context.Context {
-	var ctx context.Context
-
-	if c.getParentContext != nil {
-		ctx = c.getParentContext()
-	}
-
-	if ctx == nil {
-		return context.Background()
-	}
-
-	return ctx
-}
-
+// GetListen parses and returns the listen address as a URL.
+// Returns nil if the address is invalid.
 func (c *Config) GetListen() *url.URL {
 	var (
 		err error
@@ -308,6 +302,8 @@ func (c *Config) GetListen() *url.URL {
 	return add
 }
 
+// GetExpose parses and returns the expose address as a URL.
+// Falls back to the listen address with appropriate scheme if not set.
 func (c *Config) GetExpose() *url.URL {
 	var (
 		err error
@@ -333,10 +329,14 @@ func (c *Config) GetExpose() *url.URL {
 	return add
 }
 
+// GetHandlerKey returns the handler key for this server configuration.
+// Returns empty string if no specific key is set (uses default handler).
 func (c *Config) GetHandlerKey() string {
 	return c.HandlerKey
 }
 
+// Validate checks if the configuration is valid according to struct tag constraints.
+// Returns an error describing all validation failures, or nil if valid.
 func (c *Config) Validate() error {
 	err := ErrorServerValidate.Error(nil)
 
@@ -359,6 +359,8 @@ func (c *Config) Validate() error {
 
 }
 
+// Server creates a new HTTP server instance from this configuration.
+// This is a convenience method that calls the New function.
 func (c *Config) Server(defLog liblog.FuncLog) (Server, error) {
 	return New(*c, defLog)
 }
@@ -414,65 +416,47 @@ func (o *srv) SetConfig(cfg Config, defLog liblog.FuncLog) error {
 }
 
 func (o *srv) setLogger(def liblog.FuncLog, opt logcfg.Options) error {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	var (
-		l liblog.Logger
-		f = func() liblog.Logger {
-			return liblog.New(o.c.GetContext)
-		}
-	)
-
-	if def != nil {
-		if n := def(); n != nil {
-			l = n
-		}
+	if o == nil || o.l == nil {
+		return ErrorServerValidate.Error(nil)
 	}
 
-	if l == nil {
+	var (
+		f = o.l.Load()
+		l liblog.Logger
+	)
+
+	if f != nil {
 		l = f()
 	}
 
-	if e := l.SetOptions(&opt); e == nil {
-		o.l = func() liblog.Logger {
-			return l
+	if l == nil {
+		if def != nil {
+			l = def()
+		} else {
+			l = liblog.New(o.c)
 		}
-		return nil
-	} else if o.l == nil {
-		o.l = func() liblog.Logger {
-			return l
-		}
-		return e
-	} else {
-		return e
 	}
+
+	e := l.SetOptions(&opt)
+	l.SetFields(l.GetFields().Add("bind", o.GetBindable()))
+	o.l.Store(func() liblog.Logger {
+		return l
+	})
+	return e
 }
 
 func (o *srv) logger() liblog.Logger {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	var log liblog.Logger
-
-	if o.l != nil {
-		log = o.l()
-	} else {
-		log = liblog.New(o.c.GetContext)
-
-		o.m.RUnlock()
-		o.m.Lock()
-
-		o.l = func() liblog.Logger {
-			return log
-		}
-
-		o.m.Unlock()
-		o.m.RLock()
+	if o == nil || o.l == nil {
+		return liblog.New(o.c)
 	}
 
-	log.SetFields(log.GetFields().Add("bind", o.GetBindable()))
-	return log
+	if f := o.l.Load(); f != nil {
+		return f()
+	}
+
+	l := liblog.New(o.c)
+	l.SetFields(l.GetFields().Add("bind", o.GetBindable()))
+	return l
 }
 
 func (o *srv) cfgSetTLS(cfg *Config) error {

@@ -31,10 +31,9 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/nabbar/golib/smtp/network"
-	smtptp "github.com/nabbar/golib/smtp/tlsmode"
-
 	libtls "github.com/nabbar/golib/certificates"
+	libptc "github.com/nabbar/golib/network/protocol"
+	smtptp "github.com/nabbar/golib/smtp/tlsmode"
 )
 
 type smtpConfig struct {
@@ -43,7 +42,7 @@ type smtpConfig struct {
 	Port       int
 	User       string
 	Pass       string
-	Net        network.NetworkMode
+	Net        libptc.NetworkProtocol
 	TLS        smtptp.TLSMode
 	SkipVerify bool
 	ServerName string
@@ -83,11 +82,11 @@ func (c *smtpConfig) GetPass() string {
 	return c.Pass
 }
 
-func (c *smtpConfig) SetNet(mode network.NetworkMode) {
+func (c *smtpConfig) SetNet(mode libptc.NetworkProtocol) {
 	c.Net = mode
 }
 
-func (c *smtpConfig) GetNet() network.NetworkMode {
+func (c *smtpConfig) GetNet() libptc.NetworkProtocol {
 	return c.Net
 }
 

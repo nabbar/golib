@@ -1,5 +1,4 @@
 //go:build windows
-// +build windows
 
 /*
  * MIT License
@@ -33,11 +32,17 @@ import (
 )
 
 const (
-	//cf https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmaxstdio
-	winDefaultMaxStdio   = 512
+	// winDefaultMaxStdio is the default Windows C runtime limit for open files.
+	// Reference: https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/setmaxstdio
+	winDefaultMaxStdio = 512
+
+	// winHardLimitMaxStdio is the maximum limit supported by Windows C runtime.
 	winHardLimitMaxStdio = 8192
 )
 
+// systemFileDescriptor is the Windows implementation of SystemFileDescriptor.
+// It uses maxstdio.GetMaxStdio and maxstdio.SetMaxStdio to manage C runtime
+// file descriptor limits (max 8192).
 func systemFileDescriptor(newValue int) (current int, max int, err error) {
 	rLimit := maxstdio.GetMaxStdio()
 

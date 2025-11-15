@@ -27,29 +27,15 @@
 package certs
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"strconv"
 
 	"github.com/fxamacker/cbor/v2"
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
-
-func (o *Certif) unMarshall(p []byte) error {
-	if o.UnmarshalJSON(p) == nil {
-		return nil
-	} else if o.UnmarshalYAML(&yaml.Node{Value: string(p)}) == nil {
-		return nil
-	} else if o.UnmarshalTOML(p) == nil {
-		return nil
-	} else if o.UnmarshalCBOR(p) == nil {
-		return nil
-	} else if o.UnmarshalText(p) == nil {
-		return nil
-	}
-
-	return ErrInvalidCertificate
-}
 
 func (o *Certif) MarshalText() (text []byte, err error) {
 	return []byte(o.String()), err
@@ -100,7 +86,7 @@ func (o *Certif) MarshalJSON() ([]byte, error) {
 	return json.Marshal(cfg)
 }
 
-func (o *Certif) UnmarshalJSON(bytes []byte) error {
+func (o *Certif) UnmarshalJSON(p []byte) error {
 	var (
 		cfg ConfigPair
 		chn ConfigChain
@@ -108,9 +94,8 @@ func (o *Certif) UnmarshalJSON(bytes []byte) error {
 		err error
 	)
 
-	if err = json.Unmarshal(bytes, &cfg); err == nil && len(cfg.Key) > 0 && len(cfg.Pub) > 0 {
+	if err = json.Unmarshal(p, &cfg); err == nil && len(cfg.Key) > 0 && len(cfg.Pub) > 0 {
 		if crt, err = cfg.Cert(); err != nil {
-			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
@@ -118,9 +103,10 @@ func (o *Certif) UnmarshalJSON(bytes []byte) error {
 			o.c = *crt
 			return nil
 		}
-	} else if err = json.Unmarshal(bytes, &chn); err == nil && len(chn) > 0 {
+	}
+
+	if err = json.Unmarshal(p, &chn); err == nil && len(chn) > 0 {
 		if crt, err = chn.Cert(); err != nil {
-			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
@@ -130,26 +116,26 @@ func (o *Certif) UnmarshalJSON(bytes []byte) error {
 		}
 	}
 
+	p = bytes.TrimSpace(p)
+	p = bytes.Trim(p, "\"")
+	p = bytes.Replace(p, []byte("\\n"), []byte("\n"), -1) // nolint
+
+	if c, e := Parse(string(p)); e == nil {
+		*o = c.Model()
+		return nil
+	}
+
 	return ErrInvalidCertificate
 }
 
 func (o *Certif) MarshalYAML() (interface{}, error) {
-	var cfg any
-
 	if o == nil || o.g == nil {
 		return []byte(""), nil
-	} else if p := o.g.GetCerts(); len(p) == 1 {
-		cfg = ConfigChain(o.g.GetCerts()[0])
-	} else if len(p) == 2 {
-		cfg = ConfigPair{
-			Key: p[0],
-			Pub: p[1],
-		}
+	} else if p, e := o.Chain(); e != nil {
+		return nil, e
 	} else {
-		cfg = o.g
+		return "\"" + strconv.Quote(p) + "\"", nil
 	}
-
-	return yaml.Marshal(cfg)
 }
 
 func (o *Certif) UnmarshalYAML(value *yaml.Node) error {
@@ -163,7 +149,6 @@ func (o *Certif) UnmarshalYAML(value *yaml.Node) error {
 
 	if err = yaml.Unmarshal(src, &cfg); err == nil && len(cfg.Key) > 0 && len(cfg.Pub) > 0 {
 		if crt, err = cfg.Cert(); err != nil {
-			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
@@ -171,9 +156,10 @@ func (o *Certif) UnmarshalYAML(value *yaml.Node) error {
 			o.c = *crt
 			return nil
 		}
-	} else if err = yaml.Unmarshal(src, &chn); err == nil && len(chn) > 0 {
+	}
+
+	if err = yaml.Unmarshal(src, &chn); err == nil && len(chn) > 0 {
 		if crt, err = chn.Cert(); err != nil {
-			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {
 			return ErrInvalidPairCertificate
 		} else {
@@ -181,6 +167,15 @@ func (o *Certif) UnmarshalYAML(value *yaml.Node) error {
 			o.c = *crt
 			return nil
 		}
+	}
+
+	src = bytes.TrimSpace(src)
+	src = bytes.Trim(src, "\"")
+	src = bytes.Replace(src, []byte("\\n"), []byte("\n"), -1) // nolint
+
+	if c, e := Parse(string(src)); e == nil {
+		*o = c.Model()
+		return nil
 	}
 
 	return ErrInvalidCertificate
@@ -206,49 +201,46 @@ func (o *Certif) MarshalTOML() ([]byte, error) {
 }
 
 func (o *Certif) UnmarshalTOML(i interface{}) error {
-	var (
-		p []byte
-		s string
-		k bool
-	)
-
-	if p, k = i.([]byte); !k {
-		if s, k = i.(string); k {
-			p = []byte(s)
-		} else {
-			return ErrInvalidCertificate
+	if s, t := i.(map[string]interface{}); t {
+		m := make(map[string]string)
+		for n, v := range s {
+			if u, l := v.(string); l && len(u) > 0 {
+				m[n] = u
+			} else if w, l := v.([]byte); l && len(w) > 0 {
+				m[n] = string(w)
+			}
 		}
+		i = m
 	}
 
-	if len(p) < 1 {
-		return ErrInvalidCertificate
-	}
-
-	var (
-		cfg ConfigPair
-		chn ConfigChain
-		crt *tls.Certificate
-		err error
-	)
-
-	if err = toml.Unmarshal(p, &cfg); err == nil && len(cfg.Key) > 0 && len(cfg.Pub) > 0 {
-		if crt, err = cfg.Cert(); err != nil {
-			return err
-		} else if crt == nil || len(crt.Certificate) == 0 {
-			return ErrInvalidPairCertificate
-		} else {
-			o.g = &cfg
-			o.c = *crt
+	if m, k := i.(map[string]string); k && len(m) == 2 {
+		cfg := ConfigPair{
+			Key: m["key"],
+			Pub: m["pub"],
+		}
+		if c, e := cfg.Cert(); e == nil {
+			*o = Certif{
+				g: &cfg,
+				c: *c,
+			}
 			return nil
 		}
-	} else if err = toml.Unmarshal(p, &chn); err == nil && len(chn) > 0 {
-		if crt, err = chn.Cert(); err != nil {
-			return err
-		} else if crt == nil || len(crt.Certificate) == 0 {
-			return ErrInvalidPairCertificate
-		} else {
-			o.g = &chn
-			o.c = *crt
+	}
+
+	if p, k := i.(string); k && len(p) > 0 {
+		i = []byte(p)
+	}
+
+	if p, k := i.([]byte); k && len(p) > 0 {
+		p = bytes.TrimSpace(p)
+		p = bytes.Trim(p, "\"")
+		p = bytes.Replace(p, []byte("\\n"), []byte("\n"), -1) // nolint
+		if c, e := Parse(string(p)); e == nil {
+			*o = c.Model()
+			return nil
+		}
+		if c, e := Parse(string(p)); e == nil {
+			*o = c.Model()
 			return nil
 		}
 	}
@@ -293,7 +285,9 @@ func (o *Certif) UnmarshalCBOR(bytes []byte) error {
 			o.c = *crt
 			return nil
 		}
-	} else if err = cbor.Unmarshal(bytes, &chn); err == nil && len(chn) > 0 {
+	}
+
+	if err = cbor.Unmarshal(bytes, &chn); err == nil && len(chn) > 0 {
 		if crt, err = chn.Cert(); err != nil {
 			return err
 		} else if crt == nil || len(crt.Certificate) == 0 {

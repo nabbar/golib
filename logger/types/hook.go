@@ -37,6 +37,16 @@ import (
 type Hook interface {
 	logrus.Hook
 	io.WriteCloser
+	// RegisterHook registers the hook in the given logger.
+	// It does not return an error, as the hook is responsible for handling any errors itself.
+	//
+	// @param log The logger to register the hook in.
 	RegisterHook(log *logrus.Logger)
+	// Run runs the hook in a loop until the given context is canceled.
+	// The hook is responsible for checking if the context is canceled and returning when it is.
+	//
+	// @param ctx The context to check for cancellation.
 	Run(ctx context.Context)
+
+	IsRunning() bool
 }

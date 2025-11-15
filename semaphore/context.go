@@ -28,18 +28,26 @@ package semaphore
 
 import "time"
 
+// Deadline implements context.Context interface.
+// Returns the deadline from the underlying semaphore.
 func (o *sem) Deadline() (deadline time.Time, ok bool) {
 	return o.s.Deadline()
 }
 
+// Done implements context.Context interface.
+// Returns a channel that's closed when the context is cancelled.
 func (o *sem) Done() <-chan struct{} {
 	return o.s.Done()
 }
 
+// Err implements context.Context interface.
+// Returns the error if the context was cancelled.
 func (o *sem) Err() error {
 	return o.s.Err()
 }
 
+// Value implements context.Context interface.
+// Returns the value associated with the given key.
 func (o *sem) Value(key any) any {
 	return o.s.Value(key)
 }

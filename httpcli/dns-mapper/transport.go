@@ -106,10 +106,8 @@ func (o *dmp) getTransportTLS(cfg TransportConfig) *tls.Config {
 		ssl = libtls.New()
 		ssl.SetVersionMin(tls.VersionTLS12)
 		ssl.SetVersionMax(tls.VersionTLS13)
-	} else if ssl = cfg.TLSConfig.New(); ssl == nil {
-		ssl = libtls.New()
-		ssl.SetVersionMin(tls.VersionTLS12)
-		ssl.SetVersionMax(tls.VersionTLS13)
+	} else {
+		ssl = cfg.TLSConfig.New()
 	}
 
 	if v := o.f(); v != nil && v.Len() > 0 {

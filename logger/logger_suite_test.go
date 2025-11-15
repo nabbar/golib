@@ -30,8 +30,10 @@ package logger_test
 import (
 	"context"
 	"os"
+	"sync/atomic"
 	"testing"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libfpg "github.com/nabbar/golib/file/progress"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,6 +43,8 @@ import (
 var (
 	ctx context.Context
 	cnl context.CancelFunc
+	seq = new(atomic.Uint64)
+	fsl = libatm.NewMapTyped[uint64, string]()
 )
 
 /*
@@ -59,6 +63,10 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cnl()
+	fsl.Range(func(_ uint64, value string) bool {
+		Expect(DelTempFile(value)).ToNot(HaveOccurred())
+		return true
+	})
 })
 
 func GetContext() context.Context {
@@ -71,13 +79,17 @@ func GetTempFile() (string, error) {
 		return "", err
 	}
 
-	defer func() {
-		if hdf != nil {
-			_ = hdf.CloseDelete()
-		}
-	}()
+	// Close the file handle but keep the file for logger to use
+	// The file will be deleted by DelTempFile() in the defer
+	path := hdf.Path()
+	if err := hdf.Close(); err != nil {
+		return "", err
+	}
 
-	return hdf.Path(), nil
+	seq.Add(1)
+	fsl.Store(seq.Load(), path)
+
+	return path, nil
 }
 
 func DelTempFile(filepath string) error {

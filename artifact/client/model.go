@@ -31,11 +31,23 @@ import (
 	hscvrs "github.com/hashicorp/go-version"
 )
 
-type ClientHelper struct {
+// Helper wraps a function that returns version collections and provides
+// convenient methods for organizing, filtering, and retrieving versions.
+// This struct is embedded in all platform-specific implementations (GitHub, GitLab, JFrog, S3).
+//
+// Example usage:
+//
+//	h := &Helper{F: client.ListReleases}
+//	latest, err := h.GetLatest()          // Get latest overall version
+//	v2Latest, err := h.GetLatestMajor(2)  // Get latest v2.x.x version
+type Helper struct {
 	F func() (releases hscvrs.Collection, err error)
 }
 
-func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]hscvrs.Collection, err error) {
+// listReleasesOrderMajor organizes releases by major version number.
+// Returns a map where keys are major version numbers and values are collections of versions.
+// This is an internal helper method used by other organization methods.
+func (g *Helper) listReleasesOrderMajor() (releases map[int]hscvrs.Collection, err error) {
 	var (
 		vers hscvrs.Collection
 	)
@@ -57,7 +69,14 @@ func (g *ClientHelper) listReleasesOrderMajor() (releases map[int]hscvrs.Collect
 	return
 }
 
-func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]hscvrs.Collection, err error) {
+// ListReleasesOrder implements ArtHelper.ListReleasesOrder.
+// Returns a nested map structure organizing versions by major and minor version numbers.
+// Structure: map[major]map[minor]Collection
+//
+// Example:
+//
+//	{1: {0: [1.0.0, 1.0.1], 2: [1.2.0, 1.2.5]}, 2: {1: [2.1.3, 2.1.9]}}
+func (g *Helper) ListReleasesOrder() (releases map[int]map[int]hscvrs.Collection, err error) {
 	var (
 		vers map[int]hscvrs.Collection
 	)
@@ -85,7 +104,10 @@ func (g *ClientHelper) ListReleasesOrder() (releases map[int]map[int]hscvrs.Coll
 	return
 }
 
-func (g *ClientHelper) ListReleasesMajor(major int) (releases hscvrs.Collection, err error) {
+// ListReleasesMajor implements ArtHelper.ListReleasesMajor.
+// Returns all versions with the specified major version number, sorted in ascending order.
+// Returns an empty collection if the major version is not found.
+func (g *Helper) ListReleasesMajor(major int) (releases hscvrs.Collection, err error) {
 	var (
 		vers map[int]hscvrs.Collection
 	)
@@ -105,7 +127,11 @@ func (g *ClientHelper) ListReleasesMajor(major int) (releases hscvrs.Collection,
 	return
 }
 
-func (g *ClientHelper) ListReleasesMinor(major, minor int) (releases hscvrs.Collection, err error) {
+// ListReleasesMinor implements ArtHelper.ListReleasesMinor.
+// Returns all versions matching the specified major and minor version numbers.
+// The returned collection is sorted in ascending order.
+// Returns an empty collection if the major/minor combination is not found.
+func (g *Helper) ListReleasesMinor(major, minor int) (releases hscvrs.Collection, err error) {
 	var (
 		vers map[int]map[int]hscvrs.Collection
 	)
@@ -129,7 +155,11 @@ func (g *ClientHelper) ListReleasesMinor(major, minor int) (releases hscvrs.Coll
 	return
 }
 
-func (g *ClientHelper) GetLatest() (release *hscvrs.Version, err error) {
+// GetLatest implements ArtHelper.GetLatest.
+// Returns the highest version across all major and minor versions.
+// Determines the latest by finding the highest major version, then the highest minor
+// within that major, and finally the highest patch version.
+func (g *Helper) GetLatest() (release *hscvrs.Version, err error) {
 	var (
 		vers  map[int]map[int]hscvrs.Collection
 		major int
@@ -155,7 +185,11 @@ func (g *ClientHelper) GetLatest() (release *hscvrs.Version, err error) {
 	return g.GetLatestMinor(major, minor)
 }
 
-func (g *ClientHelper) GetLatestMajor(major int) (release *hscvrs.Version, err error) {
+// GetLatestMajor implements ArtHelper.GetLatestMajor.
+// Returns the highest version within the specified major version number.
+// First finds the highest minor version for the given major, then returns the
+// highest patch version within that major.minor combination.
+func (g *Helper) GetLatestMajor(major int) (release *hscvrs.Version, err error) {
 	var (
 		vers  map[int]map[int]hscvrs.Collection
 		minor int
@@ -178,7 +212,10 @@ func (g *ClientHelper) GetLatestMajor(major int) (release *hscvrs.Version, err e
 	return g.GetLatestMinor(major, minor)
 }
 
-func (g *ClientHelper) GetLatestMinor(major, minor int) (release *hscvrs.Version, err error) {
+// GetLatestMinor implements ArtHelper.GetLatestMinor.
+// Returns the highest version (by patch number) within the specified major.minor version.
+// Iterates through all versions in the collection and returns the highest one.
+func (g *Helper) GetLatestMinor(major, minor int) (release *hscvrs.Version, err error) {
 	var (
 		vers hscvrs.Collection
 	)

@@ -30,19 +30,10 @@ import (
 	"math/big"
 )
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyz,;:!?./*%^$&\"'(-_)=+~#{[|`\\^@]}ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-const (
-	// If we have 93 chars, that means 7 bits code a letter index.
-	// So 63 random bits can designate 63/7 = 9 different letter indices.
-	// Let's use all those 10.
-	letterIdxBits  = 7                    // 6 bits to represent a letter index
-	letterIdxMask  = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax   = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-	loopRandMaxLen = 10
-)
+const LetterBytes = "abcdefghijklmnopqrstuvwxyz,;:!?./*%^$&\"'(-_)=+~#{[|`\\^@]}ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 func randIdx() int {
-	size := int64(len(letterBytes))
+	size := int64(len(LetterBytes))
 
 	for n := 0; n < 100; n++ {
 
@@ -64,7 +55,7 @@ func Generate(n int) string {
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
 	for i := n - 1; i >= 0; {
-		b[i] = letterBytes[randIdx()]
+		b[i] = LetterBytes[randIdx()]
 		i--
 	}
 

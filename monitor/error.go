@@ -33,21 +33,28 @@ import (
 )
 
 const (
+	// ErrorParamEmpty indicates an empty parameter was provided.
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgMonitor
+	// ErrorMissingHealthCheck indicates no health check function was registered.
 	ErrorMissingHealthCheck
+	// ErrorValidatorError indicates configuration validation failed.
 	ErrorValidatorError
+	// ErrorLoggerError indicates logger initialization failed.
 	ErrorLoggerError
+	// ErrorTimeout indicates a timeout occurred during an operation.
 	ErrorTimeout
+	// ErrorInvalid indicates an invalid monitor instance.
 	ErrorInvalid
 )
 
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision with package golib/logger"))
+		panic(fmt.Errorf("error code collision with package golib/monitor"))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
+// getMessage returns the error message for a given error code.
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:

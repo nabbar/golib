@@ -45,7 +45,10 @@ func (o *Certif) Cert() Cert {
 
 func (o *Certif) Model() Certif {
 	if o == nil {
-		return Certif{}
+		return Certif{
+			g: nil,
+			c: tls.Certificate{},
+		}
 	}
 	return *o
 }

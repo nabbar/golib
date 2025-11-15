@@ -30,5 +30,5 @@ import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
-func (o *componentTls) RegisterMonitorPool(fct montps.FuncPool) {
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 }

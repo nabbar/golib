@@ -27,31 +27,32 @@
 package curves
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"gopkg.in/yaml.v3"
 )
 
+func (v *Curves) marshallByte() ([]byte, error) {
+	return []byte("\"" + v.String() + "\""), nil
+}
+
 func (v *Curves) unmarshall(val []byte) error {
-	*v = parseBytes(val)
+	*v = ParseBytes(val)
 	return nil
 }
 
 func (v Curves) MarshalJSON() ([]byte, error) {
-	t := v.String()
-	b := make([]byte, 0, len(t)+2)
-	b = append(b, '"')
-	b = append(b, []byte(t)...)
-	b = append(b, '"')
-	return b, nil
+	return json.Marshal(v.String())
 }
 
-func (v *Curves) UnmarshalJSON(bytes []byte) error {
-	return v.unmarshall(bytes)
+func (v *Curves) UnmarshalJSON(p []byte) error {
+	return v.unmarshall(p)
 }
 
 func (v Curves) MarshalYAML() (interface{}, error) {
-	return []byte(v.String()), nil
+	return v.String(), nil
 }
 
 func (v *Curves) UnmarshalYAML(value *yaml.Node) error {
@@ -59,7 +60,7 @@ func (v *Curves) UnmarshalYAML(value *yaml.Node) error {
 }
 
 func (v Curves) MarshalTOML() ([]byte, error) {
-	return []byte(v.String()), nil
+	return v.marshallByte()
 }
 
 func (v *Curves) UnmarshalTOML(i interface{}) error {
@@ -69,21 +70,27 @@ func (v *Curves) UnmarshalTOML(i interface{}) error {
 	if p, k := i.(string); k {
 		return v.unmarshall([]byte(p))
 	}
-	return fmt.Errorf("size: value not in valid format")
+	return fmt.Errorf("tls curves: value not in valid format")
 }
 
 func (v Curves) MarshalText() ([]byte, error) {
 	return []byte(v.String()), nil
 }
 
-func (v *Curves) UnmarshalText(bytes []byte) error {
-	return v.unmarshall(bytes)
+func (v *Curves) UnmarshalText(p []byte) error {
+	return v.unmarshall(p)
 }
 
 func (v Curves) MarshalCBOR() ([]byte, error) {
-	return []byte(v.String()), nil
+	return cbor.Marshal(v.String())
 }
 
-func (v *Curves) UnmarshalCBOR(bytes []byte) error {
-	return v.unmarshall(bytes)
+func (v *Curves) UnmarshalCBOR(p []byte) error {
+	var t string
+	if err := cbor.Unmarshal(p, &t); err != nil {
+		return err
+	} else {
+		*v = Parse(t)
+		return nil
+	}
 }

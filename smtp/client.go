@@ -32,7 +32,7 @@ import (
 	"io"
 	"net/smtp"
 
-	smtpnt "github.com/nabbar/golib/smtp/network"
+	libptc "github.com/nabbar/golib/network/protocol"
 )
 
 func (s *smtpClient) _client(ctx context.Context) (*smtp.Client, error) {
@@ -56,11 +56,11 @@ func (s *smtpClient) _client(ctx context.Context) (*smtp.Client, error) {
 		tlsc = s.tls.Clone()
 	)
 
-	if s.cfg.GetTlSServerName() != "" && s.cfg.GetNet() != smtpnt.NetworkUnixSocket {
+	if s.cfg.GetTlSServerName() != "" && s.cfg.GetNet() != libptc.NetworkUnix && s.cfg.GetNet() != libptc.NetworkUnixGram {
 		tlsc.ServerName = s.cfg.GetTlSServerName()
 	}
 
-	if s.cfg.IsTLSSkipVerify() && s.cfg.GetNet() != smtpnt.NetworkUnixSocket {
+	if s.cfg.IsTLSSkipVerify() && s.cfg.GetNet() != libptc.NetworkUnix && s.cfg.GetNet() != libptc.NetworkUnixGram {
 		tlsc.InsecureSkipVerify = true
 	}
 

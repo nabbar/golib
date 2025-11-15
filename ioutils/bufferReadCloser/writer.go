@@ -30,23 +30,33 @@ import (
 	"io"
 )
 
+// wrt is the internal implementation of the Writer interface.
+// It wraps a bufio.Writer with optional close functionality.
 type wrt struct {
 	b *bufio.Writer
 	f FuncClose
 }
 
+// ReadFrom reads data from r until EOF and writes it to the writer.
 func (b *wrt) ReadFrom(r io.Reader) (n int64, err error) {
 	return b.b.ReadFrom(r)
 }
 
+// Write writes len(p) bytes from p to the underlying writer.
+// The data is buffered and may not be immediately visible until flush.
 func (b *wrt) Write(p []byte) (n int, err error) {
 	return b.b.Write(p)
 }
 
+// WriteString writes the contents of s to the writer.
+// The data is buffered and may not be immediately visible until flush.
 func (b *wrt) WriteString(s string) (n int, err error) {
 	return b.b.WriteString(s)
 }
 
+// Close flushes any buffered data, resets the writer (releases resources),
+// and calls the custom close function if provided.
+// Returns any error from the custom close function.
 func (b *wrt) Close() error {
 	_ = b.b.Flush()
 	b.b.Reset(nil)

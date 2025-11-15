@@ -26,7 +26,7 @@
 package pusher
 
 import (
-	"crypto/md5"
+	"crypto/md5" // #nosec
 	"crypto/sha256"
 	"hash"
 )
@@ -47,7 +47,7 @@ func (o *psh) md5Init() (hash.Hash, error) {
 	if !o.IsReady() {
 		return nil, ErrInvalidInstance
 	} else {
-		return md5.New(), nil
+		return md5.New(), nil // #nosec
 	}
 }
 

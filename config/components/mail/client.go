@@ -27,19 +27,13 @@
 package mail
 
 import (
-	"context"
-
 	cfgtps "github.com/nabbar/golib/config/types"
 	libmail "github.com/nabbar/golib/mail"
-	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
 	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentMail) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -51,10 +45,7 @@ func (o *componentMail) _getKey() string {
 	}
 }
 
-func (o *componentMail) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -66,7 +57,7 @@ func (o *componentMail) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentMail) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -76,7 +67,7 @@ func (o *componentMail) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentMail) _getSPFViper() *spfvbr.Viper {
+func (o *mod) _getSPFViper() *spfvbr.Viper {
 	if f := o._getViper(); f == nil {
 		return nil
 	} else if v := f.Viper(); v == nil {
@@ -86,44 +77,7 @@ func (o *componentMail) _getSPFViper() *spfvbr.Viper {
 	}
 }
 
-func (o *componentMail) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentMail) _getContext() context.Context {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.x.GetContext()
-}
-
-func (o *componentMail) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if i, l := o.x.Load(keyCptVersion); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if v, k := i.(libver.Version); !k {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentMail) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -131,10 +85,7 @@ func (o *componentMail) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	}
 }
 
-func (o *componentMail) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -146,7 +97,7 @@ func (o *componentMail) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentMail) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -154,7 +105,7 @@ func (o *componentMail) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *componentMail) _runCli() error {
+func (o *mod) _runCli() error {
 	var (
 		err error
 		prt = ErrorComponentReload
@@ -170,18 +121,15 @@ func (o *componentMail) _runCli() error {
 		return prt.Error(err)
 	} else if obj, err = cfg.NewMailer(); err != nil {
 		return prt.Error(err)
+	} else {
+		o.e.Store(obj)
+		o.r.Store(true)
 	}
-
-	o.Stop()
-
-	o.m.Lock()
-	o.e = obj
-	o.m.Unlock()
 
 	return nil
 }
 
-func (o *componentMail) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

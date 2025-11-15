@@ -33,7 +33,7 @@ import (
 
 	libfpg "github.com/nabbar/golib/file/progress"
 	libsmtp "github.com/nabbar/golib/smtp"
-	simple "github.com/xhit/go-simple-mail"
+	simple "github.com/xhit/go-simple-mail/v2"
 )
 
 const (

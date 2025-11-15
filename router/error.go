@@ -32,13 +32,30 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// Error codes for the router package.
+// These codes are used with github.com/nabbar/golib/errors for structured error handling.
 const (
+	// ErrorParamEmpty indicates that a required parameter was not provided or is empty.
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgRouter
+
+	// ErrorConfigValidator indicates that configuration validation failed.
 	ErrorConfigValidator
+
+	// ErrorHeaderAuth indicates an invalid response code from authorization check.
 	ErrorHeaderAuth
+
+	// ErrorHeaderAuthMissing indicates that the Authorization header is missing from the request.
 	ErrorHeaderAuthMissing
+
+	// ErrorHeaderAuthEmpty indicates that the Authorization header is present but empty.
 	ErrorHeaderAuthEmpty
+
+	// ErrorHeaderAuthRequire indicates that authorization check failed and authentication is required.
+	// This typically results in HTTP 401 Unauthorized.
 	ErrorHeaderAuthRequire
+
+	// ErrorHeaderAuthForbidden indicates that authorization check succeeded but the client is not authorized.
+	// This typically results in HTTP 403 Forbidden.
 	ErrorHeaderAuthForbidden
 )
 
@@ -49,6 +66,10 @@ func init() {
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
+// getMessage returns the error message for a given error code.
+// This function is registered with the errors package during init.
+//
+// See also: github.com/nabbar/golib/errors
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:

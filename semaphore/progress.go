@@ -34,12 +34,14 @@ import (
 )
 
 const done = "Done"
-const run = "Running"
 
+// isMbp returns true if MPB progress container is enabled.
 func (o *sem) isMbp() bool {
 	return o.m != nil
 }
 
+// defOpts creates default MPB bar options with decorators for name, job, and unit.
+// This is an internal helper for creating consistent progress bar displays.
 func (o *sem) defOpts(unit interface{}, name, job string, bar semtps.Bar) []sdkmpb.BarOption {
 	var opt = make([]sdkmpb.BarOption, 0)
 
@@ -97,22 +99,42 @@ func (o *sem) defOpts(unit interface{}, name, job string, bar semtps.Bar) []sdkm
 	return append(opt, sdkmpb.AppendDecorators(append(dec, mpbdec.OnComplete(mpbdec.Name(""), " | "+done))...))
 }
 
+// BarBytes creates a progress bar for tracking byte quantities.
+// The bar displays sizes in human-readable format (KB, MB, GB, etc.).
+//
+// See: github.com/nabbar/golib/semaphore/types.Progress
 func (o *sem) BarBytes(name, job string, tot int64, drop bool, bar semtps.SemBar) semtps.SemBar {
 	return o.BarOpts(tot, drop, o.defOpts(mpbdec.SizeB1024(0), name, job, bar)...)
 }
 
+// BarTime creates a progress bar for time-based operations.
+// Displays progress with time estimates (ETA, elapsed time).
+//
+// See: github.com/nabbar/golib/semaphore/types.Progress
 func (o *sem) BarTime(name, job string, tot int64, drop bool, bar semtps.SemBar) semtps.SemBar {
 	return o.BarOpts(tot, drop, o.defOpts(nil, name, job, bar)...)
 }
 
+// BarNumber creates a progress bar for tracking numeric quantities.
+// Displays progress as a simple counter (e.g., "45/100").
+//
+// See: github.com/nabbar/golib/semaphore/types.Progress
 func (o *sem) BarNumber(name, job string, tot int64, drop bool, bar semtps.SemBar) semtps.SemBar {
 	return o.BarOpts(tot, drop, o.defOpts(int64(0), name, job, bar)...)
 }
 
+// BarOpts creates a progress bar with custom MPB options.
+// Use this for full control over bar appearance and behavior.
+//
+// See: github.com/nabbar/golib/semaphore/types.Progress
 func (o *sem) BarOpts(tot int64, drop bool, opts ...sdkmpb.BarOption) semtps.SemBar {
 	return sembar.New(o, tot, drop, opts...)
 }
 
+// GetMPB returns the underlying MPB progress container.
+// Returns nil if progress is disabled.
+//
+// See: github.com/nabbar/golib/semaphore/types.ProgressMPB
 func (o *sem) GetMPB() *sdkmpb.Progress {
 	return o.m
 }

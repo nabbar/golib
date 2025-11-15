@@ -25,29 +25,26 @@
  *
  **********************************************************************************************************************/
 
-package bytes
+package size
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"gopkg.in/yaml.v3"
 )
 
 func (s Size) MarshalJSON() ([]byte, error) {
-	t := s.String()
-	b := make([]byte, 0, len(t)+2)
-	b = append(b, '"')
-	b = append(b, []byte(t)...)
-	b = append(b, '"')
-	return b, nil
+	return json.Marshal(s.String())
 }
 
-func (s *Size) UnmarshalJSON(bytes []byte) error {
-	return s.unmarshall(bytes)
+func (s *Size) UnmarshalJSON(p []byte) error {
+	return s.unmarshall(p)
 }
 
 func (s Size) MarshalYAML() (interface{}, error) {
-	return []byte(s.String()), nil
+	return s.String(), nil
 }
 
 func (s *Size) UnmarshalYAML(value *yaml.Node) error {
@@ -72,14 +69,27 @@ func (s Size) MarshalText() ([]byte, error) {
 	return []byte(s.String()), nil
 }
 
-func (s *Size) UnmarshalText(bytes []byte) error {
-	return s.unmarshall(bytes)
+func (s *Size) UnmarshalText(p []byte) error {
+	return s.unmarshall(p)
 }
 
 func (s Size) MarshalCBOR() ([]byte, error) {
-	return []byte(s.String()), nil
+	return cbor.Marshal(s.String())
 }
 
-func (s *Size) UnmarshalCBOR(bytes []byte) error {
-	return s.unmarshall(bytes)
+func (s *Size) UnmarshalCBOR(p []byte) error {
+	var b string
+	if e := cbor.Unmarshal(p, &b); e != nil {
+		return e
+	} else {
+		return s.unmarshall([]byte(b))
+	}
+}
+
+func (s Size) MarshalBinary() ([]byte, error) {
+	return s.MarshalCBOR()
+}
+
+func (s *Size) UnmarshalBinary(p []byte) error {
+	return s.UnmarshalCBOR(p)
 }

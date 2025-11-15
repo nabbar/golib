@@ -28,57 +28,72 @@ package monitor
 
 import (
 	"context"
-	"sync"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	montps "github.com/nabbar/golib/monitor/types"
-	librun "github.com/nabbar/golib/server/runner/ticker"
+	librun "github.com/nabbar/golib/runner"
+	runtck "github.com/nabbar/golib/runner/ticker"
 )
 
 const (
+	// defaultMonitorName is the default name used when no name is specified.
 	defaultMonitorName = "not named"
 
+	// Internal storage keys for monitor configuration
 	keyName        = "keyName"
 	keyConfig      = "keyConfig"
 	keyLogger      = "keyLogger"
 	keyLoggerDef   = "keyLoggerDefault"
 	keyHealthCheck = "keyFct"
-	keyRun         = "keyRun"
 	keyLastRun     = "keyLastRun"
 
+	// Internal storage keys for metrics
 	keyMetricsName = "keyMetricsName"
 	keyMetricsFunc = "keyMetricsFunc"
 
-	keyMetricLatency  = "keyMetricLatency"
-	keyMetricUpTime   = "keyMetricUpTime"
-	keyMetricDownTime = "keyMetricDownTime"
-	keyMetricRiseTime = "keyMetricRiseTime"
-	keyMetricFallTime = "keyMetricFallTime"
-
+	// Log field constants for structured logging
 	LogFieldProcess = "process"
 	LogValueProcess = "monitor"
 	LogFieldName    = "name"
 )
 
+// mon is the internal implementation of the Monitor interface.
+// It manages the health check lifecycle, configuration, and state tracking.
 type mon struct {
-	m sync.RWMutex
-	i montps.Info
-	x libctx.Config[string]
-	r librun.Ticker
+	x libctx.Config[string]       // Config stores monitor configuration and state
+	i libatm.Value[montps.Info]   // Info provides metadata about the monitored component
+	r libatm.Value[runtck.Ticker] // Ticker manages the periodic health check execution
 }
 
+// SetHealthCheck registers the health check function to be executed periodically.
+// The function should return nil for a healthy state or an error otherwise.
 func (o *mon) SetHealthCheck(fct montps.HealthCheck) {
+	defer librun.RecoveryCaller("golib/monitor/SetHealthCheck", recover())
 	o.x.Store(keyHealthCheck, fct)
 }
 
+// GetHealthCheck retrieves the currently registered health check function.
+// Returns nil if no health check function has been registered.
 func (o *mon) GetHealthCheck() montps.HealthCheck {
+	defer librun.RecoveryCaller("golib/monitor/GetHealthCheck", recover())
 	return o.getFct()
 }
 
+// Clone creates a copy of the monitor with a new context.
+// If the original monitor is running, the clone will also be started.
+// Returns an error if the cloned monitor fails to start.
 func (o *mon) Clone(ctx context.Context) (montps.Monitor, liberr.Error) {
-	n := &mon{}
+	defer librun.RecoveryCaller("golib/monitor/Clone", recover())
+	n := &mon{
+		x: nil,
+		i: libatm.NewValue[montps.Info](),
+		r: libatm.NewValue[runtck.Ticker](),
+	}
+
 	n.x = o.x.Clone(ctx)
+	n.i.Store(o.i.Load())
 
 	if o.IsRunning() {
 		if e := n.Start(ctx); e != nil {

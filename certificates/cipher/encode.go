@@ -24,26 +24,27 @@
  *
  */
 
-package curves
+package cipher
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"gopkg.in/yaml.v3"
 )
 
+func (v *Cipher) marshallByte() ([]byte, error) {
+	return []byte("\"" + v.String() + "\""), nil
+}
+
 func (v *Cipher) unmarshall(val []byte) error {
-	*v = parseBytes(val)
+	*v = ParseBytes(val)
 	return nil
 }
 
 func (v Cipher) MarshalJSON() ([]byte, error) {
-	t := v.String()
-	b := make([]byte, 0, len(t)+2)
-	b = append(b, '"')
-	b = append(b, []byte(t)...)
-	b = append(b, '"')
-	return b, nil
+	return json.Marshal(v.String())
 }
 
 func (v *Cipher) UnmarshalJSON(bytes []byte) error {
@@ -51,7 +52,7 @@ func (v *Cipher) UnmarshalJSON(bytes []byte) error {
 }
 
 func (v Cipher) MarshalYAML() (interface{}, error) {
-	return []byte(v.String()), nil
+	return v.String(), nil
 }
 
 func (v *Cipher) UnmarshalYAML(value *yaml.Node) error {
@@ -59,7 +60,7 @@ func (v *Cipher) UnmarshalYAML(value *yaml.Node) error {
 }
 
 func (v Cipher) MarshalTOML() ([]byte, error) {
-	return []byte(v.String()), nil
+	return v.marshallByte()
 }
 
 func (v *Cipher) UnmarshalTOML(i interface{}) error {
@@ -69,7 +70,7 @@ func (v *Cipher) UnmarshalTOML(i interface{}) error {
 	if p, k := i.(string); k {
 		return v.unmarshall([]byte(p))
 	}
-	return fmt.Errorf("cipher: value not in valid format")
+	return fmt.Errorf("tls cipher: value not in valid format")
 }
 
 func (v Cipher) MarshalText() ([]byte, error) {
@@ -81,9 +82,15 @@ func (v *Cipher) UnmarshalText(bytes []byte) error {
 }
 
 func (v Cipher) MarshalCBOR() ([]byte, error) {
-	return []byte(v.String()), nil
+	return cbor.Marshal(v.String())
 }
 
 func (v *Cipher) UnmarshalCBOR(bytes []byte) error {
-	return v.unmarshall(bytes)
+	var t string
+	if err := cbor.Unmarshal(bytes, &t); err != nil {
+		return err
+	} else {
+		*v = Parse(t)
+		return nil
+	}
 }

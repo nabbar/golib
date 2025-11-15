@@ -29,38 +29,36 @@ package smtp
 import (
 	"context"
 
-	libctx "github.com/nabbar/golib/context"
 	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"
 )
 
-func (o *componentSmtp) RegisterMonitorPool(fct montps.FuncPool) {
-	o.m.Lock()
-	defer o.m.Unlock()
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
+	if fct == nil {
+		fct = func() montps.Pool {
+			return nil
+		}
+	}
 
-	o.p = fct
+	o.x.Store(keyFctMonitorPool, fct)
 }
 
-func (o *componentSmtp) _getMonitorPool() montps.Pool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.p == nil {
+func (o *mod) _getMonitorPool() montps.Pool {
+	if i, l := o.x.Load(keyFctMonitorPool); !l || i == nil {
 		return nil
-	} else if p := o.p(); p == nil {
+	} else if f, k := i.(montps.FuncPool); !k || f == nil {
 		return nil
 	} else {
-		return p
+		return f()
 	}
 }
 
-func (o *componentSmtp) _registerMonitor(cfg *montps.Config) error {
+func (o *mod) _registerMonitor(cfg *montps.Config) error {
 	var (
 		e   error
-		key = o._getKey()
+		key = o.getKey()
 		mon montps.Monitor
-		vrs = o._getVersion()
-		ctx = o._getContext
+		vrs = o.getVersion()
 	)
 
 	if o._getMonitorPool() == nil {
@@ -71,12 +69,10 @@ func (o *componentSmtp) _registerMonitor(cfg *montps.Config) error {
 		return ErrorConfigInvalid.Error(nil)
 	} else if !o.IsStarted() {
 		return ErrorComponentStart.Error(nil)
-	} else if ctx == nil {
-		ctx = context.Background
 	}
 
 	if mon = o._getMonitor(key); mon == nil {
-		if mon, e = o._newMonitor(ctx, vrs); e != nil {
+		if mon, e = o._newMonitor(o.x, vrs); e != nil {
 			return e
 		} else if mon == nil {
 			return nil
@@ -89,7 +85,7 @@ func (o *componentSmtp) _registerMonitor(cfg *montps.Config) error {
 		cfg.Name = key
 	}
 
-	if e = mon.SetConfig(o.x.GetContext, *cfg); e != nil {
+	if e = mon.SetConfig(o.x, *cfg); e != nil {
 		return e
 	}
 
@@ -102,13 +98,15 @@ func (o *componentSmtp) _registerMonitor(cfg *montps.Config) error {
 	return nil
 }
 
-func (o *componentSmtp) _newMonitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error) {
-	o.m.RLock()
-	defer o.m.RUnlock()
-	return o.s.Monitor(ctx, vrs)
+func (o *mod) _newMonitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
+	if s := o.s.Load(); s != nil {
+		return s.Monitor(ctx, vrs)
+	}
+
+	return nil, ErrorComponentNotInitialized.Error(nil)
 }
 
-func (o *componentSmtp) _getMonitor(key string) montps.Monitor {
+func (o *mod) _getMonitor(key string) montps.Monitor {
 	var (
 		mon montps.Monitor
 		pol = o._getMonitorPool()
@@ -122,7 +120,7 @@ func (o *componentSmtp) _getMonitor(key string) montps.Monitor {
 	return mon
 }
 
-func (o *componentSmtp) _setMonitor(mon montps.Monitor) error {
+func (o *mod) _setMonitor(mon montps.Monitor) error {
 	var pol = o._getMonitorPool()
 
 	if pol == nil {

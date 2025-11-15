@@ -34,11 +34,11 @@ import (
 	spfcbr "github.com/spf13/cobra"
 )
 
-func (o *componentHttpClient) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentHttpClient) _getConfig() (*htcdns.Config, error) {
+func (o *mod) _getConfig() (*htcdns.Config, error) {
 	var (
 		key string
 		cfg htcdns.Config

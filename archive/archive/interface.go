@@ -32,6 +32,15 @@ import (
 	arctps "github.com/nabbar/golib/archive/archive/types"
 )
 
+// Parse is a convenience function to parse a string and return the corresponding Algorithm.
+// If the parsing fails, the function will return None.
+// Otherwise, the function will return the parsed Algorithm.
+//
+// Example:
+// alg := Parse("tar")
+// Expect(alg).To(Equal(TarAlgorithm))
+//
+// Note: This function will return None if the algorithm is not supported.
 func Parse(s string) Algorithm {
 	var alg = None
 	if e := alg.UnmarshalText([]byte(s)); e != nil {

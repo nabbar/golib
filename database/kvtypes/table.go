@@ -29,9 +29,30 @@ package kvtypes
 type FuncWalk[K comparable, M any] func(kv KVItem[K, M]) bool
 
 type KVTable[K comparable, M any] interface {
+	// Get returns the item associated with the given key.
+	// If the key does not exist, the function will return nil and no error.
+	// If an error occurs during the retrieval, it will be returned.
+	// The iteration order is not defined.
 	Get(key K) (KVItem[K, M], error)
+	// Del deletes the item associated with the given key.
+	// If the key does not exist, the function will return nil.
+	// If an error occurs during the deletion, it will be returned.
+	// The iteration order is not defined.
 	Del(key K) error
+	// List returns a list of all items in the table.
+	// The function will return an error if it occurs during the iteration.
+	// The iteration order is not defined.
+	// If no item is found, the function will return an empty list.
 	List() ([]KVItem[K, M], error)
+	// Search returns a list of all items in the table that match the given pattern.
+	// The function will return an error if it occurs during the iteration.
+	// The iteration order is not defined.
+	// If no item matches the pattern, the function will return an empty list.
 	Search(pattern K) ([]KVItem[K, M], error)
+	// Walk iterates over all items in the table and calls the provided function.
+	// The function is called with the key and the value associated with the key.
+	// If the function returns false, the iteration stops.
+	// If the function returns an error, the iteration stops and the error is returned.
+	// If no error occurs, the function returns nil.
 	Walk(fct FuncWalk[K, M]) error
 }

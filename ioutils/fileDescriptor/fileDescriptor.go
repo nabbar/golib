@@ -23,29 +23,44 @@
  *
  */
 
+// Package fileDescriptor provides cross-platform utilities for managing file descriptor limits.
+// It offers a unified API for querying and modifying the maximum number of open files or I/O
+// resources allowed for a process on Unix/Linux, macOS, and Windows systems.
 package fileDescriptor
 
-// SystemFileDescriptor is returning current Limit & max system limit for file descriptor (open file or I/O resource) currently set in the system
-// This function return the current setting (current number of file descriptor and the max value) if the newValue given is zero
-// Otherwise if the newValue is more than the current system limit, try to change the current limit in the system for this process only
+// SystemFileDescriptor returns the current and maximum file descriptor limits for the process.
+// It can optionally attempt to increase the limit if newValue is greater than the current limit.
 //
-//	 For Windows build, please follow this note :
-//		1) install package gcc-multilib gcc-mingw-w64 to build C source with GCC
-//			you will having this binaries
-//				- i686-w64-mingw32* for 32-bit Windows;
-//				- x86_64-w64-mingw32* for 64-bit Windows.
-//			locate you binaries gcc mingw path and note it:
-//				- win32 : updatedb && locate i686-w64-mingw32-gcc
-//				- win64 : updatedb && locate x86_64-w64-mingw32-gcc
-//		2) if you have an error in the build, or if the .o object file is not present in golib/njg-ioutils/maxstdio/, run this step
-//			- go to golib/njg-ioutils/maxstdio folder
-//			- gcc -x maxstdio.x
-//		3) for Win32 use this env var in prefix of your go build command (recommend to use -a flag) :
-//			CC=/usr/bin/i686-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v ...
-//		4) for win64 use this env var in prefix of your go build command (recommend to use -a flag) :
-//			CC=/usr/bin/x86_64-w64-mingw32-gcc CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -a -v ...
+// Parameters:
+//   - newValue: Desired new limit. Use 0 or negative values to query current limits without modification.
 //
-//		Normally no problem will be result in the build.
+// Returns:
+//   - current: Current (soft) file descriptor limit
+//   - max: Maximum (hard) file descriptor limit
+//   - err: Error if the operation fails
+//
+// Behavior:
+//   - Query Mode (newValue <= 0 or newValue <= current): Returns current limits without modification
+//   - Increase Mode (newValue > current): Attempts to increase the current limit to newValue
+//   - Will not decrease existing limits
+//   - May require elevated privileges (root/admin) to increase beyond current soft limit
+//   - Respects system hard limits
+//
+// Platform-Specific Implementation:
+//   - Unix/Linux/macOS: Uses syscall.Getrlimit/Setrlimit with RLIMIT_NOFILE
+//   - Windows: Uses maxstdio.GetMaxStdio/SetMaxStdio (max 8192)
+//
+// Example:
+//
+//	// Query current limits
+//	current, max, err := SystemFileDescriptor(0)
+//	fmt.Printf("Current: %d, Max: %d\n", current, max)
+//
+//	// Increase limit to 4096
+//	newCurrent, newMax, err := SystemFileDescriptor(4096)
+//	if err != nil {
+//	    log.Printf("Cannot increase limit: %v", err)
+//	}
 func SystemFileDescriptor(newValue int) (current int, max int, err error) {
 	return systemFileDescriptor(newValue)
 }

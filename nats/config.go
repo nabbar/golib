@@ -31,6 +31,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"strings"
@@ -208,11 +209,8 @@ func (c *ConfigCustom) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) err
 	}
 
 	if c.AccountResolverTLS {
-		if t := c.AccountResolverTLSConfig.NewFrom(defTls); t == nil {
-			return fmt.Errorf("no valid tls config")
-		} else {
-			cfg.AccountResolverTLSConfig = t.TlsConfig("")
-		}
+		t := c.AccountResolverTLSConfig.NewFrom(defTls)
+		cfg.AccountResolverTLSConfig = t.TlsConfig("")
 	} else {
 		cfg.AccountResolverTLSConfig = nil
 	}
@@ -560,12 +558,16 @@ func (c ConfigLimits) makeOpt(cfg *natsrv.Options) error {
 		cfg.MaxPingsOut = c.MaxPingsOut
 	}
 
-	if c.MaxControlLine > 0 {
+	if c.MaxControlLine > 0 && c.MaxControlLine < math.MaxInt32 {
 		cfg.MaxControlLine = int32(c.MaxControlLine)
+	} else if c.MaxControlLine > 0 {
+		cfg.MaxControlLine = math.MaxInt32
 	}
 
-	if c.MaxPayload > 0 {
+	if c.MaxPayload > 0 && c.MaxPayload < math.MaxInt32 {
 		cfg.MaxPayload = int32(c.MaxPayload)
+	} else if c.MaxPayload > 0 {
+		cfg.MaxPayload = math.MaxInt32
 	}
 
 	if c.MaxPending > 0 {
@@ -731,12 +733,7 @@ func (c ConfigSrv) makeOpt(cfg *natsrv.Options, defTls libtls.TLSConfig) error {
 
 	if c.TLS {
 		cfg.TLS = true
-
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return fmt.Errorf("no valid tls config")
-		} else {
-			cfg.TLSConfig = t.TlsConfig("")
-		}
+		cfg.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 
 		if c.TLSTimeout > 0 {
 			cfg.TLSTimeout = float64(c.TLSTimeout) / float64(time.Second)
@@ -785,11 +782,7 @@ func (c ConfigCluster) makeOpt(defTls libtls.TLSConfig) (natsrv.ClusterOpts, err
 	}
 
 	if c.TLS {
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return cfg, fmt.Errorf("no valid tls config")
-		} else {
-			cfg.TLSConfig = t.TlsConfig("")
-		}
+		cfg.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 
 		if c.TLSTimeout > 0 {
 			cfg.TLSTimeout = float64(c.TLSTimeout) / float64(time.Second)
@@ -825,11 +818,7 @@ func (c ConfigGateway) makeOpt(defTls libtls.TLSConfig) (natsrv.GatewayOpts, err
 	}
 
 	if c.TLS {
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return cfg, fmt.Errorf("no valid tls config")
-		} else {
-			cfg.TLSConfig = t.TlsConfig("")
-		}
+		cfg.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 
 		if c.TLSTimeout > 0 {
 			cfg.TLSTimeout = float64(c.TLSTimeout) / float64(time.Second)
@@ -862,11 +851,7 @@ func (c ConfigGatewayRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteGat
 	}
 
 	if c.TLS {
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return nil, fmt.Errorf("no valid tls config")
-		} else {
-			res.TLSConfig = t.TlsConfig("")
-		}
+		res.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 
 		if c.TLSTimeout > 0 {
 			res.TLSTimeout = float64(c.TLSTimeout) / float64(time.Second)
@@ -923,11 +908,7 @@ func (c ConfigLeaf) makeOpt(cfg *natsrv.Options, auth ConfigAuth, defTls libtls.
 	}
 
 	if c.TLS {
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return res, fmt.Errorf("no valid tls config")
-		} else {
-			res.TLSConfig = t.TlsConfig("")
-		}
+		res.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 
 		if c.TLSTimeout > 0 {
 			res.TLSTimeout = float64(c.TLSTimeout) / float64(time.Second)
@@ -972,12 +953,7 @@ func (c ConfigLeafRemote) makeOpt(defTls libtls.TLSConfig) (*natsrv.RemoteLeafOp
 
 	if c.TLS {
 		res.TLS = true
-
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return nil, fmt.Errorf("no valid tls config")
-		} else {
-			res.TLSConfig = t.TlsConfig("")
-		}
+		res.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 
 		if c.TLSTimeout > 0 {
 			res.TLSTimeout = float64(c.TLSTimeout) / float64(time.Second)
@@ -1042,20 +1018,17 @@ func (c ConfigWebsocket) makeOpt(defTls libtls.TLSConfig) (natsrv.WebsocketOpts,
 
 	if !c.NoTLS {
 		cfg.NoTLS = false
-
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return cfg, fmt.Errorf("no valid tls config")
-		} else {
-			cfg.TLSConfig = t.TlsConfig("")
-		}
+		cfg.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 
 		if c.HandshakeTimeout > 0 {
 			cfg.HandshakeTimeout = c.HandshakeTimeout
 		}
 	} else {
 		cfg.NoTLS = true
-		// #nosec
-		cfg.TLSConfig = &tls.Config{}
+		cfg.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS13,
+		}
 		cfg.HandshakeTimeout = 0
 	}
 
@@ -1083,18 +1056,17 @@ func (c ConfigMQTT) makeOpt(defTls libtls.TLSConfig) (natsrv.MQTTOpts, error) {
 	}
 
 	if !c.TLS {
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return cfg, fmt.Errorf("no valid tls config")
-		} else {
-			cfg.TLSConfig = t.TlsConfig("")
-		}
+		cfg.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 
 		if c.TLSTimeout > 0 {
 			cfg.TLSTimeout = float64(c.TLSTimeout) / float64(time.Second)
 		}
 	} else {
 		// #nosec
-		cfg.TLSConfig = &tls.Config{}
+		cfg.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			MaxVersion: tls.VersionTLS13,
+		}
 		cfg.TLSTimeout = 0
 	}
 

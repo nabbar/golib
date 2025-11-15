@@ -30,15 +30,35 @@ import (
 	"reflect"
 )
 
+// isEmptyValue checks if a reflect.Value represents an empty value according to Go's zero value semantics.
+// This function is used internally to implement "omitempty" tag behavior during marshaling.
+//
+// The function considers a value empty if:
+//   - String, Array, Slice, Map: Length is 0
+//   - Bool: Value is false
+//   - Int types (int, int8, int16, int32, int64): Value is 0
+//   - Uint types (uint, uint8, uint16, uint32, uint64): Value is 0
+//   - Float types (float32, float64): Value is 0.0
+//   - Interface, Ptr: Value is nil
+//   - Other types: Always considered non-empty
+//
+// Parameters:
+//   - v: The reflect.Value to check
+//
+// Returns:
+//   - bool: true if the value is empty, false otherwise
+//
+// This function is used by marshal() to skip fields marked with "omitempty" when they contain zero values.
 func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.String, reflect.Array, reflect.Slice, reflect.Map:
 		return v.Len() == 0
 	case reflect.Bool:
 		return !v.Bool()
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return v.Uint() == 0
 	case reflect.Float32, reflect.Float64:
 		return v.Float() == 0
 	case reflect.Interface, reflect.Ptr:

@@ -29,7 +29,15 @@ package types
 import "time"
 
 const (
+	// TimeoutWaitingPortFreeing is the timeout duration for checking if a port becomes available.
+	// Used when verifying port availability before binding.
 	TimeoutWaitingPortFreeing = 250 * time.Microsecond
-	TimeoutWaitingStop        = 5 * time.Second
-	BadHandlerName            = "no handler"
+
+	// TimeoutWaitingStop is the default timeout for graceful server shutdown.
+	// Servers have 5 seconds to complete ongoing requests before forced termination.
+	TimeoutWaitingStop = 5 * time.Second
+
+	// BadHandlerName is the identifier string for the BadHandler.
+	// Used in logging and monitoring to indicate no valid handler is configured.
+	BadHandlerName = "no handler"
 )

@@ -27,28 +27,25 @@
 package head
 
 import (
-	"sync/atomic"
-
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	librtr "github.com/nabbar/golib/router/header"
 )
 
-type componentHead struct {
+type mod struct {
 	x libctx.Config[uint8]
-	h *atomic.Value // librtr.Headers
+	h libatm.Value[librtr.Headers]
 }
 
-func (o *componentHead) GetHeaders() librtr.Headers {
+func (o *mod) GetHeaders() librtr.Headers {
 	if i := o.h.Load(); i == nil {
 		return librtr.NewHeaders()
-	} else if v, k := i.(librtr.Headers); !k {
-		return librtr.NewHeaders()
 	} else {
-		return v
+		return i
 	}
 }
 
-func (o *componentHead) SetHeaders(head librtr.Headers) {
+func (o *mod) SetHeaders(head librtr.Headers) {
 	if head == nil {
 		head = librtr.NewHeaders()
 	}

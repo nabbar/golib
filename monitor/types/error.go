@@ -32,8 +32,11 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// Error codes for monitor configuration validation and operations.
 const (
+	// ErrorParamEmpty indicates an empty or nil parameter was provided.
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgMonitorCfg
+	// ErrorValidatorError indicates configuration validation failed.
 	ErrorValidatorError
 )
 

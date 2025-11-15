@@ -27,6 +27,7 @@
 package httpcli
 
 import (
+	"context"
 	"sync/atomic"
 
 	libatm "github.com/nabbar/golib/atomic"
@@ -38,7 +39,7 @@ import (
 	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
 )
 
-type ComponentHTTPClient interface {
+type CptHTTPClient interface {
 	cfgtps.Component
 	htcdns.DNSMapper
 
@@ -62,9 +63,9 @@ func GetRootCaCert(fct libtls.FctRootCA) tlscas.Cert {
 	return res
 }
 
-func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCACert, isDeftHTTPClient bool, msg htcdns.FuncMessage) ComponentHTTPClient {
-	c := &componentHttpClient{
-		x: libctx.NewConfig[uint8](ctx),
+func New(ctx context.Context, defCARoot libtls.FctRootCACert, isDeftHTTPClient bool, msg htcdns.FuncMessage) CptHTTPClient {
+	c := &mod{
+		x: libctx.New[uint8](ctx),
 		c: libatm.NewValue[*htcdns.Config](),
 		d: libatm.NewValue[htcdns.DNSMapper](),
 		f: libatm.NewValue[libtls.FctRootCACert](),
@@ -89,18 +90,20 @@ func New(ctx libctx.FuncContext, defCARoot libtls.FctRootCACert, isDeftHTTPClien
 	return c
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentHTTPClient) {
+func Register(cfg libcfg.Config, key string, cpt CptHTTPClient) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, defCARoot libtls.FctRootCACert, isDeftHTTPClient bool, msg htcdns.FuncMessage) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, key string, defCARoot libtls.FctRootCACert, isDeftHTTPClient bool, msg htcdns.FuncMessage) {
 	cfg.ComponentSet(key, New(ctx, defCARoot, isDeftHTTPClient, msg))
 }
 
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentHTTPClient {
-	if c := getCpt(key); c == nil {
+func Load(getCpt cfgtps.FuncCptGet, key string) CptHTTPClient {
+	if getCpt == nil {
 		return nil
-	} else if h, ok := c.(ComponentHTTPClient); !ok {
+	} else if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(CptHTTPClient); !ok {
 		return nil
 	} else {
 		return h

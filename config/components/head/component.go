@@ -27,8 +27,9 @@
 package head
 
 import (
+	"context"
+
 	cfgtps "github.com/nabbar/golib/config/types"
-	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -50,11 +51,11 @@ const (
 	keyFctMonitorPool
 )
 
-func (o *componentHead) Type() string {
+func (o *mod) Type() string {
 	return ComponentType
 }
 
-func (o *componentHead) Init(key string, ctx libctx.FuncContext, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
+func (o *mod) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
 	o.x.Store(keyCptKey, key)
 	o.x.Store(keyFctGetCpt, get)
 	o.x.Store(keyFctViper, vpr)
@@ -62,38 +63,37 @@ func (o *componentHead) Init(key string, ctx libctx.FuncContext, get cfgtps.Func
 	o.x.Store(keyCptLogger, log)
 }
 
-func (o *componentHead) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncStart(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctStaBef, before)
 	o.x.Store(keyFctStaAft, after)
 }
 
-func (o *componentHead) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
+func (o *mod) RegisterFuncReload(before, after cfgtps.FuncCptEvent) {
 	o.x.Store(keyFctRelBef, before)
 	o.x.Store(keyFctRelAft, after)
 }
 
-func (o *componentHead) IsStarted() bool {
+func (o *mod) IsStarted() bool {
 	return len(o.GetHeaders().Header()) > 0
 }
 
-func (o *componentHead) IsRunning() bool {
+func (o *mod) IsRunning() bool {
 	return o.IsStarted()
 }
 
-func (o *componentHead) Start() error {
+func (o *mod) Start() error {
 	return o._run()
 }
 
-func (o *componentHead) Reload() error {
+func (o *mod) Reload() error {
 	return o._run()
 }
 
-func (o *componentHead) Stop() {
+func (o *mod) Stop() {
 	o.SetHeaders(nil)
-	return
 }
 
-func (o *componentHead) Dependencies() []string {
+func (o *mod) Dependencies() []string {
 	var def = make([]string, 0)
 
 	if o == nil {
@@ -111,21 +111,11 @@ func (o *componentHead) Dependencies() []string {
 	}
 }
 
-func (o *componentHead) SetDependencies(d []string) error {
+func (o *mod) SetDependencies(d []string) error {
 	if o == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else {
 		o.x.Store(keyCptDependencies, d)
 		return nil
-	}
-}
-
-func (o *componentHead) getLogger() liblog.Logger {
-	if i, l := o.x.Load(keyCptLogger); !l {
-		return nil
-	} else if v, k := i.(liblog.FuncLog); !k {
-		return nil
-	} else {
-		return v()
 	}
 }

@@ -27,11 +27,10 @@
 package viper
 
 import (
-	liberr "github.com/nabbar/golib/errors"
 	loglvl "github.com/nabbar/golib/logger/level"
 )
 
-func (v *viper) Config(logLevelRemoteKO, logLevelRemoteOK loglvl.Level) liberr.Error {
+func (v *viper) Config(logLevelRemoteKO, logLevelRemoteOK loglvl.Level) error {
 	if err := v.initAddRemote(); err == nil {
 		v.initWatchRemote(logLevelRemoteKO, logLevelRemoteOK)
 		return nil

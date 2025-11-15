@@ -36,6 +36,11 @@ import (
 	logcfg "github.com/nabbar/golib/logger/config"
 )
 
+// ConfigCompat provides backward compatibility for monitor configurations using standard time.Duration.
+// This type uses time.Duration instead of libdur.Duration for the timeout and interval fields.
+// Use Config type for new code, which provides better serialization support.
+//
+// Deprecated: Use Config type instead, which uses libdur.Duration for better JSON/YAML serialization.
 type ConfigCompat struct {
 	// Name define the name of the monitor
 	Name string `json:"name" yaml:"name" toml:"name" mapstructure:"name"`
@@ -68,6 +73,8 @@ type ConfigCompat struct {
 	Logger logcfg.Options `json:"logger" yaml:"logger" toml:"logger" mapstructure:"logger"`
 }
 
+// Validate validate the config options using libval validation tags.
+// Return liberr.Error if config is not valid.
 func (o ConfigCompat) Validate() liberr.Error {
 	var e = ErrorValidatorError.Error(nil)
 
@@ -89,6 +96,10 @@ func (o ConfigCompat) Validate() liberr.Error {
 	return e
 }
 
+// Clone clone the config options.
+//
+// Return a new ConfigCompat with the same value as the current config options.
+// This function is thread-safe.
 func (o ConfigCompat) Clone() ConfigCompat {
 	return ConfigCompat{
 		Name:          o.Name,
@@ -104,6 +115,33 @@ func (o ConfigCompat) Clone() ConfigCompat {
 	}
 }
 
+// Config returns a new Config with the same value as the current config options.
+//
+// This function is thread-safe.
+//
+// Config is created from ConfigCompat, which is used to configure the monitor.
+//
+// The fields of Config are explained as follows:
+//
+// - Name: the name of the monitor.
+//
+// - CheckTimeout: the timeout for checking the status of the target.
+//
+// - IntervalCheck: the interval for checking the status of the target.
+//
+// - IntervalFall: the interval for falling into a KO state.
+//
+// - IntervalRise: the interval for rising from a KO state.
+//
+// - FallCountKO: the count for falling into a KO state.
+//
+// - FallCountWarn: the count for warning a KO state.
+//
+// - R iseCountKO: the count for rising from a KO state.
+//
+// - R iseCountWarn: the count for warning a rise from a KO state.
+//
+// - Logger: the logger for logging the status of the target.
 func (o ConfigCompat) Config() Config {
 	return Config{
 		Name:          o.Name,

@@ -63,11 +63,13 @@ func (s *shell) RunPrompt(out, err io.Writer, opt ...libshl.Option) {
 			}
 
 			inputLine = strings.TrimSpace(inputLine)
-			if inputLine == "" {
-				return
-			} else if inputLine == "quit" || inputLine == "exit" {
+
+			switch {
+			case strings.EqualFold(inputLine, "quit"), strings.EqualFold(inputLine, "exit"):
 				_, _ = fmt.Fprintf(out, "Bye !\n")
 				os.Exit(0)
+				return
+			case len(inputLine) < 1:
 				return
 			}
 

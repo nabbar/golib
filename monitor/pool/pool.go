@@ -32,6 +32,9 @@ import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
+// MonitorAdd adds a monitor to the pool.
+// If the pool is running and the monitor is not, it will be started automatically.
+// Returns an error if the monitor is nil or has an empty name.
 func (o *pool) MonitorAdd(mon montps.Monitor) error {
 	if mon == nil {
 		return nil
@@ -49,6 +52,8 @@ func (o *pool) MonitorAdd(mon montps.Monitor) error {
 	return nil
 }
 
+// MonitorGet retrieves a monitor from the pool by name.
+// Returns nil if the name is empty or the monitor is not found.
 func (o *pool) MonitorGet(name string) montps.Monitor {
 	if len(name) < 1 {
 		return nil
@@ -61,6 +66,9 @@ func (o *pool) MonitorGet(name string) montps.Monitor {
 	}
 }
 
+// MonitorSet updates or adds a monitor in the pool.
+// If the monitor doesn't exist, it will be added.
+// Returns an error if the monitor is nil or has an empty name.
 func (o *pool) MonitorSet(mon montps.Monitor) error {
 	if mon == nil {
 		return fmt.Errorf("nil monitor")
@@ -74,6 +82,8 @@ func (o *pool) MonitorSet(mon montps.Monitor) error {
 	return nil
 }
 
+// MonitorDel removes a monitor from the pool by name.
+// Does nothing if the name is empty.
 func (o *pool) MonitorDel(name string) {
 	if len(name) < 1 {
 		return
@@ -82,6 +92,7 @@ func (o *pool) MonitorDel(name string) {
 	}
 }
 
+// MonitorList returns a list of all monitor names in the pool.
 func (o *pool) MonitorList() []string {
 	var res = make([]string, 0)
 
@@ -93,23 +104,16 @@ func (o *pool) MonitorList() []string {
 	return res
 }
 
+// MonitorWalk iterates over all monitors in the pool, calling the provided function for each.
+// The function should return true to continue iteration or false to stop.
+// If validName is provided, only monitors with those names will be iterated.
 func (o *pool) MonitorWalk(fct func(name string, val montps.Monitor) bool, validName ...string) {
-	f := func(key string, val interface{}) bool {
-		var (
-			ok  bool
-			mon montps.Monitor
-		)
-
-		if mon, ok = val.(montps.Monitor); !ok {
+	o.p.WalkLimit(func(key string, val interface{}) bool {
+		if mon, ok := val.(montps.Monitor); !ok {
+			o.p.Delete(key)
 			return true
 		} else {
 			return fct(key, mon)
 		}
-	}
-
-	if len(validName) > 0 {
-		o.p.WalkLimit(f, validName...)
-	} else {
-		o.p.Walk(f)
-	}
+	}, validName...)
 }

@@ -34,9 +34,7 @@ func (o *config) SetCurveList(c []tlscrv.Curves) {
 }
 
 func (o *config) AddCurves(c ...tlscrv.Curves) {
-	for _, i := range c {
-		o.curveList = append(o.curveList, i)
-	}
+	o.curveList = append(o.curveList, c...)
 }
 
 func (o *config) GetCurves() []tlscrv.Curves {

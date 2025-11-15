@@ -27,10 +27,9 @@
 package types
 
 import (
-	"github.com/nabbar/golib/smtp/network"
-	"github.com/nabbar/golib/smtp/tlsmode"
-
 	libtls "github.com/nabbar/golib/certificates"
+	libptc "github.com/nabbar/golib/network/protocol"
+	smtptl "github.com/nabbar/golib/smtp/tlsmode"
 )
 
 type Config interface {
@@ -38,8 +37,8 @@ type Config interface {
 	GetPort() int
 	GetUser() string
 	GetPass() string
-	GetNet() network.NetworkMode
-	GetTlsMode() tlsmode.TLSMode
+	GetNet() libptc.NetworkProtocol
+	GetTlsMode() smtptl.TLSMode
 	GetTls() libtls.Config
 	GetTlSServerName() string
 	GetDsn() string

@@ -29,11 +29,13 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	libctx "github.com/nabbar/golib/context"
 	iotclo "github.com/nabbar/golib/ioutils/mapCloser"
 	logcfg "github.com/nabbar/golib/logger/config"
 	logfld "github.com/nabbar/golib/logger/fields"
@@ -45,18 +47,6 @@ import (
 	logtps "github.com/nabbar/golib/logger/types"
 	"github.com/sirupsen/logrus"
 )
-
-func (o *logger) getCloser() iotclo.Closer {
-	i := o.c.Load()
-	if c, k := i.(iotclo.Closer); k && c != nil {
-		return c
-	}
-
-	c := o.newCloser()
-	o.c.Store(c)
-
-	return c
-}
 
 func (o *logger) switchCloser(c iotclo.Closer) {
 	if o == nil {
@@ -72,9 +62,9 @@ func (o *logger) switchCloser(c iotclo.Closer) {
 	} else if v, k := i.(iotclo.Closer); k && v != nil {
 		go func() {
 			// temp waiting all still calling log finish
-			time.Sleep(10 * time.Second)
+			// Increased delay to allow pending logs to complete
+			time.Sleep(200 * time.Millisecond)
 			_ = v.Close()
-			v = nil
 		}()
 	}
 }
@@ -101,19 +91,25 @@ func (o *logger) hasCloser() bool {
 	return false
 }
 
-func (o *logger) Clone() Logger {
+func (o *logger) Clone() (Logger, error) {
 	if o == nil {
-		return nil
+		return nil, fmt.Errorf("logger is nil")
 	}
 
 	l := &logger{
 		m: sync.RWMutex{},
-		x: o.x.Clone(nil),
-		f: o.f.FieldsClone(nil),
+		x: libctx.New[uint8](o.x),
+		f: logfld.New(o.x),
 		c: new(atomic.Value),
 	}
 
-	return l
+	l.SetLevel(o.GetLevel())
+	l.SetFields(o.GetFields())
+	if e := l.SetOptions(o.GetOptions()); e != nil {
+		return nil, e
+	}
+
+	return l, nil
 }
 
 func (o *logger) RegisterFuncUpdateLogger(fct func(log Logger)) {
@@ -172,22 +168,16 @@ func (o *logger) SetFields(field logfld.Fields) {
 	if o == nil {
 		return
 	}
-
-	if field != nil {
-		o.m.Lock()
-		defer o.m.Unlock()
-		o.f = field
-	}
+	o.f.Clean()
+	o.f.Merge(field)
 }
 
 func (o *logger) GetFields() logfld.Fields {
 	if o == nil {
-		return logfld.New(context.Background)
+		return logfld.New(context.Background())
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-	return o.f.FieldsClone(nil)
+	return o.f.Clone()
 }
 
 func (o *logger) SetOptions(opt *logcfg.Options) error {
@@ -258,6 +248,16 @@ func (o *logger) SetOptions(opt *logcfg.Options) error {
 			clo.Add(h)
 			h.RegisterHook(obj)
 			go h.Run(o.x.GetContext())
+		}
+
+		// waiting hook has start !!
+		for _, h := range hkl {
+			for i := 0; i < 10; i++ {
+				if h.IsRunning() {
+					break
+				}
+				time.Sleep(50 * time.Millisecond)
+			}
 		}
 
 		o.switchCloser(clo)

@@ -48,7 +48,7 @@ func (v Version) String() string {
 
 func (v Version) Code() string {
 	s := strings.ToLower(v.String())
-	s = strings.Replace(s, " ", "_", -1)
+	s = strings.Replace(s, " ", "_", -1) // nolint
 	return s
 }
 

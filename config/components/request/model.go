@@ -27,61 +27,55 @@
 package request
 
 import (
-	"sync/atomic"
-
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	libhtc "github.com/nabbar/golib/httpcli"
 	montps "github.com/nabbar/golib/monitor/types"
 	libreq "github.com/nabbar/golib/request"
 )
 
-type componentRequest struct {
+type mod struct {
 	x libctx.Config[uint8]
-	r *atomic.Value // libreq.Request
-	c *atomic.Value // libhtc.HttpClient
-	p *atomic.Value // montps.FuncPool
+	r libatm.Value[libreq.Request]    // libreq.Request
+	c libatm.Value[libhtc.HttpClient] // libhtc.HttpClient
 }
 
-func (o *componentRequest) SetHTTPClient(cli libhtc.HttpClient) {
+func (o *mod) SetHTTPClient(cli libhtc.HttpClient) {
 	o.setClient(cli)
 }
 
-func (o *componentRequest) Request() libreq.Request {
+func (o *mod) Request() libreq.Request {
 	return o.getRequest()
 }
 
-func (o *componentRequest) RegisterMonitorPool(fct montps.FuncPool) {
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 	o.setPool(fct)
 }
 
-func (o *componentRequest) getRequest() libreq.Request {
+func (o *mod) getRequest() libreq.Request {
 	if i := o.r.Load(); i == nil {
 		return nil
-	} else if v, k := i.(libreq.Request); !k {
-		return nil
 	} else {
-		return v
+		return i
 	}
 }
 
-func (o *componentRequest) setRequest(req libreq.Request) {
+func (o *mod) setRequest(req libreq.Request) {
 	if req == nil {
 		return
 	}
 	o.r.Store(req)
 }
 
-func (o *componentRequest) getClient() libhtc.HttpClient {
+func (o *mod) getClient() libhtc.HttpClient {
 	if i := o.c.Load(); i == nil {
 		return libhtc.GetClient()
-	} else if v, k := i.(libhtc.HttpClient); !k {
-		return libhtc.GetClient()
 	} else {
-		return v
+		return i
 	}
 }
 
-func (o *componentRequest) setClient(cli libhtc.HttpClient) {
+func (o *mod) setClient(cli libhtc.HttpClient) {
 	if cli == nil {
 		return
 	}
@@ -89,8 +83,8 @@ func (o *componentRequest) setClient(cli libhtc.HttpClient) {
 	o.c.Store(cli)
 }
 
-func (o *componentRequest) getPool() montps.Pool {
-	if i := o.p.Load(); i == nil {
+func (o *mod) getPool() montps.Pool {
+	if i, l := o.x.Load(keyFctMonitorPool); !l || i == nil {
 		return nil
 	} else if v, k := i.(montps.FuncPool); !k {
 		return nil
@@ -101,12 +95,12 @@ func (o *componentRequest) getPool() montps.Pool {
 	}
 }
 
-func (o *componentRequest) setPool(fct montps.FuncPool) {
+func (o *mod) setPool(fct montps.FuncPool) {
 	if fct == nil {
 		fct = func() montps.Pool {
 			return nil
 		}
 	}
 
-	o.p.Store(fct)
+	o.x.Store(keyFctMonitorPool, fct)
 }

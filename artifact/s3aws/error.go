@@ -52,7 +52,6 @@ var (
 	errVersRequest = "version requested '%s'"
 	errObject      = "object '%s'"
 	errObjectEmpty = "object '%s' is empty"
-	errObjectSize  = "object size '%s' mismatch with downloaded size"
 )
 
 func getError(code string, args ...interface{}) error {

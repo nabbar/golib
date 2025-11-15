@@ -32,16 +32,26 @@ import (
 	"encoding/json"
 	"time"
 
-	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	monsts "github.com/nabbar/golib/monitor/status"
 	libprm "github.com/nabbar/golib/prometheus"
-	libsrv "github.com/nabbar/golib/server"
+	libsrv "github.com/nabbar/golib/runner"
 )
 
+// HealthCheck is a function type that performs a health check operation.
+// The function should return nil if the component is healthy, or an error describing
+// the issue if it's not. The context should be respected for timeout and cancellation.
+//
+// Example:
+//
+//	healthCheck := func(ctx context.Context) error {
+//	    return db.PingContext(ctx)
+//	}
 type HealthCheck func(ctx context.Context) error
 
+// MonitorStatus provides methods for querying the current status and state of a monitor.
+// It includes encoding capabilities for serializing status information.
 type MonitorStatus interface {
 	encoding.TextMarshaler
 	json.Marshaler
@@ -72,22 +82,159 @@ type MonitorStatus interface {
 }
 
 type MonitorMetrics interface {
+	// RegisterMetricsName registers names of metrics for this monitor.
+	// The names are stored in memory and used to register metrics
+	// when calling RegisterCollectMetrics.
+	//
+	// The metric names should be in the format:
+	//   <monitor_name>_<metric_name>
+	//
+	// For example:
+	//   monitor_latency
+	//   monitor_uptime
+	//   monitor_downtime
+	//
+	// The names are case-sensitive.
+	//
+	// Parameters:
+	//   names - a list of metric names to register.
+	//
+	// Returns:
+	//   None.
 	RegisterMetricsName(names ...string)
+	// RegisterMetricsAddName registers additional names of metrics for this monitor.
+	// The names are added to the list of names stored in memory and used to register metrics
+	// when calling RegisterCollectMetrics.
+	//
+	// The metric names should be in the format:
+	//   <monitor_name>_<metric_name>
+	//
+	// For example:
+	//   monitor_latency
+	//   monitor_uptime
+	//   monitor_downtime
+	//
+	// The names are case-sensitive.
+	//
+	// Parameters:
+	//   names - a list of metric names to register.
+	//
+	// Returns:
+	//   None.
 	RegisterMetricsAddName(names ...string)
+	// RegisterCollectMetrics registers a function to collect metrics for this monitor.
+	//
+	// The function will be called by the monitor with the correct context and metric names.
+	// The function should update the metrics with the correct values.
+	//
+	// Parameters:
+	//   fct - the function to register.
+	//
+	// Returns:
+	//   None.
 	RegisterCollectMetrics(fct libprm.FuncCollectMetrics)
 
+	// CollectLatency returns the last check's latency.
+	//
+	// It returns the time spent between the start of the last check and the moment
+	// the last check returned a status (OK, Warn, KO).
+	//
+	// It returns an error if the last check didn't return a status.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   time.Duration - the last check's latency.
+	//   liberr.Error - an error if the last check didn't return a status.
 	CollectLatency() time.Duration
+	// CollectUpTime returns the total duration of uptime (OK status) since the
+	// monitor was created.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   time.Duration - the total duration of uptime (OK status).
 	CollectUpTime() time.Duration
+	// CollectDownTime returns the total duration of downtime (KO status) since the
+	// monitor was created.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   time.Duration - the total duration of downtime (KO status).
 	CollectDownTime() time.Duration
+	// CollectRiseTime returns the total duration of rising status since the monitor was created.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   time.Duration - the total duration of rising status.
 	CollectRiseTime() time.Duration
+	// CollectFallTime returns the total duration of falling status since the
+	// monitor was created.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   time.Duration - the total duration of falling status.
 	CollectFallTime() time.Duration
+	// CollectStatus returns the current status of the monitor and whether
+	// the status is rising or falling.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   sts monsts.Status - the current status of the monitor.
+	//   rise bool - whether the status is rising.
+	//   fall bool - whether the status is falling.
 	CollectStatus() (sts monsts.Status, rise bool, fall bool)
 }
 
 type MonitorInfo interface {
+	// InfoGet returns the current information of the monitor.
+	//
+	// It returns the monitor information as a struct of type Info.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   Info - the current information of the monitor.
 	InfoGet() Info
+	// InfoUpd updates the information of the monitor.
+	//
+	// Parameters:
+	// - inf Info: the new information of the monitor.
+	//
+	// Returns:
+	// - None.
 	InfoUpd(inf Info)
+	// InfoName returns the name of the monitor information.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   string - the name of the monitor information.
 	InfoName() string
+	// InfoMap returns the current information of the monitor as a map of strings to
+	// interface values.
+	//
+	// It is a convenience function that allows to access the information
+	// without having to know the exact structure of the Info type.
+	//
+	// Parameters:
+	//   None.
+	//
+	// Returns:
+	//   map[string]interface{} - the current information of the monitor as a map.
+	//
 	InfoMap() map[string]interface{}
 }
 
@@ -95,10 +242,10 @@ type Monitor interface {
 	MonitorInfo
 	MonitorStatus
 	MonitorMetrics
-	libsrv.Server
+	libsrv.Runner
 
 	// SetConfig is used to set or update config of the monitor
-	SetConfig(ctx libctx.FuncContext, cfg Config) liberr.Error
+	SetConfig(ctx context.Context, cfg Config) liberr.Error
 
 	// RegisterLoggerDefault is used to define the default logger.
 	// Default logger can be used to extend options logger from it

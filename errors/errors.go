@@ -52,7 +52,8 @@ func (e *ers) is(err *ers) bool {
 		td = len(sd) > 0
 	)
 
-	if (ts || td) && !(ts && td) { // XOR Trace Source & Destination != 0
+	// XOR Trace Source & Destination != 0
+	if (ts || td) && !(ts && td) { // nolint
 		return false
 	} else if ts && td {
 		return strings.EqualFold(ss, sd)
@@ -63,7 +64,8 @@ func (e *ers) is(err *ers) bool {
 	ts = len(ss) > 0
 	td = len(sd) > 0
 
-	if (ts || td) && !(ts && td) { // XOR Message Source & Destination != 0
+	// XOR Message Source & Destination != 0
+	if (ts || td) && !(ts && td) { // nolint
 		return false
 	} else if ts && td {
 		return strings.EqualFold(ss, sd)
@@ -77,16 +79,21 @@ func (e *ers) is(err *ers) bool {
 	ts = cs > 0
 	td = cd > 0
 
-	if (ts || td) && !(ts && td) { // XOR Message Source & Destination != 0
+	// XOR Message Source & Destination != 0
+	if (ts || td) && !(ts && td) { // nolint
 		return false
 	} else if ts && td {
-		return cs != cd
+		return cs == cd
 	}
 
 	return false
 }
 
 func (e *ers) Is(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	if er, ok := err.(*ers); ok {
 		return e.is(er)
 	} else {
@@ -128,7 +135,7 @@ func (e *ers) Add(parent ...error) {
 }
 
 func (e *ers) IsCode(code CodeError) bool {
-	return e.c == code.GetUint16()
+	return e.c == code.Uint16()
 }
 
 func (e *ers) IsError(err error) bool {
@@ -171,6 +178,8 @@ func (e *ers) HasError(err error) bool {
 
 	for _, p := range e.p {
 		if p.IsError(err) {
+			return true
+		} else if p.HasError(err) {
 			return true
 		}
 	}

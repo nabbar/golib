@@ -27,16 +27,11 @@
 package httpcli
 
 import (
-	"fmt"
-
 	cfgtps "github.com/nabbar/golib/config/types"
-	htcdns "github.com/nabbar/golib/httpcli/dns-mapper"
-	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
-	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentHttpClient) _getKey() string {
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -48,7 +43,7 @@ func (o *componentHttpClient) _getKey() string {
 	}
 }
 
-func (o *componentHttpClient) _getFctVpr() libvpr.FuncViper {
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -60,7 +55,7 @@ func (o *componentHttpClient) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentHttpClient) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -70,41 +65,7 @@ func (o *componentHttpClient) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentHttpClient) _getSPFViper() *spfvbr.Viper {
-	if f := o._getViper(); f == nil {
-		return nil
-	} else if v := f.Viper(); v == nil {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentHttpClient) _getFctCpt() cfgtps.FuncCptGet {
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentHttpClient) _getVersion() libver.Version {
-	if i, l := o.x.Load(keyCptVersion); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if v, k := i.(libver.Version); !k {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentHttpClient) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -112,7 +73,7 @@ func (o *componentHttpClient) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEven
 	}
 }
 
-func (o *componentHttpClient) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -124,7 +85,7 @@ func (o *componentHttpClient) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentHttpClient) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -132,31 +93,24 @@ func (o *componentHttpClient) _runFct(fct func(cpt cfgtps.Component) error) erro
 	return nil
 }
 
-func (o *componentHttpClient) _runCli() error {
-	var (
-		err error
-		prt = ErrorComponentReload
-		dns htcdns.DNSMapper
-		cfg *htcdns.Config
-	)
+func (o *mod) _runCli() error {
+	var prt = ErrorComponentReload
 
 	if !o.IsStarted() {
 		prt = ErrorComponentStart
 	}
 
-	if cfg, err = o._getConfig(); err != nil {
+	if cfg, err := o._getConfig(); err != nil {
 		return prt.Error(err)
-	} else if dns = cfg.New(o.x.GetContext(), o.getRootCA, o.getMessage()); dns == nil {
-		return prt.Error(fmt.Errorf("cannot create DNS Mapper"))
+	} else {
+		o.setConfig(*cfg)
+		o.setDNSMapper(cfg.New(o.x.GetContext(), o.getRootCA, o.getMessage()))
 	}
-
-	o.setConfig(*cfg)
-	o.setDNSMapper(dns)
 
 	return nil
 }
 
-func (o *componentHttpClient) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

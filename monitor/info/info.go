@@ -26,6 +26,8 @@
 
 package info
 
+// defaultName retrieves the default name from the internal storage.
+// Returns an empty string if the default name is not set or is not a string.
 func (o *inf) defaultName() string {
 	if i, l := o.v.Load(keyDefName); !l {
 		return ""
@@ -36,6 +38,10 @@ func (o *inf) defaultName() string {
 	}
 }
 
+// Name returns the name of the monitor info.
+// If a name function is registered, it calls the function on first access and caches the result.
+// If no function is registered or the cached value exists, it returns the cached or default name.
+// This method is thread-safe and can be called concurrently.
 func (o *inf) Name() string {
 	if i, l := o.v.Load(keyName); !l {
 		return o.getName()
@@ -46,6 +52,11 @@ func (o *inf) Name() string {
 	}
 }
 
+// Info returns a map of string to interface{} containing information about the monitor.
+// If an info function is registered, it calls the function on first access and caches the results.
+// If cached values exist, they are returned. Internal keys (keyDefName, keyName) are filtered out.
+// This method is thread-safe and can be called concurrently.
+// Returns nil if no info is available.
 func (o *inf) Info() map[string]interface{} {
 	var res = make(map[string]interface{}, 0)
 

@@ -32,15 +32,17 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// Error codes for FTP client operations.
+// These errors are registered with the golib/errors package for consistent error handling.
 const (
-	ErrorParamsEmpty liberr.CodeError = iota + liberr.MinPkgFTPClient
-	ErrorValidatorError
-	ErrorEndpointParser
-	ErrorNotInitialized
-	ErrorFTPConnection
-	ErrorFTPConnectionCheck
-	ErrorFTPLogin
-	ErrorFTPCommand
+	ErrorParamsEmpty        liberr.CodeError = iota + liberr.MinPkgFTPClient // Given parameters are empty
+	ErrorValidatorError                                                      // Configuration validation failed
+	ErrorEndpointParser                                                      // Cannot parse the given endpoint
+	ErrorNotInitialized                                                      // Client instance is not initialized
+	ErrorFTPConnection                                                       // Failed to establish FTP connection
+	ErrorFTPConnectionCheck                                                  // Connection check (NOOP) failed
+	ErrorFTPLogin                                                            // FTP login authentication failed
+	ErrorFTPCommand                                                          // FTP command execution failed
 )
 
 func init() {

@@ -34,9 +34,7 @@ func (o *config) SetCipherList(c []tlscpr.Cipher) {
 }
 
 func (o *config) AddCiphers(c ...tlscpr.Cipher) {
-	for _, i := range c {
-		o.cipherList = append(o.cipherList, i)
-	}
+	o.cipherList = append(o.cipherList, c...)
 }
 
 func (o *config) GetCiphers() []tlscpr.Cipher {

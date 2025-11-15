@@ -35,7 +35,7 @@ import (
 	spfvpr "github.com/spf13/viper"
 )
 
-func (o *componentMail) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	var (
 		key string
 		vpr *spfvpr.Viper
@@ -80,7 +80,7 @@ func (o *componentMail) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentMail) _getConfig() (*libmail.Config, error) {
+func (o *mod) _getConfig() (*libmail.Config, error) {
 	var (
 		key string
 		cfg libmail.Config

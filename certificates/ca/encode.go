@@ -32,9 +32,11 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/fxamacker/cbor/v2"
-	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,22 +48,15 @@ func isFile(path string) bool {
 	return !f.IsDir()
 }
 
-func (o *mod) unMarshall(p []byte) error {
+func (o *Certif) unMarshall(p []byte) error {
 	if len(p) < 1 {
 		return ErrInvalidPairCertificate
 	}
 
 	p = bytes.TrimSpace(p)
+	p = bytes.Trim(p, "\"")
+	p = bytes.Replace(p, []byte("\\n"), []byte("\n"), -1) // nolint
 
-	// remove \n\r
-	p = bytes.Trim(p, "\n")
-	p = bytes.Trim(p, "\r")
-
-	// do again if \r\n
-	p = bytes.Trim(p, "\n")
-	p = bytes.Trim(p, "\r")
-
-	p = bytes.TrimSpace(p)
 	v := make([]*x509.Certificate, 0)
 
 	for {
@@ -74,7 +69,7 @@ func (o *mod) unMarshall(p []byte) error {
 				v = append(v, c)
 			}
 		} else if fs := string(block.Bytes); isFile(fs) {
-			if b, e := os.ReadFile(fs); e == nil {
+			if b, e := o.readFile(fs); e == nil {
 				if crt, err := x509.ParseCertificate(b); err == nil {
 					v = append(v, crt)
 				}
@@ -88,7 +83,23 @@ func (o *mod) unMarshall(p []byte) error {
 	return nil
 }
 
-func (o *mod) MarshalText() (text []byte, err error) {
+func (o *Certif) readFile(fs string) ([]byte, error) {
+	r, e := os.OpenRoot(filepath.Dir(fs))
+
+	defer func() {
+		if r != nil {
+			_ = r.Close()
+		}
+	}()
+
+	if e != nil {
+		return nil, e
+	} else {
+		return r.ReadFile(filepath.Base(fs))
+	}
+}
+
+func (o *Certif) MarshalText() ([]byte, error) {
 	if s, e := o.Chain(); e != nil {
 		return nil, e
 	} else {
@@ -96,51 +107,66 @@ func (o *mod) MarshalText() (text []byte, err error) {
 	}
 }
 
-func (o *mod) UnmarshalText(text []byte) error {
-	return o.unMarshall(text)
+func (o *Certif) UnmarshalText(b []byte) error {
+	return o.unMarshall(b)
 }
 
-func (o *mod) MarshalBinary() (data []byte, err error) {
+func (o *Certif) MarshalBinary() ([]byte, error) {
 	return o.MarshalCBOR()
 }
 
-func (o *mod) UnmarshalBinary(data []byte) error {
-	return o.UnmarshalCBOR(data)
+func (o *Certif) UnmarshalBinary(b []byte) error {
+	return o.UnmarshalCBOR(b)
 }
 
-func (o *mod) MarshalJSON() ([]byte, error) {
-	if s, e := o.Chain(); e != nil {
+func (o *Certif) MarshalJSON() ([]byte, error) {
+	if s, e := o.SliceChain(); e != nil {
 		return nil, e
 	} else {
 		return json.Marshal(s)
 	}
 }
 
-func (o *mod) UnmarshalJSON(bytes []byte) error {
-	return o.unMarshall(bytes)
-}
+func (o *Certif) UnmarshalJSON(b []byte) error {
+	var s = make([]string, 0)
 
-func (o *mod) MarshalYAML() (interface{}, error) {
-	if s, e := o.Chain(); e != nil {
-		return nil, e
+	if err := json.Unmarshal(b, &s); err != nil {
+		return o.unMarshall(b)
+	} else if len(s) > 0 {
+		return o.unMarshall([]byte(strings.Join(s, "\n")))
 	} else {
-		return yaml.Marshal(s)
+		*o = Certif{
+			c: make([]*x509.Certificate, 0),
+		}
+		return nil
 	}
 }
 
-func (o *mod) UnmarshalYAML(value *yaml.Node) error {
-	return o.unMarshall([]byte(value.Value))
-}
-
-func (o *mod) MarshalTOML() ([]byte, error) {
+func (o *Certif) MarshalYAML() (interface{}, error) {
 	if s, e := o.Chain(); e != nil {
 		return nil, e
 	} else {
-		return toml.Marshal(s)
+		return s, nil
 	}
 }
 
-func (o *mod) UnmarshalTOML(i interface{}) error {
+func (o *Certif) UnmarshalYAML(value *yaml.Node) error {
+	if value == nil {
+		return nil
+	} else {
+		return o.unMarshall([]byte(value.Value))
+	}
+}
+
+func (o *Certif) MarshalTOML() ([]byte, error) {
+	if s, e := o.Chain(); e != nil {
+		return nil, e
+	} else {
+		return []byte(strconv.Quote(s)), nil
+	}
+}
+
+func (o *Certif) UnmarshalTOML(i interface{}) error {
 	if p, k := i.([]byte); k {
 		return o.unMarshall(p)
 	}
@@ -152,7 +178,7 @@ func (o *mod) UnmarshalTOML(i interface{}) error {
 	return ErrInvalidCertificate
 }
 
-func (o *mod) MarshalCBOR() ([]byte, error) {
+func (o *Certif) MarshalCBOR() ([]byte, error) {
 	if s, e := o.Chain(); e != nil {
 		return nil, e
 	} else {
@@ -160,6 +186,11 @@ func (o *mod) MarshalCBOR() ([]byte, error) {
 	}
 }
 
-func (o *mod) UnmarshalCBOR(bytes []byte) error {
-	return o.unMarshall(bytes)
+func (o *Certif) UnmarshalCBOR(b []byte) error {
+	var s string
+	if e := cbor.Unmarshal(b, &s); e != nil {
+		return e
+	} else {
+		return o.unMarshall([]byte(s))
+	}
 }

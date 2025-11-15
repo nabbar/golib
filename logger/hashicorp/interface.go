@@ -32,12 +32,36 @@ import (
 	liblog "github.com/nabbar/golib/logger"
 )
 
+// New returns a new hclog.Logger from the given liblog.FuncLog.
+// It's a convenient way to create an hclog.Logger from a logger
+// that's already been set up with the liblog package.
+//
+// The given logger is used as the underlying logger for the
+// returned hclog.Logger. This means that any log messages sent
+// to the returned hclog.Logger will be forwarded to the given
+// logger.
+//
+// The returned hclog.Logger is a fully functional hclog.Logger and
+// supports all of the standard hclog.Logger methods.
 func New(logger liblog.FuncLog) hclog.Logger {
 	return &_hclog{
 		l: logger,
 	}
 }
 
+// SetDefault sets the default hclog.Logger to the given liblog.FuncLog.
+// It's a convenient way to set the default hclog.Logger from a logger
+// that's already been set up with the liblog package.
+//
+// The given logger is used as the underlying logger for the
+// default hclog.Logger. This means that any log messages sent
+// to the default hclog.Logger will be forwarded to the given
+// logger.
+//
+// The default hclog.Logger is used by the hclog package whenever
+// an hclog.Logger is not explicitly provided. For example, when
+// creating a new hclog.Logger with the hclog.New() function, the
+// default hclog.Logger is used if no other logger is provided.
 func SetDefault(log liblog.FuncLog) {
 	hclog.SetDefault(New(log))
 }

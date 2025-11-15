@@ -64,8 +64,15 @@ type OptionsSyslog struct {
 type OptionsSyslogs []OptionsSyslog
 
 func (o OptionsSyslog) Clone() OptionsSyslog {
+	// Deep copy LogLevel slice
+	var logLevel []string
+	if o.LogLevel != nil {
+		logLevel = make([]string, len(o.LogLevel))
+		copy(logLevel, o.LogLevel)
+	}
+
 	return OptionsSyslog{
-		LogLevel:         o.LogLevel,
+		LogLevel:         logLevel,
 		Network:          o.Network,
 		Host:             o.Host,
 		Facility:         o.Facility,

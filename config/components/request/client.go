@@ -33,10 +33,9 @@ import (
 	libreq "github.com/nabbar/golib/request"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
-	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentRequest) _getKey() string {
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -48,7 +47,7 @@ func (o *componentRequest) _getKey() string {
 	}
 }
 
-func (o *componentRequest) _getFctVpr() libvpr.FuncViper {
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -60,7 +59,7 @@ func (o *componentRequest) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentRequest) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -70,33 +69,11 @@ func (o *componentRequest) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentRequest) _getSPFViper() *spfvbr.Viper {
-	if f := o._getViper(); f == nil {
-		return nil
-	} else if v := f.Viper(); v == nil {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentRequest) _getFctCpt() cfgtps.FuncCptGet {
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentRequest) _getContext() context.Context {
+func (o *mod) _getContext() context.Context {
 	return o.x.GetContext()
 }
 
-func (o *componentRequest) _getVersion() libver.Version {
+func (o *mod) _getVersion() libver.Version {
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -108,7 +85,7 @@ func (o *componentRequest) _getVersion() libver.Version {
 	}
 }
 
-func (o *componentRequest) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -116,7 +93,7 @@ func (o *componentRequest) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) 
 	}
 }
 
-func (o *componentRequest) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -128,7 +105,7 @@ func (o *componentRequest) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentRequest) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -136,9 +113,8 @@ func (o *componentRequest) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *componentRequest) _runCli() error {
+func (o *mod) _runCli() error {
 	var (
-		e   error
 		err error
 		prt = ErrorComponentReload
 		req libreq.Request
@@ -158,26 +134,26 @@ func (o *componentRequest) _runCli() error {
 	cfg.SetDefaultLog(o.getLogger)
 
 	if req != nil {
-		if req, e = cfg.Update(o.x.GetContext, req); err != nil {
-			return prt.Error(e)
+		if req, err = cfg.Update(o.x, req); err != nil {
+			return prt.Error(err)
 		}
 		req.RegisterHTTPClient(o.getClient())
 	} else {
-		if req, e = cfg.New(o.x.GetContext, o.getClient()); err != nil {
-			return prt.Error(e)
+		if req, err = cfg.New(o.x, o.getClient()); err != nil {
+			return prt.Error(err)
 		}
 	}
 
 	o.setRequest(req)
 
-	if e = o._registerMonitor(cfg); e != nil {
-		return prt.Error(e)
+	if err = o._registerMonitor(cfg); err != nil {
+		return prt.Error(err)
 	}
 
 	return nil
 }
 
-func (o *componentRequest) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

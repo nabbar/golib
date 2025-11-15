@@ -35,7 +35,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	libctx "github.com/nabbar/golib/context"
 	libhtc "github.com/nabbar/golib/httpcli"
 	liblog "github.com/nabbar/golib/logger"
 	montps "github.com/nabbar/golib/monitor/types"
@@ -113,7 +112,7 @@ type Request interface {
 	SetOption(opt *Options) error
 	RegisterHTTPClient(cli libhtc.HttpClient)
 	RegisterDefaultLogger(fct liblog.FuncLog)
-	RegisterContext(fct libctx.FuncContext)
+	RegisterContext(fct context.Context)
 
 	Error() Error
 	IsError() bool
@@ -132,7 +131,7 @@ type Request interface {
 	HealthCheck(ctx context.Context) error
 }
 
-func New(ctx libctx.FuncContext, opt *Options, cli libhtc.HttpClient) (Request, error) {
+func New(ctx context.Context, opt *Options, cli libhtc.HttpClient) (Request, error) {
 	r := &request{
 		mux: sync.Mutex{},
 		opt: new(atomic.Value),

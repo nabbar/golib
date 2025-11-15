@@ -69,10 +69,7 @@ type awsModel struct {
 func validateBucketS3(fl libval.FieldLevel) bool {
 	value := fl.Field().String()
 	re := regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9]|\.[A-Za-z0-9]|-[A-Za-z0-9]){0,46}[A-Za-z0-9]$`)
-	if !re.MatchString(value) {
-		return false
-	}
-	return true
+	return re.MatchString(value)
 }
 
 func (c *awsModel) Validate() error {
@@ -90,7 +87,6 @@ func (c *awsModel) Validate() error {
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
-			//nolint goerr113
 			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
 		}
 	}
@@ -248,13 +244,13 @@ func (c *awsModel) GetEndpoint() *url.URL {
 	return c.endpoint
 }
 
-func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, error) {
+func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, error) { // nolint
 	return c.ResolveEndpointWithOptions(service, region)
 }
 
-func (c *awsModel) ResolveEndpointWithOptions(service, region string, options ...interface{}) (sdkaws.Endpoint, error) {
+func (c *awsModel) ResolveEndpointWithOptions(service, region string, options ...interface{}) (sdkaws.Endpoint, error) { // nolint
 	if e, ok := c.mapRegion[region]; ok {
-		return sdkaws.Endpoint{
+		return sdkaws.Endpoint{ // nolint
 			URL:           strings.TrimSuffix(e.String(), "/"),
 			SigningRegion: region,
 			SigningName:   service,
@@ -262,14 +258,14 @@ func (c *awsModel) ResolveEndpointWithOptions(service, region string, options ..
 	}
 
 	if c.Endpoint != "" {
-		return sdkaws.Endpoint{
+		return sdkaws.Endpoint{ // nolint
 			URL:           strings.TrimSuffix(c.Endpoint, "/"),
 			SigningRegion: region,
 			SigningName:   service,
 		}, nil
 	}
 
-	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
+	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil) // nolint
 }
 
 func (c *awsModel) GetDisableHTTPS() bool {
@@ -304,7 +300,7 @@ func (c *awsModel) Check(ctx context.Context) error {
 		ctx = context.Background()
 	}
 
-	if _, err = cfg.EndpointResolverWithOptions.ResolveEndpoint("s3", c.GetRegion()); err != nil {
+	if _, err = cfg.EndpointResolverWithOptions.ResolveEndpoint("s3", c.GetRegion()); err != nil { // nolint
 		return ErrorEndpointInvalid.Error(err)
 	}
 

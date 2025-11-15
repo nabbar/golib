@@ -27,45 +27,55 @@
 package database
 
 import (
-	"sync"
-	"time"
+	"context"
+	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
 	libdbs "github.com/nabbar/golib/database/gorm"
+	libdur "github.com/nabbar/golib/duration"
 )
 
-type ComponentDatabase interface {
+type CptDatabase interface {
 	cfgtps.Component
 
-	SetLogOptions(ignoreRecordNotFoundError bool, slowThreshold time.Duration)
+	SetLogOptions(ignoreRecordNotFoundError bool, slowThreshold libdur.Duration)
 	GetDatabase() libdbs.Database
 	SetDatabase(db libdbs.Database)
 }
 
-func New(ctx libctx.FuncContext) ComponentDatabase {
-	return &componentDatabase{
-		m:  sync.RWMutex{},
-		x:  libctx.NewConfig[uint8](ctx),
-		li: false,
-		ls: 0,
-		d:  nil,
+func New(ctx context.Context) CptDatabase {
+	c := &mod{
+		x:  libctx.New[uint8](ctx),
+		li: new(atomic.Bool),
+		ls: libatm.NewValue[libdur.Duration](),
+		d:  libatm.NewValue[libdbs.Database](),
+		r:  new(atomic.Bool),
 	}
+
+	c.li.Store(false)
+	c.ls.Store(0)
+	c.r.Store(false)
+
+	return c
 }
 
-func Register(cfg libcfg.Config, key string, cpt ComponentDatabase) {
+func Register(cfg libcfg.Config, key string, cpt CptDatabase) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, key string) {
 	cfg.ComponentSet(key, New(ctx))
 }
 
-func Load(getCpt cfgtps.FuncCptGet, key string) ComponentDatabase {
-	if c := getCpt(key); c == nil {
+func Load(getCpt cfgtps.FuncCptGet, key string) CptDatabase {
+	if getCpt == nil {
 		return nil
-	} else if h, ok := c.(ComponentDatabase); !ok {
+	} else if c := getCpt(key); c == nil {
+		return nil
+	} else if h, ok := c.(CptDatabase); !ok {
 		return nil
 	} else {
 		return h

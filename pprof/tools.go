@@ -37,10 +37,11 @@ import (
 	"runtime/pprof"
 	"time"
 
-	srvtck "github.com/nabbar/golib/server/runner/ticker"
+	srvtck "github.com/nabbar/golib/runner/ticker"
 )
 
 var (
+	d        *os.Root
 	c        *os.File
 	m        string
 	ctx, cnl = context.WithCancel(context.Background())
@@ -57,8 +58,9 @@ func StopProfiling() {
 	ProfilingCPUDefer()
 }
 
-func getPath(basename string) (*os.File, error) {
+func getPath(basename string) (*os.Root, *os.File, error) {
 	var (
+		r *os.Root
 		h *os.File
 		p string
 		e error
@@ -66,34 +68,41 @@ func getPath(basename string) (*os.File, error) {
 
 	p, e = os.Executable()
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
 
 	p = filepath.Join(filepath.Dir(p), basename)
 
+	if r, e = os.OpenRoot(filepath.Dir(p)); e != nil {
+		return nil, nil, e
+	}
+
 	if _, e = os.Stat(p); e != nil && !errors.Is(e, os.ErrNotExist) {
-		return nil, e
-	} else if e != nil {
-		h, e = os.Create(p)
-	} else {
-		h, e = os.Open(p)
+		return nil, nil, e
 	}
 
 	if e != nil {
-		return nil, e
+		h, e = r.Create(p)
+	} else {
+		h, e = r.Open(p)
+	}
+
+	if e != nil {
+		return nil, nil, e
 	}
 
 	if e = h.Truncate(0); e != nil {
 		_ = h.Close()
-		return nil, e
+		return nil, nil, e
 	}
 
-	return h, nil
+	return r, h, nil
 }
 
 func ProfilingCPUStart() {
 	var e error
-	if c, e = getPath("cpu.prof"); e != nil {
+
+	if d, c, e = getPath("cpu.prof"); e != nil {
 		panic(e)
 	} else if e = pprof.StartCPUProfile(c); e != nil {
 		panic(e)
@@ -104,34 +113,54 @@ func ProfilingCPUStart() {
 
 func ProfilingCPUDefer() {
 	_, _ = fmt.Fprintf(os.Stdout, "Stopping pprof for CPU to file '%s'\n", c.Name())
+
 	pprof.StopCPUProfile()
-	_ = c.Close()
+
+	if c != nil {
+		_ = c.Close()
+	}
+
+	if d != nil {
+		_ = d.Close()
+	}
 }
 
 func ProfilingMemStart() {
-	if h, e := getPath("mem.prof"); e != nil {
-		panic(e)
-	} else {
-		m = h.Name()
-	}
-
 	if e := s.Start(ctx); e != nil {
 		panic(e)
 	}
 }
 
 func ProfilingMemRun(ctx context.Context, tck *time.Ticker) error {
+	var (
+		e error
+		r *os.Root
+		h *os.File
+	)
+
+	defer func() {
+		if h != nil {
+			_ = h.Close()
+		}
+		if r != nil {
+			_ = r.Close()
+		}
+	}()
+
 	if ctx.Err() != nil {
 		return nil
-	} else if len(m) < 1 {
+	} else if r, h, e = getPath("mem.prof"); e != nil {
+		panic(e)
+	}
+
+	m = h.Name()
+	_ = h.Close()
+
+	if len(m) < 1 {
 		return nil
-	} else if h, e := os.OpenFile(m, os.O_RDWR|os.O_EXCL|os.O_SYNC, 0644); e != nil {
+	} else if h, e = r.OpenFile(m, os.O_RDWR|os.O_EXCL|os.O_SYNC, 0644); e != nil {
 		return e
 	} else {
-		defer func() {
-			_ = h.Close()
-		}()
-
 		runtime.GC()
 		debug.FreeOSMemory()
 

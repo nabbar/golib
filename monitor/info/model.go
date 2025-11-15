@@ -33,17 +33,22 @@ const (
 	keyName    = "__keyName__"
 )
 
+// inf is the internal implementation of the Info interface.
+// It uses sync.RWMutex for thread-safe operations and sync.Map for efficient concurrent access.
 type inf struct {
-	m sync.RWMutex
-	v sync.Map
+	m sync.RWMutex // protects fi, ri, fn, rn fields
+	v sync.Map     // stores name and info data
 
-	fi FuncInfo
-	ri bool
+	fi FuncInfo // registered function to retrieve info data
+	ri bool     // indicates if info function is registered and needs to be called
 
-	fn FuncName
-	rn bool
+	fn FuncName // registered function to retrieve name
+	rn bool     // indicates if name function is registered and needs to be called
 }
 
+// RegisterName registers a function that returns a dynamic name.
+// This clears any cached name and sets the function to be called on next Name() access.
+// The function is thread-safe and can be called concurrently.
 func (o *inf) RegisterName(fct FuncName) {
 	o.m.Lock()
 	defer o.m.Unlock()
@@ -53,6 +58,9 @@ func (o *inf) RegisterName(fct FuncName) {
 	o.rn = true
 }
 
+// RegisterInfo registers a function that returns dynamic info data.
+// This clears any cached info data (except internal keys) and sets the function to be called on next Info() access.
+// The function is thread-safe and can be called concurrently.
 func (o *inf) RegisterInfo(fct FuncInfo) {
 	o.m.Lock()
 	defer o.m.Unlock()
@@ -75,6 +83,7 @@ func (o *inf) RegisterInfo(fct FuncInfo) {
 	o.ri = true
 }
 
+// isName checks if a name function is registered and needs to be called.
 func (o *inf) isName() bool {
 	o.m.RLock()
 	defer o.m.RUnlock()
@@ -82,6 +91,7 @@ func (o *inf) isName() bool {
 	return o.rn && o.fn != nil
 }
 
+// isInfo checks if an info function is registered and needs to be called.
 func (o *inf) isInfo() bool {
 	o.m.RLock()
 	defer o.m.RUnlock()
@@ -89,6 +99,8 @@ func (o *inf) isInfo() bool {
 	return o.ri && o.fi != nil
 }
 
+// callName invokes the registered name function and caches the result.
+// If the function returns an error, the default name is returned instead.
 func (o *inf) callName() (string, error) {
 	o.m.RLock()
 	defer o.m.RUnlock()
@@ -101,6 +113,8 @@ func (o *inf) callName() (string, error) {
 	}
 }
 
+// callInfo invokes the registered info function and caches the results.
+// If the function returns an error, nil is returned.
 func (o *inf) callInfo() (map[string]interface{}, error) {
 	o.m.RLock()
 	defer o.m.RUnlock()
@@ -115,6 +129,9 @@ func (o *inf) callInfo() (map[string]interface{}, error) {
 	}
 }
 
+// getName retrieves the name by calling the registered function if available,
+// or returns the default name. After a successful call, the function is marked
+// as complete (rn = false) to use the cached value on subsequent calls.
 func (o *inf) getName() string {
 	if !o.isName() {
 		return o.defaultName()
@@ -131,6 +148,9 @@ func (o *inf) getName() string {
 	return i
 }
 
+// getInfo retrieves the info data by calling the registered function if available.
+// After a successful call, the function is marked as complete (ri = false)
+// to use the cached values on subsequent calls.
 func (o *inf) getInfo() map[string]interface{} {
 	if !o.isInfo() {
 		return nil

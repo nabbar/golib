@@ -27,28 +27,35 @@
 package monitor
 
 import (
+	"context"
 	"time"
 
-	libctx "github.com/nabbar/golib/context"
 	libdur "github.com/nabbar/golib/duration"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
 	montps "github.com/nabbar/golib/monitor/types"
+	"github.com/nabbar/golib/runner"
 )
 
+// runCfg holds the internal runtime configuration for the monitor.
+// It stores normalized duration and count values used during health check execution.
 type runCfg struct {
-	checkTimeout  time.Duration
-	intervalCheck time.Duration
-	intervalFall  time.Duration
-	intervalRise  time.Duration
-	fallCountKO   uint8
-	fallCountWarn uint8
-	riseCountKO   uint8
-	riseCountWarn uint8
+	checkTimeout  time.Duration // Maximum duration for a health check to complete
+	intervalCheck time.Duration // Interval between normal health checks
+	intervalFall  time.Duration // Interval when status is falling
+	intervalRise  time.Duration // Interval when status is rising
+	fallCountKO   uint8         // Number of failures needed to transition from Warn to KO
+	fallCountWarn uint8         // Number of failures needed to transition from OK to Warn
+	riseCountKO   uint8         // Number of successes needed to transition from KO to Warn
+	riseCountWarn uint8         // Number of successes needed to transition from Warn to OK
 }
 
+// defConfig creates and stores a default configuration with minimum safe values.
+// This is used when no configuration has been explicitly set.
 func (o *mon) defConfig() *runCfg {
+	defer runner.RecoveryCaller("golib/monitor/defConfig", recover())
+
 	cfg := &runCfg{}
 
 	if cfg.checkTimeout < 5*time.Second {
@@ -87,11 +94,17 @@ func (o *mon) defConfig() *runCfg {
 	return cfg
 }
 
+// RegisterLoggerDefault registers a default logger function provider.
+// This logger is used as a fallback when creating new loggers.
 func (o *mon) RegisterLoggerDefault(fct liblog.FuncLog) {
+	defer runner.RecoveryCaller("golib/monitor/RegisterLoggerDefault", recover())
 	o.x.Store(keyLoggerDef, fct)
 }
 
+// getLoggerDefault retrieves the default logger if one has been registered.
+// Returns nil if no default logger has been set.
 func (o *mon) getLoggerDefault() liblog.Logger {
+	defer runner.RecoveryCaller("golib/monitor/getLoggerDefault", recover())
 	if i, l := o.x.Load(keyLoggerDef); !l {
 		return nil
 	} else if v, k := i.(liblog.FuncLog); !k {
@@ -101,9 +114,15 @@ func (o *mon) getLoggerDefault() liblog.Logger {
 	}
 }
 
-func (o *mon) SetConfig(ctx libctx.FuncContext, cfg montps.Config) liberr.Error {
+// SetConfig updates the monitor configuration.
+// It validates the configuration, normalizes values to safe minimums,
+// and initializes a logger with the provided options.
+// Returns an error if validation fails or logger initialization fails.
+func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) liberr.Error {
+	defer runner.RecoveryCaller("golib/monitor/SetConfig", recover())
+
 	if ctx == nil {
-		ctx = o.x.GetContext
+		ctx = o.x
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -127,19 +146,19 @@ func (o *mon) SetConfig(ctx libctx.FuncContext, cfg montps.Config) liberr.Error 
 		riseCountWarn: cfg.RiseCountWarn,
 	}
 
-	if cnf.checkTimeout < 5*time.Second {
+	if cnf.checkTimeout < time.Microsecond {
 		cnf.checkTimeout = 5 * time.Second
 	}
 
-	if cnf.intervalCheck < time.Second {
+	if cnf.intervalCheck < time.Microsecond {
 		cnf.intervalCheck = time.Second
 	}
 
-	if cnf.intervalFall < time.Second {
+	if cnf.intervalFall < time.Microsecond {
 		cnf.intervalFall = cnf.intervalCheck
 	}
 
-	if cnf.intervalRise < time.Second {
+	if cnf.intervalRise < time.Microsecond {
 		cnf.intervalRise = cnf.intervalCheck
 	}
 
@@ -169,18 +188,29 @@ func (o *mon) SetConfig(ctx libctx.FuncContext, cfg montps.Config) liberr.Error 
 		n = l
 	}
 
-	if e := n.SetOptions(&cfg.Logger); e != nil {
-		return ErrorLoggerError.Error(e)
-	}
+	if n != nil {
+		if e := n.SetOptions(&cfg.Logger); e != nil {
+			return ErrorLoggerError.Error(e)
+		}
 
-	f := n.GetFields()
-	n.SetFields(f.Add(LogFieldProcess, LogValueProcess).Add(LogFieldName, cfg.Name))
+		if f := n.GetFields(); f != nil {
+			if newFields := f.Add(LogFieldProcess, LogValueProcess); newFields != nil {
+				if finalFields := newFields.Add(LogFieldName, cfg.Name); finalFields != nil {
+					n.SetFields(finalFields)
+				}
+			}
+		}
+	}
 
 	o.x.Store(keyLogger, n)
 	return nil
 }
 
+// GetConfig returns the current monitor configuration.
+// It builds a Config from the internal runCfg and logger options.
 func (o *mon) GetConfig() montps.Config {
+	defer runner.RecoveryCaller("golib/monitor/GetConfig", recover())
+
 	cfg := o.getCfg()
 	if cfg == nil {
 		cfg = &runCfg{}
@@ -205,7 +235,10 @@ func (o *mon) GetConfig() montps.Config {
 	}
 }
 
+// getName retrieves the configured monitor name.
+// Returns the default name if none has been set.
 func (o *mon) getName() string {
+	defer runner.RecoveryCaller("golib/monitor/getName", recover())
 	if i, l := o.x.Load(keyName); !l {
 		return defaultMonitorName
 	} else if v, k := i.(string); !k {
@@ -215,7 +248,10 @@ func (o *mon) getName() string {
 	}
 }
 
+// getCfg retrieves the current runtime configuration.
+// Returns the default configuration if none has been set.
 func (o *mon) getCfg() *runCfg {
+	defer runner.RecoveryCaller("golib/monitor/getCfg", recover())
 	if i, l := o.x.Load(keyConfig); !l {
 		return o.defConfig()
 	} else if v, k := i.(*runCfg); !k {
@@ -225,7 +261,10 @@ func (o *mon) getCfg() *runCfg {
 	}
 }
 
+// getLog retrieves the configured logger.
+// Returns nil if no logger has been configured.
 func (o *mon) getLog() liblog.Logger {
+	defer runner.RecoveryCaller("golib/monitor/getLog", recover())
 	if i, l := o.x.Load(keyLogger); !l {
 		return nil
 	} else if v, k := i.(liblog.Logger); !k {
@@ -235,17 +274,23 @@ func (o *mon) getLog() liblog.Logger {
 	}
 }
 
+// getLogger retrieves the configured logger or creates a new one.
+// This always returns a valid logger instance.
 func (o *mon) getLogger() liblog.Logger {
+	defer runner.RecoveryCaller("golib/monitor/getLogger", recover())
 	i := o.getLog()
 
 	if i == nil {
-		return liblog.New(o.x.GetContext)
+		return liblog.New(o.x)
 	} else {
 		return i
 	}
 }
 
+// getFct retrieves the registered health check function.
+// Returns nil if no health check has been registered.
 func (o *mon) getFct() montps.HealthCheck {
+	defer runner.RecoveryCaller("golib/monitor/getFct", recover())
 	if i, l := o.x.Load(keyHealthCheck); !l {
 		return nil
 	} else if v, k := i.(montps.HealthCheck); !k {
@@ -255,7 +300,10 @@ func (o *mon) getFct() montps.HealthCheck {
 	}
 }
 
+// getLastCheck retrieves the last check results.
+// Returns a new lastRun instance if none exists.
 func (o *mon) getLastCheck() *lastRun {
+	defer runner.RecoveryCaller("golib/monitor/getLastCheck", recover())
 	if i, l := o.x.Load(keyLastRun); !l {
 		return newLastRun()
 	} else if v, k := i.(*lastRun); !k {
@@ -265,6 +313,8 @@ func (o *mon) getLastCheck() *lastRun {
 	}
 }
 
+// setLastCheck stores the results from the last health check execution.
 func (o *mon) setLastCheck(l *lastRun) {
+	defer runner.RecoveryCaller("golib/monitor/setLastCheck", recover())
 	o.x.Store(keyLastRun, l)
 }

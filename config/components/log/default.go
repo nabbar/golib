@@ -30,6 +30,6 @@ import (
 	logcfg "github.com/nabbar/golib/logger/config"
 )
 
-func (o *componentLog) DefaultConfig(indent string) []byte {
+func (o *mod) DefaultConfig(indent string) []byte {
 	return logcfg.DefaultConfig(indent)
 }

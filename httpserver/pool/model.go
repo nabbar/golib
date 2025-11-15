@@ -28,7 +28,6 @@ package pool
 
 import (
 	"context"
-	"net/http"
 	"sync"
 
 	liblog "github.com/nabbar/golib/logger"
@@ -87,25 +86,6 @@ func (o *pool) Handler(fct srvtps.FuncHandler) {
 	o.m.Lock()
 	defer o.m.Unlock()
 	o.h = fct
-}
-
-func (o *pool) handler(name string) http.Handler {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if o.h == nil {
-		return srvtps.NewBadHandler()
-	} else if h := o.h(); h == nil {
-		return srvtps.NewBadHandler()
-	} else if f, k := h[name]; !k {
-		return srvtps.NewBadHandler()
-	} else {
-		return f
-	}
-}
-
-func (o *pool) context() context.Context {
-	return o.p.GetContext()
 }
 
 func (o *pool) MonitorNames() []string {

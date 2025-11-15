@@ -33,6 +33,8 @@ import (
 	libmap "github.com/go-viper/mapstructure/v2"
 )
 
+// ViperDecoderHook returns a DecodeHookFuncType function that checks if the data is a string and the target type is a Perm.
+// If so, it formats/decodes/parses the string and returns the new value.
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (

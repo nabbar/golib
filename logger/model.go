@@ -29,7 +29,6 @@ package logger
 
 import (
 	"bytes"
-	"context"
 	"path"
 	"reflect"
 	"runtime"
@@ -40,7 +39,6 @@ import (
 	"time"
 
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	logcfg "github.com/nabbar/golib/logger/config"
 	logfld "github.com/nabbar/golib/logger/fields"
 	loglvl "github.com/nabbar/golib/logger/level"
@@ -57,9 +55,6 @@ const (
 	keyFilter
 	keyFctUpdLog
 	keyFctUpdLvl
-
-	_TraceFilterMod    = "/pkg/mod/"
-	_TraceFilterVendor = "/vendor/"
 )
 
 var _selfPackage = path.Base(reflect.TypeOf(logger{}).PkgPath())
@@ -112,25 +107,6 @@ func (o *logger) defaultFormatterNoColor() logrus.Formatter {
 	f.EnvironmentOverrideColors = false
 	f.DisableColors = true
 	return &f
-}
-
-func (o *logger) contextNew() context.Context {
-	ctx, cnl := context.WithCancel(o.x.GetContext())
-	o.x.Store(KeyCancel, cnl)
-
-	return ctx
-}
-
-func (o *logger) cancelCall() {
-	if i, l := o.x.LoadAndDelete(KeyCancel); !l {
-		return
-	} else if i == nil {
-		return
-	} else if c, k := i.(context.CancelFunc); !k {
-		return
-	} else {
-		c()
-	}
 }
 
 func (o *logger) optionsMerge(opt *logcfg.Options) {
@@ -205,29 +181,4 @@ func (o *logger) getCaller() runtime.Frame {
 	}
 
 	return runtime.Frame{Function: "unknown", File: "unknown", Line: 0}
-}
-
-func (o *logger) filterPath(pathname string) string {
-	pathname = liberr.ConvPathFromLocal(pathname)
-
-	if i := strings.LastIndex(pathname, _TraceFilterMod); i != -1 {
-		i = i + len(_TraceFilterMod)
-		pathname = pathname[i:]
-	}
-
-	if i := strings.LastIndex(pathname, _TraceFilterVendor); i != -1 {
-		i = i + len(_TraceFilterVendor)
-		pathname = pathname[i:]
-	}
-
-	opt := o.GetOptions()
-
-	if opt.TraceFilter != "" {
-		if i := strings.LastIndex(pathname, opt.TraceFilter); i != -1 {
-			i = i + len(opt.TraceFilter)
-			pathname = pathname[i:]
-		}
-	}
-
-	return strings.Trim(path.Clean(pathname), liberr.PathSeparator)
 }

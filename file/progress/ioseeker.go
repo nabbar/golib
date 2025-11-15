@@ -37,10 +37,10 @@ func (o *progress) Seek(offset int64, whence int) (int64, error) {
 }
 
 func (o *progress) seek(offset int64, whence int) (int64, error) {
-	if o == nil || o.fos == nil {
+	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
 	}
 
-	n, err := o.fos.Seek(offset, whence)
+	n, err := o.f.Seek(offset, whence)
 	return n, err
 }

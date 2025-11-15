@@ -27,6 +27,7 @@
 package static
 
 import (
+	"context"
 	"embed"
 	"io"
 	"os"
@@ -71,13 +72,13 @@ type Static interface {
 	Map(func(pathFile string, inf os.FileInfo) error) liberr.Error
 	UseTempForFileSize(size int64)
 
-	Monitor(ctx libctx.FuncContext, cfg montps.Config, vrs libver.Version) (montps.Monitor, error)
+	Monitor(ctx context.Context, cfg montps.Config, vrs libver.Version) (montps.Monitor, error)
 
 	Get(c *ginsdk.Context)
 	SendFile(c *ginsdk.Context, filename string, size int64, isDownload bool, buf io.ReadCloser)
 }
 
-func New(ctx libctx.FuncContext, content embed.FS, embedRootDir ...string) Static {
+func New(ctx context.Context, content embed.FS, embedRootDir ...string) Static {
 	s := &staticHandler{
 		l: new(atomic.Value),
 		c: content,

@@ -28,14 +28,16 @@ package mux
 
 import (
 	"io"
+	"sync"
 
 	libcbr "github.com/fxamacker/cbor/v2"
 	enchex "github.com/nabbar/golib/encoding/hexa"
 )
 
 type mux struct {
-	w io.Writer
-	d byte
+	w  io.Writer
+	d  byte
+	mu sync.Mutex
 }
 
 // NewChannel This Function defines a method NewChannel for a type mux in Go. It returns an io.Writer interface.
@@ -68,11 +70,17 @@ func (o *mux) NewChannel(key rune) io.Writer {
 
 			if e != nil {
 				return 0, e
-			} else if _, e = o.w.Write(p); e != nil {
-				return 0, e
-			} else {
-				return n, nil
 			}
+
+			o.mu.Lock()
+			_, e = o.w.Write(p)
+			o.mu.Unlock()
+
+			if e != nil {
+				return 0, e
+			}
+
+			return n, nil
 		},
 	}
 }

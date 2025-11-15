@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"time"
 
 	logent "github.com/nabbar/golib/logger/entry"
 	loglvl "github.com/nabbar/golib/logger/level"
@@ -51,49 +52,46 @@ var (
 )
 
 func (o *srv) HealthCheck(ctx context.Context) error {
-	var ent logent.Entry
+	var (
+		ent logent.Entry
+		fl  = func(e ...error) {
+			if ent != nil {
+				ent.ErrorAdd(true, e...).Check(loglvl.InfoLevel)
+			}
+		}
+	)
 
 	if l := o.logger(); l != nil {
 		ent = l.Entry(loglvl.ErrorLevel, "Healthcheck")
 	}
 
-	o.m.RLock()
-	defer o.m.RUnlock()
-
 	if o.r == nil {
-		if ent != nil {
-			ent.ErrorAdd(true, errNotRunning).Check(loglvl.InfoLevel)
-		}
+		fl(errNotRunning)
 		return errNotRunning
-	} else if e := o.runAndHealthy(ctx); e != nil {
-		if ent != nil {
-			ent.ErrorAdd(true, e).Check(loglvl.InfoLevel)
-		}
+	} else if r := o.r.Load(); r == nil || !r.IsRunning() {
+		fl(errNotRunning)
+		return errNotRunning
+	} else if e := r.ErrorsLast(); e != nil {
+		fl(e)
 		return e
-	} else if e = o.r.ErrorsLast(); e != nil {
-		if ent != nil {
-			ent.ErrorAdd(true, e).Check(loglvl.InfoLevel)
-		}
+	} else if e = o.runAndHealthy(ctx); e != nil {
+		fl(e)
 		return e
 	} else {
-		if ent != nil {
-			ent.Check(loglvl.InfoLevel)
-		}
+		fl()
 		return nil
 	}
 }
 
 func (o *srv) runAndHealthy(ctx context.Context) error {
-	o.m.RLock()
-	defer o.m.RUnlock()
+	x, n := context.WithTimeout(ctx, 50*time.Microsecond)
+	defer n()
 
-	if !o.r.IsRunning() {
-		return errNotRunning
-	} else if e := o.PortNotUse(ctx, o.GetBindable()); e != nil {
+	if e := o.PortNotUse(ctx, o.GetBindable()); e != nil {
 		return e
 	} else {
 		d := &net.Dialer{}
-		co, ce := d.DialContext(ctx, libptc.NetworkTCP.Code(), o.GetBindable())
+		co, ce := d.DialContext(x, libptc.NetworkTCP.Code(), o.GetBindable())
 		defer func() {
 			if co != nil {
 				_ = co.Close()
@@ -137,13 +135,13 @@ func (o *srv) Monitor(vrs libver.Version) (montps.Monitor, error) {
 		})
 	}
 
-	if mon, e = libmon.New(o.c.GetContext, inf); e != nil {
+	if mon, e = libmon.New(o.c, inf); e != nil {
 		return nil, e
 	}
 
 	mon.SetHealthCheck(o.HealthCheck)
 
-	if e = mon.SetConfig(o.c.GetContext, cfg.Monitor); e != nil {
+	if e = mon.SetConfig(o.c, cfg.Monitor); e != nil {
 		return nil, e
 	}
 

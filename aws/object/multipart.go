@@ -74,7 +74,7 @@ func (cli *client) MultipartNew(partSize libsiz.Size, bucket, object string) lib
 	}
 
 	m := libmpu.New(partSize, object, bucket)
-	m.RegisterContext(cli.GetContext)
+	m.RegisterContext(cli.GetContext())
 	m.RegisterClientS3(func() *sdksss.Client {
 		return cli.s3
 	})

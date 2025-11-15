@@ -35,6 +35,9 @@ import (
 	libsck "github.com/nabbar/golib/socket"
 )
 
+// getAddress retrieves the configured listen address from atomic storage.
+// Returns an empty string if no address has been set via RegisterServer().
+// This is an internal helper used by Listen().
 func (o *srv) getAddress() string {
 	f := o.ad.Load()
 
@@ -45,6 +48,20 @@ func (o *srv) getAddress() string {
 	return ""
 }
 
+// getListen creates and binds a UDP listener socket on the specified address.
+//
+// The function:
+//   - Resolves the address string to a *net.UDPAddr
+//   - Creates a UDP socket listening on that address
+//   - Invokes the server info callback with startup message
+//   - Cleans up on errors
+//
+// Returns:
+//   - *net.UDPAddr: The resolved local address
+//   - *net.UDPConn: The active UDP connection/listener
+//   - error: Any error during resolution or socket creation
+//
+// This is an internal helper called by Listen().
 func (o *srv) getListen(addr string) (*net.UDPAddr, *net.UDPConn, error) {
 	var (
 		adr *net.UDPAddr
@@ -66,6 +83,48 @@ func (o *srv) getListen(addr string) (*net.UDPAddr, *net.UDPConn, error) {
 	return adr, lis, nil
 }
 
+// Listen starts the UDP server and begins accepting datagrams.
+// This method blocks until the server is shut down via context cancellation,
+// Shutdown(), or Close().
+//
+// Lifecycle:
+//  1. Validates configuration (address and handler must be set)
+//  2. Creates UDP listener socket
+//  3. Invokes UpdateConn callback if registered
+//  4. Creates Reader/Writer wrappers for the handler
+//  5. Sets server to running state
+//  6. Starts handler goroutine
+//  7. Waits for shutdown signal
+//  8. Cleans up and returns
+//
+// The handler function runs in a separate goroutine and receives:
+//   - Reader: Reads incoming datagrams (ReadFrom under the hood)
+//   - Writer: Sends response datagrams (WriteTo to last sender)
+//
+// Context handling:
+//   - The provided context is used for the lifetime of the listener
+//   - Context cancellation triggers immediate shutdown
+//   - Done() channel is closed when Listen() exits
+//
+// Returns:
+//   - ErrInvalidAddress: If RegisterServer() wasn't called
+//   - ErrInvalidHandler: If no handler was provided to New()
+//   - ErrContextClosed: If context was cancelled
+//   - Any error from socket creation
+//
+// The server maintains no per-datagram state. Each datagram is processed
+// independently by reading from the connection and writing responses back
+// to the source address.
+//
+// Example:
+//
+//	go func() {
+//	    if err := srv.Listen(ctx); err != nil {
+//	        log.Printf("Server error: %v", err)
+//	    }
+//	}()
+//
+// See github.com/nabbar/golib/socket.Handler for handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
 	var (
 		e error
@@ -129,6 +188,40 @@ func (o *srv) Listen(ctx context.Context) error {
 	}
 }
 
+// getReadWriter creates Reader and Writer wrappers for the UDP connection.
+// These wrappers provide a higher-level interface to the handler while managing
+// UDP-specific behavior.
+//
+// Parameters:
+//   - ctx: Context for lifecycle management
+//   - con: The UDP connection to wrap
+//   - loc: Local address (used for info callbacks)
+//
+// Reader behavior:
+//   - Read() calls con.ReadFrom() to receive datagrams
+//   - Stores the sender's address atomically for response routing
+//   - Invokes ConnectionRead info callback
+//   - Checks context cancellation before each read
+//
+// Writer behavior:
+//   - Write() calls con.WriteTo() with the last sender's address
+//   - Falls back to con.Write() if no sender address is available
+//   - Invokes ConnectionWrite info callback
+//   - Checks context cancellation before each write
+//
+// Both Reader and Writer:
+//   - Implement Close() to shut down the UDP connection
+//   - Implement IsAlive() to check connection and context health
+//   - Implement Done() returning the context's Done channel
+//
+// The remote address tracking allows responses to be sent back to the
+// originating sender for each datagram, simulating request-response patterns
+// over UDP's connectionless protocol.
+//
+// This is an internal helper called by Listen().
+//
+// See github.com/nabbar/golib/socket.NewReader and NewWriter for the
+// wrapper constructors.
 func (o *srv) getReadWriter(ctx context.Context, con *net.UDPConn, loc net.Addr) (libsck.Reader, libsck.Writer) {
 	var (
 		re = &net.UDPAddr{}

@@ -28,14 +28,36 @@ package types
 
 import "net/http"
 
+// FuncHandler is the function signature for handler registration.
+// It returns a map where keys are handler identifiers and values are http.Handler instances.
+// The "default" key or empty string "" is used when no specific handler key is configured.
+//
+// Example:
+//
+//	func() map[string]http.Handler {
+//	    return map[string]http.Handler{
+//	        "":      defaultHandler,
+//	        "api":   apiHandler,
+//	        "admin": adminHandler,
+//	    }
+//	}
 type FuncHandler func() map[string]http.Handler
 
+// NewBadHandler creates a default error handler that returns HTTP 500 Internal Server Error.
+// This handler is used as a fallback when no valid handler is registered for a server.
+//
+// Returns:
+//   - http.Handler: A handler that always returns 500 status code
 func NewBadHandler() http.Handler {
 	return &BadHandler{}
 }
 
+// BadHandler is a default HTTP handler that returns 500 Internal Server Error for all requests.
+// It's used as a fallback when no proper handler is configured for a server instance.
 type BadHandler struct{}
 
+// ServeHTTP implements http.Handler interface, returning HTTP 500 for all requests.
+// This indicates that no valid handler was configured for the server.
 func (o BadHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	writer.WriteHeader(http.StatusInternalServerError)
 }

@@ -35,14 +35,11 @@ import (
 	"syscall"
 	"time"
 
-	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	gormdb "gorm.io/gorm"
 	gorlog "gorm.io/gorm/logger"
 )
-
-const unknown = "unknown"
 
 type database struct {
 	m sync.Mutex
@@ -159,7 +156,7 @@ func (d *database) Config() *gormdb.Config {
 	return cfg.Config()
 }
 
-func (d *database) RegisterContext(fct libctx.FuncContext) {
+func (d *database) RegisterContext(fct context.Context) {
 	cfg := d.getConfig()
 	if cfg == nil {
 		return

@@ -32,11 +32,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nabbar/golib/smtp/network"
-	smtptp "github.com/nabbar/golib/smtp/tlsmode"
-
 	libtls "github.com/nabbar/golib/certificates"
 	liberr "github.com/nabbar/golib/errors"
+	libptc "github.com/nabbar/golib/network/protocol"
+	smtptp "github.com/nabbar/golib/smtp/tlsmode"
 )
 
 type SMTP interface {
@@ -44,7 +43,7 @@ type SMTP interface {
 	GetPort() int
 	GetUser() string
 	GetPass() string
-	GetNet() network.NetworkMode
+	GetNet() libptc.NetworkProtocol
 
 	GetTls() libtls.Config
 	GetTlSServerName() string
@@ -62,7 +61,7 @@ type Config interface {
 	SetPort(port int)
 	SetUser(user string)
 	SetPass(pass string)
-	SetNet(mode network.NetworkMode)
+	SetNet(mode libptc.NetworkProtocol)
 	SetTls(tls libtls.Config)
 
 	ForceTLSSkipVerify(skip bool)
@@ -149,7 +148,7 @@ func New(cfg ConfigModel) (Config, liberr.Error) {
 					}
 				}
 
-				smtpcnf.Net = network.NetworkModeFromString(dsn[j+1 : k])
+				smtpcnf.Net = libptc.Parse(dsn[j+1 : k])
 
 			}
 

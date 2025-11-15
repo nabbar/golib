@@ -36,11 +36,19 @@ import (
 	libtls "github.com/nabbar/golib/certificates"
 )
 
+// ConfigTimeZone defines the timezone configuration for FTP file timestamps.
+// The offset is specified in seconds from UTC.
 type ConfigTimeZone struct {
-	Name   string `mapstructure:"name" json:"name" yaml:"name" toml:"name"`
-	Offset int    `mapstructure:"offset" json:"offset" yaml:"offset" toml:"offset"`
+	Name   string `mapstructure:"name" json:"name" yaml:"name" toml:"name"`         // Timezone name (e.g., "America/New_York", "UTC")
+	Offset int    `mapstructure:"offset" json:"offset" yaml:"offset" toml:"offset"` // Offset in seconds from UTC
 }
 
+// Config holds the FTP client configuration.
+// It supports various FTP features including TLS, extended passive mode (EPSV),
+// machine-readable listings (MLSD), and file modification time commands (MDTM/MFMT).
+//
+// The configuration is validated using struct tags and the validator package.
+// All public fields can be marshalled to/from JSON, YAML, TOML, and Viper config formats.
 type Config struct {
 	// Hostname define the host/port to connect to server.
 	Hostname string `mapstructure:"hostname" json:"hostname" yaml:"hostname" toml:"hostname" validate:"required,hostname_rfc1123"`
@@ -101,20 +109,29 @@ func (c *Config) Validate() error {
 	return e
 }
 
+// RegisterContext registers a function that provides context for FTP operations.
+// This allows for timeout and cancellation support in long-running operations.
+// If not registered, operations will not have context support.
 func (c *Config) RegisterContext(fct func() context.Context) {
 	c.fctx = fct
 }
 
+// RegisterDefaultTLS registers a function that provides default TLS configuration.
+// This is used as a fallback when the Config.TLS field is not set.
+// The function should return a TLSConfig that will be used for secure connections.
 func (c *Config) RegisterDefaultTLS(fct func() libtls.TLSConfig) {
 	c.ftls = fct
 }
 
+// New creates a new FTP server connection based on the current configuration.
+// It applies all configured options including TLS, timeouts, timezone, and protocol features.
+// The connection is established and authenticated (if credentials are provided) before returning.
+//
+// Returns the established connection or an error if connection/authentication fails.
 func (c *Config) New() (*libftp.ServerConn, error) {
 	var opt = make([]libftp.DialOption, 0)
 
-	if tls := c.TLS.NewFrom(c.ftls()); tls == nil {
-		return nil, fmt.Errorf("no tls configured")
-	} else if c.ForceTLS {
+	if tls := c.TLS.NewFrom(c.ftls()); c.ForceTLS {
 		opt = append(opt, libftp.DialWithExplicitTLS(tls.TlsConfig("")))
 	} else {
 		opt = append(opt, libftp.DialWithTLS(tls.TlsConfig("")))

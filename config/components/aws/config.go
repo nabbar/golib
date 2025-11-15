@@ -79,7 +79,7 @@ func (c *_configFlag) updStandard(cfg *cfgstd.Model) {
 	}
 }
 
-func (o *componentAws) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	var (
 		key = o._getKey()
 		vpr *spfvpr.Viper
@@ -87,7 +87,7 @@ func (o *componentAws) RegisterFlag(Command *spfcbr.Command) error {
 
 	if vpr = o._getSPFViper(); vpr == nil {
 		return ErrorComponentNotInitialized.Error(nil)
-	} else if key = o._getKey(); len(key) < 1 {
+	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
 	}
 
@@ -112,7 +112,7 @@ func (o *componentAws) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, error) {
+func (o *mod) _getConfig() (libaws.Config, *libreq.OptionsHealth, error) {
 	var (
 		key string
 		cfg libaws.Config
@@ -201,7 +201,7 @@ func (o *componentAws) _getConfig() (libaws.Config, *libreq.OptionsHealth, error
 	return cfg, mon, nil
 }
 
-func (o *componentAws) _getFlagUpdate() *_configFlag {
+func (o *mod) _getFlagUpdate() *_configFlag {
 	var (
 		cfg = &_configFlag{
 			accessKey: nil,

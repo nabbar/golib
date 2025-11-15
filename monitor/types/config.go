@@ -51,10 +51,15 @@ var _defaultConfig = []byte(`{
   "logger": ` + string(logcfg.DefaultConfig(cfgtps.JSONIndent+cfgtps.JSONIndent)) + `
 }`)
 
+// SetDefaultConfig sets the default configuration template used by DefaultConfig.
+// This allows customizing the default configuration values for monitors.
 func SetDefaultConfig(cfg []byte) {
 	_defaultConfig = cfg
 }
 
+// DefaultConfig returns the default configuration as a formatted JSON byte slice.
+// The indent parameter specifies the indentation string to use for JSON formatting.
+// This is useful for generating configuration file templates or documentation.
 func DefaultConfig(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
 	if err := json.Indent(res, _defaultConfig, indent, cfgtps.JSONIndent); err != nil {
@@ -96,6 +101,9 @@ type Config struct {
 	Logger logcfg.Options `json:"logger" yaml:"logger" toml:"logger" mapstructure:"logger"`
 }
 
+// Validate check if the config is valid according to the constraint.
+// It return nil if the config is valid, otherwise it return an error.
+// The error is an aggregation of all the invalid validation error.
 func (o Config) Validate() liberr.Error {
 	var e = ErrorValidatorError.Error(nil)
 
@@ -117,6 +125,10 @@ func (o Config) Validate() liberr.Error {
 	return e
 }
 
+// Clone return a copy of the config.
+//
+// It is usefull when you want to create a new monitor from an existing one.
+// The returned config is a deep copy of the original one.
 func (o Config) Clone() Config {
 	return Config{
 		Name:          o.Name,
@@ -132,6 +144,12 @@ func (o Config) Clone() Config {
 	}
 }
 
+// Compat return a ConfigCompat object which is a copy of the current config.
+//
+// The returned ConfigCompat object is a deep copy of the original one.
+// It is usefull when you want to create a new monitor from an existing one.
+//
+// The returned ConfigCompat object is compatible with the ConfigCompat object from the monitor/v1 package.
 func (o Config) Compat() ConfigCompat {
 	return ConfigCompat{
 		Name:          o.Name,

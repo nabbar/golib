@@ -123,16 +123,22 @@ func (o *logger) newEntry(lvl loglvl.Level, message string, err []error, fields 
 		fld = o.GetFields()
 	)
 
-	if o == nil {
-		return logent.New(loglvl.NilLevel)
-	} else if fld != nil {
-		ent.FieldSet(fld.FieldsClone(nil))
+	if fld != nil {
+		ent.FieldSet(fld.Clone())
+	}
+
+	// prevent overflow
+	var uif uint64
+	if frm.Line <= 0 {
+		uif = 0
+	} else {
+		uif = uint64(frm.Line)
 	}
 
 	ent.ErrorSet(err)
 	ent.DataSet(data)
 	ent.SetLogger(fct)
-	ent.SetEntryContext(time.Now(), stk, frm.Function, frm.File, uint64(frm.Line), message)
+	ent.SetEntryContext(time.Now(), stk, frm.Function, frm.File, uif, message)
 	ent.FieldMerge(fields)
 
 	return ent

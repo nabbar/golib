@@ -28,10 +28,8 @@ package aws_test
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -40,7 +38,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -61,6 +58,8 @@ var (
 	cnl       context.CancelFunc
 	filename  = "./config.json"
 	minioMode = false
+	accessKey string
+	secretKey string
 )
 
 /*
@@ -108,11 +107,11 @@ var _ = BeforeSuite(func() {
 		go LaunchMinio(uri.Host, accessKey, secretKey)
 
 		for WaitMinio(uri.Host) {
-			time.Sleep(10 * time.Second)
+			time.Sleep(time.Second)
 		}
 
-		time.Sleep(10 * time.Second)
-		println("Minio is waiting on : " + uri.Host)
+		time.Sleep(5 * time.Second)
+		//println("Minio is waiting on : " + uri.Host)
 	}
 
 	cli, err = libaws.New(ctx, cfg, htp)
@@ -125,7 +124,16 @@ var _ = BeforeSuite(func() {
 	name, err = lbuuid.GenerateUUID()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(name).ToNot(BeEmpty())
+	// S3 bucket names must be lowercase
+	name = "test-" + name
 	cli.Config().SetBucketName(name)
+
+	err = cli.Bucket().Check()
+	Expect(err).To(HaveOccurred())
+
+	// Create the bucket for tests
+	err = cli.Bucket().Create("")
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
@@ -142,7 +150,7 @@ func loadConfig() error {
 		return err
 	}
 
-	if cnfByt, err = ioutil.ReadFile(filename); err != nil {
+	if cnfByt, err = os.ReadFile(filename); err != nil {
 		return err
 	}
 
@@ -188,17 +196,9 @@ func GetFreePort() int {
 }
 
 func GetTempFolder() string {
-	if tmp, err := ioutil.TempDir("", "minio-data-*"); err != nil {
+	if tmp, err := os.MkdirTemp("", "minio-data-*"); err != nil {
 		panic(err)
 	} else {
-		if _, err = os.Stat(tmp); errors.Is(err, os.ErrNotExist) {
-			if err = os.Mkdir(tmp, 0700); err != nil {
-				panic(err)
-			}
-		} else if err != nil {
-			panic(err)
-		}
-
 		return tmp
 	}
 }
@@ -246,29 +246,60 @@ func WaitMinio(host string) bool {
 }
 
 type randReader struct {
-	s int64
-	i *atomic.Int64
+	data []byte
+	pos  int64
 }
 
 func (r *randReader) Read(p []byte) (n int, err error) {
-	n, e := rand.Read(p)
-
-	if n > 0 {
-		r.i.Add(int64(n))
+	if r.pos >= int64(len(r.data)) {
+		return 0, io.EOF
 	}
 
-	if e != nil {
-		return n, e
-	} else if r.i.Load() >= r.s {
-		return n, io.EOF
-	} else {
-		return n, nil
+	n = copy(p, r.data[r.pos:])
+	r.pos += int64(n)
+	return n, nil
+}
+
+func (r *randReader) Seek(offset int64, whence int) (int64, error) {
+	var newPos int64
+
+	switch whence {
+	case io.SeekStart:
+		newPos = offset
+	case io.SeekCurrent:
+		newPos = r.pos + offset
+	case io.SeekEnd:
+		newPos = int64(len(r.data)) + offset
+	default:
+		return 0, fmt.Errorf("invalid whence")
+	}
+
+	if newPos < 0 {
+		return 0, fmt.Errorf("negative position")
+	}
+
+	r.pos = newPos
+	return newPos, nil
+}
+
+func randContent(size libsiz.Size) io.ReadSeeker {
+	data := make([]byte, size.Int64())
+	_, _ = rand.Read(data)
+
+	return &randReader{
+		data: data,
+		pos:  0,
 	}
 }
 
-func randContent(size libsiz.Size) io.Reader {
-	return &randReader{
-		s: size.Int64(),
-		i: new(atomic.Int64),
+// GenerateUniqueName generates a unique name for test resources
+func GenerateUniqueName(prefix string) string {
+	name, err := lbuuid.GenerateUUID()
+	if err != nil {
+		panic(err)
 	}
+	if prefix != "" {
+		return prefix + "-" + name
+	}
+	return name
 }

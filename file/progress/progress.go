@@ -83,39 +83,6 @@ func (o *progress) inc(n int64) {
 	}
 }
 
-func (o *progress) incN(n int64, s int) {
-	if o == nil {
-		return
-	}
-
-	f := o.fi.Load()
-	if f != nil {
-		f.(FctIncrement)(n + int64(s))
-	}
-}
-
-func (o *progress) dec(n int64) {
-	if o == nil {
-		return
-	}
-
-	f := o.fi.Load()
-	if f != nil {
-		f.(FctIncrement)(0 - n)
-	}
-}
-
-func (o *progress) decN(n int64, s int) {
-	if o == nil {
-		return
-	}
-
-	f := o.fi.Load()
-	if f != nil {
-		f.(FctIncrement)(0 - (n + int64(s)))
-	}
-}
-
 func (o *progress) finish() {
 	if o == nil {
 		return
@@ -162,22 +129,6 @@ func (o *progress) analyze(i int, e error) (n int, err error) {
 
 	if i != 0 {
 		o.inc(int64(i))
-	}
-
-	if e != nil && errors.Is(e, io.EOF) {
-		o.finish()
-	}
-
-	return i, e
-}
-
-func (o *progress) analyze64(i int64, e error) (n int64, err error) {
-	if o == nil {
-		return i, e
-	}
-
-	if i != 0 {
-		o.inc(i)
 	}
 
 	if e != nil && errors.Is(e, io.EOF) {

@@ -79,12 +79,12 @@ func (r *request) AddPath(raw bool, pathPart ...string) {
 	}
 
 	for i := range pathPart {
-		if strings.HasSuffix(str, "/") && strings.HasPrefix(pathPart[i], "/") {
-			pathPart[i] = strings.TrimPrefix(pathPart[i], "/")
+		if strings.HasSuffix(str, "/") && strings.HasPrefix(pathPart[i], "/") { // nolint
+			pathPart[i] = strings.TrimPrefix(pathPart[i], "/") // nolint
 		}
 
-		if strings.HasSuffix(pathPart[i], "/") {
-			pathPart[i] = strings.TrimSuffix(pathPart[i], "/")
+		if strings.HasSuffix(pathPart[i], "/") { // nolint
+			pathPart[i] = strings.TrimSuffix(pathPart[i], "/") // nolint
 		}
 
 		str = path.Join(str, pathPart[i])

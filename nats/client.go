@@ -272,11 +272,7 @@ func (c Client) NewClient(defTls libtls.TLSConfig) (*natcli.Conn, error) {
 	}
 
 	if c.Secure {
-		if t := c.TLSConfig.NewFrom(defTls); t == nil {
-			return nil, fmt.Errorf("no valid tls configuration")
-		} else {
-			opts.TLSConfig = t.TlsConfig("")
-		}
+		opts.TLSConfig = c.TLSConfig.NewFrom(defTls).TlsConfig("")
 		opts.Secure = true
 	}
 

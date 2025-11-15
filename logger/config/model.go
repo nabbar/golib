@@ -108,6 +108,10 @@ func (o *Options) Clone() Options {
 }
 
 func (o *Options) Merge(opt *Options) {
+	if opt == nil {
+		return
+	}
+
 	if len(opt.TraceFilter) > 0 {
 		o.TraceFilter = opt.TraceFilter
 	}
@@ -116,24 +120,30 @@ func (o *Options) Merge(opt *Options) {
 		if o.Stdout == nil {
 			o.Stdout = &OptionsStd{}
 		}
-		if opt.Stdout.DisableStandard {
-			o.Stdout.DisableStandard = opt.Stdout.DisableStandard
+
+		sdt := *opt.Stdout
+		osd := *o.Stdout
+
+		if sdt.DisableStandard {
+			osd.DisableStandard = sdt.DisableStandard
 		}
-		if opt.Stdout.DisableColor {
-			o.Stdout.DisableColor = opt.Stdout.DisableColor
+		if sdt.DisableColor {
+			osd.DisableColor = sdt.DisableColor
 		}
-		if opt.Stdout.DisableTimestamp {
-			o.Stdout.DisableTimestamp = opt.Stdout.DisableTimestamp
+		if sdt.DisableTimestamp {
+			osd.DisableTimestamp = sdt.DisableTimestamp
 		}
-		if opt.Stdout.DisableStack {
-			o.Stdout.DisableStack = opt.Stdout.DisableStack
+		if sdt.DisableStack {
+			osd.DisableStack = sdt.DisableStack
 		}
-		if opt.Stdout.EnableTrace {
-			o.Stdout.EnableTrace = opt.Stdout.EnableTrace
+		if sdt.EnableTrace {
+			osd.EnableTrace = sdt.EnableTrace
 		}
-		if opt.Stdout.EnableAccessLog {
-			o.Stdout.EnableAccessLog = opt.Stdout.EnableAccessLog
+		if sdt.EnableAccessLog {
+			osd.EnableAccessLog = sdt.EnableAccessLog
 		}
+
+		o.Stdout = &osd
 	}
 
 	if opt.LogFileExtend {

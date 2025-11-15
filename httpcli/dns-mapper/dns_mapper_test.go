@@ -130,12 +130,12 @@ var _ = Describe("DNS Mapper", func() {
 
 		It("must having one more item if adding a valid item", func() {
 			l := dns.Len()
-			dns.Add("*.localhost", "127.0.0.1:8080")
+			dns.Add("*.localhost", addr)
 			Expect(dns.Len()).To(BeIdenticalTo(l + 1))
 		})
 
 		It("must having item just adding and can return it", func() {
-			Expect(dns.Get("*.localhost")).To(BeIdenticalTo("127.0.0.1:8080"))
+			Expect(dns.Get("*.localhost")).To(BeIdenticalTo(addr))
 		})
 
 		It("must return a new client to dial to localserver", func() {

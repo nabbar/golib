@@ -31,8 +31,8 @@ import (
 	"net/http"
 	"time"
 
-	sdkcrd "github.com/aws/aws-sdk-go/aws/credentials"
-	sdksv4 "github.com/aws/aws-sdk-go/aws/signer/v4"
+	sdkcrd "github.com/aws/aws-sdk-go/aws/credentials" // nolint
+	sdksv4 "github.com/aws/aws-sdk-go/aws/signer/v4"   // nolint
 )
 
 func CopyReader(r io.Reader) (io.ReadSeekCloser, error) {

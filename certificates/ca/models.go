@@ -33,16 +33,30 @@ import (
 	libmap "github.com/go-viper/mapstructure/v2"
 )
 
-type mod struct {
+type Certif struct {
 	c []*x509.Certificate
 }
 
-func (m *mod) Len() int {
+func (o *Certif) Cert() Cert {
+	return o
+}
+
+func (o *Certif) Model() Certif {
+	if o == nil {
+		return Certif{
+			c: make([]*x509.Certificate, 0),
+		}
+	}
+
+	return *o
+}
+
+func (m *Certif) Len() int {
 	return len(m.c)
 }
 
-func (m *mod) AppendBytes(p []byte) error {
-	c := &mod{
+func (m *Certif) AppendBytes(p []byte) error {
+	c := &Certif{
 		c: make([]*x509.Certificate, 0),
 	}
 
@@ -50,21 +64,18 @@ func (m *mod) AppendBytes(p []byte) error {
 		return e
 	}
 
-	for _, i := range c.c {
-		m.c = append(m.c, i)
-	}
-
+	m.c = append(m.c, c.c...)
 	return nil
 }
 
-func (m *mod) AppendString(str string) error {
+func (m *Certif) AppendString(str string) error {
 	return m.AppendBytes([]byte(str))
 }
 
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
-			z = &mod{
+			z = &Certif{
 				c: make([]*x509.Certificate, 0),
 			}
 			y Cert

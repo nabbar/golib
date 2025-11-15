@@ -27,12 +27,17 @@ package router
 
 import ginsdk "github.com/gin-gonic/gin"
 
+// itm represents a single route item with its method, path, and handlers.
+// It is used internally by RouterList to store route information.
 type itm struct {
-	method   string
-	relative string
-	router   []ginsdk.HandlerFunc
+	method   string               // HTTP method (GET, POST, etc.)
+	relative string               // Relative path for the route
+	router   []ginsdk.HandlerFunc // Chain of handler functions
 }
 
+// Same checks if this route item matches the given method and relative path.
+// Returns true if both method and path are identical, false otherwise.
+// This is used by RegisterMergeInGroup to find existing routes.
 func (o *itm) Same(method, relative string) bool {
 	if o.method != method {
 		return false
@@ -43,6 +48,8 @@ func (o *itm) Same(method, relative string) bool {
 	return true
 }
 
+// Merge replaces the current handler chain with the provided handlers.
+// This is used by RegisterMergeInGroup to update route handlers.
 func (o *itm) Merge(rtr ...ginsdk.HandlerFunc) {
 	o.router = rtr
 }

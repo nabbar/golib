@@ -30,19 +30,25 @@ import (
 	"io"
 )
 
+// rdr is the internal implementation of the Reader interface.
+// It wraps a bufio.Reader with optional close functionality.
 type rdr struct {
 	b *bufio.Reader
 	f FuncClose
 }
 
+// Read reads up to len(p) bytes from the reader.
 func (b *rdr) Read(p []byte) (n int, err error) {
 	return b.b.Read(p)
 }
 
+// WriteTo writes data to w until the reader is drained or an error occurs.
 func (b *rdr) WriteTo(w io.Writer) (n int64, err error) {
 	return b.b.WriteTo(w)
 }
 
+// Close resets the reader (releases resources) and calls the custom close function if provided.
+// Returns any error from the custom close function.
 func (b *rdr) Close() error {
 	b.b.Reset(nil)
 

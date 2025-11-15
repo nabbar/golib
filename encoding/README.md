@@ -1,493 +1,575 @@
-## `encoding` Package
+# Encoding Package
 
-The `encoding` package provides a unified interface and common utilities for various encoding and cryptographic operations. It serves as the entry point for several specialized subpackages, each implementing a specific encoding or cryptographic algorithm.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue)](https://golang.org/)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-blue)](https://pkg.go.dev/github.com/nabbar/golib/encoding)
 
-### Overview
+**Unified encoding/decoding interface with implementations for encryption, hashing, hex, multiplexing, and remote reading.**
 
-This package defines the `Coder` interface, which standardizes encoding and decoding operations across different algorithms. The subpackages implement this interface for specific use cases, such as encryption, hashing, hexadecimal encoding, and random data generation.
+> **AI Disclaimer (EU AI Act Article 50.4):** AI assistance was used solely for testing, documentation, and bug resolution under human supervision.
 
-### Main Features
+---
 
-- Common `Coder` interface for encoding/decoding bytes and streams
-- Support for encoding and decoding via both byte slices and `io.Reader`/`io.Writer`
-- Memory management with a `Reset` method
-- Extensible design for adding new encoding algorithms
+## Table of Contents
 
-### Subpackages
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Sub-Packages](#sub-packages)
+- [Coder Interface](#coder-interface)
+- [Quick Start](#quick-start)
+- [Use Cases](#use-cases)
+- [Best Practices](#best-practices)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [License](#license)
 
-The following subpackages provide concrete implementations of the `Coder` interface and related utilities:
+---
 
-- **aes**: Symmetric encryption and decryption using the AES algorithm. See the [`aes` subpackage](#aes-subpackage) for details.
-- **hexa**: Hexadecimal encoding and decoding. See the [`hexa` subpackage](#hexa-subpackage) for details.
-- **mux**: Multiplexed encoding, allowing composition of multiple encoders/decoders. See the [`mux` subpackage](#mux-subpackage) for details.
-- **randRead**: Secure random byte generation for cryptographic use. See the [`randRead` subpackage](#randread-subpackage) for details.
-- **sha256**: SHA-256 hashing and verification.
+## Overview
 
-Refer to each subpackage's documentation for detailed usage, configuration, and examples.
+The **encoding** package provides a unified `Coder` interface for encoding and decoding operations across multiple implementations including encryption, hashing, hex encoding, multiplexing, and remote data reading.
 
-### The `Coder` Interface
+### Design Philosophy
 
-All subpackages implement the following interface:
+- **Unified Interface**: Single `Coder` interface for all encoding operations
+- **Pluggable Implementations**: Easy to swap between different encoders
+- **Stream Support**: Built-in io.Reader/io.Writer wrappers
+- **Consistent API**: Same methods across all implementations
+- **Extensible**: Easy to add new encoding implementations
+
+---
+
+## Architecture
+
+### Package Structure
+
+```
+encoding/
+├── interface.go          # Coder interface definition
+│
+├── aes/                  # AES-256-GCM authenticated encryption
+│   ├── interface.go
+│   ├── model.go
+│   ├── README.md
+│   └── TESTING.md
+│
+├── hexa/                 # Hexadecimal encoding/decoding
+│   ├── interface.go
+│   ├── model.go
+│   ├── README.md
+│   └── TESTING.md
+│
+├── mux/                  # Multiplexer/DeMultiplexer
+│   ├── interface.go
+│   ├── mux.go
+│   ├── demux.go
+│   ├── README.md
+│   └── TESTING.md
+│
+├── randRead/             # Remote random data reader
+│   ├── interface.go
+│   ├── model.go
+│   ├── remote.go
+│   ├── README.md
+│   └── TESTING.md
+│
+└── sha256/               # SHA-256 cryptographic hashing
+    ├── interface.go
+    ├── model.go
+    ├── README.md
+    └── TESTING.md
+```
+
+### Coder Interface Flow
+
+```
+┌──────────────────────────────────────────────────┐
+│              Coder Interface                      │
+│                                                   │
+│  ┌────────────────────────────────────────────┐ │
+│  │  Core Methods:                             │ │
+│  │  - Encode([]byte) → []byte                │ │
+│  │  - Decode([]byte) → ([]byte, error)       │ │
+│  │  - Reset()                                 │ │
+│  └────────────────────────────────────────────┘ │
+│                                                   │
+│  ┌────────────────────────────────────────────┐ │
+│  │  Streaming Methods:                        │ │
+│  │  - EncodeReader(io.Reader) → io.Reader    │ │
+│  │  - DecodeReader(io.Reader) → io.Reader    │ │
+│  │  - EncodeWriter(io.Writer) → io.Writer    │ │
+│  │  - DecodeWriter(io.Writer) → io.Writer    │ │
+│  └────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────┘
+                       │
+        ┌──────────────┼──────────────┬──────────────┬──────────────┐
+        ▼              ▼              ▼              ▼              ▼
+   ┌─────────┐   ┌──────────┐   ┌───────┐   ┌──────────┐   ┌─────────┐
+   │   AES   │   │   Hexa   │   │  Mux  │   │ RandRead │   │ SHA256  │
+   │ Encrypt │   │Hex Encode│   │Channel│   │  Remote  │   │  Hash   │
+   └─────────┘   └──────────┘   └───────┘   └──────────┘   └─────────┘
+```
+
+---
+
+## Sub-Packages
+
+### AES Package
+
+**Purpose**: AES-256-GCM authenticated encryption
+
+**Features:**
+- Industry-standard authenticated encryption
+- 256-bit key, 96-bit nonce
+- Built-in integrity verification
+- Hardware acceleration (AES-NI)
+
+**Use Cases:**
+- Secure configuration files
+- Database field encryption
+- Secure file storage
+- API response encryption
+
+**Documentation**: [aes/README.md](aes/README.md)
+
+**Quick Example:**
+```go
+import encaes "github.com/nabbar/golib/encoding/aes"
+
+key, _ := encaes.GenKey()
+nonce, _ := encaes.GenNonce()
+coder, _ := encaes.New(key, nonce)
+
+encrypted := coder.Encode(plaintext)
+decrypted, _ := coder.Decode(encrypted)
+```
+
+---
+
+### Hexa Package
+
+**Purpose**: Hexadecimal encoding and decoding
+
+**Features:**
+- Standard hex format (0-9, a-f)
+- Case-insensitive decoding
+- Streaming support
+- Stateless operations
+
+**Use Cases:**
+- Display binary data
+- Configuration files
+- Debugging output
+- Checksums/hashes
+
+**Documentation**: [hexa/README.md](hexa/README.md)
+
+**Quick Example:**
+```go
+import enchex "github.com/nabbar/golib/encoding/hexa"
+
+coder := enchex.New()
+hex := coder.Encode([]byte("Hello"))
+// Output: 48656c6c6f
+
+decoded, _ := coder.Decode(hex)
+// Output: Hello
+```
+
+---
+
+### Mux Package
+
+**Purpose**: Multiplexing/demultiplexing multiple channels over single stream
+
+**Features:**
+- Multiple logical channels
+- Rune-based channel keys
+- Thread-safe operations
+- CBOR+Hex encoding
+
+**Use Cases:**
+- Network protocol multiplexing
+- Log aggregation
+- Test output routing
+- Protocol bridging
+
+**Documentation**: [mux/README.md](mux/README.md)
+
+**Quick Example:**
+```go
+import encmux "github.com/nabbar/golib/encoding/mux"
+
+// Multiplexer
+mux := encmux.NewMultiplexer(output, '\n')
+channelA := mux.NewChannel('a')
+channelA.Write([]byte("data"))
+
+// DeMultiplexer
+demux := encmux.NewDeMultiplexer(input, '\n', 4096)
+demux.NewChannel('a', outputA)
+demux.Copy()
+```
+
+---
+
+### RandRead Package
+
+**Purpose**: Buffered random data reader from remote sources
+
+**Features:**
+- Automatic reconnection
+- Internal buffering
+- Thread-safe operations
+- Flexible remote sources
+
+**Use Cases:**
+- Cryptographic random data
+- Random testing data
+- Load testing
+- Streaming random data
+
+**Documentation**: [randRead/README.md](randRead/README.md)
+
+**Quick Example:**
+```go
+import "github.com/nabbar/golib/encoding/randRead"
+
+source := func() (io.ReadCloser, error) {
+    return http.Get("https://random-service.example.com/bytes")
+}
+
+reader := randRead.New(source)
+defer reader.Close()
+
+buffer := make([]byte, 100)
+reader.Read(buffer)
+```
+
+---
+
+### SHA256 Package
+
+**Purpose**: SHA-256 cryptographic hashing
+
+**Features:**
+- FIPS 180-4 compliant
+- 256-bit output
+- Streaming support
+- Hex-encoded output
+
+**Use Cases:**
+- File integrity verification
+- Data deduplication
+- Checksum generation
+- Content-addressed storage
+
+**Documentation**: [sha256/README.md](sha256/README.md)
+
+**Quick Example:**
+```go
+import encsha "github.com/nabbar/golib/encoding/sha256"
+
+hasher := encsha.New()
+hash := hasher.Encode([]byte("data"))
+// Output: 64 hex characters
+```
+
+---
+
+## Coder Interface
+
+The `Coder` interface provides a unified API for all encoding operations.
+
+### Interface Definition
 
 ```go
 type Coder interface {
+    // Core operations
     Encode(p []byte) []byte
     Decode(p []byte) ([]byte, error)
+    Reset()
+    
+    // Streaming operations
     EncodeReader(r io.Reader) io.ReadCloser
     DecodeReader(r io.Reader) io.ReadCloser
     EncodeWriter(w io.Writer) io.WriteCloser
     DecodeWriter(w io.Writer) io.WriteCloser
-    Reset()
 }
 ```
 
-This interface allows you to:
+### Method Overview
 
-- Encode or decode data in memory (`[]byte`)
-- Encode or decode data streams (`io.Reader`/`io.Writer`)
-- Release resources with `Reset()`
+| Method | Purpose | Returns |
+|--------|---------|---------|
+| **Encode** | Encode byte slice | Encoded bytes |
+| **Decode** | Decode byte slice | Decoded bytes + error |
+| **EncodeReader** | Wrap reader for encoding | io.ReadCloser |
+| **DecodeReader** | Wrap reader for decoding | io.ReadCloser |
+| **EncodeWriter** | Wrap writer for encoding | io.WriteCloser |
+| **DecodeWriter** | Wrap writer for decoding | io.WriteCloser |
+| **Reset** | Clear internal state | - |
 
-### Usage Example
-
-To use an encoding algorithm, import the relevant subpackage and instantiate its coder:
+### Usage Pattern
 
 ```go
-import (
-    "github.com/nabbar/golib/encoding/aes"
-)
+// Create coder (implementation-specific)
+coder := NewCoder(params...)
 
-coder := aes.NewCoder(key)
-encoded := coder.Encode([]byte("my data"))
+// Direct encoding/decoding
+encoded := coder.Encode(data)
 decoded, err := coder.Decode(encoded)
+
+// Streaming encoding
+encReader := coder.EncodeReader(inputReader)
+io.Copy(output, encReader)
+
+// Streaming decoding
+decReader := coder.DecodeReader(inputReader)
+io.Copy(output, decReader)
+
+// Clean up
+coder.Reset()
 ```
 
-### Notes
-
-- Each subpackage provides its own constructor and configuration options.
-- Always check for errors when decoding or working with streams.
-- Use the `Reset()` method to free resources when done.
-
 ---
 
-## `aes` Subpackage
+## Quick Start
 
-The `aes` subpackage provides symmetric encryption and decryption using the AES-GCM algorithm. It implements the common `Coder` interface from the parent `encoding` package, allowing easy integration for secure data encoding/decoding in memory or via streams.
+### Installation
 
-### Features
+```bash
+# Install specific sub-packages
+go get github.com/nabbar/golib/encoding/aes
+go get github.com/nabbar/golib/encoding/hexa
+go get github.com/nabbar/golib/encoding/mux
+go get github.com/nabbar/golib/encoding/randRead
+go get github.com/nabbar/golib/encoding/sha256
+```
 
-- AES-GCM encryption and decryption (256-bit key, 12-byte nonce)
-- Secure random key and nonce generation
-- Hexadecimal encoding/decoding for keys and nonces
-- Implements the `Coder` interface for byte slices and `io.Reader`/`io.Writer`
-- Thread-safe and stateless design
-- Resource cleanup with `Reset()`
-
----
-
-### Main Types & Functions
-
-#### Key and Nonce Management
-
-- `GenKey() ([32]byte, error)`: Generate a secure random 256-bit AES key.
-- `GenNonce() ([12]byte, error)`: Generate a secure random 12-byte nonce.
-- `GetHexKey(s string) ([32]byte, error)`: Decode a hex string to a 256-bit key.
-- `GetHexNonce(s string) ([12]byte, error)`: Decode a hex string to a 12-byte nonce.
-
-#### Creating a Coder
-
-- `New(key [32]byte, nonce [12]byte) (encoding.Coder, error)`: Create a new AES-GCM coder instance with the given key and nonce.
-
-#### Example Usage
+### Basic Example
 
 ```go
+package main
+
 import (
-    "github.com/nabbar/golib/encoding/aes"
+    "fmt"
+    enchex "github.com/nabbar/golib/encoding/hexa"
+    encsha "github.com/nabbar/golib/encoding/sha256"
 )
 
-key, _ := aes.GenKey()
-nonce, _ := aes.GenNonce()
-coder, err := aes.New(key, nonce)
+func main() {
+    // Hex encoding
+    hexCoder := enchex.New()
+    hexEncoded := hexCoder.Encode([]byte("Hello"))
+    fmt.Printf("Hex: %s\n", hexEncoded)
+    
+    // SHA-256 hashing
+    hasher := encsha.New()
+    hash := hasher.Encode([]byte("Hello"))
+    fmt.Printf("SHA-256: %s\n", hash)
+}
+```
+
+---
+
+## Use Cases
+
+### Secure Data Pipeline
+
+```go
+// Encrypt → Hex encode → Store
+func secureStore(data []byte, key, nonce) error {
+    // Encrypt
+    aes, _ := encaes.New(key, nonce)
+    encrypted := aes.Encode(data)
+    
+    // Hex encode for storage
+    hex := enchex.New()
+    hexEncoded := hex.Encode(encrypted)
+    
+    // Store
+    return storage.Save(hexEncoded)
+}
+
+// Load → Hex decode → Decrypt
+func secureLoad(key, nonce) ([]byte, error) {
+    // Load
+    hexEncoded, _ := storage.Load()
+    
+    // Hex decode
+    hex := enchex.New()
+    encrypted, _ := hex.Decode(hexEncoded)
+    
+    // Decrypt
+    aes, _ := encaes.New(key, nonce)
+    return aes.Decode(encrypted)
+}
+```
+
+### Multi-Channel Logging
+
+```go
+// Aggregate logs from multiple sources
+func aggregateLogs() {
+    mux := encmux.NewMultiplexer(logFile, '\n')
+    
+    // Different log channels
+    appLog := mux.NewChannel('a')
+    errorLog := mux.NewChannel('e')
+    accessLog := mux.NewChannel('s')
+    
+    // Each subsystem writes independently
+    go application.Run(appLog)
+    go errorHandler.Run(errorLog)
+    go webServer.Run(accessLog)
+}
+```
+
+### File Integrity System
+
+```go
+// Generate and verify checksums
+type IntegrityChecker struct {
+    hasher encoding.Coder
+}
+
+func (ic *IntegrityChecker) GenerateChecksum(file string) string {
+    data, _ := os.ReadFile(file)
+    hash := ic.hasher.Encode(data)
+    return string(hash)
+}
+
+func (ic *IntegrityChecker) VerifyChecksum(file, expected string) bool {
+    actual := ic.GenerateChecksum(file)
+    return actual == expected
+}
+```
+
+---
+
+## Best Practices
+
+### 1. Choose the Right Implementation
+
+```go
+// ✅ Good: Use appropriate encoding for use case
+aes := encaes.New(key, nonce)       // Encryption
+hex := enchex.New()                  // Display/storage
+sha := encsha.New()                  // Integrity
+```
+
+### 2. Handle Errors
+
+```go
+// ✅ Good: Check decode errors
+decoded, err := coder.Decode(data)
 if err != nil {
-    // handle error
+    log.Printf("Decode error: %v", err)
 }
-defer coder.Reset()
 
-// Encrypt data
-ciphertext := coder.Encode([]byte("my secret data"))
-
-// Decrypt data
-plaintext, err := coder.Decode(ciphertext)
+// ❌ Bad: Ignoring errors
+decoded, _ := coder.Decode(data)
 ```
 
-#### Stream Encoding/Decoding
-
-- `EncodeReader(r io.Reader) io.ReadCloser`: Returns a reader that encrypts data from `r`.
-- `DecodeReader(r io.Reader) io.ReadCloser`: Returns a reader that decrypts data from `r`.
-- `EncodeWriter(w io.Writer) io.WriteCloser`: Returns a writer that encrypts data to `w`.
-- `DecodeWriter(w io.Writer) io.WriteCloser`: Returns a writer that decrypts data to `w`.
-
----
-
-### Error Handling
-
-- All decoding and stream operations may return errors (e.g., invalid buffer size, decryption failure).
-- Always check errors when decoding or using stream interfaces.
-
----
-
-### Notes
-
-- The key must be 32 bytes (256 bits) and the nonce 12 bytes, as required by AES-GCM.
-- Use `Reset()` to clear sensitive data from memory when done.
-- For security, never reuse the same key/nonce pair for different data.
-
----
-
-## `hexa` Subpackage
-
-The `hexa` subpackage provides hexadecimal encoding and decoding utilities, implementing the common `Coder` interface from the parent `encoding` package. It allows you to encode and decode data as hexadecimal strings, both in memory and via streaming interfaces.
-
-### Features
-
-- Hexadecimal encoding and decoding for byte slices
-- Stream encoding/decoding via `io.Reader` and `io.Writer`
-- Implements the `Coder` interface for easy integration
-- Error handling for invalid buffer sizes and decoding errors
-- Stateless and thread-safe design
-
----
-
-### Main Types & Functions
-
-#### Creating a Coder
-
-Instantiate a new hexadecimal coder:
+### 3. Use Streaming for Large Data
 
 ```go
-import (
-    "github.com/nabbar/golib/encoding/hexa"
-)
+// ✅ Good: Stream large files
+file, _ := os.Open("large.bin")
+encReader := coder.EncodeReader(file)
+io.Copy(output, encReader)
 
-coder := hexa.New()
+// ❌ Bad: Load entire file
+data, _ := os.ReadFile("large.bin")
+encoded := coder.Encode(data)
 ```
 
-#### Encoding and Decoding
-
-- `Encode(p []byte) []byte`: Encodes a byte slice to its hexadecimal representation.
-- `Decode(p []byte) ([]byte, error)`: Decodes a hexadecimal byte slice back to its original bytes.
-
-#### Stream Interfaces
-
-- `EncodeReader(r io.Reader) io.ReadCloser`: Returns a reader that encodes data from `r` to hexadecimal.
-- `DecodeReader(r io.Reader) io.ReadCloser`: Returns a reader that decodes hexadecimal data from `r`.
-- `EncodeWriter(w io.Writer) io.WriteCloser`: Returns a writer that encodes data to hexadecimal and writes to `w`.
-- `DecodeWriter(w io.Writer) io.WriteCloser`: Returns a writer that decodes hexadecimal data and writes to `w`.
-
-#### Example Usage
+### 4. Reset State Between Operations
 
 ```go
-coder := hexa.New()
-
-// Encode bytes
-encoded := coder.Encode([]byte("Hello World"))
-
-// Decode bytes
-decoded, err := coder.Decode(encoded)
-
-// Stream encoding
-r := coder.EncodeReader(myReader)
-defer r.Close()
-
-// Stream decoding
-w := coder.DecodeWriter(myWriter)
-defer w.Close()
-```
-
----
-
-### Error Handling
-
-- Decoding returns an error if the input is not valid hexadecimal.
-- Stream operations may return errors for invalid buffer sizes or I/O issues.
-- Use the `Reset()` method to release any resources (no-op for this stateless implementation).
-
----
-
-### Notes
-
-- The package is stateless and safe for concurrent use.
-- Buffer sizes must be sufficient for encoding/decoding operations; otherwise, an error is returned.
-- Always check errors when decoding or using stream interfaces.
-
----
-
-## `mux` Subpackage
-
-The `mux` subpackage provides multiplexing and demultiplexing utilities for encoding and decoding data streams over a single `io.Writer` or `io.Reader`. It allows you to send and receive data on multiple logical channels, identified by a key, through a single stream. This is useful for scenarios where you need to transmit different types of data or messages over the same connection.
-
-### Features
-
-- Multiplex multiple logical channels into a single stream
-- Demultiplex a stream into multiple channels based on a key
-- Channel identification using a `rune` key
-- CBOR serialization and hexadecimal encoding for data blocks
-- Thread-safe and efficient design
-- Error handling for invalid channels and stream issues
-
----
-
-### Main Types & Functions
-
-#### Multiplexer
-
-The `Multiplexer` interface allows you to create logical channels for writing data:
-
-```go
-type Multiplexer interface {
-    NewChannel(key rune) io.Writer
+// ✅ Good: Reset between operations
+for _, data := range dataList {
+    encoded := coder.Encode(data)
+    process(encoded)
+    coder.Reset()
 }
 ```
 
-- `NewChannel(key rune) io.Writer`: Returns an `io.Writer` for the given channel key. Data written to this writer is multiplexed into the main stream.
-
-**Example:**
+### 5. Close Readers/Writers
 
 ```go
-import (
-    "github.com/nabbar/golib/encoding/mux"
-)
-
-muxer := mux.NewMultiplexer(myWriter, '\n')
-chA := muxer.NewChannel('a')
-chB := muxer.NewChannel('b')
-
-chA.Write([]byte("data for channel A"))
-chB.Write([]byte("data for channel B"))
-```
-
-#### Demultiplexer
-
-The `DeMultiplexer` interface allows you to register output channels and read data from the main stream:
-
-```go
-type DeMultiplexer interface {
-    io.Reader
-    Copy() error
-    NewChannel(key rune, w io.Writer)
-}
-```
-
-- `NewChannel(key rune, w io.Writer)`: Registers an `io.Writer` for a given channel key. Data for this key will be written to the provided writer.
-- `Copy() error`: Continuously reads from the main stream and dispatches data to the correct channel writers. Intended to be run in a goroutine.
-
-**Example:**
-
-```go
-dmx := mux.NewDeMultiplexer(myReader, '\n', 0)
-bufA := &bytes.Buffer{}
-bufB := &bytes.Buffer{}
-
-dmx.NewChannel('a', bufA)
-dmx.NewChannel('b', bufB)
-
-go dmx.Copy()
-// bufA and bufB will receive their respective data
-```
-
-#### Construction
-
-- `NewMultiplexer(w io.Writer, delim byte) Multiplexer`: Creates a new multiplexer with the given writer and delimiter.
-- `NewDeMultiplexer(r io.Reader, delim byte, size int) DeMultiplexer`: Creates a new demultiplexer with the given reader, delimiter, and buffer size.
-
----
-
-### Data Format
-
-Each data block is serialized using CBOR and includes:
-- `K`: The channel key (`rune`)
-- `D`: The data payload (hexadecimal encoded)
-
-A delimiter byte is appended to each block to separate messages.
-
----
-
-### Error Handling
-
-- Returns errors for invalid instances or unknown channel keys.
-- `Copy()` returns any error encountered during reading or writing, except for `io.EOF` which is ignored.
-
----
-
-### Notes
-
-- The package is suitable for use with network sockets, files, or any stream-based transport.
-- Always register channels before calling `Copy()` on the demultiplexer.
-- The delimiter should not appear in the encoded data.
-
----
-
-## `randRead` Subpackage
-
-The `randRead` subpackage provides a utility for creating a random byte stream reader from a remote or dynamic source. It is designed to wrap any function that returns an `io.ReadCloser` (such as an HTTP request or a cryptographic random source) and expose it as a buffered, reusable `io.ReadCloser` interface.
-
-### Features
-
-- Wraps any remote or dynamic byte stream as an `io.ReadCloser`
-- Buffers data for efficient reading
-- Automatically refreshes the underlying source when needed
-- Thread-safe using atomic values
-- Simple integration with any function returning `io.ReadCloser`
-
----
-
-### Main Types & Functions
-
-#### `FuncRemote` Type
-
-A function type that returns an `io.ReadCloser` and an error:
-
-```go
-type FuncRemote func() (io.ReadCloser, error)
-```
-
-#### Creating a Random Reader
-
-Use the `New` function to create a new random reader from a remote source:
-
-```go
-import "github.com/nabbar/golib/encoding/randRead"
-
-reader := randRead.New(func() (io.ReadCloser, error) {
-    // Return your io.ReadCloser here (e.g., HTTP response body, random source, etc.)
-})
-```
-
-- The provided function will be called whenever the reader needs to fetch new data.
-
-#### Example Usage
-
-```go
-import (
-    "github.com/nabbar/golib/encoding/randRead"
-    "crypto/rand"
-    "io"
-)
-
-reader := randRead.New(func() (io.ReadCloser, error) {
-    // Wrap crypto/rand.Reader as an io.ReadCloser
-    return io.NopCloser(rand.Reader), nil
-})
-
-buf := make([]byte, 16)
-n, err := reader.Read(buf)
-// Use buf[0:n] as random data
-
-_ = reader.Close()
+// ✅ Good: Always close
+reader := coder.EncodeReader(input)
+defer reader.Close()
 ```
 
 ---
 
-### How It Works
+## Testing
 
-- The random reader buffers data from the remote source using a `bufio.Reader`.
-- If the buffer is empty or the underlying source is exhausted, it automatically calls the provided function to obtain a new `io.ReadCloser`.
-- The reader is thread-safe and can be used concurrently.
+Comprehensive testing documentation is available in [TESTING.md](TESTING.md).
 
----
-
-### Error Handling
-
-- If the remote function returns an error, the reader will propagate it on `Read`.
-- Always check errors when reading or closing the reader.
-
----
-
-### Notes
-
-- The package is suitable for scenarios where you need a continuous or on-demand random byte stream from a remote or dynamic source.
-- The underlying source is closed and replaced automatically as needed.
-- Use `Close()` to release resources when done.
-
----
-
-## `sha256` Subpackage
-
-The `sha256` subpackage provides a simple and unified interface for computing SHA-256 hashes, implementing the common `Coder` interface from the parent `encoding` package. It allows you to hash data in memory or via streaming interfaces, making it easy to integrate SHA-256 hashing into your applications.
-
-### Features
-
-- SHA-256 hashing for byte slices and data streams
-- Implements the `Coder` interface for compatibility with other encoding packages
-- Stateless and thread-safe design
-- Resource cleanup with `Reset()`
-- Stream support for `io.Reader` and `io.Writer` (encoding only)
-
----
-
-### Main Types & Functions
-
-#### Creating a Coder
-
-Instantiate a new SHA-256 coder:
-
-```go
-import (
-    "github.com/nabbar/golib/encoding/sha256"
-)
-
-coder := sha256.New()
+**Quick Test:**
+```bash
+cd encoding
+go test -v ./...
 ```
 
-#### Hashing Data
-
-- `Encode(p []byte) []byte`: Computes the SHA-256 hash of the input byte slice and returns the hash as a byte slice.
-- `Decode(p []byte) ([]byte, error)`: Not supported; always returns an error (SHA-256 is not reversible).
-
-#### Stream Interfaces
-
-- `EncodeReader(r io.Reader) io.ReadCloser`: Returns a reader that passes data through and updates the hash state. Use `Encode(nil)` after reading to get the hash.
-- `EncodeWriter(w io.Writer) io.WriteCloser`: Returns a writer that writes data to `w` and updates the hash state. Use `Encode(nil)` after writing to get the hash.
-- `DecodeReader(r io.Reader) io.ReadCloser`: Not supported; always returns `nil`.
-- `DecodeWriter(w io.Writer) io.WriteCloser`: Not supported; always returns `nil`.
-
-#### Example Usage
-
-```go
-coder := sha256.New()
-
-// Hash a byte slice
-hash := coder.Encode([]byte("Hello World"))
-
-// Use with io.Writer
-buf := &bytes.Buffer{}
-w := coder.EncodeWriter(buf)
-w.Write([]byte("Hello World"))
-w.Close()
-hash = coder.Encode(nil) // Get the hash after writing
-
-// Use with io.Reader
-r := coder.EncodeReader(bytes.NewReader([]byte("Hello World")))
-io.ReadAll(r)
-r.Close()
-hash = coder.Encode(nil) // Get the hash after reading
+**Sub-Package Tests:**
+```bash
+cd encoding/aes && go test -v
+cd encoding/hexa && go test -v
+cd encoding/mux && go test -v
+cd encoding/randRead && go test -v
+cd encoding/sha256 && go test -v
 ```
 
-#### Resetting State
+---
 
-- `Reset()`: Resets the internal hash state, allowing reuse of the coder for new data.
+## Contributing
+
+Contributions are welcome! Please follow these guidelines:
+
+**Code Contributions**
+- Do not use AI to generate package implementation code
+- AI may assist with tests, documentation, and bug fixing
+- All contributions must pass existing tests
+- Maintain interface compatibility
+- Follow existing code style
+
+**New Implementations**
+- Implement full `Coder` interface
+- Include comprehensive tests
+- Document use cases
+- Provide examples
+
+**Documentation**
+- Update README.md for new features
+- Add sub-package documentation
+- Keep TESTING.md synchronized
+- Document all public APIs with GoDoc
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed guidelines.
 
 ---
 
-### Error Handling
+## License
 
-- `Decode` and stream decoding methods are not supported and will return an error or `nil`.
-- Always check for errors when using unsupported methods.
+MIT License - See [LICENSE](../LICENSE) file for details.
+
+Copyright (c) 2023 Nicolas JUHEL
 
 ---
 
-### Notes
+## Resources
 
-- SHA-256 is a one-way hash function; decoding is not possible.
-- The package is stateless and safe for concurrent use.
-- Use `Reset()` to clear the internal state before reusing the coder.
+- **Issues**: [GitHub Issues](https://github.com/nabbar/golib/issues)
+- **Documentation**: [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/encoding)
+- **Testing Guide**: [TESTING.md](TESTING.md)
+- **Contributing**: [CONTRIBUTING.md](../CONTRIBUTING.md)
+- **Source Code**: [GitHub Repository](https://github.com/nabbar/golib)
 
+---
+
+*This package is part of the [golib](https://github.com/nabbar/golib) project.*

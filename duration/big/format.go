@@ -31,6 +31,21 @@ import (
 	"time"
 )
 
+// Time returns a time.Duration representation of the duration.
+// If the duration is larger than the maximum value of time.Duration,
+// Time returns an error with the message "overflow max time.Duration value".
+// Otherwise, Time returns the duration as a time.Duration.
+//
+// Example:
+//
+// d := ParseDuration("1h30m")
+// td, err := d.Time()
+//
+//	if err != nil {
+//	    panic(err)
+//	}
+//
+// fmt.Println(td) // Output: 1h30m0s
 func (d Duration) Time() (time.Duration, error) {
 	mxt := float64(math.MaxInt64) / float64(time.Second)
 	if d.Float64() > mxt {
@@ -40,8 +55,15 @@ func (d Duration) Time() (time.Duration, error) {
 	return time.Duration(d) * time.Second, nil
 }
 
-// String returns a string representing the duration in the form "135d72h3m5s".
-// Leading zero units are omitted. The zero duration formats as 0s.
+// String returns a string representation of the duration.
+// The string is in the format "NdNhNmNs" where N is a number.
+// The days are omitted if n is 0 or negative. The hours, minutes, and seconds
+// are omitted if they are 0.
+//
+// Example:
+//
+// d := ParseDuration("1d2h3m4s")
+// fmt.Println(d.String()) // Output: 1d2h3m4s
 func (d Duration) String() string {
 	var s string
 
@@ -71,6 +93,46 @@ func (d Duration) String() string {
 	return s
 }
 
+// Int64 returns the underlying int64 value of the duration.
+//
+// Example:
+//
+// d := ParseDuration("1h30m")
+// i := d.Int64()
+// fmt.Println(i) // Output: 5400
+//
+// Note: Duration is a uint64 type, so the int64 value is signed and will be negative if the duration is negative.
+func (d Duration) Int64() int64 {
+	return int64(d)
+}
+
+// Uint64 returns the underlying uint64 value of the duration.
+// If the duration is negative, the uint64 value is 0.
+//
+// Example:
+//
+// d := ParseDuration("-1h30m")
+// i := d.Uint64()
+// fmt.Println(i) // Output: 0
+func (d Duration) Uint64() uint64 {
+	if i := int64(d); i < 0 {
+		return uint64(0)
+	} else {
+		return uint64(i)
+	}
+}
+
+// Float64 returns the underlying float64 value of the duration.
+//
+// Example:
+//
+// d := ParseDuration("1h30m")
+// f := d.Float64()
+// fmt.Println(f) // Output: 5400.0
+func (d Duration) Float64() float64 {
+	return float64(d)
+}
+
 func stringUnit(val, div int64, unit string) (rest int64, str string) {
 	if val == val%div {
 		// same value so no unit in value, so skip
@@ -85,20 +147,4 @@ func stringUnit(val, div int64, unit string) (rest int64, str string) {
 	} else {
 		return val, ""
 	}
-}
-
-func (d Duration) Int64() int64 {
-	return int64(d)
-}
-
-func (d Duration) Uint64() uint64 {
-	if d < 0 {
-		return uint64(0)
-	}
-
-	return uint64(d)
-}
-
-func (d Duration) Float64() float64 {
-	return float64(d)
 }

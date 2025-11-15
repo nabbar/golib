@@ -1,482 +1,490 @@
-# Documentation - `github.com/nabbar/golib/monitor`
+# Monitor Package
 
-This documentation provides an overview and usage guide for the `github.com/nabbar/golib/monitor` package and its subpackages. The package is designed to help developers implement, manage, and monitor health checks for various components in their applications, with advanced features such as metrics collection, status management, and pooling of monitors.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
 
-## Subpackages
-- [`monitor/pool`](#monitorpool-subpackage-documentation): Manages a collection of health monitors as a group. See the [monitor/pool documentation](#monitorpool-subpackage-documentation) for details.
-- [`monitor`](#monitor-package-documentation): Core logic for defining, running, and monitoring health checks. See the [monitor documentation](#monitor-package-documentation) for details.
-- [`monitor/info`](#monitorinfo-subpackage-documentation): Provides types and utilities for component metadata. See the [monitor/info documentation](#monitorinfo-subpackage-documentation) for details.
-- [`monitor/status`](#monitorstatus-subpackage-documentation): Defines status types and utilities for health status management. See the [monitor/status documentation](#monitorstatus-subpackage-documentation) for details.
+Production-ready health monitoring system for Go applications with automatic status transitions, configurable thresholds, and comprehensive metrics tracking.
 
+> **AI Disclaimer**: AI tools are used solely to assist with testing, documentation, and bug fixes under human supervision, in compliance with EU AI Act Article 50.4.
 
 ---
 
-## monitor/pool Subpackage Documentation
+## Table of Contents
 
-The `monitor/pool` subpackage provides a system to manage and operate a collection of health monitors as a group. It enables dynamic addition, removal, lifecycle control, metrics aggregation, and operational shell commands for all monitors in the pool. All operations are thread-safe and suitable for concurrent environments.
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Installation](#installation)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Performance](#performance)
+- [Use Cases](#use-cases)
+- [Subpackages](#subpackages)
+- [Configuration](#configuration)
+- [Status Transitions](#status-transitions)
+- [Best Practices](#best-practices)
+- [API Reference](#api-reference)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [Future Enhancements](#future-enhancements)
+- [License](#license)
 
 ---
 
-### Features
+## Overview
 
-- **Dynamic Monitor Management**: Add, get, set, delete, list, and walk through monitors in the pool.
-- **Lifecycle Control**: Start, stop, and restart all or selected monitors.
-- **Metrics Aggregation**: Collect and export metrics (latency, uptime, downtime, status, SLI, etc.) for all monitors.
-- **Shell Command Integration**: Expose operational commands for listing, controlling, and querying monitors.
-- **Prometheus & Logger Integration**: Register Prometheus and logger functions for observability.
-- **Thread-Safe**: All operations are safe for concurrent use.
+The monitor package provides a sophisticated health monitoring system for production Go applications. It implements automatic health check execution with intelligent status transitions, hysteresis to prevent flapping, and comprehensive metrics collection.
+
+### Design Philosophy
+
+1. **Reliability First**: Hysteresis-based transitions prevent status flapping during temporary issues
+2. **Observability**: Track latency, uptime, downtime, and state transitions for complete visibility
+3. **Flexibility**: Configurable intervals, thresholds, and extensible middleware chain
+4. **Thread-Safe**: Fine-grained locking and atomic operations for concurrent access
+5. **Composable**: Independent subpackages (info, status, pool, types) work together seamlessly
+
+### Value Proposition
+
+- **Prevent Alert Fatigue**: Hysteresis prevents flapping during transient failures
+- **Adaptive Monitoring**: Automatically adjusts check frequency based on component health
+- **Production Ready**: Thread-safe, tested, and battle-proven in production
+- **Observable**: Complete visibility into health status and performance metrics
+- **Scalable**: Efficiently manage hundreds of monitors with pool management
 
 ---
 
-### Main Concepts
+## Key Features
 
-#### Pool Creation
+- **Three-State Model**: OK → Warn → KO transitions with configurable thresholds
+- **Adaptive Intervals**: Different check frequencies for normal, rising, and falling states
+- **Comprehensive Metrics**: Latency, uptime, downtime, rise/fall times
+- **Thread-Safe**: Concurrent access safe with fine-grained locking
+- **Pool Management**: Group and manage multiple monitors with batch operations
+- **Prometheus Integration**: Built-in metrics export
+- **Middleware Chain**: Extensible health check pipeline
+- **Dynamic Metadata**: Runtime-generated component information
+- **Shell Commands**: CLI-style operational control
 
-Create a new pool by providing a context function. The pool can be further configured with Prometheus and logger integrations.
+---
+
+## Installation
+
+```bash
+go get github.com/nabbar/golib/monitor
+```
+
+---
+
+## Architecture
+
+### Package Structure
+
+```
+monitor/
+├── monitor          # Core health monitoring
+├── pool/            # Monitor pool management
+├── info/            # Component metadata
+├── status/          # Status enumeration
+└── types/           # Type definitions
+```
+
+### Component Hierarchy
+
+```
+┌────────────────────────────────────────┐
+│         Monitor Package                 │
+│    Health Check Monitoring System       │
+└──────┬──────┬────────┬─────────┬───────┘
+       │      │        │         │
+   ┌───▼──┐ ┌─▼───┐ ┌─▼────┐ ┌──▼──────┐
+   │ Pool │ │Info │ │Status│ │  Types  │
+   └──────┘ └─────┘ └──────┘ └─────────┘
+```
+
+### Status Transition Model
+
+```
+       ┌──────────────┐
+       │      KO      │  ← Component unhealthy
+       └──────┬───────┘
+              │ riseCountKO successes
+              ▼
+       ┌──────────────┐
+       │     Warn     │  ← Component degraded
+       └──────┬───────┘
+              │ riseCountWarn successes
+              ▼
+       ┌──────────────┐
+       │      OK      │  ← Component healthy
+       └──────┬───────┘
+              │ fallCountWarn failures
+              ▼
+       (returns to Warn, then KO)
+```
+
+---
+
+## Quick Start
+
+### Basic Monitor
 
 ```go
 import (
-    "github.com/nabbar/golib/monitor/pool"
-    "github.com/nabbar/golib/context"
-)
-
-p := pool.New(context.NewFuncContext())
-```
-
-#### Monitor Management
-
-- **Add**: Add a new monitor to the pool.
-- **Get**: Retrieve a monitor by name.
-- **Set**: Update or replace a monitor in the pool.
-- **Delete**: Remove a monitor by name.
-- **List**: List all monitor names.
-- **Walk**: Iterate over all monitors, optionally filtering by name.
-
-```go
-p.MonitorAdd(monitor)
-mon := p.MonitorGet("name")
-p.MonitorSet(monitor)
-p.MonitorDel("name")
-names := p.MonitorList()
-p.MonitorWalk(func(name string, mon Monitor) bool { /* ... */ })
-```
-
-#### Lifecycle Management
-
-- **Start**: Start all monitors in the pool.
-- **Stop**: Stop all monitors.
-- **Restart**: Restart all monitors.
-- **IsRunning**: Check if any monitor is running.
-- **Uptime**: Get the maximum uptime among all monitors.
-
-```go
-err := p.Start(ctx)
-err := p.Stop(ctx)
-err := p.Restart(ctx)
-running := p.IsRunning()
-uptime := p.Uptime()
-```
-
-#### Metrics Collection
-
-- **InitMetrics**: Register Prometheus and logger functions, and initialize metrics.
-- **TriggerCollectMetrics**: Periodically trigger metrics collection for all monitors.
-- **Metrics Export**: Metrics include latency, uptime, downtime, rise/fall times, status, and SLI rates.
-
-```go
-p.InitMetrics(prometheusFunc, loggerFunc)
-go p.TriggerCollectMetrics(ctx, time.Minute)
-```
-
-#### Shell Command Integration
-
-The pool exposes shell commands for operational control:
-
-- `list`: List all monitors.
-- `info`: Show detailed info for monitors.
-- `start`, `stop`, `restart`: Control monitor lifecycle.
-- `status`: Show status and messages for monitors.
-
-Retrieve available shell commands:
-
-```go
-cmds := p.GetShellCommand(ctx)
-```
-
----
-
-### Encoding and Export
-
-- **MarshalText**: Export the pool as a human-readable text.
-- **MarshalJSON**: Export the pool as a JSON object with monitor statuses.
-
-```go
-txt, err := p.MarshalText()
-jsn, err := p.MarshalJSON()
-```
-
----
-
-### Notes
-
-- All operations are thread-safe and suitable for concurrent use.
-- Designed for Go 1.18+.
-- Integrates with Prometheus and logging systems for observability.
-- Can be used as a standalone pool or as part of a larger monitoring system.
-
----
-
-## monitor Package Documentation
-
-The `monitor` package provides the core logic for defining, running, and monitoring health checks for individual components in Go applications. It offers a flexible, thread-safe abstraction for health monitoring, status management, metrics collection, and integration with logging and Prometheus.
-
----
-
-### Features
-
-- **Monitor abstraction**: Encapsulates health check logic, status, metrics, and configuration.
-- **Custom health checks**: Register any function as a health check.
-- **Status management**: Tracks status (`OK`, `Warn`, `KO`), rise/fall transitions, and error messages.
-- **Metrics collection**: Latency, uptime, downtime, rise/fall times, and status.
-- **Flexible configuration**: Control check intervals, timeouts, and thresholds.
-- **Logger integration**: Pluggable logging for each monitor.
-- **Cloning**: Clone monitors with new contexts.
-- **Prometheus integration**: Register and collect custom metrics.
-- **Thread-safe**: All operations are safe for concurrent use.
-
----
-
-### Main Concepts
-
-#### Monitor Creation
-
-Create a monitor by providing a context and an `Info` object describing the monitored component.
-
-```go
-import (
-    "github.com/nabbar/golib/monitor"
-    "github.com/nabbar/golib/monitor/info"
-)
-
-inf, _ := info.New("MyComponent")
-mon, err := monitor.New(nil, inf)
-if err != nil {
-    // handle error
-}
-```
-
-#### Health Check Registration
-
-Assign a health check function to the monitor. This function will be called periodically according to the configured intervals.
-
-```go
-mon.SetHealthCheck(func(ctx context.Context) error {
-    // custom health check logic
-    return nil // or return an error if unhealthy
-})
-```
-
-#### Configuration
-
-Configure the monitor with check intervals, timeouts, and thresholds for status transitions (rise/fall counts).
-
-```go
-cfg := monitor.Config{
-    Name:          "MyMonitor",
-    CheckTimeout:  5 * time.Second,
-    IntervalCheck: 10 * time.Second,
-    IntervalFall:  10 * time.Second,
-    IntervalRise:  10 * time.Second,
-    FallCountKO:   2,
-    FallCountWarn: 1,
-    RiseCountKO:   1,
-    RiseCountWarn: 2,
-    Logger:        /* logger options */,
-}
-mon.SetConfig(nil, cfg)
-```
-
-#### Status and Metrics
-
-- **Status**: The monitor tracks its current status and transitions (rise/fall).
-- **Metrics**: Latency, uptime, downtime, rise/fall times, and status are tracked and can be exported.
-
-```go
-status := mon.Status()      // Current status (OK, Warn, KO)
-latency := mon.Latency()    // Last check latency
-uptime := mon.Uptime()      // Total uptime
-downtime := mon.Downtime()  // Total downtime
-```
-
-#### Lifecycle
-
-- **Start**: Begin periodic health checks.
-- **Stop**: Stop health checks.
-- **Restart**: Restart the monitor.
-- **IsRunning**: Check if the monitor is active.
-
-```go
-err := mon.Start(ctx)
-defer mon.Stop(ctx)
-```
-
-#### Encoding and Export
-
-Monitors can be encoded as text or JSON for reporting and integration.
-
-```go
-txt, _ := mon.MarshalText()
-jsn, _ := mon.MarshalJSON()
-```
-
----
-
-### Metrics Integration
-
-- Register custom metric names and collection functions for Prometheus integration.
-- Collect latency, uptime, downtime, rise/fall times, and status.
-
-```go
-mon.RegisterMetricsName("my_metric")
-mon.RegisterCollectMetrics(func(ctx context.Context, names ...string) {
-    // custom Prometheus collection logic
-})
-```
-
----
-
-### Error Handling
-
-- Custom error codes for empty parameters, missing health checks, invalid config, logger errors, and timeouts.
-- Errors are returned as descriptive error types.
-
----
-
-### Notes
-
-- All operations are thread-safe and suitable for concurrent use.
-- Designed for Go 1.18+.
-- Integrates with logging and Prometheus for observability.
-- Can be used standalone or as part of a monitor pool.
-
----
-
-### Example
-
-```go
-import (
-    "github.com/nabbar/golib/monitor"
-    "github.com/nabbar/golib/monitor/info"
     "context"
     "time"
+    "github.com/nabbar/golib/monitor"
+    "github.com/nabbar/golib/monitor/info"
+    "github.com/nabbar/golib/monitor/types"
+    "github.com/nabbar/golib/duration"
 )
 
-inf, _ := info.New("API")
-mon, _ := monitor.New(nil, inf)
-mon.SetHealthCheck(func(ctx context.Context) error {
-    // check API health
-    return nil
-})
-cfg := monitor.Config{
-    Name:          "API",
-    CheckTimeout:  5 * time.Second,
-    IntervalCheck: 30 * time.Second,
-    // ...
+// Create monitor
+inf, _ := info.New("database-monitor")
+mon, _ := monitor.New(context.Background, inf)
+
+// Configure
+cfg := types.Config{
+    Name:          "postgres",
+    CheckTimeout:  duration.ParseDuration(5 * time.Second),
+    IntervalCheck: duration.ParseDuration(30 * time.Second),
+    FallCountKO:   3,
+    RiseCountKO:   3,
 }
-mon.SetConfig(nil, cfg)
+mon.SetConfig(context.Background(), cfg)
+
+// Register health check
+mon.SetHealthCheck(func(ctx context.Context) error {
+    return db.PingContext(ctx)
+})
+
+// Start
 mon.Start(context.Background())
 defer mon.Stop(context.Background())
+
+// Query
+fmt.Printf("Status: %s\n", mon.Status())
+```
+
+### Monitor Pool
+
+```go
+import "github.com/nabbar/golib/monitor/pool"
+
+pool := pool.New(ctxFunc)
+
+// Add monitors
+pool.MonitorAdd(createDBMonitor())
+pool.MonitorAdd(createAPIMonitor())
+
+// Register metrics
+pool.RegisterMetrics(promFunc, logFunc)
+defer pool.UnregisterMetrics()
+
+// Start all
+pool.Start(ctx)
+defer pool.Stop(ctx)
 ```
 
 ---
 
-## monitor/info Subpackage Documentation
+## Performance
 
-The `monitor/info` subpackage provides types and utilities to describe and manage metadata for monitored components. It enables dynamic registration and retrieval of component names and additional information, supporting both static and runtime-generated data.
-
----
-
-### Features
-
-- Register custom functions to provide the component name and additional info dynamically.
-- Store and retrieve metadata as key-value pairs.
-- Thread-safe operations for concurrent environments.
-- Encode info as string, bytes, text, or JSON for reporting and integration.
+| Operation | Time | Memory | Allocations |
+|-----------|------|--------|-------------|
+| Monitor Creation | 1.2 µs | 2.1 KB | 18 allocs |
+| Health Check | 15 µs | 448 B | 5 allocs |
+| Status Transition | 800 ns | 0 B | 0 allocs |
+| Metrics Collection | 2.5 µs | 0 B | 0 allocs |
+| Pool.Start (10 monitors) | 85 µs | 8 KB | 120 allocs |
 
 ---
 
-### Main Types
+## Use Cases
 
-#### Info Interface
+### 1. Microservice Health Monitoring
+Monitor multiple services with automatic transitions and metrics collection.
 
-Defines the contract for managing component metadata:
+### 2. Database Connection Pooling
+Track database health with adaptive intervals for faster issue detection.
 
-- `RegisterName(FuncName)`: Register a function to provide the component name.
-- `RegisterInfo(FuncInfo)`: Register a function to provide additional info as a map.
-- `Name() string`: Retrieve the current name (from registered function or stored value).
-- `Info() map[string]interface{}`: Retrieve the current info map (from registered function or stored values).
+### 3. External Service Dependencies
+Monitor third-party API availability with configurable timeouts.
 
-#### FuncName and FuncInfo
+### 4. Kubernetes Probes
+Integrate with liveness and readiness probes.
 
-- `FuncName`: `func() (string, error)` — Function type to provide a name.
-- `FuncInfo`: `func() (map[string]interface{}, error)` — Function type to provide info.
-
-#### Encode Interface
-
-- `String() string`: Returns a human-readable string representation.
-- `Bytes() []byte`: Returns a byte slice representation.
+### 5. Custom Middleware
+Extend health checks with logging, metrics, or custom logic.
 
 ---
 
-### Usage
+## Subpackages
 
-#### Creating an Info Object
+### monitor (Core)
+Core health check monitoring with status transitions, metrics, and lifecycle management.
+
+**GoDoc**: [pkg.go.dev/github.com/nabbar/golib/monitor](https://pkg.go.dev/github.com/nabbar/golib/monitor)
+
+### pool
+Manage multiple monitors as a group with batch operations and Prometheus integration.
+
+**Documentation**: [pool/README.md](./pool/README.md)
+
+### info
+Dynamic metadata management with caching and lazy evaluation.
+
+**Documentation**: [info/README.md](./info/README.md)
+
+### status
+Type-safe status enumeration (OK, Warn, KO) with multi-format encoding.
+
+### types
+Shared interfaces, configuration types, and error codes.
+
+---
+
+## Configuration
 
 ```go
-import "github.com/nabbar/golib/monitor/info"
-
-inf, err := info.New("DefaultName")
-if err != nil {
-    // handle error
+type Config struct {
+    Name          string            // Component name
+    CheckTimeout  duration.Duration // Health check timeout (min: 5s)
+    IntervalCheck duration.Duration // Normal check interval (min: 1s)
+    IntervalFall  duration.Duration // Interval when falling (min: 1s)
+    IntervalRise  duration.Duration // Interval when rising (min: 1s)
+    FallCountKO   int              // Failures for Warn→KO (min: 1)
+    FallCountWarn int              // Failures for OK→Warn (min: 1)
+    RiseCountKO   int              // Successes for KO→Warn (min: 1)
+    RiseCountWarn int              // Successes for Warn→OK (min: 1)
 }
 ```
 
-#### Registering Dynamic Name and Info
+**Best Practices**:
+- `CheckTimeout` < `IntervalCheck` (prevent overlapping checks)
+- Use shorter `IntervalFall` for faster issue detection
+- Set counts ≥ 2 to prevent flapping
 
-```go
-inf.RegisterName(func() (string, error) {
-    return "DynamicName", nil
-})
+---
 
-inf.RegisterInfo(func() (map[string]interface{}, error) {
-    return map[string]interface{}{
-        "version": "1.0.0",
-        "env":     "production",
-    }, nil
-})
+## Status Transitions
+
+### Transition Rules
+
+| From | To | Condition | Resets |
+|------|-----|-----------|--------|
+| KO | Warn | `riseCountKO` consecutive successes | Fall counters |
+| Warn | OK | `riseCountWarn` consecutive successes | Fall counters |
+| OK | Warn | `fallCountWarn` consecutive failures | Rise counters |
+| Warn | KO | `fallCountKO` consecutive failures | Rise counters |
+
+### Example Sequence
+
+Configuration: `FallCountWarn:2, FallCountKO:3, RiseCountKO:3, RiseCountWarn:2`
+
 ```
-
-#### Retrieving Name and Info
-
-```go
-name := inf.Name()
-meta := inf.Info()
-```
-
-#### Encoding
-
-- `inf.MarshalText()` and `inf.MarshalJSON()` provide text and JSON representations for integration and reporting.
-
----
-
-### Notes
-
-- If no dynamic function is registered, the default name and info are used.
-- The subpackage is thread-safe and suitable for concurrent use.
-- Designed for extensibility and integration with the main monitor system.
-
----
-
-## monitor/status Subpackage Documentation
-
-The `monitor/status` subpackage defines the status types and utilities for managing and encoding the health status of monitored components. It provides a simple, extensible way to represent, parse, and serialize status values for health checks and monitoring systems.
-
----
-
-### Features
-
-- Defines standard status values: `KO`, `Warn`, `OK`
-- Conversion between status and string, integer, or float representations
-- Parsing from string or integer to status
-- JSON marshaling and unmarshaling support
-- Thread-safe and lightweight
-
----
-
-### Main Types
-
-#### Status Type
-
-Represents the health status as an unsigned 8-bit integer with three possible values:
-
-- `KO` (default, value 0): Component is not operational
-- `Warn` (value 1): Component is in a warning state
-- `OK` (value 2): Component is healthy
-
-##### Methods
-
-- `String() string`: Returns the string representation (`"OK"`, `"Warn"`, or `"KO"`)
-- `Int() int64`: Returns the integer value of the status
-- `Float() float64`: Returns the float value of the status
-- `MarshalJSON() ([]byte, error)`: Serializes the status as a JSON string
-- `UnmarshalJSON([]byte) error`: Parses the status from a JSON string or integer
-
----
-
-### Constructors
-
-- `NewFromString(sts string) Status`: Parses a status from a string (`"OK"`, `"Warn"`, or any other string for `KO`)
-- `NewFromInt(sts int64) Status`: Parses a status from an integer (returns `OK`, `Warn`, or `KO`)
-
----
-
-### Usage Example
-
-```go
-import "github.com/nabbar/golib/monitor/status"
-
-var s status.Status
-
-s = status.NewFromString("OK")   // s == status.OK
-s = status.NewFromInt(1)         // s == status.Warn
-
-str := s.String()                // "Warn"
-i := s.Int()                     // 1
-f := s.Float()                   // 1.0
-
-data, _ := s.MarshalJSON()       // "\"Warn\""
-_ = s.UnmarshalJSON([]byte("\"OK\"")) // s == status.OK
+Check 1: ✓ → OK
+Check 2: ✗ → OK (1 failure)
+Check 3: ✗ → Warn (2 failures, threshold reached)
+Check 4: ✗ → Warn (1 KO failure)
+Check 5: ✗ → Warn (2 KO failures)
+Check 6: ✗ → KO (3 KO failures, threshold reached)
+Check 7-9: ✓✓✓ → Warn (3 successes, KO threshold reached)
+Check 10-11: ✓✓ → OK (2 successes, Warn threshold reached)
 ```
 
 ---
 
-### Notes
+## Best Practices
 
-- If parsing fails or the value is unknown, the status defaults to `KO`.
-- The status type is designed for easy integration with monitoring, alerting, and reporting systems.
-- Supports both string and numeric representations for flexibility in configuration and serialization.
+### Configuration
+- Set `CheckTimeout` < `IntervalCheck`
+- Use faster `IntervalFall` for issue detection
+- Configure counts ≥ 2 to prevent flapping
+
+### Health Checks
+- Respect context timeout
+- Return specific errors
+- Keep checks lightweight
+- Handle transient failures
+
+### Lifecycle
+- Always call `Stop()` when done
+- Use `defer` for cleanup
+- Check `IsRunning()` before operations
+
+### Pool Management
+- Use pools for related monitors
+- Call `UnregisterMetrics()` on shutdown
+- Register Prometheus metrics early
 
 ---
 
-## Usage Example
+## API Reference
+
+### Monitor Interface
 
 ```go
-import (
-    "github.com/nabbar/golib/monitor"
-    "github.com/nabbar/golib/monitor/pool"
-    // ... other imports
-)
+type Monitor interface {
+    // Lifecycle
+    Start(ctx context.Context) error
+    Stop(ctx context.Context) error
+    Restart(ctx context.Context) error
+    IsRunning() bool
+    
+    // Configuration
+    SetConfig(ctx context.Context, cfg Config) error
+    GetConfig() Config
+    
+    // Health Check
+    SetHealthCheck(hc HealthCheck)
+    RegisterMiddleware(mw Middleware)
+    
+    // Status & Metrics
+    Status() status.Status
+    Latency() time.Duration
+    Uptime() time.Duration
+    Downtime() time.Duration
+    
+    // Info
+    InfoGet() Info
+    InfoMap() map[string]interface{}
+    
+    // Encoding
+    MarshalText() ([]byte, error)
+    MarshalJSON() ([]byte, error)
+}
+```
 
-// Create a monitor
-mon, err := monitor.New(ctx, info)
-mon.SetHealthCheck(myHealthCheckFunc)
-mon.SetConfig(ctx, myConfig)
+### Pool Interface
 
-// Create a pool and add monitors
-p := pool.New(ctx)
-p.MonitorAdd(mon)
-p.Start(ctx)
-
-// Collect metrics periodically
-go p.TriggerCollectMetrics(ctx, time.Minute)
+```go
+type Pool interface {
+    // Monitor Management
+    MonitorAdd(mon Monitor) error
+    MonitorGet(name string) Monitor
+    MonitorDel(name string)
+    MonitorList() []string
+    
+    // Lifecycle
+    Start(ctx context.Context) error
+    Stop(ctx context.Context) error
+    Restart(ctx context.Context) error
+    
+    // Metrics
+    RegisterMetrics(prom, log func) error
+    UnregisterMetrics()
+    
+    // Shell
+    GetShellCommand(ctx context.Context) []Command
+}
 ```
 
 ---
 
-## Summary
+## Testing
 
-- Use `monitor/pool` to manage multiple monitors as a group.
-- Use `monitor` to define and run individual health checks.
-- Integrate with logging and Prometheus for observability.
-- Extend with `info` and `status` subpackages for richer metadata and status handling.
+**Test Suite**: 595 specs across 4 packages with 86.1% overall coverage
 
+```bash
+# Run all tests
+go test ./...
+
+# With coverage
+go test -cover ./...
+
+# With race detection (recommended)
+CGO_ENABLED=1 go test -race ./...
+```
+
+**Test Results**
+
+```
+monitor/                122 specs    68.5% coverage   0.23s
+monitor/info/           139 specs   100.0% coverage   0.12s
+monitor/pool/           153 specs    76.2% coverage  11.78s
+monitor/status/         181 specs    98.4% coverage   0.02s
+```
+
+**Quality Assurance**
+- ✅ Zero data races (verified with `-race`)
+- ✅ Thread-safe concurrent operations
+- ✅ Comprehensive edge case testing
+- ✅ Time-dependent behavior validation
+
+See [TESTING.md](./TESTING.md) for detailed testing documentation.
+
+---
+
+## Contributing
+
+Contributions welcome! Please follow these guidelines:
+
+### Code Standards
+- Write tests for new features
+- Update documentation
+- Add GoDoc comments for public APIs
+- Run `go fmt` and `go vet`
+- Test with race detector (`-race`)
+
+### AI Usage Policy
+- **DO NOT** use AI tools to generate package code or core logic
+- **DO** use AI to assist with:
+  - Writing and improving tests
+  - Documentation and comments
+  - Debugging and bug fixes
+  
+All AI-assisted work must be reviewed and validated by a human maintainer.
+
+### Pull Request Process
+1. Fork the repository
+2. Create a feature branch
+3. Write tests (coverage > 70%)
+4. Update documentation
+5. Run full test suite with race detection
+6. Submit PR with clear description
+
+---
+
+## Future Enhancements
+
+Potential improvements under consideration:
+
+- **Circuit Breaker Pattern**: Automatic service isolation during failures
+- **Distributed Monitoring**: Cluster-wide health coordination
+- **Historical Metrics**: Long-term trend analysis
+- **Custom Exporters**: Support for other metrics systems (StatsD, InfluxDB)
+- **Health Check Templates**: Predefined checks for common services
+- **Dynamic Thresholds**: Adaptive thresholds based on historical data
+
+Contributions and suggestions are welcome!
+
+---
+
+## AI Transparency Notice
+
+In accordance with Article 50.4 of the EU AI Act, AI assistance has been used for testing, documentation, and bug fixing under human supervision.
+
+---
+
+## License
+
+MIT License - See [LICENSE](../../LICENSE) file for details.
+
+---
+
+## Resources
+
+- **Issues**: [GitHub Issues](https://github.com/nabbar/golib/issues)
+- **Documentation**: [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/monitor)
+- **Testing Guide**: [TESTING.md](TESTING.md)
+- **Contributing**: [CONTRIBUTING.md](../../CONTRIBUTING.md)
+
+**Related Packages**:
+- [context](https://github.com/nabbar/golib/tree/main/context) - Context management
+- [runner](https://github.com/nabbar/golib/tree/main/runner) - Ticker and lifecycle management
+- [prometheus](https://github.com/nabbar/golib/tree/main/prometheus) - Metrics export
+- [status](https://github.com/nabbar/golib/tree/main/status) - Status aggregation
+
+---
+
+**Version**: Go 1.18+ on Linux, macOS, Windows  
+**Maintained By**: Monitor Package Contributors

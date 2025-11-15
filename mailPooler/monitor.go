@@ -27,14 +27,14 @@
 package mailPooler
 
 import (
+	"context"
 	"fmt"
 
-	libctx "github.com/nabbar/golib/context"
 	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"
 )
 
-func (p *pooler) Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error) {
+func (p *pooler) Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
 	if p.s == nil {
 		return nil, fmt.Errorf("SMTP client not defined")
 	}

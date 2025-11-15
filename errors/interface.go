@@ -24,25 +24,98 @@
  *
  */
 
+// Package errors provides advanced error handling with error codes, stack tracing, and hierarchy management.
+//
+// This package extends Go's standard error handling with features for enterprise applications:
+//   - Error codes (numeric classification similar to HTTP status codes)
+//   - Automatic stack trace capture (file, line, function)
+//   - Error hierarchy (parent-child error chains)
+//   - Error collection management (via pool sub-package)
+//   - Compatibility with standard errors.Is and errors.As
+//
+// Key Features:
+//   - Predefined HTTP-like error codes (404, 500, etc.)
+//   - Custom error code support
+//   - Automatic stack trace capture
+//   - Error chaining and hierarchy
+//   - Thread-safe error pool for collection
+//   - Gin framework integration
+//
+// Example usage:
+//
+//	import liberr "github.com/nabbar/golib/errors"
+//
+//	// Create error with code
+//	err := liberr.NotFoundError.Error(nil)
+//	fmt.Println(err.Code()) // 404
+//
+//	// With parent error
+//	baseErr := errors.New("database connection failed")
+//	err := liberr.InternalError.Error(baseErr)
+//
+//	// Check error code
+//	if e, ok := err.(liberr.Error); ok {
+//	    if e.IsCode(liberr.InternalError) {
+//	        log.Printf("Internal error at %s:%d", e.GetFile(), e.GetLine())
+//	    }
+//	}
+//
+//	// Error hierarchy
+//	mainErr := liberr.UnknownError.Error(nil)
+//	mainErr.Add(err1, err2, err3)
+//
+// Sub-packages:
+//   - pool: Thread-safe error collection with automatic indexing
+//
+// Thread Safety:
+//
+//	The Error interface is not thread-safe for modification (Add, SetParent)
+//	but is safe for concurrent reads. Use the pool sub-package for
+//	thread-safe error collection across goroutines.
 package errors
 
 import (
 	"errors"
 	"fmt"
+	"math"
 	"runtime"
 	"strings"
-
-	"github.com/gin-gonic/gin"
 )
 
+// FuncMap is a callback function type used for iterating over error hierarchies.
+// It receives each error in the chain and returns true to continue iteration
+// or false to stop.
+//
+// Example:
+//
+//	err.Map(func(e error) bool {
+//	    log.Println(e.Error())
+//	    return true // continue to next error
+//	})
 type FuncMap func(e error) bool
 
+// ReturnError is a callback function type for custom error return handling.
+// It receives error details (code, message, file, line) and can be used
+// to implement custom error reporting or logging mechanisms.
 type ReturnError func(code int, msg string, file string, line int)
 
+// Error is the main interface extending Go's standard error with additional capabilities.
+//
+// This interface provides:
+//   - Error code management (numeric classification)
+//   - Error hierarchy (parent-child relationships)
+//   - Stack trace information (file, line, function)
+//   - Pattern matching and searching
+//   - Compatibility with errors.Is and errors.As
+//
+// All methods are safe for concurrent reads but modification methods (Add, SetParent)
+// are not thread-safe. Use the pool sub-package for thread-safe error collection.
 type Error interface {
 	error
 
-	//IsCode check if the given error code is matching with the current Error
+	// IsCode checks if the error's code matches the given code.
+	// Returns true only if the error's direct code equals the provided code.
+	// Does not check parent errors.
 	IsCode(code CodeError) bool
 	//HasCode check if current error or parent has the given error code
 	HasCode(code CodeError) bool
@@ -51,7 +124,7 @@ type Error interface {
 	//GetParentCode return a slice of CodeError value of all parent Error and the code of the current Error
 	GetParentCode() []CodeError
 
-	//Is implement compatiblity with GOROOT/src/errors/wrap Is fucntion
+	//Is implement compatibility with root package errors Is function
 	Is(e error) bool
 
 	//IsError check if the given error params is a valid error and not a nil pointer
@@ -124,24 +197,26 @@ type Errors interface {
 	ErrorsList() []error
 }
 
-type Return interface {
-	SetError(code int, msg string, file string, line int)
-	AddParent(code int, msg string, file string, line int)
-	JSON() []byte
-}
-
-type ReturnGin interface {
-	Return
-
-	GinTonicAbort(ctx *gin.Context, httpCode int)
-	GinTonicErrorAbort(ctx *gin.Context, httpCode int)
-}
-
+// Is checks if the given error is of type Error.
+// It uses the errors.As function to check if the given error can be asserted to the Error interface.
+//
+// Parameters:
+// - e (error): the error to be checked
+//
+// Returns:
+// - bool: true if the given error is of type Error, false otherwise
 func Is(e error) bool {
 	var err Error
 	return errors.As(e, &err)
 }
 
+// Get checks if the given error is of type Error and returns the Error interface if it is.
+//
+// Parameters:
+// - e (error): the error to be checked
+//
+// Returns:
+// - Error: the given error as an Error interface if it is of type Error, nil otherwise
 func Get(e error) Error {
 	var err Error
 	if errors.As(e, &err) {
@@ -151,6 +226,14 @@ func Get(e error) Error {
 	return nil
 }
 
+// Has checks if the given error or its parent has the given error code.
+//
+// Parameters:
+// - e (error): the error to be checked
+// - code (CodeError): the error code to be checked
+//
+// Returns:
+// - bool: true if the given error or its parent has the given error code, false otherwise
 func Has(e error, code CodeError) bool {
 	if err := Get(e); err == nil {
 		return false
@@ -159,6 +242,14 @@ func Has(e error, code CodeError) bool {
 	}
 }
 
+// ContainsString checks if the given error message contains the given string.
+//
+// Parameters:
+// - e (error): the error to be checked
+// - s (string): the string to be searched for in the error message
+//
+// Returns:
+// - bool: true if the given error message contains the given string, false otherwise
 func ContainsString(e error, s string) bool {
 	if e == nil {
 		return false
@@ -169,6 +260,14 @@ func ContainsString(e error, s string) bool {
 	}
 }
 
+// IsCode checks if the given error has the given error code.
+//
+// Parameters:
+// - e (error): the error to be checked
+// - code (CodeError): the error code to be checked
+//
+// Returns:
+// - bool: true if the given error has the given error code, false otherwise
 func IsCode(e error, code CodeError) bool {
 	if err := Get(e); err == nil {
 		return false
@@ -177,6 +276,15 @@ func IsCode(e error, code CodeError) bool {
 	}
 }
 
+// Make takes an error and returns an Error interface if the given error is of type Error.
+// If the given error is not of type Error, it will be wrapped in an Error interface with code 0.
+//
+// Parameters:
+// - e (error): the error to be converted to an Error interface
+//
+// Returns:
+// - Error: the given error as an Error interface if it is of type Error,
+// otherwise a new Error interface wrapping the given error with code 0.
 func Make(e error) Error {
 	var err Error
 
@@ -194,6 +302,17 @@ func Make(e error) Error {
 	}
 }
 
+// MakeIfError takes a variable number of errors and returns an Error interface if any of the given errors is not nil.
+// If all the given errors are nil, it will return nil.
+// If any of the given errors are of type Error, it will be added to the Error interface.
+// If any of the given errors are not of type Error, it will be wrapped in an Error interface with code 0
+// and added to the Error interface.
+//
+// Parameters:
+// - err (error): a variable number of errors to be converted to an Error interface
+//
+// Returns:
+// - Error: the given errors as an Error interface if any of the given errors is not nil, nil otherwise.
 func MakeIfError(err ...error) Error {
 	var e Error = nil
 
@@ -210,6 +329,23 @@ func MakeIfError(err ...error) Error {
 	return e
 }
 
+// AddOrNew takes an error and an error to be added to it. It also takes a variable number of parent errors.
+//
+// If the main error is not nil, it will be converted to an Error interface if it is not of type Error.
+// The given error to be added and the parent errors will be added to the Error interface.
+//
+// If the main error is nil and the error to be added is not nil, a new Error interface will be created
+// with the given error and parent errors.
+//
+// If both the main error and the error to be added are nil, nil will be returned.
+//
+// Parameters:
+// - errMain (error): the main error to be converted to an Error interface
+// - errSub (error): the error to be added to the main error
+// - parent (error): a variable number of parent errors to be added to the main error
+//
+// Returns:
+// - Error: the given errors as an Error interface if the main error or the error to be added is not nil, nil otherwise.
 func AddOrNew(errMain, errSub error, parent ...error) Error {
 	var e Error
 
@@ -227,6 +363,15 @@ func AddOrNew(errMain, errSub error, parent ...error) Error {
 	return nil
 }
 
+// New creates a new Error interface with the given code, message, and parent errors.
+//
+// Parameters:
+// - code (uint16): the code of the error
+// - message (string): the message of the error
+// - parent (error): a variable number of parent errors to be added to the error
+//
+// Returns:
+// - Error: the given code, message, and parent errors as an Error interface
 func New(code uint16, message string, parent ...error) Error {
 	var p = make([]Error, 0)
 
@@ -246,6 +391,25 @@ func New(code uint16, message string, parent ...error) Error {
 	}
 }
 
+// Newf creates a new Error interface with the given code and a message generated by calling
+// fmt.Sprintf with the given pattern and arguments.
+//
+// Parameters:
+// - code (uint16): the code of the error
+// - pattern (string): the pattern to be used with fmt.Sprintf
+// - args (any): the arguments to be used with fmt.Sprintf
+//
+// Returns:
+// - Error: the given code and message as an Error interface
+func Newf(code uint16, pattern string, args ...any) Error {
+	return &ers{
+		c: code,
+		e: fmt.Sprintf(pattern, args...),
+		p: make([]Error, 0),
+		t: getFrame(),
+	}
+}
+
 func NewErrorTrace(code int, msg string, file string, line int, parent ...error) Error {
 	var p = make([]Error, 0)
 
@@ -257,8 +421,18 @@ func NewErrorTrace(code int, msg string, file string, line int, parent ...error)
 		}
 	}
 
+	// Prevent overflow
+	var i uint16
+	if code < 0 {
+		i = 0
+	} else if code > math.MaxUint16 {
+		i = math.MaxUint16
+	} else {
+		i = uint16(code)
+	}
+
 	return &ers{
-		c: uint16(code),
+		c: i,
 		e: msg,
 		p: p,
 		t: runtime.Frame{

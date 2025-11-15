@@ -24,7 +24,7 @@
  *
  */
 
-package curves
+package cipher
 
 import (
 	"strings"

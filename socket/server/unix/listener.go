@@ -1,5 +1,4 @@
-//go:build linux
-// +build linux
+//go:build linux || darwin
 
 /*
  * MIT License
@@ -41,10 +40,14 @@ import (
 	"syscall"
 	"time"
 
+	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
 
+// getSocketFile retrieves and validates the configured Unix socket file path.
+// Returns the path after validation via checkFile(), or os.ErrNotExist if not set.
+// This is an internal helper used by Listen().
 func (o *srv) getSocketFile() (string, error) {
 	f := o.sf.Load()
 	if f != nil {
@@ -54,15 +57,25 @@ func (o *srv) getSocketFile() (string, error) {
 	return "", os.ErrNotExist
 }
 
+// getSocketPerm retrieves the configured file permissions for the Unix socket.
+// Returns the configured permissions or 0770 as default if parsing fails.
+// Uses github.com/nabbar/golib/file/perm for permission parsing.
+// This is an internal helper used by getListen().
 func (o *srv) getSocketPerm() os.FileMode {
-	p := o.sp.Load()
-	if p > 0 {
-		return os.FileMode(p)
+	if p, e := libprm.ParseInt64(o.sp.Load()); e != nil {
+		return os.FileMode(0770)
+	} else {
+		return p.FileMode()
 	}
-
-	return os.FileMode(0770)
 }
 
+// getSocketGroup retrieves the group ID for the Unix socket file.
+// Returns:
+//   - The configured GID if >= 0
+//   - The process's current GID if <= maxGID
+//   - 0 (root) as fallback
+//
+// This is an internal helper used by getListen() for os.Chown().
 func (o *srv) getSocketGroup() int {
 	p := o.sg.Load()
 	if p >= 0 {
@@ -77,6 +90,19 @@ func (o *srv) getSocketGroup() int {
 	return 0
 }
 
+// checkFile validates and prepares the Unix socket file path.
+//
+// The function:
+//  1. Validates the path is not empty
+//  2. Normalizes the path using filepath.Join
+//  3. Checks if the file exists
+//  4. Removes existing file if present (socket files must be recreated)
+//
+// Returns the normalized path and any error encountered.
+// Returns no error if the file doesn't exist (ready to create).
+//
+// This is an internal helper that ensures the socket file is in a clean
+// state before Listen() attempts to create it.
 func (o *srv) checkFile(unixFile string) (string, error) {
 	if len(unixFile) < 1 {
 		return unixFile, fmt.Errorf("missing socket file path")
@@ -95,6 +121,28 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 	return unixFile, nil
 }
 
+// getListen creates and configures the Unix socket listener.
+//
+// The function:
+//  1. Sets umask to apply configured permissions
+//  2. Creates the Unix socket listener with net.Listen()
+//  3. Verifies and corrects file permissions with os.Chmod() if needed
+//  4. Changes file group ownership with os.Chown() if needed
+//  5. Invokes the server info callback with startup message
+//
+// The umask is temporarily modified to ensure correct permissions are applied
+// during socket creation, then restored to the original value.
+//
+// Parameters:
+//   - uxf: Unix socket file path
+//
+// Returns:
+//   - net.Listener: The active Unix socket listener
+//   - error: Any error during socket creation or configuration
+//
+// This is an internal helper called by Listen().
+//
+// See syscall.Umask, os.Chmod, and os.Chown for permission management.
 func (o *srv) getListen(uxf string) (net.Listener, error) {
 	var (
 		err error
@@ -135,6 +183,52 @@ func (o *srv) getListen(uxf string) (net.Listener, error) {
 	return lis, nil
 }
 
+// Listen starts the Unix socket server and begins accepting connections.
+// This method blocks until the server is shut down via context cancellation,
+// Shutdown(), or Close().
+//
+// Lifecycle:
+//  1. Validates configuration (socket path and handler must be set)
+//  2. Creates Unix socket file with permissions and group ownership
+//  3. Creates listener socket
+//  4. Sets server to running state
+//  5. Starts connection acceptance loop
+//  6. Spawns handler goroutine for each accepted connection
+//  7. Waits for shutdown signal
+//  8. Cleans up socket file and returns
+//
+// The handler function runs in a separate goroutine per connection and receives:
+//   - Reader: Reads data from the connection
+//   - Writer: Sends data to the connection
+//
+// Context handling:
+//   - The provided context is used for the lifetime of the listener
+//   - Context cancellation triggers immediate shutdown
+//   - Done() channel is closed when Listen() exits
+//
+// Socket file management:
+//   - The socket file is created at the path specified in RegisterSocket()
+//   - If the file exists, it's deleted before creating the new socket
+//   - The file is removed during shutdown
+//   - Permissions and group ownership are applied as configured
+//
+// Returns:
+//   - ErrInvalidHandler: If no handler was provided to New()
+//   - os.ErrNotExist: If RegisterSocket() wasn't called
+//   - Any error from socket creation or file operations
+//
+// The server maintains per-connection state and tracks connection count atomically.
+// Each connection persists until explicitly closed by either side.
+//
+// Example:
+//
+//	go func() {
+//	    if err := srv.Listen(ctx); err != nil {
+//	        log.Printf("Server error: %v", err)
+//	    }
+//	}()
+//
+// See github.com/nabbar/golib/socket.Handler for handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
 	var (
 		e error
@@ -209,6 +303,39 @@ func (o *srv) Listen(ctx context.Context) error {
 	return nil
 }
 
+// Conn handles an individual client connection.
+// This method is called in a goroutine for each accepted connection.
+//
+// Lifecycle:
+//  1. Increments connection counter atomically
+//  2. Invokes UpdateConn callback if registered
+//  3. Creates connection-specific context (cancellable)
+//  4. Creates Reader/Writer wrappers with the connection
+//  5. Starts the handler goroutine
+//  6. Waits for connection close or server shutdown
+//  7. Cleans up connection resources
+//  8. Decrements connection counter
+//
+// The connection remains active until:
+//   - The client closes the connection
+//   - The handler closes Reader/Writer
+//   - The context is cancelled
+//   - StopGone() signals connection draining (via Gone() channel)
+//
+// Cleanup behavior:
+//   - If IsGone() is true: waits 5 seconds to avoid blocking next connection
+//   - Otherwise: waits 500ms for graceful connection closure
+//
+// The Reader and Writer wrappers support:
+//   - Half-close (Unix sockets support CloseRead/CloseWrite)
+//   - Automatic context cancellation when both sides close
+//   - Connection state callbacks (read, write, close events)
+//
+// This is an internal method called by Listen() for each accepted connection.
+//
+// Parameters:
+//   - ctx: Context for the connection lifetime (derived from Listen's context)
+//   - con: The accepted net.Conn (typically *net.UnixConn)
 func (o *srv) Conn(ctx context.Context, con net.Conn) {
 	var (
 		cnl context.CancelFunc
@@ -271,6 +398,44 @@ func (o *srv) Conn(ctx context.Context, con net.Conn) {
 	}
 }
 
+// getReadWriter creates Reader and Writer wrappers for a Unix socket connection.
+// These wrappers provide a higher-level interface to the handler while managing
+// Unix socket-specific behavior like half-close support.
+//
+// Parameters:
+//   - ctx: Context for connection lifetime management
+//   - cnl: Context cancel function (called when connection fully closes)
+//   - con: The Unix socket connection to wrap
+//
+// Reader behavior:
+//   - Read() calls con.Read() to receive data
+//   - Invokes ConnectionRead info callback
+//   - Checks context cancellation before each read
+//   - Close() supports half-close via CloseRead() on *net.UnixConn
+//   - Cancels context when both read and write sides are closed
+//
+// Writer behavior:
+//   - Write() calls con.Write() to send data
+//   - Invokes ConnectionWrite info callback
+//   - Checks context cancellation before each write
+//   - Close() supports half-close via CloseWrite() on *net.UnixConn
+//   - Cancels context when both read and write sides are closed
+//
+// Both Reader and Writer:
+//   - Implement Close() with proper half-close semantics
+//   - Implement IsAlive() to check connection and context health
+//   - Implement Done() returning the context's Done channel
+//
+// Half-close support:
+// Unix sockets support independent closing of read and write directions.
+// The context is only cancelled after BOTH sides are closed, allowing
+// proper shutdown handshakes where one side can continue reading after
+// stopping writes, or vice versa.
+//
+// This is an internal helper called by Conn().
+//
+// See github.com/nabbar/golib/socket.NewReader and NewWriter for the
+// wrapper constructors.
 func (o *srv) getReadWriter(ctx context.Context, cnl context.CancelFunc, con net.Conn) (libsck.Reader, libsck.Writer) {
 	var (
 		rc = new(atomic.Bool)

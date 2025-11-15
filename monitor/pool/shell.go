@@ -35,6 +35,8 @@ import (
 	shlcmd "github.com/nabbar/golib/shell/command"
 )
 
+// ShellCommandInfo returns a list of shell command descriptions available for the pool.
+// These commands can be used to interact with the pool through a shell interface.
 func ShellCommandInfo() []shlcmd.CommandInfo {
 	var res = make([]shlcmd.CommandInfo, 0)
 
@@ -48,18 +50,31 @@ func ShellCommandInfo() []shlcmd.CommandInfo {
 	return res
 }
 
+// GetShellCommand returns a list of executable shell commands for interacting with the pool.
+// The commands include: list, info, status, start, stop, and restart.
 func (p *pool) GetShellCommand(ctx context.Context) []shlcmd.Command {
-	var res = make([]shlcmd.Command, 0)
+	return []shlcmd.Command{
+		p.shlCmdList(ctx),
+		p.shlCmdInfo(ctx),
+		p.shlCmdStatus(ctx),
+		p.shlCmdStart(ctx),
+		p.shlCmdStop(ctx),
+		p.shlCmdRestart(ctx),
+	}
+}
 
-	res = append(res, shlcmd.New("list", "Print the monitors' List", func(buf io.Writer, err io.Writer, args []string) {
+func (p *pool) shlCmdList(_ context.Context) shlcmd.Command {
+	return shlcmd.New("list", "Print the monitors' List", func(buf io.Writer, err io.Writer, args []string) {
 		var list = p.MonitorList()
 
 		for i := 0; i < len(list); i++ {
 			_, _ = fmt.Fprintln(buf, list[i])
 		}
-	}))
+	})
+}
 
-	res = append(res, shlcmd.New("info", "Print information about monitors (leave args empty to print info for all monitors)", func(buf io.Writer, err io.Writer, args []string) {
+func (p *pool) shlCmdInfo(_ context.Context) shlcmd.Command {
+	return shlcmd.New("info", "Print information about monitors (leave args empty to print info for all monitors)", func(buf io.Writer, err io.Writer, args []string) {
 		var list []string
 		if len(args) > 0 {
 			list = args
@@ -79,15 +94,17 @@ func (p *pool) GetShellCommand(ctx context.Context) []shlcmd.Command {
 			}
 
 			inf := m.InfoGet()
-			_, _ = fmt.Fprintln(buf, inf.Name())
+			_, _ = fmt.Fprintln(buf, inf.Name()) // nolint
 			for k, v := range inf.Info() {
-				_, _ = fmt.Fprintln(buf, fmt.Sprintf("\t%s: %s", k, v))
+				_, _ = fmt.Fprintln(buf, fmt.Sprintf("\t%s: %s", k, v)) // nolint
 			}
-			_, _ = fmt.Fprintln(buf, "")
+			_, _ = fmt.Fprintln(buf, "") // nolint
 		}
-	}))
+	})
+}
 
-	res = append(res, shlcmd.New("start", "Starting monitor (leave args empty to start all monitors)", func(buf io.Writer, err io.Writer, args []string) {
+func (p *pool) shlCmdStart(ctx context.Context) shlcmd.Command {
+	return shlcmd.New("start", "Starting monitor (leave args empty to start all monitors)", func(buf io.Writer, err io.Writer, args []string) {
 		var list []string
 		if len(args) > 0 {
 			list = args
@@ -106,19 +123,21 @@ func (p *pool) GetShellCommand(ctx context.Context) []shlcmd.Command {
 				continue
 			}
 
-			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Starting monitor '%s'", list[i]))
+			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Starting monitor '%s'", list[i])) // nolint
 			if e := m.Start(ctx); e != nil {
-				_, _ = fmt.Fprintln(err, e)
+				_, _ = fmt.Fprintln(err, e) // nolint
 			}
 
-			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Updating monitor '%s' on pool", list[i]))
+			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Updating monitor '%s' on pool", list[i])) // nolint
 			if e := p.MonitorSet(m); e != nil {
-				_, _ = fmt.Fprintln(err, e)
+				_, _ = fmt.Fprintln(err, e) // nolint
 			}
 		}
-	}))
+	})
+}
 
-	res = append(res, shlcmd.New("stop", "Stopping monitor (leave args empty to stop all monitors)", func(buf io.Writer, err io.Writer, args []string) {
+func (p *pool) shlCmdStop(ctx context.Context) shlcmd.Command {
+	return shlcmd.New("stop", "Stopping monitor (leave args empty to stop all monitors)", func(buf io.Writer, err io.Writer, args []string) {
 		var list []string
 		if len(args) > 0 {
 			list = args
@@ -137,19 +156,21 @@ func (p *pool) GetShellCommand(ctx context.Context) []shlcmd.Command {
 				continue
 			}
 
-			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Stopping monitor '%s'", list[i]))
+			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Stopping monitor '%s'", list[i])) // nolint
 			if e := m.Stop(ctx); e != nil {
-				_, _ = fmt.Fprintln(err, e)
+				_, _ = fmt.Fprintln(err, e) // nolint
 			}
 
-			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Updating monitor '%s' on pool", list[i]))
+			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Updating monitor '%s' on pool", list[i])) // nolint
 			if e := p.MonitorSet(m); e != nil {
-				_, _ = fmt.Fprintln(err, e)
+				_, _ = fmt.Fprintln(err, e) // nolint
 			}
 		}
-	}))
+	})
+}
 
-	res = append(res, shlcmd.New("restart", "Restarting monitor (leave args empty to restart all monitors)", func(buf io.Writer, err io.Writer, args []string) {
+func (p *pool) shlCmdRestart(ctx context.Context) shlcmd.Command {
+	return shlcmd.New("restart", "Restarting monitor (leave args empty to restart all monitors)", func(buf io.Writer, err io.Writer, args []string) {
 		var list []string
 		if len(args) > 0 {
 			list = args
@@ -168,24 +189,26 @@ func (p *pool) GetShellCommand(ctx context.Context) []shlcmd.Command {
 				continue
 			}
 
-			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Stopping monitor '%s'", list[i]))
+			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Stopping monitor '%s'", list[i])) // nolint
 			if e := m.Stop(ctx); e != nil {
-				_, _ = fmt.Fprintln(err, e)
+				_, _ = fmt.Fprintln(err, e) // nolint
 			}
 
-			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Starting monitor '%s'", list[i]))
+			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Starting monitor '%s'", list[i])) // nolint
 			if e := m.Start(ctx); e != nil {
-				_, _ = fmt.Fprintln(err, e)
+				_, _ = fmt.Fprintln(err, e) // nolint
 			}
 
-			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Updating monitor '%s' on pool", list[i]))
+			_, _ = fmt.Fprintln(buf, fmt.Sprintf("Updating monitor '%s' on pool", list[i])) // nolint
 			if e := p.MonitorSet(m); e != nil {
-				_, _ = fmt.Fprintln(err, e)
+				_, _ = fmt.Fprintln(err, e) // nolint
 			}
 		}
-	}))
+	})
+}
 
-	res = append(res, shlcmd.New("status", "Print status & message for monitor (leave args empty to print status of all monitors)", func(buf io.Writer, err io.Writer, args []string) {
+func (p *pool) shlCmdStatus(_ context.Context) shlcmd.Command {
+	return shlcmd.New("status", "Print status & message for monitor (leave args empty to print status of all monitors)", func(buf io.Writer, err io.Writer, args []string) {
 		var list []string
 		if len(args) > 0 {
 			list = args
@@ -207,12 +230,10 @@ func (p *pool) GetShellCommand(ctx context.Context) []shlcmd.Command {
 			s := m.Status()
 
 			if s == monsts.OK {
-				_, _ = fmt.Fprintln(buf, fmt.Sprintf("%s - %s", s.String(), list[i]))
+				_, _ = fmt.Fprintln(buf, fmt.Sprintf("%s - %s", s.String(), list[i])) // nolint
 			} else {
-				_, _ = fmt.Fprintln(err, fmt.Sprintf("%s - %s: %s", s.String(), list[i], m.Message()))
+				_, _ = fmt.Fprintln(err, fmt.Sprintf("%s - %s: %s", s.String(), list[i], m.Message())) // nolint
 			}
 		}
-	}))
-
-	return res
+	})
 }

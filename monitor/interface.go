@@ -29,27 +29,46 @@ package monitor
 import (
 	"context"
 	"fmt"
-	"sync"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	montps "github.com/nabbar/golib/monitor/types"
+	librun "github.com/nabbar/golib/runner/ticker"
 )
 
+// Monitor is the interface that wraps all monitor functionalities.
+// It extends montps.Monitor and provides health check monitoring capabilities.
 type Monitor interface {
 	montps.Monitor
 }
 
-func New(ctx libctx.FuncContext, info montps.Info) (montps.Monitor, error) {
+// New creates a new Monitor instance with the given context provider and info.
+// The ctx parameter provides a function that returns the current context.
+// The info parameter provides metadata about the monitored component.
+// Returns an error if info is nil.
+//
+// Example:
+//
+//	inf, _ := info.New("my-service")
+//	mon, err := monitor.New(context.Background, inf)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+func New(ctx context.Context, info montps.Info) (montps.Monitor, error) {
 	if info == nil {
 		return nil, fmt.Errorf("info cannot be nil")
 	} else if ctx == nil {
-		ctx = context.Background
+		ctx = context.Background()
 	}
 
-	return &mon{
-		m: sync.RWMutex{},
-		i: info,
-		x: libctx.NewConfig[string](ctx),
-		r: nil,
-	}, nil
+	m := &mon{
+		x: libctx.New[string](ctx),
+		i: libatm.NewValue[montps.Info](),
+		r: libatm.NewValue[librun.Ticker](),
+	}
+
+	m.i.Store(info)
+	_ = m.Stop(ctx)
+
+	return m, nil
 }

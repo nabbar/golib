@@ -36,7 +36,6 @@ import (
 	"time"
 
 	libtls "github.com/nabbar/golib/certificates"
-	libctx "github.com/nabbar/golib/context"
 	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"
 	natsrv "github.com/nats-io/nats-server/v2/server"
@@ -65,7 +64,7 @@ type Server interface {
 	ClientCluster(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err error)
 	ClientServer(ctx context.Context, tick time.Duration, defTls libtls.TLSConfig, opt Client) (cli *natcli.Conn, err error)
 
-	Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error)
+	Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error)
 }
 
 func NewServer(opt *natsrv.Options, cfg montps.Config) Server {
@@ -78,8 +77,10 @@ func NewServer(opt *natsrv.Options, cfg montps.Config) Server {
 	return &server{
 		c: &cfg,
 		o: o,
-		s: nil,
+		s: new(atomic.Value),
 		r: new(atomic.Value),
+		e: nil,
+		m: sync.Mutex{},
 	}
 }
 
@@ -258,12 +259,14 @@ func (s *server) ClientServer(ctx context.Context, tick time.Duration, defTls li
 }
 
 func (s *server) _GetServer() *natsrv.Server {
+	if s == nil {
+		return nil
+	}
+
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	if s == nil {
-		return nil
-	} else if s.s == nil {
+	if s.s == nil {
 		s.s = new(atomic.Value)
 	}
 
@@ -277,12 +280,14 @@ func (s *server) _GetServer() *natsrv.Server {
 }
 
 func (s *server) _SetServer(srv *natsrv.Server) {
+	if s == nil {
+		return
+	}
+
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	if s == nil {
-		return
-	} else if s.s == nil {
+	if s.s == nil {
 		s.s = new(atomic.Value)
 	}
 
@@ -290,6 +295,10 @@ func (s *server) _SetServer(srv *natsrv.Server) {
 }
 
 func (s *server) _GetError() error {
+	if s == nil {
+		return ErrorParamsInvalid.Error(nil)
+	}
+
 	s.m.Lock()
 	defer s.m.Unlock()
 
@@ -297,6 +306,10 @@ func (s *server) _GetError() error {
 }
 
 func (s *server) _SetError(err error) {
+	if s == nil {
+		return
+	}
+
 	s.m.Lock()
 	defer s.m.Unlock()
 

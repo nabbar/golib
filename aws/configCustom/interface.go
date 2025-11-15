@@ -131,8 +131,8 @@ func (c *awsModel) GetConfig(ctx context.Context, cli libhtc.HttpClient) (*sdkaw
 	}
 
 	cfg.Retryer = c.retryer
-	cfg.EndpointResolver = sdkaws.EndpointResolverFunc(c.ResolveEndpoint)
-	cfg.EndpointResolverWithOptions = sdkaws.EndpointResolverWithOptionsFunc(c.ResolveEndpointWithOptions)
+	cfg.EndpointResolver = sdkaws.EndpointResolverFunc(c.ResolveEndpoint)                                  // nolint
+	cfg.EndpointResolverWithOptions = sdkaws.EndpointResolverWithOptionsFunc(c.ResolveEndpointWithOptions) // nolint
 	cfg.Region = c.Region
 
 	if cli != nil {

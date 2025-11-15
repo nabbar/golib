@@ -103,6 +103,6 @@ func DefaultConfig(indent string) []byte {
 	}
 }
 
-func (o *componentTls) DefaultConfig(indent string) []byte {
+func (o *mod) DefaultConfig(indent string) []byte {
 	return DefaultConfig(indent)
 }

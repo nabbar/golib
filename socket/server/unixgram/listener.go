@@ -1,5 +1,4 @@
-//go:build linux
-// +build linux
+//go:build linux || darwin
 
 /*
  * MIT License
@@ -40,10 +39,14 @@ import (
 	"sync/atomic"
 	"syscall"
 
+	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 )
 
+// getSocketFile retrieves and validates the configured Unix socket file path.
+// Returns the path after validation via checkFile(), or os.ErrNotExist if not set.
+// This is an internal helper used by Listen().
 func (o *srv) getSocketFile() (string, error) {
 	f := o.sf.Load()
 	if f != nil {
@@ -53,15 +56,25 @@ func (o *srv) getSocketFile() (string, error) {
 	return "", os.ErrNotExist
 }
 
+// getSocketPerm retrieves the configured file permissions for the Unix socket.
+// Returns the configured permissions or 0770 as default if parsing fails.
+// Uses github.com/nabbar/golib/file/perm for permission parsing.
+// This is an internal helper used by getListen().
 func (o *srv) getSocketPerm() os.FileMode {
-	p := o.sp.Load()
-	if p > 0 {
-		return os.FileMode(p)
+	if p, e := libprm.ParseInt64(o.sp.Load()); e != nil {
+		return os.FileMode(0770)
+	} else {
+		return p.FileMode()
 	}
-
-	return os.FileMode(0770)
 }
 
+// getSocketGroup retrieves the group ID for the Unix socket file.
+// Returns:
+//   - The configured GID if >= 0
+//   - The process's current GID if <= maxGID
+//   - 0 (root) as fallback
+//
+// This is an internal helper used by getListen() for os.Chown().
 func (o *srv) getSocketGroup() int {
 	p := o.sg.Load()
 	if p >= 0 {
@@ -76,6 +89,19 @@ func (o *srv) getSocketGroup() int {
 	return 0
 }
 
+// checkFile validates and prepares the Unix socket file path.
+//
+// The function:
+//  1. Validates the path is not empty
+//  2. Normalizes the path using filepath.Join
+//  3. Checks if the file exists
+//  4. Removes existing file if present (socket files must be recreated)
+//
+// Returns the normalized path and any error encountered.
+// Returns no error if the file doesn't exist (ready to create).
+//
+// This is an internal helper that ensures the socket file is in a clean
+// state before Listen() attempts to create it.
 func (o *srv) checkFile(unixFile string) (string, error) {
 	if len(unixFile) < 1 {
 		return unixFile, fmt.Errorf("missing socket file path")
@@ -94,6 +120,33 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 	return unixFile, nil
 }
 
+// getListen creates and configures the Unix datagram socket listener.
+//
+// The function:
+//  1. Sets umask to apply configured permissions
+//  2. Creates the Unix datagram socket with net.ListenUnixgram() (SOCK_DGRAM)
+//  3. Verifies and corrects file permissions with os.Chmod() if needed
+//  4. Changes file group ownership with os.Chown() if needed
+//  5. Invokes the server info callback with startup message
+//
+// The umask is temporarily modified to ensure correct permissions are applied
+// during socket creation, then restored to the original value.
+//
+// Parameters:
+//   - uxf: Unix socket file path
+//   - adr: Resolved UnixAddr for the socket
+//
+// Returns:
+//   - *net.UnixConn: The active Unix datagram connection (connectionless)
+//   - error: Any error during socket creation or configuration
+//
+// Unlike connection-oriented Unix sockets, this creates a SOCK_DGRAM socket
+// which operates in connectionless datagram mode.
+//
+// This is an internal helper called by Listen().
+//
+// See syscall.Umask, os.Chmod, os.Chown for permission management.
+// See net.ListenUnixgram for datagram socket creation.
 func (o *srv) getListen(uxf string, adr *net.UnixAddr) (*net.UnixConn, error) {
 	var (
 		err error
@@ -134,6 +187,59 @@ func (o *srv) getListen(uxf string, adr *net.UnixAddr) (*net.UnixConn, error) {
 	return lis, nil
 }
 
+// Listen starts the Unix datagram socket server and begins accepting datagrams.
+// This method blocks until the server is shut down via context cancellation,
+// Shutdown(), or Close().
+//
+// Lifecycle:
+//  1. Validates configuration (socket path and handler must be set)
+//  2. Creates Unix socket file with permissions and group ownership
+//  3. Creates datagram listener socket (SOCK_DGRAM)
+//  4. Invokes UpdateConn callback if registered
+//  5. Creates Reader/Writer wrappers for the handler
+//  6. Sets server to running state
+//  7. Starts single handler goroutine (processes all datagrams)
+//  8. Waits for shutdown signal
+//  9. Cleans up socket file and returns
+//
+// The handler function runs in a single goroutine and receives:
+//   - Reader: Reads incoming datagrams (ReadFrom under the hood)
+//   - Writer: Sends response datagrams (WriteTo to last sender)
+//
+// Datagram handling:
+//   - Unlike connection-oriented sockets, there's one handler for all datagrams
+//   - Each Read() receives a complete datagram from any sender
+//   - Sender address is tracked atomically for response routing
+//   - No per-sender state is maintained
+//
+// Context handling:
+//   - The provided context is used for the lifetime of the listener
+//   - Context cancellation triggers immediate shutdown
+//   - Done() channel is closed when Listen() exits
+//
+// Socket file management:
+//   - The socket file is created at the path specified in RegisterSocket()
+//   - If the file exists, it's deleted before creating the new socket
+//   - The file is removed during shutdown
+//   - Permissions and group ownership are applied as configured
+//
+// Returns:
+//   - ErrInvalidHandler: If no handler was provided to New()
+//   - os.ErrNotExist: If RegisterSocket() wasn't called
+//   - ErrContextClosed: If context was cancelled
+//   - Any error from socket creation or file operations
+//
+// The server operates in connectionless mode - each datagram is independent.
+//
+// Example:
+//
+//	go func() {
+//	    if err := srv.Listen(ctx); err != nil {
+//	        log.Printf("Server error: %v", err)
+//	    }
+//	}()
+//
+// See github.com/nabbar/golib/socket.Handler for handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
 	var (
 		e error
@@ -204,6 +310,45 @@ func (o *srv) Listen(ctx context.Context) error {
 	}
 }
 
+// getReadWriter creates Reader and Writer wrappers for the Unix datagram connection.
+// These wrappers provide a higher-level interface to the handler while managing
+// Unix datagram-specific behavior.
+//
+// Parameters:
+//   - ctx: Context for lifecycle management
+//   - con: The Unix datagram connection to wrap
+//   - loc: Local address (used for info callbacks)
+//
+// Reader behavior:
+//   - Read() calls con.ReadFrom() to receive datagrams from any sender
+//   - Stores the sender's address atomically for response routing
+//   - Invokes ConnectionRead info callback
+//   - Checks context cancellation before each read
+//
+// Writer behavior:
+//   - Write() calls con.WriteTo() with the last sender's address
+//   - Falls back to con.Write() if no sender address is available
+//   - Invokes ConnectionWrite info callback
+//   - Checks context cancellation before each write
+//
+// Both Reader and Writer:
+//   - Implement Close() to shut down the Unix datagram connection
+//   - Implement IsAlive() to check connection and context health
+//   - Implement Done() returning the context's Done channel
+//
+// The remote address tracking allows responses to be sent back to the
+// originating sender for each datagram, simulating request-response patterns
+// over the connectionless protocol.
+//
+// Unlike connection-oriented Unix sockets:
+//   - No half-close support (datagram sockets don't have separate read/write sides)
+//   - Single connection handles all senders
+//   - Sender address changes with each datagram
+//
+// This is an internal helper called by Listen().
+//
+// See github.com/nabbar/golib/socket.NewReader and NewWriter for the
+// wrapper constructors.
 func (o *srv) getReadWriter(ctx context.Context, con *net.UnixConn, loc net.Addr) (libsck.Reader, libsck.Writer) {
 	var (
 		re = &net.UDPAddr{}

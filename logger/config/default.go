@@ -91,10 +91,15 @@ var _defaultConfig = []byte(`
    ]
 }`)
 
+// SetDefaultConfig sets the default configuration template used by DefaultConfig.
+// This allows customizing the default configuration values for new loggers.
 func SetDefaultConfig(cfg []byte) {
 	_defaultConfig = cfg
 }
 
+// DefaultConfig returns the default logger configuration as a formatted JSON byte slice.
+// The indent parameter specifies the indentation string to use for JSON formatting.
+// This is useful for generating configuration file templates or documentation.
 func DefaultConfig(indent string) []byte {
 	var res = bytes.NewBuffer(make([]byte, 0))
 	if err := json.Indent(res, _defaultConfig, indent, cfgcst.JSONIndent); err != nil {

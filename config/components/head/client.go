@@ -28,12 +28,10 @@ package head
 
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
-	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
-	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentHead) _getKey() string {
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -45,7 +43,7 @@ func (o *componentHead) _getKey() string {
 	}
 }
 
-func (o *componentHead) _getFctVpr() libvpr.FuncViper {
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -57,7 +55,7 @@ func (o *componentHead) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentHead) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -67,41 +65,7 @@ func (o *componentHead) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentHead) _getSPFViper() *spfvbr.Viper {
-	if f := o._getViper(); f == nil {
-		return nil
-	} else if v := f.Viper(); v == nil {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentHead) _getFctCpt() cfgtps.FuncCptGet {
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentHead) _getVersion() libver.Version {
-	if i, l := o.x.Load(keyCptVersion); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if v, k := i.(libver.Version); !k {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *componentHead) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -109,7 +73,7 @@ func (o *componentHead) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	}
 }
 
-func (o *componentHead) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -121,7 +85,7 @@ func (o *componentHead) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentHead) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -129,7 +93,7 @@ func (o *componentHead) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *componentHead) _runCli() error {
+func (o *mod) _runCli() error {
 	if cfg, err := o._getConfig(); err != nil {
 		return ErrorParamInvalid.Error(err)
 	} else {
@@ -138,7 +102,7 @@ func (o *componentHead) _runCli() error {
 	}
 }
 
-func (o *componentHead) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

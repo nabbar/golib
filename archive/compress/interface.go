@@ -31,6 +31,14 @@ import (
 )
 
 // Parse is a convenience function to parse a string and return the corresponding Algorithm.
+// If the parsing fails, the function will return None.
+// Otherwise, the function will return the parsed Algorithm.
+//
+// Example:
+// alg := Parse("tar")
+// Expect(alg).To(Equal(TarAlgorithm))
+//
+// Note: This function will return None if the algorithm is not supported.
 func Parse(s string) Algorithm {
 	var alg = None
 	if e := alg.UnmarshalText([]byte(s)); e != nil {
@@ -40,8 +48,13 @@ func Parse(s string) Algorithm {
 	}
 }
 
-// Detect is a convenience function to detect the compression algorithm used in
-// the provided io.Reader and return the compression read closer associated.
+// Detect is a convenience function to detect the algorithm of the input and returns the corresponding reader.
+// The function will first try to detect the algorithm of the input using the DetectOnly function.
+// If the algorithm detection succeeds, the function will try to convert the input to appropriate reader for the algorithm.
+// If an error occurs during the algorithm detection or during the conversion, the function will return an error.
+// Otherwise, the function will return the detected algorithm, the reader and a nil error.
+//
+// Note: This function will return None if the algorithm is not supported.
 func Detect(r io.Reader) (Algorithm, io.ReadCloser, error) {
 	var (
 		err error

@@ -30,8 +30,30 @@ import (
 	"github.com/nabbar/golib/router"
 )
 
+// HeadersConfig is a map-based configuration for HTTP headers.
+// It provides a simple way to define headers in configuration files
+// and convert them to a Headers instance.
+//
+// Example:
+//
+//	config := HeadersConfig{
+//	    "X-API-Version": "v1",
+//	    "Cache-Control": "no-cache",
+//	    "X-Request-ID":  "12345",
+//	}
+//	headers := config.New()
 type HeadersConfig map[string]string
 
+// New creates a Headers instance from the configuration.
+// Each key-value pair in the map is added as a header.
+//
+// Returns a Headers instance with all configured headers.
+//
+// Example:
+//
+//	config := HeadersConfig{"X-Custom": "value"}
+//	headers := config.New()
+//	engine.GET("/api", headers.Register(handler)...)
 func (h HeadersConfig) New() Headers {
 	var res = NewHeaders()
 
@@ -42,6 +64,13 @@ func (h HeadersConfig) New() Headers {
 	return res
 }
 
+// Validate checks if the configuration is valid.
+// Currently, this always returns nil as all string key-value pairs are valid headers.
+//
+// This method exists for consistency with other configuration types and may
+// be extended in the future to validate header names or values.
+//
+// Returns nil if validation succeeds, or an error if validation fails.
 func (h HeadersConfig) Validate() liberr.Error {
 	err := router.ErrorConfigValidator.Error(nil)
 

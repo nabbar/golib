@@ -28,70 +28,126 @@ package metrics
 
 import (
 	"context"
-	"sync"
+	"fmt"
 
+	libatm "github.com/nabbar/golib/atomic"
 	prmtps "github.com/nabbar/golib/prometheus/types"
 	prmsdk "github.com/prometheus/client_golang/prometheus"
 )
 
-// metrics defines a metric object. Users can use it to save
-// metric data. Every metric should be globally unique by name.
+// metrics is the internal implementation of the Metric interface.
+// It provides a thread-safe wrapper around Prometheus metric collectors using atomic operations
+// from github.com/nabbar/golib/atomic for lock-free concurrent access.
+//
+// Each metric is uniquely identified by its name and type. The metric configuration
+// (description, labels, buckets, objectives) should be set before registration.
+// Once registered, the metric can accept value updates through Inc, Add, SetGaugeValue, or Observe.
+//
+// All fields except 't' and 'n' use atomic.Value to ensure thread-safe access without locks.
 type metrics struct {
-	m sync.RWMutex
-	t prmtps.MetricType
-	n string
-	d string
-	l []string
-	b []float64
-	o map[float64]float64
-	f FuncCollect
-	v prmsdk.Collector
+	t prmtps.MetricType                 // metric type (immutable after creation)
+	n string                            // metric name (immutable after creation)
+	d libatm.Value[string]              // metric description/help text
+	l libatm.Value[[]string]            // label names for dimensional data
+	b libatm.Value[[]float64]           // histogram bucket boundaries
+	o libatm.Value[map[float64]float64] // summary quantile objectives
+	f libatm.Value[FuncCollect]         // custom collection function
+	v libatm.Value[prmsdk.Collector]    // registered Prometheus collector
 }
 
+// SetCollect sets a custom collection function for this metric.
+//
+// If a nil function is provided, a no-op function is stored instead to ensure
+// Collect() can always be called safely without nil checks.
+//
+// The collection function will be invoked during metric scraping to allow
+// on-demand metric value updates (pull-based metrics).
+//
+// Thread-safe: uses atomic store operation.
 func (m *metrics) SetCollect(fct FuncCollect) {
-	m.m.Lock()
-	defer m.m.Unlock()
+	if fct == nil {
+		fct = func(ctx context.Context, m Metric) {}
+	}
 
-	m.f = fct
+	m.f.Store(fct)
 }
 
+// GetCollect returns the currently set collection function.
+//
+// Returns the registered FuncCollect, or nil if none has been set.
+// Thread-safe: uses atomic load operation.
 func (m *metrics) GetCollect() FuncCollect {
-	m.m.RLock()
-	defer m.m.RUnlock()
-
-	return m.f
+	return m.f.Load()
 }
 
+// GetName returns the metric name.
+//
+// The name is immutable after metric creation and can be safely accessed
+// concurrently without synchronization.
 func (m *metrics) GetName() string {
-	m.m.RLock()
-	defer m.m.RUnlock()
-
 	return m.n
 }
 
+// GetType returns the metric type (Counter, Gauge, Histogram, Summary, or None).
+//
+// The type is immutable after metric creation and can be safely accessed
+// concurrently without synchronization.
 func (m *metrics) GetType() prmtps.MetricType {
-	m.m.RLock()
-	defer m.m.RUnlock()
-
 	return m.t
 }
 
+// Collect invokes the custom collection function if one has been set.
+//
+// This method is typically called by Prometheus during metric scraping.
+// The context is passed to the collection function to support cancellation
+// and timeout handling.
+//
+// If no collection function has been registered (via SetCollect), this is a no-op.
+// Thread-safe: uses atomic load operation to safely access the function pointer.
 func (m *metrics) Collect(ctx context.Context) {
-	if m.f != nil {
-		m.f(ctx, m)
+	if f := m.f.Load(); f != nil {
+		f(ctx, m)
 	}
 }
 
-func (m *metrics) Register(vec prmsdk.Collector) error {
-	m.m.Lock()
-	defer m.m.Unlock()
-	m.v = vec
-	prmsdk.Unregister(m.v)
-	return prmsdk.Register(m.v)
+// Register registers the metric collector with the Prometheus default registry.
+//
+// If a collector is already registered for this metric, it will be unregistered
+// first to allow re-registration. This is useful when you need to update the
+// metric configuration (e.g., change labels or buckets).
+//
+// Returns an error if registration with Prometheus fails (e.g., duplicate metric name).
+// Thread-safe: uses atomic operations for collector access.
+func (m *metrics) Register(reg prmsdk.Registerer, vec prmsdk.Collector) error {
+	v := m.v.Load()
+	if v != nil {
+		reg.Unregister(v)
+	}
+
+	e := reg.Register(vec)
+	m.v.Store(vec)
+
+	return e
 }
 
-func (m *metrics) UnRegister() bool {
-	m.m.Lock()
-	defer m.m.Unlock()
-	return prmsdk.Unregister(m.v)
+// UnRegister removes the metric from the Prometheus default registry.
+//
+// Returns true if the metric was successfully unregistered, false if it was
+// never registered or already unregistered.
+//
+// This is useful for cleaning up metrics that are no longer needed, preventing
+// stale data from being exported.
+//
+// Thread-safe: uses atomic load operation.
+func (m *metrics) UnRegister(reg prmsdk.Registerer) error {
+	v := m.v.Load()
+	if v != nil {
+		if !reg.Unregister(v) {
+			return fmt.Errorf("cannot unregister metric: %s", m.n)
+		} else {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("invalid nil metric: %s", m.n)
 }

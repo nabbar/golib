@@ -55,6 +55,7 @@ type hkf struct {
 	d *atomic.Value // channel data []byte
 	o ohkf          // config data
 	b *atomic.Int64 // buffer size
+	r *atomic.Bool  // run status
 }
 
 func (o *hkf) Levels() []logrus.Level {

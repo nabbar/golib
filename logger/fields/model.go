@@ -28,7 +28,6 @@
 package fields
 
 import (
-	"context"
 	"encoding/json"
 
 	libctx "github.com/nabbar/golib/context"
@@ -36,17 +35,17 @@ import (
 )
 
 type fldModel struct {
-	libctx.Config[string]
+	c libctx.Config[string]
 }
 
 func (o *fldModel) Add(key string, val interface{}) Fields {
 	if o == nil {
 		return nil
-	} else if o.Config == nil {
+	} else if o.c == nil {
 		return nil
 	}
 
-	o.Store(key, val)
+	o.c.Store(key, val)
 
 	return o
 }
@@ -56,11 +55,11 @@ func (o *fldModel) Logrus() logrus.Fields {
 
 	if o == nil {
 		return res
-	} else if o.Config == nil {
+	} else if o.c == nil {
 		return res
 	}
 
-	o.Walk(func(key string, val interface{}) bool {
+	o.c.Walk(func(key string, val interface{}) bool {
 		res[key] = val
 		return true
 	})
@@ -70,12 +69,12 @@ func (o *fldModel) Logrus() logrus.Fields {
 func (o *fldModel) Map(fct func(key string, val interface{}) interface{}) Fields {
 	if o == nil {
 		return nil
-	} else if o.Config == nil {
+	} else if o.c == nil {
 		return nil
 	}
 
-	o.Walk(func(key string, val interface{}) bool {
-		o.Store(key, fct(key, val))
+	o.c.Walk(func(key string, val interface{}) bool {
+		o.c.Store(key, fct(key, val))
 		return true
 	})
 
@@ -93,21 +92,21 @@ func (o *fldModel) UnmarshalJSON(bytes []byte) error {
 		return e
 	} else if len(l) > 0 {
 		for k, v := range l {
-			o.Store(k, v)
+			o.c.Store(k, v)
 		}
 	}
 
 	return nil
 }
 
-func (o *fldModel) FieldsClone(ctx context.Context) Fields {
+func (o *fldModel) Clone() Fields {
 	if o == nil {
 		return nil
-	} else if o.Config == nil {
+	} else if o.c == nil {
 		return nil
 	} else {
 		return &fldModel{
-			o.Config.Clone(ctx),
+			o.c.Clone(o.c), // nolint
 		}
 	}
 }

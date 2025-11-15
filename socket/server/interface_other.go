@@ -1,5 +1,4 @@
-//go:build !linux
-// +build !linux
+//go:build !linux && !darwin
 
 /*
  * MIT License
@@ -27,6 +26,36 @@
  *
  */
 
+// Package server provides a unified factory for creating socket servers
+// across different network protocols on non-Linux, non-Darwin platforms.
+//
+// This package serves as a convenience wrapper that creates appropriate
+// server implementations based on the specified network protocol. On platforms
+// other than Linux and Darwin, only network-based protocols are supported:
+//   - TCP, TCP4, TCP6: Connection-oriented network servers (see github.com/nabbar/golib/socket/server/tcp)
+//   - UDP, UDP4, UDP6: Connectionless datagram network servers (see github.com/nabbar/golib/socket/server/udp)
+//
+// Note: UNIX domain sockets (NetworkUnix, NetworkUnixGram) are not available
+// on this platform and will return an error if specified.
+//
+// All created servers implement the github.com/nabbar/golib/socket.Server interface,
+// providing a consistent API regardless of the underlying protocol.
+//
+// Example:
+//
+//	handler := func(r socket.Reader, w socket.Writer) {
+//	    defer r.Close()
+//	    defer w.Close()
+//	    io.Copy(w, r) // Echo server
+//	}
+//
+//	server, err := server.New(nil, handler, protocol.NetworkTCP, ":8080", 0, -1)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer server.Close()
+//
+//	server.Listen(context.Background())
 package server
 
 import (
@@ -39,18 +68,50 @@ import (
 	scksru "github.com/nabbar/golib/socket/server/udp"
 )
 
-// New creates a new server based on the network protocol specified.
+// New creates a new socket server based on the specified network protocol.
+//
+// This factory function instantiates the appropriate server implementation
+// for the given protocol type. On platforms other than Linux and Darwin,
+// only TCP and UDP protocols are supported.
 //
 // Parameters:
-// - upd: a Update Connection function or nil
-// - handler: the handler for the server
-// - delim: the delimiter to use to separate messages
-// - proto: the network protocol to use
-// - sizeBufferRead: the size of the buffer for reading
-// - address: the address to bind the server to
-// - perm: the file mode permissions for the socket, not applicable for non unix
-// - gid: the group ID for the socket permissions, not applicable for non unix
-// Return type(s): libsck.Server, error
+//   - upd: Optional callback function invoked for each new connection (TCP) or
+//     when the socket is created (UDP). Can be used to set socket options like
+//     timeouts, buffer sizes, etc. Pass nil if not needed.
+//   - handler: Required function to process connections or datagrams. For
+//     TCP, it's called for each connection. For UDP, it handles all incoming
+//     datagrams. The signature is: func(socket.Reader, socket.Writer)
+//   - proto: Network protocol from github.com/nabbar/golib/network/protocol.
+//     Supported values:
+//   - NetworkTCP, NetworkTCP4, NetworkTCP6: TCP servers
+//   - NetworkUDP, NetworkUDP4, NetworkUDP6: UDP servers
+//     Note: UNIX domain sockets are NOT supported on this platform
+//   - address: Address string in "[host]:port" format (e.g., ":8080", "0.0.0.0:8080")
+//   - perm: Ignored on this platform (UNIX socket permissions not applicable)
+//   - gid: Ignored on this platform (UNIX socket permissions not applicable)
+//
+// Returns:
+//   - libsck.Server: A server instance implementing the socket.Server interface
+//   - error: An error if the protocol is invalid/unsupported, address validation fails,
+//     or server configuration fails
+//
+// Example:
+//
+//	// TCP server
+//	handler := func(r socket.Reader, w socket.Writer) {
+//	    defer r.Close()
+//	    defer w.Close()
+//	    // Handle connection...
+//	}
+//
+//	server, err := New(nil, handler, protocol.NetworkTCP, ":8080", 0, -1)
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer server.Close()
+//
+//	// UNIX sockets are not available on this platform
+//	_, err = New(nil, handler, protocol.NetworkUnix, "/tmp/app.sock", 0600, -1) // Returns error
 func New(upd libsck.UpdateConn, handler libsck.Handler, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
 	switch proto {
 	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:

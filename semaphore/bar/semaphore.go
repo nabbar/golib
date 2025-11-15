@@ -28,19 +28,27 @@ package bar
 
 import semtps "github.com/nabbar/golib/semaphore/types"
 
+// NewWorker acquires a worker slot from the semaphore.
+// Blocks until a slot is available or context is cancelled.
 func (o *bar) NewWorker() error {
 	return o.s.NewWorker()
 }
 
+// NewWorkerTry attempts to acquire a worker slot without blocking.
+// Returns true if successful, false if no slots are available.
 func (o *bar) NewWorkerTry() bool {
 	return o.s.NewWorkerTry()
 }
 
+// DeferWorker releases a worker slot and increments the progress bar.
+// Should be called with defer after NewWorker() succeeds.
 func (o *bar) DeferWorker() {
 	o.Inc(1)
 	o.s.DeferWorker()
 }
 
+// DeferMain completes the progress bar and releases all semaphore resources.
+// Should be called with defer in the main goroutine.
 func (o *bar) DeferMain() {
 	if o.isMPB() {
 		o.Complete()
@@ -52,14 +60,17 @@ func (o *bar) DeferMain() {
 	o.s.DeferMain()
 }
 
+// WaitAll blocks until all workers have completed.
 func (o *bar) WaitAll() error {
 	return o.s.WaitAll()
 }
 
+// Weighted returns the maximum number of simultaneous workers allowed.
 func (o *bar) Weighted() int64 {
 	return o.s.Weighted()
 }
 
+// New creates a new independent semaphore from this bar's semaphore.
 func (o *bar) New() semtps.Sem {
 	return o.s.New()
 }

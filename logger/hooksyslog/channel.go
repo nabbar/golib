@@ -29,7 +29,7 @@ package hooksyslog
 
 var (
 	closeStruct = make(chan struct{})
-	closeByte   = make(chan data)
+	closeByte   = make(chan []data, 250)
 )
 
 func init() {
@@ -38,7 +38,7 @@ func init() {
 }
 
 func (o *hks) prepareChan() {
-	o.d.Store(make(chan data))
+	o.d.Store(make(chan []data, 250))
 	o.s.Store(make(chan struct{}))
 }
 
@@ -52,11 +52,11 @@ func (o *hks) Done() <-chan struct{} {
 	return closeStruct
 }
 
-func (o *hks) Data() <-chan data {
+func (o *hks) Data() <-chan []data {
 	c := o.d.Load()
 
 	if c != nil {
-		return c.(chan data)
+		return c.(chan []data)
 	}
 
 	return closeByte

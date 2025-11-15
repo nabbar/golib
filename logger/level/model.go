@@ -38,6 +38,16 @@ func (l Level) Uint8() uint8 {
 	return uint8(l)
 }
 
+// Uint32 Convert the current Level type to a uint32 value. E.g. FatalLevel becomes 1.
+func (l Level) Uint32() uint32 {
+	return uint32(l)
+}
+
+// Int Convert the current Level type to a int value. E.g. FatalLevel becomes 1.
+func (l Level) Int() int {
+	return int(l)
+}
+
 // String Convert the current Level type to a string. E.g. PanicLevel becomes "Critical Error".
 func (l Level) String() string {
 	//nolint exhaustive

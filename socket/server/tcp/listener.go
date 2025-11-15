@@ -37,6 +37,9 @@ import (
 	libsck "github.com/nabbar/golib/socket"
 )
 
+// getAddress retrieves the configured server listen address.
+// Returns an empty string if no address has been registered.
+// This is an internal helper used by Listen().
 func (o *srv) getAddress() string {
 	f := o.ad.Load()
 
@@ -47,6 +50,14 @@ func (o *srv) getAddress() string {
 	return ""
 }
 
+// getListen creates a TCP listener on the specified address.
+// If TLS is configured (getTLS() returns non-nil), wraps the listener with tls.NewListener.
+//
+// Logs the listener creation via the server info callback, indicating whether
+// TLS is enabled.
+//
+// Returns the listener and any error from net.Listen().
+// This is an internal helper called by Listen().
 func (o *srv) getListen(addr string) (net.Listener, error) {
 	var (
 		lis net.Listener
@@ -56,6 +67,7 @@ func (o *srv) getListen(addr string) (net.Listener, error) {
 	if lis, err = net.Listen(libptc.NetworkTCP.Code(), addr); err != nil {
 		return lis, err
 	} else if t := o.getTLS(); t != nil {
+		// Wrap with TLS if configured
 		lis = tls.NewListener(lis, t)
 		o.fctInfoSrv("starting listening socket 'TLS %s %s'", libptc.NetworkTCP.String(), addr)
 	} else {
@@ -65,14 +77,42 @@ func (o *srv) getListen(addr string) (net.Listener, error) {
 	return lis, nil
 }
 
+// Listen starts the TCP server and begins accepting client connections.
+// This is the main server loop and blocks until the server is shut down or the context is cancelled.
+//
+// The method performs the following:
+//  1. Validates that an address has been registered via RegisterServer()
+//  2. Validates that a handler was provided to New()
+//  3. Creates the TCP listener (with TLS if configured)
+//  4. Sets up signal channels for graceful shutdown
+//  5. Spawns a goroutine to monitor context cancellation and shutdown signals
+//  6. Enters an accept loop to handle incoming connections
+//
+// Each accepted connection is handled in a separate goroutine via Conn().
+// The server can be stopped by:
+//   - Calling Shutdown(), StopListen(), or Close()
+//   - Cancelling the provided context
+//
+// Returns:
+//   - ErrInvalidAddress if no address has been registered
+//   - ErrInvalidHandler if no handler was provided to New()
+//   - Any error from net.Listen() during listener creation
+//   - nil when the server exits cleanly
+//
+// The method is safe to call only once per server instance. Calling it
+// multiple times concurrently will result in undefined behavior.
+//
+// See Conn() for per-connection handling and github.com/nabbar/golib/socket.Handler
+// for the handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
 	var (
 		e error              // error
 		l net.Listener       // socket listener
 		a = o.getAddress()   // address
-		s = new(atomic.Bool) // running
+		s = new(atomic.Bool) // shutdown signal flag
 	)
 
+	// Validate configuration
 	if len(a) == 0 {
 		o.fctError(ErrInvalidHandler)
 		return ErrInvalidAddress
@@ -139,6 +179,33 @@ func (o *srv) Listen(ctx context.Context) error {
 	return nil
 }
 
+// Conn handles a single client connection in its own goroutine.
+// This method is called automatically by Listen() for each accepted connection.
+//
+// The connection lifecycle:
+//  1. Increments the active connection counter
+//  2. Invokes the UpdateConn callback (if registered) to configure the connection
+//  3. Creates a child context for connection-specific cancellation
+//  4. Wraps the connection in Reader/Writer interfaces via getReadWriter()
+//  5. Spawns the user's handler function in a goroutine
+//  6. Monitors for context cancellation or server shutdown (Gone signal)
+//  7. Cleans up and decrements the connection counter on exit
+//
+// The method handles both graceful and ungraceful connection termination:
+//   - During normal shutdown: brief delay (500ms) before cleanup
+//   - During draining (IsGone): longer delay (5s) to allow final I/O
+//
+// Connection state changes are reported via the registered FuncInfo callback.
+// The handler receives Reader and Writer interfaces that support:
+//   - Partial close (CloseRead/CloseWrite for TCP connections)
+//   - Context-aware I/O operations
+//   - Connection liveness checking
+//
+// This method should not be called directly by users. It's invoked automatically
+// by Listen() for each new connection.
+//
+// See getReadWriter() for the Reader/Writer implementation and
+// github.com/nabbar/golib/socket.Handler for the handler signature.
 func (o *srv) Conn(ctx context.Context, con net.Conn) {
 	var (
 		cnl context.CancelFunc
@@ -146,12 +213,14 @@ func (o *srv) Conn(ctx context.Context, con net.Conn) {
 		cow libsck.Writer
 	)
 
-	o.nc.Add(1) // inc nb connection
+	o.nc.Add(1) // Increment active connection count
 
+	// Allow connection configuration before handling
 	if o.upd != nil {
 		o.upd(con)
 	}
 
+	// Create connection-specific context
 	ctx, cnl = context.WithCancel(ctx)
 	cor, cow = o.getReadWriter(ctx, cnl, con)
 
@@ -201,12 +270,40 @@ func (o *srv) Conn(ctx context.Context, con net.Conn) {
 	}
 }
 
+// getReadWriter creates Reader and Writer interfaces for a connection.
+// These interfaces wrap the net.Conn with context-aware operations and
+// support partial connection closure (CloseRead/CloseWrite).
+//
+// The implementation:
+//   - Tracks read and write side closure states atomically
+//   - Cancels the connection context when both sides are closed
+//   - Reports connection state changes via fctInfo callbacks
+//   - Filters errors through libsck.ErrorFilter to normalize I/O errors
+//   - Supports graceful half-close for TCP connections
+//
+// For TCP connections (*net.TCPConn), CloseRead and CloseWrite are used
+// to close individual sides. For other connection types, Close() is called
+// which closes both sides.
+//
+// The Reader and Writer interfaces provide:
+//   - Read([]byte) (int, error) - Context-aware read with state reporting
+//   - Write([]byte) (int, error) - Context-aware write with state reporting
+//   - Close() error - Closes the read or write side
+//   - IsAlive() bool - Checks if the connection is still usable
+//   - Done() <-chan struct{} - Returns the connection context's Done channel
+//
+// This is an internal method called by Conn() to wrap connections.
+//
+// See github.com/nabbar/golib/socket.NewReader and NewWriter for the
+// interface constructors, and github.com/nabbar/golib/socket.ErrorFilter
+// for error normalization.
 func (o *srv) getReadWriter(ctx context.Context, cnl context.CancelFunc, con net.Conn) (libsck.Reader, libsck.Writer) {
 	var (
-		rc = new(atomic.Bool)
-		rw = new(atomic.Bool)
+		rc = new(atomic.Bool) // Read side closed flag
+		rw = new(atomic.Bool) // Write side closed flag
 	)
 
+	// rdrClose handles read side closure
 	rdrClose := func() error {
 		defer func() {
 			if rw.Load() {

@@ -26,14 +26,18 @@
 
 package bar
 
+// Inc increments the progress bar by n.
 func (o *bar) Inc(n int) {
 	o.Inc64(int64(n))
 }
 
+// Dec decrements the progress bar by n.
+// Note: This delegates to Inc64 with a negative value for proper decrement behavior.
 func (o *bar) Dec(n int) {
-	o.Inc64(int64(n))
+	o.Dec64(int64(n))
 }
 
+// Inc64 increments the progress bar by n (64-bit version).
 func (o *bar) Inc64(n int64) {
 	if !o.isMPB() {
 		return
@@ -43,10 +47,14 @@ func (o *bar) Inc64(n int64) {
 	o.b.EwmaSetCurrent(o.b.Current(), o.getDur())
 }
 
+// Dec64 decrements the progress bar by n (64-bit version).
+// This is implemented by incrementing with a negative value.
 func (o *bar) Dec64(n int64) {
-	o.Inc64(n)
+	o.Inc64(-n)
 }
 
+// Reset resets the progress bar with new total and current values.
+// This updates both the internal total counter and the MPB bar if present.
 func (o *bar) Reset(tot, current int64) {
 	o.m.Store(tot)
 
@@ -58,6 +66,8 @@ func (o *bar) Reset(tot, current int64) {
 	o.b.SetCurrent(current)
 }
 
+// Complete marks the progress bar as complete.
+// If MPB is enabled, this triggers the completion animation.
 func (o *bar) Complete() {
 	if !o.isMPB() {
 		return
@@ -67,6 +77,8 @@ func (o *bar) Complete() {
 	o.b.EnableTriggerComplete()
 }
 
+// Completed returns true if the progress bar is completed or aborted.
+// Without MPB, this always returns true.
 func (o *bar) Completed() bool {
 	if !o.isMPB() {
 		return true
@@ -75,6 +87,8 @@ func (o *bar) Completed() bool {
 	return o.b.Completed() || o.b.Aborted()
 }
 
+// Current returns the current progress value.
+// Without MPB, this returns the total value.
 func (o *bar) Current() int64 {
 	if !o.isMPB() {
 		return o.m.Load()
@@ -83,6 +97,7 @@ func (o *bar) Current() int64 {
 	return o.b.Current()
 }
 
+// Total returns the total/maximum value of the progress bar.
 func (o *bar) Total() int64 {
 	return o.m.Load()
 }

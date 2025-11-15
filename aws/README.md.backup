@@ -1,0 +1,729 @@
+# AWS Package
+
+A comprehensive and production-ready Go library for AWS S3 and IAM operations, providing high-level abstractions for buckets, objects, users, groups, roles, policies, and advanced uploaders with MinIO compatibility.
+
+## Features
+
+- **S3 Operations**: Complete bucket and object management
+- **IAM Management**: Users, groups, roles, and policies
+- **Advanced Upload**: Efficient multipart upload with pusher pattern
+- **MinIO Compatible**: Tested against MinIO for S3-compatible storage
+- **Thread-Safe**: Concurrent-safe client operations
+- **Error Handling**: Structured error handling with detailed messages
+- **Configuration**: Flexible configuration with AWS and custom endpoints
+- **Testing**: Comprehensive test suite using Ginkgo/Gomega
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [S3 Operations](#s3-operations)
+  - [Bucket Management](#bucket-management)
+  - [Object Operations](#object-operations)
+  - [Advanced Upload (Pusher)](#advanced-upload-pusher)
+- [IAM Operations](#iam-operations)
+  - [User Management](#user-management)
+  - [Group Management](#group-management)
+  - [Role Management](#role-management)
+  - [Policy Management](#policy-management)
+- [Advanced Features](#advanced-features)
+- [Testing](#testing)
+- [Error Handling](#error-handling)
+- [Best Practices](#best-practices)
+
+---
+
+## Installation
+
+```bash
+go get github.com/nabbar/golib/aws
+```
+
+## Quick Start
+
+### Basic AWS Client Setup
+
+```go
+package main
+
+import (
+    "context"
+    "net/http"
+    "net/url"
+
+    "github.com/nabbar/golib/aws"
+    "github.com/nabbar/golib/aws/configCustom"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // Create endpoint URL
+    endpoint, _ := url.Parse("https://s3.amazonaws.com")
+    
+    // Create configuration
+    cfg := configCustom.NewConfig(
+        "my-bucket",
+        "AWS_ACCESS_KEY",
+        "AWS_SECRET_KEY",
+        endpoint,
+        "us-east-1",
+    )
+    
+    // Create AWS client
+    client, err := aws.New(ctx, cfg, http.DefaultClient)
+    if err != nil {
+        panic(err)
+    }
+    
+    // Enable path-style URLs (required for MinIO)
+    err = client.ForcePathStyle(ctx, true)
+    if err != nil {
+        panic(err)
+    }
+    
+    // Use the client
+    buckets, err := client.Bucket().List()
+    if err != nil {
+        panic(err)
+    }
+    
+    for _, bucket := range buckets {
+        fmt.Printf("Bucket: %s\n", *bucket.Name)
+    }
+}
+```
+
+### MinIO Configuration
+
+```go
+package main
+
+import (
+    "context"
+    "net/http"
+    "net/url"
+
+    "github.com/nabbar/golib/aws"
+    "github.com/nabbar/golib/aws/configCustom"
+)
+
+func main() {
+    ctx := context.Background()
+    
+    // MinIO endpoint
+    endpoint, _ := url.Parse("http://localhost:9000")
+    
+    cfg := configCustom.NewConfig(
+        "test-bucket",
+        "minioadmin",
+        "minioadmin",
+        endpoint,
+        "us-east-1",
+    )
+    
+    // Register AWS region for MinIO
+    err := cfg.RegisterRegionAws(nil)
+    if err != nil {
+        panic(err)
+    }
+    
+    client, err := aws.New(ctx, cfg, http.DefaultClient)
+    if err != nil {
+        panic(err)
+    }
+    
+    // Required for MinIO
+    err = client.ForcePathStyle(ctx, true)
+    if err != nil {
+        panic(err)
+    }
+    
+    // Create bucket
+    err = client.Bucket().Create("")
+    if err != nil {
+        panic(err)
+    }
+}
+```
+
+---
+
+## Configuration
+
+### Configuration Management
+
+```go
+// Get/Set credentials
+accessKey := cfg.GetAccessKey()
+secretKey := cfg.GetSecretKey()
+cfg.SetCredentials("new-access", "new-secret")
+
+// Region management
+region := cfg.GetRegion()
+cfg.SetRegion("eu-west-1")
+
+// Endpoint management
+endpoint := cfg.GetEndpoint()
+newEndpoint, _ := url.Parse("http://localhost:9000")
+cfg.SetEndpoint(newEndpoint)
+
+// Bucket name
+cfg.SetBucketName("my-bucket")
+bucket := cfg.GetBucketName()
+
+// Checksum validation
+cfg.SetChecksumValidation(
+    aws.RequestChecksumCalculationWhenRequired,
+    aws.ResponseChecksumValidationWhenRequired,
+)
+
+// Clone configuration
+clonedCfg := cfg.Clone()
+
+// JSON serialization
+jsonData, err := cfg.JSON()
+newCfg, err := configCustom.NewConfigJsonUnmashal(jsonData)
+```
+
+### Client Management
+
+```go
+// Create client
+client, err := aws.New(ctx, cfg, httpClient)
+
+// Clone client
+cloned, err := client.Clone(ctx)
+
+// Create client with new config
+newClient, err := client.NewForConfig(ctx, newConfig)
+
+// Set HTTP timeout
+err = client.SetHTTPTimeout(30 * time.Second)
+timeout := client.GetHTTPTimeout()
+
+// Force path style (required for MinIO)
+err = client.ForcePathStyle(ctx, true)
+```
+
+---
+
+## S3 Operations
+
+### Bucket Management
+
+```go
+// Create bucket
+err := client.Bucket().Create("")
+
+// Create bucket with specific name
+err := client.Bucket().Create("custom-bucket")
+
+// Delete bucket
+err := client.Bucket().Delete("")
+
+// List all buckets
+buckets, err := client.Bucket().List()
+for _, bucket := range buckets {
+    fmt.Printf("Bucket: %s, Created: %v\n", *bucket.Name, bucket.CreationDate)
+}
+
+// Check if bucket exists
+exists, err := client.Bucket().Exist("")
+
+// Get bucket location
+location, err := client.Bucket().Location("")
+
+// Set bucket versioning
+err := client.Bucket().SetVersioning(true)
+
+// Get bucket versioning status
+status, err := client.Bucket().GetVersioning()
+```
+
+### Object Operations
+
+```go
+// Upload object from file
+file, _ := os.Open("localfile.txt")
+defer file.Close()
+err := client.Object().Put("remote.txt", file)
+
+// Upload with metadata
+metadata := map[string]string{
+    "author": "John Doe",
+    "version": "1.0",
+}
+err := client.Object().PutWithMeta("file.txt", file, metadata)
+
+// Download object
+obj, err := client.Object().Get("remote.txt")
+if err != nil {
+    panic(err)
+}
+defer obj.Body.Close()
+
+// Save to file
+outFile, _ := os.Create("downloaded.txt")
+defer outFile.Close()
+_, err = io.Copy(outFile, obj.Body)
+
+// Delete object
+err := client.Object().Delete("remote.txt")
+
+// List objects
+objects, err := client.Object().List("")
+for _, obj := range objects {
+    fmt.Printf("Key: %s, Size: %d\n", *obj.Key, *obj.Size)
+}
+
+// List objects with prefix
+objects, err := client.Object().List("prefix/")
+
+// Copy object
+err := client.Object().Copy("source.txt", "destination.txt")
+
+// Get object metadata
+metadata, err := client.Object().Head("file.txt")
+
+// Set object tags
+tags := map[string]string{
+    "environment": "production",
+    "project": "myapp",
+}
+err := client.Object().SetTags("file.txt", tags)
+
+// Get object tags
+tags, err := client.Object().GetTags("file.txt")
+```
+
+### Advanced Upload (Pusher)
+
+For efficient large file uploads with multipart support:
+
+```go
+import (
+    "github.com/nabbar/golib/aws/pusher"
+    sdkaws "github.com/aws/aws-sdk-go-v2/aws"
+)
+
+// Create pusher configuration
+cfg := &pusher.Config{
+    FuncGetClientS3: func() *s3.Client {
+        return client.GetClientS3()
+    },
+    ObjectS3Options: pusher.ConfigObjectOptions{
+        Bucket: sdkaws.String("my-bucket"),
+        Key:    sdkaws.String("large-file.dat"),
+    },
+    PartSize:   10 * 1024 * 1024, // 10MB parts
+    BufferSize: 64 * 1024,         // 64KB buffer
+    CheckSum:   true,              // Enable checksums
+}
+
+// Create pusher
+p, err := pusher.New(ctx, cfg)
+if err != nil {
+    panic(err)
+}
+defer p.Close()
+
+// Upload from file
+file, _ := os.Open("large-file.dat")
+defer file.Close()
+
+written, err := p.ReadFrom(file)
+if err != nil {
+    panic(err)
+}
+
+// Complete upload
+err = p.Complete()
+if err != nil {
+    panic(err)
+}
+
+fmt.Printf("Uploaded %d bytes\n", written)
+```
+
+---
+
+## IAM Operations
+
+### User Management
+
+```go
+// Create user
+err := client.User().Create("john-doe")
+
+// Delete user
+err := client.User().Delete("john-doe")
+
+// List users
+users, err := client.User().List()
+for _, user := range users {
+    fmt.Printf("User: %s\n", *user.UserName)
+}
+
+// Check if user exists
+exists, err := client.User().Exist("john-doe")
+
+// Get user details
+user, err := client.User().Get("john-doe")
+
+// Create access key for user
+accessKey, secretKey, err := client.User().CreateAccessKey("john-doe")
+
+// List access keys
+keys, err := client.User().ListAccessKeys("john-doe")
+
+// Delete access key
+err := client.User().DeleteAccessKey("john-doe", "AKIAIOSFODNN7EXAMPLE")
+```
+
+### Group Management
+
+```go
+// Create group
+err := client.Group().Create("developers")
+
+// Delete group
+err := client.Group().Delete("developers")
+
+// List groups
+groups, err := client.Group().List()
+for _, group := range groups {
+    fmt.Printf("Group: %s\n", *group.GroupName)
+}
+
+// Add user to group
+err := client.Group().AddUser("developers", "john-doe")
+
+// Remove user from group
+err := client.Group().RemoveUser("developers", "john-doe")
+
+// List users in group
+users, err := client.Group().ListUsers("developers")
+
+// Attach policy to group
+err := client.Group().AttachPolicy("developers", "arn:aws:iam::aws:policy/ReadOnlyAccess")
+```
+
+### Role Management
+
+```go
+// Create role with assume role policy
+assumeRolePolicy := `{
+    "Version": "2012-10-17",
+    "Statement": [{
+        "Effect": "Allow",
+        "Principal": {"Service": "ec2.amazonaws.com"},
+        "Action": "sts:AssumeRole"
+    }]
+}`
+
+err := client.Role().Create("ec2-role", assumeRolePolicy)
+
+// Delete role
+err := client.Role().Delete("ec2-role")
+
+// List roles
+roles, err := client.Role().List()
+for _, role := range roles {
+    fmt.Printf("Role: %s\n", *role.RoleName)
+}
+
+// Attach policy to role
+err := client.Role().AttachPolicy("ec2-role", "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess")
+
+// Detach policy from role
+err := client.Role().DetachPolicy("ec2-role", "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess")
+```
+
+### Policy Management
+
+```go
+// Create policy
+policyDocument := `{
+    "Version": "2012-10-17",
+    "Statement": [{
+        "Effect": "Allow",
+        "Action": ["s3:GetObject"],
+        "Resource": ["arn:aws:s3:::my-bucket/*"]
+    }]
+}`
+
+arn, err := client.Policy().Create("ReadMyBucket", policyDocument)
+
+// Delete policy
+err := client.Policy().Delete(arn)
+
+// List policies
+policies, err := client.Policy().List()
+for _, policy := range policies {
+    fmt.Printf("Policy: %s (%s)\n", *policy.PolicyName, *policy.Arn)
+}
+
+// Get policy
+policy, err := client.Policy().Get(arn)
+
+// Get policy version
+version, err := client.Policy().GetVersion(arn, "v1")
+```
+
+---
+
+## Advanced Features
+
+### CORS Configuration
+
+```go
+import "github.com/aws/aws-sdk-go-v2/service/s3/types"
+
+// Set CORS configuration
+corsRules := []types.CORSRule{
+    {
+        AllowedHeaders: []string{"*"},
+        AllowedMethods: []string{"GET", "PUT", "POST", "DELETE"},
+        AllowedOrigins: []string{"https://example.com"},
+        ExposeHeaders:  []string{"ETag"},
+        MaxAgeSeconds:  sdkaws.Int32(3000),
+    },
+}
+
+err := client.Bucket().SetCORS(corsRules)
+
+// Get CORS configuration
+cors, err := client.Bucket().GetCORS()
+
+// Delete CORS configuration
+err := client.Bucket().DeleteCORS()
+```
+
+### Object Versioning
+
+```go
+// Enable versioning
+err := client.Bucket().SetVersioning(true)
+
+// List object versions
+versions, err := client.Object().ListVersions("file.txt")
+for _, version := range versions {
+    fmt.Printf("Version: %s, IsLatest: %t\n", 
+        *version.VersionId, version.IsLatest)
+}
+
+// Get specific version
+obj, err := client.Object().GetVersion("file.txt", "version-id")
+
+// Delete specific version
+err := client.Object().DeleteVersion("file.txt", "version-id")
+```
+
+### Concurrent Operations
+
+The client is thread-safe and can be used concurrently:
+
+```go
+var wg sync.WaitGroup
+
+// Upload multiple files concurrently
+files := []string{"file1.txt", "file2.txt", "file3.txt"}
+for _, filename := range files {
+    wg.Add(1)
+    go func(name string) {
+        defer wg.Done()
+        
+        file, _ := os.Open(name)
+        defer file.Close()
+        
+        err := client.Object().Put(name, file)
+        if err != nil {
+            log.Printf("Error uploading %s: %v\n", name, err)
+        }
+    }(filename)
+}
+
+wg.Wait()
+```
+
+---
+
+## Testing
+
+The package uses Ginkgo and Gomega for testing with MinIO for S3 operations.
+
+### Running Tests
+
+```bash
+# Run all tests
+go test -v -timeout=30m ./...
+
+# Run tests with coverage
+go test -v -cover -timeout=30m ./...
+
+# Run specific test file
+go test -v -run TestGolibAwsHelper
+
+# Use Ginkgo
+ginkgo -v -cover ./...
+```
+
+### Test Structure
+
+Tests are organized by functionality:
+- `client_test.go` - Client management and configuration
+- `config_test.go` - Configuration testing
+- `s3_bucket_*.go` - Bucket operations
+- `s3_object_*.go` - Object operations
+- `iam_*_test.go` - IAM operations
+- `s3_stress_test.go` - Performance and stress tests
+
+### MinIO Setup for Testing
+
+Tests automatically start MinIO if no configuration file is found:
+
+```go
+// Tests will start MinIO on a random port
+// Access credentials are auto-generated
+// Test bucket is automatically created and cleaned up
+```
+
+Or provide a `config.json` file:
+
+```json
+{
+    "bucket": "test-bucket",
+    "region": "us-east-1",
+    "access_key": "your-access-key",
+    "secret_key": "your-secret-key",
+    "endpoint": "http://localhost:9000"
+}
+```
+
+---
+
+## Error Handling
+
+The package uses structured error handling:
+
+```go
+import "github.com/nabbar/golib/aws/helper"
+
+// All errors are wrapped with context
+err := client.Bucket().Create("test")
+if err != nil {
+    // Check error type
+    if awsErr, ok := err.(*helper.Error); ok {
+        fmt.Printf("AWS Error Code: %d\n", awsErr.Code)
+        fmt.Printf("Message: %s\n", awsErr.Message)
+    }
+    
+    // Handle specific errors
+    if errors.Is(err, helper.ErrorBucketAlreadyExists) {
+        fmt.Println("Bucket already exists")
+    }
+}
+```
+
+### Common Error Codes
+
+- `ErrorConfigEmpty` - Configuration is nil or empty
+- `ErrorBucketNotFound` - Bucket does not exist
+- `ErrorObjectNotFound` - Object does not exist
+- `ErrorAccessDenied` - Insufficient permissions
+- `ErrorInvalidRequest` - Invalid request parameters
+
+---
+
+## Best Practices
+
+### 1. Always Use Context
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+client, err := aws.New(ctx, cfg, httpClient)
+```
+
+### 2. Handle Errors Properly
+
+```go
+if err != nil {
+    log.Printf("Operation failed: %v", err)
+    // Implement retry logic or fallback
+    return err
+}
+```
+
+### 3. Close Resources
+
+```go
+obj, err := client.Object().Get("file.txt")
+if err != nil {
+    return err
+}
+defer obj.Body.Close() // Always close readers
+```
+
+### 4. Use Pusher for Large Files
+
+```go
+// For files > 5MB, use pusher instead of Object().Put()
+if fileSize > 5*1024*1024 {
+    // Use pusher with multipart upload
+}
+```
+
+### 5. Enable Path Style for MinIO
+
+```go
+// Required for MinIO compatibility
+err := client.ForcePathStyle(ctx, true)
+```
+
+### 6. Reuse Clients
+
+```go
+// Create client once, reuse across your application
+var globalClient aws.AWS
+
+func init() {
+    globalClient, _ = aws.New(ctx, cfg, httpClient)
+}
+```
+
+### 7. Use Appropriate Timeouts
+
+```go
+// Set reasonable HTTP timeouts
+client.SetHTTPTimeout(60 * time.Second)
+```
+
+---
+
+## License
+
+MIT License - See LICENSE file for details
+
+---
+
+## Contributing
+
+Contributions are welcome! Please ensure:
+- All tests pass (`go test -v -timeout=30m ./...`)
+- Code follows Go best practices
+- New features include tests
+- Documentation is updated
+- Commit messages are clear and descriptive
+
+---
+
+## Support
+
+For issues, questions, or contributions, please visit:
+https://github.com/nabbar/golib

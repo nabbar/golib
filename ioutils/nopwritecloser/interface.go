@@ -23,10 +23,38 @@
  *
  */
 
+// Package nopwritecloser provides a wrapper that implements io.WriteCloser for an io.Writer
+// by adding a no-op Close() method. This is similar to io.NopCloser but for writers instead of readers.
+//
+// The wrapper delegates Write() calls to the underlying io.Writer and implements Close()
+// as a no-operation that always returns nil, allowing io.Writer implementations to satisfy
+// the io.WriteCloser interface without requiring actual close semantics.
 package nopwritecloser
 
 import "io"
 
+// New wraps an io.Writer to implement io.WriteCloser with a no-op Close() method.
+//
+// The returned WriteCloser delegates all Write() calls to the underlying writer
+// and implements Close() as a no-operation that always returns nil. This is useful
+// when you have an io.Writer but need an io.WriteCloser interface, such as when
+// working with APIs that require closeable writers.
+//
+// Parameters:
+//   - w: The io.Writer to wrap
+//
+// Returns:
+//   - io.WriteCloser: A wrapper that adds no-op close semantics
+//
+// The wrapper is safe for concurrent use if the underlying writer is thread-safe.
+// Calling Close() multiple times is safe and will always return nil.
+//
+// Example:
+//
+//	var buf bytes.Buffer
+//	wc := nopwritecloser.New(&buf)
+//	wc.Write([]byte("data"))
+//	wc.Close() // No-op, returns nil
 func New(w io.Writer) io.WriteCloser {
 	return &wrp{w: w}
 }

@@ -35,7 +35,7 @@ import (
 	spfvpr "github.com/spf13/viper"
 )
 
-func (o *componentLog) RegisterFlag(Command *spfcbr.Command) error {
+func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	var (
 		key string
 		vpr *spfvpr.Viper
@@ -72,7 +72,7 @@ func (o *componentLog) RegisterFlag(Command *spfcbr.Command) error {
 	return nil
 }
 
-func (o *componentLog) _getConfig() (*logcfg.Options, error) {
+func (o *mod) _getConfig() (*logcfg.Options, error) {
 	var (
 		key string
 		cfg logcfg.Options
@@ -94,27 +94,27 @@ func (o *componentLog) _getConfig() (*logcfg.Options, error) {
 		cfg.Stdout = &logcfg.OptionsStd{}
 	}
 
-	if val := vpr.GetBool(key + "disableStandard"); val {
+	if val := vpr.GetBool(key + ".disableStandard"); val {
 		cfg.Stdout.DisableStandard = true
 	}
 
-	if val := vpr.GetBool(key + "disableStack"); val {
+	if val := vpr.GetBool(key + ".disableStack"); val {
 		cfg.Stdout.DisableStack = true
 	}
 
-	if val := vpr.GetBool(key + "disableTimestamp"); val {
+	if val := vpr.GetBool(key + ".disableTimestamp"); val {
 		cfg.Stdout.DisableTimestamp = true
 	}
 
-	if val := vpr.GetBool(key + "enableTrace"); val {
+	if val := vpr.GetBool(key + ".enableTrace"); val {
 		cfg.Stdout.EnableTrace = true
 	}
 
-	if val := vpr.GetString(key + "traceFilter"); val != "" {
+	if val := vpr.GetString(key + ".traceFilter"); val != "" {
 		cfg.TraceFilter = val
 	}
 
-	if val := vpr.GetBool(key + "disableColor"); val {
+	if val := vpr.GetBool(key + ".disableColor"); val {
 		cfg.Stdout.DisableColor = true
 	}
 

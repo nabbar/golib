@@ -35,34 +35,43 @@ import (
 	"github.com/vbauerster/mpb/v8"
 )
 
+// bar is the internal implementation of the SemBar interface.
+// It wraps a semaphore with progress bar functionality.
 type bar struct {
-	s semtps.Sem
-	d bool
+	s semtps.Sem // Underlying semaphore
+	d bool       // Drop bar on complete flag
 
-	b *mpb.Bar
-	m *atomic.Int64
-	t *atomic.Value
+	b *mpb.Bar      // MPB progress bar (nil if progress disabled)
+	m *atomic.Int64 // Total value (atomic for thread safety)
+	t *atomic.Int64 // Last update timestamp in Unix nanoseconds (atomic for thread safety)
 }
 
+// isMPB returns true if MPB progress bar is enabled.
 func (o *bar) isMPB() bool {
 	return o.b != nil
 }
 
+// GetMPB returns the underlying MPB bar instance.
+// Returns nil if progress bar is disabled.
 func (o *bar) GetMPB() *mpb.Bar {
 	return o.b
 }
 
+// getDur calculates the duration since the last update.
+// Returns time.Millisecond as default if no previous timestamp exists.
+// This is used for EWMA (Exponentially Weighted Moving Average) calculations.
 func (o *bar) getDur() time.Duration {
-	i := o.t.Load()
-	o.t.Store(time.Now())
+	now := time.Now().UnixNano()
+	prev := o.t.Swap(now)
 
-	if i == nil {
+	if prev == 0 {
 		return time.Millisecond
-	} else if t, k := i.(time.Time); !k {
-		return time.Millisecond
-	} else if t.IsZero() {
-		return time.Millisecond
-	} else {
-		return time.Since(t)
 	}
+
+	dur := time.Duration(now - prev)
+	if dur <= 0 {
+		return time.Millisecond
+	}
+
+	return dur
 }

@@ -1,0 +1,46 @@
+name: Build-Darwin
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+
+  darwin-arm64:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v3
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v4
+        with:
+          go-version: '>=1.25.0'
+
+      - name: Check Go Version
+        run: go version
+
+      - name: Link workspace with GOPATH
+        continue-on-error: false
+        run: |
+          sudo mkdir -vp $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo chown -R ${USER}:users $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo chmod ug+rw $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
+          sudo ln -svf $(pwd) ${GOPATH}/src/github.com/${GITHUB_REPOSITORY}
+
+      - name: Update vendor or dependencies
+        continue-on-error: false
+        run: |
+          go mod download all
+          go mod tidy
+          go mod vendor
+
+      - name: Test Build Darwin/arm64 with suffix/CGO
+        continue-on-error: false
+        run: |
+          IGNORE_BUILD=$(sed '/^[[:space:]]*$/d' "build.$(go env | grep GOARCH | cut -d'=' -f2 | tr -d '"' | tr -d "'")" | tr '\n' '|')
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 GOAMD64=v1 go build -a -ldflags "-w -s -extldflags '-static' " $(go list ./... | grep -vPi ${IGNORE_BUILD::-1})
+

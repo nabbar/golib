@@ -27,25 +27,24 @@
 package mail
 
 import (
-	"sync"
+	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	libmail "github.com/nabbar/golib/mail"
 )
 
-type componentMail struct {
-	m sync.RWMutex
+type mod struct {
 	x libctx.Config[uint8]
-	e libmail.Mail
+	e libatm.Value[libmail.Mail]
+	r *atomic.Bool
 }
 
-func (o *componentMail) GetMail() (libmail.Mail, error) {
-	if !o.IsStarted() {
-		return nil, ErrorComponentNotInitialized.Error(nil)
+func (o *mod) GetMail() (libmail.Mail, error) {
+	if o.r.Load() {
+		if i := o.e.Load(); i != nil {
+			return i.Clone(), nil
+		}
 	}
-
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	return o.e.Clone(), nil
+	return nil, ErrorComponentNotInitialized.Error()
 }

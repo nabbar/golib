@@ -65,6 +65,8 @@ func (s SyslogSeverity) String() string {
 	return ""
 }
 
+// MakeSeverity converts a severity string to a SyslogSeverity value.
+// The conversion is case-insensitive. Returns 0 if the string doesn't match any known severity.
 func MakeSeverity(severity string) SyslogSeverity {
 	switch strings.ToUpper(severity) {
 	case SyslogSeverityEmerg.String():
@@ -160,6 +162,8 @@ func (s SyslogFacility) String() string {
 	return ""
 }
 
+// MakeFacility converts a facility string to a SyslogFacility value.
+// The conversion is case-insensitive. Returns 0 if the string doesn't match any known facility.
 func MakeFacility(facility string) SyslogFacility {
 	switch strings.ToUpper(facility) {
 	case SyslogFacilityKern.String():

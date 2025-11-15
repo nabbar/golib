@@ -62,19 +62,17 @@ func (n Number) FormatUnitFloat(precision int) string {
 	f := fmt.Sprintf("%%.%df", precision)
 
 	for _, p := range powerList() {
-		if m < math.Pow10(p+1) {
-			continue
-		}
+		if m >= math.Pow10(p) {
+			r := m / math.Pow10(p)
+			q := strings.SplitN(fmt.Sprintf(f, r), ".", 2)
 
-		r := m / math.Pow10(p)
-		q := strings.SplitN(fmt.Sprintf(f, r), ".", 2)
+			if len(q) > 0 {
+				if len(q[0]) < _MaxSizeOfPad_ {
+					return strings.Repeat(" ", _MaxSizeOfPad_-len(q[0])) + fmt.Sprintf(f+" %s", r, power2Unit(p))
+				}
 
-		if len(q) > 0 {
-			if len(q[0]) < _MaxSizeOfPad_ {
-				return strings.Repeat(" ", _MaxSizeOfPad_-len(q[0])) + fmt.Sprintf(f+" %s", r, power2Unit(p))
+				return fmt.Sprintf(f+" %s", r, power2Unit(p))
 			}
-
-			return fmt.Sprintf(f+" %s", r, power2Unit(p))
 		}
 	}
 
@@ -85,12 +83,10 @@ func (n Number) FormatUnitInt() string {
 	m := float64(n)
 
 	for _, p := range powerList() {
-		if m < math.Pow10(p+1) {
-			continue
+		if m >= math.Pow10(p) {
+			r := int(math.Round(m / math.Pow10(p)))
+			return fmt.Sprintf(_PadIntPattern_+" %s", r, power2Unit(p))
 		}
-
-		r := int(math.Round(m / math.Pow10(p)))
-		return fmt.Sprintf(_PadIntPattern_+" %s", r, power2Unit(p))
 	}
 
 	return fmt.Sprintf(_PadIntPattern_+" %s", n, " ")

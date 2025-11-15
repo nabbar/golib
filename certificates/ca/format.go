@@ -32,12 +32,12 @@ import (
 	"encoding/pem"
 )
 
-func (o *mod) String() string {
+func (o *Certif) String() string {
 	s, _ := o.Chain()
 	return s
 }
 
-func (o *mod) Chain() (string, error) {
+func (o *Certif) Chain() (string, error) {
 	var buf = bytes.NewBuffer(make([]byte, 0))
 
 	for _, c := range o.c {
@@ -51,7 +51,29 @@ func (o *mod) Chain() (string, error) {
 	return buf.String(), nil
 }
 
-func (o *mod) AppendPool(p *x509.CertPool) {
+func (o *Certif) SliceChain() ([]string, error) {
+	var (
+		res = make([]string, 0)
+		buf = bytes.NewBuffer(make([]byte, 0))
+	)
+
+	for _, c := range o.c {
+		if c == nil {
+			continue
+		}
+
+		if e := pem.Encode(buf, &pem.Block{Type: "CERTIFICATE", Bytes: c.Raw}); e != nil {
+			return nil, e
+		} else {
+			res = append(res, buf.String())
+			buf.Reset()
+		}
+	}
+
+	return res, nil
+}
+
+func (o *Certif) AppendPool(p *x509.CertPool) {
 	for _, c := range o.c {
 		if c == nil {
 			continue

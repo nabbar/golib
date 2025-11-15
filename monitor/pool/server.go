@@ -35,6 +35,8 @@ import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
+// Start starts all monitors in the pool.
+// Returns an error if any monitor fails to start.
 func (o *pool) Start(ctx context.Context) error {
 	var err = make([]string, 0)
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
@@ -53,6 +55,8 @@ func (o *pool) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop stops all monitors in the pool.
+// Returns an error if any monitor fails to stop.
 func (o *pool) Stop(ctx context.Context) error {
 	var err = make([]string, 0)
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
@@ -71,6 +75,8 @@ func (o *pool) Stop(ctx context.Context) error {
 	return nil
 }
 
+// Restart restarts all monitors in the pool.
+// Returns an error if any monitor fails to restart.
 func (o *pool) Restart(ctx context.Context) error {
 	var err = make([]string, 0)
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
@@ -89,6 +95,7 @@ func (o *pool) Restart(ctx context.Context) error {
 	return nil
 }
 
+// IsRunning returns true if at least one monitor in the pool is running.
 func (o *pool) IsRunning() bool {
 	var res = false
 
@@ -100,6 +107,7 @@ func (o *pool) IsRunning() bool {
 	return res
 }
 
+// Uptime returns the maximum uptime among all monitors in the pool.
 func (o *pool) Uptime() time.Duration {
 	var res time.Duration
 

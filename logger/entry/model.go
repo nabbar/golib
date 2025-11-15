@@ -186,7 +186,7 @@ func (e *entry) Log() {
 
 	var (
 		ent *logrus.Entry
-		tag = logfld.New(e.Fields.GetContext).Add(logtps.FieldLevel, e.Level.String())
+		tag = logfld.New(e.Fields).Add(logtps.FieldLevel, e.Level.String())
 		log *logrus.Logger
 	)
 

@@ -27,23 +27,24 @@
 package tlsversion
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/fxamacker/cbor/v2"
 	"gopkg.in/yaml.v3"
 )
 
+func (v *Version) marshallByte() ([]byte, error) {
+	return []byte("\"" + v.String() + "\""), nil
+}
+
 func (v *Version) unmarshall(val []byte) error {
-	*v = parseBytes(val)
+	*v = ParseBytes(val)
 	return nil
 }
 
 func (v Version) MarshalJSON() ([]byte, error) {
-	t := v.String()
-	b := make([]byte, 0, len(t)+2)
-	b = append(b, '"')
-	b = append(b, []byte(t)...)
-	b = append(b, '"')
-	return b, nil
+	return json.Marshal(v.String())
 }
 
 func (v *Version) UnmarshalJSON(bytes []byte) error {
@@ -51,7 +52,7 @@ func (v *Version) UnmarshalJSON(bytes []byte) error {
 }
 
 func (v Version) MarshalYAML() (interface{}, error) {
-	return []byte(v.String()), nil
+	return v.String(), nil
 }
 
 func (v *Version) UnmarshalYAML(value *yaml.Node) error {
@@ -59,7 +60,7 @@ func (v *Version) UnmarshalYAML(value *yaml.Node) error {
 }
 
 func (v Version) MarshalTOML() ([]byte, error) {
-	return []byte(v.String()), nil
+	return v.marshallByte()
 }
 
 func (v *Version) UnmarshalTOML(i interface{}) error {
@@ -69,7 +70,7 @@ func (v *Version) UnmarshalTOML(i interface{}) error {
 	if p, k := i.(string); k {
 		return v.unmarshall([]byte(p))
 	}
-	return fmt.Errorf("size: value not in valid format")
+	return fmt.Errorf("tls version: value not in valid format")
 }
 
 func (v Version) MarshalText() ([]byte, error) {
@@ -81,9 +82,15 @@ func (v *Version) UnmarshalText(bytes []byte) error {
 }
 
 func (v Version) MarshalCBOR() ([]byte, error) {
-	return []byte(v.String()), nil
+	return cbor.Marshal(v.String())
 }
 
 func (v *Version) UnmarshalCBOR(bytes []byte) error {
-	return v.unmarshall(bytes)
+	var t string
+	if err := cbor.Unmarshal(bytes, &t); err != nil {
+		return err
+	} else {
+		*v = Parse(t)
+		return nil
+	}
 }

@@ -32,8 +32,6 @@ type data struct {
 	p []byte
 }
 
-type bufData []data
-
 func newData(s SyslogSeverity, p []byte) data {
 	return data{
 		s: s,

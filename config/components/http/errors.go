@@ -33,13 +33,33 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// Error codes for the HTTP component package.
+// These codes are based on the MinErrorComponentHttp offset defined in the config package.
 const (
+	// ErrorParamEmpty indicates that one or more required parameters are empty.
 	ErrorParamEmpty liberr.CodeError = iota + libcfg.MinErrorComponentHttp
+
+	// ErrorParamInvalid indicates that one or more parameters have invalid values.
 	ErrorParamInvalid
+
+	// ErrorComponentNotInitialized indicates that the component has not been properly initialized.
+	// This typically means Init() was not called or required dependencies are missing.
 	ErrorComponentNotInitialized
+
+	// ErrorConfigInvalid indicates that the component configuration is invalid.
+	// This can occur when configuration validation fails or required fields are missing.
 	ErrorConfigInvalid
+
+	// ErrorComponentStart indicates a failure during component startup.
+	// This can be caused by configuration errors, missing dependencies, or server startup failures.
 	ErrorComponentStart
+
+	// ErrorComponentReload indicates a failure during component reload.
+	// This can occur when new configuration is invalid or servers fail to restart.
 	ErrorComponentReload
+
+	// ErrorDependencyTLSDefault indicates that the TLS component could not be retrieved.
+	// This typically means the TLS component is not registered or the TLS key is incorrect.
 	ErrorDependencyTLSDefault
 )
 

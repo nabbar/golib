@@ -34,6 +34,14 @@ import (
 	gorlog "gorm.io/gorm/logger"
 )
 
+// New returns a gorlog.Interface that logs queries using the given logger and parameters.
+//
+//   - fct is a function that returns a golib Logger. This function is called whenever a new logger is needed.
+//   - ignoreRecordNotFoundError determines whether gorm should ignore record not found errors.
+//   - slowThreshold is a time.Duration that determines what constitutes a slow query.
+//     If the query takes longer than this threshold, a warning will be logged.
+//
+// The returned gorlog.Interface is safe for concurrent use.
 func New(fct func() liblog.Logger, ignoreRecordNotFoundError bool, slowThreshold time.Duration) gorlog.Interface {
 	return &logGorm{
 		i: ignoreRecordNotFoundError,

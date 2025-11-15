@@ -27,8 +27,6 @@
 package database
 
 import (
-	"context"
-
 	cfgtps "github.com/nabbar/golib/config/types"
 	libdbs "github.com/nabbar/golib/database/gorm"
 	libver "github.com/nabbar/golib/version"
@@ -36,10 +34,7 @@ import (
 	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentDatabase) _getKey() string {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -51,10 +46,7 @@ func (o *componentDatabase) _getKey() string {
 	}
 }
 
-func (o *componentDatabase) _getFctVpr() libvpr.FuncViper {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -66,7 +58,7 @@ func (o *componentDatabase) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentDatabase) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -76,7 +68,7 @@ func (o *componentDatabase) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentDatabase) _getSPFViper() *spfvbr.Viper {
+func (o *mod) _getSPFViper() *spfvbr.Viper {
 	if f := o._getViper(); f == nil {
 		return nil
 	} else if v := f.Viper(); v == nil {
@@ -86,32 +78,7 @@ func (o *componentDatabase) _getSPFViper() *spfvbr.Viper {
 	}
 }
 
-func (o *componentDatabase) _getFctCpt() cfgtps.FuncCptGet {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentDatabase) _getContext() context.Context {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.x.GetContext()
-}
-
-func (o *componentDatabase) _getVersion() libver.Version {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getVersion() libver.Version {
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -123,7 +90,7 @@ func (o *componentDatabase) _getVersion() libver.Version {
 	}
 }
 
-func (o *componentDatabase) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -131,10 +98,7 @@ func (o *componentDatabase) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent)
 	}
 }
 
-func (o *componentDatabase) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -146,7 +110,7 @@ func (o *componentDatabase) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentDatabase) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -154,7 +118,7 @@ func (o *componentDatabase) _runFct(fct func(cpt cfgtps.Component) error) error 
 	return nil
 }
 
-func (o *componentDatabase) _runCli() error {
+func (o *mod) _runCli() error {
 	var (
 		err error
 		prt = ErrorComponentReload
@@ -174,11 +138,12 @@ func (o *componentDatabase) _runCli() error {
 		return prt.Error(err)
 	}
 
-	o.Stop()
+	if d := o.d.Load(); d != nil {
+		d.Close()
+	}
 
-	o.m.Lock()
-	o.d = dbo
-	o.m.Unlock()
+	o.d.Store(dbo)
+	o.r.Store(true)
 
 	if e := o._registerMonitor(cfg); e != nil {
 		return prt.Error(e)
@@ -187,7 +152,7 @@ func (o *componentDatabase) _runCli() error {
 	return nil
 }
 
-func (o *componentDatabase) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

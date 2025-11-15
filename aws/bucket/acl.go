@@ -115,7 +115,7 @@ func (cli *client) setACLInput(in *sdksss.PutBucketAclInput, ACP *sdkstp.AccessC
 		in.ACL = cannedACL
 	}
 
-	if header != nil {
+	if len(header) > 0 {
 		for k, v := range header {
 			switch k {
 			case ACLHeaderFullControl:

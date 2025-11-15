@@ -33,6 +33,7 @@ import (
 
 	"github.com/mattn/go-colorable"
 	logcfg "github.com/nabbar/golib/logger/config"
+	loghkw "github.com/nabbar/golib/logger/hookwriter"
 	logtps "github.com/nabbar/golib/logger/types"
 	"github.com/sirupsen/logrus"
 )
@@ -41,33 +42,33 @@ type HookStdOut interface {
 	logtps.Hook
 }
 
+// New returns a new HookStdOut instance.
+//
+// If opt is nil or opt.DisableStandard is true, the function returns nil and no error.
+//
+// If len(lvls) is less than 1, the function sets lvls to logrus.AllLevels.
+//
+// The function then creates a new io.Writer instance. If opt.DisableColor is true, it sets w to os.Stdout.
+// Otherwise, it sets w to colorable.NewColorableStdout().
+//
+// The function then creates a new hkstd instance and sets its fields to w, lvls, f, opt.DisableStack,
+// opt.DisableTimestamp, opt.EnableTrace, opt.DisableColor, and opt.EnableAccessLog.
+//
+// Finally, the function returns the new hkstd instance and no error.
 func New(opt *logcfg.OptionsStd, lvls []logrus.Level, f logrus.Formatter) (HookStdOut, error) {
+	return NewWithWriter(nil, opt, lvls, f)
+}
+
+func NewWithWriter(w io.Writer, opt *logcfg.OptionsStd, lvls []logrus.Level, f logrus.Formatter) (HookStdOut, error) {
+	if w == nil {
+		w = os.Stdout
+	}
+
 	if opt == nil || opt.DisableStandard {
 		return nil, nil
-	}
-
-	if len(lvls) < 1 {
-		lvls = logrus.AllLevels
-	}
-
-	var w io.Writer
-
-	if opt.DisableColor {
-		w = os.Stdout
-	} else {
+	} else if opt.DisableColor {
 		w = colorable.NewColorableStdout()
 	}
 
-	n := &hkstd{
-		w: w,
-		l: lvls,
-		f: f,
-		s: opt.DisableStack,
-		d: opt.DisableTimestamp,
-		t: opt.EnableTrace,
-		c: opt.DisableColor,
-		a: opt.EnableAccessLog,
-	}
-
-	return n, nil
+	return loghkw.New(w, opt, lvls, f)
 }

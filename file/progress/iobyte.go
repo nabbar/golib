@@ -39,12 +39,12 @@ func (o *progress) ReadByte() (byte, error) {
 		e error
 	)
 
-	if i, e = o.fos.Seek(0, io.SeekCurrent); e != nil && !errors.Is(e, io.EOF) {
+	if i, e = o.f.Seek(0, io.SeekCurrent); e != nil && !errors.Is(e, io.EOF) {
 		return 0, e
-	} else if n, e = o.fos.Read(p); e != nil && !errors.Is(e, io.EOF) {
+	} else if n, e = o.f.Read(p); e != nil && !errors.Is(e, io.EOF) {
 		return 0, e
 	} else if n > 1 {
-		if _, e = o.fos.Seek(i+1, io.SeekStart); e != nil && !errors.Is(e, io.EOF) {
+		if _, e = o.f.Seek(i+1, io.SeekStart); e != nil && !errors.Is(e, io.EOF) {
 			return 0, e
 		}
 	} else if n == 0 {
@@ -62,12 +62,12 @@ func (o *progress) WriteByte(c byte) error {
 		e error
 	)
 
-	if i, e = o.fos.Seek(0, io.SeekCurrent); e != nil && !errors.Is(e, io.EOF) {
+	if i, e = o.f.Seek(0, io.SeekCurrent); e != nil && !errors.Is(e, io.EOF) {
 		return e
-	} else if n, e = o.fos.Write(p); e != nil && !errors.Is(e, io.EOF) {
+	} else if n, e = o.f.Write(p); e != nil && !errors.Is(e, io.EOF) {
 		return e
 	} else if n > 1 {
-		if _, e = o.fos.Seek(i+1, io.SeekStart); e != nil && !errors.Is(e, io.EOF) {
+		if _, e = o.f.Seek(i+1, io.SeekStart); e != nil && !errors.Is(e, io.EOF) {
 			return e
 		}
 	}

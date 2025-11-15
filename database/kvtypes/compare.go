@@ -31,11 +31,42 @@ type CompareContains[K comparable] func(ref, part K) bool
 type CompareEmpty[K comparable] func(part K) bool
 
 type Compare[K comparable] interface {
+	// IsEqual checks if two strings are equal.
+	//
+	// It takes two strings as parameters and returns true if the strings are equal,
+	// false otherwise.
+	//
+	// If either of the strings passed as parameters are empty or nil, the method
+	// will return false.
 	IsEqual(ref, part K) bool
+	// IsContains checks if a given string is contained in another.
+	//
+	// It takes two strings as parameters and returns true if the first string
+	// is contained in the second, false otherwise.
+	//
+	// If the first string passed as parameter is empty or nil, the method will
+	// return false.
 	IsContains(ref, part K) bool
+	// IsEmpty checks if a given string is empty.
+	//
+	// It takes a string as parameter and returns true if the string is empty,
+	// false otherwise.
+	//
+	// If the string passed as parameter is nil, the method will return false.
 	IsEmpty(part K) bool
 }
 
+// NewCompare creates a new Compare object.
+//
+// It takes three functions as parameters:
+// - eq, which checks if two strings are equal.
+// - cn, which checks if a string contains another.
+// - em, which checks if a string is empty.
+//
+// It returns a Compare object which can be used to compare strings.
+//
+// If any of the functions passed as parameters are nil, the corresponding
+// Compare method will return false.
 func NewCompare[K comparable](eq CompareEqual[K], cn CompareContains[K], em CompareEmpty[K]) Compare[K] {
 	return &cmp[K]{
 		feq: eq,

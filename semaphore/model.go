@@ -31,7 +31,9 @@ import (
 	sdkmpb "github.com/vbauerster/mpb/v8"
 )
 
+// sem is the internal implementation of the Semaphore interface.
+// It wraps a base semaphore with optional MPB progress container.
 type sem struct {
-	s semtps.Sem
-	m *sdkmpb.Progress
+	s semtps.Sem       // Base semaphore for worker management
+	m *sdkmpb.Progress // MPB progress container (nil if progress disabled)
 }

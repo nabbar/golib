@@ -30,7 +30,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -44,58 +43,67 @@ import (
 	artcli "github.com/nabbar/golib/artifact/client"
 )
 
-type artifactoryModel struct {
-	artcli.ClientHelper
-	Do       func(req *http.Request) (*http.Response, error)
-	ctx      context.Context
-	endpoint *url.URL
-	path     []string
-	group    int
-	regex    string
+// art implements the artifact.Client interface for JFrog Artifactory.
+// It uses the Artifactory Storage API to list and download artifacts.
+// Version extraction is performed via regex matching on file names.
+type art struct {
+	artcli.Helper
+	Do       func(req *http.Request) (*http.Response, error) // HTTP client Do function
+	ctx      context.Context                                 // Request context
+	endpoint *url.URL                                        // Artifactory base URL
+	path     []string                                        // Repository path segments
+	group    int                                             // Regex capture group for version
+	regex    string                                          // Regex pattern to match artifacts
 }
 
-type ResponseChecksum struct {
-	Md5    string
-	Sha1   string
-	Sha256 string
+// Checksum contains file integrity checksums returned by Artifactory.
+type Checksum struct {
+	Md5    string // MD5 hash
+	Sha1   string // SHA-1 hash
+	Sha256 string // SHA-256 hash
 }
 
-type ResponseStorage struct {
-	Uri               string
-	DownloadUri       string
-	Repo              string
-	Path              string
-	RemoteUrl         string
-	Created           time.Time
-	CreatedBy         string
-	LastModified      time.Time
-	ModifiedBy        string
-	LastUpdated       time.Time
-	Size              string
-	size              int64
-	MimeType          string
-	Checksums         ResponseChecksum
-	OriginalChecksums ResponseChecksum
+// Storage represents a file object in Artifactory with its metadata.
+// This structure is returned by the Storage API for individual files.
+type Storage struct {
+	Uri               string    // API URI
+	DownloadUri       string    // Download URL
+	Repo              string    // Repository name
+	Path              string    // File path
+	RemoteUrl         string    // Remote URL (if proxy)
+	Created           time.Time // Creation timestamp
+	CreatedBy         string    // Creator username
+	LastModified      time.Time // Last modification timestamp
+	ModifiedBy        string    // Last modifier username
+	LastUpdated       time.Time // Last update timestamp
+	Size              string    // Size as string
+	size              int64     // Size as int64 (internal)
+	MimeType          string    // MIME type
+	Checksums         Checksum  // File checksums
+	OriginalChecksums Checksum  // Original checksums (if proxy)
 }
 
-type ResponseReposChildrenStorage struct {
-	Uri    string
-	Folder bool
+// ChildStore represents a child item (file or folder) in a repository listing.
+type ChildStore struct {
+	Uri    string // Relative URI
+	Folder bool   // True if item is a folder
 }
 
-type ResponseReposStorage struct {
-	Uri          string
-	Repo         string
-	Path         string
-	Created      time.Time
-	CreatedBy    string
-	LastModified time.Time
-	ModifiedBy   string
-	LastUpdated  time.Time
-	Children     []ResponseReposChildrenStorage
+// RepoStore represents a repository or folder listing in Artifactory.
+// This structure is returned by the Storage API for directory listings.
+type RepoStore struct {
+	Uri          string       // API URI
+	Repo         string       // Repository name
+	Path         string       // Folder path
+	Created      time.Time    // Creation timestamp
+	CreatedBy    string       // Creator username
+	LastModified time.Time    // Last modification timestamp
+	ModifiedBy   string       // Last modifier username
+	LastUpdated  time.Time    // Last update timestamp
+	Children     []ChildStore // Child items
 }
 
-func (a *artifactoryModel) request(uri string, bodyResponse interface{}) error {
+func (a *art) request(uri string, bodyResponse interface{}) error {
 	var (
 		ctx context.Context
 		cnl context.CancelFunc
@@ -165,7 +173,7 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) error {
 		return ErrorRequestResponseBodyEmpty.Error(fmt.Errorf("status: %v", rsp.Status))
 	}
 
-	if buf, e := ioutil.ReadAll(rsp.Body); e != nil {
+	if buf, e := io.ReadAll(rsp.Body); e != nil {
 		return ErrorRequestResponseBodyDecode.Error(e)
 	} else if e = json.Unmarshal(buf, bodyResponse); e != nil {
 		return ErrorRequestResponseBodyDecode.Error(e)
@@ -178,9 +186,9 @@ func (a *artifactoryModel) request(uri string, bodyResponse interface{}) error {
 
 }
 
-func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err error) {
+func (a *art) getStorageList() (sto []Storage, err error) {
 	var (
-		lst = ResponseReposStorage{}
+		lst = RepoStore{}
 		reg = regexp.MustCompile(a.regex)
 	)
 
@@ -197,15 +205,15 @@ func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err error) {
 	if err = a.request("", &lst); err != nil {
 		return nil, err
 	} else if len(lst.Children) < 1 {
-		return make([]ResponseStorage, 0), nil
+		return make([]Storage, 0), nil
 	}
 
-	sto = make([]ResponseStorage, 0)
+	sto = make([]Storage, 0)
 
 	for _, c := range lst.Children {
 		var (
 			e   error
-			res = ResponseStorage{}
+			res = Storage{}
 		)
 
 		if c.Folder {
@@ -230,7 +238,7 @@ func (a *artifactoryModel) getStorageList() (sto []ResponseStorage, err error) {
 	return sto, nil
 }
 
-func (a *artifactoryModel) releasesAppendNotExist(releases hscvrs.Collection, vers *hscvrs.Version) hscvrs.Collection {
+func (a *art) releasesAppendNotExist(releases hscvrs.Collection, vers *hscvrs.Version) hscvrs.Collection {
 	for _, k := range releases {
 		if k.Equal(vers) {
 			return releases
@@ -240,10 +248,10 @@ func (a *artifactoryModel) releasesAppendNotExist(releases hscvrs.Collection, ve
 	return append(releases, vers)
 }
 
-func (a *artifactoryModel) ListReleases() (releases hscvrs.Collection, err error) {
+func (a *art) ListReleases() (releases hscvrs.Collection, err error) {
 	var (
 		reg = regexp.MustCompile(a.regex)
-		sto []ResponseStorage
+		sto []Storage
 	)
 
 	if sto, err = a.getStorageList(); err != nil {
@@ -269,12 +277,12 @@ func (a *artifactoryModel) ListReleases() (releases hscvrs.Collection, err error
 	return releases, nil
 }
 
-func (a *artifactoryModel) getArtifact(containName string, regexName string, release *hscvrs.Version) (art *ResponseStorage, err error) {
+func (a *art) getArtifact(containName string, regexName string, release *hscvrs.Version) (art *Storage, err error) {
 	var (
 		reg = regexp.MustCompile(a.regex)
 		rg2 *regexp.Regexp
 
-		sto []ResponseStorage
+		sto []Storage
 	)
 
 	if regexName != "" {
@@ -310,7 +318,7 @@ func (a *artifactoryModel) getArtifact(containName string, regexName string, rel
 	return nil, ErrorArtifactoryNotFound.Error(nil)
 }
 
-func (a *artifactoryModel) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error) {
+func (a *art) GetArtifact(containName string, regexName string, release *hscvrs.Version) (link string, err error) {
 	if art, err := a.getArtifact(containName, regexName, release); err != nil {
 		return "", err
 	} else {
@@ -318,11 +326,11 @@ func (a *artifactoryModel) GetArtifact(containName string, regexName string, rel
 	}
 }
 
-func (a *artifactoryModel) Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error) {
+func (a *art) Download(containName string, regexName string, release *hscvrs.Version) (int64, io.ReadCloser, error) {
 	var (
 		e error
 
-		art *ResponseStorage
+		art *Storage
 		err error
 		req *http.Request
 		rsp *http.Response

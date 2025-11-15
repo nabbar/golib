@@ -34,6 +34,6 @@ func DefaultConfig(indent string) []byte {
 	return htcdns.DefaultConfig(indent)
 }
 
-func (o *componentHttpClient) DefaultConfig(indent string) []byte {
+func (o *mod) DefaultConfig(indent string) []byte {
 	return htcdns.DefaultConfig(indent)
 }

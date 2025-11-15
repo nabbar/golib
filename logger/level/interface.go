@@ -28,6 +28,7 @@
 package level
 
 import (
+	"math"
 	"strings"
 )
 
@@ -90,4 +91,38 @@ func Parse(l string) Level {
 	}
 
 	return InfoLevel
+}
+
+// ParseFromInt converts an integer to a Level value.
+// Returns InfoLevel if the integer doesn't match any known level.
+func ParseFromInt(i int) Level {
+	switch i {
+	case PanicLevel.Int():
+		return PanicLevel
+	case FatalLevel.Int():
+		return FatalLevel
+	case ErrorLevel.Int():
+		return ErrorLevel
+	case WarnLevel.Int():
+		return WarnLevel
+	case InfoLevel.Int():
+		return InfoLevel
+	case DebugLevel.Int():
+		return DebugLevel
+	case NilLevel.Int():
+		return NilLevel
+	default:
+		return InfoLevel
+	}
+}
+
+// ParseFromUint32 converts a uint32 to a Level value.
+// Large values are clamped to math.MaxInt before conversion.
+// Returns InfoLevel if the value doesn't match any known level.
+func ParseFromUint32(i uint32) Level {
+	if uint64(i) < uint64(math.MaxInt) {
+		return ParseFromInt(int(i))
+	} else {
+		return ParseFromInt(math.MaxInt)
+	}
 }

@@ -33,13 +33,7 @@ import (
 )
 
 func (o *config) GetRootCA() []tlscas.Cert {
-	var res = make([]tlscas.Cert, 0)
-
-	for _, c := range o.caRoot {
-		res = append(res, c)
-	}
-
-	return res
+	return append(make([]tlscas.Cert, 0), o.caRoot...)
 }
 
 func (o *config) GetRootCAPool() *x509.CertPool {

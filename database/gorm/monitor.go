@@ -31,7 +31,6 @@ import (
 	"fmt"
 	"runtime"
 
-	libctx "github.com/nabbar/golib/context"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
@@ -52,12 +51,18 @@ func (d *database) Monitor(vrs libver.Version) (montps.Monitor, error) {
 		inf moninf.Info
 		mon montps.Monitor
 		res = make(map[string]interface{}, 0)
-		ctx libctx.FuncContext
+		ctx context.Context
 		cfg = d.getConfig()
 	)
 
 	if cfg == nil {
 		return nil, fmt.Errorf("cannot load config")
+	}
+
+	// Use config context if available, otherwise use background
+	ctx = cfg.ctx
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	res["runtime"] = runtime.Version()[2:]
@@ -80,13 +85,13 @@ func (d *database) Monitor(vrs libver.Version) (montps.Monitor, error) {
 		return nil, e
 	}
 
-	if e = mon.SetConfig(cfg.ctx, cfg.Monitor); e != nil {
+	if e = mon.SetConfig(ctx, cfg.Monitor); e != nil {
 		return nil, e
 	}
 
 	mon.SetHealthCheck(d.HealthCheck)
 
-	if e = mon.Start(ctx()); e != nil {
+	if e = mon.Start(ctx); e != nil {
 		return nil, e
 	}
 

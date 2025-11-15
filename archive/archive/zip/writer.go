@@ -102,6 +102,7 @@ func (o *wrt) addFiltering(source string, filter string, fct arctps.ReplaceName,
 	var (
 		ok  bool
 		err error
+		rpt *os.Root
 		hdf *os.File
 	)
 
@@ -126,12 +127,24 @@ func (o *wrt) addFiltering(source string, filter string, fct arctps.ReplaceName,
 	} else if info.IsDir() {
 		return nil
 	} else if info.Mode().IsRegular() {
-		if hdf, err = os.Open(source); err != nil {
+		rpt, err = os.OpenRoot(filepath.Dir(source))
+
+		defer func() {
+			_ = rpt.Close()
+		}()
+
+		if err != nil {
 			return err
-		} else {
-			defer func() {
-				_ = hdf.Close()
-			}()
+		}
+
+		hdf, err = rpt.Open(filepath.Base(source))
+
+		defer func() {
+			_ = hdf.Close()
+		}()
+
+		if err != nil {
+			return err
 		}
 	} else {
 		return fs.ErrInvalid

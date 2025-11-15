@@ -97,7 +97,7 @@ func (m *mpu) RegisterPart(etag string) {
 
 	m.n++
 	m.l = append(m.l, sdktyp.CompletedPart{
-		ETag:       sdkaws.String(strings.Replace(etag, "\"", "", -1)),
+		ETag:       sdkaws.String(strings.Replace(etag, "\"", "", -1)), // nolint
 		PartNumber: sdkaws.Int32(m.n),
 	})
 }
@@ -250,7 +250,7 @@ func (m *mpu) CurrentSizePart() int64 {
 	} else if _, e = tmp.Seek(0, io.SeekStart); e != nil {
 		return 0
 	} else {
-		s, e = tmp.SizeEOF()
+		s, _ = tmp.SizeEOF()
 		_, _ = tmp.Seek(0, io.SeekEnd)
 		return s
 	}

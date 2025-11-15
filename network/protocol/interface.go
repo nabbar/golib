@@ -29,6 +29,7 @@ package protocol
 
 import (
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -49,33 +50,46 @@ const (
 	NetworkUnixGram
 )
 
+var ptcLkp = map[NetworkProtocol]string{
+	NetworkTCP:      "tcp",
+	NetworkTCP4:     "tcp4",
+	NetworkTCP6:     "tcp6",
+	NetworkUDP:      "udp",
+	NetworkUDP4:     "udp4",
+	NetworkUDP6:     "udp6",
+	NetworkIP:       "ip",
+	NetworkIP4:      "ip4",
+	NetworkIP6:      "ip6",
+	NetworkUnix:     "unix",
+	NetworkUnixGram: "unixgram",
+}
+
 func Parse(str string) NetworkProtocol {
-	switch {
-	case strings.EqualFold(NetworkTCP.Code(), str):
-		return NetworkTCP
-	case strings.EqualFold(NetworkTCP4.Code(), str):
-		return NetworkTCP4
-	case strings.EqualFold(NetworkTCP6.Code(), str):
-		return NetworkTCP6
-	case strings.EqualFold(NetworkUDP.Code(), str):
-		return NetworkUDP
-	case strings.EqualFold(NetworkUnix.Code(), str):
-		return NetworkUnix
-	case strings.EqualFold(NetworkUnixGram.Code(), str):
-		return NetworkUnixGram
-	default:
-		return NetworkEmpty
+	str = strings.ToLower(str)
+	str = strings.TrimSpace(str)
+	str = strings.Trim(str, "\"")
+
+	if s, e := strconv.Unquote(str); e == nil {
+		str = s
 	}
+
+	for k, v := range ptcLkp {
+		if v == str {
+			return k
+		}
+	}
+
+	return NetworkEmpty
 }
 
 func ParseBytes(p []byte) NetworkProtocol {
 	return Parse(string(p))
 }
 
-func ParseInt64(val int64) NetworkProtocol {
+func ParseUint64(val uint64) NetworkProtocol {
 	var v NetworkProtocol
 
-	if val > int64(math.MaxUint8) {
+	if val > uint64(math.MaxUint8) {
 		v = NetworkProtocol(math.MaxUint8)
 	} else {
 		v = NetworkProtocol(val)
@@ -90,11 +104,29 @@ func ParseInt64(val int64) NetworkProtocol {
 		return NetworkTCP6
 	case NetworkUDP:
 		return NetworkUDP
+	case NetworkUDP4:
+		return NetworkUDP4
+	case NetworkUDP6:
+		return NetworkUDP6
+	case NetworkIP:
+		return NetworkIP
+	case NetworkIP4:
+		return NetworkIP4
+	case NetworkIP6:
+		return NetworkIP6
 	case NetworkUnix:
 		return NetworkUnix
 	case NetworkUnixGram:
 		return NetworkUnixGram
 	default:
 		return NetworkEmpty
+	}
+}
+
+func ParseInt64(val int64) NetworkProtocol {
+	if val < 0 {
+		return NetworkEmpty // Explicitly reject negative values
+	} else {
+		return ParseUint64(uint64(val))
 	}
 }

@@ -31,7 +31,6 @@ import (
 	"fmt"
 	"runtime"
 
-	libctx "github.com/nabbar/golib/context"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
@@ -48,7 +47,7 @@ func (s *smtpClient) HealthCheck(ctx context.Context) error {
 }
 
 // Monitor is used to return the monitor of the SMTP to check the connection to the server.
-func (s *smtpClient) Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps.Monitor, error) {
+func (s *smtpClient) Monitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
 	var (
 		e   error
 		inf moninf.Info
@@ -77,7 +76,7 @@ func (s *smtpClient) Monitor(ctx libctx.FuncContext, vrs libver.Version) (montps
 	}
 
 	mon.SetHealthCheck(s.HealthCheck)
-	if e = mon.Start(ctx()); e != nil {
+	if e = mon.Start(ctx); e != nil {
 		return nil, e
 	}
 

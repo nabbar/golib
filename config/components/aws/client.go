@@ -35,7 +35,7 @@ import (
 	spfvbr "github.com/spf13/viper"
 )
 
-func (o *componentAws) _getKey() string {
+func (o *mod) _getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -47,7 +47,7 @@ func (o *componentAws) _getKey() string {
 	}
 }
 
-func (o *componentAws) _getFctVpr() libvpr.FuncViper {
+func (o *mod) _getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -59,7 +59,7 @@ func (o *componentAws) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *componentAws) _getViper() libvpr.Viper {
+func (o *mod) _getViper() libvpr.Viper {
 	if f := o._getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
@@ -69,7 +69,7 @@ func (o *componentAws) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *componentAws) _getSPFViper() *spfvbr.Viper {
+func (o *mod) _getSPFViper() *spfvbr.Viper {
 	if f := o._getViper(); f == nil {
 		return nil
 	} else if v := f.Viper(); v == nil {
@@ -79,19 +79,7 @@ func (o *componentAws) _getSPFViper() *spfvbr.Viper {
 	}
 }
 
-func (o *componentAws) _getFctCpt() cfgtps.FuncCptGet {
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *componentAws) _getVersion() libver.Version {
+func (o *mod) _getVersion() libver.Version {
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -103,7 +91,7 @@ func (o *componentAws) _getVersion() libver.Version {
 	}
 }
 
-func (o *componentAws) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
 	} else {
@@ -111,7 +99,7 @@ func (o *componentAws) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	}
 }
 
-func (o *componentAws) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
+func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -123,7 +111,7 @@ func (o *componentAws) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *componentAws) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -131,7 +119,7 @@ func (o *componentAws) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *componentAws) _runCli() error {
+func (o *mod) _runCli() error {
 	var (
 		err error
 		cli libaws.AWS
@@ -164,11 +152,11 @@ func (o *componentAws) _runCli() error {
 		opt.SetDefaultLog(o.getLogger)
 
 		if req = o.getRequest(); req != nil {
-			if req, err = opt.Update(o.x.GetContext, req); err != nil {
+			if req, err = opt.Update(o.x, req); err != nil {
 				return prt.Error(err)
 			}
 			req.RegisterHTTPClient(o.getClient())
-		} else if req, err = opt.New(o.x.GetContext, o.getClient()); err != nil {
+		} else if req, err = opt.New(o.x, o.getClient()); err != nil {
 			return prt.Error(err)
 		}
 
@@ -186,7 +174,7 @@ func (o *componentAws) _runCli() error {
 	return nil
 }
 
-func (o *componentAws) _run() error {
+func (o *mod) _run() error {
 	fb, fa := o._getFct()
 
 	if err := o._runFct(fb); err != nil {

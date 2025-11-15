@@ -1,5 +1,4 @@
 //go:build !windows
-// +build !windows
 
 /*
  * MIT License
@@ -29,9 +28,13 @@
 package fileDescriptor
 
 import (
+	"math"
 	"syscall"
 )
 
+// systemFileDescriptor is the Unix/Linux/macOS implementation of SystemFileDescriptor.
+// It uses syscall.Getrlimit and syscall.Setrlimit with RLIMIT_NOFILE to manage
+// file descriptor limits.
 func systemFileDescriptor(newValue int) (current int, max int, err error) {
 	var rLimit syscall.Rlimit
 
@@ -39,21 +42,19 @@ func systemFileDescriptor(newValue int) (current int, max int, err error) {
 		return 0, 0, err
 	}
 
-	if newValue < 1 {
-		return int(rLimit.Cur), int(rLimit.Max), nil
-	}
-
-	if newValue < int(rLimit.Cur) {
-		return int(rLimit.Cur), int(rLimit.Max), nil
+	if newValue <= 0 {
+		return getCurMax(rLimit.Cur, rLimit.Max, nil)
+	} else if uint64(newValue) < rLimit.Cur {
+		return getCurMax(rLimit.Cur, rLimit.Max, nil)
 	}
 
 	var chg = false
 
-	if newValue > int(rLimit.Max) {
+	if uint64(newValue) > rLimit.Max {
 		chg = true
 		rLimit.Max = uint64(newValue)
 	}
-	if newValue > int(rLimit.Cur) {
+	if uint64(newValue) > rLimit.Cur {
 		chg = true
 		rLimit.Cur = uint64(newValue)
 	}
@@ -66,5 +67,24 @@ func systemFileDescriptor(newValue int) (current int, max int, err error) {
 		return SystemFileDescriptor(0)
 	}
 
-	return int(rLimit.Cur), int(rLimit.Max), nil
+	return getCurMax(rLimit.Cur, rLimit.Max, nil)
+}
+
+// getCurMax converts uint64 rlimit values to int, handling potential overflow
+// by capping at math.MaxInt.
+func getCurMax(rCur, rMax uint64, err error) (int, int, error) {
+	var ic, im int
+	if rCur <= uint64(math.MaxInt) {
+		ic = int(rCur)
+	} else {
+		ic = math.MaxInt
+	}
+	if rMax <= uint64(math.MaxInt) {
+		im = int(rMax)
+	} else {
+		im = math.MaxInt
+	}
+
+	return ic, im, err
+
 }

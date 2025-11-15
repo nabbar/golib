@@ -35,7 +35,80 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type Return interface {
+	// SetError set the error with the given code, message, file and line.
+	//
+	// It will create a new error with the given information and append it to the current error list.
+	// If the error list is empty, it will create a new one.
+	//
+	// Parameters:
+	// - code (int): error code
+	// - msg (string): error message
+	// - file (string): file where the error occurs
+	// - line (int): line where the error occurs
+	SetError(code int, msg string, file string, line int)
+
+	// AddParent is used to add a parent error to the current error.
+	//
+	// It will create a new error with the given information and add it to the parent error list of the current error.
+	//
+	// Parameters:
+	// - code (int): error code
+	// - msg (string): error message
+	// - file (string): file where the error occurs
+	// - line (int): line where the error occurs
+	AddParent(code int, msg string, file string, line int)
+
+	// JSON return the JSON representation of the current error.
+	//
+	// It will generate a JSON object with the following structure:
+	// {
+	// 	"code": <int>,
+	// 	"msg": <string>,
+	// 	"parents": [
+	// 		{
+	// 			"code": <int>,
+	// 			"msg": <string>,
+	// 			"file": <string>,
+	// 			"line": <int>
+	// 		}
+	// 	]
+	// }
+	//
+	// Parameters: None
+	//
+	// Returns: []byte, a JSON representation of the current error
+	JSON() []byte
+}
+
+type ReturnGin interface {
+	Return
+
+	// GinTonicAbort is used to abort the current request with the given HTTP status code.
+	//
+	// It will write the JSON representation of the current error to the response writer with the given HTTP status code.
+	//
+	// Parameters:
+	// - ctx (*gin.Context): the gin context
+	// - httpCode (int): the HTTP status code to return
+	//
+	// Returns: None
+	GinTonicAbort(ctx *gin.Context, httpCode int)
+
+	// GinTonicErrorAbort is used to abort the current request with the given HTTP status code,
+	// and write the JSON representation of the current error to the response writer.
+	//
+	// Parameters:
+	// - ctx (*gin.Context): the gin context
+	// - httpCode (int): the HTTP status code to return
+	//
+	// Returns: None
+	GinTonicErrorAbort(ctx *gin.Context, httpCode int)
+}
+
 type DefaultReturn struct {
+	ReturnGin
+
 	Code    string
 	Message string
 	err     []error
@@ -60,7 +133,7 @@ func (r *DefaultReturn) AddParent(code int, msg string, file string, line int) {
 	r.err = append(r.err, NewErrorTrace(code, msg, file, line, nil))
 }
 
-func (r DefaultReturn) JSON() []byte {
+func (r *DefaultReturn) JSON() []byte {
 	if str, err := json.Marshal(r); err != nil {
 		return make([]byte, 0)
 	} else {
@@ -68,7 +141,7 @@ func (r DefaultReturn) JSON() []byte {
 	}
 }
 
-func (r DefaultReturn) GinTonicAbort(ctx *gin.Context, httpCode int) {
+func (r *DefaultReturn) GinTonicAbort(ctx *gin.Context, httpCode int) {
 	if ctx == nil || ctx.IsAborted() {
 		return
 	}
@@ -80,7 +153,7 @@ func (r DefaultReturn) GinTonicAbort(ctx *gin.Context, httpCode int) {
 	ctx.AbortWithStatusJSON(httpCode, r)
 }
 
-func (r DefaultReturn) GinTonicErrorAbort(ctx *gin.Context, httpCode int) {
+func (r *DefaultReturn) GinTonicErrorAbort(ctx *gin.Context, httpCode int) {
 	if ctx == nil || ctx.IsAborted() {
 		return
 	}

@@ -40,9 +40,9 @@ var unitMap = map[string]uint64{
 }
 
 func parseString(s string) (Duration, error) {
-	s = strings.Replace(s, "\"", "", -1)
-	s = strings.Replace(s, "'", "", -1)
-	s = strings.Replace(s, " ", "", -1)
+	s = strings.Replace(s, "\"", "", -1) // nolint
+	s = strings.Replace(s, "'", "", -1)  // nolint
+	s = strings.Replace(s, " ", "", -1)  // nolint
 
 	// err: 99d55h44m33s123ms
 	return parseDuration(s)
@@ -106,7 +106,7 @@ func parseDuration(s string) (Duration, error) {
 		var err error
 
 		// The next character must be [0-9.]
-		if !(s[0] == '.' || '0' <= s[0] && s[0] <= '9') {
+		if !(s[0] == '.' || '0' <= s[0] && s[0] <= '9') { // nolint
 			return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 		}
 

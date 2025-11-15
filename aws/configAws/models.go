@@ -64,10 +64,7 @@ type awsModel struct {
 func validateBucketS3(fl libval.FieldLevel) bool {
 	value := fl.Field().String()
 	re := regexp.MustCompile(`^[A-Za-z0-9]([A-Za-z0-9]|\.[A-Za-z0-9]|-[A-Za-z0-9]){0,46}[A-Za-z0-9]$`)
-	if !re.MatchString(value) {
-		return false
-	}
-	return true
+	return re.MatchString(value)
 }
 
 func (c *awsModel) Validate() error {
@@ -85,7 +82,6 @@ func (c *awsModel) Validate() error {
 		}
 
 		for _, e := range er.(libval.ValidationErrors) {
-			//nolint goerr113
 			err.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", e.StructNamespace(), e.ActualTag()))
 		}
 	}
@@ -136,12 +132,12 @@ func (c *awsModel) GetEndpoint() *url.URL {
 	return nil
 }
 
-func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, error) {
-	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
+func (c *awsModel) ResolveEndpoint(service, region string) (sdkaws.Endpoint, error) { // nolint
+	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil) // nolint
 }
 
-func (c *awsModel) ResolveEndpointWithOptions(service, region string, options ...interface{}) (sdkaws.Endpoint, error) {
-	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil)
+func (c *awsModel) ResolveEndpointWithOptions(service, region string, options ...interface{}) (sdkaws.Endpoint, error) { // nolint
+	return sdkaws.Endpoint{}, ErrorEndpointInvalid.Error(nil) // nolint
 }
 
 func (c *awsModel) GetDisableHTTPS() bool {
@@ -164,7 +160,7 @@ func (c *awsModel) Check(ctx context.Context) error {
 	var (
 		cfg *sdkaws.Config
 		con net.Conn
-		end sdkaws.Endpoint
+		end sdkaws.Endpoint // nolint
 		adr *url.URL
 		err error
 		e   error
@@ -178,7 +174,8 @@ func (c *awsModel) Check(ctx context.Context) error {
 		ctx = context.Background()
 	}
 
-	if end, err = cfg.EndpointResolverWithOptions.ResolveEndpoint("s3", c.GetRegion()); err != nil {
+	// nolint
+	if end, err = cfg.EndpointResolverWithOptions.ResolveEndpoint("s3", c.GetRegion()); err != nil { // nolint
 		return ErrorEndpointInvalid.Error(err)
 	}
 

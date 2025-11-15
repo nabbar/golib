@@ -26,11 +26,20 @@
 
 package types
 
+// FieldType identifies server fields for filtering and listing operations.
+// Used primarily by the pool package to filter servers by specific attributes.
 type FieldType uint8
 
 const (
-	HandlerDefault           = "default"
-	FieldName      FieldType = iota
+	// HandlerDefault is the default key used for handler registration when no specific key is provided.
+	HandlerDefault = "default"
+
+	// FieldName identifies the server name field for filtering operations.
+	FieldName FieldType = iota
+
+	// FieldBind identifies the bind address field (Listen) for filtering operations.
 	FieldBind
+
+	// FieldExpose identifies the expose URL field for filtering operations.
 	FieldExpose
 )

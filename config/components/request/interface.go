@@ -27,8 +27,9 @@
 package request
 
 import (
-	"sync/atomic"
+	"context"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
@@ -43,12 +44,11 @@ type ComponentRequest interface {
 	Request() libreq.Request
 }
 
-func New(ctx libctx.FuncContext, cli libhtc.HttpClient) ComponentRequest {
-	o := &componentRequest{
-		x: libctx.NewConfig[uint8](ctx),
-		r: new(atomic.Value),
-		c: new(atomic.Value),
-		p: new(atomic.Value),
+func New(ctx context.Context, cli libhtc.HttpClient) ComponentRequest {
+	o := &mod{
+		x: libctx.New[uint8](ctx),
+		r: libatm.NewValue[libreq.Request](),
+		c: libatm.NewValue[libhtc.HttpClient](),
 	}
 
 	if cli != nil {
@@ -62,12 +62,14 @@ func Register(cfg libcfg.Config, key string, cpt ComponentRequest) {
 	cfg.ComponentSet(key, cpt)
 }
 
-func RegisterNew(ctx libctx.FuncContext, cfg libcfg.Config, key string, cli libhtc.HttpClient) {
+func RegisterNew(ctx context.Context, cfg libcfg.Config, key string, cli libhtc.HttpClient) {
 	cfg.ComponentSet(key, New(ctx, cli))
 }
 
 func Load(getCpt cfgtps.FuncCptGet, key string) ComponentRequest {
-	if c := getCpt(key); c == nil {
+	if getCpt == nil {
+		return nil
+	} else if c := getCpt(key); c == nil {
 		return nil
 	} else if h, ok := c.(ComponentRequest); !ok {
 		return nil

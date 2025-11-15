@@ -27,9 +27,17 @@ package router
 
 import "strings"
 
+// sanitizeString removes newlines, carriage returns, and tabs from a string.
+// This is used to clean request paths and user information before storing them
+// in the Gin context or logging them, preventing log injection attacks.
+//
+// The function removes:
+//   - \n (newline)
+//   - \r (carriage return)
+//   - \t (tab)
 func sanitizeString(s string) string {
-	s = strings.Replace(s, "\n", "", -1)
-	s = strings.Replace(s, "\r", "", -1)
-	s = strings.Replace(s, "\t", "", -1)
+	s = strings.Replace(s, "\n", "", -1) // nolint
+	s = strings.Replace(s, "\r", "", -1) // nolint
+	s = strings.Replace(s, "\t", "", -1) // nolint
 	return s
 }

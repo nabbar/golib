@@ -28,191 +28,173 @@ package cache
 
 import (
 	"context"
-	"sync"
 	"time"
+
+	libatm "github.com/nabbar/golib/atomic"
+	cchitm "github.com/nabbar/golib/cache/item"
 )
 
-type cache[T any] struct {
+// cc is the internal implementation of the Cache interface.
+// It uses a thread-safe map to store cache items with automatic expiration.
+type cc[K comparable, V any] struct {
 	context.Context
 
-	w sync.RWMutex
-	m sync.Map
-	c chan struct{}
-	e time.Duration
+	n context.CancelFunc                      // cancel function for the cache context
+	v libatm.MapTyped[K, cchitm.CacheItem[V]] // thread-safe map storing cache items
+	e time.Duration                           // expiration duration for cache items
 }
 
-func (t *cache[T]) ticker(exp time.Duration) {
-	ticker := time.NewTicker(exp)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			t.expire()
-
-		case <-t.Done():
-			t.Clean()
-			return
-
-		case <-t.c:
-			t.Clean()
-			return
-		}
+// Clone creates a new independent copy of the cache with the same items.
+// The new cache uses the provided context and is not affected by changes to the original cache.
+func (o *cc[K, V]) Clone(ctx context.Context) (Cache[K, V], error) {
+	if e := o.Err(); e != nil {
+		return nil, e
 	}
-}
 
-func (t *cache[T]) expire() {
-	t.w.RLock()
-	defer t.w.RUnlock()
-
-	exp := t.e
-
-	t.m.Range(func(key, value any) bool {
-		if v, _ := parse(value, exp); v == nil {
-			t.m.Delete(key)
-		}
-		return true
-	})
-}
-
-func (t *cache[T]) Clone(ctx context.Context, exp time.Duration) Cache[T] {
-	t.w.RLock()
-	defer t.w.RUnlock()
-
+	var cnl context.CancelFunc
 	if ctx == nil {
-		ctx = t.Context
+		ctx = context.WithoutCancel(o.Context)
 	}
+	ctx, cnl = context.WithCancel(ctx)
 
-	if exp < time.Microsecond {
-		exp = t.e
-	}
-
-	n := &cache[T]{
+	n := &cc[K, V]{
 		Context: ctx,
-		w:       sync.RWMutex{},
-		m:       sync.Map{},
-		c:       make(chan struct{}),
-		e:       exp,
+
+		n: cnl,
+		v: libatm.NewMapTyped[K, cchitm.CacheItem[V]](),
+		e: o.e,
 	}
 
-	t.m.Range(func(key any, val interface{}) bool {
-		n.Store(key, val)
+	o.Walk(func(k K, v V, _ time.Duration) bool {
+		n.Store(k, v)
 		return true
 	})
 
-	go n.ticker(exp)
-
-	return n
+	return n, nil
 }
 
-func (t *cache[T]) Close() {
-	t.c <- struct{}{}
-}
+// Merge adds all items from the provided cache into the current cache.
+// Items are copied with their current expiration times reset.
+func (o *cc[K, V]) Merge(c Cache[K, V]) {
+	c.Walk(func(key K, val V, exp time.Duration) bool {
+		if o.Err() != nil {
+			return false
+		} else if i, l := o.v.Load(key); l {
+			i.Clean()
+		}
 
-func (t *cache[T]) Clean() {
-	t.w.Lock()
-	defer t.w.Unlock()
-
-	t.m = sync.Map{}
-}
-
-func (t *cache[T]) Merge(c Cache[T]) {
-	t.w.RLock()
-	defer t.w.RUnlock()
-
-	c.Walk(func(key any, val interface{}, exp time.Duration) bool {
-		t.m.Store(key, &cacheItem{
-			t: time.Now().Add(-exp),
-			v: nil,
-		})
+		o.v.Store(key, cchitm.New[V](o.e, val))
 		return true
 	})
+
+	if o.Err() != nil {
+		o.Clean()
+	}
 }
 
-func (t *cache[T]) Walk(fct func(key any, val interface{}, exp time.Duration) bool) {
-	t.w.RLock()
-	defer t.w.RUnlock()
-
-	exp := t.e
-
-	t.m.Range(func(key, value any) bool {
-		if v, e := parse(value, exp); v == nil {
-			t.m.Delete(key)
+// Walk iterates over all valid (non-expired) items in the cache.
+// The provided function is called for each item with its key, value, and remaining time.
+// If the function returns false, iteration stops early.
+func (o *cc[K, V]) Walk(fct func(K, V, time.Duration) bool) {
+	o.v.Range(func(key K, val cchitm.CacheItem[V]) bool {
+		if o.Err() != nil {
+			return false
+		} else if v, r, k := val.LoadRemain(); !k {
+			o.v.Delete(key)
 			return true
 		} else {
-			return fct(key, v, e)
+			return fct(key, v, r)
 		}
 	})
+
+	if o.Err() != nil {
+		o.Clean()
+	}
 }
 
-func (t *cache[T]) Load(key any) (val interface{}, exp time.Duration, ok bool) {
-	t.w.RLock()
-	defer t.w.RUnlock()
+// Load retrieves the value for the given key from the cache.
+// Returns the value, remaining expiration time, and a boolean indicating if the value was found and valid.
+// Expired items are automatically removed during this operation.
+func (o *cc[K, V]) Load(key K) (V, time.Duration, bool) {
+	var zero V
 
-	var o any
-
-	if o, ok = t.m.Load(key); !ok {
-		return nil, 0, false
-	} else if val, exp = parse(o, t.e); val == nil {
-		t.m.Delete(key)
-		return nil, 0, false
+	if o.Err() != nil {
+		o.Clean()
+	} else if i, l := o.v.Load(key); !l {
+		o.v.Delete(key)
+	} else if v, r, k := i.LoadRemain(); !k {
+		o.v.Delete(key)
 	} else {
-		return val, exp, true
-	}
-}
-
-func (t *cache[T]) Store(key any, val interface{}) time.Duration {
-	i := store(val)
-	e := time.Now()
-
-	t.w.RLock()
-	defer t.w.RUnlock()
-
-	t.m.Store(key, i)
-	return t.e - time.Since(e)
-}
-
-func (t *cache[T]) Delete(key any) {
-	t.m.LoadAndDelete(key)
-}
-
-func (t *cache[T]) LoadOrStore(key any, val interface{}) (res interface{}, exp time.Duration, loaded bool) {
-	if res, exp, loaded = t.Load(key); !loaded {
-		exp = t.Store(key, val)
-		return val, exp, false
+		return v, r, true
 	}
 
-	return res, exp, loaded
+	return zero, 0, false
 }
 
-func (t *cache[T]) LoadAndDelete(key any) (val interface{}, loaded bool) {
-	if val, _, loaded = t.Load(key); !loaded {
-		return nil, false
-	}
-
-	t.w.RLock()
-	defer t.w.RUnlock()
-
-	t.m.Delete(key)
-	return val, loaded
+// Store saves the given value in the cache with the specified key.
+// The item will expire after the duration set when the cache was created.
+func (o *cc[K, V]) Store(key K, val V) {
+	o.v.Store(key, cchitm.New[V](o.e, val))
 }
 
-func (t *cache[T]) Deadline() (deadline time.Time, ok bool) {
-	return t.Context.Deadline()
+// Delete removes the item with the given key from the cache.
+func (o *cc[K, V]) Delete(key K) {
+	o.v.Delete(key)
 }
 
-func (t *cache[T]) Done() <-chan struct{} {
-	return t.Context.Done()
-}
+// LoadOrStore loads the value for the given key if it exists and is valid.
+// If the key doesn't exist or has expired, it stores the provided value.
+// Returns the actual value (either existing or newly stored), remaining time, and whether the value was loaded (true) or stored (false).
+func (o *cc[K, V]) LoadOrStore(key K, val V) (V, time.Duration, bool) {
+	var zero V
 
-func (t *cache[T]) Err() error {
-	return t.Context.Err()
-}
-
-func (t *cache[T]) Value(key any) any {
-	if v, _, ok := t.Load(key); ok {
-		return v
+	if o.Err() != nil {
+		o.Clean()
+	} else if i, l := o.v.LoadOrStore(key, cchitm.New[V](o.e, val)); !l {
+	} else if v, r, k := i.LoadRemain(); !k {
+		o.v.Store(key, cchitm.New[V](o.e, val))
 	} else {
-		return t.Context.Value(key)
+		return v, r, true
 	}
+
+	return zero, 0, false
+}
+
+// LoadAndDelete retrieves the value for the given key and removes it from the cache atomically.
+// Returns the value and a boolean indicating if the value was found and valid.
+func (o *cc[K, V]) LoadAndDelete(key K) (V, bool) {
+	var zero V
+
+	if o.Err() != nil {
+		o.Clean()
+	} else if i, l := o.v.LoadAndDelete(key); !l {
+	} else if v, k := i.Load(); !k {
+		o.v.Delete(key)
+	} else {
+		return v, true
+	}
+
+	return zero, false
+}
+
+// Swap replaces the value for the given key with the new value and returns the old value.
+// Returns the old value, its remaining expiration time, and whether the old value was found and valid.
+func (o *cc[K, V]) Swap(key K, val V) (V, time.Duration, bool) {
+	var zero V
+
+	if o.Err() != nil {
+		o.Clean()
+	}
+
+	i, l := o.v.Load(key)
+	o.v.Store(key, cchitm.New[V](o.e, val))
+
+	if l {
+		if v, r, k := i.LoadRemain(); k {
+			o.v.Store(key, cchitm.New[V](o.e, val))
+			return v, r, true
+		}
+	}
+
+	return zero, 0, false
 }

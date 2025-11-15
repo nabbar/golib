@@ -31,16 +31,24 @@ import (
 	ginsdk "github.com/gin-gonic/gin"
 )
 
+// headers is the internal implementation of the Headers interface.
 type headers struct {
-	head http.Header
+	head http.Header // Underlying HTTP header map
 }
 
+// Clone creates a shallow copy of the headers instance.
+// Note: The underlying http.Header map is shared, so modifications
+// to one instance will affect the cloned instance.
 func (h headers) Clone() Headers {
 	return &headers{
 		head: h.head,
 	}
 }
 
+// Register creates a handler chain with the Header middleware first.
+// This ensures that headers are applied before any route handlers execute.
+//
+// Returns a slice of handlers that can be used with Gin's routing methods.
 func (h headers) Register(router ...ginsdk.HandlerFunc) []ginsdk.HandlerFunc {
 	res := make([]ginsdk.HandlerFunc, 0)
 	res = append(res, h.Handler)
@@ -49,6 +57,9 @@ func (h headers) Register(router ...ginsdk.HandlerFunc) []ginsdk.HandlerFunc {
 	return res
 }
 
+// Header returns a map of all configured headers.
+// Each header key is mapped to its first value.
+// Returns an empty map if no headers are configured.
 func (h headers) Header() map[string]string {
 	res := make(map[string]string)
 
@@ -63,6 +74,9 @@ func (h headers) Header() map[string]string {
 	return res
 }
 
+// Handler is the Gin middleware that applies headers to the response.
+// It iterates through all configured headers and sets them on the Gin context.
+// If no headers are configured, this is a no-op.
 func (h headers) Handler(c *ginsdk.Context) {
 	if h.head == nil {
 		return
@@ -73,8 +87,14 @@ func (h headers) Handler(c *ginsdk.Context) {
 	}
 }
 
-// Add adds the key, value pair to the header.
-// It appends to any existing values associated with key.
+// Add adds a value to the header.
+// If the header already exists, the value is appended to the existing values.
+// Header names are canonicalized using textproto.CanonicalMIMEHeaderKey.
+//
+// Example:
+//
+//	headers.Add("Set-Cookie", "session=abc")
+//	headers.Add("Set-Cookie", "token=xyz")
 func (h *headers) Add(key, value string) {
 	if h.head == nil {
 		h.head = make(http.Header)
@@ -83,9 +103,13 @@ func (h *headers) Add(key, value string) {
 	h.head.Add(key, value)
 }
 
-// Set sets the header entries associated with key to
-// the single element value. It replaces any existing
-// values associated with key.
+// Set replaces all values for the header with the given value.
+// Any existing values are discarded.
+// Header names are canonicalized using textproto.CanonicalMIMEHeaderKey.
+//
+// Example:
+//
+//	headers.Set("Content-Type", "application/json")
 func (h *headers) Set(key, value string) {
 	if h.head == nil {
 		h.head = make(http.Header)
@@ -94,12 +118,16 @@ func (h *headers) Set(key, value string) {
 	h.head.Set(key, value)
 }
 
-// Get gets the first value associated with the given key.
-// It is case insensitive; textproto.CanonicalMIMEHeaderKey is used
-// to canonicalize the provided key.
-// If there are no values associated with the key, Get returns "".
-// To access multiple values of a key, or to use non-canonical keys,
-// access the map directly.
+// Get returns the first value associated with the given header key.
+// Header names are case-insensitive.
+// Returns empty string if the header doesn't exist.
+//
+// To access multiple values or use non-canonical keys, access the
+// underlying http.Header map directly.
+//
+// Example:
+//
+//	contentType := headers.Get("Content-Type")
 func (h headers) Get(key string) string {
 	if h.head == nil {
 		h.head = make(http.Header)
@@ -108,7 +136,12 @@ func (h headers) Get(key string) string {
 	return h.head.Get(key)
 }
 
-// Del deletes the values associated with key.
+// Del removes all values associated with the given header key.
+// Header names are canonicalized using textproto.CanonicalMIMEHeaderKey.
+//
+// Example:
+//
+//	headers.Del("X-Deprecated-Header")
 func (h *headers) Del(key string) {
 	if h.head == nil {
 		h.head = make(http.Header)
