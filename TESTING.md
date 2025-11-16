@@ -1,11 +1,11 @@
 # Testing Guide
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.22-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-2800%2B%20Specs-green)]()
-[![Coverage](https://img.shields.io/badge/Coverage-82.5%25-brightgreen)]()
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://golang.org/)
+[![Tests](https://img.shields.io/badge/Tests-10145%2B%20Specs-green)]()
+[![Test Files](https://img.shields.io/badge/Test%20Files-677-blue)]()
 
-Comprehensive testing documentation for the golib library, covering test execution, coverage analysis, race detection, package statistics, and best practices across all 38+ packages.
+Comprehensive testing documentation for the golib library, covering test execution, coverage analysis, race detection, package statistics, and best practices across all 50+ packages.
 
 ---
 
@@ -32,13 +32,14 @@ Comprehensive testing documentation for the golib library, covering test executi
 The golib library uses **Ginkgo v2** (BDD testing framework) and **Gomega** (matcher library) for comprehensive testing across all packages. Each package includes thorough test coverage with a focus on thread safety, performance, and edge cases.
 
 **Repository-Wide Statistics**
-- **Total Packages**: 38+ specialized packages
-- **Total Test Specs**: 2,800+ test specifications
-- **Average Coverage**: 82.5% across all packages
-- **High Coverage Packages**: 15+ with ≥90% coverage
-- **Race Detection**: ✅ Zero data races detected
-- **Test Duration**: ~3 minutes (standard), ~7 minutes (with race)
-- **Go Version**: 1.22+
+- **Total Packages**: 50+ specialized packages
+- **Total Test Specs**: 10,145 test specifications
+- **Test Files**: 677 test files across codebase
+- **Tested Packages**: 156 packages with test coverage
+- **High Coverage Packages**: 20+ with ≥90% coverage
+- **Race Detection**: ✅ Race detector validated
+- **Test Duration**: ~5 minutes (standard), ~10 minutes (with race)
+- **Go Version**: 1.25+
 - **Platforms**: Linux, macOS, Windows
 
 **Testing Philosophy**
@@ -259,8 +260,8 @@ Read at 0x... by goroutine ...
 
 ### Coverage Summary
 
-**Repository Target**: ≥80% statement coverage  
-**Current Average**: 82.5%
+**Repository Target**: ≥80% statement coverage for core packages  
+**Note**: Coverage varies by package complexity and testability
 
 ### Coverage by Category
 
@@ -365,16 +366,16 @@ go tool cover -func=coverage.out | sort -k3 -t: -rn
 
 | Test Type | Duration | Command | Notes |
 |-----------|----------|---------|-------|
-| **Standard Run** | ~3 min | `go test -timeout=10m ./...` | All 2,800+ specs |
-| **With Race** | ~7 min | `CGO_ENABLED=1 go test -race -timeout=10m ./...` | Required before PR |
+| **Standard Run** | ~5 min | `go test -timeout=10m ./...` | All 10,145 specs |
+| **With Race** | ~10 min | `CGO_ENABLED=1 go test -race -timeout=10m ./...` | Required before PR |
 | **Single Package** | <10s | `go test ./logger/...` | Most packages |
-| **Coverage Report** | ~4 min | `go test -cover -covermode=atomic ./...` | Generates coverage data |
-| **Parallel (Ginkgo)** | ~2 min | `ginkgo -r -p` | Faster with parallel execution |
+| **Coverage Report** | ~6 min | `go test -cover -covermode=atomic ./...` | Generates coverage data |
+| **Parallel (Ginkgo)** | ~3 min | `ginkgo -r -p` | Faster with parallel execution |
 
 **Typical Workflow** (Development):
-1. Quick test during development: ~3 minutes
-2. Race detection before commit: ~7 minutes
-3. Full coverage + race in CI: ~10 minutes total
+1. Quick test during development: ~5 minutes
+2. Race detection before commit: ~10 minutes
+3. Full coverage + race in CI: ~15 minutes total
 
 ---
 
@@ -862,7 +863,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.22', '1.23']
+        go-version: ['1.25']
     
     steps:
       - uses: actions/checkout@v4
@@ -993,5 +994,5 @@ Before submitting code:
 
 ---
 
-**Version**: Go 1.22+ on Linux, macOS, Windows  
+**Version**: Go 1.25+ on Linux, macOS, Windows  
 **Maintained By**: golib Contributors

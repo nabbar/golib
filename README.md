@@ -1,7 +1,7 @@
 # golib
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.22-blue)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://golang.org/)
 [![Go](https://github.com/nabbar/golib/workflows/Go/badge.svg)](https://github.com/nabbar/golib/actions)
 [![GoDoc](https://pkg.go.dev/badge/github.com/nabbar/golib)](https://pkg.go.dev/github.com/nabbar/golib)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nabbar/golib)](https://goreportcard.com/report/github.com/nabbar/golib)
@@ -53,13 +53,14 @@ Comprehensive Go library collection providing production-ready packages for clou
 
 ### Repository Statistics
 
-- **Packages**: 38+ specialized packages
-- **Test Specs**: 2,800+ test specifications (Ginkgo v2)
-- **Coverage**: 82.5% average across all packages
-- **Go Version**: 1.22+
+- **Packages**: 50+ specialized packages
+- **Test Specs**: 10,145 test specifications (Ginkgo v2)
+- **Test Files**: 677 test files
+- **Test Packages**: 156 tested packages
+- **Go Version**: 1.25+
 - **Platforms**: Linux, macOS, Windows
 - **CI/CD**: GitHub Actions with race detection
-- **Zero Data Races**: ✅ Validated across all packages
+- **Thread Safety**: ✅ Race detector validated
 
 ---
 
@@ -96,7 +97,7 @@ go get github.com/nabbar/golib/errors
 
 ### Requirements
 
-- **Go**: 1.22 or higher
+- **Go**: 1.25 or higher
 - **CGO**: Required for race detection (`CGO_ENABLED=1`)
 - **Build Tools**: gcc/clang for race detector
 - **Platforms**: Linux, macOS, Windows (amd64, arm64, 386)
@@ -168,7 +169,7 @@ golib/
 | **[router](router/README.md)** | Gin router extensions with auth, headers | 91.4% | [README](router/README.md) |
 | **[network](network/README.md)** | Network utilities, protocol handling | 98.7% | [README](network/README.md) |
 | **[socket](socket/README.md)** | TCP, UDP, Unix socket clients and servers | 70-85% | [README](socket/README.md) |
-| **[request](request/README.md)** | HTTP request builders and utilities | - | - |
+| **request** | HTTP request builders and utilities | - | - |
 
 ### Data Management
 
@@ -209,9 +210,9 @@ golib/
 |---------|-------------|----------|---------------|
 | **[cobra](cobra/README.md)** | Cobra CLI framework extensions | High | [README](cobra/README.md) |
 | **[console](console/README.md)** | Terminal output with colors, formatting | 60.9% | [README](console/README.md) |
-| **[shell](shell/README.md)** | Shell command helpers and prompts | - | - |
+| **shell** | Shell command helpers and prompts | - | - |
 | **[retro](retro/README.md)** | Retro-compatibility utilities | 84.2% | [README](retro/README.md) |
-| **[pprof](pprof/README.md)** | Profiling utilities | - | - |
+| **pprof** | Profiling utilities | - | - |
 
 ### Security & Communication
 
@@ -220,13 +221,14 @@ golib/
 | **[certificates](certificates/README.md)** | TLS certificate management, CA operations | High | [README](certificates/README.md) |
 | **[password](password/README.md)** | Secure password generation with complexity rules | 84.6% | [README](password/README.md) |
 | **[ldap](ldap/README.md)** | LDAP client and authentication | - | [README](ldap/README.md) |
-| **[oauth](oauth/README.md)** | OAuth client implementation | - | - |
-| **[mail](mail/README.md)** | Email composition and sending | High | [README](mail/README.md) |
-| **[mailer](mailer/README.md)** | Email service abstraction | High | [README](mailer/README.md) |
-| **[mailPooler](mailPooler/README.md)** | Pooled email sending | High | [README](mailPooler/README.md) |
-| **[smtp](smtp/README.md)** | SMTP client with TLS support | High | - |
+| **oauth** | OAuth client implementation | - | - |
+| **[mail](mail/README.md)** | Email composition and sending with SMTP | High | [README](mail/README.md) |
+| **[mail/queuer](mail/queuer/README.md)** | Rate-limited SMTP client wrapper | 90.8% | [README](mail/queuer/README.md) |
+| **[mail/render](mail/render/README.md)** | HTML email template rendering | High | [README](mail/render/README.md) |
+| **[mail/sender](mail/sender/README.md)** | Email composition and sending | High | [README](mail/sender/README.md) |
+| **[mail/smtp](mail/smtp/README.md)** | SMTP client with TLS support | High | [README](mail/smtp/README.md) |
 | **[ftpclient](ftpclient/README.md)** | FTP client implementation | High | [README](ftpclient/README.md) |
-| **[nats](nats/README.md)** | NATS messaging client | - | - |
+| **nats** | NATS messaging client | - | - |
 
 ### Concurrency & Control
 
@@ -234,7 +236,7 @@ golib/
 |---------|-------------|----------|---------------|
 | **[semaphore](semaphore/README.md)** | Semaphores with progress bars | 98%+ | [README](semaphore/README.md) |
 | **[runner](runner/README.md)** | Background task runners with start/stop, ticker | 88-90% | [README](runner/README.md) |
-| **[pidcontroller](pidcontroller/README.md)** | PID controller implementation | - | - |
+| **pidcontroller** | PID controller implementation | - | - |
 
 ---
 
@@ -261,7 +263,7 @@ golib/
 | Logger writes | ~1M logs/s | Buffered | logger |
 | Email queuing | ~1-3K msg/s | Pooled | mail/queuer |
 
-*Benchmarked on: AMD64, Go 1.22, SSD storage*
+*Benchmarked on: AMD64, Go 1.25, SSD storage*
 
 ### Concurrency Performance
 
@@ -424,12 +426,13 @@ go tool cover -html=coverage.out -o coverage.html
 
 ### Repository Test Statistics
 
-- **Total Packages**: 38+ specialized packages
-- **Test Specifications**: 2,800+ specs (Ginkgo v2)
-- **Average Coverage**: 82.5% across all packages
-- **High Coverage Packages**: 15+ packages with ≥90% coverage
-- **Race Detection**: ✅ Zero data races detected
-- **Test Duration**: ~3 minutes (standard), ~7 minutes (with race)
+- **Total Packages**: 50+ specialized packages
+- **Test Specifications**: 10,145+ specs (Ginkgo v2)
+- **Test Files**: 677 test files
+- **Tested Packages**: 156 packages
+- **High Coverage Packages**: 20+ packages with ≥90% coverage
+- **Race Detection**: ✅ Race detector validated
+- **Test Duration**: ~5 minutes (standard), ~10 minutes (with race)
 
 ### Coverage Highlights
 
@@ -723,4 +726,4 @@ MIT License - See [LICENSE](LICENSE) file for details.
 ---
 
 **Maintained by**: golib Contributors  
-**Version**: Go 1.22+ on Linux, macOS, Windows
+**Version**: Go 1.25+ on Linux, macOS, Windows
