@@ -32,7 +32,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -60,11 +59,11 @@ func (o *srv) getSocketFile() (string, error) {
 // Returns the configured permissions or 0770 as default if parsing fails.
 // Uses github.com/nabbar/golib/file/perm for permission parsing.
 // This is an internal helper used by getListen().
-func (o *srv) getSocketPerm() os.FileMode {
+func (o *srv) getSocketPerm() libprm.Perm {
 	if p, e := libprm.ParseInt64(o.sp.Load()); e != nil {
-		return os.FileMode(0770)
+		return libprm.Perm(0770)
 	} else {
-		return p.FileMode()
+		return p
 	}
 }
 
@@ -118,73 +117,6 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 	}
 
 	return unixFile, nil
-}
-
-// getListen creates and configures the Unix datagram socket listener.
-//
-// The function:
-//  1. Sets umask to apply configured permissions
-//  2. Creates the Unix datagram socket with net.ListenUnixgram() (SOCK_DGRAM)
-//  3. Verifies and corrects file permissions with os.Chmod() if needed
-//  4. Changes file group ownership with os.Chown() if needed
-//  5. Invokes the server info callback with startup message
-//
-// The umask is temporarily modified to ensure correct permissions are applied
-// during socket creation, then restored to the original value.
-//
-// Parameters:
-//   - uxf: Unix socket file path
-//   - adr: Resolved UnixAddr for the socket
-//
-// Returns:
-//   - *net.UnixConn: The active Unix datagram connection (connectionless)
-//   - error: Any error during socket creation or configuration
-//
-// Unlike connection-oriented Unix sockets, this creates a SOCK_DGRAM socket
-// which operates in connectionless datagram mode.
-//
-// This is an internal helper called by Listen().
-//
-// See syscall.Umask, os.Chmod, os.Chown for permission management.
-// See net.ListenUnixgram for datagram socket creation.
-func (o *srv) getListen(uxf string, adr *net.UnixAddr) (*net.UnixConn, error) {
-	var (
-		err error
-		prm = o.getSocketPerm()
-		grp = o.getSocketGroup()
-		old int
-		inf fs.FileInfo
-		lis *net.UnixConn
-	)
-
-	old = syscall.Umask(int(prm))
-	defer func() {
-		syscall.Umask(old)
-	}()
-
-	if lis, err = net.ListenUnixgram(libptc.NetworkUnixGram.Code(), adr); err != nil {
-		return nil, err
-	} else if inf, err = os.Stat(uxf); err != nil {
-		_ = lis.Close()
-		return nil, err
-	} else if inf.Mode() != prm {
-		if err = os.Chmod(uxf, prm); err != nil {
-			_ = lis.Close()
-			return nil, err
-		}
-	}
-
-	if stt, ok := inf.Sys().(*syscall.Stat_t); ok {
-		if int(stt.Gid) != grp {
-			if err = os.Chown(uxf, syscall.Getuid(), grp); err != nil {
-				_ = lis.Close()
-				return nil, err
-			}
-		}
-	}
-
-	o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUnixGram.String(), uxf)
-	return lis, nil
 }
 
 // Listen starts the Unix datagram socket server and begins accepting datagrams.

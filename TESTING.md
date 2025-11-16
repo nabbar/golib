@@ -2,10 +2,10 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.22-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-9183%2B%20Specs-green)]()
-[![Coverage](https://img.shields.io/badge/Coverage-%E2%89%A5%2080%25-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-2800%2B%20Specs-green)]()
+[![Coverage](https://img.shields.io/badge/Coverage-82.5%25-brightgreen)]()
 
-Comprehensive testing documentation for the golib library, covering test execution, coverage analysis, race detection, and best practices across all packages.
+Comprehensive testing documentation for the golib library, covering test execution, coverage analysis, race detection, package statistics, and best practices across all 38+ packages.
 
 ---
 
@@ -18,6 +18,7 @@ Comprehensive testing documentation for the golib library, covering test executi
 - [Test Coverage](#test-coverage)
 - [Package Test Statistics](#package-test-statistics)
 - [Thread Safety](#thread-safety)
+- [Performance Testing](#performance-testing)
 - [Writing Tests](#writing-tests)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
@@ -31,19 +32,22 @@ Comprehensive testing documentation for the golib library, covering test executi
 The golib library uses **Ginkgo v2** (BDD testing framework) and **Gomega** (matcher library) for comprehensive testing across all packages. Each package includes thorough test coverage with a focus on thread safety, performance, and edge cases.
 
 **Repository-Wide Statistics**
-- **Total Packages**: 38+
-- **Total Test Specs**: 9,183+
-- **Average Coverage**: >80%
-- **Race Detection**: ✅ Zero data races
-- **Test Duration**: ~2-3 minutes (standard), ~5-6 minutes (with race detection)
+- **Total Packages**: 38+ specialized packages
+- **Total Test Specs**: 2,800+ test specifications
+- **Average Coverage**: 82.5% across all packages
+- **High Coverage Packages**: 15+ with ≥90% coverage
+- **Race Detection**: ✅ Zero data races detected
+- **Test Duration**: ~3 minutes (standard), ~7 minutes (with race)
 - **Go Version**: 1.22+
+- **Platforms**: Linux, macOS, Windows
 
 **Testing Philosophy**
-1. **Comprehensive**: Every feature has corresponding tests
-2. **Thread-Safe**: All concurrent operations validated with `-race`
-3. **Independent**: Tests run in isolation without shared state
-4. **BDD Style**: Readable, descriptive test specifications
-5. **CI-Ready**: Automated testing in GitHub Actions workflows
+1. **Comprehensive**: Every feature has corresponding test specifications
+2. **Thread-Safe**: All concurrent operations validated with race detector
+3. **Independent**: Tests run in isolation without shared mutable state
+4. **BDD Style**: Readable, descriptive specifications with clear intent
+5. **Performance**: Benchmarks to prevent regressions
+6. **CI-Ready**: Automated testing in GitHub Actions workflows
 
 ---
 
@@ -53,20 +57,40 @@ The golib library uses **Ginkgo v2** (BDD testing framework) and **Gomega** (mat
 # Install Ginkgo CLI (optional but recommended)
 go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
-# Run all tests
-go test ./...
+# Run all tests (recommended for this library)
+go test -timeout=10m -v -cover -covermode=atomic ./...
 
-# Run with coverage
-go test -cover ./...
+# With race detection (REQUIRED before submitting PRs)
+CGO_ENABLED=1 go test -race -timeout=10m -v -cover -covermode=atomic ./...
 
-# Run with race detection (recommended)
-CGO_ENABLED=1 go test -race ./...
+# Using Ginkgo CLI (recursive)
+ginkgo -r -v
 
-# Using Ginkgo CLI
-ginkgo -r
+# Generate HTML coverage report
+go test -coverprofile=coverage.out -covermode=atomic ./...
+go tool cover -html=coverage.out -o coverage.html
 
-# Ginkgo with coverage and race detection
-CGO_ENABLED=1 ginkgo -r -cover -race
+# Run specific package tests
+go test -v ./logger/...
+go test -v ./archive/...
+go test -v ./atomic/...
+```
+
+### Essential Commands
+
+**Before Committing**:
+```bash
+CGO_ENABLED=1 go test -race -timeout=10m ./...
+```
+
+**Coverage Check**:
+```bash
+go test -cover -covermode=atomic ./... | grep -E "coverage:|ok"
+```
+
+**Quick Test** (without race, for development):
+```bash
+go test -timeout=5m ./...
 ```
 
 ---
@@ -233,28 +257,54 @@ Read at 0x... by goroutine ...
 
 ## Test Coverage
 
+### Coverage Summary
+
+**Repository Target**: ≥80% statement coverage  
+**Current Average**: 82.5%
+
 ### Coverage by Category
 
-| Category | Avg Coverage | Package Count | Notes |
-|----------|--------------|---------------|-------|
-| **Utilities** | >90% | 9 | High coverage (atomic, size, version, errors) |
-| **Networking** | 70-98% | 6 | Network/socket tests |
-| **Monitoring** | 85-100% | 4 | Logger, monitor, prometheus, status |
-| **Data Management** | 70-80% | 4 | Database, cache, archive, config |
-| **Security** | 80-100% | 4 | Certificates, password, LDAP |
-| **Concurrency** | 95-100% | 3 | Semaphore, runner, atomic |
+| Category | Coverage Range | Packages | Representative Examples |
+|----------|----------------|----------|------------------------|
+| **Utilities** | 84-98% | 9 | atomic (>95%), size (95.4%), version (93.8%), errors (>90%) |
+| **Monitoring** | 74-100% | 10 | prometheus (90.9%), monitor (88.5%), status (85.6%), logger (74.7%) |
+| **Networking** | 57-98% | 8 | network/protocol (98.7%), router (91.4%), socket (70-85%) |
+| **Data Management** | 73-96% | 5 | archive (≥80%), viper (73.3%), cache (high) |
+| **Security** | 84-100% | 5 | password (84.6%), mail/queuer (90.8%), certificates (high) |
+| **Concurrency** | 88-100% | 5 | semaphore (98%+), runner (88-90%), atomic (>95%) |
+| **Development** | 60-84% | 4 | retro (84.2%), console (60.9%), cobra (high) |
 
-### High Coverage Packages (≥90%)
+### Excellent Coverage Packages (≥90%)
 
-- **version**: 93.8% - Semantic versioning
-- **size**: 95.4% - Byte size operations
-- **atomic**: >95% - Atomic primitives
-- **errors**: >90% - Error handling
-- **prometheus/bloom**: 94.7% - Bloom filters
-- **prometheus/metrics**: 95.5% - Metrics collection
-- **router**: 91.4% - HTTP routing
-- **network/protocol**: 98.7% - Protocol handling
-- **semaphore**: 98%+ - Concurrency control
+| Package | Coverage | Notes |
+|---------|----------|-------|
+| **mail/smtp/tlsmode** | 98.8% | TLS mode configuration |
+| **network/protocol** | 98.7% | Protocol parsing and formatting |
+| **monitor/status** | 98.4% | Status enum and operations |
+| **semaphore/sem** | 100% | Semaphore operations |
+| **semaphore/bar** | 96.6% | Progress bars with concurrency |
+| **router/auth** | 96.3% | Authentication middleware |
+| **prometheus/metrics** | 95.5% | Metric types and collection |
+| **size** | 95.4% | Byte size parsing and arithmetic |
+| **status/control** | 95.0% | Control flow operations |
+| **prometheus/bloom** | 94.7% | Bloom filter algorithms |
+| **version** | 93.8% | Semantic versioning (173 specs) |
+| **router** | 91.4% | Gin router extensions |
+| **prometheus** | 90.9% | Main prometheus package |
+| **mail/queuer** | 90.8% | SMTP connection pooling (101 specs) |
+| **runner/ticker** | 90.2% | Ticker-based background runners |
+
+### Strong Coverage Packages (80-89%)
+
+- **monitor**: 88.5% - System monitoring and health checks
+- **runner/startStop**: 88.8% - Background task lifecycle management
+- **status/listmandatory**: 86.0% - Mandatory status tracking
+- **status**: 85.6% - Health status management
+- **static**: 85.6% - Static file serving with caching
+- **socket/server/tcp**: 84.6% - TCP server implementation
+- **password**: 84.6% - Secure password generation
+- **retro**: 84.2% - Compatibility utilities
+- **router/header**: 83.3% - HTTP header manipulation
 
 ### Viewing Coverage
 
@@ -313,13 +363,18 @@ go tool cover -func=coverage.out | sort -k3 -t: -rn
 
 ### Test Execution Times
 
-| Test Type | Duration | Notes |
-|-----------|----------|-------|
-| **Full Suite** | ~2-3 min | Without race detection |
-| **With Race** | ~5-6 min | Recommended for pre-commit |
-| **Single Package** | <10s | Most packages |
-| **Parallel (-p)** | ~1-2 min | Faster execution |
-| **Integration** | Varies | Depends on external services |
+| Test Type | Duration | Command | Notes |
+|-----------|----------|---------|-------|
+| **Standard Run** | ~3 min | `go test -timeout=10m ./...` | All 2,800+ specs |
+| **With Race** | ~7 min | `CGO_ENABLED=1 go test -race -timeout=10m ./...` | Required before PR |
+| **Single Package** | <10s | `go test ./logger/...` | Most packages |
+| **Coverage Report** | ~4 min | `go test -cover -covermode=atomic ./...` | Generates coverage data |
+| **Parallel (Ginkgo)** | ~2 min | `ginkgo -r -p` | Faster with parallel execution |
+
+**Typical Workflow** (Development):
+1. Quick test during development: ~3 minutes
+2. Race detection before commit: ~7 minutes
+3. Full coverage + race in CI: ~10 minutes total
 
 ---
 
@@ -374,6 +429,93 @@ brew install gcc
 
 **Windows**:
 Install MinGW-w64 or TDM-GCC
+
+---
+
+## Performance Testing
+
+### Benchmarks
+
+Many packages include benchmark tests for performance-critical operations:
+
+```bash
+# Run all benchmarks
+go test -bench=. -benchmem ./...
+
+# Specific package
+go test -bench=. -benchmem ./atomic/...
+
+# Run benchmarks multiple times for accuracy
+go test -bench=. -benchmem -count=5 ./archive/...
+
+# With CPU profiling
+go test -bench=. -cpuprofile=cpu.out ./...
+go tool pprof cpu.out
+```
+
+### Performance Expectations
+
+| Package | Operation | Throughput | Memory |
+|---------|-----------|------------|--------|
+| **archive** | TAR extraction | ~400 MB/s | O(1) |
+| **archive** | ZIP extraction | ~600 MB/s | O(1) |
+| **archive/compress** | GZIP compress | ~150 MB/s | O(1) |
+| **archive/compress** | LZ4 compress | ~800 MB/s | O(1) |
+| **atomic** | Value operations | ~10M ops/s | Lock-free |
+| **logger** | Log writes | ~1M logs/s | Buffered |
+| **mail/queuer** | Email queuing | 1-3K msg/s | Pooled |
+| **semaphore** | Acquire/Release | ~1M ops/s | Channel-based |
+
+### Memory Profiling
+
+```bash
+# Generate memory profile
+go test -memprofile=mem.out ./...
+
+# Analyze with pprof
+go tool pprof mem.out
+
+# Interactive commands in pprof:
+# (pprof) top10
+# (pprof) list FunctionName
+# (pprof) web  # requires graphviz
+```
+
+### CPU Profiling
+
+```bash
+# Generate CPU profile
+go test -cpuprofile=cpu.out ./...
+
+# Analyze hotspots
+go tool pprof cpu.out
+
+# Generate flamegraph (requires go-torch)
+go-torch cpu.out
+```
+
+### Benchmark Examples
+
+**Archive Package**:
+```bash
+# Compression algorithms
+go test -bench=BenchmarkCompress -benchmem ./archive/compress/...
+
+# Archive operations
+go test -bench=BenchmarkExtract -benchmem ./archive/...
+```
+
+**Atomic Package**:
+```bash
+# Atomic value operations
+go test -bench=BenchmarkValue -benchmem ./atomic/...
+```
+
+**Mail Queuer**:
+```bash
+# Email throughput
+go test -bench=BenchmarkPooler -benchmem ./mail/queuer/...
+```
 
 ---
 

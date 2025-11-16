@@ -26,12 +26,13 @@
  *
  */
 
-// This file provides stub implementations for non-Linux platforms.
-// Unix domain datagram sockets are Linux-specific, so this file prevents build errors
-// on other operating systems by providing minimal interface definitions that return nil.
+// This file provides stub implementations for non-Linux, non-Darwin platforms.
+// Unix domain datagram sockets are specific to Linux and Darwin (macOS), so this file
+// prevents build errors on other operating systems by providing minimal interface
+// definitions that return nil.
 //
-// For actual Unix datagram socket server functionality, use Linux systems where the
-// full implementation is available (see interface.go, model.go, listener.go).
+// For actual Unix datagram socket server functionality, use Linux or Darwin systems
+// where the full implementation is available (see interface.go, model.go, listener.go).
 
 package unixgram
 
@@ -44,18 +45,24 @@ import (
 // maxGID defines the maximum allowed Unix group ID value (32767).
 const maxGID = 32767
 
-// ServerUnixGram is a stub interface for non-Linux platforms.
-// On Linux, this interface extends libsck.Server with Unix datagram socket-specific methods.
+// ServerUnixGram is a stub interface for non-Linux, non-Darwin platforms.
+// On Linux and Darwin, this interface extends libsck.Server with Unix datagram socket-specific methods.
 type ServerUnixGram interface {
 	libsck.Server
 	// RegisterSocket would configure the Unix socket file path, permissions, and group.
-	// On non-Linux platforms, this is a no-op stub.
+	// On non-Linux, non-Darwin platforms, this is a no-op stub.
 	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
 }
 
-// New returns nil on non-Linux platforms.
-// Unix domain datagram sockets are only supported on Linux.
-// On Linux systems, this creates a functional Unix datagram socket server.
-func New(h libsck.Handler) ServerUnixGram {
+// New returns nil on non-Linux, non-Darwin platforms.
+// Unix domain datagram sockets are only supported on Linux and Darwin (macOS).
+// On supported systems, this creates a functional Unix datagram socket server.
+//
+// Parameters:
+//   - u: Optional UpdateConn callback (unused on unsupported platforms)
+//   - h: Handler function (unused on unsupported platforms)
+//
+// See github.com/nabbar/golib/socket/server/unixgram.New for the full implementation.
+func New(u libsck.UpdateConn, h libsck.Handler) ServerUnixGram {
 	return nil
 }

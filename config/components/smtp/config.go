@@ -29,8 +29,8 @@ package smtp
 import (
 	"fmt"
 
+	smtpcf "github.com/nabbar/golib/mail/smtp/config"
 	libmon "github.com/nabbar/golib/monitor/types"
-	smtpcf "github.com/nabbar/golib/smtp/config"
 	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"

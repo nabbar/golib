@@ -83,7 +83,10 @@ func createAndRegisterServer(path string, handler libsck.Handler) libsck.Server 
 }
 
 func startServer(ctx context.Context, srv libsck.Server) {
-	go func() { defer GinkgoRecover(); _ = srv.Listen(ctx) }()
+	go func() {
+		defer GinkgoRecover()
+		_ = srv.Listen(ctx)
+	}()
 }
 
 func waitForServerRunning(srv libsck.Server, timeout time.Duration) {

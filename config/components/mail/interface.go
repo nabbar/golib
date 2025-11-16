@@ -34,7 +34,7 @@ import (
 	libcfg "github.com/nabbar/golib/config"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	libmail "github.com/nabbar/golib/mail"
+	libmail "github.com/nabbar/golib/mail/sender"
 )
 
 type CptMail interface {

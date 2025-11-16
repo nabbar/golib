@@ -37,18 +37,24 @@ import (
 // maxGID defines the maximum allowed Unix group ID value (32767).
 const maxGID = 32767
 
-// ServerUnix is a stub interface for non-Linux platforms.
-// On Linux, this interface extends libsck.Server with Unix socket-specific methods.
+// ServerUnix is a stub interface for non-Linux, non-Darwin platforms.
+// On Linux and Darwin, this interface extends libsck.Server with Unix socket-specific methods.
 type ServerUnix interface {
 	libsck.Server
 	// RegisterSocket would configure the Unix socket file path, permissions, and group.
-	// On non-Linux platforms, this is a no-op stub.
+	// On non-Linux, non-Darwin platforms, this is a no-op stub.
 	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
 }
 
-// New returns nil on non-Linux platforms.
-// Unix domain sockets are only supported on Linux.
-// On Linux systems, this creates a functional Unix socket server.
-func New(h libsck.Handler) ServerUnix {
+// New returns nil on non-Linux, non-Darwin platforms.
+// Unix domain sockets are only supported on Linux and Darwin (macOS).
+// On supported systems, this creates a functional Unix socket server.
+//
+// Parameters:
+//   - u: Optional UpdateConn callback (unused on unsupported platforms)
+//   - h: Handler function (unused on unsupported platforms)
+//
+// See github.com/nabbar/golib/socket/server/unix.New for the full implementation.
+func New(u libsck.UpdateConn, h libsck.Handler) ServerUnix {
 	return nil
 }

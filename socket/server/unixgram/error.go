@@ -50,7 +50,7 @@
 //   - OpenConnections() returns 1 when running, 0 when stopped
 //   - No per-client state maintained
 //
-// Platform support: Linux only (see ignore.go for non-Linux platforms).
+// Platform support: Linux and Darwin (macOS). See ignore.go for other platforms.
 //
 // See github.com/nabbar/golib/socket for the Server interface definition.
 // See github.com/nabbar/golib/socket/server/unix for connection-oriented Unix sockets.
