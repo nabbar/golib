@@ -29,7 +29,7 @@ package smtp
 import (
 	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
-	libsmtp "github.com/nabbar/golib/smtp"
+	libsmtp "github.com/nabbar/golib/mail/smtp"
 )
 
 type mod struct {

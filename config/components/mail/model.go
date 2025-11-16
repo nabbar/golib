@@ -31,7 +31,7 @@ import (
 
 	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
-	libmail "github.com/nabbar/golib/mail"
+	libmail "github.com/nabbar/golib/mail/sender"
 )
 
 type mod struct {

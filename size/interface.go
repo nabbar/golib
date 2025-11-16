@@ -25,25 +25,113 @@
  *
  **********************************************************************************************************************/
 
+// Package size provides types and utilities for handling human-readable size representations.
+//
+// This package implements the Size type which represents a size in bytes and provides
+// convenient methods for parsing, formatting, and manipulating size values. It supports
+// binary unit prefixes (KiB, MiB, GiB, etc.) using powers of 1024.
+//
+// The Size type can be marshaled and unmarshaled to/from various formats including JSON,
+// YAML, TOML, CBOR, and plain text. It also integrates with Viper for configuration management.
+//
+// # Basic Usage
+//
+// Parse a size string:
+//
+//	size, err := size.Parse("10MB")
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+// Format a size:
+//
+//	size := size.ParseUint64(1048576)
+//	fmt.Println(size.String()) // Output: "1.00 MB"
+//
+// Arithmetic operations:
+//
+//	size := size.ParseUint64(1024)
+//	size.Mul(2.0)  // Multiply by 2
+//	size.Add(512)  // Add 512 bytes
+//
+// # Units
+//
+// The package supports the following binary units (powers of 1024):
+//   - B  (Byte)      = 1
+//   - KB (Kilobyte)  = 1024
+//   - MB (Megabyte)  = 1024²
+//   - GB (Gigabyte)  = 1024³
+//   - TB (Terabyte)  = 1024⁴
+//   - PB (Petabyte)  = 1024⁵
+//   - EB (Exabyte)   = 1024⁶
+//
+// # Thread Safety
+//
+// The Size type is a simple uint64 wrapper and is safe to copy by value.
+// Methods that modify the Size value use pointer receivers.
+//
+// # See Also
+//
+// For handling durations in a similar manner, see:
+//   - github.com/nabbar/golib/duration
+//   - github.com/nabbar/golib/duration/big (for durations requiring arbitrary precision)
 package size
 
 import "math"
 
+// Size represents a size in bytes.
+//
+// The Size type is a uint64 wrapper that provides convenient methods for parsing,
+// formatting, and manipulating size values. All arithmetic operations protect against
+// overflow and underflow.
+//
+// Example:
+//
+//	size := size.ParseUint64(1048576) // 1 MB
+//	fmt.Println(size.String())         // Output: "1.00 MB"
+//	fmt.Println(size.MegaBytes())      // Output: 1
 type Size uint64
 
 const (
-	SizeNul  Size = 0
+	// SizeNul represents zero bytes.
+	SizeNul Size = 0
+
+	// SizeUnit represents one byte (1 B).
 	SizeUnit Size = 1
+
+	// SizeKilo represents one kilobyte (1 KB = 1024 bytes).
 	SizeKilo Size = 1 << 10
+
+	// SizeMega represents one megabyte (1 MB = 1024² bytes).
 	SizeMega Size = 1 << 20
+
+	// SizeGiga represents one gigabyte (1 GB = 1024³ bytes).
 	SizeGiga Size = 1 << 30
+
+	// SizeTera represents one terabyte (1 TB = 1024⁴ bytes).
 	SizeTera Size = 1 << 40
+
+	// SizePeta represents one petabyte (1 PB = 1024⁵ bytes).
 	SizePeta Size = 1 << 50
-	SizeExa  Size = 1 << 60
+
+	// SizeExa represents one exabyte (1 EB = 1024⁶ bytes).
+	SizeExa Size = 1 << 60
 )
 
+// defUnit is the default unit character used when formatting size values.
+// It can be changed using SetDefaultUnit.
 var defUnit = 'B'
 
+// SetDefaultUnit sets the default unit character used when formatting size values.
+//
+// The unit parameter should be a single character (e.g., 'B' for Byte, 'o' for octet).
+// If unit is 0 or an empty string, it defaults to 'B'.
+//
+// Example:
+//
+//	size.SetDefaultUnit('o')  // Use 'o' (octet) instead of 'B'
+//	size := size.ParseUint64(1024)
+//	fmt.Println(size.Unit(0)) // Output: "Ko" instead of "KB"
 func SetDefaultUnit(unit rune) {
 	if unit == 0 {
 		defUnit = 'B'
@@ -98,6 +186,14 @@ func ParseByte(p []byte) (Size, error) {
 	return parseBytes(p)
 }
 
+// ParseUint64 converts a uint64 value into a Size value.
+//
+// This is the most efficient way to create a Size from a known byte count.
+//
+// Example:
+//
+//	size := size.ParseUint64(1048576) // 1 MB
+//	fmt.Println(size.MegaBytes())      // Output: 1
 func ParseUint64(s uint64) Size {
 	return Size(s)
 }

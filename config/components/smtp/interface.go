@@ -34,7 +34,7 @@ import (
 	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
-	lbsmtp "github.com/nabbar/golib/smtp"
+	lbsmtp "github.com/nabbar/golib/mail/smtp"
 )
 
 type CptSMTP interface {

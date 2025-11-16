@@ -33,8 +33,17 @@ import (
 	"strings"
 )
 
-// Based on ParseDuration from time package
+// The parsing logic is based on ParseDuration from the standard library's time package.
+// It supports flexible parsing of size strings with various unit representations.
 
+// unitMap defines the mapping of unit strings to their byte multipliers.
+//
+// The map supports multiple variations of each unit to provide flexibility:
+//   - Single letter units (case-insensitive): b/B, k/K, m/M, g/G, t/T, p/P
+//   - Two-letter units with various capitalizations: kb/Kb/kB/KB, mb/Mb/mB/MB, etc.
+//
+// Note: Single 'e' and 'E' are not supported to prevent conflicts with scientific
+// notation (e.g., 1.23E45). Use 'eb', 'Eb', 'eB', or 'EB' for exabytes.
 var unitMap = map[string]uint64{
 	"B":  uint64(SizeUnit),
 	"b":  uint64(SizeUnit),
@@ -75,12 +84,37 @@ var unitMap = map[string]uint64{
 	"EB": uint64(SizeExa),
 }
 
+// parseBytes converts a byte slice to a Size by delegating to parseString.
+//
+// This is an internal helper function used by ParseByte and unmarshaling methods.
 func parseBytes(p []byte) (Size, error) {
 	return parseString(string(p))
 }
 
+// parseString parses a size string into a Size value.
+//
+// The function implements a flexible parser that accepts size strings in the format:
+//
+//	[-+]?([0-9]*(\.[0-9]*)?[a-z]+)+
+//
+// The parser supports:
+//   - Optional sign prefix: +/- (negative values return an error)
+//   - Integer and decimal numbers: 10, 10.5, .5
+//   - Multiple size components: "1GB500MB" (parsed as 1GB + 500MB)
+//   - Various unit representations (see unitMap)
+//   - Quoted strings: "10MB", '10MB'
+//   - Whitespace trimming
+//
+// Examples of valid inputs:
+//   - "10MB"
+//   - "1.5GB"
+//   - "100"
+//   - "1GB500MB"
+//   - " 10 MB " (whitespace trimmed)
+//
+// This is an internal function. Use Parse or ParseByte for public API.
 func parseString(s string) (Size, error) {
-	// [-+]?([0-9]*(\.[0-9]*)?[a-z]+)+
+	// Expected format: [-+]?([0-9]*(\.[0-9]*)?[a-z]+)+
 
 	var (
 		orig = s
@@ -98,7 +132,7 @@ func parseString(s string) (Size, error) {
 	s = strings.Trim(s, "'")
 	s = strings.TrimSpace(s)
 
-	// Consume [-+]?
+	// Consume optional sign prefix
 	if s != "" {
 		c := s[0]
 		if c == '-' || c == '+' {
@@ -107,7 +141,7 @@ func parseString(s string) (Size, error) {
 		}
 	}
 
-	// Special case: if all that is left is "0", this is zero.
+	// Validate that we have content to parse
 	if s == "" {
 		return 0, errInvalid
 	} else if neg {
@@ -122,20 +156,21 @@ func parseString(s string) (Size, error) {
 
 		var err error
 
-		// The next character must be [0-9.]
+		// Validate the next character is a digit or decimal point
 		if !(s[0] == '.' || '0' <= s[0] && s[0] <= '9') { // nolint
 			return 0, errInvalid
 		}
 
-		// Consume [0-9]*
+		// Parse the integer part of the number
 		pl := len(s)
 		v, s, err = leadingInt(s)
 		if err != nil {
 			return 0, errInvalid
 		}
-		pre := pl != len(s) // whether we consumed anything before a period
+		// Track if we consumed any digits before a decimal point
+		pre := pl != len(s)
 
-		// Consume (\.[0-9]*)?
+		// Parse the fractional part (if present)
 		post := false
 		if s != "" && s[0] == '.' {
 			s = s[1:]
@@ -148,7 +183,7 @@ func parseString(s string) (Size, error) {
 			return 0, errInvalid
 		}
 
-		// Consume unit.
+		// Extract and validate the unit string
 		i := 0
 
 		for ; i < len(s); i++ {
@@ -170,24 +205,26 @@ func parseString(s string) (Size, error) {
 			return 0, errUnkUnit
 		}
 
+		// Check for overflow before multiplication
 		if v > 1<<63/unit {
-			// overflow
 			return 0, errInvalid
 		}
 
+		// Multiply by unit and add fractional part
 		v *= unit
 		if f > 0 {
-			// float64 is needed to be nanosecond accurate for fractions of hours.
-			// v >= 0 && (f*unit/scale) <= 3.6e+12 (ns/h, h is the largest unit)
+			// Use float64 for fractional calculations to maintain precision
 			v += uint64(float64(f) * (float64(unit) / scale))
 
+			// Check for overflow after adding fractional part
 			if v > 1<<63 {
-				// overflow
 				return 0, errInvalid
 			}
 		}
+		// Accumulate the parsed value
 		d += v
 
+		// Check for overflow in total
 		if d > 1<<63 {
 			return 0, errInvalid
 		}
@@ -197,50 +234,85 @@ func parseString(s string) (Size, error) {
 
 }
 
-// leadingInt consumes the leading [0-9]* from s.
+// leadingInt parses and consumes the leading digits from a string.
+//
+// This is an internal helper function that extracts the integer part of a number.
+// It returns the parsed value, the remaining string, and an error if overflow occurs.
+//
+// Parameters:
+//   - s: The input string
+//
+// Returns:
+//   - x: The parsed uint64 value
+//   - rem: The remaining string after consuming digits
+//   - err: An error if the value overflows uint64
 func leadingInt(s string) (x uint64, rem string, err error) {
-	var errLeadingInt = errors.New("size: bad [0-9]*") // never printed
+	// Internal error (never exposed to user)
+	var errLeadingInt = errors.New("size: bad [0-9]*")
 
 	i := 0
 	for ; i < len(s); i++ {
 		c := s[i]
+		// Stop when we hit a non-digit character
 		if c < '0' || c > '9' {
 			break
 		}
+		// Check for overflow before multiplying by 10
 		if x > 1<<63/10 {
-			// overflow
 			return 0, "", errLeadingInt
 		}
+		// Accumulate the digit
 		x = x*10 + uint64(c) - '0'
+
+		// Check for overflow after adding digit
 		if x > 1<<63 {
-			// overflow
 			return 0, "", errLeadingInt
 		}
 	}
 	return x, s[i:], nil
 }
 
-// leadingFraction consumes the leading [0-9]* from s.
-// It is used only for fractions, so does not return an error on overflow,
-// it just stops accumulating precision.
+// leadingFraction parses and consumes the fractional digits from a string.
+//
+// This is an internal helper function that extracts the decimal part of a number.
+// Unlike leadingInt, this function does not return an error on overflow; instead,
+// it stops accumulating precision once overflow would occur. This is acceptable
+// for fractional parts since we only need finite precision.
+//
+// Parameters:
+//   - s: The input string (after the decimal point)
+//
+// Returns:
+//   - x: The parsed digits as a uint64 (without decimal point)
+//   - scale: The divisor to convert x back to a fraction (e.g., 100 for two digits)
+//   - rem: The remaining string after consuming digits
 func leadingFraction(s string) (x uint64, scale float64, rem string) {
 	i := 0
 	scale = 1
+	// Track overflow state
 	overflow := false
+
 	for ; i < len(s); i++ {
 		c := s[i]
+
+		// Stop when we hit a non-digit character
 		if c < '0' || c > '9' {
 			break
 		}
+		// Once overflow occurs, just skip remaining digits
 		if overflow {
 			continue
 		}
+
+		// Check for potential overflow
 		if x > (1<<63-1)/10 {
-			// It's possible for overflow to give a positive number, so take care.
 			overflow = true
 			continue
 		}
+		// Try to accumulate the digit
 		y := x*10 + uint64(c) - '0'
+
+		// Check if accumulation caused overflow
 		if y > 1<<63 {
 			overflow = true
 			continue

@@ -333,7 +333,7 @@ func (o *srv) getReadWriter(ctx context.Context, cnl context.CancelFunc, con net
 		if cr, ok := con.(*net.TCPConn); ok {
 			rw.Store(true)
 			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionCloseWrite)
-			return libsck.ErrorFilter(cr.CloseRead())
+			return libsck.ErrorFilter(cr.CloseWrite())
 		} else {
 			rc.Store(true)
 			rw.Store(true)

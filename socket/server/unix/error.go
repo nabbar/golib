@@ -42,7 +42,7 @@
 // Unix domain sockets provide inter-process communication (IPC) on the same host
 // with lower overhead than TCP sockets. They appear as special files in the filesystem.
 //
-// Platform support: Linux only (see ignore.go for non-Linux platforms).
+// Platform support: Linux and Darwin (macOS). See ignore.go for other platforms.
 //
 // See github.com/nabbar/golib/socket for the Server interface definition.
 package unix

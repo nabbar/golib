@@ -29,7 +29,7 @@ package mail
 import (
 	"fmt"
 
-	libmail "github.com/nabbar/golib/mail"
+	libmail "github.com/nabbar/golib/mail/sender"
 	libvpr "github.com/nabbar/golib/viper"
 	spfcbr "github.com/spf13/cobra"
 	spfvpr "github.com/spf13/viper"

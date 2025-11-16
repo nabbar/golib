@@ -28,7 +28,7 @@ package mail
 
 import (
 	cfgtps "github.com/nabbar/golib/config/types"
-	libmail "github.com/nabbar/golib/mail"
+	"github.com/nabbar/golib/mail/sender"
 	libvpr "github.com/nabbar/golib/viper"
 	spfvbr "github.com/spf13/viper"
 )
@@ -109,8 +109,8 @@ func (o *mod) _runCli() error {
 	var (
 		err error
 		prt = ErrorComponentReload
-		obj libmail.Mail
-		cfg *libmail.Config
+		obj sender.Mail
+		cfg *sender.Config
 	)
 
 	if !o.IsStarted() {
