@@ -1,6 +1,7 @@
 # Cobra Package
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://golang.org/)
 
 Production-ready wrapper around [spf13/cobra](https://github.com/spf13/cobra) for building professional CLI applications with enhanced features.
 

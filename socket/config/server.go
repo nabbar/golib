@@ -191,7 +191,7 @@ type ServerConfig struct {
 //   - Empty or malformed address
 //   - Address format mismatch with protocol (e.g., file path for TCP)
 //   - Invalid group permission (>32767) for Unix sockets
-//   - Handler is nil
+//   - HandlerFunc is nil
 //   - Address already in use (may not be detected until Listen())
 //   - Permission denied for privileged ports (<1024) or file paths
 //
@@ -240,7 +240,7 @@ type ServerConfig struct {
 //
 // See github.com/nabbar/golib/socket/server for server usage examples.
 // See github.com/nabbar/golib/socket.Server for the server interface.
-// See github.com/nabbar/golib/socket.Handler for handler signature.
-func (o ServerConfig) New(updateCon libsck.UpdateConn, handler libsck.Handler) (libsck.Server, error) {
+// See github.com/nabbar/golib/socket.HandlerFunc for handler signature.
+func (o ServerConfig) New(updateCon libsck.UpdateConn, handler libsck.HandlerFunc) (libsck.Server, error) {
 	return scksrv.New(updateCon, handler, o.Network, o.Address, o.PermFile, o.GroupPerm)
 }

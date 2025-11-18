@@ -122,7 +122,7 @@ import (
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func New(upd libsck.UpdateConn, handler libsck.Handler, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
+func New(upd libsck.UpdateConn, handler libsck.HandlerFunc, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
 	switch proto {
 	case libptc.NetworkUnix:
 		s := scksrx.New(upd, handler)

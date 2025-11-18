@@ -102,7 +102,7 @@ router/
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Router Package                        │
+│                    Router Package                       │
 │  RouterList, Middleware, DefaultGinInit()               │
 └──────────────┬──────────────┬──────────────┬────────────┘
                │              │              │
@@ -127,9 +127,9 @@ router/
 HTTP Request
      │
      ▼
-┌─────────────────┐
-│ GinLatencyContext│  ← Start timer
-└────────┬────────┘
+┌──────────────────┐
+│ GinLatencyContext│ ← Start timer
+└────────┬─────────┘
          │
          ▼
 ┌─────────────────┐

@@ -165,7 +165,7 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 //	    }
 //	}()
 //
-// See github.com/nabbar/golib/socket.Handler for handler function signature.
+// See github.com/nabbar/golib/socket.HandlerFunc for handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
 	var (
 		e error

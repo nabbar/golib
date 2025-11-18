@@ -106,6 +106,12 @@ func New(ctx context.Context, nbrSimultaneous int, progress bool, opt ...sdkmpb.
 		m *sdkmpb.Progress
 	)
 
+	if ctx == nil {
+		return nil
+	} else if ctx.Err() != nil {
+		return nil
+	}
+
 	if progress {
 		m = sdkmpb.New(opt...)
 	}

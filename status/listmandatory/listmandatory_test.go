@@ -403,7 +403,7 @@ var _ = Describe("ListMandatory", func() {
 			}
 
 			Expect(wg.WaitAll()).ToNot(HaveOccurred())
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(time.Second)
 
 			Expect(len(list.GetList())).To(Equal(100))
 			Expect(list.Len()).To(Equal(100))

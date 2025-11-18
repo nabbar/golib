@@ -76,7 +76,7 @@ type ServerTcp interface {
 //   - u: Optional UpdateConn callback invoked when a new connection is accepted,
 //     before the handler is called. Can be used to set connection options
 //     (e.g., TCP keepalive, buffer sizes). Pass nil if not needed.
-//   - h: Required Handler function that processes each connection.
+//   - h: Required HandlerFunc function that processes each connection.
 //     Receives Reader and Writer interfaces for the connection.
 //     The handler runs in its own goroutine per connection.
 //
@@ -98,9 +98,9 @@ type ServerTcp interface {
 // The server is safe for concurrent use and manages connection lifecycle,
 // including graceful shutdown and connection draining.
 //
-// See github.com/nabbar/golib/socket.Handler and socket.UpdateConn for
+// See github.com/nabbar/golib/socket.HandlerFunc and socket.UpdateConn for
 // callback function signatures.
-func New(u libsck.UpdateConn, h libsck.Handler) ServerTcp {
+func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerTcp {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 

@@ -1,6 +1,7 @@
 # Testing Guide - Certificates Package
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://golang.org/)
 
 Comprehensive testing documentation for the certificates package and subpackages.
 

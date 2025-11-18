@@ -1,7 +1,7 @@
 # Archive Package
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://golang.org/)
 
 High-performance, streaming-first archive and compression library for Go with zero-copy streaming, thread-safe operations, and intelligent format detection.
 

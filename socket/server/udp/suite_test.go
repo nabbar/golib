@@ -83,7 +83,7 @@ var echoHandler = func(request libsck.Reader, response libsck.Writer) {
 }
 
 // createAndRegisterServer creates a UDP server with the given handler
-func createAndRegisterServer(address string, handler libsck.Handler, updateConn libsck.UpdateConn) libsck.Server {
+func createAndRegisterServer(address string, handler libsck.HandlerFunc, updateConn libsck.UpdateConn) libsck.Server {
 	srv := scksrv.New(updateConn, handler)
 	Expect(srv).ToNot(BeNil())
 

@@ -102,7 +102,7 @@ func (o *srv) getListen(addr string) (net.Listener, error) {
 // The method is safe to call only once per server instance. Calling it
 // multiple times concurrently will result in undefined behavior.
 //
-// See Conn() for per-connection handling and github.com/nabbar/golib/socket.Handler
+// See Conn() for per-connection handling and github.com/nabbar/golib/socket.HandlerFunc
 // for the handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
 	var (
@@ -205,7 +205,7 @@ func (o *srv) Listen(ctx context.Context) error {
 // by Listen() for each new connection.
 //
 // See getReadWriter() for the Reader/Writer implementation and
-// github.com/nabbar/golib/socket.Handler for the handler signature.
+// github.com/nabbar/golib/socket.HandlerFunc for the handler signature.
 func (o *srv) Conn(ctx context.Context, con net.Conn) {
 	var (
 		cnl context.CancelFunc

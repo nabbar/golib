@@ -112,7 +112,7 @@ import (
 //
 //	// UNIX sockets are not available on this platform
 //	_, err = New(nil, handler, protocol.NetworkUnix, "/tmp/app.sock", 0600, -1) // Returns error
-func New(upd libsck.UpdateConn, handler libsck.Handler, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
+func New(upd libsck.UpdateConn, handler libsck.HandlerFunc, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
 	switch proto {
 	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
 		s := scksrt.New(upd, handler)

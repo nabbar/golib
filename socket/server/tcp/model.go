@@ -59,14 +59,14 @@ func init() {
 // All fields use atomic types or are immutable after construction to ensure
 // thread safety without explicit locking.
 type srv struct {
-	ssl *atomic.Value     // TLS configuration (*tls.Config)
-	upd libsck.UpdateConn // Connection update callback (optional)
-	hdl libsck.Handler    // Connection handler function (required)
-	msg *atomic.Value     // Message channel (chan []byte)
-	stp *atomic.Value     // Stop listening channel (chan struct{})
-	rst *atomic.Value     // Reset/gone channel (chan struct{})
-	run *atomic.Bool      // Server is accepting connections flag
-	gon *atomic.Bool      // Server is draining connections flag
+	ssl *atomic.Value      // TLS configuration (*tls.Config)
+	upd libsck.UpdateConn  // Connection update callback (optional)
+	hdl libsck.HandlerFunc // Connection handler function (required)
+	msg *atomic.Value      // Message channel (chan []byte)
+	stp *atomic.Value      // Stop listening channel (chan struct{})
+	rst *atomic.Value      // Reset/gone channel (chan struct{})
+	run *atomic.Bool       // Server is accepting connections flag
+	gon *atomic.Bool       // Server is draining connections flag
 
 	fe *atomic.Value // Error callback (FuncError)
 	fi *atomic.Value // Connection info callback (FuncInfo)

@@ -77,7 +77,7 @@ type ServerUdp interface {
 //   - u: Optional UpdateConn callback invoked when the UDP socket is created.
 //     Can be used to set socket options (e.g., buffer sizes). Pass nil if not needed.
 //     Note: For UDP, this is called once per Listen(), not per datagram.
-//   - h: Required Handler function that processes each datagram.
+//   - h: Required HandlerFunc function that processes each datagram.
 //     Receives Reader and Writer interfaces for the datagram.
 //     The handler runs in its own goroutine for each Listen() call.
 //
@@ -101,9 +101,9 @@ type ServerUdp interface {
 // The server is safe for concurrent use and manages lifecycle properly.
 // Unlike TCP, UDP servers maintain no per-client state.
 //
-// See github.com/nabbar/golib/socket.Handler and socket.UpdateConn for
+// See github.com/nabbar/golib/socket.HandlerFunc and socket.UpdateConn for
 // callback function signatures.
-func New(u libsck.UpdateConn, h libsck.Handler) ServerUdp {
+func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerUdp {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 

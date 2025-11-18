@@ -42,7 +42,7 @@
 //	cfg := config.NewServer().
 //	    Network(config.NetworkTCP).
 //	    Address(":8080").
-//	    Handler(myHandler)
+//	    HandlerFunc(myHandler)
 //
 //	server, err := cfg.Build(ctx)
 //	if err != nil {
@@ -129,7 +129,7 @@ func (c ConnState) String() string {
 	case ConnectionCloseRead:
 		return "Close Incoming Stream"
 	case ConnectionHandler:
-		return "Run Handler"
+		return "Run HandlerFunc"
 	case ConnectionWrite:
 		return "Write Outgoing Steam"
 	case ConnectionCloseWrite:
@@ -154,10 +154,14 @@ type FuncInfoSrv func(msg string)
 // This is useful for logging, monitoring, and debugging connection lifecycles.
 type FuncInfo func(local, remote net.Addr, state ConnState)
 
-// Handler is a server-side callback function type for processing incoming requests.
+// HandlerFunc is a server-side callback function type for processing incoming requests.
 // It receives a Reader for reading the request and a Writer for sending the response.
 // The handler is responsible for reading the complete request and writing the complete response.
-type Handler func(request Reader, response Writer)
+type HandlerFunc func(request Reader, response Writer)
+
+type Handler interface {
+	HandlerSck(request Reader, response Writer)
+}
 
 // UpdateConn is a callback function type for modifying a net.Conn before it is used.
 // This allows for custom connection configuration such as setting timeouts, buffer sizes,
