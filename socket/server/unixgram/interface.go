@@ -98,7 +98,7 @@ type ServerUnixGram interface {
 //   - u: Optional UpdateConn callback invoked when the socket is created.
 //     Can be used to set socket options. Pass nil if not needed.
 //     Note: For datagram sockets, this is called once on Listen(), not per datagram.
-//   - h: Required Handler function that processes each datagram.
+//   - h: Required HandlerFunc function that processes each datagram.
 //     Receives Reader and Writer interfaces for the datagram.
 //     The handler runs in its own goroutine for the server's lifetime.
 //
@@ -133,9 +133,9 @@ type ServerUnixGram interface {
 //   - No connection state is maintained between datagrams
 //   - Sender addresses are tracked internally for replies
 //
-// See github.com/nabbar/golib/socket.Handler and socket.UpdateConn for
+// See github.com/nabbar/golib/socket.HandlerFunc and socket.UpdateConn for
 // callback function signatures.
-func New(u libsck.UpdateConn, h libsck.Handler) ServerUnixGram {
+func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerUnixGram {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 

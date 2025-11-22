@@ -106,7 +106,7 @@ func echoHandler(request libsck.Reader, response libsck.Writer) {
 }
 
 // delayHandler is a handler that delays before echoing
-func delayHandler(delay time.Duration) libsck.Handler {
+func delayHandler(delay time.Duration) libsck.HandlerFunc {
 	return func(request libsck.Reader, response libsck.Writer) {
 		defer func() {
 			_ = request.Close()
@@ -118,7 +118,7 @@ func delayHandler(delay time.Duration) libsck.Handler {
 }
 
 // countingHandler counts the number of calls
-func countingHandler(counter *atomic.Int32) libsck.Handler {
+func countingHandler(counter *atomic.Int32) libsck.HandlerFunc {
 	return func(request libsck.Reader, response libsck.Writer) {
 		defer func() {
 			_ = request.Close()
@@ -151,14 +151,14 @@ func closingHandler(request libsck.Reader, response libsck.Writer) {
 }
 
 // createServer creates a new TCP server with the given handler
-func createServer(handler libsck.Handler) scksrt.ServerTcp {
+func createServer(handler libsck.HandlerFunc) scksrt.ServerTcp {
 	srv := scksrt.New(nil, handler)
 	Expect(srv).ToNot(BeNil())
 	return srv
 }
 
 // createAndRegisterServer creates and registers a new TCP server
-func createAndRegisterServer(address string, handler libsck.Handler) scksrt.ServerTcp {
+func createAndRegisterServer(address string, handler libsck.HandlerFunc) scksrt.ServerTcp {
 	srv := createServer(handler)
 	err := srv.RegisterServer(address)
 	Expect(err).ToNot(HaveOccurred())
@@ -297,7 +297,7 @@ func createTLSConfig() (serverConfig, clientConfig libtls.TLSConfig) {
 }
 
 // createTLSServer creates a TLS-enabled server
-func createTLSServer(address string, handler libsck.Handler) scksrt.ServerTcp {
+func createTLSServer(address string, handler libsck.HandlerFunc) scksrt.ServerTcp {
 	srv := createAndRegisterServer(address, handler)
 	err := srv.SetTLS(true, srvTLS)
 	Expect(err).ToNot(HaveOccurred())

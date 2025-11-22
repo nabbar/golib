@@ -68,13 +68,13 @@ func init() {
 // All fields use atomic types or are immutable after construction to ensure
 // thread safety without explicit locking.
 type srv struct {
-	upd libsck.UpdateConn // Connection update callback (optional, called per accepted connection)
-	hdl libsck.Handler    // Connection handler function (required)
-	msg *atomic.Value     // Message channel (chan []byte)
-	stp *atomic.Value     // Stop listening channel (chan struct{})
-	rst *atomic.Value     // Reset/Gone channel (chan struct{}) for connection draining
-	run *atomic.Bool      // Server is accepting connections flag
-	gon *atomic.Bool      // Server is draining/closing connections flag
+	upd libsck.UpdateConn  // Connection update callback (optional, called per accepted connection)
+	hdl libsck.HandlerFunc // Connection handler function (required)
+	msg *atomic.Value      // Message channel (chan []byte)
+	stp *atomic.Value      // Stop listening channel (chan struct{})
+	rst *atomic.Value      // Reset/Gone channel (chan struct{}) for connection draining
+	run *atomic.Bool       // Server is accepting connections flag
+	gon *atomic.Bool       // Server is draining/closing connections flag
 
 	fe *atomic.Value // Error callback (FuncError)
 	fi *atomic.Value // Connection info callback (FuncInfo)

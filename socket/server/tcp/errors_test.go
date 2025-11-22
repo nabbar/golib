@@ -116,7 +116,7 @@ var _ = Describe("TCP Server Error Handling", func() {
 		})
 	})
 
-	Describe("Invalid Handler Errors", func() {
+	Describe("Invalid HandlerFunc Errors", func() {
 		It("should return ErrInvalidHandler when handler is nil", func() {
 			srv := scksrv.New(nil, nil)
 			err := srv.RegisterServer(getTestAddress())
@@ -325,7 +325,7 @@ var _ = Describe("TCP Server Error Handling", func() {
 		})
 	})
 
-	Describe("Handler Panics", func() {
+	Describe("HandlerFunc Panics", func() {
 		It("should handle handler that panics gracefully", func() {
 			panicHandler := func(request libsck.Reader, response libsck.Writer) {
 				defer func() {

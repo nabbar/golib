@@ -110,7 +110,7 @@ func closingHandler(r libsck.Reader, w libsck.Writer) {
 }
 
 // countingHandler counts messages and stores in provided counter
-func countingHandler(counter *atomic.Int32) libsck.Handler {
+func countingHandler(counter *atomic.Int32) libsck.HandlerFunc {
 	return func(r libsck.Reader, w libsck.Writer) {
 		defer func() {
 			_ = r.Close()
@@ -168,14 +168,14 @@ func waitForClientConnected(cli sckclt.ClientUnix, timeout time.Duration) {
 }
 
 // createServer creates a UNIX datagram server with handler
-func createServer(handler libsck.Handler) scksrv.ServerUnixGram {
+func createServer(handler libsck.HandlerFunc) scksrv.ServerUnixGram {
 	srv := scksrv.New(nil, handler)
 	Expect(srv).ToNot(BeNil())
 	return srv
 }
 
 // createAndRegisterServer creates a server with socket path and handler
-func createAndRegisterServer(socketPath string, handler libsck.Handler) scksrv.ServerUnixGram {
+func createAndRegisterServer(socketPath string, handler libsck.HandlerFunc) scksrv.ServerUnixGram {
 	srv := scksrv.New(nil, handler)
 	Expect(srv).ToNot(BeNil())
 

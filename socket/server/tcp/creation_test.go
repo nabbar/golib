@@ -76,7 +76,7 @@ var _ = Describe("TCP Server Creation", func() {
 			It("should still create a server but fail on Listen", func() {
 				srv := scksrv.New(nil, nil)
 				Expect(srv).ToNot(BeNil())
-				// Handler validation happens during Listen
+				// HandlerFunc validation happens during Listen
 			})
 		})
 	})

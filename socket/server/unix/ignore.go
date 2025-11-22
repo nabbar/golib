@@ -52,9 +52,9 @@ type ServerUnix interface {
 //
 // Parameters:
 //   - u: Optional UpdateConn callback (unused on unsupported platforms)
-//   - h: Handler function (unused on unsupported platforms)
+//   - h: HandlerFunc function (unused on unsupported platforms)
 //
 // See github.com/nabbar/golib/socket/server/unix.New for the full implementation.
-func New(u libsck.UpdateConn, h libsck.Handler) ServerUnix {
+func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerUnix {
 	return nil
 }

@@ -104,7 +104,7 @@ func echoHandler(request libsck.Reader, response libsck.Writer) {
 }
 
 // delayHandler is a handler that delays before echoing
-func delayHandler(delay time.Duration) libsck.Handler {
+func delayHandler(delay time.Duration) libsck.HandlerFunc {
 	return func(request libsck.Reader, response libsck.Writer) {
 		defer func() {
 			_ = request.Close()
@@ -116,7 +116,7 @@ func delayHandler(delay time.Duration) libsck.Handler {
 }
 
 // countingHandler counts the number of calls
-func countingHandler(counter *atomic.Int32) libsck.Handler {
+func countingHandler(counter *atomic.Int32) libsck.HandlerFunc {
 	return func(request libsck.Reader, response libsck.Writer) {
 		defer func() {
 			_ = request.Close()
@@ -137,14 +137,14 @@ func errorHandler(request libsck.Reader, response libsck.Writer) {
 }
 
 // createServer creates a new TCP server with the given handler
-func createServer(handler libsck.Handler, upd libsck.UpdateConn) scksrv.ServerTcp {
+func createServer(handler libsck.HandlerFunc, upd libsck.UpdateConn) scksrv.ServerTcp {
 	srv := scksrv.New(upd, handler)
 	Expect(srv).ToNot(BeNil())
 	return srv
 }
 
 // createAndRegisterServer creates and registers a new TCP server
-func createAndRegisterServer(address string, handler libsck.Handler, upd libsck.UpdateConn) scksrv.ServerTcp {
+func createAndRegisterServer(address string, handler libsck.HandlerFunc, upd libsck.UpdateConn) scksrv.ServerTcp {
 	srv := createServer(handler, upd)
 	err := srv.RegisterServer(address)
 	Expect(err).ToNot(HaveOccurred())

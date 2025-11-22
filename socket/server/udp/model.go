@@ -64,11 +64,11 @@ func init() {
 // All fields use atomic types or are immutable after construction to ensure
 // thread safety without explicit locking.
 type srv struct {
-	upd libsck.UpdateConn // Connection update callback (optional, called once on socket creation)
-	hdl libsck.Handler    // Datagram handler function (required)
-	msg *atomic.Value     // Message channel (chan []byte)
-	stp *atomic.Value     // Stop listening channel (chan struct{})
-	run *atomic.Bool      // Server is accepting datagrams flag
+	upd libsck.UpdateConn  // Connection update callback (optional, called once on socket creation)
+	hdl libsck.HandlerFunc // Datagram handler function (required)
+	msg *atomic.Value      // Message channel (chan []byte)
+	stp *atomic.Value      // Stop listening channel (chan struct{})
+	run *atomic.Bool       // Server is accepting datagrams flag
 
 	fe *atomic.Value // Error callback (FuncError)
 	fi *atomic.Value // Datagram info callback (FuncInfo)

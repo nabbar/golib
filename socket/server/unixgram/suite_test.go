@@ -74,7 +74,7 @@ var echoHandler = func(r libsck.Reader, w libsck.Writer) {
 	_, _ = io.Copy(w, r)
 }
 
-func createAndRegisterServer(path string, handler libsck.Handler) libsck.Server {
+func createAndRegisterServer(path string, handler libsck.HandlerFunc) libsck.Server {
 	srv := scksrv.New(nil, handler)
 	Expect(srv).ToNot(BeNil())
 	err := srv.RegisterSocket(path, 0600, -1)

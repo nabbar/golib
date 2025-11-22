@@ -88,7 +88,7 @@ type ServerUnix interface {
 // Parameters:
 //   - u: Optional UpdateConn callback invoked for each accepted connection.
 //     Can be used to set socket options or track connections. Pass nil if not needed.
-//   - h: Required Handler function that processes each connection.
+//   - h: Required HandlerFunc function that processes each connection.
 //     Receives Reader and Writer interfaces for the connection.
 //     The handler runs in its own goroutine per connection.
 //
@@ -117,9 +117,9 @@ type ServerUnix interface {
 // The server is safe for concurrent use and manages connection lifecycle properly.
 // Connections persist until explicitly closed, unlike UDP.
 //
-// See github.com/nabbar/golib/socket.Handler and socket.UpdateConn for
+// See github.com/nabbar/golib/socket.HandlerFunc and socket.UpdateConn for
 // callback function signatures.
-func New(u libsck.UpdateConn, h libsck.Handler) ServerUnix {
+func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerUnix {
 	c := new(atomic.Value)
 	c.Store(make(chan []byte))
 

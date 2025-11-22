@@ -1,97 +1,122 @@
-# Testing Guide
+# Testing Documentation
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-10145%2B%20Specs-green)]()
-[![Test Files](https://img.shields.io/badge/Test%20Files-677-blue)]()
-
-Comprehensive testing documentation for the golib library, covering test execution, coverage analysis, race detection, package statistics, and best practices across all 50+ packages.
+Comprehensive testing guide for the `github.com/nabbar/golib` library and all its subpackages.
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
+- [Test Suite Statistics](#test-suite-statistics)
 - [Quick Start](#quick-start)
 - [Test Framework](#test-framework)
 - [Running Tests](#running-tests)
-- [Test Coverage](#test-coverage)
-- [Package Test Statistics](#package-test-statistics)
-- [Thread Safety](#thread-safety)
-- [Performance Testing](#performance-testing)
+  - [Basic Testing](#basic-testing)
+  - [Race Detection](#race-detection)
+  - [Coverage Analysis](#coverage-analysis)
+  - [Package-Specific Testing](#package-specific-testing)
+- [Coverage Report](#coverage-report)
+  - [High Coverage Packages](#high-coverage-packages)
+  - [Packages Needing Improvement](#packages-needing-improvement)
+  - [Untested Packages](#untested-packages)
 - [Writing Tests](#writing-tests)
+  - [Test Structure](#test-structure)
+  - [Ginkgo v2 Guidelines](#ginkgo-v2-guidelines)
+  - [Gomega Matchers](#gomega-matchers)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
 - [CI Integration](#ci-integration)
-- [Resources](#resources)
 
 ---
 
-## Overview
+## Test Suite Statistics
 
-The golib library uses **Ginkgo v2** (BDD testing framework) and **Gomega** (matcher library) for comprehensive testing across all packages. Each package includes thorough test coverage with a focus on thread safety, performance, and edge cases.
+**Latest Test Run Results** (from `./coverage-report.sh`):
 
-**Repository-Wide Statistics**
-- **Total Packages**: 50+ specialized packages
-- **Total Test Specs**: 10,145 test specifications
-- **Test Files**: 677 test files across codebase
-- **Tested Packages**: 156 packages with test coverage
-- **High Coverage Packages**: 20+ with ≥90% coverage
-- **Race Detection**: ✅ Race detector validated
-- **Test Duration**: ~5 minutes (standard), ~10 minutes (with race)
-- **Go Version**: 1.25+
-- **Platforms**: Linux, macOS, Windows
+```
+Total Packages:           165
+Packages with Tests:      126 (76.4%)
+Packages without Tests:   39 (23.6%)
 
-**Testing Philosophy**
-1. **Comprehensive**: Every feature has corresponding test specifications
-2. **Thread-Safe**: All concurrent operations validated with race detector
-3. **Independent**: Tests run in isolation without shared mutable state
-4. **BDD Style**: Readable, descriptive specifications with clear intent
-5. **Performance**: Benchmarks to prevent regressions
-6. **CI-Ready**: Automated testing in GitHub Actions workflows
+Test Specifications:      10,735
+Test Assertions:          21,048
+Benchmarks:               92
+Pending Tests:            18
+Skipped Tests:            0
+
+Average Coverage:         73.8%
+Packages ≥80%:            67/126 (53.2%)
+Packages at 100%:         14/126 (11.1%)
+
+Race Conditions:          0 (verified with CGO_ENABLED=1 go test -race)
+Thread Safety:            ✅ All concurrent operations validated
+```
+
+**Coverage Distribution:**
+
+| Range | Count | Percentage | Examples |
+|-------|-------|------------|----------|
+| 100% | 14 | 11.1% | errors/pool, logger/gorm, router/authheader, semaphore/sem |
+| 90-99% | 24 | 19.0% | atomic, version, size, prometheus/metrics |
+| 80-89% | 29 | 23.0% | ioutils, mail/queuer, context, runner |
+| 70-79% | 18 | 14.3% | cobra, viper, socket/client/* |
+| 60-69% | 10 | 7.9% | config, logger, database/kvmap |
+| <60% | 31 | 24.6% | archive, aws, httpserver |
 
 ---
 
 ## Quick Start
 
-```bash
-# Install Ginkgo CLI (optional but recommended)
-go install github.com/onsi/ginkgo/v2/ginkgo@latest
+### Running All Tests
 
-# Run all tests (recommended for this library)
+```bash
+# Standard test run (all packages)
+go test ./...
+
+# Verbose output with details
+go test -v ./...
+
+# With race detector (recommended)
+CGO_ENABLED=1 go test -race ./...
+
+# With coverage
+go test -cover ./...
+
+# Complete test suite (as used in CI)
 go test -timeout=10m -v -cover -covermode=atomic ./...
-
-# With race detection (REQUIRED before submitting PRs)
-CGO_ENABLED=1 go test -race -timeout=10m -v -cover -covermode=atomic ./...
-
-# Using Ginkgo CLI (recursive)
-ginkgo -r -v
-
-# Generate HTML coverage report
-go test -coverprofile=coverage.out -covermode=atomic ./...
-go tool cover -html=coverage.out -o coverage.html
-
-# Run specific package tests
-go test -v ./logger/...
-go test -v ./archive/...
-go test -v ./atomic/...
 ```
 
-### Essential Commands
+### Using Coverage Report Script
 
-**Before Committing**:
 ```bash
-CGO_ENABLED=1 go test -race -timeout=10m ./...
+# Run comprehensive coverage analysis
+./coverage-report.sh
+
+# Output includes:
+# - Coverage statistics per package
+# - Packages without tests
+# - Packages below 80% coverage
+# - Recommendations for improvement
 ```
 
-**Coverage Check**:
-```bash
-go test -cover -covermode=atomic ./... | grep -E "coverage:|ok"
-```
+### Expected Output
 
-**Quick Test** (without race, for development):
-```bash
-go test -timeout=5m ./...
+```
+Total Packages:       165
+Packages with Tests:  126
+Test Specifications:  10,735
+Average Coverage:     73.8%
+
+PACKAGES WITHOUT TESTS
+• archive/archive
+• aws/bucket
+• config/const
+• ...
+
+PACKAGES BELOW 80% COVERAGE
+• archive                     8.60%
+• artifact                   23.40%
+• aws                         5.40%
+• ...
 ```
 
 ---
@@ -100,680 +125,558 @@ go test -timeout=5m ./...
 
 ### Ginkgo v2
 
-**BDD Testing Framework** ([Documentation](https://onsi.github.io/ginkgo/))
+Behavior-driven development (BDD) testing framework used across all subpackages.
 
-- Hierarchical test organization (`Describe`, `Context`, `It`)
-- Setup/teardown hooks (`BeforeEach`, `AfterEach`, `BeforeSuite`, `AfterSuite`)
-- Parallel execution support
-- Rich CLI with filtering and focus
-- JUnit XML report generation
+**Key Features:**
+- Spec organization with `Describe`, `Context`, `It`
+- `BeforeEach` / `AfterEach` for setup/teardown
+- `BeforeAll` / `AfterAll` for suite-level setup
+- Ordered specs for sequential tests
+- Focused specs (`FIt`, `FContext`) for debugging
+- `Eventually` / `Consistently` for async assertions
+- Table-driven tests with `DescribeTable`
+
+**Installation:**
+```bash
+go install github.com/onsi/ginkgo/v2/ginkgo@latest
+```
+
+**Documentation:** [Ginkgo v2 Docs](https://onsi.github.io/ginkgo/)
 
 ### Gomega
 
-**Matcher Library** ([Documentation](https://onsi.github.io/gomega/))
+Matcher library for expressive assertions.
 
-- Readable assertion syntax
-- Extensive built-in matchers
-- Detailed failure messages
-- Async/Eventually support
-- Custom matcher creation
+**Common Matchers:**
+- `Expect(x).To(Equal(y))` - equality
+- `Expect(err).ToNot(HaveOccurred())` - error checking
+- `Expect(x).To(BeNumerically(">=", y))` - numeric comparison
+- `Expect(ch).To(BeClosed())` - channel state
+- `Eventually(func)` - async assertion
+- `Consistently(func)` - sustained assertion
 
-### Test Structure Example
+**Documentation:** [Gomega Docs](https://onsi.github.io/gomega/)
 
+### gmeasure
+
+Performance measurement for Ginkgo tests (used in several packages).
+
+**Usage Example:**
 ```go
-var _ = Describe("Component", func() {
-    var (
-        subject ComponentType
-        config  Config
-    )
+experiment := gmeasure.NewExperiment("Operation Name")
+AddReportEntry(experiment.Name, experiment)
 
-    BeforeEach(func() {
-        config = DefaultConfig()
-        subject = NewComponent(config)
+experiment.Sample(func(idx int) {
+    experiment.MeasureDuration("metric_name", func() {
+        // Code to measure
     })
+}, gmeasure.SamplingConfig{N: 100, Duration: 5 * time.Second})
 
-    AfterEach(func() {
-        subject.Close()
-    })
-
-    Context("When performing operation", func() {
-        It("should succeed with valid input", func() {
-            result, err := subject.Operation(validInput)
-            Expect(err).ToNot(HaveOccurred())
-            Expect(result).To(Equal(expectedValue))
-        })
-
-        It("should handle error cases", func() {
-            _, err := subject.Operation(invalidInput)
-            Expect(err).To(HaveOccurred())
-        })
-
-        It("should be thread-safe", func() {
-            var wg sync.WaitGroup
-            for i := 0; i < 100; i++ {
-                wg.Add(1)
-                go func() {
-                    defer wg.Done()
-                    subject.Operation(validInput)
-                }()
-            }
-            wg.Wait()
-        })
-    })
-})
+stats := experiment.GetStats("metric_name")
 ```
+
+**Packages Using gmeasure:**
+- ioutils/aggregator (performance benchmarks)
+- ioutils/multi (write operation metrics)
+- monitor/* (system metrics)
+
+**Documentation:** [gmeasure Package](https://pkg.go.dev/github.com/onsi/gomega/gmeasure)
 
 ---
 
 ## Running Tests
 
-### Standard Go Test
+### Basic Testing
 
 ```bash
-# Run all tests
+# Run all tests in all packages
 go test ./...
 
-# Verbose output
+# Verbose output (recommended for CI)
 go test -v ./...
 
-# Specific package
-go test ./logger/...
+# Run specific package
+go test ./logger
 
-# With timeout
-go test -timeout=10m ./...
+# Run with timeout (important for long-running tests)
+go test -timeout 5m ./...
 
-# Coverage
-go test -cover ./...
+# Skip long-running tests
+go test -short ./...
 
-# Coverage with atomic mode
-go test -covermode=atomic -coverprofile=coverage.out ./...
+# Run tests matching pattern
+go test -run TestLogger ./logger
 
-# Generate HTML coverage report
-go tool cover -html=coverage.out -o coverage.html
-```
-
-### Ginkgo CLI
-
-```bash
-# Run all tests recursively
-ginkgo -r
-
-# Verbose output
-ginkgo -r -v
-
-# Specific package
-ginkgo ./logger
-
-# Parallel execution
-ginkgo -r -p
-
-# With coverage
-ginkgo -r -cover
-
-# Focus on specific test
-ginkgo -r --focus="should handle errors"
-
-# Skip specific tests
-ginkgo -r --skip="integration"
-
-# JUnit XML report
-ginkgo -r --junit-report=results.xml
-
-# Progress reporting
-ginkgo -r --progress
+# With Ginkgo focus
+go test -ginkgo.focus="should handle concurrent writes" ./ioutils/aggregator
 ```
 
 ### Race Detection
 
-**Critical for concurrent code validation**
+**Critical for concurrency testing:**
 
 ```bash
-# With go test
+# Enable race detector (all packages)
 CGO_ENABLED=1 go test -race ./...
 
-# With Ginkgo
-CGO_ENABLED=1 ginkgo -r -race
-
-# With timeout for long-running tests
-CGO_ENABLED=1 go test -race -timeout=10m ./...
-```
-
-**Requirements**:
-- CGO must be enabled
-- Build tools installed (gcc/clang)
-- Adds ~2-3x execution time overhead
-- Detects data races at runtime
-
-**Expected Output**:
-```bash
-# ✅ Success (no races)
-ok  	github.com/nabbar/golib/atomic	2.345s
-
-# ❌ Race detected
-WARNING: DATA RACE
-Read at 0x... by goroutine ...
-```
-
----
-
-## Test Coverage
-
-### Coverage Summary
-
-**Repository Target**: ≥80% statement coverage for core packages  
-**Note**: Coverage varies by package complexity and testability
-
-### Coverage by Category
-
-| Category | Coverage Range | Packages | Representative Examples |
-|----------|----------------|----------|------------------------|
-| **Utilities** | 84-98% | 9 | atomic (>95%), size (95.4%), version (93.8%), errors (>90%) |
-| **Monitoring** | 74-100% | 10 | prometheus (90.9%), monitor (88.5%), status (85.6%), logger (74.7%) |
-| **Networking** | 57-98% | 8 | network/protocol (98.7%), router (91.4%), socket (70-85%) |
-| **Data Management** | 73-96% | 5 | archive (≥80%), viper (73.3%), cache (high) |
-| **Security** | 84-100% | 5 | password (84.6%), mail/queuer (90.8%), certificates (high) |
-| **Concurrency** | 88-100% | 5 | semaphore (98%+), runner (88-90%), atomic (>95%) |
-| **Development** | 60-84% | 4 | retro (84.2%), console (60.9%), cobra (high) |
-
-### Excellent Coverage Packages (≥90%)
-
-| Package | Coverage | Notes |
-|---------|----------|-------|
-| **mail/smtp/tlsmode** | 98.8% | TLS mode configuration |
-| **network/protocol** | 98.7% | Protocol parsing and formatting |
-| **monitor/status** | 98.4% | Status enum and operations |
-| **semaphore/sem** | 100% | Semaphore operations |
-| **semaphore/bar** | 96.6% | Progress bars with concurrency |
-| **router/auth** | 96.3% | Authentication middleware |
-| **prometheus/metrics** | 95.5% | Metric types and collection |
-| **size** | 95.4% | Byte size parsing and arithmetic |
-| **status/control** | 95.0% | Control flow operations |
-| **prometheus/bloom** | 94.7% | Bloom filter algorithms |
-| **version** | 93.8% | Semantic versioning (173 specs) |
-| **router** | 91.4% | Gin router extensions |
-| **prometheus** | 90.9% | Main prometheus package |
-| **mail/queuer** | 90.8% | SMTP connection pooling (101 specs) |
-| **runner/ticker** | 90.2% | Ticker-based background runners |
-
-### Strong Coverage Packages (80-89%)
-
-- **monitor**: 88.5% - System monitoring and health checks
-- **runner/startStop**: 88.8% - Background task lifecycle management
-- **status/listmandatory**: 86.0% - Mandatory status tracking
-- **status**: 85.6% - Health status management
-- **static**: 85.6% - Static file serving with caching
-- **socket/server/tcp**: 84.6% - TCP server implementation
-- **password**: 84.6% - Secure password generation
-- **retro**: 84.2% - Compatibility utilities
-- **router/header**: 83.3% - HTTP header manipulation
-
-### Viewing Coverage
-
-```bash
-# Generate coverage report
-go test -coverprofile=coverage.out ./...
-
-# View in terminal
-go tool cover -func=coverage.out
-
-# Generate HTML report
-go tool cover -html=coverage.out -o coverage.html
-
-# Open in browser (macOS)
-open coverage.html
-
-# Coverage by package
-go test -cover ./... | grep coverage
-
-# Detailed coverage with line numbers
-go test -coverprofile=coverage.out ./...
-go tool cover -func=coverage.out | sort -k3 -t: -rn
-```
-
----
-
-## Package Test Statistics
-
-### Complete Package Breakdown
-
-| Package | Specs | Coverage | Key Features Tested |
-|---------|-------|----------|---------------------|
-| **version** | 173 | 93.8% | Parsing, comparison, constraints, JSON/YAML |
-| **viper** | 104 | 73.3% | Configuration, cleaners, loaders |
-| **size** | 150+ | 95.4% | Parsing, formatting, arithmetic, conversions |
-| **atomic** | 100+ | >95% | Value operations, maps, concurrency |
-| **errors** | 200+ | >90% | Codes, tracing, hierarchy, pools |
-| **semaphore/bar** | 80+ | 96.6% | Progress bars, concurrency |
-| **semaphore/sem** | 60+ | 100% | Semaphore operations |
-| **router/auth** | 40+ | 96.3% | Authentication middleware |
-| **router/authheader** | 30+ | 100% | Header-based auth |
-| **monitor/info** | 60+ | 100% | System information |
-| **monitor/status** | 50+ | 98.4% | Status monitoring |
-| **prometheus/bloom** | 40+ | 94.7% | Bloom filter operations |
-| **prometheus/metrics** | 60+ | 95.5% | Metric collection |
-| **logger/gorm** | 20+ | 100% | GORM integration |
-| **logger/hookstderr** | 15+ | 100% | Stderr hook |
-| **logger/hookstdout** | 15+ | 100% | Stdout hook |
-| **runner/startStop** | 50+ | 88.8% | Start/stop lifecycle |
-| **runner/ticker** | 45+ | 90.2% | Ticker operations |
-| **status/control** | 40+ | 95.0% | Control operations |
-| **retro** | 60+ | 84.2% | Compatibility utilities |
-| **password** | 50+ | 84.6% | Password generation |
-| **network/protocol** | 40+ | 98.7% | Protocol handling |
-| **console** | 182 | 60.9% | Terminal formatting (limited by prompts) |
-
-### Test Execution Times
-
-| Test Type | Duration | Command | Notes |
-|-----------|----------|---------|-------|
-| **Standard Run** | ~5 min | `go test -timeout=10m ./...` | All 10,145 specs |
-| **With Race** | ~10 min | `CGO_ENABLED=1 go test -race -timeout=10m ./...` | Required before PR |
-| **Single Package** | <10s | `go test ./logger/...` | Most packages |
-| **Coverage Report** | ~6 min | `go test -cover -covermode=atomic ./...` | Generates coverage data |
-| **Parallel (Ginkgo)** | ~3 min | `ginkgo -r -p` | Faster with parallel execution |
-
-**Typical Workflow** (Development):
-1. Quick test during development: ~5 minutes
-2. Race detection before commit: ~10 minutes
-3. Full coverage + race in CI: ~15 minutes total
-
----
-
-## Thread Safety
-
-Thread safety is validated across all concurrent operations using Go's race detector.
-
-### Validated Components
-
-| Component | Mechanism | Status |
-|-----------|-----------|--------|
-| **atomic.Value** | `sync/atomic` | ✅ Race-free |
-| **atomic.Map** | `sync.Map` | ✅ Race-free |
-| **helper.bufNoEOF** | `sync.Mutex` + `atomic.Bool` | ✅ Race-free |
-| **archive/helper** | Goroutine sync | ✅ Parallel-safe |
-| **logger hooks** | Concurrent writes | ✅ Thread-safe |
-| **prometheus metrics** | Atomic counters | ✅ Lock-free |
-| **semaphore** | Channel-based | ✅ Race-free |
-| **cache items** | Mutex protection | ✅ Thread-safe |
-
-### Race Detection Commands
-
-```bash
-# Full suite with race detection
+# Verbose with race detection
 CGO_ENABLED=1 go test -race -v ./...
 
-# Specific package focus
-CGO_ENABLED=1 go test -race -v ./atomic/...
+# Full suite with race detection (CI command)
+CGO_ENABLED=1 go test -race -timeout=10m -v -cover -covermode=atomic ./...
 
-# With coverage
-CGO_ENABLED=1 go test -race -cover ./...
-
-# Stress test (run multiple times)
-for i in {1..10}; do
-    CGO_ENABLED=1 go test -race ./... || break
-done
+# Specific package with race detector
+CGO_ENABLED=1 go test -race ./ioutils/aggregator
 ```
 
-### Race Detector Setup
+**Note:** Race detector adds ~10x overhead. Some tests may take longer.
 
-**Ubuntu/Debian**:
+**Results:** Zero data races detected across all 10,735 specs.
+
+### Coverage Analysis
+
 ```bash
-sudo apt-get install build-essential
+# Coverage percentage for all packages
+go test -cover ./...
+
+# Coverage profile
+go test -coverprofile=coverage.out ./...
+
+# HTML coverage report
+go tool cover -html=coverage.out
+
+# Coverage by function
+go tool cover -func=coverage.out
+
+# Atomic coverage mode (for race detector)
+go test -covermode=atomic -coverprofile=coverage.out ./...
+
+# Per-package coverage
+go test -cover ./logger
+go test -cover ./ioutils/aggregator
+go test -cover ./mail/queuer
 ```
 
-**macOS**:
+### Package-Specific Testing
+
+**High-Coverage Packages:**
+
 ```bash
-xcode-select --install
-# or
-brew install gcc
+# ioutils (87.7% average, 772 specs)
+go test -v -cover ./ioutils/...
+
+# mail (89.0% average, 970 specs)
+go test -v -cover ./mail/...
+
+# errors (87.6%, 305 specs)
+go test -v -cover ./errors/...
+
+# version (93.8%, 173 specs)
+go test -v -cover ./version/...
 ```
 
-**Windows**:
-Install MinGW-w64 or TDM-GCC
+**Packages Needing More Tests:**
+
+```bash
+# archive (8.6%, 89 specs) - needs improvement
+go test -v -cover ./archive/...
+
+# aws (5.4%, 220 specs) - needs improvement
+go test -v -cover ./aws/...
+
+# httpserver (52.5%, 84 specs) - moderate coverage
+go test -v -cover ./httpserver/...
+```
 
 ---
 
-## Performance Testing
+## Coverage Report
 
-### Benchmarks
+### Coverage Report Script
 
-Many packages include benchmark tests for performance-critical operations:
+The repository includes `coverage-report.sh`, a comprehensive script that analyzes test coverage across all packages.
 
-```bash
-# Run all benchmarks
-go test -bench=. -benchmem ./...
-
-# Specific package
-go test -bench=. -benchmem ./atomic/...
-
-# Run benchmarks multiple times for accuracy
-go test -bench=. -benchmem -count=5 ./archive/...
-
-# With CPU profiling
-go test -bench=. -cpuprofile=cpu.out ./...
-go tool pprof cpu.out
-```
-
-### Performance Expectations
-
-| Package | Operation | Throughput | Memory |
-|---------|-----------|------------|--------|
-| **archive** | TAR extraction | ~400 MB/s | O(1) |
-| **archive** | ZIP extraction | ~600 MB/s | O(1) |
-| **archive/compress** | GZIP compress | ~150 MB/s | O(1) |
-| **archive/compress** | LZ4 compress | ~800 MB/s | O(1) |
-| **atomic** | Value operations | ~10M ops/s | Lock-free |
-| **logger** | Log writes | ~1M logs/s | Buffered |
-| **mail/queuer** | Email queuing | 1-3K msg/s | Pooled |
-| **semaphore** | Acquire/Release | ~1M ops/s | Channel-based |
-
-### Memory Profiling
+**Usage:**
 
 ```bash
-# Generate memory profile
-go test -memprofile=mem.out ./...
+# Run full coverage analysis
+./coverage-report.sh
 
-# Analyze with pprof
-go tool pprof mem.out
-
-# Interactive commands in pprof:
-# (pprof) top10
-# (pprof) list FunctionName
-# (pprof) web  # requires graphviz
+# Output is also saved to a file (optional)
+./coverage-report.sh > coverage-full.txt
 ```
 
-### CPU Profiling
+**What it provides:**
 
-```bash
-# Generate CPU profile
-go test -cpuprofile=cpu.out ./...
+- **Overall Statistics**: Total packages, tested packages, average coverage
+- **Per-Package Metrics**: Coverage %, specs count, assertions, benchmarks
+- **Issue Detection**: Packages without tests, packages below 80% coverage
+- **Detailed Breakdown**: Test execution time, pending tests, skipped tests
 
-# Analyze hotspots
-go tool pprof cpu.out
+**Output Example:**
 
-# Generate flamegraph (requires go-torch)
-go-torch cpu.out
+```
+Total Packages:       165
+Packages with Tests:  126 (76.4%)
+Test Specifications:  10,735
+Average Coverage:     73.8%
+
+PACKAGES WITHOUT TESTS
+• archive/archive
+• aws/bucket
+...
+
+PACKAGES BELOW 80% COVERAGE
+• archive                     8.60%
+• aws                         5.40%
+...
 ```
 
-### Benchmark Examples
+This script is used to generate all coverage statistics shown in this document and the main README.
 
-**Archive Package**:
-```bash
-# Compression algorithms
-go test -bench=BenchmarkCompress -benchmem ./archive/compress/...
+---
 
-# Archive operations
-go test -bench=BenchmarkExtract -benchmem ./archive/...
-```
+### High Coverage Packages (≥90%)
 
-**Atomic Package**:
-```bash
-# Atomic value operations
-go test -bench=BenchmarkValue -benchmem ./atomic/...
-```
+**Packages at 100% Coverage:**
 
-**Mail Queuer**:
-```bash
-# Email throughput
-go test -bench=BenchmarkPooler -benchmem ./mail/queuer/...
-```
+| Package | Specs | Assertions | Notes |
+|---------|-------|------------|-------|
+| errors/pool | 83 | 122 | Thread-safe error pooling |
+| httpserver/types | 32 | 53 | Type definitions |
+| ioutils/bufferReadCloser | 57 | 138 | Buffered reader with closer |
+| ioutils/delim | 198 | 329 | Delimiter-based stream processing |
+| ioutils/iowrapper | 114 | 179 | Generic I/O wrappers |
+| ioutils/nopwritecloser | 54 | 140 | No-op writer closer |
+| logger/gorm | 34 | 76 | GORM logger integration |
+| logger/hookstderr | 30 | 64 | Stderr output hook |
+| logger/hookstdout | 30 | 64 | Stdout output hook |
+| monitor/info | 95 | 262 | System information collection |
+| prometheus/types | 36 | 112 | Prometheus type definitions |
+| router/authheader | 11 | 29 | Authorization header parsing |
+| semaphore/sem | 66 | 117 | Semaphore implementation |
+| semaphore | 33 | 55 | Semaphore base |
+
+**Packages 90-99% Coverage:**
+
+- **artifact/client**: 98.6% (21 specs) - Artifact client interface
+- **mail/smtp/tlsmode**: 98.8% (165 specs) - SMTP TLS mode handling
+- **monitor/status**: 98.4% (181 specs) - Status reporting
+- **network/protocol**: 98.7% (298 specs) - Network protocol helpers
+- **cache/item**: 96.7% (21 specs) - Cache item implementation
+- **logger/hashicorp**: 96.6% (89 specs) - Hashicorp logger adapter
+- **router/auth**: 96.3% (12 specs) - Authentication middleware
+- **semaphore/bar**: 96.6% (68 specs) - Semaphore with progress bar
+- **prometheus/metrics**: 95.5% (179 specs) - Custom metrics
+- **status/control**: 95.0% (102 specs) - Status control
+- **size**: 95.4% (352 specs) - Byte size arithmetic
+- **prometheus/bloom**: 94.7% (45 specs) - Bloom filter metrics
+- **version**: 93.8% (173 specs) - Semantic versioning
+- **mail/smtp/config**: 92.7% (222 specs) - SMTP configuration
+- **atomic**: 91.8% (49 specs) - Generic atomic types
+- **duration**: 91.5% (179 specs) - Duration extensions
+- **encoding/aes**: 91.5% (126 specs) - AES encryption
+- **router**: 91.0% (61 specs) - Gin-based router
+- **duration/big**: 91.0% (250 specs) - Big integer duration
+- **mail/queuer**: 90.8% (102 specs) - Email queuing
+- **mail/smtp**: 90.1% (104 specs) - SMTP client
+- **logger/hookwriter**: 90.2% (31 specs) - Generic writer hook
+- **runner/ticker**: 90.2% (88 specs) - Ticker management
+
+### Packages Needing Improvement (<40%)
+
+**Critical Priority (0-20% coverage):**
+
+| Package | Coverage | Specs | Status |
+|---------|----------|-------|--------|
+| artifact/s3aws | 2.0% | 1 | Needs tests |
+| aws | 5.4% | 220 | Partial tests |
+| artifact/jfrog | 6.1% | 2 | Needs tests |
+| ftpclient | 6.2% | 22 | Needs tests |
+| archive | 8.6% | 89 | Needs extensive tests |
+| artifact/github | 8.6% | 1 | Needs tests |
+| artifact/gitlab | 13.5% | 2 | Needs tests |
+| database/gorm | 19.6% | 41 | Needs improvement |
+| logger/hookfile | 19.6% | 22 | Needs improvement |
+
+**Medium Priority (20-40% coverage):**
+
+- artifact (23.4%)
+- database/kvdriver (38.4%)
+- config/components/aws (40.7%)
+- config/components/database (39.0%)
+
+### Untested Packages
+
+**39 packages without test files:**
+
+Infrastructure packages (primarily type definitions and utilities):
+- archive/archive, archive/archive/tar, archive/archive/types, archive/archive/zip
+- archive/compress, archive/helper
+- aws/bucket, aws/configAws, aws/configCustom, aws/group
+- aws/helper, aws/http, aws/multipart, aws/object
+- aws/policy, aws/pusher, aws/role, aws/user
+- config/const, config/types
+- database/kvtypes
+- encoding (base package)
+- httpserver/testhelpers
+- ioutils/maxstdio
+- ldap, monitor/types, nats, oauth
+- pidcontroller, pprof, prometheus/webmetrics
+- request, runner (base package)
+- semaphore/types
+- socket (base package), socket/client, socket/config, socket/server
+- static
+
+**Note:** Many untested packages are interface definitions, constants, or types packages that may not require separate tests if covered by parent package tests.
 
 ---
 
 ## Writing Tests
 
-### Test File Naming
+### Test Structure
 
-- Test files: `*_test.go`
-- Suite files: `*_suite_test.go`
-- Place in same package or `package_test` for external tests
+**File Organization:**
 
-### Best Practices
+Each package follows this structure:
 
-#### 1. Descriptive Test Names
-
-```go
-// ✅ Good
-It("should parse semantic version with prerelease", func() { ... })
-It("should handle concurrent map operations", func() { ... })
-It("should return error for invalid input", func() { ... })
-
-// ❌ Bad
-It("test1", func() { ... })
-It("works", func() { ... })
+```
+package/
+├── package_suite_test.go    - Suite setup and global helpers
+├── feature_test.go           - Feature-specific tests
+├── concurrency_test.go       - Concurrency tests (if applicable)
+├── errors_test.go            - Error handling tests
+├── benchmark_test.go         - Performance benchmarks
+└── example_test.go           - Runnable examples
 ```
 
-#### 2. AAA Pattern (Arrange, Act, Assert)
+**Test Template:**
 
 ```go
-It("should compress and decompress data", func() {
-    // Arrange
-    input := []byte("test data")
-    var compressed bytes.Buffer
-    
-    // Act
-    compressor, err := helper.NewWriter(compress.Gzip, helper.Compress, &compressed)
-    Expect(err).ToNot(HaveOccurred())
-    _, err = compressor.Write(input)
-    Expect(err).ToNot(HaveOccurred())
-    compressor.Close()
-    
-    // Assert
-    Expect(compressed.Len()).To(BeNumerically(">", 0))
-})
-```
-
-#### 3. Proper Cleanup
-
-```go
-var _ = Describe("Component", func() {
+var _ = Describe("ComponentName", func() {
     var (
-        tempFile string
-        client   *Client
+        component ComponentType
+        ctx       context.Context
+        cancel    context.CancelFunc
     )
 
     BeforeEach(func() {
-        f, _ := os.CreateTemp("", "test")
-        tempFile = f.Name()
-        f.Close()
-        
-        client = NewClient()
+        ctx, cancel = context.WithCancel(context.Background())
+        component = New(...)
     })
 
     AfterEach(func() {
-        if tempFile != "" {
-            os.Remove(tempFile)
+        if component != nil {
+            component.Close()
         }
-        if client != nil {
-            client.Close()
-        }
+        cancel()
+        time.Sleep(10 * time.Millisecond)  // Cleanup grace period
+    })
+
+    Context("when testing feature X", func() {
+        It("should behave correctly", func() {
+            // Test code
+            Expect(result).To(Equal(expected))
+        })
     })
 })
 ```
 
-#### 4. Test Independence
+### Ginkgo v2 Guidelines
+
+**Spec Organization:**
 
 ```go
-// ✅ Good - Each test is independent
-It("test A", func() {
-    data := createTestData()
-    result := process(data)
-    Expect(result).To(BeValid())
-})
-
-It("test B", func() {
-    data := createTestData()  // Fresh data
-    result := process(data)
-    Expect(result).To(BeValid())
-})
-
-// ❌ Bad - Tests share state
-var sharedData []byte
-
-It("test A", func() {
-    sharedData = createTestData()
-    // ...
-})
-
-It("test B", func() {
-    // Depends on test A running first
-    process(sharedData)
-})
-```
-
-#### 5. Edge Case Testing
-
-```go
-Context("Edge cases", func() {
-    It("should handle nil input", func() {
-        _, err := Process(nil)
-        Expect(err).To(HaveOccurred())
+Describe("Top-level component", func() {
+    Context("when condition A", func() {
+        It("should do X", func() {
+            // Test
+        })
+        
+        It("should do Y", func() {
+            // Test
+        })
     })
-
-    It("should handle empty input", func() {
-        result, err := Process([]byte{})
-        Expect(err).ToNot(HaveOccurred())
-        Expect(result).To(BeEmpty())
-    })
-
-    It("should handle very large input", func() {
-        largeInput := make([]byte, 10*1024*1024) // 10MB
-        _, err := Process(largeInput)
-        Expect(err).ToNot(HaveOccurred())
-    })
-
-    It("should handle concurrent access", func() {
-        var wg sync.WaitGroup
-        for i := 0; i < 100; i++ {
-            wg.Add(1)
-            go func() {
-                defer wg.Done()
-                Process(testData)
-            }()
-        }
-        wg.Wait()
+    
+    Context("when condition B", func() {
+        It("should do Z", func() {
+            // Test
+        })
     })
 })
 ```
 
-#### 6. Use Appropriate Matchers
+**Async Testing:**
 
 ```go
-// Equality
-Expect(value).To(Equal(expected))
-Expect(value).To(BeEquivalentTo(expected))
+// Use Eventually for async operations
+Eventually(func() bool {
+    return component.IsReady()
+}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
 
+// Use Consistently for sustained conditions
+Consistently(func() bool {
+    return component.IsRunning()
+}, 1*time.Second, 50*time.Millisecond).Should(BeTrue())
+```
+
+### Gomega Matchers
+
+**Common Patterns:**
+
+```go
 // Error checking
 Expect(err).ToNot(HaveOccurred())
-Expect(err).To(HaveOccurred())
-Expect(err).To(MatchError("specific error"))
+Expect(err).To(MatchError("expected error"))
 
-// Numeric
-Expect(count).To(BeNumerically(">", 0))
-Expect(value).To(BeNumerically("~", 3.14, 0.01))
+// Equality
+Expect(value).To(Equal(expected))
+Expect(value).To(BeNumerically(">=", minimum))
 
 // Collections
 Expect(slice).To(ContainElement(item))
 Expect(slice).To(HaveLen(5))
-Expect(slice).To(BeEmpty())
-Expect(slice).To(ConsistOf(expected...))
+Expect(map).To(HaveKey("key"))
 
-// Strings
-Expect(str).To(ContainSubstring("substring"))
-Expect(str).To(MatchRegexp(`\d+`))
-Expect(str).To(HavePrefix("prefix"))
+// Types
+Expect(value).To(BeNil())
+Expect(value).To(BeAssignableToTypeOf(Type{}))
 
-// Booleans
-Expect(condition).To(BeTrue())
-Expect(condition).To(BeFalse())
-
-// Nil checking
-Expect(ptr).To(BeNil())
-Expect(ptr).ToNot(BeNil())
-
-// Eventually (async)
-Eventually(func() bool {
-    return condition()
-}, "5s", "100ms").Should(BeTrue())
+// Channels
+Expect(ch).To(BeClosed())
+Expect(ch).To(Receive(&value))
 ```
 
 ---
 
 ## Best Practices
 
-### Test Organization
+### ✅ DO
 
-**Do**:
-- Group related tests in `Context` blocks
-- Use descriptive `Describe` names
-- Keep test files focused (one component per file)
-- Use `BeforeEach`/`AfterEach` for setup/cleanup
-- Test public interfaces, not implementation details
-
-**Don't**:
-- Mix unrelated test cases
-- Share mutable state between tests
-- Rely on test execution order
-- Test private methods directly
-- Leave resources uncleaned
-
-### Performance Testing
-
+**1. Use `Eventually` for Async Operations:**
 ```go
-// Benchmark example
-func BenchmarkOperation(b *testing.B) {
-    data := generateTestData()
-    b.ResetTimer()
-    
-    for i := 0; i < b.N; i++ {
-        Operation(data)
-    }
+// ✅ GOOD: Wait for condition
+Eventually(func() bool {
+    return server.IsRunning()
+}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
+
+// ❌ BAD: Fixed sleep
+time.Sleep(100 * time.Millisecond)
+Expect(server.IsRunning()).To(BeTrue())
+```
+
+**2. Protect Shared State:**
+```go
+// ✅ GOOD: Thread-safe access
+var (
+    mu    sync.Mutex
+    count int
+)
+
+writer := func(p []byte) (int, error) {
+    mu.Lock()
+    defer mu.Unlock()
+    count++
+    return len(p), nil
 }
 
-// Run benchmarks
-go test -bench=. -benchmem ./...
+// ❌ BAD: Race condition
+var count int
+writer := func(p []byte) (int, error) {
+    count++  // RACE!
+    return len(p), nil
+}
 ```
 
-### Table-Driven Tests
-
+**3. Clean Up Resources:**
 ```go
-var _ = Describe("Size parsing", func() {
-    DescribeTable("should parse various formats",
-        func(input string, expected Size, shouldError bool) {
-            result, err := ParseSize(input)
-            if shouldError {
-                Expect(err).To(HaveOccurred())
-            } else {
-                Expect(err).ToNot(HaveOccurred())
-                Expect(result).To(Equal(expected))
-            }
-        },
-        Entry("bytes", "100", Size(100), false),
-        Entry("kilobytes", "5KB", Size(5*1024), false),
-        Entry("megabytes", "10MB", Size(10*1024*1024), false),
-        Entry("invalid", "invalid", Size(0), true),
-    )
+// ✅ GOOD: Always cleanup
+AfterEach(func() {
+    if component != nil {
+        component.Close()
+    }
+    cancel()
+    time.Sleep(50 * time.Millisecond)
+})
+
+// ❌ BAD: No cleanup
+AfterEach(func() {
+    cancel()  // Missing Close()
 })
 ```
 
-### Debugging Tests
-
+**4. Use Descriptive Test Names:**
 ```go
-// Enable verbose output
-ginkgo -v
-
-// Focus on specific test
-ginkgo --focus="should handle errors"
-
-// Skip tests
-ginkgo --skip="integration"
-
-// Debug output in tests
-It("should work", func() {
-    fmt.Fprintf(GinkgoWriter, "Debug: value = %v\n", value)
-    result := Operation(input)
-    Expect(result).To(BeValid())
+// ✅ GOOD: Clear intent
+It("should return error when connection is closed", func() {
+    // ...
 })
+
+// ❌ BAD: Vague
+It("test error", func() {
+    // ...
+})
+```
+
+**5. Test Edge Cases:**
+```go
+// Test nil, empty, boundary values
+Context("with nil input", func() {
+    It("should handle gracefully", func() {
+        err := component.Process(nil)
+        Expect(err).To(HaveOccurred())
+    })
+})
+
+Context("with empty string", func() {
+    It("should return appropriate error", func() {
+        err := component.Validate("")
+        Expect(err).To(MatchError("empty input"))
+    })
+})
+```
+
+### ❌ DON'T
+
+**1. Don't Ignore Race Detector Warnings:**
+```bash
+# Always run with race detector during development
+CGO_ENABLED=1 go test -race ./...
+```
+
+**2. Don't Use Fixed Timeouts:**
+```go
+// ❌ BAD: Brittle on slow systems
+time.Sleep(100 * time.Millisecond)
+
+// ✅ GOOD: Adaptive waiting
+Eventually(condition, timeout, interval).Should(BeTrue())
+```
+
+**3. Don't Share State Between Tests:**
+```go
+// ❌ BAD: Global state
+var globalCounter int
+
+It("test 1", func() {
+    globalCounter++  // Affects other tests!
+})
+
+// ✅ GOOD: Isolated state
+var counter int
+BeforeEach(func() {
+    counter = 0  // Reset for each test
+})
+```
+
+**4. Don't Skip Error Checking:**
+```go
+// ❌ BAD: Ignoring errors
+result, _ := operation()
+
+// ✅ GOOD: Check all errors
+result, err := operation()
+Expect(err).ToNot(HaveOccurred())
 ```
 
 ---
@@ -782,70 +685,107 @@ It("should work", func() {
 
 ### Common Issues
 
-#### Race Condition Detected
+**1. Test Timeout**
 
-```bash
+```
+Error: test timed out after 10m0s
+```
+
+**Solution:**
+- Increase timeout: `go test -timeout=20m`
+- Check for deadlocks in code
+- Ensure cleanup completes
+- Review Eventually timeouts
+
+**2. Race Condition Detected**
+
+```
 WARNING: DATA RACE
-Read at 0x... by goroutine 15
-  github.com/nabbar/golib/package.Function()
 ```
 
-**Solution**:
-- Protect shared variables with `sync.Mutex`
-- Use atomic operations (`sync/atomic`)
+**Solution:**
+- Protect shared variables with mutex
+- Use atomic operations
 - Review concurrent access patterns
-- Check for unsynchronized goroutines
+- Add proper synchronization
 
-#### Test Timeout
+**3. Flaky Tests**
 
-```bash
-panic: test timed out after 10m0s
+```
+Random failures, not reproducible
 ```
 
-**Solution**:
-```bash
-# Increase timeout
-go test -timeout=20m ./...
+**Solution:**
+- Increase `Eventually` timeouts
+- Add proper synchronization
+- Run with `-race` to detect issues
+- Check resource cleanup
+- Avoid fixed `time.Sleep`
 
-# Identify slow tests
-ginkgo -v | grep "Ran.*in.*seconds"
+**4. Coverage Gaps**
+
+```
+coverage: 75.0% (below target 80%)
 ```
 
-#### CGO Not Available
+**Solution:**
+- Run `go tool cover -html=coverage.out`
+- Identify uncovered branches
+- Add edge case tests
+- Test error paths
+- Review package-specific coverage report
 
-```bash
-# cgo not enabled
+**5. Import Cycle**
+
 ```
-
-**Solution**:
-```bash
-# Enable CGO
-export CGO_ENABLED=1
-
-# Install build tools
-# Ubuntu: sudo apt-get install build-essential
-# macOS: xcode-select --install
-```
-
-#### Coverage Report Empty
-
-```bash
-# Clean cache and regenerate
-go clean -testcache
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-```
-
-#### Import Cycle
-
-```bash
 import cycle not allowed
 ```
 
-**Solution**:
-- Use `package_test` for external tests
-- Move shared test utilities to separate package
-- Review package dependencies
+**Solution:**
+- Refactor packages to break cycle
+- Extract common interface
+- Use dependency injection
+- Move shared types to separate package
+
+### Debug Techniques
+
+**Enable Verbose Output:**
+```bash
+go test -v ./...
+go test -v -ginkgo.v ./package
+```
+
+**Focus Specific Test:**
+```bash
+go test -ginkgo.focus="should handle concurrent writes" ./package
+go test -run TestSpecificFunction ./package
+```
+
+**Check Goroutine Leaks:**
+```go
+BeforeEach(func() {
+    runtime.GC()
+    initialGoroutines = runtime.NumGoroutine()
+})
+
+AfterEach(func() {
+    runtime.GC()
+    time.Sleep(100 * time.Millisecond)
+    leaked := runtime.NumGoroutine() - initialGoroutines
+    Expect(leaked).To(BeNumerically("<=", 1))
+})
+```
+
+**Profile Tests:**
+```bash
+# CPU profiling
+go test -cpuprofile=cpu.prof ./package
+go tool pprof cpu.prof
+
+# Memory profiling
+go test -memprofile=mem.prof ./package
+go tool pprof mem.prof
+```
 
 ---
 
@@ -854,7 +794,7 @@ import cycle not allowed
 ### GitHub Actions
 
 ```yaml
-name: Tests
+name: Test
 
 on: [push, pull_request]
 
@@ -863,136 +803,97 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.25']
+        go-version: ['1.24', '1.25', '1.26']
     
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
       
-      - name: Run tests
-        run: go test -v -cover ./...
+      - name: Test
+        run: go test -timeout=10m -v -cover -covermode=atomic ./...
       
-      - name: Race detection
-        run: CGO_ENABLED=1 go test -race -timeout=10m ./...
+      - name: Race Detection
+        run: CGO_ENABLED=1 go test -race -timeout=10m -v ./...
       
-      - name: Generate coverage
+      - name: Coverage
         run: |
           go test -coverprofile=coverage.out -covermode=atomic ./...
           go tool cover -html=coverage.out -o coverage.html
       
-      - name: Upload coverage
+      - name: Upload Coverage
         uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.out
+          files: ./coverage.out
 ```
 
-### Pre-commit Hook
+### GitLab CI
+
+```yaml
+test:
+  image: golang:1.26
+  stage: test
+  script:
+    - go test -timeout=10m -v -cover -covermode=atomic ./...
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+
+race:
+  image: golang:1.26
+  stage: test
+  script:
+    - CGO_ENABLED=1 go test -race -timeout=10m -v ./...
+
+coverage:
+  image: golang:1.26
+  stage: test
+  script:
+    - ./coverage-report.sh
+    - go tool cover -func=coverage.out
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+```
+
+### Pre-commit Hooks
 
 ```bash
 #!/bin/bash
 # .git/hooks/pre-commit
 
-echo "Running tests with race detection..."
-CGO_ENABLED=1 go test -race ./...
+echo "Running golib tests..."
 
+go test -timeout=2m ./...
 if [ $? -ne 0 ]; then
     echo "Tests failed. Commit aborted."
     exit 1
 fi
 
-echo "Checking coverage..."
-go test -cover ./... | grep -E "coverage:" | awk '{if ($5 < 80) exit 1}'
-
+echo "Running race detector..."
+CGO_ENABLED=1 go test -race -timeout=5m ./...
 if [ $? -ne 0 ]; then
-    echo "Coverage below 80%. Commit aborted."
+    echo "Race conditions detected. Commit aborted."
+    exit 1
+fi
+
+echo "Checking coverage..."
+COVERAGE=$(./coverage-report.sh | grep "Average Coverage" | awk '{print $4}' | tr -d '%')
+if (( $(echo "$COVERAGE < 70.0" | bc -l) )); then
+    echo "Coverage $COVERAGE% is below 70%. Commit aborted."
     exit 1
 fi
 
 echo "All checks passed!"
-```
-
-### Makefile Integration
-
-```makefile
-.PHONY: test test-race test-cover test-all
-
-test:
-	go test -v ./...
-
-test-race:
-	CGO_ENABLED=1 go test -race -v ./...
-
-test-cover:
-	go test -coverprofile=coverage.out -covermode=atomic ./...
-	go tool cover -html=coverage.out -o coverage.html
-
-test-all: test-race test-cover
-	@echo "All tests completed"
-
-bench:
-	go test -bench=. -benchmem ./...
+exit 0
 ```
 
 ---
 
-## Resources
-
-### Testing Frameworks
-
-- [Ginkgo Documentation](https://onsi.github.io/ginkgo/)
-- [Gomega Matchers](https://onsi.github.io/gomega/)
-- [Go Testing Package](https://pkg.go.dev/testing)
-- [Go Coverage](https://go.dev/blog/cover)
-
-### Concurrency & Race Detection
-
-- [Go Race Detector](https://go.dev/doc/articles/race_detector)
-- [Go Memory Model](https://go.dev/ref/mem)
-- [sync Package](https://pkg.go.dev/sync)
-- [atomic Package](https://pkg.go.dev/sync/atomic)
-
-### Best Practices
-
-- [Effective Go](https://go.dev/doc/effective_go)
-- [Go Code Review Comments](https://github.com/golang/go/wiki/CodeReviewComments)
-- [Table Driven Tests](https://dave.cheney.net/2019/05/07/prefer-table-driven-tests)
-
-### Package-Specific Testing
-
-For detailed testing information for specific packages:
-- [archive/TESTING.md](archive/TESTING.md) - Archive and compression testing
-- [atomic/TESTING.md](atomic/TESTING.md) - Atomic operations testing
-- [errors/TESTING.md](errors/TESTING.md) - Error handling testing
-- [size/TESTING.md](size/TESTING.md) - Size operations testing
-
----
-
-## AI Transparency Notice
-
-In accordance with Article 50.4 of the EU AI Act, AI assistance has been used for testing, documentation, and bug fixing under human supervision.
-
----
-
-## Quality Checklist
-
-Before submitting code:
-
-- [ ] All tests pass: `go test ./...`
-- [ ] Race detection clean: `CGO_ENABLED=1 go test -race ./...`
-- [ ] Coverage maintained or improved: `go test -cover ./...`
-- [ ] New features have tests with ≥80% coverage
-- [ ] Edge cases tested (nil, empty, large inputs, errors)
-- [ ] Concurrent operations tested
-- [ ] Documentation updated
-- [ ] Test names are descriptive
-- [ ] Tests are independent and isolated
-- [ ] Resources properly cleaned up
-
----
-
-**Version**: Go 1.25+ on Linux, macOS, Windows  
-**Maintained By**: golib Contributors
+**Test Suite Maintained By**: [Nicolas JUHEL](https://github.com/nabbar)  
+**Framework**: Ginkgo v2 / Gomega / gmeasure  
+**Coverage Target**: ≥80% per package  
+**Last Updated**: Based on coverage-report.sh analysis
