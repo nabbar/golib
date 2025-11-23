@@ -21,7 +21,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package static
@@ -30,15 +29,19 @@ import (
 	ginsdk "github.com/gin-gonic/gin"
 )
 
+// SetSpecific registers a custom Gin handler for a specific route.
+// This overrides the default static file serving for this route.
 func (s *staticHandler) SetSpecific(group, route string, router ginsdk.HandlerFunc) {
-	route = s._makeRoute(group, route)
-	s.s.Store(route, router)
+	route = s.makeRoute(group, route)
+	s.spc.Store(route, router)
 }
 
+// GetSpecific returns the custom handler for a specific route.
+// Returns nil if no custom handler is registered for this route.
 func (s *staticHandler) GetSpecific(group, route string) ginsdk.HandlerFunc {
-	route = s._makeRoute(group, route)
+	route = s.makeRoute(group, route)
 
-	if i, l := s.s.Load(route); !l {
+	if i, l := s.spc.Load(route); !l {
 		return nil
 	} else if v, k := i.(ginsdk.HandlerFunc); !k {
 		return nil

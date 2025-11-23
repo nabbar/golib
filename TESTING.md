@@ -34,18 +34,18 @@ Comprehensive testing guide for the `github.com/nabbar/golib` library and all it
 
 ```
 Total Packages:           165
-Packages with Tests:      126 (76.4%)
-Packages without Tests:   39 (23.6%)
+Packages with Tests:      127 (77.0%)
+Packages without Tests:   38 (23.0%)
 
-Test Specifications:      10,735
-Test Assertions:          21,048
+Test Specifications:      10,964
+Test Assertions:          21,470
 Benchmarks:               92
 Pending Tests:            18
 Skipped Tests:            0
 
-Average Coverage:         73.8%
-Packages ≥80%:            67/126 (53.2%)
-Packages at 100%:         14/126 (11.1%)
+Average Coverage:         73.9%
+Packages ≥80%:            67/127 (52.8%)
+Packages at 100%:         14/127 (11.0%)
 
 Race Conditions:          0 (verified with CGO_ENABLED=1 go test -race)
 Thread Safety:            ✅ All concurrent operations validated
@@ -102,9 +102,9 @@ go test -timeout=10m -v -cover -covermode=atomic ./...
 
 ```
 Total Packages:       165
-Packages with Tests:  126
-Test Specifications:  10,735
-Average Coverage:     73.8%
+Packages with Tests:  127
+Test Specifications:  10,964
+Average Coverage:     73.9%
 
 PACKAGES WITHOUT TESTS
 • archive/archive
@@ -317,9 +317,9 @@ The repository includes `coverage-report.sh`, a comprehensive script that analyz
 
 ```
 Total Packages:       165
-Packages with Tests:  126 (76.4%)
-Test Specifications:  10,735
-Average Coverage:     73.8%
+Packages with Tests:  127 (77.0%)
+Test Specifications:  10,964
+Average Coverage:     73.9%
 
 PACKAGES WITHOUT TESTS
 • archive/archive
@@ -408,7 +408,7 @@ This script is used to generate all coverage statistics shown in this document a
 
 ### Untested Packages
 
-**39 packages without test files:**
+**38 packages without test files:**
 
 Infrastructure packages (primarily type definitions and utilities):
 - archive/archive, archive/archive/tar, archive/archive/types, archive/archive/zip
@@ -426,7 +426,6 @@ Infrastructure packages (primarily type definitions and utilities):
 - request, runner (base package)
 - semaphore/types
 - socket (base package), socket/client, socket/config, socket/server
-- static
 
 **Note:** Many untested packages are interface definitions, constants, or types packages that may not require separate tests if covered by parent package tests.
 

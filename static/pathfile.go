@@ -21,7 +21,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package static
@@ -35,46 +34,41 @@ import (
 	"os"
 	"path"
 
-	liberr "github.com/nabbar/golib/errors"
 	libfpg "github.com/nabbar/golib/file/progress"
 	libbuf "github.com/nabbar/golib/ioutils/bufferReadCloser"
 )
 
-func (s *staticHandler) _getSize() int64 {
-	return s.z.Load()
+func (s *staticHandler) getSize() int64 {
+	return s.siz.Load()
 }
 
-func (s *staticHandler) _setSize(size int64) {
-	s.z.Store(size)
+func (s *staticHandler) setSize(size int64) {
+	s.siz.Store(size)
 }
 
-func (s *staticHandler) _getBase() []string {
-	i := s.b.Load()
+func (s *staticHandler) getBase() []string {
+	i := s.bph.Load()
 	if i == nil {
 		return make([]string, 0)
-	} else if b, k := i.([]string); !k {
-		return make([]string, 0)
 	} else {
-		return b
+		return i
 	}
 }
 
-func (s *staticHandler) _setBase(base ...string) {
-	var b = make([]string, 0)
-
+func (s *staticHandler) setBase(base ...string) {
 	if len(base) > 0 {
-		b = append(b, base...)
+		s.bph.Store(base)
+	} else {
+		s.bph.Store(make([]string, 0))
 	}
-
-	s.b.Store(b)
 }
 
-func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
+func (s *staticHandler) dirEntries(root string) ([]fs.DirEntry, error) {
 	if root == "" {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
-	val, err := s.c.ReadDir(root)
+	val, err := s.efs.ReadDir(root)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrorFileNotFound.Error(err)
@@ -85,29 +79,31 @@ func (s *staticHandler) _listEmbed(root string) ([]fs.DirEntry, liberr.Error) {
 	}
 }
 
-func (s *staticHandler) _fileGet(pathFile string) (fs.FileInfo, io.ReadCloser, liberr.Error) {
+func (s *staticHandler) fileGet(pathFile string) (fs.FileInfo, io.ReadCloser, error) {
 	if len(pathFile) < 1 {
 		return nil, nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
-	if inf, err := s._fileInfo(pathFile); err != nil {
+	if inf, err := s.fileInfo(pathFile); err != nil {
 		return nil, nil, err
-	} else if inf.Size() >= s._getSize() {
-		r, e := s._fileTemp(pathFile)
+	} else if inf.IsDir() {
+		return inf, nil, ErrorFileNotFound.Error(fmt.Errorf("path is a directory: %spc", pathFile))
+	} else if inf.Size() >= s.getSize() {
+		r, e := s.fileTemp(pathFile)
 		return inf, r, e
 	} else {
-		r, e := s._fileBuff(pathFile)
+		r, e := s.fileBuff(pathFile)
 		return inf, r, e
 	}
 }
 
-func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
+func (s *staticHandler) fileInfo(pathFile string) (fs.FileInfo, error) {
 	if pathFile == "" {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
 	var inf fs.FileInfo
-	obj, err := s.c.Open(pathFile)
+	obj, err := s.efs.Open(pathFile)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrorFileNotFound.Error(err)
@@ -130,12 +126,12 @@ func (s *staticHandler) _fileInfo(pathFile string) (fs.FileInfo, liberr.Error) {
 	return inf, nil
 }
 
-func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error) {
+func (s *staticHandler) fileBuff(pathFile string) (io.ReadCloser, error) {
 	if pathFile == "" {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
-	obj, err := s.c.ReadFile(pathFile)
+	obj, err := s.efs.ReadFile(pathFile)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrorFileNotFound.Error(err)
@@ -146,13 +142,13 @@ func (s *staticHandler) _fileBuff(pathFile string) (io.ReadCloser, liberr.Error)
 	}
 }
 
-func (s *staticHandler) _fileTemp(pathFile string) (libfpg.Progress, liberr.Error) {
+func (s *staticHandler) fileTemp(pathFile string) (libfpg.Progress, error) {
 	if pathFile == "" {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("pathfile is empty"))
 	}
 
 	var tmp libfpg.Progress
-	obj, err := s.c.Open(pathFile)
+	obj, err := s.efs.Open(pathFile)
 
 	if err != nil && errors.Is(err, fs.ErrNotExist) {
 		return nil, ErrorFileNotFound.Error(err)
@@ -174,18 +170,26 @@ func (s *staticHandler) _fileTemp(pathFile string) (libfpg.Progress, liberr.Erro
 		return nil, ErrorFiletemp.Error(e)
 	}
 
+	// Reset cursor to beginning of file
+	if _, e = tmp.Seek(0, io.SeekStart); e != nil {
+		return nil, ErrorFiletemp.Error(e)
+	}
+
 	return tmp, nil
 }
 
+// Has checks if a file exists in the embedded filesystem.
 func (s *staticHandler) Has(pathFile string) bool {
-	if _, e := s._fileInfo(pathFile); e != nil {
+	if _, e := s.fileInfo(pathFile); e != nil {
 		return false
 	} else {
 		return true
 	}
 }
 
-func (s *staticHandler) List(rootPath string) ([]string, liberr.Error) {
+// List returns all file paths under a root directory.
+// Recursively walks the directory tree and returns relative paths.
+func (s *staticHandler) List(rootPath string) ([]string, error) {
 	var (
 		err error
 		res = make([]string, 0)
@@ -195,10 +199,10 @@ func (s *staticHandler) List(rootPath string) ([]string, liberr.Error) {
 	)
 
 	if rootPath == "" {
-		for _, p := range s._getBase() {
-			inf, err = s._fileInfo(p)
+		for _, p := range s.getBase() {
+			inf, err = s.fileInfo(p)
 			if err != nil {
-				return nil, err.(liberr.Error)
+				return nil, err
 			}
 
 			if !inf.IsDir() {
@@ -209,13 +213,13 @@ func (s *staticHandler) List(rootPath string) ([]string, liberr.Error) {
 			lst, err = s.List(p)
 
 			if err != nil {
-				return nil, err.(liberr.Error)
+				return nil, err
 			}
 
 			res = append(res, lst...)
 		}
-	} else if ent, err = s._listEmbed(rootPath); err != nil {
-		return nil, err.(liberr.Error)
+	} else if ent, err = s.dirEntries(rootPath); err != nil {
+		return nil, err
 	} else {
 		for _, f := range ent {
 
@@ -227,7 +231,7 @@ func (s *staticHandler) List(rootPath string) ([]string, liberr.Error) {
 			lst, err = s.List(path.Join(rootPath, f.Name()))
 
 			if err != nil {
-				return nil, err.(liberr.Error)
+				return nil, err
 			}
 
 			res = append(res, lst...)
@@ -237,20 +241,29 @@ func (s *staticHandler) List(rootPath string) ([]string, liberr.Error) {
 	return res, nil
 }
 
-func (s *staticHandler) Find(pathFile string) (io.ReadCloser, liberr.Error) {
-	_, r, e := s._fileGet(pathFile)
+// Find opens a file and returns a ReadCloser.
+// The caller is responsible for closing the returned ReadCloser.
+func (s *staticHandler) Find(pathFile string) (io.ReadCloser, error) {
+	_, r, e := s.fileGet(pathFile)
 	return r, e
 }
 
-func (s *staticHandler) Info(pathFile string) (os.FileInfo, liberr.Error) {
-	return s._fileInfo(pathFile)
+// Info returns file information (size, modification time, etc.).
+func (s *staticHandler) Info(pathFile string) (os.FileInfo, error) {
+	return s.fileInfo(pathFile)
 }
 
-func (s *staticHandler) Temp(pathFile string) (libfpg.Progress, liberr.Error) {
-	return s._fileTemp(pathFile)
+// Temp creates a temporary file copy with progress tracking.
+// Useful for large files or when progress reporting is needed.
+// See github.com/nabbar/golib/file/progress for details.
+func (s *staticHandler) Temp(pathFile string) (libfpg.Progress, error) {
+	return s.fileTemp(pathFile)
 }
 
-func (s *staticHandler) Map(fct func(pathFile string, inf os.FileInfo) error) liberr.Error {
+// Map iterates over all files in the embedded filesystem.
+// The provided function is called for each file with its path and FileInfo.
+// If the function returns an error, iteration stops and the error is returned.
+func (s *staticHandler) Map(fct func(pathFile string, inf os.FileInfo) error) error {
 	var (
 		err error
 		lst []string
@@ -258,13 +271,13 @@ func (s *staticHandler) Map(fct func(pathFile string, inf os.FileInfo) error) li
 	)
 
 	if lst, err = s.List(""); err != nil {
-		return err.(liberr.Error)
+		return err
 	} else {
 		for _, f := range lst {
-			if inf, err = s._fileInfo(f); err != nil {
-				return err.(liberr.Error)
+			if inf, err = s.fileInfo(f); err != nil {
+				return err
 			} else if err = fct(f, inf); err != nil {
-				return err.(liberr.Error)
+				return err
 			}
 		}
 	}
@@ -272,6 +285,8 @@ func (s *staticHandler) Map(fct func(pathFile string, inf os.FileInfo) error) li
 	return nil
 }
 
+// UseTempForFileSize sets the threshold for using temporary files.
+// Files larger than this size will be served via the Temp() method.
 func (s *staticHandler) UseTempForFileSize(size int64) {
-	s._setSize(size)
+	s.setSize(size)
 }

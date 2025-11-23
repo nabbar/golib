@@ -21,27 +21,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package static
 
-func (s *staticHandler) _getRouter() []string {
-	if i := s.r.Load(); i == nil {
-		return make([]string, 0)
-	} else if o, ok := i.([]string); !ok {
+// getRouter returns the list of registered routes.
+// Returns an empty slice if no routes are registered.
+func (s *staticHandler) getRouter() []string {
+	if i := s.rtr.Load(); i == nil {
 		return make([]string, 0)
 	} else {
-		return o
+		return i
 	}
 }
 
-func (s *staticHandler) _setRouter(val []string) {
-	var rtr = make([]string, 0)
-
-	if len(val) > 0 {
-		copy(rtr, val)
+// setRouter stores the list of registered routes.
+// Makes a copy of the slice to prevent external modifications.
+func (s *staticHandler) setRouter(val []string) {
+	if len(val) == 0 {
+		s.rtr.Store(make([]string, 0))
+		return
 	}
 
-	s.r.Store(rtr)
+	rtr := make([]string, len(val))
+	copy(rtr, val)
+	s.rtr.Store(rtr)
 }

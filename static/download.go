@@ -21,19 +21,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package static
 
+// SetDownload marks a file to be served as an attachment download.
+// The file must exist in the embedded filesystem.
 func (s *staticHandler) SetDownload(pathFile string, flag bool) {
 	if pathFile != "" && s.Has(pathFile) {
-		s.d.Store(pathFile, flag)
+		s.dwn.Store(pathFile, flag)
 	}
 }
 
+// IsDownload checks if a file is configured to be downloaded.
+// Returns true if the file should be served with Content-Disposition: attachment.
 func (s *staticHandler) IsDownload(pathFile string) bool {
-	if i, l := s.d.Load(pathFile); !l {
+	if i, l := s.dwn.Load(pathFile); !l {
 		return false
 	} else if v, k := i.(bool); !k {
 		return false

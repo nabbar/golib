@@ -6,8 +6,8 @@
 [![GoDoc](https://pkg.go.dev/badge/github.com/nabbar/golib)](https://pkg.go.dev/github.com/nabbar/golib)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nabbar/golib)](https://goreportcard.com/report/github.com/nabbar/golib)
 [![Known Vulnerabilities](https://snyk.io/test/github/nabbar/golib/badge.svg)](https://snyk.io/test/github/nabbar/golib)
-[![Tests](https://img.shields.io/badge/Tests-10735%20Specs-green)](TESTING.md)
-[![Coverage](https://img.shields.io/badge/Coverage-73.8%25-yellow)](TESTING.md)
+[![Tests](https://img.shields.io/badge/Tests-10964%20Specs-green)](TESTING.md)
+[![Coverage](https://img.shields.io/badge/Coverage-73.9%25-yellow)](TESTING.md)
 
 Comprehensive Go library collection providing production-ready packages for cloud services, web infrastructure, data management, security, monitoring, and development utilities. Built for enterprise-grade applications with extensive testing and documentation.
 
@@ -47,7 +47,7 @@ This library provides building blocks for cloud-native applications, web service
 ### Design Philosophy
 
 1. **Modularity**: Self-contained packages with minimal cross-dependencies
-2. **Production-Ready**: Comprehensive testing with 10,735 specs across 126 packages
+2. **Production-Ready**: Comprehensive testing with 10,964 specs across 127 packages
 3. **Performance-First**: Streaming operations, zero-allocation paths, optimized throughput
 4. **Thread-Safe**: All concurrent operations validated with race detector
 5. **Observable**: Structured logging, Prometheus metrics, health checks, monitoring
@@ -56,16 +56,16 @@ This library provides building blocks for cloud-native applications, web service
 ### Repository Statistics
 
 ```
-Total Packages:       165 (126 with tests, 39 utility/types packages)
-Documented Packages:  61 packages with individual README.md files
-Test Specifications:  10,735
-Test Assertions:      21,048
+Total Packages:       165 (127 with tests, 38 utility/types packages)
+Documented Packages:  62 packages with individual README.md files
+Test Specifications:  10,964
+Test Assertions:      21,470
 Benchmarks:           92
 Pending Tests:        18
-Average Coverage:     73.8%
-Packages ≥80%:        67/126 (53%)
-Packages ≥90%:        38/126 (30%)
-Go Version:           1.24+
+Average Coverage:     73.9%
+Packages ≥80%:        67/127 (52.8%)
+Packages ≥90%:        38/127 (29.9%)
+Go Version:           1.24+ (1.25+ recommended)
 Platforms:            Linux, macOS, Windows
 Thread Safety:        ✅ Zero race conditions
 CI/CD:                GitHub Actions with race detection
@@ -120,7 +120,7 @@ CI/CD:                GitHub Actions with race detection
 - **CLI Framework**: Cobra extensions with enhanced features ([cobra](cobra/))
 - **Shell**: Interactive shell with command management, TTY handling ([shell](shell/))
 - **Console**: Terminal formatting, colored output, progress indicators ([console](console/))
-- **Static**: Static file embedding and serving ([static](static/))
+- **Static File Server**: Secure static file serving with WAF/IDS/EDR integration, rate limiting, path security ([static](static/))
 
 ---
 
@@ -187,7 +187,7 @@ golib/
     ├── pprof/                Profiling utilities
     ├── request/              HTTP request helpers
     ├── shell/                Interactive shell
-    └── static/               Static file embedding
+    └── static/               Security-focused static file server with caching
 ```
 
 **Package Count**: 37 top-level, 165 total (including subpackages)
@@ -287,7 +287,7 @@ go get -u github.com/nabbar/golib/logger
 
 Detailed list of all packages with coverage statistics and links to documentation.
 
-**Total**: 61 packages with individual README.md documentation across 165 Go packages.
+**Total**: 62 packages with individual README.md documentation across 165 Go packages.
 
 **Note**: Many parent packages have multiple documented subpackages:
 - **encoding**: 6 documented packages (base + aes, hexa, mux, randRead, sha256) - [See encoding/README.md](encoding/)
@@ -297,7 +297,7 @@ Detailed list of all packages with coverage statistics and links to documentatio
 - **prometheus**: 2 documented packages (base + webmetrics) - [See prometheus/README.md](prometheus/)
 - **socket**: 3 documented packages (base + client, server) - [See socket/README.md](socket/)
 
-The table below lists all 165 Go packages with their test coverage and links to their 61 individual README.md documentation files.
+The table below lists all 165 Go packages with their test coverage and links to their 62 individual README.md documentation files.
 
 ### Cloud & Infrastructure
 
@@ -307,7 +307,7 @@ The table below lists all 165 Go packages with their test coverage and links to 
 | **artifact** | 23.4% | 19 | Artifact management (GitHub/GitLab/JFrog/S3) | [README](artifact/) |
 | **artifact/client** | 98.6% | 21 | Generic artifact client interface | - |
 | **aws** | 5.4% | 220 | AWS SDK integration (S3, IAM, MinIO) | [README](aws/) |
-| **static** | No tests | - | Static file embedding and serving | [README](static/) |
+| **static** | 82.6% | 229 | Security-focused static file server with embed.FS, rate limiting, WAF integration | [README](static/) |
 
 ### Web & Networking
 
@@ -632,11 +632,11 @@ Based on complete coverage analysis with `coverage-report.sh`:
 
 ```
 Total Packages:       165
-Packages with Tests:  126 (76.4%)
-Packages without Tests: 39 (23.6%)
+Packages with Tests:  127 (77.0%)
+Packages without Tests: 38 (23.0%)
 
-Test Specifications:  10,735
-Test Assertions:      21,048
+Test Specifications:  10,964
+Test Assertions:      21,470
 Benchmarks:           92
 Pending Tests:        18
 
@@ -650,14 +650,14 @@ Race Conditions:      0 (verified with -race flag)
 
 | Coverage Range | Count | Percentage | Package Examples |
 |----------------|-------|------------|------------------|
-| **100%** | 14 | 11.1% | errors/pool, logger/gorm, router/authheader, semaphore/sem |
-| **90-99%** | 24 | 19.0% | atomic (91.8%), version (93.8%), size (95.4%) |
-| **80-89%** | 29 | 23.0% | ioutils (87.7%), mail/queuer (90.8%), context (87.5%) |
-| **70-79%** | 18 | 14.3% | cobra (76.7%), viper (73.3%), file/bandwidth (77.8%) |
+| **100%** | 14 | 11.0% | errors/pool, logger/gorm, router/authheader, semaphore/sem |
+| **90-99%** | 24 | 18.9% | atomic (91.8%), version (93.8%), size (95.4%) |
+| **80-89%** | 29 | 22.8% | ioutils (87.7%), mail/queuer (90.8%), static (82.6%), context (87.5%) |
+| **70-79%** | 19 | 15.0% | cobra (76.7%), viper (73.3%), file/bandwidth (77.8%) |
 | **60-69%** | 10 | 7.9% | config (61.9%), logger (68.0%), database/kvmap (66.7%) |
-| **<60%** | 31 | 24.6% | archive (8.6%), aws (5.4%), httpserver (52.5%) |
+| **<60%** | 31 | 24.4% | archive (8.6%), aws (5.4%), httpserver (52.5%) |
 
-**Average Coverage**: 73.8% (weighted across all 126 tested packages)
+**Average Coverage**: 73.9% (weighted across all 127 tested packages)
 
 ### Performance Highlights
 
@@ -934,7 +934,7 @@ if err := json.Unmarshal(data, &result); err != nil {
 
 ## Testing
 
-Comprehensive test suite with 10,735 specifications across 126 packages.
+Comprehensive test suite with 10,964 specifications across 127 packages.
 
 See [TESTING.md](TESTING.md) for detailed testing documentation.
 

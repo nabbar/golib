@@ -165,9 +165,14 @@ type File interface {
 	Sync() error
 }
 
+type TempFile interface {
+	IsTemp() bool
+}
+
 type Progress interface {
 	GenericIO
 	File
+	TempFile
 
 	// RegisterFctIncrement registers a function to be called when the progress of
 	// a file being read or written reaches a certain number of bytes. The
@@ -258,6 +263,7 @@ func New(name string, flags int, perm os.FileMode) (Progress, error) {
 	return &progress{
 		r:  r,
 		f:  f,
+		t:  false,
 		b:  new(atomic.Int32),
 		fi: new(atomic.Value),
 		fe: new(atomic.Value),
@@ -283,6 +289,7 @@ func Unique(basePath, pattern string) (Progress, error) {
 	return &progress{
 		r:  nil,
 		f:  f,
+		t:  false,
 		b:  new(atomic.Int32),
 		fi: new(atomic.Value),
 		fe: new(atomic.Value),
@@ -311,6 +318,7 @@ func Temp(pattern string) (Progress, error) {
 	return &progress{
 		r:  nil,
 		f:  f,
+		t:  true,
 		b:  new(atomic.Int32),
 		fi: new(atomic.Value),
 		fe: new(atomic.Value),
@@ -341,6 +349,7 @@ func Open(name string) (Progress, error) {
 	return &progress{
 		r:  r,
 		f:  f,
+		t:  false,
 		b:  new(atomic.Int32),
 		fi: new(atomic.Value),
 		fe: new(atomic.Value),
@@ -371,6 +380,7 @@ func Create(name string) (Progress, error) {
 	return &progress{
 		r:  r,
 		f:  f,
+		t:  false,
 		b:  new(atomic.Int32),
 		fi: new(atomic.Value),
 		fe: new(atomic.Value),

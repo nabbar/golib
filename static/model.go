@@ -21,15 +21,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package static
 
 import (
+	"context"
 	"embed"
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
 )
@@ -38,47 +39,69 @@ const (
 	urlPathSeparator = "/"
 )
 
+// staticHandler is the internal implementation of the Static interface.
+// All fields use atomic operations for thread-safe access without mutexes.
+//
+// The structure is organized into logical groups:
+//   - Core: logger, router, embedded filesystem
+//   - File configuration: index, download, follow, specific
+//   - Security: rate limiting, path security, suspicious detection
+//   - HTTP: headers, caching
+//   - Integration: WAF/IDS/EDR security backend
 type staticHandler struct {
-	l *atomic.Value // logger
-	r *atomic.Value // router
-	h *atomic.Value // monitor
+	log libatm.Value[liblog.Logger] // logger instance
+	rtr libatm.Value[[]string]      // registered routes
 
-	c embed.FS
-	b *atomic.Value // base []string
-	z *atomic.Int64 // size
+	efs embed.FS               // embedded filesystem
+	bph libatm.Value[[]string] // base paths within embed.FS
+	siz *atomic.Int64          // total size counter
 
-	i libctx.Config[string] // index
-	d libctx.Config[string] // download
-	f libctx.Config[string] // follow
-	s libctx.Config[string] // specific
+	idx libctx.Config[string] // index file configuration
+	dwn libctx.Config[string] // download file configuration
+	flw libctx.Config[string] // redirect configuration
+	spc libctx.Config[string] // specific handler configuration
+
+	// Rate limiting
+	rlc libatm.Value[*RateLimitConfig]    // rate limit configuration
+	rli libatm.MapTyped[string, *ipTrack] // IP tracking map (IP -> tracking data)
+	rlx libatm.Value[context.CancelFunc]  // cleanup goroutine cancel function
+
+	// Path security
+	psc libatm.Value[*PathSecurityConfig] // path security configuration
+
+	// Suspicious access detection
+	sus libatm.Value[*SuspiciousConfig] // suspicious access configuration
+
+	// HTTP Headers
+	hdr libatm.Value[*HeadersConfig] // headers configuration (cache, etag, content-type)
+
+	// Security backend integration (WAF/IDS/EDR)
+	sec libatm.Value[*SecurityConfig] // security integration configuration
+	seb libatm.Value[*evtBatch]       // event batch for batching security events
 }
 
-func (s *staticHandler) _setLogger(fct liblog.FuncLog) {
-	if fct == nil {
-		fct = s._getDefaultLogger
+func (s *staticHandler) setLogger(log liblog.Logger) {
+	if log == nil {
+		log = liblog.New(s.dwn)
 	}
 
-	s.l.Store(fct())
+	s.log.Store(log)
 }
 
-func (s *staticHandler) _getLogger() liblog.Logger {
-	i := s.l.Load()
+func (s *staticHandler) getLogger() liblog.Logger {
+	i := s.log.Load()
 
 	if i == nil {
-		return s._getDefaultLogger()
-	} else if l, k := i.(liblog.FuncLog); !k {
-		return s._getDefaultLogger()
-	} else if log := l(); log == nil {
-		return s._getDefaultLogger()
+		return s.defLogger()
 	} else {
-		return log
+		return i
 	}
 }
 
-func (s *staticHandler) _getDefaultLogger() liblog.Logger {
-	return liblog.New(s.d)
+func (s *staticHandler) defLogger() liblog.Logger {
+	return liblog.New(s.dwn)
 }
 
-func (s *staticHandler) RegisterLogger(log liblog.FuncLog) {
-	s._setLogger(log)
+func (s *staticHandler) RegisterLogger(log liblog.Logger) {
+	s.setLogger(log)
 }

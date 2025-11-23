@@ -21,7 +21,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package static
@@ -31,7 +30,6 @@ import (
 	"io/fs"
 	"runtime"
 
-	liberr "github.com/nabbar/golib/errors"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
@@ -42,6 +40,15 @@ const (
 	textEmbed = "Embed FS"
 )
 
+// Monitor creates and returns a health monitor for the static file handler.
+// This integrates with github.com/nabbar/golib/monitor for health checks and status reporting.
+//
+// The monitor provides:
+//   - Runtime version information
+//   - Build metadata
+//   - Filesystem health checks
+//
+// See github.com/nabbar/golib/monitor/types for configuration details.
 func (s *staticHandler) Monitor(ctx context.Context, cfg montps.Config, vrs libver.Version) (montps.Monitor, error) {
 	res := make(map[string]interface{}, 0)
 	res["runtime"] = runtime.Version()[2:]
@@ -54,7 +61,6 @@ func (s *staticHandler) Monitor(ctx context.Context, cfg montps.Config, vrs libv
 		i   fs.FileInfo
 		inf moninf.Info
 		mon montps.Monitor
-		err liberr.Error
 	)
 
 	if inf, e = moninf.New(textEmbed); e != nil {
@@ -65,18 +71,20 @@ func (s *staticHandler) Monitor(ctx context.Context, cfg montps.Config, vrs libv
 		})
 	}
 
-	if i, err = s._fileInfo(""); err != nil {
-		inf.RegisterInfo(func() (map[string]interface{}, error) {
-			return nil, err
-		})
-	} else {
-		res["path"] = i.Name()
-		inf.RegisterInfo(func() (map[string]interface{}, error) {
-			return res, nil
-		})
+	// Try to get filesystem info from the first base path if available
+	basePaths := s.getBase()
+	if len(basePaths) > 0 {
+		if i, e = s.fileInfo(basePaths[0]); e == nil {
+			res["path"] = i.Name()
+		}
 	}
 
-	if mon, e = libmon.New(s.s, inf); e != nil {
+	// Always register info with at least runtime and version data
+	inf.RegisterInfo(func() (map[string]interface{}, error) {
+		return res, nil
+	})
+
+	if mon, e = libmon.New(s.dwn, inf); e != nil {
 		return nil, e
 	} else if e = mon.SetConfig(ctx, cfg); e != nil {
 		return nil, e
@@ -90,9 +98,12 @@ func (s *staticHandler) Monitor(ctx context.Context, cfg montps.Config, vrs libv
 	return mon, nil
 }
 
+// HealthCheck performs a health check on the embedded filesystem.
+// It verifies that all base paths are accessible.
+// Returns an error if any base path cannot be accessed.
 func (s *staticHandler) HealthCheck(ctx context.Context) error {
-	for _, p := range s._getBase() {
-		if _, err := s._fileInfo(p); err != nil {
+	for _, p := range s.getBase() {
+		if _, err := s.fileInfo(p); err != nil {
 			return err
 		}
 	}

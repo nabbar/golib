@@ -34,14 +34,15 @@ import (
 )
 
 type progress struct {
-	r *os.Root
-	f *os.File
+	r *os.Root // os Root
+	f *os.File // file
+	t bool     // is Temp file
 
-	b *atomic.Int32
+	b *atomic.Int32 // buffer size
 
-	fi *atomic.Value
-	fe *atomic.Value
-	fr *atomic.Value
+	fi *atomic.Value // func Increment
+	fe *atomic.Value // func EOF
+	fr *atomic.Value // func Reset
 }
 
 func (o *progress) SetBufferSize(size int32) {
@@ -61,6 +62,10 @@ func (o *progress) getBufferSize(size int) int {
 	} else {
 		return int(i)
 	}
+}
+
+func (o *progress) IsTemp() bool {
+	return o.t
 }
 
 func (o *progress) Path() string {

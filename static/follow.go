@@ -21,21 +21,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package static
 
+// SetRedirect configures a permanent redirect (HTTP 301) from source to destination route.
+// Useful for maintaining backward compatibility or reorganizing file structure.
 func (s *staticHandler) SetRedirect(srcGroup, srcRoute, dstGroup, dstRoute string) {
-	srcRoute = s._makeRoute(srcGroup, srcRoute)
-	dstRoute = s._makeRoute(dstGroup, dstRoute)
+	srcRoute = s.makeRoute(srcGroup, srcRoute)
+	dstRoute = s.makeRoute(dstGroup, dstRoute)
 
-	s.f.Store(srcRoute, dstRoute)
+	s.flw.Store(srcRoute, dstRoute)
 }
 
+// GetRedirect returns the destination route for a given source route.
+// Returns empty string if no redirect is configured.
 func (s *staticHandler) GetRedirect(srcGroup, srcRoute string) string {
-	srcRoute = s._makeRoute(srcGroup, srcRoute)
-	if i, l := s.f.Load(srcRoute); !l {
+	srcRoute = s.makeRoute(srcGroup, srcRoute)
+	if i, l := s.flw.Load(srcRoute); !l {
 		return ""
 	} else if v, k := i.(string); !k {
 		return ""
@@ -44,10 +47,11 @@ func (s *staticHandler) GetRedirect(srcGroup, srcRoute string) string {
 	}
 }
 
+// IsRedirect checks if a route is configured as a redirect.
 func (s *staticHandler) IsRedirect(group, route string) bool {
-	route = s._makeRoute(group, route)
+	route = s.makeRoute(group, route)
 
-	if i, l := s.f.Load(route); !l {
+	if i, l := s.flw.Load(route); !l {
 		return false
 	} else {
 		_, ok := i.(string)
