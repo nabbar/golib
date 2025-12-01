@@ -29,15 +29,18 @@
 package unixgram
 
 import (
-	"os"
+	"net"
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
+	libprm "github.com/nabbar/golib/file/perm"
 	libsck "github.com/nabbar/golib/socket"
+	sckcfg "github.com/nabbar/golib/socket/config"
 )
 
-// maxGID defines the maximum allowed Unix group ID value (32767).
+// MaxGID defines the maximum allowed Unix group ID value (32767).
 // Group IDs must be within this range to be valid on Linux systems.
-const maxGID = 32767
+const MaxGID = 32767
 
 // ServerUnixGram defines the interface for a Unix domain datagram socket server implementation.
 // It extends the base github.com/nabbar/golib/socket.Server interface
@@ -86,10 +89,10 @@ type ServerUnixGram interface {
 	// The socket file will be created when Listen() is called and removed on shutdown.
 	// If the file exists, it will be deleted before creating the new socket.
 	//
-	// Returns ErrInvalidGroup if gid exceeds maxGID (32767).
+	// Returns ErrInvalidGroup if gid exceeds MaxGID (32767).
 	//
 	// This method must be called before Listen().
-	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
+	RegisterSocket(unixFile string, perm libprm.Perm, gid int32) error
 }
 
 // New creates a new Unix domain datagram socket server instance.
@@ -135,36 +138,35 @@ type ServerUnixGram interface {
 //
 // See github.com/nabbar/golib/socket.HandlerFunc and socket.UpdateConn for
 // callback function signatures.
-func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerUnixGram {
-	c := new(atomic.Value)
-	c.Store(make(chan []byte))
-
-	s := new(atomic.Value)
-	s.Store(make(chan struct{}))
-
-	// socket file
-	sf := new(atomic.Value)
-	sf.Store("")
-
-	// socket permission
-	sp := new(atomic.Int64)
-	sp.Store(0)
-
-	// socket group permission
-	sg := new(atomic.Int32)
-	sg.Store(0)
-
-	return &srv{
-		upd: u,
-		hdl: h,
-		msg: c,
-		stp: s,
-		run: new(atomic.Bool),
-		fe:  new(atomic.Value),
-		fi:  new(atomic.Value),
-		fs:  new(atomic.Value),
-		sf:  sf,
-		sp:  sp,
-		sg:  sg,
+func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (ServerUnixGram, error) {
+	if e := cfg.Validate(); e != nil {
+		return nil, e
+	} else if hdl == nil {
+		return nil, ErrInvalidHandler
 	}
+
+	var (
+		dfe libsck.FuncError   = func(_ ...error) {}
+		dfi libsck.FuncInfo    = func(_, _ net.Addr, _ libsck.ConnState) {}
+		dfs libsck.FuncInfoSrv = func(_ string) {}
+	)
+
+	s := &srv{
+		upd: upd,
+		hdl: hdl,
+		run: new(atomic.Bool),
+		gon: new(atomic.Bool),
+		fe:  libatm.NewValueDefault[libsck.FuncError](dfe, dfe),
+		fi:  libatm.NewValueDefault[libsck.FuncInfo](dfi, dfi),
+		fs:  libatm.NewValueDefault[libsck.FuncInfoSrv](dfs, dfs),
+		ad:  libatm.NewValue[sckFile](),
+	}
+
+	if e := s.RegisterSocket(cfg.Address, cfg.PermFile, cfg.GroupPerm); e != nil {
+		return nil, e
+	}
+
+	s.gon.Store(true)
+
+	return s, nil
 }

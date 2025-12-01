@@ -24,6 +24,19 @@
  *
  */
 
+// This file tests thread safety and concurrent operations.
+//
+// Test Strategy:
+//   - Verify concurrent reads from multiple goroutines are safe
+//   - Test concurrent writes from multiple goroutines
+//   - Validate concurrent function updates (SetRead/SetWrite) while I/O is active
+//   - Ensure atomic operations prevent data races
+//   - Test combinations of concurrent reads, writes, and updates
+//
+// All tests use sync.WaitGroup and atomic.Int64 for proper synchronization.
+// These tests are designed to pass with the race detector (go test -race).
+//
+// Coverage: 17 specs testing thread-safe concurrent access patterns.
 package iowrapper_test
 
 import (

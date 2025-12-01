@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -32,13 +32,15 @@ type wrp struct {
 	w io.Writer // Underlying writer for delegation
 }
 
-// Write delegates to the underlying writer.
+// Write implements io.Writer by delegating to the underlying writer.
+// It passes through all parameters and return values unchanged.
 func (o *wrp) Write(p []byte) (n int, err error) {
 	return o.w.Write(p)
 }
 
-// Close is a no-operation that always returns nil.
-// The underlying writer is NOT closed.
+// Close implements io.Closer as a no-operation that always returns nil.
+// The underlying writer is NOT closed and remains fully usable.
+// This method can be called multiple times safely.
 func (o *wrp) Close() error {
 	return nil
 }

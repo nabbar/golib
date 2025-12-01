@@ -60,7 +60,7 @@ func ExampleNew() {
 	}
 
 	// Create and start aggregator
-	agg, err := aggregator.New(ctx, cfg, nil)
+	agg, err := aggregator.New(ctx, cfg)
 	if err != nil {
 		fmt.Printf("Error creating aggregator: %v\n", err)
 		return
@@ -108,7 +108,7 @@ func ExampleNew_fileWriter() {
 	}
 
 	// Create and start
-	agg, err := aggregator.New(ctx, cfg, nil)
+	agg, err := aggregator.New(ctx, cfg)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -161,7 +161,7 @@ func ExampleConfig_asyncCallback() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg, nil)
+	agg, _ := aggregator.New(ctx, cfg)
 	agg.Start(ctx)
 	defer agg.Close()
 
@@ -193,7 +193,7 @@ func ExampleConfig_syncCallback() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg, nil)
+	agg, _ := aggregator.New(ctx, cfg)
 	agg.Start(ctx)
 	defer agg.Close()
 
@@ -217,7 +217,7 @@ func ExampleAggregator_IsRunning() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg, nil)
+	agg, _ := aggregator.New(ctx, cfg)
 
 	fmt.Printf("Before Start: %v\n", agg.IsRunning())
 
@@ -254,7 +254,7 @@ func ExampleAggregator_Restart() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg, nil)
+	agg, _ := aggregator.New(ctx, cfg)
 	agg.Start(ctx)
 
 	// Write some data
@@ -290,7 +290,7 @@ func ExampleAggregator_contextCancellation() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg, nil)
+	agg, _ := aggregator.New(ctx, cfg)
 	agg.Start(ctx)
 
 	// Write some data
@@ -325,7 +325,7 @@ func ExampleAggregator_errorHandling() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg, nil)
+	agg, _ := aggregator.New(ctx, cfg)
 	agg.Start(ctx)
 	defer agg.Close()
 
@@ -367,7 +367,7 @@ func ExampleAggregator_monitoring() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg, nil)
+	agg, _ := aggregator.New(ctx, cfg)
 	agg.Start(ctx)
 	defer agg.Close()
 
@@ -447,7 +447,7 @@ func Example_socketToFile() {
 		},
 	}
 
-	agg, err := aggregator.New(ctx, cfg, nil)
+	agg, err := aggregator.New(ctx, cfg)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return

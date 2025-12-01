@@ -1,37 +1,37 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
 package config
 
 import (
 	libprm "github.com/nabbar/golib/file/perm"
-	libsiz "github.com/nabbar/golib/size"
 )
 
+// OptionsFile defines configuration options for file-based logging.
+// This structure controls file creation, permissions, and formatting options.
 type OptionsFile struct {
 	// LogLevel define the allowed level of log for this file.
 	LogLevel []string `json:"logLevel,omitempty" yaml:"logLevel,omitempty" toml:"logLevel,omitempty" mapstructure:"logLevel,omitempty"`
@@ -62,13 +62,18 @@ type OptionsFile struct {
 
 	// EnableAccessLog allow to add all message from api router for access log and error log.
 	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
-
-	// FileBufferSize define the size for buffer size (by default the buffer size is set to 32KB).
-	FileBufferSize libsiz.Size `json:"file-buffer-size,omitempty" yaml:"file-buffer-size,omitempty" toml:"file-buffer-size,omitempty" mapstructure:"file-buffer-size,omitempty"`
 }
 
+// OptionsFiles is a collection of file logging configurations.
+// It allows defining multiple log files with different levels and destinations.
 type OptionsFiles []OptionsFile
 
+// Clone creates a deep copy of the OptionsFile structure.
+// This is useful for creating independent copies that can be modified
+// without affecting the original configuration.
+//
+// Returns a new OptionsFile instance with all fields copied, including
+// a deep copy of the LogLevel slice.
 func (o OptionsFile) Clone() OptionsFile {
 	// Deep copy LogLevel slice
 	var logLevel []string
@@ -88,10 +93,13 @@ func (o OptionsFile) Clone() OptionsFile {
 		DisableTimestamp: o.DisableTimestamp,
 		EnableTrace:      o.EnableTrace,
 		EnableAccessLog:  o.EnableAccessLog,
-		FileBufferSize:   o.FileBufferSize,
 	}
 }
 
+// Clone creates a deep copy of the OptionsFiles collection.
+// Each OptionsFile in the collection is cloned individually.
+//
+// Returns a new OptionsFiles collection with cloned elements.
 func (o OptionsFiles) Clone() OptionsFiles {
 	var c = make([]OptionsFile, 0)
 	for _, i := range o {

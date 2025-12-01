@@ -38,7 +38,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Reader tests verify the bufio.Reader wrapper with io.Closer support.
+// Tests cover creation, read operations, WriteTo, close behavior with reset,
+// custom close functions, and nil parameter handling.
 var _ = Describe("Reader", func() {
+	// Creation tests verify reader instantiation and nil handling.
 	Context("Creation", func() {
 		It("should create reader from bufio.Reader", func() {
 			source := strings.NewReader("test data")
@@ -63,8 +67,20 @@ var _ = Describe("Reader", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(closed).To(BeTrue())
 		})
+
+		It("should create reader from empty source when reader is nil", func() {
+			reader := NewReader(nil, nil)
+			Expect(reader).ToNot(BeNil())
+
+			// Should return EOF immediately
+			data := make([]byte, 10)
+			n, err := reader.Read(data)
+			Expect(err).To(HaveOccurred()) // EOF
+			Expect(n).To(Equal(0))
+		})
 	})
 
+	// Read operations tests verify delegation to underlying bufio.Reader.
 	Context("Read operations", func() {
 		It("should read data", func() {
 			source := strings.NewReader("hello world")
@@ -129,6 +145,7 @@ var _ = Describe("Reader", func() {
 		})
 	})
 
+	// Close operations tests verify reset and custom function execution.
 	Context("Close operations", func() {
 		It("should close and reset reader", func() {
 			source := strings.NewReader("data")
@@ -180,6 +197,7 @@ var _ = Describe("Reader", func() {
 		})
 	})
 
+	// Edge cases tests verify behavior with empty sources and EOF.
 	Context("Edge cases", func() {
 		It("should handle empty reader", func() {
 			source := strings.NewReader("")

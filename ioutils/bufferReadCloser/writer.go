@@ -56,14 +56,14 @@ func (b *wrt) WriteString(s string) (n int, err error) {
 
 // Close flushes any buffered data, resets the writer (releases resources),
 // and calls the custom close function if provided.
-// Returns any error from the custom close function.
+// Returns any error from flush or the custom close function.
 func (b *wrt) Close() error {
-	_ = b.b.Flush()
+	e := b.b.Flush()
 	b.b.Reset(nil)
 
 	if b.f != nil {
 		return b.f()
 	}
 
-	return nil
+	return e
 }

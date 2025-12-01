@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,9 @@ import (
 	"github.com/nabbar/golib/ioutils/multi"
 )
 
+// Tests for Multi constructor and interface compliance.
+// These tests verify that the New() function creates properly initialized
+// instances and that the Multi type correctly implements expected interfaces.
 var _ = Describe("Multi Constructor and Interface", func() {
 	Describe("New constructor", func() {
 		Context("creating a new Multi instance", func() {

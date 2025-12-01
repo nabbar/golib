@@ -27,9 +27,12 @@
 package udp
 
 import (
+	"net"
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libsck "github.com/nabbar/golib/socket"
+	sckcfg "github.com/nabbar/golib/socket/config"
 )
 
 // ServerUdp defines the interface for a UDP server implementation.
@@ -39,7 +42,7 @@ import (
 // The server operates in connectionless datagram mode:
 //   - No persistent connections are maintained
 //   - Each datagram is processed independently
-//   - OpenConnections() always returns 1 when server is running
+//   - OpenConnections() always returns 0 (UDP is stateless)
 //   - Graceful shutdown supported
 //   - Callback registration for events and errors
 //
@@ -49,12 +52,11 @@ import (
 //   - Close() error - Immediate shutdown
 //   - IsRunning() bool - Check if server is accepting datagrams
 //   - IsGone() bool - Check if server has stopped
-//   - OpenConnections() int64 - Returns 1 if running, 0 if stopped
-//   - Done() <-chan struct{} - Channel closed when server stops
-//   - SetTLS(bool, TLSConfig) error - No-op for UDP (always returns nil)
+//   - OpenConnections() int64 - Always returns 0 for UDP (stateless)
+//   - SetTLS(bool, TLSConfig) - No-op for UDP (always no error)
 //   - RegisterFuncError(FuncError) - Register error callback
 //   - RegisterFuncInfo(FuncInfo) - Register datagram info callback
-//   - RegisterFuncInfoServer(FuncInfoSrv) - Register server info callback
+//   - RegisterFuncInfoSrv(FuncInfoSrv) - Register server info callback
 type ServerUdp interface {
 	libsck.Server
 
@@ -103,22 +105,35 @@ type ServerUdp interface {
 //
 // See github.com/nabbar/golib/socket.HandlerFunc and socket.UpdateConn for
 // callback function signatures.
-func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerUdp {
-	c := new(atomic.Value)
-	c.Store(make(chan []byte))
-
-	s := new(atomic.Value)
-	s.Store(make(chan struct{}))
-
-	return &srv{
-		upd: u,
-		hdl: h,
-		msg: c,
-		stp: s,
-		run: new(atomic.Bool),
-		fe:  new(atomic.Value),
-		fi:  new(atomic.Value),
-		fs:  new(atomic.Value),
-		ad:  new(atomic.Value),
+func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (ServerUdp, error) {
+	if e := cfg.Validate(); e != nil {
+		return nil, e
+	} else if hdl == nil {
+		return nil, ErrInvalidHandler
 	}
+
+	var (
+		dfe libsck.FuncError   = func(_ ...error) {}
+		dfi libsck.FuncInfo    = func(_, _ net.Addr, _ libsck.ConnState) {}
+		dfs libsck.FuncInfoSrv = func(_ string) {}
+	)
+
+	s := &srv{
+		upd: upd,
+		hdl: hdl,
+		run: new(atomic.Bool),
+		gon: new(atomic.Bool),
+		fe:  libatm.NewValueDefault[libsck.FuncError](dfe, dfe),
+		fi:  libatm.NewValueDefault[libsck.FuncInfo](dfi, dfi),
+		fs:  libatm.NewValueDefault[libsck.FuncInfoSrv](dfs, dfs),
+		ad:  libatm.NewValue[string](),
+	}
+
+	if e := s.RegisterServer(cfg.Address); e != nil {
+		return nil, e
+	}
+
+	s.gon.Store(true)
+
+	return s, nil
 }

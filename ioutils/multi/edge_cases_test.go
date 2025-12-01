@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,9 @@ import (
 	"github.com/nabbar/golib/ioutils/multi"
 )
 
+// Tests for Multi edge cases, error handling, and boundary conditions.
+// These tests verify proper behavior with error conditions, zero-length
+// operations, nil values, very large data, and special data patterns.
 var _ = Describe("Multi Edge Cases and Error Handling", func() {
 	var m multi.Multi
 
@@ -347,40 +350,3 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 		})
 	})
 })
-
-// partialWriter writes only up to maxBytes
-type partialWriter struct {
-	maxBytes int
-	written  int
-}
-
-func (p *partialWriter) Write(data []byte) (n int, err error) {
-	remaining := p.maxBytes - p.written
-	if remaining <= 0 {
-		return 0, io.ErrShortWrite
-	}
-	if len(data) > remaining {
-		p.written += remaining
-		return remaining, io.ErrShortWrite
-	}
-	p.written += len(data)
-	return len(data), nil
-}
-
-// errorReadCloser is a test helper that can return errors on both Read and Close
-type errorReadCloser struct {
-	io.Reader
-	readErr  error
-	closeErr error
-}
-
-func (e *errorReadCloser) Read(p []byte) (n int, err error) {
-	if e.readErr != nil {
-		return 0, e.readErr
-	}
-	return e.Reader.Read(p)
-}
-
-func (e *errorReadCloser) Close() error {
-	return e.closeErr
-}

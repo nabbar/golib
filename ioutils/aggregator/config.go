@@ -28,8 +28,6 @@ package aggregator
 import (
 	"context"
 	"time"
-
-	logcfg "github.com/nabbar/golib/logger/config"
 )
 
 // Config defines the configuration for creating a new Aggregator.
@@ -37,11 +35,6 @@ import (
 // The configuration allows customization of buffering, periodic callbacks,
 // and logging behavior.
 type Config struct {
-	// Logger configures the internal logger options.
-	// See github.com/nabbar/golib/logger/config for available options.
-	// If not specified, default logging settings are used.
-	Logger logcfg.Options
-
 	// AsyncTimer specifies the interval for calling AsyncFct.
 	// If zero or negative, async callbacks are disabled.
 	// Must be > 0 and AsyncFct must be non-nil to enable async callbacks.

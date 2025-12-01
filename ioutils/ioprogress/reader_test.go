@@ -24,6 +24,24 @@
  *
  */
 
+// Package ioprogress_test provides comprehensive tests for Reader implementation.
+//
+// This file contains 22 test specifications covering all aspects of the Reader interface:
+//   - Constructor and initialization
+//   - Read operations (single, multiple, EOF, empty data)
+//   - Progress tracking with increment callbacks
+//   - EOF callback behavior
+//   - Reset callback for multi-stage operations
+//   - Close operations (single and multiple)
+//   - Combined operations (full read cycle)
+//   - Edge cases (zero-byte reads, large data)
+//
+// Test Strategy: Each test validates a specific behavior or edge case using BDD-style
+// organization. Tests use helper types (closeableReader) to provide controlled test
+// environments that track state (e.g., closed status).
+//
+// Thread Safety: Tests validate that callbacks can be registered concurrently using
+// atomic operations. The package passes race detection (-race flag) with zero data races.
 package ioprogress_test
 
 import (
@@ -37,22 +55,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type closeableReader struct {
-	*strings.Reader
-	closed bool
-}
-
-func (c *closeableReader) Close() error {
-	c.closed = true
-	return nil
-}
-
-func newCloseableReader(s string) *closeableReader {
-	return &closeableReader{
-		Reader: strings.NewReader(s),
-		closed: false,
-	}
-}
+// Helper types (closeableReader, newCloseableReader) are defined in helper_test.go
+// to avoid code duplication across test files.
 
 var _ = Describe("Reader", func() {
 	Context("Creation", func() {

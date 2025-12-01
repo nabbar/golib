@@ -60,7 +60,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -109,7 +109,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -147,7 +147,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -180,7 +180,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -214,7 +214,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -247,7 +247,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -280,7 +280,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -317,7 +317,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -369,7 +369,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			var wg sync.WaitGroup
@@ -415,7 +415,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -447,7 +447,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -487,7 +487,7 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(localCtx, cfg, globalLog)
+			agg, err := aggregator.New(localCtx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(localCtx)

@@ -3,7 +3,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,7 @@ import (
 	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
 	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -171,13 +172,27 @@ func (o *cli) RegisterFuncInfo(f libsck.FuncInfo) {
 // The callback is executed in a separate goroutine to avoid blocking.
 // If no callback is registered or the error is nil, this method does nothing.
 func (o *cli) fctError(e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/client/unixgram/fctError", r)
+		}
+	}()
+
 	if o == nil || e == nil {
 		return
 	}
 
 	if v, k := o.m.Load(keyFctErr); k && v != nil {
 		if fn, ok := v.(libsck.FuncError); ok && fn != nil {
-			go fn(e)
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						librun.RecoveryCaller("golib/socket/client/unixgram/fctError", r, e)
+					}
+				}()
+
+				fn(e)
+			}()
 		}
 	}
 }
@@ -187,13 +202,27 @@ func (o *cli) fctError(e error) {
 // The callback is executed in a separate goroutine to avoid blocking I/O operations.
 // If no callback is registered, this method does nothing.
 func (o *cli) fctInfo(local, remote net.Addr, state libsck.ConnState) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/client/unixgram/fctError", r)
+		}
+	}()
+
 	if o == nil {
 		return
 	}
 
 	if v, k := o.m.Load(keyFctInfo); k && v != nil {
 		if fn, ok := v.(libsck.FuncInfo); ok && fn != nil {
-			go fn(local, remote, state)
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						librun.RecoveryCaller("golib/socket/client/unixgram/fctInfo", r)
+					}
+				}()
+
+				fn(local, remote, state)
+			}()
 		}
 	}
 }
@@ -211,6 +240,12 @@ func (o *cli) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 //   - error: ErrInstance if client is nil, ErrAddress if path is invalid,
 //     or a network error if socket creation fails
 func (o *cli) dial(ctx context.Context) (net.Conn, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/client/unixgram/dial", r)
+		}
+	}()
+
 	if o == nil {
 		return nil, ErrInstance
 	}
@@ -303,6 +338,12 @@ func (o *cli) IsConnected() bool {
 //
 // Thread-safe: Can be called concurrently, but only one socket is active at a time.
 func (o *cli) Connect(ctx context.Context) error {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/client/unixgram/connect", r)
+		}
+	}()
+
 	if o == nil {
 		return ErrInstance
 	}
@@ -555,6 +596,12 @@ func (o *cli) Close() error {
 //
 // See github.com/nabbar/golib/socket.Response for callback signature details.
 func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) error {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/client/unixgram/once", r)
+		}
+	}()
+
 	if o == nil {
 		return ErrInstance
 	}
@@ -575,18 +622,20 @@ func (o *cli) Once(ctx context.Context, request io.Reader, fct libsck.Response) 
 		return err
 	}
 
-	for {
-		nbr, err = io.Copy(o, request)
+	if request != nil {
+		for {
+			nbr, err = io.Copy(o, request)
 
-		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				o.fctError(err)
-				return err
-			} else {
+			if err != nil {
+				if !errors.Is(err, io.EOF) {
+					o.fctError(err)
+					return err
+				} else {
+					break
+				}
+			} else if nbr < 1 {
 				break
 			}
-		} else if nbr < 1 {
-			break
 		}
 	}
 

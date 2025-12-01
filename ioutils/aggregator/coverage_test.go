@@ -61,7 +61,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -86,7 +86,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(startAndWait(agg, ctx)).To(Succeed())
@@ -107,7 +107,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Done should still work
@@ -132,7 +132,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -156,7 +156,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -199,7 +199,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -224,7 +224,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -248,7 +248,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -268,7 +268,7 @@ var _ = Describe("Coverage Improvements", func() {
 				AsyncFct:   nil,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -286,7 +286,7 @@ var _ = Describe("Coverage Improvements", func() {
 				SyncFct:   nil,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -309,7 +309,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -340,7 +340,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Before start: write should fail
@@ -371,7 +371,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Before start, runner might not be initialized
@@ -395,7 +395,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -424,7 +424,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -443,7 +443,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -460,7 +460,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -477,7 +477,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(localCtx, cfg, globalLog)
+			agg, err := aggregator.New(localCtx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -498,7 +498,7 @@ var _ = Describe("Coverage Improvements", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -522,7 +522,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 

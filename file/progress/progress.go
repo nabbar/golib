@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,10 @@ import (
 	"io"
 )
 
+// RegisterFctIncrement registers a callback function that is called after each successful
+// read or write operation. The callback receives the number of bytes processed in that operation.
+// If fct is nil, a no-op function is registered.
+// The callback is stored atomically and can be safely called from concurrent goroutines.
 func (o *progress) RegisterFctIncrement(fct FctIncrement) {
 	if fct == nil {
 		fct = func(size int64) {}
@@ -39,6 +43,12 @@ func (o *progress) RegisterFctIncrement(fct FctIncrement) {
 	o.fi.Store(fct)
 }
 
+// RegisterFctReset registers a callback function that is called when the file position
+// is reset (e.g., via Seek or Truncate operations). The callback receives two parameters:
+//   - size: the maximum size of the file
+//   - current: the current position after the reset
+// If fct is nil, a no-op function is registered.
+// The callback is stored atomically and can be safely called from concurrent goroutines.
 func (o *progress) RegisterFctReset(fct FctReset) {
 	if fct == nil {
 		fct = func(size, current int64) {}
@@ -47,6 +57,10 @@ func (o *progress) RegisterFctReset(fct FctReset) {
 	o.fr.Store(fct)
 }
 
+// RegisterFctEOF registers a callback function that is called when end-of-file (EOF)
+// is reached during a read operation. This signals completion of reading the entire file.
+// If fct is nil, a no-op function is registered.
+// The callback is stored atomically and can be safely called from concurrent goroutines.
 func (o *progress) RegisterFctEOF(fct FctEOF) {
 	if fct == nil {
 		fct = func() {}
@@ -55,6 +69,10 @@ func (o *progress) RegisterFctEOF(fct FctEOF) {
 	o.fe.Store(fct)
 }
 
+// SetRegisterProgress propagates all registered callbacks from this Progress instance
+// to another Progress instance. This is useful for chaining progress tracking across
+// multiple file operations (e.g., copying from one file to another).
+// Only non-nil callbacks are propagated.
 func (o *progress) SetRegisterProgress(f Progress) {
 	i := o.fi.Load()
 	if i != nil {
@@ -72,6 +90,9 @@ func (o *progress) SetRegisterProgress(f Progress) {
 	}
 }
 
+// inc invokes the increment callback with the specified byte count.
+// This is called internally after each successful read/write operation.
+// The callback is invoked only if registered and instance is not nil.
 func (o *progress) inc(n int64) {
 	if o == nil {
 		return
@@ -83,6 +104,9 @@ func (o *progress) inc(n int64) {
 	}
 }
 
+// finish invokes the EOF callback to signal end of file reached.
+// This is called internally when io.EOF is detected during read operations.
+// The callback is invoked only if registered and instance is not nil.
 func (o *progress) finish() {
 	if o == nil {
 		return
@@ -94,10 +118,16 @@ func (o *progress) finish() {
 	}
 }
 
+// reset invokes the reset callback with auto-detected file size.
+// This is called internally after seek operations and truncation.
 func (o *progress) reset() {
 	o.Reset(0)
 }
 
+// Reset invokes the reset callback with the specified maximum size and current position.
+// If max is less than 1, it is automatically detected from file statistics.
+// The callback receives the file size and current position from beginning of file.
+// This method is public to allow manual reset triggering if needed.
 func (o *progress) Reset(max int64) {
 	if o == nil {
 		return
@@ -122,6 +152,10 @@ func (o *progress) Reset(max int64) {
 	}
 }
 
+// analyze processes the result of an I/O operation by invoking appropriate callbacks.
+// It calls the increment callback if bytes were processed (i != 0).
+// It calls the EOF callback if an EOF error is detected.
+// This method wraps I/O results to provide transparent progress tracking.
 func (o *progress) analyze(i int, e error) (n int, err error) {
 	if o == nil {
 		return i, e

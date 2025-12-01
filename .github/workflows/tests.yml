@@ -54,6 +54,7 @@ jobs:
           GINKGO_NO_COLOR: TRUE
         run: |
           go version
-          go test -race -timeout=30m -cover -covermode=atomic ./... --ginkgo.succinct --ginkgo.github-output --ginkgo.timeout=30m
+          ./coverage-report.sh
+#          go test -race -timeout=30m -cover -covermode=atomic ./... --ginkgo.succinct --ginkgo.github-output --ginkgo.timeout=30m
 #          ginkgo version
 #          ginkgo --timeout=15m --keep-going --race --cover --covermode=atomic --github-output --succinct -r

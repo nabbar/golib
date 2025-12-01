@@ -37,7 +37,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Buffer tests verify the bytes.Buffer wrapper with io.Closer support.
+// Tests cover:
+//   - Creation with and without custom close functions
+//   - All read operations (Read, ReadByte, ReadRune, ReadFrom)
+//   - All write operations (Write, WriteString, WriteByte, WriteTo)
+//   - Close behavior (reset + custom function execution)
+//   - Nil parameter handling (creates empty buffer)
+//   - Edge cases (empty buffers, large data, multiple closes)
 var _ = Describe("Buffer", func() {
+	// Creation tests verify that buffers can be created with various configurations
+	// and that nil parameters are handled gracefully.
 	Context("Creation", func() {
 		It("should create buffer from bytes.Buffer", func() {
 			b := bytes.NewBufferString("test data")
@@ -67,8 +77,36 @@ var _ = Describe("Buffer", func() {
 
 			Expect(buf).ToNot(BeNil())
 		})
+
+		It("should create empty buffer when buffer is nil", func() {
+			buf := NewBuffer(nil, nil)
+			Expect(buf).ToNot(BeNil())
+
+			// Should be able to write and read
+			n, err := buf.WriteString("test")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(4))
+
+			data := make([]byte, 4)
+			n, err = buf.Read(data)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(4))
+			Expect(string(data)).To(Equal("test"))
+		})
+
+		It("should create empty buffer when buffer is nil using deprecated New", func() {
+			buf := New(nil)
+			Expect(buf).ToNot(BeNil())
+
+			// Should be able to write
+			n, err := buf.WriteString("test")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(4))
+		})
 	})
 
+	// Read operations tests verify that all read methods delegate correctly
+	// to the underlying bytes.Buffer.
 	Context("Read operations", func() {
 		It("should read data", func() {
 			b := bytes.NewBufferString("hello world")
@@ -114,6 +152,8 @@ var _ = Describe("Buffer", func() {
 		})
 	})
 
+	// Write operations tests verify that all write methods delegate correctly
+	// to the underlying bytes.Buffer.
 	Context("Write operations", func() {
 		It("should write data", func() {
 			b := bytes.NewBuffer(nil)
@@ -157,6 +197,8 @@ var _ = Describe("Buffer", func() {
 		})
 	})
 
+	// Combined operations tests verify that read and write can be used together
+	// on the same buffer.
 	Context("Combined operations", func() {
 		It("should support read and write", func() {
 			b := bytes.NewBuffer(nil)
@@ -175,6 +217,8 @@ var _ = Describe("Buffer", func() {
 		})
 	})
 
+	// Close operations tests verify that Close() properly resets the buffer
+	// and executes custom close functions, including error propagation.
 	Context("Close operations", func() {
 		It("should close and reset buffer", func() {
 			b := bytes.NewBufferString("data")
@@ -223,6 +267,8 @@ var _ = Describe("Buffer", func() {
 		})
 	})
 
+	// Edge cases tests verify behavior with unusual inputs like empty buffers
+	// and very large data.
 	Context("Edge cases", func() {
 		It("should handle empty buffer", func() {
 			b := bytes.NewBuffer(nil)

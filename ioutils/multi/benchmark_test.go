@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +40,10 @@ import (
 	"github.com/nabbar/golib/ioutils/multi"
 )
 
+// Performance benchmarks for Multi operations.
+// These benchmarks measure the performance and memory allocation characteristics
+// of various operations including construction, writes, reads, copies, and
+// writer management. Uses gmeasure for statistical analysis.
 var _ = Describe("Multi Performance Benchmarks", func() {
 	Describe("Constructor benchmarks", func() {
 		It("should benchmark New() creation", func() {

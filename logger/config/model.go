@@ -1,29 +1,28 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
 package config
 
@@ -34,8 +33,12 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// FuncOpt is a function type that returns a pointer to Options.
+// It is used for implementing default configuration functions via RegisterDefaultFunc.
 type FuncOpt func() *Options
 
+// Options is the main configuration structure for the logger package.
+// It supports multiple output destinations with flexible inheritance and validation.
 type Options struct {
 	// InheritDefault define if the current options will override a default options
 	InheritDefault bool `json:"inheritDefault" yaml:"inheritDefault" toml:"inheritDefault" mapstructure:"inheritDefault"`
@@ -91,6 +94,11 @@ func (o *Options) Validate() liberr.Error {
 	return e
 }
 
+// Clone creates a deep copy of the Options structure.
+// All nested structures (Stdout, LogFile, LogSyslog) are cloned independently.
+// The opts function is not copied to avoid sharing state between instances.
+//
+// Returns a new Options instance with all fields cloned.
 func (o *Options) Clone() Options {
 	var s *OptionsStd
 
@@ -107,6 +115,13 @@ func (o *Options) Clone() Options {
 	}
 }
 
+// Merge combines two configuration objects by applying overrides from opt to o.
+// The merge logic depends on the LogFileExtend and LogSyslogExtend flags:
+//   - If extend is true, log configurations are appended
+//   - If extend is false, log configurations replace the existing ones
+//
+// For Stdout, only true boolean values are merged (false values don't override true values).
+// TraceFilter is overridden if not empty in opt.
 func (o *Options) Merge(opt *Options) {
 	if opt == nil {
 		return
@@ -163,6 +178,11 @@ func (o *Options) Merge(opt *Options) {
 	}
 }
 
+// Options returns the final configuration by merging with default configuration if inheritance is enabled.
+// If InheritDefault is true and a default function is registered via RegisterDefaultFunc,
+// the current configuration is merged onto the default configuration.
+//
+// Returns a pointer to the final merged Options configuration.
 func (o *Options) Options() *Options {
 	var no Options
 

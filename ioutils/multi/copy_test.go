@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,9 @@ import (
 	"github.com/nabbar/golib/ioutils/multi"
 )
 
+// Tests for Multi copy operations and integration scenarios.
+// These tests verify the Copy() method and demonstrate integration
+// of read/write/copy operations in realistic workflows.
 var _ = Describe("Multi Copy Operations", func() {
 	var m multi.Multi
 
@@ -227,21 +230,3 @@ var _ = Describe("Multi Copy Operations", func() {
 		})
 	})
 })
-
-// errorReader is a test helper that always returns an error
-type errorReader struct {
-	err error
-}
-
-func (e *errorReader) Read(p []byte) (n int, err error) {
-	return 0, e.err
-}
-
-// errorWriter is a test helper that always returns an error
-type errorWriter struct {
-	err error
-}
-
-func (e *errorWriter) Write(p []byte) (n int, err error) {
-	return 0, e.err
-}

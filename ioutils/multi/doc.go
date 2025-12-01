@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -128,6 +128,33 @@
 // The package defines ErrInstance which is returned when operations
 // are attempted on invalid or uninitialized internal state. This typically
 // should not occur during normal usage as New() initializes all required state.
+//
+// Write and read errors from underlying io.Writer and io.Reader implementations
+// are propagated unchanged to the caller.
+//
+// # Limitations and Best Practices
+//
+// While the Multi type itself is thread-safe for all operations, the underlying
+// io.ReadCloser set via SetInput may not support concurrent reads. For safe
+// concurrent usage:
+//   - Use external synchronization when reading from the same Multi instance
+//     across multiple goroutines
+//   - Writers registered via AddWriter should be safe for concurrent writes,
+//     or alternatively use the safeBuffer pattern for synchronization
+//   - Close() only closes the input reader, not the registered writers -
+//     caller must manage writer lifecycles independently
+//
+// # Performance Considerations
+//
+// The implementation is designed for minimal allocation overhead:
+//   - Zero-allocation read/write operations in steady state
+//   - Atomic operations avoid mutex contention on hot paths
+//   - Writers are collected and combined only during AddWriter/Clean operations
+//
+// For optimal performance:
+//   - Add all known writers at initialization rather than incrementally
+//   - Reuse Multi instances when possible
+//   - Consider the overhead of io.MultiWriter for single-writer scenarios
 //
 // # Integration
 //

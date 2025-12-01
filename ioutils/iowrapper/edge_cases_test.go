@@ -24,6 +24,16 @@
  *
  */
 
+// This file tests edge cases and boundary conditions.
+//
+// Test Strategy:
+//   - Test wrapping objects that don't implement any I/O interface
+//   - Verify behavior with nil objects and nil custom functions
+//   - Test boundary conditions (empty buffers, zero-length reads/writes)
+//   - Ensure graceful degradation when operations are not supported
+//   - Validate rapid function replacement and updates
+//
+// Coverage: 18 specs testing edge cases to ensure robustness.
 package iowrapper_test
 
 import (

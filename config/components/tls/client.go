@@ -108,7 +108,11 @@ func (o *mod) _runCli() error {
 
 	if c, e = o._getConfig(); e != nil {
 		return p.Error(e)
-	} else if o.f != nil {
+	} else {
+		t = c.New()
+	}
+
+	if o.f != nil {
 		if v := o.f(); v != nil && v.Len() > 0 {
 			t.AddRootCA(v)
 		}
@@ -117,7 +121,7 @@ func (o *mod) _runCli() error {
 	o.c.Store(func() *libtls.Config {
 		return c
 	})
-	o.t.Store(c.NewFrom(nil))
+	o.t.Store(t)
 	o.r.Store(true)
 
 	return nil

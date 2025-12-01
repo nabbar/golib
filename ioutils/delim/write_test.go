@@ -28,7 +28,6 @@ package delim_test
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 
@@ -39,31 +38,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// errorWriter is a writer that returns an error after n writes
-type errorWriter struct {
-	buf        *bytes.Buffer
-	errorAfter int
-	writeCount int
-}
-
-func newErrorWriter(errorAfter int) *errorWriter {
-	return &errorWriter{
-		buf:        &bytes.Buffer{},
-		errorAfter: errorAfter,
-	}
-}
-
-func (w *errorWriter) Write(p []byte) (n int, err error) {
-	w.writeCount++
-	if w.writeCount > w.errorAfter {
-		return 0, errors.New("write error")
-	}
-	return w.buf.Write(p)
-}
-
-func (w *errorWriter) String() string {
-	return w.buf.String()
-}
+// This test file validates all write and copy operations of BufferDelim.
+// It covers:
+//   - WriteTo() method for efficient data copying
+//   - Copy() method (alias for WriteTo)
+//   - Error handling during write operations
+//   - Large data transfers with various buffer sizes
+//   - Integration with different io.Writer implementations
+//   - Delimiter-aware writing behavior
+//
+// Helper types like errorWriter (defined in helper_test.go) are used to
+// simulate error conditions and validate proper error propagation.
 
 var _ = Describe("BufferDelim Write Operations", func() {
 	Describe("WriteTo method", func() {

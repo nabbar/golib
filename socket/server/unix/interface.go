@@ -3,7 +3,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,15 +29,18 @@
 package unix
 
 import (
-	"os"
+	"net"
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
+	libprm "github.com/nabbar/golib/file/perm"
 	libsck "github.com/nabbar/golib/socket"
+	sckcfg "github.com/nabbar/golib/socket/config"
 )
 
-// maxGID defines the maximum allowed Unix group ID value (32767).
+// MaxGID defines the maximum allowed Unix group ID value (32767).
 // Group IDs must be within this range to be valid on Linux systems.
-const maxGID = 32767
+const MaxGID = 32767
 
 // ServerUnix defines the interface for a Unix domain socket server implementation.
 // It extends the base github.com/nabbar/golib/socket.Server interface
@@ -46,10 +49,31 @@ const maxGID = 32767
 // The server operates in connection-oriented mode (SOCK_STREAM):
 //   - Creates a Unix socket file in the filesystem
 //   - Accepts persistent connections from clients
-//   - Each connection is handled independently
+//   - Each connection is handled independently in a separate goroutine
 //   - Supports file permissions and group ownership
 //   - Graceful shutdown with connection draining
-//   - Callback registration for events and errors
+//   - Configurable idle timeouts
+//   - Comprehensive event callbacks
+//
+// # Thread Safety
+//
+// All exported methods are safe for concurrent use by multiple goroutines.
+// The server maintains internal synchronization to handle concurrent connections.
+//
+// # Error Handling
+//
+// The server provides multiple ways to handle errors:
+//   - Return values from methods
+//   - Error callback function
+//   - Context cancellation
+//
+// # Lifecycle
+//
+// 1. Create server with New()
+// 2. Configure with RegisterSocket()
+// 3. Start with Listen()
+// 4. Handle connections in handler function
+// 5. Shut down with Shutdown() or Close()
 //
 // See github.com/nabbar/golib/socket.Server for inherited methods:
 //   - Listen(context.Context) error - Start accepting connections
@@ -77,23 +101,51 @@ type ServerUnix interface {
 	// The socket file will be created when Listen() is called and removed on shutdown.
 	// If the file exists, it will be deleted before creating the new socket.
 	//
-	// Returns ErrInvalidGroup if gid exceeds maxGID (32767).
+	// Returns ErrInvalidGroup if gid exceeds MaxGID (32767).
 	//
 	// This method must be called before Listen().
-	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
+	RegisterSocket(unixFile string, perm libprm.Perm, gid int32) error
 }
 
-// New creates a new Unix domain socket server instance.
+// New creates a new Unix domain socket server instance with the specified
+// connection handler and optional connection updater.
 //
 // Parameters:
 //   - u: Optional UpdateConn callback invoked for each accepted connection.
-//     Can be used to set socket options or track connections. Pass nil if not needed.
-//   - h: Required HandlerFunc function that processes each connection.
-//     Receives Reader and Writer interfaces for the connection.
-//     The handler runs in its own goroutine per connection.
+//     Can be used to set socket options, configure timeouts, or track connections.
+//     If nil, no per-connection configuration is performed.
+//   - h: Required HandlerFunc that processes each connection. The handler receives
+//     io.Reader and io.Writer interfaces for the connection and runs in its own
+//     goroutine. The handler should handle the entire lifecycle of the connection.
 //
-// The returned server must have RegisterSocket() called to set the socket file path
-// before calling Listen().
+// The returned server must be configured with RegisterSocket() before calling Listen().
+//
+// # Example
+//
+//	srv := unix.New(
+//	    // Optional connection updater
+//	    func(conn net.Conn) {
+//	        if tcpConn, ok := conn.(*net.UnixConn); ok {
+//	            _ = tcpConn.SetReadBuffer(8192)
+//	        }
+//	    },
+//
+//	    // Required connection handler
+//	    func(r io.Reader, w io.Writer) {
+//	        // Handle connection
+//	        _, _ = io.Copy(w, r) // Echo server example
+//	    },
+//	)
+//
+// # Performance Considerations
+//
+// The handler function should be designed to handle multiple concurrent connections
+// efficiently. For CPU-bound work, consider using a worker pool pattern.
+//
+// # Error Handling
+//
+// Any panics in the handler will be recovered and logged, but the connection
+// will be closed. For better error handling, use recover() in your handler.
 //
 // Example usage:
 //
@@ -119,42 +171,41 @@ type ServerUnix interface {
 //
 // See github.com/nabbar/golib/socket.HandlerFunc and socket.UpdateConn for
 // callback function signatures.
-func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerUnix {
-	c := new(atomic.Value)
-	c.Store(make(chan []byte))
+func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (ServerUnix, error) {
+	if e := cfg.Validate(); e != nil {
+		return nil, e
+	} else if hdl == nil {
+		return nil, ErrInvalidHandler
+	}
 
-	s := new(atomic.Value)
-	s.Store(make(chan struct{}))
+	var (
+		dfe libsck.FuncError   = func(_ ...error) {}
+		dfi libsck.FuncInfo    = func(_, _ net.Addr, _ libsck.ConnState) {}
+		dfs libsck.FuncInfoSrv = func(_ string) {}
+	)
 
-	r := new(atomic.Value)
-	r.Store(make(chan struct{}))
-
-	// socket file
-	sf := new(atomic.Value)
-	sf.Store("")
-
-	// socket permission
-	sp := new(atomic.Int64)
-	sp.Store(0)
-
-	// socket group permission
-	sg := new(atomic.Int32)
-	sg.Store(0)
-
-	return &srv{
-		upd: u,
-		hdl: h,
-		msg: c,
-		stp: s,
-		rst: r,
+	s := &srv{
+		upd: upd,
+		hdl: hdl,
+		idl: 0,
 		run: new(atomic.Bool),
 		gon: new(atomic.Bool),
-		fe:  new(atomic.Value),
-		fi:  new(atomic.Value),
-		fs:  new(atomic.Value),
-		sf:  sf,
-		sp:  sp,
-		sg:  sg,
+		fe:  libatm.NewValueDefault[libsck.FuncError](dfe, dfe),
+		fi:  libatm.NewValueDefault[libsck.FuncInfo](dfi, dfi),
+		fs:  libatm.NewValueDefault[libsck.FuncInfoSrv](dfs, dfs),
+		ad:  libatm.NewValue[sckFile](),
 		nc:  new(atomic.Int64),
 	}
+
+	if cfg.ConIdleTimeout > 0 {
+		s.idl = cfg.ConIdleTimeout
+	}
+
+	if e := s.RegisterSocket(cfg.Address, cfg.PermFile, cfg.GroupPerm); e != nil {
+		return nil, e
+	}
+
+	s.gon.Store(true)
+
+	return s, nil
 }

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// TestNopWriteCloser is the entry point for the Ginkgo test suite.
+// It registers the Ginkgo failure handler and runs all specs in the package.
 func TestNopWriteCloser(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "NopWriteCloser Suite")

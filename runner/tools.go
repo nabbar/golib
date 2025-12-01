@@ -190,7 +190,7 @@ func RecoveryCaller(proc string, rec any, data ...any) {
 	)
 
 	// Header line describing the recovered panic. Fix typo: "Recovering".
-	buf.WriteString(fmt.Sprintf("Recovering process '%s': %v\n", proc, rec)) // nolint
+	buf.WriteString(fmt.Sprintf("Panic Recovering Process '%s': %v\n", proc, rec)) // nolint
 	for _, d := range data {
 		buf.WriteString(fmt.Sprintf("%v\n", d)) // nolint
 	}

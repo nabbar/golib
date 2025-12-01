@@ -29,72 +29,160 @@ package tcp
 import (
 	"context"
 	"crypto/tls"
+	"io"
 	"net"
 	"sync/atomic"
 	"time"
 
 	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
 )
 
-// getAddress retrieves the configured server listen address.
-// Returns an empty string if no address has been registered.
-// This is an internal helper used by Listen().
+// getAddress retrieves the currently configured server listen address.
+// This is an internal helper function used by the server during initialization
+// and connection handling.
+//
+// Returns:
+//   - string: The configured listen address in "host:port" format, or an empty
+//     string if no address has been registered.
+//
+// The address is set using the RegisterServer() method and is used when starting
+// the listener. This function provides thread-safe access to the address field.
+//
+// Example:
+//
+//	srv.RegisterServer(":8080")
+//	addr := srv.getAddress() // Returns ":8080"
 func (o *srv) getAddress() string {
-	f := o.ad.Load()
-
-	if f != nil {
-		return f.(string)
+	if s := o.ad.Load(); len(s) > 0 {
+		return s
 	}
 
 	return ""
 }
 
-// getListen creates a TCP listener on the specified address.
-// If TLS is configured (getTLS() returns non-nil), wraps the listener with tls.NewListener.
+// getListen creates and initializes a TCP listener on the specified address.
+// This is an internal helper function used by the Listen() method to set up
+// the network listener with optional TLS encryption.
 //
-// Logs the listener creation via the server info callback, indicating whether
-// TLS is enabled.
+// Parameters:
+//   - addr: The network address to listen on, in "host:port" format.
+//     Use ":0" to let the OS choose an available port.
 //
-// Returns the listener and any error from net.Listen().
-// This is an internal helper called by Listen().
-func (o *srv) getListen(addr string) (net.Listener, error) {
+// Returns:
+//   - net.Listener: The created TCP listener, possibly wrapped with TLS
+//   - bool: true if TLS is enabled, false otherwise
+//   - error: Any error that occurred during listener creation
+//
+// The function performs the following steps:
+//  1. Creates a TCP listener on the specified address
+//  2. If TLS is configured (via SetTLS), wraps the listener with tls.NewListener
+//  3. Logs the listener creation via the server info callback
+//
+// This function is safe to call multiple times but each call will create
+// a new listener. The caller is responsible for closing the returned listener.
+//
+// Example:
+//
+//	listener, isTLS, err := s.getListen(":8443")
+//	if err != nil {
+//	    return fmt.Errorf("failed to create listener: %w", err)
+//	}
+//	defer listener.Close()
+func (o *srv) getListen(addr string) (net.Listener, bool, error) {
 	var (
 		lis net.Listener
+		ssl = false
 		err error
 	)
 
 	if lis, err = net.Listen(libptc.NetworkTCP.Code(), addr); err != nil {
-		return lis, err
+		return lis, false, err
 	} else if t := o.getTLS(); t != nil {
 		// Wrap with TLS if configured
 		lis = tls.NewListener(lis, t)
+		ssl = true
+	}
+
+	if ssl {
 		o.fctInfoSrv("starting listening socket 'TLS %s %s'", libptc.NetworkTCP.String(), addr)
 	} else {
 		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkTCP.String(), addr)
 	}
 
-	return lis, nil
+	return lis, ssl, nil
 }
 
 // Listen starts the TCP server and begins accepting client connections.
-// This is the main server loop and blocks until the server is shut down or the context is cancelled.
+// This is the main server loop that runs until the context is cancelled or
+// an unrecoverable error occurs.
 //
-// The method performs the following:
-//  1. Validates that an address has been registered via RegisterServer()
-//  2. Validates that a handler was provided to New()
-//  3. Creates the TCP listener (with TLS if configured)
-//  4. Sets up signal channels for graceful shutdown
-//  5. Spawns a goroutine to monitor context cancellation and shutdown signals
-//  6. Enters an accept loop to handle incoming connections
+// # Overview
 //
-// Each accepted connection is handled in a separate goroutine via Conn().
-// The server can be stopped by:
-//   - Calling Shutdown(), StopListen(), or Close()
-//   - Cancelling the provided context
+// The Listen method performs the following sequence of operations:
+//  1. Validates server configuration (address, handler)
+//  2. Creates the TCP listener (with optional TLS)
+//  3. Updates server state to "running"
+//  4. Starts the accept loop in a separate goroutine
+//  5. Waits for shutdown signals or context cancellation
+//  6. Performs cleanup when stopping
 //
-// Returns:
-//   - ErrInvalidAddress if no address has been registered
+// # Connection Handling
+//
+// Each incoming connection is handled in its own goroutine, allowing the server
+// to handle multiple clients concurrently. The connection handling includes:
+//   - TCP keepalive (if configured)
+//   - TLS handshake (if enabled)
+//   - Connection state tracking
+//   - Error handling and recovery
+//
+// # Graceful Shutdown
+//
+// The server supports graceful shutdown through several mechanisms:
+//   - Context cancellation: The provided context can be cancelled to initiate shutdown
+//   - StopListen(): Stops accepting new connections
+//   - Shutdown(): Stops accepting new connections and waits for active ones to complete
+//   - Close(): Forcefully closes all connections immediately
+//
+// # Error Handling
+//
+// The following errors may be returned:
+//   - ErrInvalidAddress: If no address has been registered
+//   - ErrInvalidHandler: If no handler was provided to New()
+//   - Network errors: If binding to the address fails
+//   - TLS errors: If TLS configuration is invalid
+//   - Context errors: If the context is cancelled
+//
+// # Example
+//
+//	ctx, cancel := context.WithCancel(context.Background())
+//	defer cancel()
+//
+//	// Start the server in a goroutine
+//	go func() {
+//	    if err := srv.Listen(ctx); err != nil {
+//	        log.Fatalf("Server error: %v", err)
+//	    }
+//	}()
+//
+//	// Later, to shut down:
+//	// cancel() // or srv.Shutdown(context.Background())
+//
+// # Concurrency
+//
+// The server is designed to be safe for concurrent use. Multiple goroutines
+// may call Listen(), StopListen(), Shutdown(), and other methods simultaneously.
+//
+// # Resource Management
+//
+// The server manages the following resources:
+//   - Network listener (closed on shutdown)
+//   - Active connections (closed on shutdown)
+//   - Goroutines for connection handling (cleaned up on shutdown)
+//
+// It is the caller's responsibility to ensure proper cleanup by calling
+// Shutdown() or Close() when the server is no longer needed.
 //   - ErrInvalidHandler if no handler was provided to New()
 //   - Any error from net.Listen() during listener creation
 //   - nil when the server exits cleanly
@@ -105,78 +193,97 @@ func (o *srv) getListen(addr string) (net.Listener, error) {
 // See Conn() for per-connection handling and github.com/nabbar/golib/socket.HandlerFunc
 // for the handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/tcp/listen", r)
+		}
+	}()
+
 	var (
-		e error              // error
-		l net.Listener       // socket listener
-		a = o.getAddress()   // address
-		s = new(atomic.Bool) // shutdown signal flag
+		e error            // error
+		l net.Listener     // socket listener
+		t bool             // is tls
+		a = o.getAddress() // address
 	)
 
 	// Validate configuration
 	if len(a) == 0 {
-		o.fctError(ErrInvalidHandler)
+		o.fctError(ErrInvalidAddress)
 		return ErrInvalidAddress
 	} else if o.hdl == nil {
 		o.fctError(ErrInvalidHandler)
 		return ErrInvalidHandler
-	} else if l, e = o.getListen(a); e != nil {
+	} else if l, t, e = o.getListen(a); e != nil {
 		o.fctError(e)
 		return e
 	}
-
-	s.Store(false)
 
 	defer func() {
 		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkTCP.String(), a)
 
 		if l != nil {
-			_ = l.Close()
+			o.fctError(l.Close())
 		}
 
-		go func() {
-			_ = o.StopGone(context.Background())
-		}()
-
 		o.run.Store(false)
+		o.gon.Store(true)
 	}()
 
-	o.rst.Store(make(chan struct{}))
-	o.stp.Store(make(chan struct{}))
-	o.run.Store(true)
 	o.gon.Store(false)
+	o.run.Store(true)
+	time.Sleep(time.Millisecond)
 
+	type cR struct {
+		c net.Conn
+		e error
+	}
+
+	// Create Channel to check server is Going to shutdown
+	cG := make(chan bool, 1)
 	go func() {
-		defer func() {
-			s.Store(true)
-
-			if l != nil {
-				o.fctError(l.Close())
+		tc := time.NewTicker(time.Millisecond)
+		for {
+			<-tc.C
+			if o.IsGone() {
+				cG <- true
+				return
 			}
+		}
+	}()
 
-			go func() {
-				_ = o.Shutdown(context.Background())
-			}()
+	for {
+		// Create a channel to receive the accept result
+		cC := make(chan cR, 1)
+
+		// Start accept in a goroutine
+		go func() {
+			co, ce := l.Accept()
+			cC <- cR{c: co, e: ce}
 		}()
 
 		select {
 		case <-ctx.Done():
-			return
-		case <-o.Done():
-			return
-		}
-	}()
+			return ctx.Err()
+		case <-cG:
+			return nil
+		case c := <-cC:
+			if c.e != nil {
+				o.fctError(c.e)
+			} else if c.c == nil {
+				// skip error message for invalid connection
+			} else {
+				go func(conn net.Conn) {
+					lc := conn.LocalAddr()
+					rc := conn.RemoteAddr()
 
-	// Accept new connection or stop if context or shutdown trigger
-	for l != nil && !s.Load() {
-		if co, ce := l.Accept(); ce != nil && !s.Load() {
-			o.fctError(ce)
-		} else if co != nil {
-			o.fctInfo(co.LocalAddr(), co.RemoteAddr(), libsck.ConnectionNew)
-			go o.Conn(ctx, co)
+					defer o.fctInfo(lc, rc, libsck.ConnectionClose)
+					o.fctInfo(lc, rc, libsck.ConnectionNew)
+
+					o.Conn(ctx, conn, t)
+				}(c.c)
+			}
 		}
 	}
-
-	return nil
 }
 
 // Conn handles a single client connection in its own goroutine.
@@ -206,12 +313,46 @@ func (o *srv) Listen(ctx context.Context) error {
 //
 // See getReadWriter() for the Reader/Writer implementation and
 // github.com/nabbar/golib/socket.HandlerFunc for the handler signature.
-func (o *srv) Conn(ctx context.Context, con net.Conn) {
+func (o *srv) Conn(ctx context.Context, con net.Conn, isTls bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/tcp/conn", r)
+		}
+	}()
+
 	var (
 		cnl context.CancelFunc
-		cor libsck.Reader
-		cow libsck.Writer
+		dur = o.idleTimeout()
+
+		sx *sCtx
+		tc *time.Ticker
+		tw = time.NewTicker(3 * time.Millisecond)
 	)
+
+	defer func() {
+		// Decrement active connection count
+		o.nc.Add(-1)
+
+		if cnl != nil {
+			cnl()
+		}
+
+		if sx != nil {
+			_ = sx.Close()
+		}
+
+		if con != nil {
+			_ = con.Close()
+		}
+
+		if tc != nil {
+			tc.Stop()
+		}
+
+		if tw != nil {
+			tw.Stop()
+		}
+	}()
 
 	o.nc.Add(1) // Increment active connection count
 
@@ -222,185 +363,70 @@ func (o *srv) Conn(ctx context.Context, con net.Conn) {
 
 	// Create connection-specific context
 	ctx, cnl = context.WithCancel(ctx)
-	cor, cow = o.getReadWriter(ctx, cnl, con)
+	sx = &sCtx{
+		ctx: ctx,
+		cnl: cnl,
+		clo: new(atomic.Bool),
+	}
 
-	defer func() {
-		// cancel context for connection
-		cnl()
+	if c, k := con.(io.ReadWriteCloser); k {
+		sx.con = c
+	} else {
+		return
+	}
 
-		// dec nb connection
-		o.nc.Add(-1)
+	if l := con.LocalAddr(); l == nil {
+		sx.loc = ""
+	} else {
+		sx.ptc = l.Network()
+		sx.loc = l.String()
+	}
 
-		// close connection writer
-		_ = cow.Close()
+	if r := con.RemoteAddr(); r == nil {
+		sx.rem = ""
+	} else {
+		sx.rem = r.String()
+	}
 
-		// delay stopping for 5 seconds to avoid blocking next connection
-		if o.IsGone() {
-			// if connection is closed
-			time.Sleep(5 * time.Second)
-		} else {
-			// if connection is not closed in 5 seconds
-			time.Sleep(500 * time.Millisecond)
+	if isTls {
+		sx.ptc = sx.ptc + "/tls"
+	}
+
+	if dur > 0 {
+		tc = time.NewTicker(dur)
+		sx.rst = func() {
+			tc.Reset(dur)
 		}
-
-		// close connection reader
-		_ = cor.Close()
-
-		// send info about connection closing
-		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
-
-		// close connection
-		_ = con.Close()
-	}()
+	} else {
+		tc = time.NewTicker(time.Hour)
+		sx.rst = func() {
+			tc.Reset(time.Hour)
+		}
+	}
 
 	// get handler or exit if nil
 	if o.hdl == nil {
 		return
 	} else {
-		go o.hdl(cor, cow)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					librun.RecoveryCaller("golib/socket/server/tcp/handler", r)
+				}
+			}()
+
+			o.hdl(sx)
+		}()
 	}
 
-	for {
+	for ctx.Err() == nil && !o.IsGone() {
 		select {
-		case <-ctx.Done():
-			return
-		case <-o.Gone():
-			return
+		case <-tc.C:
+			if dur > 0 {
+				return
+			}
+		case <-tw.C:
+			// check ctx & gone
 		}
 	}
-}
-
-// getReadWriter creates Reader and Writer interfaces for a connection.
-// These interfaces wrap the net.Conn with context-aware operations and
-// support partial connection closure (CloseRead/CloseWrite).
-//
-// The implementation:
-//   - Tracks read and write side closure states atomically
-//   - Cancels the connection context when both sides are closed
-//   - Reports connection state changes via fctInfo callbacks
-//   - Filters errors through libsck.ErrorFilter to normalize I/O errors
-//   - Supports graceful half-close for TCP connections
-//
-// For TCP connections (*net.TCPConn), CloseRead and CloseWrite are used
-// to close individual sides. For other connection types, Close() is called
-// which closes both sides.
-//
-// The Reader and Writer interfaces provide:
-//   - Read([]byte) (int, error) - Context-aware read with state reporting
-//   - Write([]byte) (int, error) - Context-aware write with state reporting
-//   - Close() error - Closes the read or write side
-//   - IsAlive() bool - Checks if the connection is still usable
-//   - Done() <-chan struct{} - Returns the connection context's Done channel
-//
-// This is an internal method called by Conn() to wrap connections.
-//
-// See github.com/nabbar/golib/socket.NewReader and NewWriter for the
-// interface constructors, and github.com/nabbar/golib/socket.ErrorFilter
-// for error normalization.
-func (o *srv) getReadWriter(ctx context.Context, cnl context.CancelFunc, con net.Conn) (libsck.Reader, libsck.Writer) {
-	var (
-		rc = new(atomic.Bool) // Read side closed flag
-		rw = new(atomic.Bool) // Write side closed flag
-	)
-
-	// rdrClose handles read side closure
-	rdrClose := func() error {
-		defer func() {
-			if rw.Load() {
-				cnl()
-			}
-		}()
-
-		if cr, ok := con.(*net.TCPConn); ok {
-			rc.Store(true)
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionCloseRead)
-			return libsck.ErrorFilter(cr.CloseRead())
-		} else {
-			rc.Store(true)
-			rw.Store(true)
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
-			return libsck.ErrorFilter(con.Close())
-		}
-	}
-
-	wrtClose := func() error {
-		defer func() {
-			if rc.Load() {
-				cnl()
-			}
-		}()
-
-		if cr, ok := con.(*net.TCPConn); ok {
-			rw.Store(true)
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionCloseWrite)
-			return libsck.ErrorFilter(cr.CloseWrite())
-		} else {
-			rc.Store(true)
-			rw.Store(true)
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
-			return libsck.ErrorFilter(con.Close())
-		}
-	}
-
-	rdr := libsck.NewReader(
-		func(p []byte) (n int, err error) {
-			if ctx.Err() != nil {
-				_ = rdrClose()
-				return 0, ctx.Err()
-			}
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionRead)
-			return con.Read(p)
-		},
-		rdrClose,
-		func() bool {
-			if ctx.Err() != nil {
-				_ = rdrClose()
-				return false
-			}
-
-			_, e := con.Write(nil)
-
-			if e != nil {
-				_ = rdrClose()
-				return false
-			}
-
-			return true
-		},
-		func() <-chan struct{} {
-			return ctx.Done()
-		},
-	)
-
-	wrt := libsck.NewWriter(
-		func(p []byte) (n int, err error) {
-			if ctx.Err() != nil {
-				_ = wrtClose()
-				return 0, ctx.Err()
-			}
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionWrite)
-			return con.Write(p)
-		},
-		wrtClose,
-		func() bool {
-			if ctx.Err() != nil {
-				_ = wrtClose()
-				return false
-			}
-
-			_, e := con.Write(nil)
-
-			if e != nil {
-				_ = wrtClose()
-				return false
-			}
-
-			return true
-		},
-		func() <-chan struct{} {
-			return ctx.Done()
-		},
-	)
-
-	return rdr, wrt
 }

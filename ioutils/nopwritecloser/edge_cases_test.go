@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,41 +36,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-// errorWriter always returns an error on write
-type errorWriter struct {
-	err error
-}
-
-func (e *errorWriter) Write(p []byte) (n int, err error) {
-	return 0, e.err
-}
-
-// limitedErrorWriter succeeds for N writes, then errors
-type limitedErrorWriter struct {
-	remaining int
-	err       error
-	buf       bytes.Buffer
-}
-
-func (l *limitedErrorWriter) Write(p []byte) (n int, err error) {
-	if l.remaining <= 0 {
-		return 0, l.err
-	}
-	l.remaining--
-	return l.buf.Write(p)
-}
-
-// countingWriter counts write calls
-type countingWriter struct {
-	count int
-	buf   bytes.Buffer
-}
-
-func (c *countingWriter) Write(p []byte) (n int, err error) {
-	c.count++
-	return c.buf.Write(p)
-}
 
 var _ = Describe("NopWriteCloser - Edge Cases", func() {
 	Context("Large data", func() {

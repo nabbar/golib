@@ -33,7 +33,21 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// TestFileDescriptor is the entry point for the test suite.
+// It registers the failure handler and runs all specs.
 func TestFileDescriptor(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "FileDescriptor Suite")
 }
+
+// Suite-level BeforeSuite: initialize global test context
+var _ = BeforeSuite(func() {
+	initTestContext()
+	GinkgoWriter.Println("Test suite initialized: global context created")
+})
+
+// Suite-level AfterSuite: cleanup global test context
+var _ = AfterSuite(func() {
+	cleanupTestContext()
+	GinkgoWriter.Println("Test suite cleanup: global context cancelled")
+})

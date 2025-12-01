@@ -34,61 +34,139 @@ import (
 	"sync/atomic"
 	"time"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
 	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
+	sckcfg "github.com/nabbar/golib/socket/config"
 )
 
-var (
-	// closedChanStruct is a pre-closed channel used as a sentinel value
-	// to indicate that a channel has been closed or should be treated as closed.
-	// This avoids repeated channel allocations and provides a consistent closed state.
-	closedChanStruct chan struct{}
-)
+// srv is the internal implementation of the ServerTcp interface that provides
+// a concurrent TCP server with support for TLS, connection management, and
+// graceful shutdown.
+//
+// # Thread Safety
+//
+// The srv type is designed to be safe for concurrent use. It uses atomic
+// operations and immutable state to ensure thread safety without explicit
+// locking in most cases. The following guarantees are provided:
+//
+//   - All exported methods are safe for concurrent calls from multiple goroutines
+//   - Connection handling is isolated per connection with minimal shared state
+//   - Atomic counters are used for connection tracking and state management
+//   - The server can be safely started and stopped from different goroutines
+//
+// # Lifecycle Management
+//
+// The server follows a strict lifecycle:
+//
+//  1. Creation: New() initializes the server with configuration
+//  2. Configuration: Optional TLS and callback registration
+//  3. Listening: Listen() starts accepting connections
+//  4. Running: Handles client connections concurrently
+//  5. Shutdown: Graceful or immediate shutdown of all connections
+//
+// # Resource Management
+//
+// The server manages the following resources:
+//   - Network listener (closed on shutdown)
+//   - Active connections (tracked and closed on shutdown)
+//   - Goroutines for connection handling (cleaned up on shutdown)
+//   - TLS configuration (if enabled)
+//
+// It is the caller's responsibility to ensure proper cleanup by calling
+// Shutdown() or Close() when the server is no longer needed.
+type srv struct {
+	ssl libatm.Value[*tls.Config] // TLS configuration (*tls.Config)
+	upd libsck.UpdateConn         // Connection update callback (optional)
+	hdl libsck.HandlerFunc        // Connection handler function (required)
+	idl time.Duration             // idle connection timeout
+	run *atomic.Bool              // Server is accepting connections flag
+	gon *atomic.Bool              // Server is draining connections flag
 
-// init initializes the package-level closedChanStruct sentinel channel.
-func init() {
-	closedChanStruct = make(chan struct{})
-	close(closedChanStruct)
+	fe libatm.Value[libsck.FuncError]   // Error callback (FuncError)
+	fi libatm.Value[libsck.FuncInfo]    // Connection info callback (FuncInfo)
+	fs libatm.Value[libsck.FuncInfoSrv] // Server info callback (FuncInfoSrv)
+
+	ad libatm.Value[string] // Server listen address (string)
+	nc *atomic.Int64        // Active connection counter
 }
 
-// srv is the internal implementation of the ServerTcp interface.
-// It uses atomic operations for thread-safe state management and supports
-// concurrent client connections with proper lifecycle management.
-//
-// All fields use atomic types or are immutable after construction to ensure
-// thread safety without explicit locking.
-type srv struct {
-	ssl *atomic.Value      // TLS configuration (*tls.Config)
-	upd libsck.UpdateConn  // Connection update callback (optional)
-	hdl libsck.HandlerFunc // Connection handler function (required)
-	msg *atomic.Value      // Message channel (chan []byte)
-	stp *atomic.Value      // Stop listening channel (chan struct{})
-	rst *atomic.Value      // Reset/gone channel (chan struct{})
-	run *atomic.Bool       // Server is accepting connections flag
-	gon *atomic.Bool       // Server is draining connections flag
+func (o *srv) Listener() (network libptc.NetworkProtocol, listener string, tls bool) {
+	if t := o.getTLS(); t != nil {
+		if len(t.Certificates) > 0 {
+			return libptc.NetworkTCP, o.getAddress(), true
+		}
+	}
 
-	fe *atomic.Value // Error callback (FuncError)
-	fi *atomic.Value // Connection info callback (FuncInfo)
-	fs *atomic.Value // Server info callback (FuncInfoSrv)
-
-	ad *atomic.Value // Server listen address (string)
-	nc *atomic.Int64 // Active connection counter
+	return libptc.NetworkTCP, o.getAddress(), false
 }
 
 // OpenConnections returns the current number of active client connections.
 // This count is atomically maintained and safe to call from multiple goroutines.
 //
-// The count increments when a connection is accepted and decrements when
-// the connection is fully closed (both read and write sides).
+// The count is incremented when a new connection is accepted and decremented
+// when the connection is fully closed (both read and write sides). This can be
+// used for monitoring and enforcing connection limits.
+//
+// # Performance
+//
+// This method uses atomic operations and is designed to be efficient even with
+// a large number of concurrent connections. It does not block and has a
+// constant time complexity of O(1).
+//
+// # Example
+//
+//	// Monitor active connections
+//	go func() {
+//	    ticker := time.NewTicker(10 * time.Second)
+//	    defer ticker.Stop()
+//
+//	    for range ticker.C {
+//	        count := server.OpenConnections()
+//	        log.Printf("Active connections: %d", count)
+//	    }
+//	}()
+//
+// # Thread Safety
+//
+// This method is safe to call from multiple goroutines concurrently.
 func (o *srv) OpenConnections() int64 {
 	return o.nc.Load()
 }
 
-// IsRunning returns true if the server is currently accepting new connections.
-// Returns false if the server has not started, is shutting down, or has stopped.
+// IsRunning reports whether the server is currently accepting new connections.
 //
-// This is safe to call concurrently and provides the server's accept loop state.
+// Returns:
+//   - bool: true if the server is active and accepting connections,
+//     false otherwise (not started, shutting down, or stopped)
+//
+// # State Transitions
+//
+// The server's running state follows this lifecycle:
+//   - false → true: When Listen() is called successfully
+//   - true → false: When Shutdown(), StopListen(), or Close() is called
+//
+// # Usage Notes
+//
+//   - This method is useful for health checks and monitoring
+//   - A return value of false does not necessarily indicate an error condition;
+//     it may simply mean the server is in the process of shutting down
+//   - For a complete picture of server state, also check IsGone()
+//
+// # Example
+//
+//	if !server.IsRunning() {
+//	    log.Println("Server is not running, attempting to start...")
+//	    if err := server.Listen(ctx); err != nil {
+//	        return fmt.Errorf("failed to start server: %w", err)
+//	    }
+//	}
+//
+// # Thread Safety
+//
+// This method uses atomic operations and is safe to call from multiple goroutines.
 func (o *srv) IsRunning() bool {
 	return o.run.Load()
 }
@@ -102,27 +180,7 @@ func (o *srv) IsGone() bool {
 	return o.gon.Load()
 }
 
-// Done returns a channel that is closed when the server stops accepting connections.
-// This channel is closed during shutdown but before all connections are drained.
-//
-// Use this to detect when Listen() has exited. For complete shutdown including
-// all connections being closed, use Gone() instead.
-//
-// Returns a pre-closed channel if the server is nil or not initialized.
-func (o *srv) Done() <-chan struct{} {
-	if o == nil {
-		return closedChanStruct
-	}
-
-	if i := o.stp.Load(); i != nil {
-		if c, k := i.(chan struct{}); k {
-			return c
-		}
-	}
-
-	return closedChanStruct
-}
-
+/*
 // Gone returns a channel that is closed when all connections have been closed
 // and the server is fully shutdown. This happens after Done() is closed.
 //
@@ -131,17 +189,15 @@ func (o *srv) Done() <-chan struct{} {
 func (o *srv) Gone() <-chan struct{} {
 	if o == nil {
 		return closedChanStruct
-	}
-	if o.IsGone() {
+	} else if o.IsGone() {
 		return closedChanStruct
-	} else if i := o.rst.Load(); i != nil {
-		if g, k := i.(chan struct{}); k {
-			return g
-		}
+	} else if i := o.rst.Load(); i != nil && i != closedChanStruct {
+		return i
+	} else {
+		return closedChanStruct
 	}
-
-	return closedChanStruct
 }
+*/
 
 // Close performs an immediate shutdown of the server using a background context.
 // This is equivalent to calling Shutdown(context.Background()).
@@ -149,119 +205,6 @@ func (o *srv) Gone() <-chan struct{} {
 // For controlled shutdown with a custom timeout, use Shutdown() directly.
 func (o *srv) Close() error {
 	return o.Shutdown(context.Background())
-}
-
-// StopGone triggers connection draining and waits for all active connections to close.
-// It signals all connection handlers to terminate via the Gone() channel and polls
-// until OpenConnections() reaches zero.
-//
-// The method uses a 10-second timeout (overriding the provided context) and polls
-// every 5ms. Returns ErrGoneTimeout if connections don't close within the timeout.
-//
-// This is typically called as part of Shutdown() but can be invoked independently
-// for connection draining without stopping the listener.
-//
-// The method is safe against double-close panics using defer/recover.
-func (o *srv) StopGone(ctx context.Context) error {
-	if o == nil {
-		return ErrInvalidInstance
-	}
-
-	// Set the gone flag to signal all connection handlers
-	o.gon.Store(true)
-
-	if i := o.rst.Load(); i != nil {
-		if c, k := i.(chan struct{}); k && c != closedChanStruct {
-			// Use defer recover to handle potential double close
-			func() {
-				defer func() {
-					_ = recover() // Ignore panic from closing already closed channel
-				}()
-				close(c)
-			}()
-		}
-	}
-	o.rst.Store(closedChanStruct)
-
-	var (
-		tck = time.NewTicker(5 * time.Millisecond)
-		cnl context.CancelFunc
-	)
-
-	ctx, cnl = context.WithTimeout(ctx, 10*time.Second)
-
-	defer func() {
-		tck.Stop()
-		cnl()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ErrGoneTimeout
-		case <-tck.C:
-			if o.OpenConnections() > 0 {
-				continue
-			}
-			return nil
-		}
-	}
-
-}
-
-// StopListen signals the server to stop accepting new connections and waits
-// for the accept loop to exit. The Done() channel is closed when this completes.
-//
-// The method uses a 10-second timeout (overriding the provided context) and polls
-// every 5ms until IsRunning() returns false. Returns ErrShutdownTimeout if the
-// listener doesn't stop within the timeout.
-//
-// Existing connections are not affected and will continue to run.
-// Use StopGone() or Shutdown() to drain connections.
-//
-// The method is safe against double-close panics using defer/recover.
-func (o *srv) StopListen(ctx context.Context) error {
-	if o == nil {
-		return ErrInvalidInstance
-	}
-
-	if i := o.stp.Load(); i != nil {
-		if c, k := i.(chan struct{}); k && c != closedChanStruct {
-			// Use defer recover to handle potential double close
-			func() {
-				defer func() {
-					_ = recover() // Ignore panic from closing already closed channel
-				}()
-				close(c)
-			}()
-		}
-	}
-	o.stp.Store(closedChanStruct)
-
-	var (
-		tck = time.NewTicker(5 * time.Millisecond)
-		cnl context.CancelFunc
-	)
-
-	ctx, cnl = context.WithTimeout(ctx, 10*time.Second)
-
-	defer func() {
-		tck.Stop()
-		cnl()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ErrShutdownTimeout
-		case <-tck.C:
-			if o.IsRunning() {
-				continue
-			}
-			return nil
-		}
-	}
-
 }
 
 // Shutdown performs a graceful server shutdown by first draining connections
@@ -278,19 +221,33 @@ func (o *srv) StopListen(ctx context.Context) error {
 func (o *srv) Shutdown(ctx context.Context) error {
 	if o == nil {
 		return ErrInvalidInstance
+	} else if !o.IsRunning() || o.IsGone() {
+		return nil
 	}
 
-	var cnl context.CancelFunc
-	ctx, cnl = context.WithTimeout(ctx, 25*time.Second)
-	defer cnl()
+	o.gon.Store(true)
 
-	// First drain connections, then stop listener
-	e := o.StopGone(ctx)
-	if err := o.StopListen(ctx); err != nil {
-		return err
-	} else {
-		return e
+	var (
+		tck = time.NewTicker(3 * time.Millisecond)
+		cnl context.CancelFunc
+	)
+
+	ctx, cnl = context.WithTimeout(ctx, time.Second)
+	defer func() {
+		tck.Stop()
+		cnl()
+	}()
+
+	for o.IsRunning() || o.OpenConnections() > 0 {
+		select {
+		case <-ctx.Done():
+			return ErrShutdownTimeout
+		case <-tck.C:
+			break // nolint
+		}
 	}
+
+	return nil
 }
 
 // SetTLS configures TLS/SSL encryption for the server.
@@ -313,20 +270,17 @@ func (o *srv) Shutdown(ctx context.Context) error {
 func (o *srv) SetTLS(enable bool, config libtls.TLSConfig) error {
 	if !enable {
 		// Store default TLS config without certificates
-		o.ssl.Store(&tls.Config{
-			MinVersion: tls.VersionTLS12,
-			MaxVersion: tls.VersionTLS13,
-		})
+		o.ssl.Store(nil)
 		return nil
 	}
 
 	// Validate TLS config and certificates
 	if config == nil {
-		return fmt.Errorf("invalid tls config")
+		return sckcfg.ErrInvalidTLSConfig
 	} else if l := config.GetCertificatePair(); len(l) < 1 {
-		return fmt.Errorf("invalid tls config, missing certificates pair")
+		return sckcfg.ErrInvalidTLSConfig
 	} else if t := config.TlsConfig(""); t == nil {
-		return fmt.Errorf("invalid tls config")
+		return sckcfg.ErrInvalidTLSConfig
 	} else {
 		o.ssl.Store(t)
 		return nil
@@ -416,18 +370,31 @@ func (o *srv) RegisterServer(address string) error {
 // fctError invokes the registered error callback if one exists.
 // Safely handles nil server instances and nil errors.
 // This is an internal helper used throughout the server for error reporting.
-func (o *srv) fctError(e error) {
+func (o *srv) fctError(e ...error) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/tcp/fctError", r)
+		}
+	}()
+
 	if o == nil {
 		return
-	}
-
-	if e == nil {
+	} else if len(e) < 1 {
 		return
 	}
 
-	v := o.fe.Load()
-	if v != nil {
-		v.(libsck.FuncError)(e)
+	var ok = false
+	for _, err := range e {
+		if err != nil {
+			ok = true
+			break
+		}
+	}
+
+	if !ok {
+		return
+	} else if f := o.fe.Load(); f != nil {
+		f(e...)
 	}
 }
 
@@ -436,15 +403,16 @@ func (o *srv) fctError(e error) {
 // Safely handles nil callbacks to prevent panics.
 // This is an internal helper called from connection lifecycle events.
 func (o *srv) fctInfo(local, remote net.Addr, state libsck.ConnState) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/tcp/fctInfo", r)
+		}
+	}()
+
 	if o == nil {
 		return
-	}
-
-	v := o.fi.Load()
-	if v != nil {
-		if fn, ok := v.(libsck.FuncInfo); ok && fn != nil {
-			fn(local, remote, state)
-		}
+	} else if f := o.fi.Load(); f != nil {
+		f(local, remote, state)
 	}
 }
 
@@ -453,15 +421,16 @@ func (o *srv) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 // Safely handles nil callbacks to prevent panics.
 // This is an internal helper for server lifecycle logging.
 func (o *srv) fctInfoSrv(msg string, args ...interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/tcp/fctInfoSrv", r)
+		}
+	}()
+
 	if o == nil {
 		return
-	}
-
-	v := o.fs.Load()
-	if v != nil {
-		if fn, ok := v.(libsck.FuncInfoSrv); ok && fn != nil {
-			fn(fmt.Sprintf(msg, args...))
-		}
+	} else if f := o.fs.Load(); f != nil {
+		f(fmt.Sprintf(msg, args...))
 	}
 }
 
@@ -477,11 +446,42 @@ func (o *srv) getTLS() *tls.Config {
 
 	if i == nil {
 		return nil
-	} else if t, k := i.(*tls.Config); !k {
-		return nil
-	} else if len(t.Certificates) < 1 {
+	} else if len(i.Certificates) < 1 {
 		return nil
 	} else {
-		return t
+		return i
+	}
+}
+
+// idleTimeout returns the configured idle timeout duration for connections.
+// This is an internal helper used by connection handling to determine if
+// idle timeout monitoring should be enabled.
+//
+// Returns:
+//   - time.Duration: The idle timeout duration, or 0 if disabled
+//
+// # Behavior
+//
+// The method returns 0 (disabled) in the following cases:
+//   - If the server instance is nil
+//   - If the configured timeout is less than 1 second
+//
+// Otherwise, it returns the configured idle timeout value.
+//
+// # Usage
+//
+// This method is called during connection setup to configure the idle
+// timeout timer. A return value of 0 indicates that idle timeout
+// monitoring should be disabled for the connection.
+//
+// The minimum threshold of 1 second prevents overly aggressive timeout
+// values that could interfere with normal operation.
+func (o *srv) idleTimeout() time.Duration {
+	if o == nil {
+		return 0
+	} else if o.idl < time.Second {
+		return 0
+	} else {
+		return o.idl
 	}
 }

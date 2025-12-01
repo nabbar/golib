@@ -33,8 +33,35 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// TestDelim is the entry point for the Ginkgo test suite
+// TestDelim is the entry point for the Ginkgo BDD test suite.
+// This suite provides comprehensive testing for the delim package including:
+//   - Basic constructor and interface tests
+//   - Read/Write operation tests
+//   - Concurrency and race condition tests
+//   - Edge cases and error handling tests
+//   - Performance benchmarks
+//   - Robustness and boundary tests
+//
+// The test suite uses Ginkgo v2 for BDD-style testing and Gomega for assertions.
+// Tests are organized into logical groups for maintainability and clarity.
+//
+// A global test context is initialized at the beginning of the suite and
+// cleaned up at the end to ensure proper resource management.
+//
+// Run with: go test -v
+// Run with race detection: CGO_ENABLED=1 go test -race
+// Run with coverage: go test -coverprofile=coverage.out
 func TestDelim(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "IOUtils/Delim Package Suite")
 }
+
+var _ = BeforeSuite(func() {
+	// Initialize global test context for all tests in the suite
+	initTestContext()
+})
+
+var _ = AfterSuite(func() {
+	// Cleanup global test context and release resources
+	cleanupTestContext()
+})

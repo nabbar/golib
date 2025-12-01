@@ -8,24 +8,6 @@ Flexible I/O wrapper for intercepting, transforming, and monitoring I/O operatio
 
 ---
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Installation](#installation)
-- [Architecture](#architecture)
-- [Quick Start](#quick-start)
-- [Performance](#performance)
-- [Use Cases](#use-cases)
-- [API Reference](#api-reference)
-- [Best Practices](#best-practices)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [Future Enhancements](#future-enhancements)
-- [License](#license)
-
----
-
 ## Overview
 
 This package provides a flexible wrapper that allows you to intercept and customize I/O operations (read, write, seek, close) on any underlying object without modifying its implementation. It implements all standard Go I/O interfaces and uses atomic operations for thread-safe function updates.
@@ -38,9 +20,7 @@ This package provides a flexible wrapper that allows you to intercept and custom
 4. **Zero Overhead**: Minimal performance cost when no customization is used
 5. **Composability**: Wrappers can be chained for complex transformations
 
----
-
-## Key Features
+### Key Features
 
 - **Universal Wrapping**: Wrap any object (io.Reader, io.Writer, io.Seeker, io.Closer, or combinations)
 - **Runtime Customization**: Change behavior dynamically with custom functions
@@ -49,14 +29,6 @@ This package provides a flexible wrapper that allows you to intercept and custom
 - **Zero Dependencies**: Only standard library + internal atomics
 - **100% Test Coverage**: 114 specs covering all scenarios
 - **Production Ready**: Thoroughly tested for concurrency and edge cases
-
----
-
-## Installation
-
-```bash
-go get github.com/nabbar/golib/ioutils/iowrapper
-```
 
 ---
 
@@ -140,7 +112,220 @@ Concurrent Operations:
 
 ---
 
+## Performance
+
+### Operation Metrics
+
+The wrapper adds **minimal overhead** to I/O operations:
+
+| Operation | Overhead | Notes |
+|-----------|----------|-------|
+| Read (default) | ~0-100 ns | Atomic load + delegation |
+| Write (default) | ~0-100 ns | Atomic load + delegation |
+| Read (custom) | ~0-100 ns + custom | Custom function cost |
+| Write (custom) | ~0-100 ns + custom | Custom function cost |
+| SetRead/SetWrite | ~100-200 ns | Atomic store |
+| Creation | ~5-7 ms / 10k ops | One-time cost |
+
+*Measured on AMD64, Go 1.21*
+
+### Memory Efficiency
+
+- **Wrapper Size**: ~64 bytes (1 pointer + 4 atomic values)
+- **Allocations**: 0 per I/O operation
+- **Custom Function**: Stored once, no per-call allocation
+- **Data Copying**: Only when custom function returns different slice
+
+### Benchmark Results
+
+From actual test runs:
+
+```
+Wrapper creation:     ~5.7 ms / 10,000 operations
+Default read:         ~0 ns/op  (indistinguishable from baseline)
+Default write:        ~0 ns/op  (indistinguishable from baseline)
+Custom read:          ~0-100 ns/op (function call overhead)
+Custom write:         ~0 ns/op
+Function update:      ~100 ns/op (atomic store)
+Seek:                 ~0 ns/op
+Mixed operations:     ~100 ns/op
+```
+
+---
+
+## Use Cases
+
+### 1. Logging and Monitoring
+
+**Problem**: Track I/O operations without modifying existing code.
+
+```go
+wrapper := iowrapper.New(file)
+
+var bytesRead, bytesWritten atomic.Int64
+
+wrapper.SetRead(func(p []byte) []byte {
+    n, err := file.Read(p)
+    if err != nil || n == 0 {
+        return nil
+    }
+    data := p[:n]
+    bytesRead.Add(int64(len(data)))
+    log.Printf("Read %d bytes (total: %d)", len(data), bytesRead.Load())
+    return data
+})
+
+wrapper.SetWrite(func(p []byte) []byte {
+    n, err := file.Write(p)
+    if err != nil {
+        return nil
+    }
+    bytesWritten.Add(int64(n))
+    metrics.RecordWrite(n)
+    return p[:n]
+})
+```
+
+**Advantages**: Observability without changes to underlying I/O logic, real-time monitoring of throughput and operation counts.
+
+### 2. Data Transformation
+
+**Problem**: Apply transformations transparently during I/O.
+
+```go
+// ROT13 cipher on read
+wrapper := iowrapper.New(reader)
+wrapper.SetRead(func(p []byte) []byte {
+    n, err := reader.Read(p)
+    if err != nil || n == 0 {
+        return nil
+    }
+    data := p[:n]
+    for i, b := range data {
+        if b >= 'a' && b <= 'z' {
+            data[i] = 'a' + (b-'a'+13)%26
+        } else if b >= 'A' && b <= 'Z' {
+            data[i] = 'A' + (b-'A'+13)%26
+        }
+    }
+    return data
+})
+```
+
+**Advantages**: Process data transparently without exposing transformation logic to callers, chainable transformations for complex pipelines.
+
+### 3. Data Validation
+
+**Problem**: Validate data before writing.
+
+```go
+wrapper := iowrapper.New(writer)
+
+wrapper.SetWrite(func(p []byte) []byte {
+    if !utf8.Valid(p) {
+        log.Printf("Invalid UTF-8 data rejected")
+        return nil // Returns io.ErrUnexpectedEOF
+    }
+    if len(p) > maxSize {
+        return p[:maxSize] // Truncate
+    }
+    n, err := writer.Write(p)
+    if err != nil {
+        return nil
+    }
+    return p[:n]
+})
+```
+
+**Advantages**: Enforce invariants at the I/O layer without scattering validation logic, centralized validation reduces bugs.
+
+### 4. Checksumming and Integrity
+
+**Problem**: Calculate checksums while reading data.
+
+```go
+wrapper := iowrapper.New(reader)
+hasher := sha256.New()
+
+wrapper.SetRead(func(p []byte) []byte {
+    n, err := reader.Read(p)
+    if err != nil || n == 0 {
+        return nil
+    }
+    data := p[:n]
+    hasher.Write(data) // Update checksum continuously
+    return data
+})
+
+// Read all data
+io.Copy(io.Discard, wrapper)
+
+// Get final checksum
+checksum := hex.EncodeToString(hasher.Sum(nil))
+fmt.Printf("SHA256: %s\n", checksum)
+```
+
+**Advantages**: Compute checksums without explicit hash tracking in business logic, supports any hash.Hash implementation.
+
+### 5. Rate Limiting and Throttling
+
+**Problem**: Control I/O throughput.
+
+```go
+wrapper := iowrapper.New(reader)
+limiter := rate.NewLimiter(rate.Limit(1024*1024), 4096) // 1 MB/s
+
+wrapper.SetRead(func(p []byte) []byte {
+    // Wait for rate limiter
+    if err := limiter.WaitN(context.Background(), len(p)); err != nil {
+        return nil
+    }
+    
+    n, err := reader.Read(p)
+    if err != nil || n == 0 {
+        return nil
+    }
+    return p[:n]
+})
+```
+
+**Advantages**: Throttle I/O operations to respect bandwidth constraints, transparent to application code.
+
+### 6. Wrapper Chaining (Advanced)
+
+**Problem**: Combine multiple transformations.
+
+```go
+// Chain: File → Logging → Compression → Encryption → Output
+file, _ := os.Open("data.txt")
+
+// Layer 1: Logging
+logged := iowrapper.New(file)
+logged.SetRead(makeLoggingRead(file))
+
+// Layer 2: Compression
+compressed := iowrapper.New(logged)
+compressed.SetRead(makeCompressRead(logged))
+
+// Layer 3: Encryption
+encrypted := iowrapper.New(compressed)
+encrypted.SetRead(makeEncryptRead(compressed))
+
+// Use encrypted wrapper
+io.Copy(destination, encrypted)
+```
+
+**Advantages**: Composable transformations with clear separation of concerns, each layer has single responsibility, testable in isolation.
+
+---
+
 ## Quick Start
+
+### Installation
+
+```bash
+go get github.com/nabbar/golib/ioutils/iowrapper
+```
 
 ### Basic Wrapping
 
@@ -217,210 +402,156 @@ wrapper.SetRead(nil)
 
 ---
 
-## Performance
+## Best Practices
 
-### Operation Metrics
+### Testing
 
-The wrapper adds **minimal overhead** to I/O operations:
+The package includes a comprehensive test suite with **100% code coverage** and **114 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
 
-| Operation | Overhead | Notes |
-|-----------|----------|-------|
-| Read (default) | ~0-100 ns | Atomic load + delegation |
-| Write (default) | ~0-100 ns | Atomic load + delegation |
-| Read (custom) | ~0-100 ns + custom | Custom function cost |
-| Write (custom) | ~0-100 ns + custom | Custom function cost |
-| SetRead/SetWrite | ~100-200 ns | Atomic store |
-| Creation | ~5-7 ms / 10k ops | One-time cost |
+**Key test coverage:**
+- ✅ All public APIs and I/O operations
+- ✅ Concurrent access with race detector (zero races detected)
+- ✅ Performance benchmarks (throughput, latency, memory)
+- ✅ Error handling and edge cases
+- ✅ Custom function behavior and atomic updates
 
-*Measured on AMD64, Go 1.21*
+For detailed test documentation, see **[TESTING.md](TESTING.md)**.
 
-### Memory Efficiency
+### ✅ DO
 
-- **Wrapper Size**: ~64 bytes (1 pointer + 4 atomic values)
-- **Allocations**: 0 per I/O operation
-- **Custom Function**: Stored once, no per-call allocation
-- **Data Copying**: Only when custom function returns different slice
-
-### Benchmark Results
-
-From actual test runs:
-
-```
-Wrapper creation:     ~5.7 ms / 10,000 operations
-Default read:         ~0 ns/op  (indistinguishable from baseline)
-Default write:        ~0 ns/op  (indistinguishable from baseline)
-Custom read:          ~0-100 ns/op (function call overhead)
-Custom write:         ~0 ns/op
-Function update:      ~100 ns/op (atomic store)
-Seek:                 ~0 ns/op
-Mixed operations:     ~100 ns/op
-```
-
----
-
-## Use Cases
-
-### Logging and Monitoring
-
-Track I/O operations without modifying the underlying implementation:
-
+**Handle EOF Correctly:**
 ```go
-wrapper := iowrapper.New(file)
-
-var bytesRead, bytesWritten atomic.Int64
-
 wrapper.SetRead(func(p []byte) []byte {
-    n, _ := file.Read(p)
-    data := p[:n]
-    bytesRead.Add(int64(len(data)))
-    log.Printf("Read %d bytes (total: %d)", len(data), bytesRead.Load())
-    return data
-})
-
-wrapper.SetWrite(func(p []byte) []byte {
-    file.Write(p)
-    bytesWritten.Add(int64(len(p)))
-    metrics.RecordWrite(len(p))
-    return p
+    n, err := reader.Read(p)
+    if err == io.EOF || n == 0 {
+        return nil // Signal EOF properly
+    }
+    return p[:n]
 })
 ```
 
-**Why**: Observability without code changes to underlying I/O logic.
-
-### Data Transformation
-
-Transform data on-the-fly during read/write operations:
-
+**Minimize Allocations:**
 ```go
-// ROT13 cipher on read
-wrapper := iowrapper.New(reader)
+// ✅ GOOD: Reuses provided buffer
 wrapper.SetRead(func(p []byte) []byte {
     n, _ := reader.Read(p)
-    data := p[:n]
-    for i, b := range data {
-        if b >= 'a' && b <= 'z' {
-            data[i] = 'a' + (b-'a'+13)%26
-        } else if b >= 'A' && b <= 'Z' {
-            data[i] = 'A' + (b-'A'+13)%26
-        }
-    }
-    return data
-})
-
-// Compression on write
-wrapper.SetWrite(func(p []byte) []byte {
-    compressed := compress(p) // Your compression logic
-    writer.Write(compressed)
-    return compressed
+    return p[:n] // No allocation
 })
 ```
 
-**Why**: Process data transparently without exposing transformation logic to callers.
-
-### Data Validation
-
-Validate data before it's processed:
-
+**Use Thread-Safe Operations:**
 ```go
-wrapper := iowrapper.New(writer)
-
-wrapper.SetWrite(func(p []byte) []byte {
-    if !utf8.Valid(p) {
-        log.Printf("Invalid UTF-8 data rejected")
-        return nil // Causes Write() to return io.ErrUnexpectedEOF
-    }
-    if len(p) > maxSize {
-        return p[:maxSize] // Truncate
-    }
-    writer.Write(p)
-    return p
-})
-```
-
-**Why**: Enforce invariants at the I/O layer without scattering validation logic.
-
-### Checksumming
-
-Calculate checksums while reading or writing:
-
-```go
-wrapper := iowrapper.New(reader)
-hasher := sha256.New()
-
+// ✅ GOOD: Thread-safe counter using atomics
+var counter atomic.Int64
 wrapper.SetRead(func(p []byte) []byte {
-    n, _ := reader.Read(p)
-    data := p[:n]
-    hasher.Write(data) // Update checksum continuously
-    return data
-})
-
-// Read all data
-io.Copy(io.Discard, wrapper)
-
-// Get final checksum
-checksum := hex.EncodeToString(hasher.Sum(nil))
-fmt.Printf("SHA256: %s\n", checksum)
-```
-
-**Why**: Compute checksums without explicit hash tracking in business logic.
-
-### Rate Limiting
-
-Control I/O throughput:
-
-```go
-wrapper := iowrapper.New(reader)
-
-limiter := rate.NewLimiter(rate.Limit(1024*1024), 4096) // 1 MB/s
-
-wrapper.SetRead(func(p []byte) []byte {
-    // Wait for rate limiter
-    if err := limiter.WaitN(context.Background(), len(p)); err != nil {
-        return nil
-    }
-    
+    counter.Add(1) // Atomic, thread-safe
     n, _ := reader.Read(p)
     return p[:n]
 })
 ```
 
-**Why**: Throttle I/O operations to respect bandwidth constraints.
-
-### Wrapper Chaining
-
-Combine multiple transformations:
-
+**Reset to Default When Done:**
 ```go
-// Chain: File → Logging → Compression → Encryption → Output
-file, _ := os.Open("data.txt")
-
-// Layer 1: Logging
-logged := iowrapper.New(file)
-logged.SetRead(func(p []byte) []byte {
-    data := /* read from file */
-    log.Printf("Read %d bytes", len(data))
-    return data
-})
-
-// Layer 2: Compression
-compressed := iowrapper.New(logged)
-compressed.SetRead(func(p []byte) []byte {
-    data := /* read from logged */
-    return compress(data)
-})
-
-// Layer 3: Encryption
-encrypted := iowrapper.New(compressed)
-encrypted.SetRead(func(p []byte) []byte {
-    data := /* read from compressed */
-    return encrypt(data)
-})
-
-// Use encrypted wrapper
-io.Copy(destination, encrypted)
+// ✅ GOOD: Reset custom function
+wrapper.SetRead(customFunc)
+// ... use custom behavior ...
+wrapper.SetRead(nil) // Reset to default delegation
 ```
 
-**Why**: Composable transformations with clear separation of concerns.
+**Compose Wrappers for Complexity:**
+```go
+// ✅ GOOD: Chain wrappers for separation of concerns
+logged := iowrapper.New(file)
+logged.SetRead(logFunc)
+
+compressed := iowrapper.New(logged)
+compressed.SetRead(compressFunc)
+
+encrypted := iowrapper.New(compressed)
+encrypted.SetRead(encryptFunc)
+```
+
+### ❌ DON'T
+
+**Don't Allocate on Every Call:**
+```go
+// ❌ BAD: Allocates on every call
+wrapper.SetRead(func(p []byte) []byte {
+    data := make([]byte, len(p)) // Allocation!
+    copy(data, p)
+    return data
+})
+```
+
+**Don't Use Mutexes (Use Atomics):**
+```go
+// ❌ BAD: Mutex overhead
+var mu sync.Mutex
+var counter int
+wrapper.SetRead(func(p []byte) []byte {
+    mu.Lock()
+    counter++
+    mu.Unlock()
+    return /* ... */
+})
+
+// ✅ GOOD: Use atomic instead
+var counter atomic.Int64
+wrapper.SetRead(func(p []byte) []byte {
+    counter.Add(1)
+    return /* ... */
+})
+```
+
+**Don't Mix Multiple Concerns:**
+```go
+// ❌ BAD: One function doing everything
+wrapper.SetRead(func(p []byte) []byte {
+    // logging + compression + encryption all mixed
+    log.Println("reading")
+    compressed := compress(data)
+    encrypted := encrypt(compressed)
+    return encrypted
+})
+
+// ✅ GOOD: Use wrapper chaining instead
+```
+
+**Don't Ignore Errors:**
+```go
+// ❌ BAD: Ignoring errors
+wrapper.SetRead(func(p []byte) []byte {
+    reader.Read(p) // Ignoring error
+    return p
+})
+
+// ✅ GOOD: Check errors
+wrapper.SetRead(func(p []byte) []byte {
+    n, err := reader.Read(p)
+    if err != nil || n == 0 {
+        return nil // Signal error/EOF
+    }
+    return p[:n]
+})
+```
+
+**Don't Modify Input Buffer Carelessly:**
+```go
+// ⚠️ CAUTION: Modifies caller's buffer
+wrapper.SetRead(func(p []byte) []byte {
+    n, _ := reader.Read(p)
+    modifyInPlace(p[:n]) // Mutates caller's buffer!
+    return p[:n]
+})
+
+// ✅ BETTER: Return new slice if transformation needed
+wrapper.SetRead(func(p []byte) []byte {
+    n, _ := reader.Read(p)
+    return transform(p[:n]) // New slice
+})
+```
+
+---
 
 ## API Reference
 
@@ -517,206 +648,111 @@ wrapper := iowrapper.New(bytes.NewBuffer([]byte("data")))
 
 ---
 
-## Best Practices
-
-### 1. Reset to Default When Done
-
-```go
-wrapper.SetRead(customFunc)
-// ... use custom behavior ...
-wrapper.SetRead(nil) // Reset to default
-```
-
-### 2. Handle EOF Correctly
-
-```go
-wrapper.SetRead(func(p []byte) []byte {
-    n, err := reader.Read(p)
-    if err == io.EOF || n == 0 {
-        return nil // Signal EOF
-    }
-    return p[:n]
-})
-```
-
-### 3. Minimize Allocations
-
-```go
-// ❌ Bad - allocates on every call
-wrapper.SetRead(func(p []byte) []byte {
-    data := make([]byte, len(p)) // Allocation!
-    copy(data, p)
-    return data
-})
-
-// ✅ Good - reuses provided buffer
-wrapper.SetRead(func(p []byte) []byte {
-    n, _ := reader.Read(p)
-    return p[:n] // No allocation
-})
-```
-
-### 4. Thread-Safe Custom Functions
-
-```go
-// Thread-safe counter using atomics
-var counter atomic.Int64
-wrapper.SetRead(func(p []byte) []byte {
-    counter.Add(1) // Thread-safe
-    return /* ... */
-})
-```
-
-### 5. Don't Modify Input Unless Necessary
-
-```go
-// ✅ Good - read-only transformation
-wrapper.SetRead(func(p []byte) []byte {
-    n, _ := reader.Read(p)
-    transformed := transform(p[:n]) // New slice
-    return transformed
-})
-
-// ⚠️ Caution - modifies input
-wrapper.SetRead(func(p []byte) []byte {
-    n, _ := reader.Read(p)
-    modifyInPlace(p[:n]) // Mutates caller's buffer
-    return p[:n]
-})
-```
-
-### 6. Check for io.ErrUnexpectedEOF
-
-```go
-n, err := wrapper.Read(buf)
-if err == io.ErrUnexpectedEOF {
-    // Custom function returned nil or no underlying reader
-}
-```
-
-### 7. Compose Wrappers for Complex Logic
-
-```go
-// Don't: One function doing everything
-wrapper.SetRead(func(p []byte) []byte {
-    // logging + compression + encryption all mixed
-})
-
-// Do: Chain wrappers
-logged := iowrapper.New(file)
-logged.SetRead(logFunc)
-
-compressed := iowrapper.New(logged)
-compressed.SetRead(compressFunc)
-
-encrypted := iowrapper.New(compressed)
-encrypted.SetRead(encryptFunc)
-```
-
----
-
-## Testing
-
-The package has **100% test coverage** with 114 comprehensive specs using Ginkgo v2 and Gomega.
-
-### Run Tests
-
-```bash
-# Standard go test
-go test -v -cover .
-
-# With Ginkgo CLI (recommended)
-go install github.com/onsi/ginkgo/v2/ginkgo@latest
-ginkgo -v -cover
-
-# With race detector
-go test -race .
-```
-
-### Test Statistics
-
-| Metric | Value |
-|--------|-------|
-| Total Specs | 114 |
-| Coverage | 100.0% |
-| Execution Time | ~47ms |
-| Success Rate | 100% |
-
-### Test Categories
-
-- **Basic Operations** (basic_test.go): 20 specs
-- **Custom Functions** (custom_test.go): 24 specs
-- **Edge Cases** (edge_cases_test.go): 18 specs
-- **Error Handling** (errors_test.go): 19 specs
-- **Concurrency** (concurrency_test.go): 17 specs
-- **Integration** (integration_test.go): 8 specs
-- **Benchmarks** (benchmark_test.go): 8 specs
-
-See [TESTING.md](TESTING.md) for detailed testing documentation.
-
----
-
 ## Contributing
 
 Contributions are welcome! Please follow these guidelines:
 
-**Code Contributions**
-- **Do not use AI** to generate package implementation code
-- AI may assist with tests, documentation, and bug fixing
-- All contributions must pass tests: `go test ./...`
-- Maintain 100% test coverage
-- Follow existing code style and patterns
-- Add GoDoc comments for all public elements
+1. **Code Quality**
+    - Follow Go best practices and idioms
+    - Maintain or improve code coverage (target: >85%)
+    - Pass all tests including race detector
+    - Use `gofmt` and `golint`
 
-**Documentation**
-- Update README.md for new features
-- Add practical examples for common use cases
-- Keep TESTING.md synchronized with test changes
-- Use clear, concise English
+2. **AI Usage Policy**
+    - ❌ **AI must NEVER be used** to generate package code or core functionality
+    - ✅ **AI assistance is limited to**:
+        - Testing (writing and improving tests)
+        - Debugging (troubleshooting and bug resolution)
+        - Documentation (comments, README, TESTING.md)
+    - All AI-assisted work must be reviewed and validated by humans
 
-**Testing**
-- Write tests for all new features
-- Test edge cases and error conditions
-- Use Ginkgo/Gomega BDD style
-- Test thread safety for concurrent operations
+3. **Testing**
+    - Add tests for new features
+    - Use Ginkgo v2 / Gomega for test framework
+    - Use `gmeasure` (not `measure`) for benchmarks
+    - Ensure zero race conditions
 
-**Pull Requests**
-- Provide clear description of changes
-- Reference related issues
-- Include test results and coverage
-- Update documentation
+4. **Documentation**
+    - Update GoDoc comments for public APIs
+    - Add examples for new features
+    - Update README.md and TESTING.md if needed
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for project-wide guidelines.
-
----
-
-## Future Enhancements
-
-Potential improvements for future versions:
-
-**Features**
-- Context support: Context-aware I/O operations
-- Metrics integration: Built-in metrics collection
-- Middleware chain: Simplified wrapper composition
-- Error wrapping: Enhanced error context
-
-**Performance**
-- Zero-allocation paths: Optimize hot paths further
-- Batch operations: Support for vectorized I/O
-- Buffer pooling: Reduce allocation pressure
-
-**Developer Experience**
-- Helper functions: Common transformation utilities
-- Debugging: Built-in debug logging mode
-- Examples: More real-world use case examples
-
-Suggestions are welcome via GitHub issues.
+5. **Pull Request Process**
+    - Fork the repository
+    - Create a feature branch
+    - Write clear commit messages
+    - Ensure all tests pass
+    - Update documentation
+    - Submit PR with description of changes
 
 ---
 
-## AI Transparency Notice
+## Improvements
 
-In accordance with Article 50.4 of the EU AI Act, AI assistance has been used for testing, documentation, and bug fixing under human supervision.
+### Current Status
+
+The package is **production-ready** with no urgent improvements or security vulnerabilities identified.
+
+### Code Quality Metrics
+
+- ✅ **100% test coverage** (target: >80%)
+- ✅ **Zero race conditions** detected with `-race` flag
+- ✅ **Thread-safe** implementation using atomic operations
+- ✅ **Zero mutexes** for maximum performance
+- ✅ **Memory-safe** with proper nil checks and bounds validation
+
+### Future Enhancements (Non-urgent)
+
+The following enhancements could be considered for future versions:
+
+1. **Context Support**: Optional context.Context parameter for I/O operations to enable cancellation and deadline propagation in custom functions
+2. **Metrics Integration**: Built-in metrics collection (bytes read/written, operation counts) with optional export to Prometheus or other systems
+3. **Middleware Chain**: Simplified wrapper composition API with pre-built transformation utilities
+4. **Error Wrapping**: Enhanced error context with stack traces and operation metadata for better debugging
+5. **Zero-allocation Paths**: Optimize hot paths further to eliminate remaining allocations in edge cases
+6. **Batch Operations**: Support for vectorized I/O operations to improve throughput
+7. **Helper Functions**: Common transformation utilities (base64, compression, encryption) as ready-to-use functions
+8. **Debug Mode**: Built-in debug logging with verbosity levels for troubleshooting I/O behavior
+
+These are **optional improvements** and not required for production use. The current implementation is stable and performant.
+
+---
+
+## Resources
+
+### Package Documentation
+
+- **[GoDoc](https://pkg.go.dev/github.com/nabbar/golib/ioutils/iowrapper)** - Complete API reference with function signatures, method descriptions, and runnable examples. Essential for understanding the public interface and usage patterns. Includes type definitions for FuncRead, FuncWrite, FuncSeek, and FuncClose with detailed behavior documentation.
+
+- **[doc.go](doc.go)** - In-depth package documentation including design philosophy, architecture diagrams, operation flow charts, thread-safety model, and detailed error handling patterns. Provides comprehensive explanations of internal mechanisms, atomic operations, and best practices for production use.
+
+- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, 100% coverage analysis, performance benchmarks, and guidelines for writing new tests. Includes troubleshooting, CI integration examples, and helper function documentation.
+
+### Related golib Packages
+
+- **[github.com/nabbar/golib/atomic](https://pkg.go.dev/github.com/nabbar/golib/atomic)** - Thread-safe atomic value storage used internally for storing custom functions (FuncRead, FuncWrite, etc.). Provides lock-free atomic operations for better performance in concurrent scenarios. This package is critical for the wrapper's zero-mutex, thread-safe architecture.
+
+- **[github.com/nabbar/golib/ioutils/bufferReadCloser](../bufferReadCloser)** - I/O wrappers with close support for buffered operations. Can be combined with iowrapper for advanced I/O patterns requiring buffer management and proper cleanup.
+
+- **[github.com/nabbar/golib/ioutils/fileDescriptor](../fileDescriptor)** - File descriptor limit management for applications handling many concurrent files. Useful when wrapping file operations to track and limit resource usage.
+
+- **[github.com/nabbar/golib/ioutils](../)** - Parent package containing additional I/O utilities including aggregator (concurrent write serialization), bufferReadCloser, and fileDescriptor. Comprehensive toolkit for advanced I/O patterns.
+
+### External References
+
+- **[Go io Package](https://pkg.go.dev/io)** - Standard library I/O interfaces (io.Reader, io.Writer, io.Seeker, io.Closer) that the wrapper implements. Essential reference for understanding the contracts and error handling patterns used by the wrapper.
+
+- **[Effective Go - Interfaces](https://go.dev/doc/effective_go#interfaces)** - Official Go programming guide covering interface design and composition patterns. The wrapper follows these conventions for idiomatic Go interface implementation.
+
+- **[Go Concurrency Patterns](https://go.dev/blog/pipelines)** - Official Go blog article explaining concurrency patterns. Relevant for understanding how custom functions can be used in pipeline architectures with concurrent I/O.
+
+- **[Go Memory Model](https://go.dev/ref/mem)** - Official specification of Go's memory consistency guarantees. Essential for understanding the thread-safety guarantees provided by atomic operations used in the wrapper.
+
+---
+
+## AI Transparency
+
+In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
 
 ---
 
@@ -725,26 +761,3 @@ In accordance with Article 50.4 of the EU AI Act, AI assistance has been used fo
 MIT License © Nicolas JUHEL
 
 All source files in this package are licensed under the MIT License. See individual files for the full license header.
-
----
-
-## Resources
-
-**Documentation**
-- [GoDoc Reference](https://pkg.go.dev/github.com/nabbar/golib/ioutils/iowrapper)
-- [Testing Guide](TESTING.md)
-- [Go io Package](https://pkg.go.dev/io)
-
-**Related Packages**
-- [bufferReadCloser](../bufferReadCloser) - I/O wrappers with close support
-- [fileDescriptor](../fileDescriptor) - File descriptor limit management
-- [ioutils](../) - Parent package with additional I/O utilities
-
-**Community**
-- [GitHub Issues](https://github.com/nabbar/golib/issues)
-- [Contributing Guide](../../CONTRIBUTING.md)
-
----
-
-**Version**: Go 1.19+ on Linux, macOS, Windows  
-**Maintained By**: iowrapper Package Contributors

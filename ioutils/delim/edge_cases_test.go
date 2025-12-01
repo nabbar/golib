@@ -28,7 +28,6 @@ package delim_test
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"strings"
 	"unicode/utf8"
@@ -40,31 +39,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// errorReader returns an error after n reads
-type errorReader struct {
-	data      *strings.Reader
-	errorOn   int
-	readCount int
-}
-
-func newErrorReader(data string, errorOn int) *errorReader {
-	return &errorReader{
-		data:    strings.NewReader(data),
-		errorOn: errorOn,
-	}
-}
-
-func (r *errorReader) Read(p []byte) (n int, err error) {
-	r.readCount++
-	if r.readCount >= r.errorOn {
-		return 0, errors.New("read error")
-	}
-	return r.data.Read(p)
-}
-
-func (r *errorReader) Close() error {
-	return nil
-}
+// This test file validates edge cases and boundary conditions.
+// It covers challenging scenarios including:
+//   - Unicode and multi-byte character handling
+//   - Very large data streams and buffer overflow conditions
+//   - Binary data with special characters (null bytes, control chars)
+//   - Error conditions during read/write operations
+//   - Empty data and missing delimiters
+//   - Extremely long lines exceeding buffer sizes
+//   - Mixed binary and text content
+//
+// Helper types like errorReader (defined in helper_test.go) simulate I/O errors
+// to test error propagation and recovery mechanisms.
 
 var _ = Describe("BufferDelim Edge Cases and Error Handling", func() {
 	Describe("Unicode and special characters", func() {

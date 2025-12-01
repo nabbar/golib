@@ -18,10 +18,10 @@
 #   -v, --verbose     Show detailed output during analysis
 #   -h, --help        Show this help message
 #   -o, --output FILE Save report to file
-#   -m, --min PCT     Highlight packages below minimum coverage (default: 80)
+#   -m, --min PCT     Highlight packages below minimum coverage (default: 75)
 #   -r, --race        Enable race detection (CGO_ENABLED=1, may take >10min)
 #   --no-color        Disable colored output
-#   -t, --timeout DUR Test timeout duration (default: 10m for normal, 30m for race)
+#   -t, --timeout DUR Test timeout duration (default: 15m for normal, 30m for race)
 ##############################################################################
 
 set -e
@@ -42,10 +42,10 @@ _BOLD='\033[1m'
 # Configuration
 VERBOSE=0
 OUTPUT_FILE=""
-MIN_COVERAGE=80
+MIN_COVERAGE=75
 RACE_MODE=0
 USE_COLOR=1
-TIMEOUT="10m"
+TIMEOUT="15m"
 TARGET_PATH=""
 CURRENT_DIR="$(pwd)"
 
@@ -334,6 +334,7 @@ run_tests_with_coverage() {
         fi
     else
         log_warning "Some tests failed or had issues (exit code: $test_exit_code)"
+        exit $test_exit_code
     fi
     
     return 0

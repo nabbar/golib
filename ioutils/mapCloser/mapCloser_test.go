@@ -2,7 +2,7 @@
  *
  *   MIT License
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ *   Copyright (c) 2025 Nicolas JUHEL
  *
  *   Permission is hereby granted, free of charge, to any person obtaining a copy
  *   of this software and associated documentation files (the "Software"), to deal
@@ -41,34 +41,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// mockCloser is a simple io.Closer implementation for testing
-type mockCloser struct {
-	closed   bool
-	closeErr error
-	mu       sync.Mutex
-}
-
-func (m *mockCloser) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.closed = true
-	return m.closeErr
-}
-
-func (m *mockCloser) IsClosed() bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.closed
-}
-
-func newMockCloser() *mockCloser {
-	return &mockCloser{closed: false, closeErr: nil}
-}
-
-func newErrorCloser(err error) *mockCloser {
-	return &mockCloser{closed: false, closeErr: err}
-}
-
 var _ = Describe("MapCloser", func() {
 	var (
 		ctx    context.Context
@@ -85,6 +57,8 @@ var _ = Describe("MapCloser", func() {
 		}
 	})
 
+	// Basic Operations tests core functionality: create, add, get, clean, close.
+	// These are the fundamental operations that users will perform most often.
 	Context("Basic Operations", func() {
 		It("should create a new closer", func() {
 			closer := New(ctx)
@@ -152,6 +126,8 @@ var _ = Describe("MapCloser", func() {
 		})
 	})
 
+	// Clone Operations tests the cloning functionality which allows creating
+	// independent copies of a closer with the same state but separate storage.
 	Context("Clone Operations", func() {
 		It("should create independent copy", func() {
 			closer1 := New(ctx)
@@ -181,6 +157,8 @@ var _ = Describe("MapCloser", func() {
 		})
 	})
 
+	// Error Handling tests how the closer behaves when closers return errors,
+	// including error aggregation and continued operation despite failures.
 	Context("Error Handling", func() {
 		It("should return error when closer fails", func() {
 			closer := New(ctx)
@@ -236,6 +214,8 @@ var _ = Describe("MapCloser", func() {
 		})
 	})
 
+	// Context Cancellation tests the automatic cleanup triggered by context
+	// cancellation or timeout, which is the core feature of this package.
 	Context("Context Cancellation", func() {
 		It("should work with cancelled context", func() {
 			localCtx, localCancel := context.WithCancel(context.Background())
@@ -273,6 +253,8 @@ var _ = Describe("MapCloser", func() {
 		})
 	})
 
+	// Concurrency tests verify thread-safety by calling methods concurrently
+	// from multiple goroutines. All operations should be safe without data races.
 	Context("Concurrency", func() {
 		It("should handle concurrent adds", func() {
 			closer := New(ctx)
@@ -341,6 +323,8 @@ var _ = Describe("MapCloser", func() {
 		})
 	})
 
+	// Edge Cases tests boundary conditions and unusual scenarios that users
+	// might encounter, ensuring robust behavior in all situations.
 	Context("Edge Cases", func() {
 		It("should handle empty closer close", func() {
 			closer := New(ctx)
@@ -461,6 +445,88 @@ var _ = Describe("MapCloser", func() {
 		})
 	})
 
+	// Robustness tests verify that the closer handles various edge conditions
+	// and maintains correct behavior even in unusual circumstances.
+	Context("Robustness", func() {
+		It("should handle repeated Add operations", func() {
+			closer := New(ctx)
+			defer closer.Close()
+
+			mock1 := newMockCloser()
+			
+			// Add same closer multiple times
+			closer.Add(mock1)
+			closer.Add(mock1)
+			closer.Add(mock1)
+
+			Expect(closer.Len()).To(Equal(3))
+			
+			// Get should return it three times
+			result := closer.Get()
+			Expect(result).To(HaveLen(3))
+		})
+
+		It("should handle Clean after adding many closers", func() {
+			closer := New(ctx)
+			defer closer.Close()
+
+			// Add many closers
+			closers := createMockClosers(100)
+			for _, c := range closers {
+				closer.Add(c)
+			}
+
+			Expect(closer.Len()).To(Equal(100))
+
+			// Clean should remove all
+			closer.Clean()
+			Expect(closer.Len()).To(Equal(0))
+			Expect(closer.Get()).To(BeEmpty())
+
+			// None should be closed
+			Expect(testCloserCount(closers...)).To(Equal(0))
+		})
+
+		It("should handle Get after Close", func() {
+			closer := New(ctx)
+			
+			mock := newMockCloser()
+			closer.Add(mock)
+
+			closer.Close()
+
+			// Get should return empty after close
+			result := closer.Get()
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should handle Add after Close", func() {
+			closer := New(ctx)
+			
+			closer.Add(newMockCloser())
+			closer.Close()
+
+			// Add after close should be no-op
+			initialLen := closer.Len()
+			closer.Add(newMockCloser())
+			
+			// Length should not increase
+			Expect(closer.Len()).To(Equal(initialLen))
+		})
+
+		It("should handle Clean after Close", func() {
+			closer := New(ctx)
+			
+			closer.Add(newMockCloser())
+			closer.Close()
+
+			// Clean after close should be no-op
+			Expect(func() { closer.Clean() }).ToNot(Panic())
+		})
+	})
+
+	// Performance tests verify that the closer can handle large numbers of
+	// closers and high concurrency without significant degradation.
 	Context("Performance", func() {
 		It("should handle large number of closers efficiently", func() {
 			closer := New(ctx)

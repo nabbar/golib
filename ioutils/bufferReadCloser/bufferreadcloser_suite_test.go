@@ -24,6 +24,19 @@
  *
  */
 
+// Package bufferReadCloser_test provides comprehensive BDD-style tests for the
+// bufferReadCloser package using Ginkgo v2 and Gomega.
+//
+// Test Coverage:
+//   - Buffer wrapper: Creation, read/write operations, close behavior, nil handling
+//   - Reader wrapper: Creation, read operations, close behavior, nil handling
+//   - Writer wrapper: Creation, write operations, flush/close behavior, nil handling
+//   - ReadWriter wrapper: Creation, bidirectional I/O, close behavior, nil handling
+//   - Custom close functions: Execution, error propagation
+//   - Edge cases: Empty buffers, large data, multiple close calls
+//
+// The test suite achieves 100% code coverage with 62 specs covering all
+// functionality, error paths, and boundary conditions.
 package bufferReadCloser_test
 
 import (
@@ -33,6 +46,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// TestBufferReadCloser is the entry point for the Ginkgo test suite.
+// It registers the Gomega fail handler and runs all specs defined in the package.
 func TestBufferReadCloser(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "BufferReadCloser Suite")

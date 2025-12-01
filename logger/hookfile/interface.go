@@ -1,102 +1,116 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
+// Package hookfile provides a logrus hook implementation for writing logs to files with various formatting options.
+// It supports log rotation detection, custom formatters, and different log levels. The hook can be configured
+// to enable/disable stack traces, timestamps, and access log formatting.
+//
+// # Important Usage Notes
+//
+// When using this hook in normal mode (not access log mode), all log data MUST be passed via the
+// logrus.Entry.Data field. The Message parameter is ignored by the formatter. For example:
+//
+//	logger.WithField("msg", "User logged in").WithField("user", "john").Info("")
+//
+// NOT:
+//
+//	logger.Info("User logged in") // This message will be ignored!
+//
+// # Log Rotation
+//
+// The hook automatically detects external log rotation (e.g., by logrotate) when CreatePath is enabled.
+// It uses inode comparison to detect when the log file has been moved/renamed and automatically
+// reopens the file at the configured path. The sync timer runs every second to check for rotation.
+//
+// # Thread Safety
+//
+// The hook is thread-safe and can be used concurrently from multiple goroutines. It uses an
+// aggregator pattern to manage writes to the same file from multiple hooks efficiently.
+//
+// # Related Packages
+//
+// This package integrates with:
+//   - github.com/sirupsen/logrus - The logging framework
+//   - github.com/nabbar/golib/logger/config - Configuration structures
+//   - github.com/nabbar/golib/ioutils/aggregator - Buffered file writing with rotation support
+//   - github.com/nabbar/golib/logger/types - Common logger types and interfaces
 package hookfile
 
 import (
-	"io"
-	"os"
 	"sync/atomic"
 
 	libiot "github.com/nabbar/golib/ioutils"
 	logcfg "github.com/nabbar/golib/logger/config"
 	loglvl "github.com/nabbar/golib/logger/level"
 	logtps "github.com/nabbar/golib/logger/types"
-	libsiz "github.com/nabbar/golib/size"
 	"github.com/sirupsen/logrus"
 )
 
+// HookFile defines the interface for a logrus hook that writes logs to files.
+// It embeds the base Hook interface from golib/logger/types.
 type HookFile interface {
 	logtps.Hook
-
-	// Done returns a channel that will be closed when the hook is finished.
-	// Use this channel to wait until the hook is finished and then flush
-	// the buffer before exit function.
-	//
-	Done() <-chan struct{}
 }
 
-// New returns a new HookFile instance.
+// New creates and initializes a new file hook with the specified options and formatter.
 //
-// The `opt` parameter is required and cannot be nil. If the `opt.Filepath`
-// field is empty, an error will be returned.
+// Parameters:
+//   - opt: Configuration options for the file hook including file path, permissions, and log levels
+//   - format: The logrus.Formatter to use for formatting log entries
 //
-// The `format` parameter is optional and can be nil. If it is nil, the
-// default logrus formatter will be used.
+// Returns:
+//   - HookFile: The initialized file hook instance
+//   - error: An error if the hook could not be created (e.g., invalid file path)
 //
-// If the `opt.LogLevel` field is not empty, the levels will be parsed and set
-// on the hook. If the `opt.LogLevel` field is empty, all levels will be enabled.
+// The function will create necessary directories if createPath is enabled in options.
+// If no log levels are specified, it will log all levels by default.
 //
-// The `opt.Create` field is optional and can be false. If it is true, the
-// file will be created if it does not exist. The file mode is set to the value
-// of `opt.FileMode`. If the `opt.FileMode` field is empty, the file mode
-// will be set to 0644.
+// Example usage:
 //
-// The `opt.PathMode` field is optional and can be false. If it is true, the
-// parent directories of the file will be created if they do not exist. The parent
-// directory mode is set to the value of `opt.PathMode`. If the `opt.PathMode`
-// field is empty, the parent directory mode will be set to 0755.
-//
-// The `opt.FileBufferSize` field is optional and can be set to a value greater
-// than zero. If it is set to zero or a negative value, the default buffer size
-// will be used. The default buffer size is 4KB.
-//
-// The `opt.DisableStack` field is optional and can be false. If it is true,
-// the stack trace will be disabled on the hook.
-//
-// The `opt.DisableTimestamp` field is optional and can be false. If it is true,
-// the timestamp will be disabled on the hook.
-//
-// The `opt.EnableTrace` field is optional and can be false. If it is true,
-// the trace will be enabled on the hook.
-//
-// The `opt.EnableAccessLog` field is optional and can be false. If it is true,
-// the access log will be enabled on the hook.
-//
-// The returned hook is safe for use in multiple goroutines.
+//	opts := logcfg.OptionsFile{
+//	    Filepath:   "/var/log/myapp.log",
+//	    CreatePath: true,
+//	    FileMode:   0644,
+//	    PathMode:   0755,
+//	    LogLevel:   []string{"info", "warning", "error"},
+//	}
+//	hook, err := New(opts, &logrus.TextFormatter{})
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	logger := logrus.New()
+//	logger.AddHook(hook)
+//	// Remember to use Data field for messages:
+//	logger.WithField("msg", "Application started").Info("")
 func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 	if opt.Filepath == "" {
 		return nil, errMissingFilePath
 	}
 
-	var (
-		LVLs  = make([]logrus.Level, 0)
-		flags = os.O_WRONLY | os.O_APPEND
-	)
+	var LVLs = make([]logrus.Level, 0)
 
 	if len(opt.LogLevel) > 0 {
 		for _, ls := range opt.LogLevel {
@@ -104,10 +118,6 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 		}
 	} else {
 		LVLs = logrus.AllLevels
-	}
-
-	if opt.Create {
-		flags = os.O_CREATE | flags
 	}
 
 	if opt.FileMode == 0 {
@@ -118,49 +128,31 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 		opt.PathMode = 0755
 	}
 
-	n := &hkf{
-		s: new(atomic.Value),
-		d: new(atomic.Value),
-		b: new(atomic.Int64),
-		o: ohkf{
-			format:           format,
-			flags:            flags,
-			levels:           LVLs,
-			disableStack:     opt.DisableStack,
-			disableTimestamp: opt.DisableTimestamp,
-			enableTrace:      opt.EnableTrace,
-			enableAccessLog:  opt.EnableAccessLog,
-			createPath:       opt.CreatePath,
-			filepath:         opt.Filepath,
-			fileMode:         opt.FileMode.FileMode(),
-			pathMode:         opt.PathMode.FileMode(),
-		},
-		r: new(atomic.Bool),
-	}
-
-	if opt.FileBufferSize <= libsiz.SizeKilo {
-		n.b.Store(opt.FileBufferSize.Int64())
-	} else {
-		n.b.Store(sizeBuffer)
-	}
-
 	if opt.CreatePath {
 		if e := libiot.PathCheckCreate(true, opt.Filepath, opt.FileMode.FileMode(), opt.PathMode.FileMode()); e != nil {
 			return nil, e
 		}
 	}
 
-	// #nosec
-	h, e := os.OpenFile(opt.Filepath, flags, opt.FileMode.FileMode())
-
+	a, e := setAgg(opt.Filepath, opt.FileMode.FileMode(), opt.CreatePath)
 	if e != nil {
 		return nil, e
-	} else if _, e = h.Seek(0, io.SeekEnd); e != nil {
-		_ = h.Close()
-		return nil, e
-	} else if e = h.Close(); e != nil {
-		return nil, e
 	}
+
+	n := &hkf{
+		o: ohkf{
+			format:           format,
+			levels:           LVLs,
+			disableStack:     opt.DisableStack,
+			disableTimestamp: opt.DisableTimestamp,
+			enableTrace:      opt.EnableTrace,
+			enableAccessLog:  opt.EnableAccessLog,
+			filepath:         opt.Filepath,
+		},
+		w: a,
+		r: new(atomic.Bool),
+	}
+	n.r.Store(true)
 
 	return n, nil
 }

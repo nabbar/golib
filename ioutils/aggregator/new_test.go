@@ -65,7 +65,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter:  writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -80,7 +80,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -95,7 +95,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(nil, cfg, globalLog)
+				agg, err := aggregator.New(nil, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -110,7 +110,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -126,7 +126,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -142,7 +142,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -161,7 +161,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter:  nil, // missing required field
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(Equal(aggregator.ErrInvalidWriter))
 				Expect(agg).To(BeNil())
@@ -176,7 +176,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter:  writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, nil)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -193,7 +193,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -211,7 +211,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -226,7 +226,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -242,7 +242,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter:  writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -264,7 +264,7 @@ var _ = Describe("Aggregator Creation", func() {
 			}
 
 			var err error
-			agg, err = aggregator.New(ctx, cfg, globalLog)
+			agg, err = aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 		})
@@ -299,7 +299,7 @@ var _ = Describe("Aggregator Creation", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg2, err := aggregator.New(ctxWithDeadline, cfg, globalLog)
+			agg2, err := aggregator.New(ctxWithDeadline, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg2).ToNot(BeNil())
 
@@ -322,7 +322,7 @@ var _ = Describe("Aggregator Creation", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg2, err := aggregator.New(ctxWithValue, cfg, globalLog)
+			agg2, err := aggregator.New(ctxWithValue, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg2).ToNot(BeNil())
 
@@ -330,6 +330,70 @@ var _ = Describe("Aggregator Creation", func() {
 			Expect(val).To(Equal(value))
 
 			_ = agg2.Close()
+		})
+	})
+
+	Describe("Logger Configuration", func() {
+		It("should set custom error logger", func() {
+			writer := newTestWriter()
+			cfg := aggregator.Config{
+				FctWriter: writer.Write,
+			}
+
+			agg, err := aggregator.New(ctx, cfg)
+			Expect(err).ToNot(HaveOccurred())
+			defer agg.Close()
+
+			agg.SetLoggerError(func(msg string, err ...error) {
+				// Custom logger - just ensure it doesn't panic
+			})
+
+			// This test mainly ensures SetLoggerError doesn't panic
+		})
+
+		It("should set custom info logger", func() {
+			writer := newTestWriter()
+			cfg := aggregator.Config{
+				FctWriter: writer.Write,
+			}
+
+			agg, err := aggregator.New(ctx, cfg)
+			Expect(err).ToNot(HaveOccurred())
+			defer agg.Close()
+
+			agg.SetLoggerInfo(func(msg string, arg ...any) {
+				// Custom logger - just ensure it doesn't panic
+			})
+
+			// This test mainly ensures SetLoggerInfo doesn't panic
+		})
+
+		It("should handle nil error logger", func() {
+			writer := newTestWriter()
+			cfg := aggregator.Config{
+				FctWriter: writer.Write,
+			}
+
+			agg, err := aggregator.New(ctx, cfg)
+			Expect(err).ToNot(HaveOccurred())
+			defer agg.Close()
+
+			// Should not panic
+			agg.SetLoggerError(nil)
+		})
+
+		It("should handle nil info logger", func() {
+			writer := newTestWriter()
+			cfg := aggregator.Config{
+				FctWriter: writer.Write,
+			}
+
+			agg, err := aggregator.New(ctx, cfg)
+			Expect(err).ToNot(HaveOccurred())
+			defer agg.Close()
+
+			// Should not panic
+			agg.SetLoggerInfo(nil)
 		})
 	})
 })

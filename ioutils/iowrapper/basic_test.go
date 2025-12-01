@@ -24,6 +24,15 @@
  *
  */
 
+// This file contains basic functional tests for the IOWrapper package.
+//
+// Test Strategy:
+// - Verify wrapper creation from various types (bytes.Buffer, strings.Reader, nil)
+// - Test default delegation behavior for all I/O operations (Read, Write, Seek, Close)
+// - Ensure proper error handling when underlying object doesn't implement interfaces
+// - Validate that wrapper correctly implements all standard Go I/O interfaces
+//
+// Coverage: 20 specs testing fundamental wrapper behavior without custom functions.
 package iowrapper_test
 
 import (

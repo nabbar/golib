@@ -1,29 +1,28 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
 package hooksyslog_test
 
@@ -41,6 +40,7 @@ import (
 
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
+	sckcfg "github.com/nabbar/golib/socket/config"
 	scksrv "github.com/nabbar/golib/socket/server"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -65,7 +65,13 @@ func TestHookSyslog(t *testing.T) {
 var _ = BeforeSuite(func() {
 	var err error
 
-	sckSrv, err = scksrv.New(nil, hookHandler, libptc.NetworkUnixGram, sckAddr, 0600, -1)
+	sckCfg := sckcfg.Server{
+		Network:   libptc.NetworkUnixGram,
+		Address:   sckAddr,
+		PermFile:  0600,
+		GroupPerm: -1,
+	}
+	sckSrv, err = scksrv.New(nil, hookHandler, sckCfg)
 
 	Expect(err).ToNot(HaveOccurred())
 	Expect(sckSrv).ToNot(BeNil())
@@ -149,13 +155,10 @@ func addReceivedMessages(msg string) {
 	lstMsgs = append(lstMsgs, msg)
 }
 
-func hookHandler(rd libsck.Reader, wr libsck.Writer) {
+func hookHandler(c libsck.Context) {
 	defer func() {
-		if rd != nil {
-			_ = rd.Close()
-		}
-		if wr != nil {
-			_ = wr.Close()
+		if c != nil {
+			_ = c.Close()
 		}
 	}()
 
@@ -166,7 +169,7 @@ func hookHandler(rd libsck.Reader, wr libsck.Writer) {
 			return
 		}
 
-		n, err := rd.Read(buf)
+		n, err := c.Read(buf)
 
 		if n > 0 {
 			addReceivedMessages(string(buf[:n]))

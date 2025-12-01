@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,11 @@ import (
 	"math"
 )
 
+// Read reads up to len(p) bytes into p from the underlying file.
+// It implements the io.Reader interface with integrated progress tracking.
+// The increment callback is invoked with the number of bytes read.
+// The EOF callback is invoked when EOF is reached.
+// Returns ErrorNilPointer if called on nil instance or closed file.
 func (o *progress) Read(p []byte) (n int, err error) {
 	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
@@ -40,6 +45,10 @@ func (o *progress) Read(p []byte) (n int, err error) {
 	return o.analyze(o.f.Read(p))
 }
 
+// ReadAt reads len(p) bytes into p starting at offset off in the file.
+// It implements the io.ReaderAt interface with integrated progress tracking.
+// The increment callback is invoked with the number of bytes read.
+// Returns ErrorNilPointer if called on nil instance or closed file.
 func (o *progress) ReadAt(p []byte, off int64) (n int, err error) {
 	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
@@ -48,6 +57,12 @@ func (o *progress) ReadAt(p []byte, off int64) (n int, err error) {
 	return o.analyze(o.f.ReadAt(p, off))
 }
 
+// ReadFrom reads data from r until EOF and writes it to the file.
+// It implements the io.ReaderFrom interface with integrated progress tracking.
+// The increment callback is invoked for each write operation.
+// The EOF callback is invoked when EOF is reached from the source reader.
+// Buffer size can be optimized for io.LimitedReader sources.
+// Returns ErrorNilPointer if called on nil instance, nil reader, or closed file.
 func (o *progress) ReadFrom(r io.Reader) (n int64, err error) {
 	if o == nil || r == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)

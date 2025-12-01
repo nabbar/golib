@@ -34,7 +34,6 @@ import (
 	"time"
 
 	libatm "github.com/nabbar/golib/atomic"
-	liblog "github.com/nabbar/golib/logger"
 	librun "github.com/nabbar/golib/runner/startStop"
 )
 
@@ -92,6 +91,14 @@ type Aggregator interface {
 
 	io.Closer
 	io.Writer
+
+	// SetLoggerError sets a custom error logging function.
+	// If nil, a no-op function is used. Thread-safe.
+	SetLoggerError(func(msg string, err ...error))
+
+	// SetLoggerInfo sets a custom info logging function.
+	// If nil, a no-op function is used. Thread-safe.
+	SetLoggerInfo(func(msg string, arg ...any))
 
 	// NbWaiting returns the number of Write() calls currently blocked waiting
 	// to send data to the internal channel.
@@ -186,7 +193,7 @@ type Aggregator interface {
 //	if err != nil {
 //	    return err
 //	}
-func New(ctx context.Context, cfg Config, lg liblog.Logger) (Aggregator, error) {
+func New(ctx context.Context, cfg Config) (Aggregator, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -194,8 +201,9 @@ func New(ctx context.Context, cfg Config, lg liblog.Logger) (Aggregator, error) 
 	a := &agg{
 		x:  libatm.NewValue[context.Context](),
 		n:  libatm.NewValue[context.CancelFunc](),
-		l:  libatm.NewValue[liblog.Logger](),
 		r:  libatm.NewValue[librun.StartStop](),
+		le: libatm.NewValue[func(msg string, err ...error)](),
+		li: libatm.NewValue[func(msg string, arg ...any)](),
 		at: time.Minute,
 		am: -1,
 		af: nil,
@@ -215,16 +223,6 @@ func New(ctx context.Context, cfg Config, lg liblog.Logger) (Aggregator, error) 
 	// Store initial context (but don't open channel yet - done in run())
 	a.ctxNew(ctx)
 	a.op.Store(false)
-
-	if lg == nil {
-		lg = liblog.New(ctx)
-	}
-
-	if e := lg.SetOptions(&cfg.Logger); e != nil {
-		return nil, e
-	} else {
-		a.l.Store(lg)
-	}
 
 	if cfg.AsyncMax > -1 {
 		a.am = cfg.AsyncMax

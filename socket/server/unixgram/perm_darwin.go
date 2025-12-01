@@ -63,33 +63,28 @@ import (
 //
 // See syscall.Umask, os.Chmod, os.Chown for permission management.
 // See net.ListenUnixgram for datagram socket creation.
-func (o *srv) getListen(uxf string, adr *net.UnixAddr) (*net.UnixConn, error) {
+func (o *srv) getListen(uxf string) (*net.UnixConn, error) {
 	var (
 		err error
 		prm = o.getSocketPerm()
 		grp = o.getSocketGroup()
 		lis *net.UnixConn
+		loc *net.UnixAddr
 	)
 
-	lis, err = net.ListenUnixgram(libptc.NetworkUnixGram.Code(), adr)
-
-	if err != nil {
+	if loc, err = net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), uxf); err != nil {
+		return nil, err
+	} else if lis, err = net.ListenUnixgram(libptc.NetworkUnixGram.Code(), loc); err != nil {
 		return nil, err
 	} else if lis == nil {
 		return nil, os.ErrNotExist
-	}
-
-	if _, err = os.Stat(uxf); err != nil {
+	} else if _, err = os.Stat(uxf); err != nil {
 		_ = lis.Close()
 		return nil, err
-	}
-
-	if err = os.Chmod(uxf, prm.FileMode()); err != nil {
+	} else if err = os.Chmod(uxf, prm.FileMode()); err != nil {
 		_ = lis.Close()
 		return nil, err
-	}
-
-	if err = os.Chown(uxf, syscall.Getuid(), grp); err != nil {
+	} else if err = os.Chown(uxf, syscall.Getuid(), grp); err != nil {
 		_ = lis.Close()
 		return nil, err
 	}

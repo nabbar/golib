@@ -31,15 +31,15 @@ package unixgram
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	libprm "github.com/nabbar/golib/file/perm"
-	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -47,12 +47,15 @@ import (
 // Returns the path after validation via checkFile(), or os.ErrNotExist if not set.
 // This is an internal helper used by Listen().
 func (o *srv) getSocketFile() (string, error) {
-	f := o.sf.Load()
-	if f != nil {
-		return o.checkFile(f.(string))
+	if o == nil {
+		return "", ErrInvalidUnixFile
+	} else if a := o.ad.Load(); a == (sckFile{}) {
+		return "", ErrInvalidUnixFile
+	} else if len(a.File) < 1 {
+		return "", ErrInvalidUnixFile
+	} else {
+		return o.checkFile(a.File)
 	}
-
-	return "", os.ErrNotExist
 }
 
 // getSocketPerm retrieves the configured file permissions for the Unix socket.
@@ -60,32 +63,32 @@ func (o *srv) getSocketFile() (string, error) {
 // Uses github.com/nabbar/golib/file/perm for permission parsing.
 // This is an internal helper used by getListen().
 func (o *srv) getSocketPerm() libprm.Perm {
-	if p, e := libprm.ParseInt64(o.sp.Load()); e != nil {
+	if a := o.ad.Load(); a == (sckFile{}) {
+		return libprm.Perm(0770)
+	} else if a.Perm == 0 {
 		return libprm.Perm(0770)
 	} else {
-		return p
+		return a.Perm
 	}
 }
 
 // getSocketGroup retrieves the group ID for the Unix socket file.
 // Returns:
 //   - The configured GID if >= 0
-//   - The process's current GID if <= maxGID
+//   - The process's current GID if <= MaxGID
 //   - 0 (root) as fallback
 //
 // This is an internal helper used by getListen() for os.Chown().
 func (o *srv) getSocketGroup() int {
-	p := o.sg.Load()
-	if p >= 0 {
-		return int(p)
-	}
-
-	gid := syscall.Getgid()
-	if gid <= maxGID {
+	if a := o.ad.Load(); a == (sckFile{}) {
+		return -1
+	} else if a.GID >= 0 {
+		return int(a.GID)
+	} else if gid := syscall.Getgid(); gid <= MaxGID {
 		return gid
 	}
 
-	return 0
+	return -1
 }
 
 // checkFile validates and prepares the Unix socket file path.
@@ -103,7 +106,7 @@ func (o *srv) getSocketGroup() int {
 // state before Listen() attempts to create it.
 func (o *srv) checkFile(unixFile string) (string, error) {
 	if len(unixFile) < 1 {
-		return unixFile, fmt.Errorf("missing socket file path")
+		return unixFile, ErrInvalidUnixFile
 	} else {
 		unixFile = filepath.Join(filepath.Dir(unixFile), filepath.Base(unixFile))
 	}
@@ -173,205 +176,116 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 //
 // See github.com/nabbar/golib/socket.HandlerFunc for handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
-	var (
-		e error
-		u string
-		s = new(atomic.Bool)
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/unixgram/listen", r)
+		}
+	}()
 
-		loc *net.UnixAddr
-		con *net.UnixConn
+	var (
+		e   error         // error
+		a   string        // address
+		sx  *sCtx         // socket context
+		con *net.UnixConn // udp con listener
 		cnl context.CancelFunc
-		cor libsck.Reader
-		cow libsck.Writer
 	)
 
-	s.Store(false)
-
-	if u, e = o.getSocketFile(); e != nil {
-		o.fctError(e)
-		return e
-	} else if o.hdl == nil {
-		o.fctError(ErrInvalidHandler)
-		return ErrInvalidHandler
-	} else if loc, e = net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), u); e != nil {
-		o.fctError(e)
-		return e
-	} else if con, e = o.getListen(u, loc); e != nil {
-		o.fctError(e)
-		return e
-	}
-
-	if o.upd != nil {
-		o.upd(con)
-	}
-
 	ctx, cnl = context.WithCancel(ctx)
-	cor, cow = o.getReadWriter(ctx, con, loc)
-
-	o.stp.Store(make(chan struct{}))
-	o.run.Store(true)
 
 	defer func() {
-		// cancel context for connection
-		cnl()
+		if cnl != nil {
+			cnl()
+		}
 
-		// send info about connection closing
-		o.fctInfo(loc, &net.UnixAddr{}, libsck.ConnectionClose)
-		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnixGram.String(), u)
+		if sx != nil {
+			_ = sx.Close()
+		}
 
-		// close connection
-		_ = con.Close()
+		if con != nil {
+			_ = con.Close()
+		}
 
-		if _, e = os.Stat(u); e == nil {
-			o.fctError(os.Remove(u))
+		// Remove socket file on shutdown
+		if a != "" {
+			_ = os.Remove(a)
 		}
 
 		o.run.Store(false)
+		o.gon.Store(true)
+	}()
+
+	if a, e = o.getSocketFile(); e != nil {
+		o.fctError(e)
+		return e
+	} else if o.hdl == nil {
+		o.fctError(ErrInvalidInstance)
+		return ErrInvalidHandler
+	} else if con, e = o.getListen(a); e != nil {
+		o.fctError(e)
+		return e
+	} else if o.upd != nil {
+		o.upd(con)
+	}
+
+	sx = &sCtx{
+		loc: "",
+		ctx: ctx,
+		cnl: cnl,
+		con: con,
+		clo: new(atomic.Bool),
+	}
+
+	if l := con.LocalAddr(); l == nil {
+		sx.loc = ""
+	} else {
+		sx.loc = l.String()
+	}
+
+	o.gon.Store(false)
+	o.run.Store(true)
+	time.Sleep(time.Millisecond)
+
+	// Create Channel to check server is Going to shutdown
+	cG := make(chan bool, 1)
+	go func() {
+		tc := time.NewTicker(time.Millisecond)
+		for {
+			<-tc.C
+			if o.IsGone() {
+				cG <- true
+				return
+			}
+		}
 	}()
 
 	// get handler or exit if nil
-	go o.hdl(cor, cow)
+	go func(conn net.Conn) {
+		defer func() {
+			if r := recover(); r != nil {
+				librun.RecoveryCaller("golib/socket/server/unixgram/handler", r)
+			}
+		}()
+
+		lc := conn.LocalAddr()
+		rc := &net.UnixAddr{}
+
+		if lc == nil {
+			lc = &net.UnixAddr{}
+		}
+
+		defer o.fctInfo(lc, rc, libsck.ConnectionClose)
+		o.fctInfo(lc, rc, libsck.ConnectionNew)
+
+		time.Sleep(time.Millisecond)
+		o.hdl(sx)
+	}(con)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return ErrContextClosed
-		case <-o.Done():
+			return ctx.Err()
+		case <-cG:
 			return nil
 		}
 	}
-}
-
-// getReadWriter creates Reader and Writer wrappers for the Unix datagram connection.
-// These wrappers provide a higher-level interface to the handler while managing
-// Unix datagram-specific behavior.
-//
-// Parameters:
-//   - ctx: Context for lifecycle management
-//   - con: The Unix datagram connection to wrap
-//   - loc: Local address (used for info callbacks)
-//
-// Reader behavior:
-//   - Read() calls con.ReadFrom() to receive datagrams from any sender
-//   - Stores the sender's address atomically for response routing
-//   - Invokes ConnectionRead info callback
-//   - Checks context cancellation before each read
-//
-// Writer behavior:
-//   - Write() calls con.WriteTo() with the last sender's address
-//   - Falls back to con.Write() if no sender address is available
-//   - Invokes ConnectionWrite info callback
-//   - Checks context cancellation before each write
-//
-// Both Reader and Writer:
-//   - Implement Close() to shut down the Unix datagram connection
-//   - Implement IsAlive() to check connection and context health
-//   - Implement Done() returning the context's Done channel
-//
-// The remote address tracking allows responses to be sent back to the
-// originating sender for each datagram, simulating request-response patterns
-// over the connectionless protocol.
-//
-// Unlike connection-oriented Unix sockets:
-//   - No half-close support (datagram sockets don't have separate read/write sides)
-//   - Single connection handles all senders
-//   - Sender address changes with each datagram
-//
-// This is an internal helper called by Listen().
-//
-// See github.com/nabbar/golib/socket.NewReader and NewWriter for the
-// wrapper constructors.
-func (o *srv) getReadWriter(ctx context.Context, con *net.UnixConn, loc net.Addr) (libsck.Reader, libsck.Writer) {
-	var (
-		re = &net.UDPAddr{}
-		ra = new(atomic.Value)
-		fg = func() net.Addr {
-			if i := ra.Load(); i != nil {
-				if v, k := i.(net.Addr); k {
-					return v
-				}
-			}
-			return &net.UnixAddr{}
-		}
-	)
-	ra.Store(re)
-
-	fctClose := func() error {
-		o.fctInfo(loc, fg(), libsck.ConnectionClose)
-		return libsck.ErrorFilter(con.Close())
-	}
-
-	rdr := libsck.NewReader(
-		func(p []byte) (n int, err error) {
-			if ctx.Err() != nil {
-				_ = fctClose()
-				return 0, ctx.Err()
-			}
-
-			var a net.Addr
-			n, a, err = con.ReadFrom(p)
-
-			if a != nil {
-				ra.Store(a)
-			} else {
-				ra.Store(re)
-			}
-
-			o.fctInfo(loc, fg(), libsck.ConnectionRead)
-			return n, err
-		},
-		fctClose,
-		func() bool {
-			if ctx.Err() != nil {
-				_ = fctClose()
-				return false
-			}
-			_, e := con.Read(nil)
-
-			if e != nil {
-				_ = fctClose()
-			}
-
-			return true
-		},
-		func() <-chan struct{} {
-			return ctx.Done()
-		},
-	)
-
-	wrt := libsck.NewWriter(
-		func(p []byte) (n int, err error) {
-			if ctx.Err() != nil {
-				_ = fctClose()
-				return 0, ctx.Err()
-			}
-
-			if a := fg(); a != nil && a != re {
-				o.fctInfo(loc, a, libsck.ConnectionWrite)
-				return con.WriteTo(p, a)
-			}
-
-			o.fctInfo(loc, fg(), libsck.ConnectionWrite)
-			return con.Write(p)
-		},
-		fctClose,
-		func() bool {
-			if ctx.Err() != nil {
-				_ = fctClose()
-				return false
-			}
-			_, e := con.Write(nil)
-
-			if e != nil {
-				_ = fctClose()
-			}
-
-			return true
-		},
-		func() <-chan struct{} {
-			return ctx.Done()
-		},
-	)
-
-	return rdr, wrt
 }

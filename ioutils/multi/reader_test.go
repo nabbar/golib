@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,6 +36,9 @@ import (
 	"github.com/nabbar/golib/ioutils/multi"
 )
 
+// Tests for Multi read operations and input management.
+// These tests verify proper handling of input sources, read operations,
+// and resource cleanup through Close().
 var _ = Describe("Multi Reader Operations", func() {
 	var m multi.Multi
 
@@ -220,13 +223,3 @@ var _ = Describe("Multi Reader Operations", func() {
 		})
 	})
 })
-
-// closeErrorReader is a test helper that returns an error on Close
-type closeErrorReader struct {
-	io.Reader
-	closeErr error
-}
-
-func (e *closeErrorReader) Close() error {
-	return e.closeErr
-}

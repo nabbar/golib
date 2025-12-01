@@ -35,6 +35,16 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Advanced tests for SystemFileDescriptor focusing on limit increases.
+// These tests verify behavior in realistic application scenarios and
+// platform-specific edge cases.
+//
+// Test Coverage:
+//   - Increasing limits within soft/hard ranges
+//   - Platform-specific behavior (Unix vs Windows)
+//   - Real-world scenarios (web servers, databases)
+//   - State consistency after modifications
+//   - Graceful handling of permission errors
 var _ = Describe("SystemFileDescriptor - Limit Increase", func() {
 	var (
 		originalCurrent int
@@ -47,6 +57,8 @@ var _ = Describe("SystemFileDescriptor - Limit Increase", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
+	// Test various increase scenarios with privilege awareness.
+	// These tests may skip or accept errors based on system state.
 	Context("Attempting to increase limits", func() {
 		It("should attempt to increase within soft limit range", func() {
 			// Calculate a target between current and max
@@ -104,6 +116,8 @@ var _ = Describe("SystemFileDescriptor - Limit Increase", func() {
 		})
 	})
 
+	// Verify platform-specific invariants and expectations.
+	// Different platforms have different defaults and limits.
 	Context("Platform-specific behavior", func() {
 		It("should behave appropriately for the current platform", func() {
 			current, max, err := SystemFileDescriptor(0)
@@ -127,6 +141,8 @@ var _ = Describe("SystemFileDescriptor - Limit Increase", func() {
 		})
 	})
 
+	// Test real-world application use cases.
+	// These simulate typical server and database application needs.
 	Context("Realistic scenarios", func() {
 		It("should support typical application needs", func() {
 			// Most applications need at least 1024 file descriptors
@@ -170,6 +186,8 @@ var _ = Describe("SystemFileDescriptor - Limit Increase", func() {
 		})
 	})
 
+	// Ensure system state remains consistent after operations.
+	// These tests verify the function never corrupts state, even on failure.
 	Context("State verification after modification", func() {
 		It("should maintain consistent state after multiple operations", func() {
 			// Read initial

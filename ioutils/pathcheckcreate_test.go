@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// This test suite validates the PathCheckCreate function behavior across multiple scenarios:
+// - File and directory creation operations
+// - Permission management and updates
+// - Error handling for invalid inputs
+// - Edge cases including idempotency and concurrency
+// - Platform-specific behaviors (Unix vs Windows)
+//
+// The tests are organized in three main describe blocks:
+// 1. File Operations: Tests file creation, permission updates, and error handling
+// 2. Directory Operations: Tests directory creation, permission updates, and error handling
+// 3. Edge Cases: Tests idempotency, mixed operations, and concurrent access
+
 var _ = Describe("PathCheckCreate - File Operations", func() {
 	var tempDir string
 
@@ -52,6 +64,7 @@ var _ = Describe("PathCheckCreate - File Operations", func() {
 		}
 	})
 
+	// Tests for basic file creation functionality
 	Context("Creating files", func() {
 		It("should create a new file with correct permissions", func() {
 			filePath := filepath.Join(tempDir, "test.txt")
@@ -91,6 +104,7 @@ var _ = Describe("PathCheckCreate - File Operations", func() {
 		})
 	})
 
+	// Tests for permission management on existing files
 	Context("Updating file permissions", func() {
 		It("should update file permissions if file exists", func() {
 			filePath := filepath.Join(tempDir, "existing.txt")
@@ -135,6 +149,7 @@ var _ = Describe("PathCheckCreate - File Operations", func() {
 		})
 	})
 
+	// Tests for error scenarios when working with files
 	Context("Error handling for files", func() {
 		It("should return error if path is directory but file expected", func() {
 			dirPath := filepath.Join(tempDir, "dir")
@@ -152,6 +167,7 @@ var _ = Describe("PathCheckCreate - File Operations", func() {
 		})
 
 		It("should handle file with special characters in name", func() {
+			// Test various filename edge cases that should be valid
 			specialNames := []string{
 				"file with spaces.txt",
 				"file-with-dashes.txt",
@@ -168,6 +184,7 @@ var _ = Describe("PathCheckCreate - File Operations", func() {
 		})
 	})
 
+	// Tests for various permission scenarios including edge cases
 	Context("File with various permissions", func() {
 		It("should create file with read-only permissions", func() {
 			filePath := filepath.Join(tempDir, "readonly.txt")
@@ -181,6 +198,7 @@ var _ = Describe("PathCheckCreate - File Operations", func() {
 		})
 
 		It("should create file with write-only permissions", func() {
+			// Windows has limited support for write-only permissions due to ACL differences
 			if runtime.GOOS == "windows" {
 				Skip("Write-only permissions not well supported on Windows")
 			}
@@ -204,6 +222,8 @@ var _ = Describe("PathCheckCreate - File Operations", func() {
 	})
 })
 
+// Tests for directory-specific operations, including creation, permission updates,
+// and error handling scenarios that differ from file operations
 var _ = Describe("PathCheckCreate - Directory Operations", func() {
 	var tempDir string
 
@@ -219,6 +239,7 @@ var _ = Describe("PathCheckCreate - Directory Operations", func() {
 		}
 	})
 
+	// Tests for basic directory creation functionality
 	Context("Creating directories", func() {
 		It("should create a new directory with correct permissions", func() {
 			dirPath := filepath.Join(tempDir, "newdir")
@@ -257,6 +278,7 @@ var _ = Describe("PathCheckCreate - Directory Operations", func() {
 		})
 	})
 
+	// Tests for permission management on existing directories
 	Context("Updating directory permissions", func() {
 		It("should update directory permissions if exists", func() {
 			dirPath := filepath.Join(tempDir, "existingdir")
@@ -301,6 +323,7 @@ var _ = Describe("PathCheckCreate - Directory Operations", func() {
 		})
 	})
 
+	// Tests for error scenarios when working with directories
 	Context("Error handling for directories", func() {
 		It("should return error if path is file but directory expected", func() {
 			filePath := filepath.Join(tempDir, "file.txt")
@@ -334,6 +357,7 @@ var _ = Describe("PathCheckCreate - Directory Operations", func() {
 		})
 	})
 
+	// Tests for various directory permission scenarios
 	Context("Directory with various permissions", func() {
 		It("should create directory with restricted permissions", func() {
 			dirPath := filepath.Join(tempDir, "restricted")
@@ -354,13 +378,16 @@ var _ = Describe("PathCheckCreate - Directory Operations", func() {
 
 			info, err := os.Stat(dirPath)
 			Expect(err).ToNot(HaveOccurred())
-			// Check that directory was created with expected permissions
-			// (may be affected by umask on some systems)
+			// Note: Actual permissions may be affected by umask on Unix systems
+			// We verify the directory was created, but exact permission matching
+			// may vary depending on system configuration
 			Expect(info.IsDir()).To(BeTrue())
 		})
 	})
 })
 
+// Tests for edge cases including idempotency, mixed operations, and concurrent access.
+// These tests validate behavior that is critical for real-world usage patterns.
 var _ = Describe("PathCheckCreate - Edge Cases", func() {
 	var tempDir string
 
@@ -376,6 +403,7 @@ var _ = Describe("PathCheckCreate - Edge Cases", func() {
 		}
 	})
 
+	// Tests that repeated calls with same parameters don't cause errors
 	Context("Idempotency", func() {
 		It("should be idempotent for files", func() {
 			filePath := filepath.Join(tempDir, "idempotent.txt")
@@ -400,6 +428,7 @@ var _ = Describe("PathCheckCreate - Edge Cases", func() {
 		})
 	})
 
+	// Tests for combining different operations in realistic scenarios
 	Context("Mixed operations", func() {
 		It("should handle creating file in newly created directory", func() {
 			dirPath := filepath.Join(tempDir, "newdir")
@@ -426,6 +455,9 @@ var _ = Describe("PathCheckCreate - Edge Cases", func() {
 		})
 	})
 
+	// Tests for concurrent safety when creating multiple paths simultaneously.
+	// Note: These tests create paths in DIFFERENT directories to avoid race conditions.
+	// Concurrent access to the SAME path is not safe and requires external synchronization.
 	Context("Concurrent operations", func() {
 		It("should handle concurrent file creation in different directories", func() {
 			done := make(chan bool, 10)
