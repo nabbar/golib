@@ -25,20 +25,20 @@
 
 package aggregator
 
-import loglvl "github.com/nabbar/golib/logger/level"
-
+// logError calls the configured error logger if set, otherwise does nothing.
 func (o *agg) logError(msg string, err ...error) {
-	if l := o.l.Load(); l == nil {
+	if i := o.le.Load(); i == nil {
 		return
 	} else {
-		l.Entry(loglvl.ErrorLevel, msg).ErrorAdd(true, err...).Log()
+		i(msg, err...)
 	}
 }
 
+// logInfo calls the configured info logger if set, otherwise does nothing.
 func (o *agg) logInfo(msg string, arg ...any) {
-	if l := o.l.Load(); l == nil {
+	if i := o.li.Load(); i == nil {
 		return
 	} else {
-		l.Entry(loglvl.InfoLevel, msg, arg...).Log()
+		i(msg, arg...)
 	}
 }

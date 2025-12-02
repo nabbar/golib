@@ -3,7 +3,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -57,11 +57,10 @@
 package server
 
 import (
-	"fmt"
-	"os"
-
 	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
+	sckcfg "github.com/nabbar/golib/socket/config"
 	scksrt "github.com/nabbar/golib/socket/server/tcp"
 	scksru "github.com/nabbar/golib/socket/server/udp"
 	scksrx "github.com/nabbar/golib/socket/server/unix"
@@ -122,26 +121,27 @@ import (
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-func New(upd libsck.UpdateConn, handler libsck.HandlerFunc, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
-	switch proto {
-	case libptc.NetworkUnix:
-		s := scksrx.New(upd, handler)
-		e := s.RegisterSocket(address, perm, gid)
-		return s, e
-	case libptc.NetworkUnixGram:
-		s := sckgrm.New(upd, handler)
-		e := s.RegisterSocket(address, perm, gid)
-		return s, e
-	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
-		s := scksrt.New(upd, handler)
-		e := s.RegisterServer(address)
-		return s, e
-	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
-		s := scksru.New(upd, handler)
-		e := s.RegisterServer(address)
-		return s, e
-	default:
-		return nil, fmt.Errorf("invalid server protocol")
+func New(upd libsck.UpdateConn, handler libsck.HandlerFunc, cfg sckcfg.Server) (libsck.Server, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server", r)
+		}
+	}()
+
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
 
+	switch cfg.Network {
+	case libptc.NetworkUnix:
+		return scksrx.New(upd, handler, cfg)
+	case libptc.NetworkUnixGram:
+		return sckgrm.New(upd, handler, cfg)
+	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
+		return scksrt.New(upd, handler, cfg)
+	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
+		return scksru.New(upd, handler, cfg)
+	default:
+		return nil, sckcfg.ErrInvalidProtocol
+	}
 }

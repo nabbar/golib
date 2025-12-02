@@ -1,291 +1,439 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
+// Package hookfile provides a logrus hook implementation for file-based logging.
+// This file contains basic functionality tests for the hookfile package.
 package hookfile_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"time"
+
+	logcfg "github.com/nabbar/golib/logger/config"
+	logfil "github.com/nabbar/golib/logger/hookfile"
+	"github.com/sirupsen/logrus"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
-
-	logcfg "github.com/nabbar/golib/logger/config"
-	loghkf "github.com/nabbar/golib/logger/hookfile"
-	libsiz "github.com/nabbar/golib/size"
 )
 
-var _ = Describe("HookFile Creation and Basic Operations", func() {
-	var tempDir string
+var _ = Describe("HookFile", func() {
+	var (
+		hook logfil.HookFile
+		log  *logrus.Logger
+		err  error
+	)
 
 	BeforeEach(func() {
-		var err error
-		tempDir, err = os.MkdirTemp("", "hookfile-test-*")
-		Expect(err).ToNot(HaveOccurred())
+		logfil.ResetOpenFiles()
+
+		// Create a new logger instance for each test
+		log = logrus.New()
+		log.SetOutput(GinkgoWriter)
+		log.SetLevel(logrus.DebugLevel) // Enable all log levels
+
+		// Create a new hook for each test
+		hook, err = createTestHook()
+		Expect(err).NotTo(HaveOccurred(), "Failed to create test hook")
+
+		// Register the hook with the logger
+		log.AddHook(hook)
 	})
 
 	AfterEach(func() {
-		if tempDir != "" {
-			os.RemoveAll(tempDir)
+		time.Sleep(100 * time.Millisecond)
+		// Clean up test log file after each test
+		if _, err := os.Stat(testLogFile); err == nil {
+			_ = os.Remove(testLogFile)
 		}
 	})
 
-	Describe("New", func() {
-		Context("with missing filepath", func() {
-			It("should return error", func() {
-				opt := logcfg.OptionsFile{}
-
-				hook, err := loghkf.New(opt, nil)
-
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("missing file path"))
-				Expect(hook).To(BeNil())
-			})
+	Context("Basic Functionality", func() {
+		It("should create a new hook with valid options", func() {
+			Expect(hook).NotTo(BeNil())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
-		Context("with valid filepath", func() {
-			It("should create hook successfully", func() {
-				logFile := filepath.Join(tempDir, "test.log")
-				opt := logcfg.OptionsFile{
-					Filepath: logFile,
-					Create:   true,
-				}
+		It("should write logs to the specified file", func() {
+			// Write a log message with non-nil Data field
+			entry := logrus.NewEntry(log)
+			entry.Level = logrus.InfoLevel
+			entry.Message = "ignored value"
+			entry.Data = logrus.Fields{"key": "value", "msg": "Test log message"}
 
-				hook, err := loghkf.New(opt, nil)
+			err = hook.Fire(entry)
+			Expect(err).ToNot(HaveOccurred())
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-			})
+			// Give the hook time to write the log
+			time.Sleep(250 * time.Millisecond)
+			err = hook.Close()
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify the log file was created
+			content, err := os.ReadFile(testLogFile)
+			Expect(err).NotTo(HaveOccurred(), "Failed to read log file")
+
+			// Check if the log message is in the file with the expected format
+			// Format attendu : level=info key=value msg="Test log message"
+			Expect(string(content)).To(ContainSubstring("level=info"), "Log level should be in log")
+			Expect(string(content)).To(ContainSubstring("key=value"), "Key-value pair should be in log")
+			Expect(string(content)).To(ContainSubstring("msg=\"Test log message\""), "Message should be in log")
 		})
 
-		Context("with custom file mode", func() {
-			It("should create file with specified mode", func() {
-				logFile := filepath.Join(tempDir, "test-mode.log")
+		It("should respect log levels", func() {
+			// Test debug level
+			debugEntry := logrus.NewEntry(log)
+			debugEntry.Level = logrus.DebugLevel
+			debugEntry.Message = "ignored value"
+			debugEntry.Data = logrus.Fields{"test": true, "msg": "Debug message"}
 
-				opt := logcfg.OptionsFile{
-					Filepath: logFile,
-					Create:   true,
-				}
+			err = hook.Fire(debugEntry)
+			Expect(err).ToNot(HaveOccurred())
 
-				hook, err := loghkf.New(opt, nil)
+			// Test info level
+			infoEntry := logrus.NewEntry(log)
+			infoEntry.Level = logrus.InfoLevel
+			infoEntry.Message = "ignored value"
+			infoEntry.Data = logrus.Fields{"test": true, "msg": "Info message"}
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-			})
-		})
+			err = hook.Fire(infoEntry)
+			Expect(err).ToNot(HaveOccurred())
 
-		Context("with path creation", func() {
-			It("should create parent directories", func() {
-				logFile := filepath.Join(tempDir, "subdir1", "subdir2", "test.log")
-				opt := logcfg.OptionsFile{
-					Filepath:   logFile,
-					Create:     true,
-					CreatePath: true,
-				}
+			// Ensure writes are flushed
+			time.Sleep(250 * time.Millisecond)
+			err = hook.Close()
+			Expect(err).ToNot(HaveOccurred())
 
-				hook, err := loghkf.New(opt, nil)
+			// Verify file content
+			content, err := os.ReadFile(testLogFile)
+			Expect(err).NotTo(HaveOccurred())
+			contentStr := string(content)
 
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
+			// Vérifier que les messages de log contiennent les champs attendus
+			Expect(contentStr).To(ContainSubstring("level=debug"), "Debug level should be in log")
+			Expect(contentStr).To(ContainSubstring("test=true"), "Test field should be in log")
+			Expect(contentStr).To(ContainSubstring("msg=\"Debug message\""), "Debug message should be in log")
 
-				// Verify parent directories were created
-				_, err = os.Stat(filepath.Dir(logFile))
-				Expect(err).ToNot(HaveOccurred())
-			})
-		})
-
-		Context("with specific log levels", func() {
-			It("should accept custom levels", func() {
-				logFile := filepath.Join(tempDir, "test-levels.log")
-				opt := logcfg.OptionsFile{
-					Filepath: logFile,
-					Create:   true,
-					LogLevel: []string{"info", "warn", "error"},
-				}
-
-				hook, err := loghkf.New(opt, nil)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-
-				levels := hook.Levels()
-				Expect(levels).To(HaveLen(3))
-			})
-		})
-
-		Context("with all levels (default)", func() {
-			It("should use all logrus levels", func() {
-				logFile := filepath.Join(tempDir, "test-all-levels.log")
-				opt := logcfg.OptionsFile{
-					Filepath: logFile,
-					Create:   true,
-				}
-
-				hook, err := loghkf.New(opt, nil)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-
-				levels := hook.Levels()
-				Expect(levels).To(Equal(logrus.AllLevels))
-			})
-		})
-
-		Context("with custom formatter", func() {
-			It("should accept formatter", func() {
-				logFile := filepath.Join(tempDir, "test-formatter.log")
-				formatter := &logrus.JSONFormatter{}
-				opt := logcfg.OptionsFile{
-					Filepath: logFile,
-					Create:   true,
-				}
-
-				hook, err := loghkf.New(opt, formatter)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-			})
-		})
-
-		Context("with disable options", func() {
-			It("should accept DisableStack", func() {
-				logFile := filepath.Join(tempDir, "test-no-stack.log")
-				opt := logcfg.OptionsFile{
-					Filepath:     logFile,
-					Create:       true,
-					DisableStack: true,
-				}
-
-				hook, err := loghkf.New(opt, nil)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-			})
-
-			It("should accept DisableTimestamp", func() {
-				logFile := filepath.Join(tempDir, "test-no-timestamp.log")
-				opt := logcfg.OptionsFile{
-					Filepath:         logFile,
-					Create:           true,
-					DisableTimestamp: true,
-				}
-
-				hook, err := loghkf.New(opt, nil)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-			})
-		})
-
-		Context("with enable options", func() {
-			It("should accept EnableTrace", func() {
-				logFile := filepath.Join(tempDir, "test-trace.log")
-				opt := logcfg.OptionsFile{
-					Filepath:    logFile,
-					Create:      true,
-					EnableTrace: true,
-				}
-
-				hook, err := loghkf.New(opt, nil)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-			})
-
-			It("should accept EnableAccessLog", func() {
-				logFile := filepath.Join(tempDir, "test-access.log")
-				opt := logcfg.OptionsFile{
-					Filepath:        logFile,
-					Create:          true,
-					EnableAccessLog: true,
-				}
-
-				hook, err := loghkf.New(opt, nil)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-			})
-		})
-
-		Context("with buffer size", func() {
-			It("should accept custom buffer size", func() {
-				logFile := filepath.Join(tempDir, "test-buffer.log")
-				opt := logcfg.OptionsFile{
-					Filepath:       logFile,
-					Create:         true,
-					FileBufferSize: libsiz.Size(8192),
-				}
-
-				hook, err := loghkf.New(opt, nil)
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(hook).ToNot(BeNil())
-			})
+			Expect(contentStr).To(ContainSubstring("level=info"), "Info level should be in log")
+			Expect(contentStr).To(ContainSubstring("msg=\"Info message\""), "Info message should be in log")
 		})
 	})
 
-	Describe("Done channel", func() {
-		Context("with valid hook", func() {
-			It("should provide done channel", func() {
-				logFile := filepath.Join(tempDir, "test-done.log")
-				opt := logcfg.OptionsFile{
-					Filepath: logFile,
-					Create:   true,
-				}
+	Context("Configuration", func() {
+		It("should create directories if createPath is true", func() {
+			tempPath := filepath.Join(tempDir, "nested", "dir", "test.log")
 
-				hook, err := loghkf.New(opt, nil)
-				Expect(err).ToNot(HaveOccurred())
+			opts := logcfg.OptionsFile{
+				Filepath:   tempPath,
+				CreatePath: true,
+				FileMode:   0600,
+				PathMode:   0700,
+			}
 
-				done := hook.Done()
-				Expect(done).ToNot(BeNil())
-			})
+			hook, err := logfil.New(opts, &logrus.TextFormatter{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(hook).NotTo(BeNil())
+
+			// Verify the directory was created
+			_, err = os.Stat(filepath.Dir(tempPath))
+			Expect(err).NotTo(HaveOccurred())
+
+			// Clean up
+			_ = os.RemoveAll(filepath.Dir(tempPath))
+		})
+
+		It("should return error for invalid file path", func() {
+			opts := logcfg.OptionsFile{
+				Filepath:   "/invalid/path/to/logfile.log",
+				CreatePath: false,
+			}
+
+			_, err := logfil.New(opts, &logrus.TextFormatter{})
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
-	Describe("RegisterHook", func() {
-		Context("with valid logger", func() {
-			It("should register hook successfully", func() {
-				logFile := filepath.Join(tempDir, "test-register.log")
-				opt := logcfg.OptionsFile{
-					Filepath: logFile,
-					Create:   true,
-				}
+	Context("Error Handling", func() {
+		It("should handle file write errors", func() {
+			// Create a read-only directory
+			readOnlyDir := filepath.Join(tempDir, "readonly")
+			Expect(os.Mkdir(readOnlyDir, 0444)).To(Succeed())
+			defer os.RemoveAll(readOnlyDir)
 
-				hook, err := loghkf.New(opt, nil)
-				Expect(err).ToNot(HaveOccurred())
+			readOnlyFile := filepath.Join(readOnlyDir, "test.log")
 
-				logger := logrus.New()
-				hook.RegisterHook(logger)
+			// Try to create a hook with a read-only directory
+			opts := logcfg.OptionsFile{
+				Filepath:   readOnlyFile,
+				CreatePath: false,
+			}
 
-				// Logger should have the hook
-				// Note: We can't easily verify this without internal access
-				Expect(logger).ToNot(BeNil())
-			})
+			_, err := logfil.New(opts, &logrus.TextFormatter{})
+			Expect(err).To(HaveOccurred())
 		})
+
+		It("should return error for missing file path", func() {
+			opts := logcfg.OptionsFile{
+				Filepath: "",
+			}
+
+			_, err := logfil.New(opts, nil)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("missing file path"))
+		})
+	})
+
+	Context("Hook Lifecycle", func() {
+		It("should report running state correctly", func() {
+			Expect(hook.IsRunning()).To(BeTrue(), "Hook should be running after creation")
+
+			err = hook.Close()
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(hook.IsRunning()).To(BeFalse(), "Hook should not be running after close")
+		})
+
+		It("should handle Run method with context", func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
+
+			done := make(chan bool)
+			go func() {
+				hook.Run(ctx)
+				done <- true
+			}()
+
+			select {
+			case <-done:
+				// Run completed successfully
+			case <-time.After(500 * time.Millisecond):
+				Fail("Run should have completed when context was canceled")
+			}
+
+			Expect(hook.IsRunning()).To(BeFalse(), "Hook should not be running after Run completes")
+		})
+
+		It("should handle Write method", func() {
+			data := []byte("test data\n")
+			n, err := hook.Write(data)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(len(data)))
+
+			time.Sleep(100 * time.Millisecond)
+		})
+	})
+
+	Context("Configuration Options", func() {
+		It("should use default file and path modes", func() {
+			opts := logcfg.OptionsFile{
+				Filepath:   filepath.Join(tempDir, "mode-test.log"),
+				CreatePath: true,
+				// FileMode and PathMode not set (should use defaults)
+			}
+
+			h, err := logfil.New(opts, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(h).NotTo(BeNil())
+
+			// Write a log to ensure file is created
+			entry := logrus.NewEntry(log)
+			entry.Level = logrus.InfoLevel
+			entry.Data = logrus.Fields{"msg": "test"}
+			err = h.Fire(entry)
+			Expect(err).NotTo(HaveOccurred())
+
+			time.Sleep(100 * time.Millisecond)
+			err = h.Close()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify file exists with default permissions
+			info, err := os.Stat(filepath.Join(tempDir, "mode-test.log"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Mode().Perm()).To(Equal(os.FileMode(0644)))
+		})
+
+		It("should register hook with logger", func() {
+			logger := logrus.New()
+			logger.SetOutput(GinkgoWriter)
+
+			hook.RegisterHook(logger)
+
+			// Verify hook was registered by logging and checking file
+			logger.WithField("msg", "registered hook test").Info("ignored")
+
+			time.Sleep(200 * time.Millisecond)
+
+			content, err := os.ReadFile(testLogFile)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(ContainSubstring("registered hook test"))
+		})
+
+		It("should return correct log levels", func() {
+			levels := hook.Levels()
+			Expect(levels).NotTo(BeNil())
+			Expect(levels).To(HaveLen(4)) // debug, info, warn, error
+
+			// Verify levels contain expected values
+			levelMap := make(map[logrus.Level]bool)
+			for _, level := range levels {
+				levelMap[level] = true
+			}
+			Expect(levelMap[logrus.DebugLevel]).To(BeTrue())
+			Expect(levelMap[logrus.InfoLevel]).To(BeTrue())
+			Expect(levelMap[logrus.WarnLevel]).To(BeTrue())
+			Expect(levelMap[logrus.ErrorLevel]).To(BeTrue())
+		})
+	})
+})
+
+var _ = Describe("HookFile Additional Coverage", func() {
+	It("should handle empty log data", func() {
+		logfil.ResetOpenFiles()
+		defer logfil.ResetOpenFiles()
+
+		opts := logcfg.OptionsFile{
+			Filepath:   filepath.Join(tempDir, "empty-test.log"),
+			CreatePath: true,
+		}
+
+		hook, err := logfil.New(opts, nil)
+		Expect(err).NotTo(HaveOccurred())
+		defer hook.Close()
+
+		logger := logrus.New()
+		logger.SetOutput(GinkgoWriter)
+
+		entry := logrus.NewEntry(logger)
+		entry.Level = logrus.InfoLevel
+		entry.Data = logrus.Fields{} // Empty data
+
+		err = hook.Fire(entry)
+		Expect(err).NotTo(HaveOccurred())
+
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	It("should filter access log with empty message", func() {
+		logfil.ResetOpenFiles()
+		defer logfil.ResetOpenFiles()
+
+		opts := logcfg.OptionsFile{
+			Filepath:        filepath.Join(tempDir, "access-empty.log"),
+			CreatePath:      true,
+			EnableAccessLog: true,
+		}
+
+		hook, err := logfil.New(opts, nil)
+		Expect(err).NotTo(HaveOccurred())
+		defer hook.Close()
+
+		logger := logrus.New()
+		logger.SetOutput(GinkgoWriter)
+
+		entry := logrus.NewEntry(logger)
+		entry.Level = logrus.InfoLevel
+		entry.Message = "" // Empty message in access log mode
+
+		err = hook.Fire(entry)
+		Expect(err).NotTo(HaveOccurred())
+
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	It("should handle formatter errors gracefully", func() {
+		logfil.ResetOpenFiles()
+		defer logfil.ResetOpenFiles()
+
+		opts := logcfg.OptionsFile{
+			Filepath:   filepath.Join(tempDir, "formatter-test.log"),
+			CreatePath: true,
+		}
+
+		hook, err := logfil.New(opts, &logrus.JSONFormatter{})
+		Expect(err).NotTo(HaveOccurred())
+		defer hook.Close()
+
+		logger := logrus.New()
+		logger.SetOutput(GinkgoWriter)
+
+		entry := logrus.NewEntry(logger)
+		entry.Level = logrus.InfoLevel
+		entry.Data = logrus.Fields{"msg": "test"}
+
+		err = hook.Fire(entry)
+		Expect(err).NotTo(HaveOccurred())
+
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	It("should filter level not in configured levels", func() {
+		logfil.ResetOpenFiles()
+		defer logfil.ResetOpenFiles()
+
+		opts := logcfg.OptionsFile{
+			Filepath:   filepath.Join(tempDir, "level-filter.log"),
+			CreatePath: true,
+			LogLevel:   []string{"error"}, // Only error level
+		}
+
+		hook, err := logfil.New(opts, &logrus.TextFormatter{
+			DisableTimestamp: true,
+		})
+		Expect(err).NotTo(HaveOccurred())
+		defer hook.Close()
+
+		logger := logrus.New()
+		logger.SetOutput(GinkgoWriter)
+
+		// Info level should be filtered
+		infoEntry := logrus.NewEntry(logger)
+		infoEntry.Level = logrus.InfoLevel
+		infoEntry.Data = logrus.Fields{"msg": "info message"}
+
+		err = hook.Fire(infoEntry)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Error level should be written
+		errorEntry := logrus.NewEntry(logger)
+		errorEntry.Level = logrus.ErrorLevel
+		errorEntry.Data = logrus.Fields{"msg": "error message"}
+
+		err = hook.Fire(errorEntry)
+		Expect(err).NotTo(HaveOccurred())
+
+		time.Sleep(200 * time.Millisecond)
+
+		content, err := os.ReadFile(filepath.Join(tempDir, "level-filter.log"))
+		Expect(err).NotTo(HaveOccurred())
+		contentStr := string(content)
+
+		// Should only contain error, not info
+		Expect(contentStr).To(ContainSubstring("error message"))
+		Expect(contentStr).NotTo(ContainSubstring("info message"))
 	})
 })

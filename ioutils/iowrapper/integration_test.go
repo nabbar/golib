@@ -24,6 +24,16 @@
  *
  */
 
+// This file tests real-world integration scenarios.
+//
+// Test Strategy:
+//   - Test practical use cases: logging, transformation, checksumming
+//   - Verify wrapper chaining for composing multiple transformations
+//   - Validate real-world data transformations (ROT13, uppercase, etc.)
+//   - Test integration with standard library functions (io.Copy, hash functions)
+//   - Ensure wrappers work correctly in typical application scenarios
+//
+// Coverage: 8 specs testing integration with real-world patterns and external packages.
 package iowrapper_test
 
 import (

@@ -1,34 +1,45 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
 package hooksyslog
 
 import "strings"
 
+// SyslogSeverity represents the severity level of a syslog message
+// according to RFC 5424. Lower numerical values indicate higher severity.
+//
+// The severity levels map to logrus levels as follows:
+//   - Emergency (0): System is unusable
+//   - Alert (1): Action must be taken immediately → logrus.PanicLevel
+//   - Critical (2): Critical conditions → logrus.FatalLevel
+//   - Error (3): Error conditions → logrus.ErrorLevel
+//   - Warning (4): Warning conditions → logrus.WarnLevel
+//   - Notice (5): Normal but significant condition
+//   - Informational (6): Informational messages → logrus.InfoLevel
+//   - Debug (7): Debug-level messages → logrus.DebugLevel
 type SyslogSeverity uint8
 
 const (
@@ -42,6 +53,13 @@ const (
 	SyslogSeverityDebug
 )
 
+// String returns the RFC 5424 name of the severity level in uppercase.
+// Returns an empty string for invalid/unknown severity values.
+//
+// Example:
+//
+//	sev := SyslogSeverityInfo
+//	fmt.Println(sev.String()) // Outputs: "INFO"
 func (s SyslogSeverity) String() string {
 	switch s {
 	case SyslogSeverityEmerg:
@@ -90,6 +108,24 @@ func MakeSeverity(severity string) SyslogSeverity {
 	return 0
 }
 
+// SyslogFacility represents the facility code of a syslog message
+// according to RFC 5424. The facility indicates the type of program
+// or system component generating the message.
+//
+// Facilities are typically used for filtering and routing syslog messages:
+//   - KERN: Kernel messages
+//   - USER: User-level messages (default for applications)
+//   - MAIL: Mail system
+//   - DAEMON: System daemons
+//   - AUTH: Security/authorization messages
+//   - SYSLOG: Messages generated internally by syslogd
+//   - LPR: Line printer subsystem
+//   - NEWS: Network news subsystem
+//   - UUCP: UUCP subsystem
+//   - CRON: Clock daemon
+//   - AUTHPRIV: Security/authorization messages (private)
+//   - FTP: FTP daemon
+//   - LOCAL0-LOCAL7: Reserved for local use (application-specific)
 type SyslogFacility uint8
 
 const (
@@ -115,6 +151,13 @@ const (
 	SyslogFacilityLocal7
 )
 
+// String returns the RFC 5424 name of the facility in uppercase.
+// Returns an empty string for invalid/unknown facility values.
+//
+// Example:
+//
+//	fac := SyslogFacilityUser
+//	fmt.Println(fac.String()) // Outputs: "USER"
 func (s SyslogFacility) String() string {
 	switch s {
 	case SyslogFacilityKern:

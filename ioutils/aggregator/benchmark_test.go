@@ -64,7 +64,7 @@ var _ = Describe("Benchmarks", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -106,7 +106,7 @@ var _ = Describe("Benchmarks", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = agg.Start(ctx)
@@ -142,7 +142,7 @@ var _ = Describe("Benchmarks", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -189,7 +189,7 @@ var _ = Describe("Benchmarks", func() {
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = agg.Start(ctx)
@@ -233,7 +233,7 @@ var _ = Describe("Benchmarks", func() {
 			}
 
 			experiment.Sample(func(idx int) {
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				experiment.MeasureDuration("start_time", func() {
@@ -258,7 +258,7 @@ var _ = Describe("Benchmarks", func() {
 			}
 
 			experiment.Sample(func(idx int) {
-				agg, err := aggregator.New(ctx, cfg, globalLog)
+				agg, err := aggregator.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = agg.Start(ctx)
@@ -283,7 +283,7 @@ var _ = Describe("Benchmarks", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -315,7 +315,7 @@ var _ = Describe("Benchmarks", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -358,7 +358,7 @@ var _ = Describe("Benchmarks", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -404,7 +404,7 @@ var _ = Describe("Benchmarks", func() {
 
 				experiment.MeasureDuration("total_cycle", func() {
 					// Create
-					agg, err = aggregator.New(ctx, cfg, globalLog)
+					agg, err = aggregator.New(ctx, cfg)
 					Expect(err).ToNot(HaveOccurred())
 
 					// Start

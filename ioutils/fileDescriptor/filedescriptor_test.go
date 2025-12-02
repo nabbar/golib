@@ -33,14 +33,23 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Basic functionality tests for SystemFileDescriptor.
+// These tests verify core behavior: querying limits, handling edge cases,
+// and ensuring the function never corrupts system state.
+//
+// Test Philosophy:
+//   - Tests are privilege-aware: some may skip if elevated privileges are needed
+//   - Tests are state-aware: system limits vary by platform and configuration
+//   - Tests are non-destructive: limits persist only for the test process
 var _ = Describe("SystemFileDescriptor", func() {
 	var (
 		originalCurrent int
 		originalMax     int
 	)
 
+	// Capture initial system state before each test.
+	// This allows tests to make relative assertions and detect changes.
 	BeforeEach(func() {
-		// Store original values
 		var err error
 		originalCurrent, originalMax, err = SystemFileDescriptor(0)
 		Expect(err).ToNot(HaveOccurred())
@@ -48,6 +57,8 @@ var _ = Describe("SystemFileDescriptor", func() {
 		Expect(originalMax).To(BeNumerically(">=", originalCurrent))
 	})
 
+	// Test query operations (newValue <= 0).
+	// These should always succeed without privileges.
 	Context("Reading current limits", func() {
 		It("should return current limits when called with 0", func() {
 			current, max, err := SystemFileDescriptor(0)
@@ -83,6 +94,8 @@ var _ = Describe("SystemFileDescriptor", func() {
 		})
 	})
 
+	// Verify that negative values are treated as query operations.
+	// The function should never attempt to set negative limits.
 	Context("Setting limits with negative values", func() {
 		It("should ignore negative values and return current limits", func() {
 			current, max, err := SystemFileDescriptor(-1)
@@ -103,6 +116,8 @@ var _ = Describe("SystemFileDescriptor", func() {
 		})
 	})
 
+	// Verify safety: the function never decreases limits.
+	// This is a critical safety feature to prevent accidental resource restriction.
 	Context("Setting limits below current value", func() {
 		It("should not decrease the current limit", func() {
 			lowerValue := originalCurrent - 10
@@ -128,6 +143,7 @@ var _ = Describe("SystemFileDescriptor", func() {
 		})
 	})
 
+	// Verify idempotency: setting to current value is a no-op.
 	Context("Setting limits to same value", func() {
 		It("should succeed when setting to current value", func() {
 			current, max, err := SystemFileDescriptor(originalCurrent)
@@ -138,6 +154,8 @@ var _ = Describe("SystemFileDescriptor", func() {
 		})
 	})
 
+	// Test limit increases within the hard limit range.
+	// These may succeed or fail depending on privileges and system state.
 	Context("Setting limits to slightly higher value", func() {
 		It("should increase the limit when possible", func() {
 			// Try to increase by a small amount within the hard limit
@@ -156,6 +174,8 @@ var _ = Describe("SystemFileDescriptor", func() {
 		})
 	})
 
+	// Test boundary conditions and extreme values.
+	// These verify robustness and safe error handling.
 	Context("Edge cases", func() {
 		It("should handle zero value", func() {
 			current, max, err := SystemFileDescriptor(0)
@@ -188,6 +208,8 @@ var _ = Describe("SystemFileDescriptor", func() {
 		})
 	})
 
+	// Verify system-wide invariants and sanity checks.
+	// These ensure the function returns reasonable values on all platforms.
 	Context("System behavior verification", func() {
 		It("should maintain limits within system constraints", func() {
 			current, max, err := SystemFileDescriptor(0)

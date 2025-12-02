@@ -3,7 +3,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,55 +26,6 @@
  *
  */
 
-// Package unix provides a UNIX domain socket client implementation with callback mechanisms.
-//
-// This package implements the github.com/nabbar/golib/socket.Client interface
-// for UNIX domain socket connections. UNIX sockets provide fast, reliable IPC
-// (Inter-Process Communication) on the same machine:
-//   - Connection-oriented (SOCK_STREAM, like TCP)
-//   - Uses filesystem paths instead of network addresses
-//   - No network overhead - kernel-space only communication
-//   - Better performance than TCP for local communication
-//   - Supports file permissions for access control
-//
-// Key features:
-//   - Thread-safe connection management using atomic.Map
-//   - Configurable error and info callbacks
-//   - Context-aware operations
-//   - Support for one-shot request/response operations
-//   - No TLS support (not applicable to UNIX sockets)
-//   - Automatic socket file cleanup
-//
-// Basic usage:
-//
-//	// Create a new UNIX socket client
-//	client := unix.New("/tmp/app.sock")
-//	if client == nil {
-//	    log.Fatal("Invalid socket path")
-//	}
-//	defer client.Close()
-//
-//	// Connect to server
-//	ctx := context.Background()
-//	if err := client.Connect(ctx); err != nil {
-//	    log.Fatal(err)
-//	}
-//
-//	// Send data
-//	n, err := client.Write([]byte("Hello"))
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//
-// UNIX sockets are ideal for:
-//   - Local microservices communication
-//   - Docker container communication
-//   - Database connections (PostgreSQL, MySQL)
-//   - System daemon IPC
-//   - High-performance local RPC
-//
-// See github.com/nabbar/golib/socket/client/tcp for TCP client implementation.
-// See github.com/nabbar/golib/socket/client/udp for UDP client implementation.
 package unix
 
 import "fmt"

@@ -24,153 +24,99 @@
  *
  */
 
+// creation_test.go tests server initialization and configuration validation.
+// Verifies proper server instance creation, configuration parameter handling,
+// and error conditions during the initialization phase.
 package tcp_test
 
 import (
 	"net"
+	"time"
 
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server/tcp"
+	scksrt "github.com/nabbar/golib/socket/server/tcp"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("TCP Server Creation", func() {
-	Describe("New", func() {
-		Context("with valid parameters", func() {
-			It("should create a new server with handler", func() {
-				srv := scksrv.New(nil, echoHandler)
-				Expect(srv).ToNot(BeNil())
-			})
+	Context("with valid configuration", func() {
+		It("should create server with minimal configuration", func() {
+			cfg := createDefaultConfig(getTestAddr())
+			srv, err := scksrt.New(nil, echoHandler, cfg)
 
-			It("should create a new server with handler and update conn", func() {
-				updateConnCalled := false
-				updateConn := func(conn net.Conn) {
-					updateConnCalled = true
-				}
-
-				srv := scksrv.New(updateConn, echoHandler)
-				Expect(srv).ToNot(BeNil())
-
-				// updateConn is not called until a connection is made
-				Expect(updateConnCalled).To(BeFalse())
-			})
-
-			It("should create a new server with nil update conn", func() {
-				srv := scksrv.New(nil, echoHandler)
-				Expect(srv).ToNot(BeNil())
-			})
-
-			It("should create multiple independent servers", func() {
-				srv1 := scksrv.New(nil, echoHandler)
-				srv2 := scksrv.New(nil, echoHandler)
-
-				Expect(srv1).ToNot(BeNil())
-				Expect(srv2).ToNot(BeNil())
-				Expect(srv1).ToNot(Equal(srv2))
-			})
-		})
-
-		Context("with nil handler", func() {
-			It("should still create a server but fail on Listen", func() {
-				srv := scksrv.New(nil, nil)
-				Expect(srv).ToNot(BeNil())
-				// HandlerFunc validation happens during Listen
-			})
-		})
-	})
-
-	Describe("RegisterServer", func() {
-		var srv scksrv.ServerTcp
-
-		BeforeEach(func() {
-			srv = scksrv.New(nil, echoHandler)
-		})
-
-		Context("with valid addresses", func() {
-			It("should register with localhost and port", func() {
-				err := srv.RegisterServer("127.0.0.1:8080")
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("should register with 0.0.0.0 and port", func() {
-				err := srv.RegisterServer("0.0.0.0:8081")
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("should register with IPv6 loopback", func() {
-				err := srv.RegisterServer("[::1]:8082")
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("should register with any available port", func() {
-				address := getTestAddress()
-				err := srv.RegisterServer(address)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("should allow re-registration with different address", func() {
-				err := srv.RegisterServer("127.0.0.1:8083")
-				Expect(err).ToNot(HaveOccurred())
-
-				err = srv.RegisterServer("127.0.0.1:8084")
-				Expect(err).ToNot(HaveOccurred())
-			})
-		})
-
-		Context("with invalid addresses", func() {
-			It("should fail with empty address", func() {
-				err := srv.RegisterServer("")
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(scksrv.ErrInvalidAddress))
-			})
-
-			It("should fail with invalid format", func() {
-				err := srv.RegisterServer("not-a-valid-address")
-				Expect(err).To(HaveOccurred())
-			})
-
-			It("should fail with missing port", func() {
-				err := srv.RegisterServer("127.0.0.1")
-				Expect(err).To(HaveOccurred())
-			})
-
-			It("should fail with invalid port", func() {
-				err := srv.RegisterServer("127.0.0.1:99999")
-				Expect(err).To(HaveOccurred())
-			})
-
-			It("should fail with invalid hostname", func() {
-				err := srv.RegisterServer("invalid..host:8080")
-				Expect(err).To(HaveOccurred())
-			})
-		})
-	})
-
-	Describe("Initial State", func() {
-		var srv libsck.Server
-
-		BeforeEach(func() {
-			srv = scksrv.New(nil, echoHandler)
-		})
-
-		It("should not be running initially", func() {
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv).ToNot(BeNil())
 			Expect(srv.IsRunning()).To(BeFalse())
-		})
-
-		It("should not be gone initially", func() {
-			Expect(srv.IsGone()).To(BeFalse())
-		})
-
-		It("should have no open connections initially", func() {
+			Expect(srv.IsGone()).To(BeTrue())
 			Expect(srv.OpenConnections()).To(Equal(int64(0)))
 		})
 
-		It("should have a Done channel", func() {
-			done := srv.Done()
-			Expect(done).ToNot(BeNil())
-			// Channel exists and can be used for signaling
+		It("should create server with TLS configuration", func() {
+			cfg := createTLSConfig(getTestAddr())
+			srv, err := scksrt.New(nil, echoHandler, cfg)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv).ToNot(BeNil())
+		})
+
+		It("should create server with custom update function", func() {
+			upd := func(c net.Conn) {
+				// Custom connection configuration
+				_ = c
+			}
+
+			cfg := createDefaultConfig(getTestAddr())
+			srv, err := scksrt.New(upd, echoHandler, cfg)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv).ToNot(BeNil())
+		})
+
+		It("should create server with idle timeout configuration", func() {
+			cfg := createDefaultConfig(getTestAddr())
+			cfg.ConIdleTimeout = 30 * time.Second
+
+			srv, err := scksrt.New(nil, echoHandler, cfg)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(srv).ToNot(BeNil())
+		})
+	})
+
+	Context("with invalid configuration", func() {
+		It("should fail with empty address", func() {
+			cfg := createDefaultConfig("")
+			srv, err := scksrt.New(nil, echoHandler, cfg)
+
+			Expect(err).To(HaveOccurred())
+			Expect(srv).To(BeNil())
+			Expect(err).To(MatchError(scksrt.ErrInvalidAddress))
+		})
+
+		It("should fail with invalid address format", func() {
+			cfg := createDefaultConfig("invalid-address")
+			srv, err := scksrt.New(nil, echoHandler, cfg)
+
+			Expect(err).To(HaveOccurred())
+			Expect(srv).To(BeNil())
+		})
+	})
+
+	Context("server state after creation", func() {
+		var srv scksrt.ServerTcp
+
+		BeforeEach(func() {
+			cfg := createDefaultConfig(getTestAddr())
+			var err error
+			srv, err = scksrt.New(nil, echoHandler, cfg)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should have correct initial state", func() {
+			Expect(srv.IsRunning()).To(BeFalse())
+			Expect(srv.IsGone()).To(BeTrue())
+			Expect(srv.OpenConnections()).To(Equal(int64(0)))
 		})
 	})
 })

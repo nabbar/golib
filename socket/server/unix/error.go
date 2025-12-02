@@ -3,7 +3,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -50,11 +50,7 @@ package unix
 import "fmt"
 
 var (
-	// ErrContextClosed is returned when an operation is cancelled due to context cancellation.
-	ErrContextClosed = fmt.Errorf("context closed")
-
-	// ErrServerClosed is returned when attempting to perform operations on a closed server.
-	ErrServerClosed = fmt.Errorf("server closed")
+	ErrInvalidUnixFile = fmt.Errorf("invalid unix file for socket listening")
 
 	// ErrInvalidGroup is returned when the specified GID exceeds the maximum allowed value (32767).
 	// Unix group IDs must be within the valid range for the operating system.
@@ -67,10 +63,6 @@ var (
 	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
 	// This typically happens when StopListen() takes longer than expected.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
-
-	// ErrGoneTimeout is returned when connection draining exceeds the context timeout during StopGone().
-	// This happens when waiting for all connections to close takes longer than the allocated time.
-	ErrGoneTimeout = fmt.Errorf("timeout on closing connections")
 
 	// ErrInvalidInstance is returned when operating on a nil server instance.
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")

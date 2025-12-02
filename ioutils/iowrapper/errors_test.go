@@ -24,6 +24,17 @@
  *
  */
 
+// This file tests error handling and propagation.
+//
+// Test Strategy:
+//   - Test custom functions that return nil to signal errors
+//   - Verify io.ErrUnexpectedEOF is returned for nil custom function returns
+//   - Test error propagation from underlying I/O objects
+//   - Validate partial read/write handling when errors occur
+//   - Ensure errors from Seek and Close operations are properly returned
+//   - Test combinations of errors across multiple operations
+//
+// Coverage: 19 specs testing robustness and proper error handling.
 package iowrapper_test
 
 import (

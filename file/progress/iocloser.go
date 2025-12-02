@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,9 @@ import (
 	"os"
 )
 
+// clean resets internal file handles and returns the provided error.
+// This is called internally during Close and CloseDelete operations
+// to ensure resources are properly released.
 func (o *progress) clean(e error) error {
 	if o == nil {
 		return nil
@@ -41,6 +44,11 @@ func (o *progress) clean(e error) error {
 	return e
 }
 
+// Close closes the file and releases associated resources.
+// It implements the io.Closer interface.
+// For temporary files (IsTemp() == true), the file is automatically deleted.
+// Both the file handle and os.Root are closed if present.
+// Returns the first error encountered during closing operations.
 func (o *progress) Close() error {
 	if o == nil {
 		return nil
@@ -61,6 +69,10 @@ func (o *progress) Close() error {
 	return o.clean(e)
 }
 
+// CloseDelete closes the file and then deletes it from the filesystem.
+// This is useful for temporary files or when the file is no longer needed.
+// The file is removed using os.Root.Remove() if available, otherwise os.Remove().
+// Returns the first error encountered during close or delete operations.
 func (o *progress) CloseDelete() error {
 	if o == nil {
 		return nil

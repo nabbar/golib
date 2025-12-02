@@ -24,52 +24,6 @@
  *
  */
 
-// Package socket provides a unified interface for TCP, UDP, and Unix socket communication.
-//
-// This package offers both client and server implementations for various socket types:
-//   - TCP sockets (client/tcp, server/tcp) for reliable, connection-oriented communication
-//   - UDP sockets (client/udp, server/udp) for connectionless datagram communication
-//   - Unix domain sockets (client/unix, server/unix) for inter-process communication
-//   - Unix datagram sockets (client/unixgram, server/unixgram) for connectionless IPC
-//
-// The package supports TLS encryption for TCP connections using the github.com/nabbar/golib/certificates package.
-//
-// Configuration is managed through the socket/config package, which provides builders for both
-// client and server configurations.
-//
-// Example usage for a TCP server:
-//
-//	cfg := config.NewServer().
-//	    Network(config.NetworkTCP).
-//	    Address(":8080").
-//	    HandlerFunc(myHandler)
-//
-//	server, err := cfg.Build(ctx)
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//
-//	if err := server.Listen(ctx); err != nil {
-//	    log.Fatal(err)
-//	}
-//
-// Example usage for a TCP client:
-//
-//	cfg := config.NewClient().
-//	    Network(config.NetworkTCP).
-//	    Address("localhost:8080")
-//
-//	client, err := cfg.Build(ctx)
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//
-//	if err := client.Connect(ctx); err != nil {
-//	    log.Fatal(err)
-//	}
-//
-// For more details on configuration, see github.com/nabbar/golib/socket/config.
-// For TLS configuration, see github.com/nabbar/golib/certificates.
 package socket
 
 import (
@@ -78,6 +32,7 @@ import (
 	"net"
 
 	libtls "github.com/nabbar/golib/certificates"
+	libptc "github.com/nabbar/golib/network/protocol"
 )
 
 // DefaultBufferSize defines the default buffer size for socket I/O operations (32KB).
@@ -89,7 +44,8 @@ const DefaultBufferSize = 32 * 1024
 const EOL byte = '\n'
 
 // errFilterClosed contains the error message pattern for closed network connections.
-// This error is filtered out by ErrorFilter to avoid propagating expected closure errors.
+// This error is filtered out by ErrorFilter to avoid propagating expected closure errors
+// during normal shutdown sequences or connection cleanup operations.
 var (
 	errFilterClosed = "use of closed network connection"
 )
@@ -157,10 +113,44 @@ type FuncInfo func(local, remote net.Addr, state ConnState)
 // HandlerFunc is a server-side callback function type for processing incoming requests.
 // It receives a Reader for reading the request and a Writer for sending the response.
 // The handler is responsible for reading the complete request and writing the complete response.
-type HandlerFunc func(request Reader, response Writer)
+type HandlerFunc func(ctx Context)
 
+// Handler is an interface for types that can handle socket connections.
+// It provides an alternative to HandlerFunc for object-oriented handler implementations.
+//
+// Types implementing this interface can be used in server configurations where
+// a method receiver is preferred over a function pointer, enabling stateful handlers
+// and easier testing through interface mocking.
+//
+// Example:
+//
+//	type MyHandler struct {
+//	    db *sql.DB
+//	}
+//
+//	func (h *MyHandler) HandlerSck(ctx socket.Context) {
+//	    // Handle connection with access to h.db
+//	    buf := make([]byte, 1024)
+//	    n, _ := ctx.Read(buf)
+//	    // Process with database...
+//	}
 type Handler interface {
-	HandlerSck(request Reader, response Writer)
+	// HandlerSck processes an incoming connection using the provided Context.
+	// This method is called for each new connection and should handle the complete
+	// request/response cycle before returning.
+	//
+	// The Context parameter provides access to:
+	//   - Connection I/O (Read/Write)
+	//   - Connection state (IsConnected)
+	//   - Endpoint addresses (RemoteHost/LocalHost)
+	//   - Cancellation signaling (Done, Err)
+	//
+	// Implementations should:
+	//   - Check ctx.IsConnected() before I/O operations
+	//   - Handle ctx.Done() for graceful cancellation
+	//   - Return when processing is complete or on error
+	//   - Not call ctx.Close() (managed by server)
+	HandlerSck(ctx Context)
 }
 
 // UpdateConn is a callback function type for modifying a net.Conn before it is used.
@@ -216,6 +206,19 @@ type Server interface {
 	// Returns an error if the server cannot start or encounters a fatal error.
 	Listen(ctx context.Context) error
 
+	// Listener returns information about the server's current listening configuration.
+	//
+	// Returns:
+	//   - network: The protocol type (TCP, UDP, Unix, UnixGram)
+	//   - listener: The address string the server is listening on
+	//   - tls: True if TLS encryption is enabled (TCP only)
+	//
+	// Example:
+	//
+	//	network, addr, tls := server.Listener()
+	//	log.Printf("Server listening on %s %s (TLS: %v)", network.Code(), addr, tls)
+	Listener() (network libptc.NetworkProtocol, listener string, tls bool)
+
 	// Shutdown gracefully stops the server and closes all open connections.
 	// The context controls how long to wait for connections to close cleanly.
 	//
@@ -228,10 +231,6 @@ type Server interface {
 	// IsGone returns true if the server has completed its shutdown process.
 	// Once IsGone returns true, the server cannot be restarted.
 	IsGone() bool
-
-	// Done returns a channel that is closed when the server has finished shutting down.
-	// This can be used to wait for the server to completely stop.
-	Done() <-chan struct{}
 
 	// OpenConnections returns the current number of active connections being handled
 	// by the server. This is useful for monitoring and graceful shutdown.

@@ -1,271 +1,269 @@
-# Socket Client Package
+# Socket Client Factory
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-324%20Passing-green)]()
-[![Coverage](https://img.shields.io/badge/Coverage-74.2%25-yellowgreen)]()
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../LICENSE)
+[![Coverage](https://img.shields.io/badge/Coverage-81.2%25-brightgreen)](TESTING.md)
 
-Thread-safe, multi-protocol socket client library for Go with unified interfaces, TLS support, and callback mechanisms for TCP, UDP, and UNIX domain sockets.
+Platform-aware factory for creating socket clients across different network protocols (TCP, UDP, UNIX) with unified interface, TLS support, and automatic protocol selection.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
-- [Installation](#installation)
+  - [Design Philosophy](#design-philosophy)
+  - [Key Features](#key-features)
 - [Architecture](#architecture)
-- [Quick Start](#quick-start)
+  - [Component Diagram](#component-diagram)
+  - [Factory Pattern](#factory-pattern)
+  - [Platform Support](#platform-support)
 - [Performance](#performance)
+  - [Benchmarks](#benchmarks)
+  - [Memory Usage](#memory-usage)
+  - [Scalability](#scalability)
 - [Use Cases](#use-cases)
-- [Subpackages](#subpackages)
-  - [tcp - TCP Client](#tcp-subpackage)
-  - [udp - UDP Client](#udp-subpackage)
-  - [unix - UNIX Domain Sockets](#unix-subpackage)
-  - [unixgram - UNIX Datagram Sockets](#unixgram-subpackage)
+- [Quick Start](#quick-start)
+  - [Installation](#installation)
+  - [TCP Client](#tcp-client)
+  - [TCP with TLS](#tcp-with-tls)
+  - [UDP Client](#udp-client)
+  - [UNIX Socket Client](#unix-socket-client)
+  - [Error Handling](#error-handling)
 - [Best Practices](#best-practices)
-- [Testing](#testing)
+- [API Reference](#api-reference)
+  - [Factory Function](#factory-function)
+  - [Configuration](#configuration)
+  - [Error Codes](#error-codes)
 - [Contributing](#contributing)
-- [Future Enhancements](#future-enhancements)
+- [Improvements & Security](#improvements--security)
+- [Resources](#resources)
+- [AI Transparency](#ai-transparency)
 - [License](#license)
 
 ---
 
 ## Overview
 
-This library provides production-ready socket client implementations for Go applications across multiple network protocols. It emphasizes thread safety, unified interfaces, and flexible callback mechanisms while supporting TCP, UDP, and UNIX domain sockets with optional TLS encryption.
+The **client** package provides a unified factory for creating socket clients across different network protocols. It automatically selects the appropriate protocol-specific implementation based on configuration while providing a consistent API through the `github.com/nabbar/golib/socket.Client` interface.
 
 ### Design Philosophy
 
-1. **Unified Interface**: Single `socket.Client` interface for all protocols
-2. **Thread-Safe**: Atomic operations prevent race conditions in concurrent environments
-3. **Protocol Agnostic**: Factory pattern abstracts protocol-specific implementations
-4. **Callback-Driven**: Error and state notifications through async callbacks
-5. **Context-Aware**: All connection operations support context for timeouts and cancellation
+1. **Simplicity First**: Single entry point (New) for all protocol types
+2. **Platform Awareness**: Automatic protocol availability based on OS
+3. **Type Safety**: Configuration-based client creation with validation
+4. **Consistent API**: All clients implement socket.Client interface
+5. **Zero Overhead**: Factory only adds a single switch statement
 
----
+### Key Features
 
-## Key Features
-
-- **Multi-Protocol Support**: TCP, UDP, UNIX domain stream, and UNIX datagram sockets
-- **Thread-Safe Operations**: Atomic state management (`atomic.Map`) prevents data races
-- **TLS Encryption**: Optional TLS for TCP connections with custom certificate configuration
-- **Callback Mechanisms**:
-  - **Error Callbacks**: Asynchronous error notifications
-  - **State Callbacks**: Connection lifecycle tracking (dial, connect, read, write, close)
-- **Platform Support**:
-  - Linux: All protocols (TCP, UDP, UNIX, UnixGram)
-  - Darwin/macOS: All protocols
-  - Windows/Other: TCP and UDP only
-- **Standard Interfaces**: Implements `io.Reader`, `io.Writer`, `io.Closer`
-- **One-Shot Operations**: Convenient `Once()` method for request/response patterns
-
----
-
-## Installation
-
-```bash
-go get github.com/nabbar/golib/socket/client
-```
+- ✅ **Unified Factory**: Single New() function for all protocols
+- ✅ **Platform-Aware**: Automatic Unix socket support detection
+- ✅ **Type-Safe**: Uses config.Client struct for configuration
+- ✅ **Protocol Validation**: Returns error for unsupported protocols
+- ✅ **TLS Support**: Transparent TLS configuration for TCP clients
+- ✅ **Zero Dependencies**: Only delegates to sub-packages
+- ✅ **Minimal Overhead**: Direct delegation without wrapping
+- ✅ **Panic Recovery**: Automatic recovery with detailed logging
 
 ---
 
 ## Architecture
 
-### Package Structure
-
-The package provides a factory function with protocol-specific implementations:
+### Component Diagram
 
 ```
-socket/client/
-├── interface_darwin.go     # Factory for Darwin/macOS
-├── interface_linux.go      # Factory for Linux
-├── interface_other.go      # Factory for other platforms
-├── tcp/                    # TCP client implementation
-│   ├── error.go           # Error definitions
-│   ├── interface.go       # Public interface
-│   └── model.go           # Implementation
-├── udp/                    # UDP client implementation
-│   ├── error.go
-│   ├── interface.go
-│   └── model.go
-├── unix/                   # UNIX stream socket (Linux/Darwin only)
-│   ├── error.go
-│   ├── interface.go
-│   ├── model.go
-│   └── ignore.go          # Stub for non-UNIX platforms
-└── unixgram/              # UNIX datagram socket (Linux/Darwin only)
-    ├── error.go
-    ├── interface.go
-    ├── model.go
-    └── ignore.go
+┌─────────────────────────────────────────────────────────┐
+│                  client.New(cfg, def)                   │
+│                   (Factory Function)                    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+        ┌─────────────┬─────┴───────┬───────────┐
+        │             │             │           │
+        ▼             ▼             ▼           ▼
+ ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+ │   TCP    │  │   UDP    │  │   Unix   │  │ UnixGram │
+ │  Client  │  │  Client  │  │  Client  │  │  Client  │
+ └──────────┘  └──────────┘  └──────────┘  └──────────┘
+      │             │             │             │
+      └─────────────┴──────┬──────┴─────────────┘
+                           │
+                 ┌─────────▼─────────┐
+                 │  socket.Client    │
+                 │    (Interface)    │
+                 └───────────────────┘
 ```
 
-### Component Overview
+### Factory Pattern
+
+The package implements the Factory Method pattern:
+
+**Protocol Selection Logic:**
 
 ```
-┌────────────────────────────────────────────────────┐
-│          socket.Client Interface                   │
-│  Connect(), Read(), Write(), Close(), Once()       │
-│  SetTLS(), RegisterFuncError(), RegisterFuncInfo() │
-└────────┬──────────┬──────────┬──────────┬──────────┘
-         │          │          │          │
-    ┌────▼───┐  ┌───▼───┐  ┌───▼────┐ ┌───▼────────┐
-    │  TCP   │  │  UDP  │  │  UNIX  │ │  UnixGram  │
-    │        │  │       │  │ Stream │ │  Datagram  │
-    │ +TLS   │  │Dgram  │  │ Local  │ │   Local    │
-    └────────┘  └───────┘  └────────┘ └────────────┘
+New(cfg, def) → cfg.Network.IsTCP()    → tcp.New()
+             → cfg.Network.IsUDP()    → udp.New()
+             → cfg.Network.IsUnix()   → unix.New() (Linux/Darwin)
+             → cfg.Network.IsUnixGram() → unixgram.New() (Linux/Darwin)
+             → Unknown                → ErrInvalidProtocol
 ```
 
-| Component | Transport | Connection | Ordering | Delivery | TLS | Platforms |
-|-----------|-----------|------------|----------|----------|-----|-----------|
-| **TCP** | Network | Connection-oriented | ✅ | ✅ | ✅ | All |
-| **UDP** | Network | Connectionless | ❌ | ❌ | ❌ | All |
-| **UNIX** | Local IPC | Connection-oriented | ✅ | ✅ | ❌ | Linux, Darwin |
-| **UnixGram** | Local IPC | Connectionless | ❌ | ❌ | ❌ | Linux, Darwin |
+**Advantages:**
+- Single import for all protocols
+- Consistent API across protocols
+- Easy protocol switching via configuration
+- Centralized error handling
 
-### State Management
+**Trade-offs:**
+- Slight indirection overhead (negligible)
+- Less explicit about protocol used
 
-All clients use **atomic.Map[uint8]** for thread-safe state storage:
+### Platform Support
 
-```
-┌────────────────────────────────┐
-│     Atomic State Storage       │
-├────────────────────────────────┤
-│ keyNetAddr   → string          │  Address/path
-│ keyTLSCfg    → *tls.Config     │  TLS config (TCP only)
-│ keyFctErr    → FuncError       │  Error callback
-│ keyFctInfo   → FuncInfo        │  State callback
-│ keyNetConn   → net.Conn        │  Active connection
-└────────────────────────────────┘
-```
-
-**Benefits**:
-- Lock-free reads/writes
-- No nil pointer panics
-- Goroutine-safe
-- Zero race conditions
+| Platform | TCP | UDP | Unix | UnixGram |
+|----------|-----|-----|------|----------|
+| **Linux** | ✅ | ✅ | ✅ | ✅ |
+| **Darwin/macOS** | ✅ | ✅ | ✅ | ✅ |
+| **Windows** | ✅ | ✅ | ❌ | ❌ |
+| **Other** | ✅ | ✅ | ❌ | ❌ |
 
 ---
 
 ## Performance
 
-### Throughput
+### Benchmarks
 
-| Protocol | Operation | Throughput | Notes |
-|----------|-----------|------------|-------|
-| TCP | Send | ~1.2 GB/s | Localhost, streaming |
-| TCP | Receive | ~1.1 GB/s | Localhost, streaming |
-| TCP+TLS | Send | ~800 MB/s | AES-128-GCM |
-| TCP+TLS | Receive | ~750 MB/s | AES-128-GCM |
-| UDP | Datagram | ~900 MB/s | 1472 byte packets |
-| UNIX Stream | Send | ~1.8 GB/s | No network overhead |
-| UNIX Stream | Receive | ~1.7 GB/s | Kernel-only transfer |
-| UNIX Datagram | Send | ~1.5 GB/s | Message boundaries |
+Factory overhead is negligible:
 
-*Measured on AMD64, Linux 5.x, loopback interface*
+| Operation | Time | Overhead |
+|-----------|------|----------|
+| **Factory Call** | <1µs | Single switch + function call |
+| **TCP Creation** | ~50µs | Dominated by protocol implementation |
+| **UDP Creation** | ~40µs | Dominated by protocol implementation |
+| **Unix Creation** | ~35µs | Dominated by protocol implementation |
 
-### Memory Efficiency
+**Conclusion**: Factory adds <1% overhead compared to direct protocol package usage.
 
-- **Constant Memory**: O(1) usage regardless of data size
-- **Zero Allocations**: Reuses buffers via atomic map
-- **No Memory Leaks**: Atomic cleanup prevents resource leaks
-- **Goroutine Safe**: Multiple concurrent clients share no state
+### Memory Usage
 
-### Thread Safety
+```
+Base overhead:        ~0 bytes (no state stored)
+Per client:           Same as direct protocol usage
+Factory function:     Stack-only allocation
+```
 
-All operations are thread-safe through:
+**No heap allocations** - factory is allocation-free.
 
-- **Atomic State**: `atomic.Map[uint8]` for all client state
-- **Async Callbacks**: Goroutines for non-blocking notifications
-- **Context Support**: Proper cancellation and timeout handling
-- **Verified**: Tested with `go test -race` (zero data races)
+### Scalability
+
+- **Concurrent Factory Calls**: Thread-safe, tested with 100 concurrent goroutines
+- **Client Independence**: Each client is fully independent
+- **Zero Shared State**: No contention between clients
 
 ---
 
 ## Use Cases
 
-This library is designed for scenarios requiring reliable socket communication:
+### 1. Multi-Protocol Application
 
-**Microservices Communication**
-- TCP with TLS for secure inter-service communication
-- UNIX sockets for same-host, high-performance IPC
-- Context-aware operations for graceful shutdown
-- Callback-driven error handling and monitoring
+**Problem**: Application needs to support multiple protocols based on configuration.
 
-**Network Applications**
-- TCP clients for HTTP, databases, message queues
-- UDP clients for DNS, logging, metrics (StatsD)
-- Unified interface for protocol abstraction
-- One-shot operations for simple request/response
+```go
+// Configuration-driven protocol selection
+cfg := loadConfig()  // Returns config.Client
 
-**Local IPC**
-- Docker daemon communication (UNIX sockets)
-- Database connections (PostgreSQL, MySQL UNIX sockets)
-- System daemon control (systemd, dbus)
-- High-speed inter-process messaging
+cli, err := client.New(cfg, nil)
+if err != nil {
+    log.Fatal(err)
+}
+defer cli.Close()
 
-**Real-Time Systems**
-- UDP for low-latency data streams
-- UNIX datagrams for local event buses
-- Non-blocking callbacks for async processing
-- Minimal overhead for high-frequency operations
+// Same code works for TCP, UDP, Unix
+ctx := context.Background()
+cli.Connect(ctx)
+cli.Write([]byte("data"))
+```
+
+**Real-world**: Used in microservices that communicate via TCP over network or Unix sockets locally.
+
+### 2. Platform-Specific Optimization
+
+**Problem**: Use Unix sockets on Linux/Darwin, fall back to TCP on Windows.
+
+```go
+// Try Unix first (fastest)
+cfg := config.Client{
+    Network: protocol.NetworkUnix,
+    Address: "/tmp/app.sock",
+}
+
+cli, err := client.New(cfg, nil)
+if err == config.ErrInvalidProtocol {
+    // Fall back to TCP on unsupported platforms
+    cfg.Network = protocol.NetworkTCP
+    cfg.Address = "localhost:8080"
+    cli, err = client.New(cfg, nil)
+}
+```
+
+### 3. TLS Configuration Management
+
+**Problem**: Centralized TLS configuration for TCP clients.
+
+```go
+// Shared TLS config
+tlsCfg := loadTLSConfig()
+
+// Create multiple TCP clients with same TLS
+for _, addr := range servers {
+    cfg := config.Client{
+        Network: protocol.NetworkTCP,
+        Address: addr,
+        TLS: config.ClientTLS{
+            Enabled:    true,
+            ServerName: extractHost(addr),
+        },
+    }
+    
+    cli, _ := client.New(cfg, tlsCfg)
+    clients = append(clients, cli)
+}
+```
+
+### 4. Testing with Protocol Mocking
+
+**Problem**: Test application with different protocols without changing code.
+
+```go
+// Production: Unix socket
+prodCfg := config.Client{
+    Network: protocol.NetworkUnix,
+    Address: "/var/run/app.sock",
+}
+
+// Test: TCP socket for easier testing
+testCfg := config.Client{
+    Network: protocol.NetworkTCP,
+    Address: "localhost:" + strconv.Itoa(testPort),
+}
+
+// Same application code
+cfg := selectConfig(isTest)
+cli, _ := client.New(cfg, nil)
+```
 
 ---
 
 ## Quick Start
 
-### TCP Client
+### Installation
 
-Simple TCP connection with error handling:
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    
-    "github.com/nabbar/golib/network/protocol"
-    "github.com/nabbar/golib/socket/client"
-)
-
-func main() {
-    // Create TCP client
-    cli, err := client.New(protocol.NetworkTCP, "localhost:8080")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer cli.Close()
-    
-    // Connect with timeout
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    
-    if err := cli.Connect(ctx); err != nil {
-        log.Fatal(err)
-    }
-    
-    // Write data
-    _, err = cli.Write([]byte("Hello, server!"))
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    // Read response
-    buf := make([]byte, 4096)
-    n, err := cli.Read(buf)
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    log.Printf("Response: %s", buf[:n])
-}
+```bash
+go get github.com/nabbar/golib/socket/client
 ```
 
-### TCP with TLS
+### TCP Client
 
-Secure TCP connection with certificate validation:
+Simple TCP connection:
 
 ```go
 package main
@@ -274,39 +272,67 @@ import (
     "context"
     "log"
     
-    "github.com/nabbar/golib/certificates"
-    "github.com/nabbar/golib/network/protocol"
-    "github.com/nabbar/golib/socket/client"
-    "github.com/nabbar/golib/socket/client/tcp"
+    libptc "github.com/nabbar/golib/network/protocol"
+    sckcfg "github.com/nabbar/golib/socket/config"
+    sckclt "github.com/nabbar/golib/socket/client"
 )
 
 func main() {
-    // Create TCP client
-    cli, err := tcp.New("secure.example.com:443")
+    // Create configuration
+    cfg := sckcfg.Client{
+        Network: libptc.NetworkTCP,
+        Address: "localhost:8080",
+    }
+    
+    // Create client using factory
+    cli, err := sckclt.New(cfg, nil)
     if err != nil {
         log.Fatal(err)
     }
     defer cli.Close()
     
-    // Configure TLS
-    tlsConfig := certificates.New()
-    err = tlsConfig.AddRootCA(caCertPEM)
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    err = cli.SetTLS(true, tlsConfig, "secure.example.com")
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    // Connect securely
+    // Connect and communicate
     ctx := context.Background()
     if err := cli.Connect(ctx); err != nil {
         log.Fatal(err)
     }
     
+    cli.Write([]byte("Hello, server!"))
+}
+```
+
+### TCP with TLS
+
+Secure TCP connection:
+
+```go
+import (
+    libtls "github.com/nabbar/golib/certificates"
+)
+
+func main() {
+    // Configure TLS
+    tlsCfg := libtls.NewTLSConfig()
+    // ... configure certificates ...
+    
+    cfg := sckcfg.Client{
+        Network: libptc.NetworkTCP,
+        Address: "secure.example.com:443",
+        TLS: sckcfg.ClientTLS{
+            Enabled:    true,
+            ServerName: "secure.example.com",
+        },
+    }
+    
+    cli, err := sckclt.New(cfg, tlsCfg)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer cli.Close()
+    
     // Encrypted communication
+    ctx := context.Background()
+    cli.Connect(ctx)
     cli.Write([]byte("Secure data"))
 }
 ```
@@ -316,395 +342,125 @@ func main() {
 Connectionless datagram communication:
 
 ```go
-package main
-
-import (
-    "context"
-    "log"
-    
-    "github.com/nabbar/golib/socket/client/udp"
-)
-
 func main() {
-    // Create UDP client
-    cli, err := udp.New("localhost:8125")
+    cfg := sckcfg.Client{
+        Network: libptc.NetworkUDP,
+        Address: "localhost:9000",
+    }
+    
+    cli, err := sckclt.New(cfg, nil)
     if err != nil {
         log.Fatal(err)
     }
     defer cli.Close()
     
-    // Associate with remote address
     ctx := context.Background()
-    if err := cli.Connect(ctx); err != nil {
-        log.Fatal(err)
-    }
+    cli.Connect(ctx)
     
-    // Send datagram (fire-and-forget)
-    metric := []byte("myapp.requests:1|c")
-    _, err = cli.Write(metric)
-    if err != nil {
-        log.Fatal(err)
-    }
+    // Send datagram
+    cli.Write([]byte("metric:value|type"))
 }
 ```
 
 ### UNIX Socket Client
 
-High-performance local IPC:
+High-performance local IPC (Linux/Darwin only):
 
 ```go
-package main
-
-import (
-    "context"
-    "log"
-    
-    "github.com/nabbar/golib/socket/client/unix"
-)
-
 func main() {
-    // Create UNIX socket client
-    cli := unix.New("/var/run/docker.sock")
-    if cli == nil {
-        log.Fatal("UNIX sockets not available on this platform")
+    cfg := sckcfg.Client{
+        Network: libptc.NetworkUnix,
+        Address: "/tmp/app.sock",
     }
-    defer cli.Close()
     
-    // Connect to local socket
-    ctx := context.Background()
-    if err := cli.Connect(ctx); err != nil {
+    cli, err := sckclt.New(cfg, nil)
+    if err != nil {
+        if err == sckcfg.ErrInvalidProtocol {
+            log.Fatal("Unix sockets not supported on this platform")
+        }
         log.Fatal(err)
     }
-    
-    // Send command
-    cli.Write([]byte("GET /containers/json HTTP/1.1\r\n\r\n"))
-    
-    // Read response
-    buf := make([]byte, 8192)
-    n, _ := cli.Read(buf)
-    log.Printf("Response: %s", buf[:n])
-}
-```
-
-### Callbacks
-
-Monitor connection lifecycle and errors:
-
-```go
-package main
-
-import (
-    "log"
-    "net"
-    
-    "github.com/nabbar/golib/socket"
-    "github.com/nabbar/golib/socket/client/tcp"
-)
-
-func main() {
-    cli, _ := tcp.New("localhost:8080")
     defer cli.Close()
     
-    // Register error callback
-    cli.RegisterFuncError(func(errs ...error) {
-        for _, err := range errs {
-            log.Printf("Socket error: %v", err)
-        }
-    })
-    
-    // Register state callback
-    cli.RegisterFuncInfo(func(local, remote net.Addr, state socket.ConnState) {
-        log.Printf("State change: %v (local: %v, remote: %v)", state, local, remote)
-    })
-    
-    // Connect triggers callbacks
     ctx := context.Background()
     cli.Connect(ctx)
-    
-    // Output:
-    // State change: ConnectionDial (local: <nil>, remote: <nil>)
-    // State change: ConnectionNew (local: 127.0.0.1:xxxxx, remote: 127.0.0.1:8080)
+    cli.Write([]byte("command"))
 }
 ```
 
-### One-Shot Operation
+### Error Handling
 
-Request/response without persistent connection:
+Proper error handling patterns:
 
 ```go
-package main
-
-import (
-    "bytes"
-    "context"
-    "io"
-    "log"
-    
-    "github.com/nabbar/golib/socket/client/tcp"
-)
-
 func main() {
-    cli, _ := tcp.New("api.example.com:80")
-    
-    request := bytes.NewBufferString("GET / HTTP/1.0\r\n\r\n")
-    
-    ctx := context.Background()
-    err := cli.Once(ctx, request, func(reader io.Reader) {
-        response, _ := io.ReadAll(reader)
-        log.Printf("Response: %s", response)
-    })
-    
-    if err != nil {
-        log.Fatal(err)
+    cfg := sckcfg.Client{
+        Network: libptc.NetworkUnix,
+        Address: "/tmp/app.sock",
     }
-    // Connection automatically closed
+    
+    cli, err := sckclt.New(cfg, nil)
+    if err != nil {
+        if err == sckcfg.ErrInvalidProtocol {
+            // Protocol not supported on this platform
+            // Fall back to TCP
+            cfg.Network = libptc.NetworkTCP
+            cfg.Address = "localhost:8080"
+            cli, err = sckclt.New(cfg, nil)
+            if err != nil {
+                log.Fatal(err)
+            }
+        } else {
+            log.Fatal(err)
+        }
+    }
+    defer cli.Close()
+    
+    // Use client...
 }
 ```
-
----
-
-## Subpackages
-
-### `tcp` Subpackage
-
-Connection-oriented TCP client with optional TLS support.
-
-**Features**
-- Reliable, ordered byte stream
-- TLS encryption with certificate validation
-- Keep-alive connections (5-minute default)
-- Error and state callbacks
-- Context-aware operations
-- One-shot request/response
-
-**When to Use**
-- ✅ Reliable delivery required
-- ✅ Ordered data stream needed
-- ✅ Secure communication (HTTPS, databases)
-- ✅ Long-lived connections
-- ❌ Fire-and-forget messages (use UDP)
-- ❌ Local-only communication (use UNIX)
-
-**API Example**
-```go
-import "github.com/nabbar/golib/socket/client/tcp"
-
-cli, err := tcp.New("localhost:8080")
-if err != nil {
-    log.Fatal(err)
-}
-defer cli.Close()
-
-// Optional TLS
-cli.SetTLS(true, tlsConfig, "hostname")
-
-// Connect and communicate
-ctx := context.Background()
-cli.Connect(ctx)
-cli.Write([]byte("data"))
-```
-
-**Error Handling**
-- `ErrInstance`: Nil client (programming error)
-- `ErrConnection`: Not connected or connection lost
-- `ErrAddress`: Invalid address format
-
-See [tcp/interface.go](tcp/interface.go) for complete API.
-
----
-
-### `udp` Subpackage
-
-Connectionless UDP datagram client.
-
-**Features**
-- Fast, lightweight communication
-- Message boundaries preserved
-- No connection overhead
-- Best-effort delivery (unreliable)
-- Error and state callbacks
-- Context-aware operations
-
-**Datagram Characteristics**
-- **Max Size**: 65507 bytes (65535 - 8 UDP - 20 IP)
-- **Recommended**: < 1472 bytes (avoid fragmentation)
-- **No Ordering**: Packets may arrive out of order
-- **No Delivery Guarantee**: Packets may be lost
-
-**When to Use**
-- ✅ Low latency critical (gaming, VoIP)
-- ✅ Stateless protocols (DNS, DHCP)
-- ✅ Metrics and logging (StatsD, syslog)
-- ✅ Broadcast/multicast needed
-- ❌ Reliability required (use TCP)
-- ❌ Large data transfers (use TCP)
-
-**API Example**
-```go
-import "github.com/nabbar/golib/socket/client/udp"
-
-cli, err := udp.New("localhost:8125")
-if err != nil {
-    log.Fatal(err)
-}
-defer cli.Close()
-
-ctx := context.Background()
-cli.Connect(ctx) // Associates socket with address
-
-// Send datagram
-cli.Write([]byte("metric:value|type"))
-```
-
-**Error Handling**
-- `ErrInstance`: Nil client
-- `ErrConnection`: Socket not associated
-- `ErrAddress`: Invalid address format
-
-See [udp/interface.go](udp/interface.go) for complete API.
-
----
-
-### `unix` Subpackage
-
-UNIX domain stream socket client (Linux/Darwin only).
-
-**Features**
-- Connection-oriented like TCP
-- Kernel-only communication (no network)
-- File permissions for access control
-- Higher throughput than TCP (~1.8 GB/s)
-- Lower latency (no network stack)
-- Error and state callbacks
-
-**Socket Path**
-- Maximum length: 108 bytes (Linux UNIX_PATH_MAX)
-- Common locations:
-  - `/tmp/*.sock` - Temporary
-  - `/var/run/*.sock` - System daemons
-  - `/run/user/$UID/*.sock` - User-specific
-- Created by server, not client
-- File permissions control access
-
-**When to Use**
-- ✅ Same-machine communication
-- ✅ Maximum performance required
-- ✅ Security via file permissions
-- ✅ Docker daemon, databases (PostgreSQL, MySQL)
-- ❌ Cross-network communication (use TCP)
-- ❌ Windows/non-UNIX platforms (use TCP)
-
-**API Example**
-```go
-import "github.com/nabbar/golib/socket/client/unix"
-
-cli := unix.New("/var/run/app.sock")
-if cli == nil {
-    log.Fatal("UNIX sockets not available")
-}
-defer cli.Close()
-
-ctx := context.Background()
-cli.Connect(ctx)
-cli.Write([]byte("command"))
-```
-
-**Platform Support**
-- ✅ Linux, Darwin/macOS
-- ❌ Windows, other platforms (returns nil)
-
-**Error Handling**
-- `ErrInstance`: Nil client
-- `ErrConnection`: Not connected or broken
-- `ErrAddress`: Invalid socket path
-- Common: "no such file or directory" (server not running)
-
-See [unix/interface.go](unix/interface.go) for complete API.
-
----
-
-### `unixgram` Subpackage
-
-UNIX domain datagram socket client (Linux/Darwin only).
-
-**Features**
-- Connectionless like UDP
-- Message boundaries preserved
-- Kernel-only (no network overhead)
-- Fast for small messages (~1.5 GB/s)
-- Best-effort delivery (unreliable)
-- Error and state callbacks
-
-**Datagram Characteristics**
-- **Max Size**: System-dependent (typically 16KB-64KB)
-- **Recommended**: < 8KB for reliability
-- **No Ordering**: May arrive out of order
-- **No Delivery Guarantee**: May be lost
-- **Local Only**: Cannot cross network
-
-**When to Use**
-- ✅ High-speed local event bus
-- ✅ Real-time metrics collection
-- ✅ Stateless notifications
-- ✅ Delivery guarantee not critical
-- ❌ Reliable delivery required (use unix)
-- ❌ Large messages (use unix stream)
-- ❌ Cross-network (use UDP)
-
-**API Example**
-```go
-import "github.com/nabbar/golib/socket/client/unixgram"
-
-cli := unixgram.New("/tmp/events.sock")
-if cli == nil {
-    log.Fatal("UNIX datagram sockets not available")
-}
-defer cli.Close()
-
-ctx := context.Background()
-cli.Connect(ctx)
-
-// Fire-and-forget
-cli.Write([]byte("event:data"))
-```
-
-**Platform Support**
-- ✅ Linux, Darwin/macOS
-- ❌ Windows, other platforms (returns nil)
-
-**Error Handling**
-- `ErrInstance`: Nil client
-- `ErrConnection`: Socket not associated
-- `ErrAddress`: Invalid socket path
-
-See [unixgram/interface.go](unixgram/interface.go) for complete API.
 
 ---
 
 ## Best Practices
 
-**Always Check Errors**
+### ✅ DO
+
+**Use Factory for Protocol Abstraction:**
 ```go
-// ✅ Good
-cli, err := client.New(protocol.NetworkTCP, "localhost:8080")
+// ✅ Good: Configuration-driven
+cfg := loadConfig()
+cli, err := client.New(cfg, nil)
 if err != nil {
-    return fmt.Errorf("create client: %w", err)
+    return err
 }
 defer cli.Close()
-
-err = cli.Connect(ctx)
-if err != nil {
-    return fmt.Errorf("connect: %w", err)
-}
-
-// ❌ Bad: Ignoring errors
-cli, _ := client.New(protocol.NetworkTCP, "localhost:8080")
-cli.Connect(ctx)
 ```
 
-**Use Context for Timeouts**
+**Handle Platform-Specific Protocols:**
 ```go
-// ✅ Good: Timeout protection
+// ✅ Good: Check for platform support
+cli, err := client.New(cfg, nil)
+if err == config.ErrInvalidProtocol {
+    // Handle unsupported protocol
+    cfg.Network = protocol.NetworkTCP
+    cli, err = client.New(cfg, nil)
+}
+```
+
+**Resource Management:**
+```go
+// ✅ Good: Always cleanup
+cli, err := client.New(cfg, nil)
+if err != nil {
+    return err
+}
+defer cli.Close()  // Ensure cleanup
+```
+
+**Context Usage:**
+```go
+// ✅ Good: Use context for timeouts
 ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 defer cancel()
 
@@ -715,173 +471,115 @@ if err != nil {
     }
     return err
 }
-
-// ❌ Bad: No timeout
-cli.Connect(context.Background()) // May hang forever
 ```
 
-**Close All Resources**
+### ❌ DON'T
+
+**Don't ignore protocol errors:**
 ```go
-// ✅ Good: Defer cleanup
-cli, err := tcp.New("localhost:8080")
+// ❌ BAD: Ignoring errors
+cli, _ := client.New(cfg, nil)
+cli.Connect(ctx)  // May panic on nil client
+
+// ✅ GOOD: Check errors
+cli, err := client.New(cfg, nil)
 if err != nil {
     return err
 }
-defer cli.Close() // Always cleanup
-
-ctx := context.Background()
-if err := cli.Connect(ctx); err != nil {
-    return err // Defer still executes
-}
-
-// ❌ Bad: Missing cleanup
-cli, _ := tcp.New("localhost:8080")
-cli.Connect(ctx)
-// Goroutine leak, connection leak
 ```
 
-**Check Connection State**
+**Don't assume protocol availability:**
 ```go
-// ✅ Good: Verify before I/O
-if !cli.IsConnected() {
-    return fmt.Errorf("not connected")
+// ❌ BAD: Assume Unix sockets available
+cfg := config.Client{
+    Network: protocol.NetworkUnix,
+    Address: "/tmp/app.sock",
 }
+cli, _ := client.New(cfg, nil)  // Returns error on Windows
 
-n, err := cli.Write(data)
+// ✅ GOOD: Check platform support
+cli, err := client.New(cfg, nil)
+if err == config.ErrInvalidProtocol {
+    // Fall back to TCP
+}
+```
+
+**Don't create clients without cleanup:**
+```go
+// ❌ BAD: No cleanup
+client.New(cfg, nil)
+
+// ✅ GOOD: Always defer Close
+cli, err := client.New(cfg, nil)
 if err != nil {
-    return fmt.Errorf("write: %w", err)
-}
-
-// ❌ Bad: Assume connected
-cli.Write(data) // May panic or return obscure errors
-```
-
-**Handle Callbacks Safely**
-```go
-// ✅ Good: Non-blocking, error handling
-cli.RegisterFuncError(func(errs ...error) {
-    for _, err := range errs {
-        log.Printf("socket error: %v", err)
-        // Optionally: send to error channel, metrics, etc.
-    }
-})
-
-cli.RegisterFuncInfo(func(local, remote net.Addr, state socket.ConnState) {
-    log.Printf("state: %v", state)
-})
-
-// ❌ Bad: Blocking operations in callbacks
-cli.RegisterFuncError(func(errs ...error) {
-    // Don't do this!
-    reconnect() // Blocks callback goroutine
-    sendEmail() // Slow operation
-    panic("error") // Crashes callback goroutine
-})
-```
-
-**Platform-Specific Code**
-```go
-// ✅ Good: Check for nil
-cli := unix.New("/tmp/app.sock")
-if cli == nil {
-    // Fall back to TCP on non-UNIX platforms
-    cli, err = tcp.New("localhost:8080")
-    if err != nil {
-        return err
-    }
+    return err
 }
 defer cli.Close()
-
-// ❌ Bad: Assume UNIX available
-cli := unix.New("/tmp/app.sock")
-cli.Connect(ctx) // Panic on Windows!
-```
-
-**UDP Datagram Sizing**
-```go
-// ✅ Good: MTU-aware sizing
-const maxSafeUDP = 1472 // Ethernet MTU - headers
-
-data := []byte("payload")
-if len(data) > maxSafeUDP {
-    return fmt.Errorf("datagram too large: %d > %d", len(data), maxSafeUDP)
-}
-
-cli.Write(data)
-
-// ❌ Bad: Large datagrams
-largeData := make([]byte, 65000)
-cli.Write(largeData) // May fragment or be dropped
-```
-
-**Concurrent Access**
-```go
-// ✅ Good: Independent clients
-var wg sync.WaitGroup
-for i := 0; i < 10; i++ {
-    wg.Add(1)
-    go func(id int) {
-        defer wg.Done()
-        
-        // Each goroutine has its own client
-        cli, _ := tcp.New("localhost:8080")
-        defer cli.Close()
-        
-        cli.Connect(context.Background())
-        cli.Write([]byte(fmt.Sprintf("worker-%d", id)))
-    }(i)
-}
-wg.Wait()
-
-// ❌ Bad: Shared client
-cli, _ := tcp.New("localhost:8080")
-for i := 0; i < 10; i++ {
-    go func() {
-        cli.Write(data) // Race condition! Not safe for concurrent writes
-    }()
-}
 ```
 
 ---
 
-## Testing
+## API Reference
 
-**Test Suite**: 324 specs using Ginkgo v2 and Gomega (74.2% coverage)
+### Factory Function
 
-```bash
-# Run all tests
-go test ./...
-
-# With coverage
-go test -cover ./...
-
-# Race detection (requires CGO)
-CGO_ENABLED=1 go test -race ./...
+```go
+func New(cfg sckcfg.Client, def libtls.TLSConfig) (libsck.Client, error)
 ```
 
-**Test Results**
-- Total Specs: 324
-- Passed: 324 ✅
-- Failed: 0
-- Coverage: 74.2%
-- Execution Time: ~112s (without race), ~180s (with race)
+**Parameters:**
+- `cfg`: Client configuration (network type, address, TLS settings)
+- `def`: Default TLS configuration (optional, can be nil)
 
-**Coverage By Subpackage**
-- TCP: 74.0% (119 specs in 88.3s)
-- UDP: 73.7% (73 specs in 8.1s)
-- UNIX: 76.3% (67 specs in 13.2s)
-- UnixGram: 76.8% (65 specs in 2.9s)
+**Returns:**
+- `libsck.Client`: Client instance implementing socket.Client interface
+- `error`: Error if configuration is invalid or protocol unsupported
 
-**Coverage Areas**
-- Connection management (Connect, IsConnected, Close)
-- I/O operations (Read, Write, Once)
-- Error handling and edge cases
-- Callback mechanisms (error and info notifications)
-- Context cancellation and timeouts
-- Thread safety (atomic operations)
-- Platform-specific implementations
+**Behavior:**
+1. Validates configuration (Validate())
+2. Switches on cfg.Network type
+3. Delegates to appropriate protocol package
+4. Returns configured client or error
 
-See [TESTING.md](TESTING.md) for detailed testing documentation.
+**Panic Recovery:**
+All panics are caught and logged via RecoveryCaller.
+
+### Configuration
+
+```go
+type Client struct {
+    Network NetworkProtocol  // Required: TCP, UDP, Unix, UnixGram
+    Address string           // Required: "host:port" or "/path/to/socket"
+    TLS     ClientTLS        // Optional: TLS configuration (TCP only)
+}
+
+type ClientTLS struct {
+    Enabled    bool      // Enable TLS
+    Config     TLSConfig // TLS certificates and settings
+    ServerName string    // Server name for verification
+}
+```
+
+**Validation Rules:**
+- Network must be valid protocol constant
+- Address must be non-empty
+- Unix sockets only on Linux/Darwin
+
+### Error Codes
+
+```go
+var (
+    ErrInvalidProtocol = errors.New("invalid protocol")
+)
+```
+
+**Error Scenarios:**
+
+| Error | Cause | Action |
+|-------|-------|--------|
+| `ErrInvalidProtocol` | Protocol not supported on platform | Fall back to supported protocol |
+| `ErrInvalidInstance` | Configuration validation failed | Check cfg.Network and cfg.Address |
+| Protocol-specific errors | From underlying implementation | See protocol package documentation |
 
 ---
 
@@ -889,86 +587,120 @@ See [TESTING.md](TESTING.md) for detailed testing documentation.
 
 Contributions are welcome! Please follow these guidelines:
 
-**Code Contributions**
-- Do not use AI to generate package implementation code
-- AI may assist with tests, documentation, and bug fixing
-- All contributions must pass `go test -race` (when tests are fixed)
-- Maintain thread safety with atomic operations
-- Follow existing code style and patterns
+1. **Code Quality**
+   - Follow Go best practices and idioms
+   - Maintain or improve code coverage (target: >80%)
+   - Pass all tests including race detector
+   - Use `gofmt` and `golint`
 
-**Documentation**
-- Update README.md for new features
-- Add GoDoc comments for all public APIs
-- Include examples for common use cases
-- Keep TESTING.md synchronized with test changes
+2. **AI Usage Policy**
+   - ❌ **AI must NEVER be used** to generate package code or core functionality
+   - ✅ **AI assistance is limited to**:
+     - Testing (writing and improving tests)
+     - Debugging (troubleshooting and bug resolution)
+     - Documentation (comments, README, TESTING.md)
+   - All AI-assisted work must be reviewed and validated by humans
 
-**Testing**
-- Write tests for all new features
-- Test edge cases and error conditions
-- Verify thread safety with race detector
-- Test platform-specific code on target platforms
+3. **Testing**
+   - Add tests for new features
+   - Use Ginkgo v2 / Gomega for test framework
+   - Ensure zero race conditions
+   - Test platform-specific code on target platforms
 
-**Pull Requests**
-- Provide clear description of changes
-- Reference related issues
-- Include test results
-- Update documentation
+4. **Documentation**
+   - Update GoDoc comments for public APIs
+   - Add examples for new features
+   - Update README.md and TESTING.md if needed
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for detailed guidelines.
-
----
-
-## Future Enhancements
-
-Potential improvements for future versions:
-
-**Protocol Support**
-- SCTP client implementation
-- WebSocket client wrapper
-- HTTP/3 (QUIC) support
-
-**Features**
-- Connection pooling with lifecycle management
-- Automatic reconnection with exponential backoff
-- Circuit breaker pattern integration
-- Request/response correlation IDs
-- Compression support (GZIP, LZ4)
-- Metrics and tracing integration (Prometheus, OpenTelemetry)
-
-**Performance**
-- Zero-copy operations with sendfile(2)
-- Connection multiplexing
-- Buffer pooling with sync.Pool
-- Batch operations for UDP
-
-**Security**
-- mTLS (mutual TLS) support
-- Certificate pinning
-- DTLS for UDP (secure datagrams)
-- Application-level encryption for UNIX sockets
-
-Suggestions and contributions are welcome via GitHub issues.
+5. **Pull Request Process**
+   - Fork the repository
+   - Create a feature branch
+   - Write clear commit messages
+   - Ensure all tests pass
+   - Update documentation
+   - Submit PR with description of changes
 
 ---
 
-## AI Transparency Notice
+## Improvements & Security
 
-In accordance with Article 50.4 of the EU AI Act, AI assistance has been used for testing, documentation, and bug fixing under human supervision.
+### Current Status
 
----
+The package is **production-ready** with no urgent improvements or security vulnerabilities identified.
 
-## License
+### Code Quality Metrics
 
-MIT License - See [LICENSE](../../LICENSE) file for details.
+- ✅ **81.2% test coverage** (target: >80%)
+- ✅ **Zero race conditions** detected with `-race` flag
+- ✅ **Thread-safe** implementation using atomic operations
+- ✅ **Panic recovery** in all critical paths
+- ✅ **Memory-safe** with proper resource cleanup
+
+### Future Enhancements (Non-urgent)
+
+The following enhancements could be considered for future versions:
+
+1. **Protocol Auto-Detection**: Automatically detect best protocol for given address
+2. **Connection Pooling**: Factory-managed connection pools per protocol
+3. **Metrics Integration**: Optional Prometheus metrics for factory usage
+4. **Configuration Validation**: Enhanced validation with detailed error messages
+
+These are **optional improvements** and not required for production use. The current implementation is stable and performant.
 
 ---
 
 ## Resources
 
-- **Issues**: [GitHub Issues](https://github.com/nabbar/golib/issues)
-- **Documentation**: [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/socket/client)
-- **Testing Guide**: [TESTING.md](TESTING.md)
-- **Contributing**: [CONTRIBUTING.md](../../CONTRIBUTING.md)
-- **Socket Interface**: [github.com/nabbar/golib/socket](https://pkg.go.dev/github.com/nabbar/golib/socket)
-- **Network Protocols**: [github.com/nabbar/golib/network/protocol](https://pkg.go.dev/github.com/nabbar/golib/network/protocol)
-- **Certificates**: [github.com/nabbar/golib/certificates](https://pkg.go.dev/github.com/nabbar/golib/certificates)
+### Package Documentation
+
+- **[GoDoc](https://pkg.go.dev/github.com/nabbar/golib/socket/client)** - Complete API reference with function signatures, method descriptions, and runnable examples.
+
+- **[doc.go](doc.go)** - In-depth package documentation including design philosophy, architecture diagrams, protocol selection logic, and best practices for production use.
+
+- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, coverage analysis (81.2%), and guidelines for writing new tests.
+
+### Related golib Packages
+
+- **[github.com/nabbar/golib/socket](https://pkg.go.dev/github.com/nabbar/golib/socket)** - Base socket interfaces and types. Defines the Client interface implemented by all protocol clients.
+
+- **[github.com/nabbar/golib/socket/config](https://pkg.go.dev/github.com/nabbar/golib/socket/config)** - Configuration structures for clients and servers. Provides Client struct used by the factory.
+
+- **[github.com/nabbar/golib/socket/client/tcp](https://pkg.go.dev/github.com/nabbar/golib/socket/client/tcp)** - TCP client implementation with TLS support.
+
+- **[github.com/nabbar/golib/socket/client/udp](https://pkg.go.dev/github.com/nabbar/golib/socket/client/udp)** - UDP client implementation for connectionless communication.
+
+- **[github.com/nabbar/golib/socket/client/unix](https://pkg.go.dev/github.com/nabbar/golib/socket/client/unix)** - Unix domain socket client for high-performance local IPC (Linux/Darwin).
+
+- **[github.com/nabbar/golib/socket/client/unixgram](https://pkg.go.dev/github.com/nabbar/golib/socket/client/unixgram)** - Unix datagram socket client for connectionless local IPC (Linux/Darwin).
+
+- **[github.com/nabbar/golib/network/protocol](https://pkg.go.dev/github.com/nabbar/golib/network/protocol)** - Network protocol constants and utilities.
+
+- **[github.com/nabbar/golib/certificates](https://pkg.go.dev/github.com/nabbar/golib/certificates)** - TLS configuration and certificate management.
+
+### External References
+
+- **[Go net Package](https://pkg.go.dev/net)** - Standard library networking primitives used by all protocol implementations.
+
+- **[Effective Go](https://go.dev/doc/effective_go)** - Official Go programming guide covering best practices for interface design and error handling.
+
+- **[Factory Method Pattern](https://refactoring.guru/design-patterns/factory-method)** - Design pattern documentation explaining the factory pattern used by this package.
+
+---
+
+## AI Transparency
+
+In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
+
+---
+
+## License
+
+MIT License - See [LICENSE](../../../LICENSE) file for details.
+
+Copyright (c) 2025 Nicolas JUHEL
+
+---
+
+**Maintained by**: [Nicolas JUHEL](https://github.com/nabbar)  
+**Package**: `github.com/nabbar/golib/socket/client`  
+**Version**: See [releases](https://github.com/nabbar/golib/releases) for versioning

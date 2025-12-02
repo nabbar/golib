@@ -184,12 +184,14 @@ func (o *agg) IsRunning() bool {
 		return false
 	}
 
-	// sync status between runner and run but don't change value of status/op
-	// just calling function to stop runner or stop run function
+	// Synchronize status between runner and channel state
+	// Fix inconsistencies without changing the authoritative state
 	if r.IsRunning() {
 		if o.op.Load() {
+			// Both runner and channel agree: running
 			return true
 		} else {
+			// Runner says running but channel is closed: stop runner
 			x, n := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer n()
 			_ = o.Stop(x)
@@ -197,10 +199,12 @@ func (o *agg) IsRunning() bool {
 		}
 	} else {
 		if o.op.Load() {
+			// Runner stopped but channel still open: close channel
 			o.chanClose()
 			o.ctxClose()
 			return false
 		} else {
+			// Both agree: not running
 			return false
 		}
 	}
@@ -274,16 +278,19 @@ func (o *agg) ErrorsList() []error {
 }
 
 // newRunner creates a new StartStop runner with the aggregator's run and closeRun functions.
+// The runner manages the lifecycle of the processing goroutine.
 func (o *agg) newRunner() librun.StartStop {
 	return librun.New(o.run, o.closeRun)
 }
 
 // getRunner returns the current runner instance.
+// Returns nil if no runner has been created yet.
 func (o *agg) getRunner() librun.StartStop {
 	return o.r.Load()
 }
 
 // setRunner stores the runner instance, creating a new one if nil.
+// This ensures the aggregator always has a valid runner.
 func (o *agg) setRunner(r librun.StartStop) {
 	if r == nil {
 		r = o.newRunner()

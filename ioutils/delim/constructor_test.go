@@ -37,6 +37,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// This test file focuses on constructor and interface verification.
+// It validates:
+//   - New() constructor with various parameters (default/custom buffer sizes)
+//   - Delimiter configuration (newline, comma, pipe, tab, null byte, Unicode)
+//   - Interface compliance (io.ReadCloser, io.WriterTo, BufferDelim)
+//   - Reader() method behavior
+//   - Edge cases with empty/delimiter-only input
+//
+// These tests ensure the BufferDelim is properly initialized and
+// implements all required interfaces correctly.
+
 var _ = Describe("BufferDelim Constructor and Interface", func() {
 	Describe("New constructor", func() {
 		Context("with valid parameters and default buffer size", func() {

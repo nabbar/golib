@@ -1,29 +1,28 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
 package logger
 
@@ -91,6 +90,25 @@ func (o *logger) hasCloser() bool {
 	return false
 }
 
+// Clone creates an independent copy of the logger with the same configuration.
+// The cloned logger has its own context, fields, and hook instances but shares
+// the same configuration (level, options, output destinations).
+//
+// Changes to the clone do not affect the original logger and vice versa.
+// Both loggers must be closed independently.
+//
+// Returns:
+//   - Logger: A new independent logger instance
+//   - error: An error if the logger is nil or cloning fails
+//
+// Example:
+//
+//	clone, err := logger.Clone()
+//	if err != nil {
+//	    return err
+//	}
+//	defer clone.Close()
+//	clone.SetLevel(loglvl.DebugLevel) // Does not affect original
 func (o *logger) Clone() (Logger, error) {
 	if o == nil {
 		return nil, fmt.Errorf("logger is nil")
@@ -144,12 +162,40 @@ func (o *logger) runFuncUpdateLevel() {
 	}
 }
 
+// SetLevel changes the minimum log level for this logger.
+// Messages below this level will not be logged.
+//
+// Available levels (from most to least verbose):
+//   - DebugLevel: Detailed diagnostic information
+//   - InfoLevel: General informational messages
+//   - WarnLevel: Warning messages for potentially harmful situations
+//   - ErrorLevel: Error messages for failures
+//   - FatalLevel: Critical errors that cause application exit
+//   - PanicLevel: Errors that trigger panic
+//
+// Parameters:
+//   - lvl: The new minimum log level
+//
+// Example:
+//
+//	logger.SetLevel(loglvl.WarnLevel) // Only Warn, Error, Fatal, Panic will be logged
 func (o *logger) SetLevel(lvl loglvl.Level) {
 	o.x.Store(keyLevel, lvl)
 	o.setLogrusLevel(o.GetLevel())
 	o.runFuncUpdateLevel()
 }
 
+// GetLevel returns the current minimum log level for this logger.
+//
+// Returns:
+//   - loglvl.Level: The current log level, or NilLevel if logger is not initialized
+//
+// Example:
+//
+//	currentLevel := logger.GetLevel()
+//	if currentLevel == loglvl.DebugLevel {
+//	    fmt.Println("Debug logging is enabled")
+//	}
 func (o *logger) GetLevel() loglvl.Level {
 	if o == nil {
 		return loglvl.NilLevel
@@ -164,6 +210,19 @@ func (o *logger) GetLevel() loglvl.Level {
 	}
 }
 
+// SetFields replaces all default fields with the provided fields.
+// These fields will be included in every log entry created by this logger.
+// Existing fields are cleared before setting new ones.
+//
+// Parameters:
+//   - field: The fields to set as defaults (nil is allowed and clears all fields)
+//
+// Example:
+//
+//	fields := logfld.New(ctx)
+//	fields.Add("service", "api")
+//	fields.Add("version", "1.0.0")
+//	logger.SetFields(fields)
 func (o *logger) SetFields(field logfld.Fields) {
 	if o == nil {
 		return
@@ -172,6 +231,16 @@ func (o *logger) SetFields(field logfld.Fields) {
 	o.f.Merge(field)
 }
 
+// GetFields returns a copy of the current default fields.
+// The returned fields are a clone, so modifications won't affect the logger.
+//
+// Returns:
+//   - logfld.Fields: A copy of the default fields, or empty fields if logger is nil
+//
+// Example:
+//
+//	fields := logger.GetFields()
+//	logrusFields := fields.Logrus() // Convert to logrus.Fields format
 func (o *logger) GetFields() logfld.Fields {
 	if o == nil {
 		return logfld.New(context.Background())
@@ -180,6 +249,32 @@ func (o *logger) GetFields() logfld.Fields {
 	return o.f.Clone()
 }
 
+// SetOptions configures or updates the logger's output destinations and formatting.
+// This method can add file logging, syslog, and configure stdout/stderr output.
+//
+// The method starts hooks in background goroutines and waits up to 500ms for them
+// to be ready before returning. This ensures logs written immediately after SetOptions
+// are captured.
+//
+// Parameters:
+//   - opt: Configuration options including stdout, file, and syslog settings
+//
+// Returns:
+//   - error: An error if configuration fails (invalid paths, unreachable syslog, etc.)
+//
+// Example:
+//
+//	err := logger.SetOptions(&logcfg.Options{
+//	    Stdout: &logcfg.OptionsStd{
+//	        EnableTrace: true,
+//	    },
+//	    LogFile: []logcfg.OptionsFile{
+//	        {
+//	            Filepath: "/var/log/app.log",
+//	            Create:   true,
+//	        },
+//	    },
+//	})
 func (o *logger) SetOptions(opt *logcfg.Options) error {
 	var (
 		lvl = o.GetLevel()
@@ -272,6 +367,17 @@ func (o *logger) SetOptions(opt *logcfg.Options) error {
 	return nil
 }
 
+// GetOptions returns the current logger configuration options.
+//
+// Returns:
+//   - *logcfg.Options: The current options, or default empty options if not set
+//
+// Example:
+//
+//	opts := logger.GetOptions()
+//	if opts.Stdout != nil && opts.Stdout.EnableTrace {
+//	    fmt.Println("Stack traces are enabled")
+//	}
 func (o *logger) GetOptions() *logcfg.Options {
 	if o == nil {
 		return &logcfg.Options{}

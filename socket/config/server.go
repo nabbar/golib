@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,58 +27,48 @@
 package config
 
 import (
-	"os"
+	"net"
+	"runtime"
+	"time"
 
+	libtls "github.com/nabbar/golib/certificates"
+	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
-	libsck "github.com/nabbar/golib/socket"
-	scksrv "github.com/nabbar/golib/socket/server"
 )
 
-// ServerConfig defines the configuration for creating a socket server.
+// Server defines the configuration for creating a socket server.
 //
 // This structure provides a declarative way to specify server parameters
-// before instantiation. It's particularly useful when loading configuration from
-// external sources (config files, environment variables, etc.) or when you need
-// to validate settings before starting the server.
+// before instantiation. It's particularly useful when loading configuration
+// from external sources or when you need to validate settings before starting.
 //
-// The configuration supports all server protocols (TCP, UDP, Unix, Unixgram) with
-// protocol-specific settings like file permissions for Unix domain sockets.
+// The server supports all socket types through the NetworkProtocol interface:
+//   - TCP: Connection-oriented network server with multiple concurrent clients
+//   - UDP: Connectionless network server with datagram handling
+//   - Unix: Connection-oriented IPC server via filesystem sockets
+//   - Unixgram: Connectionless IPC server via filesystem sockets
 //
-// Example usage:
+// Example TCP server:
 //
-//	// TCP server configuration
-//	cfg := config.ServerConfig{
+//	cfg := config.Server{
 //	    Network: protocol.NetworkTCP,
 //	    Address: ":8080",
 //	}
-//
-//	handler := func(r socket.Reader, w socket.Writer) {
-//	    defer r.Close()
-//	    defer w.Close()
-//	    io.Copy(w, r) // Echo
-//	}
-//
-//	server, err := cfg.New(nil, handler)
-//	if err != nil {
+//	if err := cfg.Validate(); err != nil {
 //	    log.Fatal(err)
 //	}
-//	defer server.Close()
 //
-//	server.Listen(context.Background())
+// Example Unix socket server with permissions:
 //
-//	// Unix socket server with permissions
-//	cfg := config.ServerConfig{
-//	    Network:   protocol.NetworkUnix,
-//	    Address:   "/tmp/app.sock",
-//	    PermFile:  0600,        // Owner only
-//	    GroupPerm: 1000,        // Specific group
+//	cfg := config.Server{
+//	    Network: protocol.NetworkUnix,
+//	    Address: "/tmp/app.sock",
+//	    PermFile: 0660,
+//	    GroupPerm: 1000,
 //	}
 //
-// The New() method validates the configuration and returns an appropriate
-// server implementation based on the network protocol.
-//
-// See github.com/nabbar/golib/socket/server for more server examples.
-type ServerConfig struct {
+// See github.com/nabbar/golib/socket/server for server implementations.
+type Server struct {
 	// Network specifies the transport protocol for the server.
 	//
 	// Supported values:
@@ -100,7 +90,7 @@ type ServerConfig struct {
 	// Address specifies where the server should listen.
 	//
 	// Format depends on the Network protocol:
-	//   - TCP/UDP: "[host]:port" (e.g., ":8080", "0.0.0.0:8080", "localhost:9000")
+	//   - TCP/UDP: "[host]:port" (e.g., "0:8080", "0.0.0.0:8080", "localhost:9000")
 	//   - Unix/Unixgram: file path (e.g., "/tmp/app.sock", "./socket")
 	//
 	// For network protocols (TCP/UDP):
@@ -140,7 +130,7 @@ type ServerConfig struct {
 	//   PermFile: 0660  // Owner and group members can connect
 	//
 	// See os.FileMode for permission representation.
-	PermFile os.FileMode
+	PermFile libprm.Perm
 
 	// GroupPerm specifies the group ownership for Unix domain socket files.
 	//
@@ -166,81 +156,179 @@ type ServerConfig struct {
 	//
 	// Combined with PermFile 0660, this enables group-based access control.
 	GroupPerm int32
+
+	// ConIdleTimeout specifies the maximum duration a connection can remain idle.
+	//
+	// This field is only used for connection-oriented protocols (TCP, Unix).
+	// It is ignored for connectionless protocols (UDP, Unixgram).
+	//
+	// When set to a positive duration:
+	//   - Connections with no activity for this duration will be closed
+	//   - Helps prevent resource exhaustion from stale connections
+	//   - Each connection has its own independent timeout
+	//
+	// Special values:
+	//   - 0: No timeout, connections remain open indefinitely (default)
+	//   - Negative: Invalid, treated as 0
+	//
+	// Example:
+	//   ConIdleTimeout: 5 * time.Minute  // Close idle connections after 5 minutes
+	//   ConIdleTimeout: 0                // Never timeout
+	//
+	// Note: This timeout is independent of read/write deadlines that may be
+	// set on individual operations.
+	ConIdleTimeout time.Duration
+
+	// TLS provides Transport Layer Security configuration for the server.
+	//
+	// TLS is only supported for TCP-based protocols (NetworkTCP, NetworkTCP4, NetworkTCP6).
+	// Attempting to enable TLS for other protocols will cause Validate() to return ErrInvalidTLSConfig.
+	//
+	// Fields:
+	//   - Enable: Set to true to enable TLS/SSL encryption
+	//   - Config: Certificate configuration from github.com/nabbar/golib/certificates
+	//
+	// Example:
+	//   cfg := config.Server{
+	//       Network: protocol.NetworkTCP,
+	//       Address: ":8443",
+	//       TLS: struct{
+	//           Enable: true,
+	//           Config: tlsConfig,
+	//       },
+	//   }
+	//
+	// When TLS is enabled:
+	//   - Config must provide at least one valid certificate pair
+	//   - All client connections will use TLS encryption
+	//   - Clients must use TLS to connect
+	//
+	// Use DefaultTLS() to set a fallback TLS configuration that will be used
+	// if Config doesn't provide all necessary settings.
+	TLS struct {
+		Enable bool
+		Config libtls.Config
+	}
+
+	// defTls holds the default TLS configuration set via DefaultTLS().
+	// This is merged with TLS.Config when GetTLS() is called.
+	defTls libtls.TLSConfig
 }
 
-// New creates and returns a socket server based on the configuration.
+// Validate checks the server configuration for correctness and compatibility.
 //
-// This method validates the configuration and instantiates the appropriate
-// server implementation based on the Network protocol. The server is ready
-// to accept connections after calling Listen().
+// This method performs several validation checks:
+//   - Verifies that the network protocol is supported
+//   - Validates address format for the specified protocol
+//   - Checks platform compatibility (Unix sockets not supported on Windows)
+//   - Validates group permissions for Unix sockets
+//   - Validates TLS configuration if enabled
 //
-// Parameters:
-//   - updateCon: Optional callback invoked when a new connection is established
-//     (for connection-oriented protocols) or when the socket is created
-//     (for datagram protocols). Can be used to set socket options. Pass nil if not needed.
-//   - handler: Required function that processes each connection (TCP/Unix) or
-//     all datagrams (UDP/Unixgram). Receives Reader and Writer interfaces.
-//     The handler signature is: func(socket.Reader, socket.Writer)
+// Returns an error if:
+//   - The protocol is unsupported (returns ErrInvalidProtocol)
+//   - The address format is invalid for the protocol
+//   - Unix sockets are used on Windows (returns ErrInvalidProtocol)
+//   - GroupPerm exceeds MaxGID (returns ErrInvalidGroup)
+//   - TLS is enabled but improperly configured (returns ErrInvalidTLSConfig)
+//   - TLS is enabled for non-TCP protocols (returns ErrInvalidTLSConfig)
 //
-// Returns:
-//   - libsck.Server: A server implementation matching the configured protocol
-//   - error: Configuration validation errors or instantiation failures
-//
-// Possible errors:
-//   - Invalid or unsupported network protocol
-//   - Empty or malformed address
-//   - Address format mismatch with protocol (e.g., file path for TCP)
-//   - Invalid group permission (>32767) for Unix sockets
-//   - HandlerFunc is nil
-//   - Address already in use (may not be detected until Listen())
-//   - Permission denied for privileged ports (<1024) or file paths
-//
-// For Unix domain sockets:
-//   - The socket file is created when Listen() is called
-//   - PermFile and GroupPerm are applied to the socket file
-//   - The file is automatically removed on shutdown
-//
-// The returned server must be explicitly started using Listen().
-// Always call Close() or Shutdown() when done to release resources.
+// TLS-specific validation ensures:
+//   - Config.New() returns a valid TLS configuration
+//   - Config.LenCertificatePair() returns at least 1 certificate pair
 //
 // Example:
 //
-//	// TCP server
-//	cfg := ServerConfig{
-//	    Network: protocol.NetworkTCP,
-//	    Address: ":8080",
+//	cfg := config.Server{Network: protocol.NetworkTCP, Address: ":8080"}
+//	if err := cfg.Validate(); err != nil {
+//	    log.Fatal("Invalid configuration:", err)
+//	}
+func (o *Server) Validate() error {
+	switch o.Network {
+	case libptc.NetworkUnix:
+		if runtime.GOOS == "windows" {
+			return ErrInvalidProtocol
+		} else if o.GroupPerm > MaxGID {
+			return ErrInvalidGroup
+		}
+	case libptc.NetworkUnixGram:
+		if runtime.GOOS == "windows" {
+			return ErrInvalidProtocol
+		} else if o.GroupPerm > MaxGID {
+			return ErrInvalidGroup
+		}
+	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
+		if _, err := net.ResolveTCPAddr(libptc.NetworkTCP.Code(), o.Address); err != nil {
+			return err
+		}
+	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
+		if _, err := net.ResolveUDPAddr(libptc.NetworkUDP.Code(), o.Address); err != nil {
+			return err
+		}
+	default:
+		return ErrInvalidProtocol
+	}
+
+	if !o.TLS.Enable {
+		return nil
+	}
+
+	switch o.Network {
+	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
+		c := o.TLS.Config.New()
+		if c.LenCertificatePair() < 1 {
+			return ErrInvalidTLSConfig
+		} else {
+			return nil
+		}
+	default:
+		return ErrInvalidTLSConfig
+	}
+}
+
+// DefaultTLS sets a default TLS configuration that will be merged with TLS.Config.
+//
+// This method is useful when you want to provide fallback or base TLS settings
+// that will be combined with the specific configuration in TLS.Config.
+//
+// The provided configuration will be stored and used by GetTLS() to create
+// the final TLS configuration via Config.NewFrom().
+//
+// Parameters:
+//   - t: Base TLS configuration from github.com/nabbar/golib/certificates
+//
+// Example:
+//
+//	srv := &config.Server{...}
+//	srv.DefaultTLS(baseTLSConfig)
+//	// Later, GetTLS() will merge TLS.Config with baseTLSConfig
+//
+// See GetTLS() for how this default is applied.
+func (o *Server) DefaultTLS(t libtls.TLSConfig) {
+	o.defTls = t
+}
+
+// GetTLS returns the TLS configuration with defaults applied.
+//
+// This method checks if TLS is enabled and returns the merged TLS configuration
+// by combining TLS.Config with the default set via DefaultTLS().
+//
+// Returns:
+//   - bool: true if TLS is enabled, false otherwise
+//   - TLSConfig: The merged TLS configuration, or nil if TLS is disabled
+//
+// The returned configuration is created via Config.NewFrom(defTls), which
+// merges the specific TLS.Config settings with the default configuration.
+//
+// Example:
+//
+//	if enabled, tlsConfig := srv.GetTLS(); enabled {
+//	    // Use tlsConfig for TLS connections
 //	}
 //
-//	handler := func(r socket.Reader, w socket.Writer) {
-//	    defer r.Close()
-//	    defer w.Close()
-//	    // Handle connection...
-//	}
-//
-//	server, err := cfg.New(nil, handler)
-//	if err != nil {
-//	    return fmt.Errorf("create server: %w", err)
-//	}
-//	defer server.Close()
-//
-//	if err := server.Listen(context.Background()); err != nil {
-//	    return fmt.Errorf("listen: %w", err)
-//	}
-//
-//	// Unix socket with permissions
-//	cfg := ServerConfig{
-//	    Network:   protocol.NetworkUnix,
-//	    Address:   "/tmp/app.sock",
-//	    PermFile:  0600,
-//	    GroupPerm: -1,
-//	}
-//
-//	server, err := cfg.New(nil, handler)
-//	// Socket file created on Listen() with specified permissions
-//
-// See github.com/nabbar/golib/socket/server for server usage examples.
-// See github.com/nabbar/golib/socket.Server for the server interface.
-// See github.com/nabbar/golib/socket.HandlerFunc for handler signature.
-func (o ServerConfig) New(updateCon libsck.UpdateConn, handler libsck.HandlerFunc) (libsck.Server, error) {
-	return scksrv.New(updateCon, handler, o.Network, o.Address, o.PermFile, o.GroupPerm)
+// See DefaultTLS() for setting the default configuration.
+func (o *Server) GetTLS() (bool, libtls.TLSConfig) {
+	if !o.TLS.Enable {
+		return false, nil
+	}
+	return true, o.TLS.Config.NewFrom(o.defTls)
 }

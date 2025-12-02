@@ -3,7 +3,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -59,11 +59,10 @@
 package server
 
 import (
-	"fmt"
-	"os"
-
 	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
+	sckcfg "github.com/nabbar/golib/socket/config"
 	scksrt "github.com/nabbar/golib/socket/server/tcp"
 	scksru "github.com/nabbar/golib/socket/server/udp"
 )
@@ -112,17 +111,23 @@ import (
 //
 //	// UNIX sockets are not available on this platform
 //	_, err = New(nil, handler, protocol.NetworkUnix, "/tmp/app.sock", 0600, -1) // Returns error
-func New(upd libsck.UpdateConn, handler libsck.HandlerFunc, proto libptc.NetworkProtocol, address string, perm os.FileMode, gid int32) (libsck.Server, error) {
-	switch proto {
-	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
-		s := scksrt.New(upd, handler)
-		e := s.RegisterServer(address)
-		return s, e
-	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
-		s := scksru.New(upd, handler)
-		e := s.RegisterServer(address)
-		return s, e
+func New(upd libsck.UpdateConn, handler libsck.HandlerFunc, cfg sckcfg.Server) (libsck.Server, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server", r)
+		}
+	}()
+
+	if err := cfg.Validate(); err != nil {
+		return nil, err
 	}
 
-	return nil, fmt.Errorf("invalid server protocol")
+	switch cfg.Network {
+	case libptc.NetworkTCP, libptc.NetworkTCP4, libptc.NetworkTCP6:
+		return scksrt.New(upd, handler, cfg)
+	case libptc.NetworkUDP, libptc.NetworkUDP4, libptc.NetworkUDP6:
+		return scksru.New(upd, handler, cfg)
+	default:
+		return nil, sckcfg.ErrInvalidProtocol
+	}
 }

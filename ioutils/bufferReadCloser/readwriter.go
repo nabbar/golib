@@ -67,9 +67,9 @@ func (b *rwt) WriteString(s string) (n int, err error) {
 // Close flushes any buffered write data and calls the custom close function if provided.
 // Note: Reset is not called because bufio.ReadWriter has ambiguous Reset methods
 // (both Reader and Writer have Reset, which one would be called?).
-// Returns any error from the custom close function.
+// Returns any error from flush or the custom close function.
 func (b *rwt) Close() error {
-	_ = b.b.Flush()
+	e := b.b.Flush()
 
 	// Cannot call Reset => ambiguous method (Reader.Reset or Writer.Reset?)
 	// b.b.Reset(nil)
@@ -78,5 +78,5 @@ func (b *rwt) Close() error {
 		return b.f()
 	}
 
-	return nil
+	return e
 }

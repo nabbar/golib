@@ -24,6 +24,16 @@
  *
  */
 
+// This file tests custom function registration and execution.
+//
+// Test Strategy:
+// - Verify custom functions are called when set via SetRead, SetWrite, SetSeek, SetClose
+// - Test that custom functions can transform data (uppercase, ROT13, etc.)
+// - Ensure custom functions can override default behavior completely
+// - Validate that passing nil to Set* methods resets to default behavior
+// - Test multiple custom functions can be set and replaced dynamically
+//
+// Coverage: 24 specs testing the core customization features of the wrapper.
 package iowrapper_test
 
 import (

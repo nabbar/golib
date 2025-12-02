@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,6 @@
 package nopwritecloser_test
 
 import (
-	"bytes"
 	"sync"
 	"sync/atomic"
 
@@ -36,30 +35,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-// safeBuffer wraps bytes.Buffer with a mutex for thread-safe operations
-type safeBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (s *safeBuffer) Write(p []byte) (n int, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.Write(p)
-}
-
-func (s *safeBuffer) Len() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.Len()
-}
-
-func (s *safeBuffer) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.String()
-}
 
 var _ = Describe("NopWriteCloser - Concurrency", func() {
 	Context("Concurrent writes", func() {

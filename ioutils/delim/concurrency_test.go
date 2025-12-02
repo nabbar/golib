@@ -40,6 +40,22 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// This test file validates concurrency safety and race conditions.
+// IMPORTANT: These tests are designed to be run with the race detector:
+//   CGO_ENABLED=1 go test -race
+//
+// The tests cover:
+//   - Sequential access patterns (baseline for single goroutine)
+//   - Multiple readers on separate BufferDelim instances (safe pattern)
+//   - Synchronized access patterns with explicit locking
+//   - Pipeline patterns with goroutine coordination
+//   - Resource cleanup and proper Close() handling
+//
+// Note: BufferDelim is NOT safe for concurrent access by multiple
+// goroutines on the same instance. Each instance should be used by
+// a single goroutine. These tests validate this design and demonstrate
+// safe concurrent patterns using separate instances.
+
 var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 	Describe("Sequential access patterns", func() {
 		Context("with single goroutine", func() {

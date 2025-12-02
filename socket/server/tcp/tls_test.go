@@ -24,16 +24,19 @@
  *
  */
 
+// tls_test.go validates TLS/SSL functionality of the TCP server.
+// Tests include TLS handshake, encrypted communication, certificate validation,
+// TLS configuration management, and secure connection lifecycle.
 package tcp_test
 
 import (
 	"context"
 	"crypto/tls"
-	"net"
 	"time"
 
 	libtls "github.com/nabbar/golib/certificates"
-	libsck "github.com/nabbar/golib/socket"
+	libptc "github.com/nabbar/golib/network/protocol"
+	scksrt "github.com/nabbar/golib/socket/server/tcp"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,268 +44,131 @@ import (
 
 var _ = Describe("TCP Server TLS", func() {
 	var (
-		ctx       context.Context
-		cancel    context.CancelFunc
-		srv       libsck.Server
-		address   string
-		tlsConfig libtls.TLSConfig
+		srv scksrt.ServerTcp
+		adr string
+		ctx context.Context
+		cnl context.CancelFunc
 	)
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithTimeout(x, 60*time.Second)
-		address = getTestAddress()
-		srv = createAndRegisterServer(address, echoHandler, nil)
-		tlsConfig = createTLSConfig()
+		adr = getTestAddr()
+		ctx, cnl = context.WithCancel(globalCtx)
 	})
 
 	AfterEach(func() {
-		if srv != nil && srv.IsRunning() {
-			_ = srv.Shutdown(ctx)
+		if srv != nil {
+			_ = srv.Close()
 		}
-		if cancel != nil {
-			cancel()
+		if cnl != nil {
+			cnl()
 		}
+		time.Sleep(100 * time.Millisecond)
 	})
 
-	Describe("SetTLS", func() {
-		Context("enabling TLS", func() {
-			It("should enable TLS with valid config", func() {
-				err := srv.SetTLS(true, tlsConfig)
-				Expect(err).ToNot(HaveOccurred())
-			})
+	Context("TLS configuration", func() {
+		It("should create server with TLS enabled", func() {
+			cfg := createTLSConfig(adr)
+			var err error
+			srv, err = scksrt.New(nil, echoHandler, cfg)
 
-			It("should fail with nil config", func() {
-				err := srv.SetTLS(true, nil)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("invalid tls config"))
-			})
-
-			It("should fail with empty certificates", func() {
-				emptyConfig := libtls.New()
-				// Don't add any certificates
-				err := srv.SetTLS(true, emptyConfig)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("missing certificates"))
-			})
-
-			It("should accept TLS config before starting server", func() {
-				err := srv.SetTLS(true, tlsConfig)
-				Expect(err).ToNot(HaveOccurred())
-
-				startServer(ctx, srv)
-				waitForServerRunning(srv, 2*time.Second)
-			})
-
-			It("should not accept plain TCP connections when TLS is enabled", func() {
-				err := srv.SetTLS(true, tlsConfig)
-				Expect(err).ToNot(HaveOccurred())
-
-				startServer(ctx, srv)
-				waitForServerRunning(srv, 2*time.Second)
-
-				// Try plain connection (should fail or hang)
-				conn, err := connectClientWithTimeout(address, 1*time.Second)
-				defer func() {
-					_ = conn.Close()
-				}()
-
-				if err == nil {
-					// Try to send data - should fail
-					_, writeErr := conn.Write([]byte("test\n"))
-					// Either write fails or we timeout reading
-					if writeErr == nil {
-						buf := make([]byte, 100)
-						_ = conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-						_, readErr := conn.Read(buf)
-						Expect(readErr).To(HaveOccurred())
-					}
-				}
-			})
-		})
-
-		Context("disabling TLS", func() {
-			It("should disable TLS", func() {
-				// First enable
-				err := srv.SetTLS(true, tlsConfig)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Then disable
-				err = srv.SetTLS(false, nil)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("should accept plain connections when TLS is disabled", func() {
-				err := srv.SetTLS(false, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				startServer(ctx, srv)
-				waitForServerRunning(srv, 2*time.Second)
-
-				conn := connectClient(address)
-				defer func() {
-					_ = conn.Close()
-				}()
-
-				waitForConnections(srv, 1, 2*time.Second)
-			})
-		})
-	})
-
-	Describe("TLS Connections", func() {
-		BeforeEach(func() {
-			err := srv.SetTLS(true, tlsConfig)
 			Expect(err).ToNot(HaveOccurred())
-			startServer(ctx, srv)
-			waitForServerRunning(srv, 5*time.Second)
+			Expect(srv).ToNot(BeNil())
 		})
 
-		It("should accept TLS client connections", func() {
-			clientConfig := &tls.Config{
-				InsecureSkipVerify: true, // For testing with self-signed cert
-			}
+		It("should start TLS server successfully", func() {
+			cfg := createTLSConfig(adr)
+			var err error
+			srv, err = scksrt.New(nil, echoHandler, cfg)
+			Expect(err).ToNot(HaveOccurred())
 
-			conn := connectTLSClient(address, clientConfig)
-			defer func() {
-				_ = conn.Close()
-			}()
+			startServerInBackground(ctx, srv)
+			waitForServer(srv, 2*time.Second)
 
-			waitForConnections(srv, 1, 2*time.Second)
+			Expect(srv.IsRunning()).To(BeTrue())
 		})
 
-		It("should echo data over TLS", func() {
-			clientConfig := &tls.Config{
-				InsecureSkipVerify: true,
+		It("should accept TLS connections", func() {
+			cfg := createTLSConfig(adr)
+			var err error
+			srv, err = scksrt.New(nil, echoHandler, cfg)
+			Expect(err).ToNot(HaveOccurred())
+
+			startServerInBackground(ctx, srv)
+			waitForServerAcceptingConnections(adr, 2*time.Second)
+
+			// Create TLS client config with InsecureSkipVerify for testing
+			tlsCfg := &tls.Config{
+				InsecureSkipVerify: true, // #nosec nolint
 			}
 
-			conn := connectTLSClient(address, clientConfig)
-			defer func() {
-				_ = conn.Close()
-			}()
+			// Connect with TLS
+			con, err := tls.Dial(libptc.NetworkTCP.Code(), adr, tlsCfg)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = con.Close() }()
 
-			waitForConnections(srv, 1, 2*time.Second)
-
-			msg := []byte("Secure Hello\n")
-			n := sendMessage(conn, msg)
-			Expect(n).To(Equal(len(msg)))
-
-			response := receiveMessage(conn, 1024)
-			Expect(response).To(Equal(msg))
+			Expect(con).ToNot(BeNil())
+			Eventually(func() int64 {
+				return srv.OpenConnections()
+			}, 2*time.Second, 10*time.Millisecond).Should(Equal(int64(1)))
 		})
 
-		It("should handle multiple TLS connections", func() {
-			clientConfig := &tls.Config{
-				InsecureSkipVerify: true,
+		It("should echo messages over TLS", func() {
+			cfg := createTLSConfig(adr)
+			var err error
+			srv, err = scksrt.New(nil, echoHandler, cfg)
+			Expect(err).ToNot(HaveOccurred())
+
+			startServerInBackground(ctx, srv)
+			waitForServerAcceptingConnections(adr, 2*time.Second)
+
+			// Create TLS client config with InsecureSkipVerify for testing
+			tlsCfg := &tls.Config{
+				InsecureSkipVerify: true, // #nosec nolint
 			}
 
-			conn1 := connectTLSClient(address, clientConfig)
-			defer func() {
-				_ = conn1.Close()
-			}()
+			// Connect with TLS
+			con, err := tls.Dial(libptc.NetworkTCP.Code(), adr, tlsCfg)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() { _ = con.Close() }()
 
-			conn2 := connectTLSClient(address, clientConfig)
-			defer func() {
-				_ = conn2.Close()
-			}()
-
-			conn3 := connectTLSClient(address, clientConfig)
-			defer func() {
-				_ = conn3.Close()
-			}()
-
-			waitForConnections(srv, 3, 2*time.Second)
+			msg := []byte("TLS test message")
+			rsp := sendAndReceive(con, msg)
+			Expect(rsp).To(Equal(msg))
 		})
 
-		It("should handle TLS handshake errors gracefully", func() {
-			// Try to connect with wrong TLS version
-			clientConfig := &tls.Config{
-				InsecureSkipVerify: true,
-				MaxVersion:         tls.VersionTLS10, // Server requires TLS 1.2+
-			}
+		It("should disable TLS when SetTLS(false) is called", func() {
+			cfg := createDefaultConfig(adr)
+			var err error
+			srv, err = scksrt.New(nil, echoHandler, cfg)
+			Expect(err).ToNot(HaveOccurred())
 
-			// Connection may be established but handshake should fail
-			_, err := tls.Dial("tcp", address, clientConfig)
+			err = srv.SetTLS(false, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			startServerInBackground(ctx, srv)
+			waitForServerAcceptingConnections(adr, 2*time.Second)
+
+			// Should accept plain TCP connections
+			con := connectToServer(adr)
+			defer func() { _ = con.Close() }()
+
+			msg := []byte("plain TCP message")
+			rsp := sendAndReceive(con, msg)
+			Expect(rsp).To(Equal(msg))
+		})
+	})
+
+	Context("TLS errors", func() {
+		It("should reject invalid TLS config with no certificates", func() {
+			cfg := createDefaultConfig(adr)
+			var err error
+			srv, err = scksrt.New(nil, echoHandler, cfg)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Try to enable TLS with invalid config
+			invalidTLS := libtls.New()
+			err = srv.SetTLS(true, invalidTLS)
 			Expect(err).To(HaveOccurred())
-
-			// Server should still be running
-			Expect(srv.IsRunning()).To(BeTrue())
-		})
-
-		It("should verify TLS connection state", func() {
-			clientConfig := &tls.Config{
-				InsecureSkipVerify: true,
-			}
-
-			tlsConn, err := tls.Dial("tcp", address, clientConfig)
-			defer func() {
-				_ = tlsConn.Close()
-			}()
-
-			Expect(err).ToNot(HaveOccurred())
-
-			// Verify connection state
-			state := tlsConn.ConnectionState()
-			Expect(state.HandshakeComplete).To(BeTrue())
-			Expect(state.Version).To(BeNumerically(">=", uint16(tls.VersionTLS12)))
-		})
-	})
-
-	Describe("TLS Configuration Edge Cases", func() {
-		It("should handle SetTLS called multiple times", func() {
-			err := srv.SetTLS(true, tlsConfig)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = srv.SetTLS(true, tlsConfig)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = srv.SetTLS(false, nil)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("should not allow changing TLS config while running", func() {
-			err := srv.SetTLS(true, tlsConfig)
-			Expect(err).ToNot(HaveOccurred())
-
-			startServer(ctx, srv)
-			waitForServerRunning(srv, 2*time.Second)
-
-			// Changing TLS while running is allowed but won't affect existing listener
-			err = srv.SetTLS(false, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Server should still be running
-			Expect(srv.IsRunning()).To(BeTrue())
-		})
-	})
-
-	Describe("TLS Certificate Validation", func() {
-		It("should work with valid self-signed certificate", func() {
-			cert, err := generateSelfSignedCert()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(cert.Certificate).ToNot(BeEmpty())
-		})
-
-		It("should properly configure server with certificate", func() {
-			err := srv.SetTLS(true, tlsConfig)
-			Expect(err).ToNot(HaveOccurred())
-
-			startServer(ctx, srv)
-			waitForServerRunning(srv, 2*time.Second)
-
-			// Should be able to connect
-			clientConfig := &tls.Config{
-				InsecureSkipVerify: true,
-			}
-			conn := connectTLSClient(address, clientConfig)
-			defer func() {
-				_ = conn.Close()
-			}()
-
-			waitForConnections(srv, 1, 2*time.Second)
 		})
 	})
 })
-
-// Helper function to connect with timeout
-func connectClientWithTimeout(address string, timeout time.Duration) (net.Conn, error) {
-	return net.DialTimeout("tcp", address, timeout)
-}

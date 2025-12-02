@@ -44,26 +44,30 @@ import "fmt"
 var (
 	// ErrInvalidAddress is returned when the server address is empty or malformed.
 	// The address must be in the format "host:port" or ":port" for all interfaces.
+	//
+	// Example of valid addresses:
+	//   - "localhost:8080" - Listen on localhost port 8080
+	//   - ":8080" - Listen on all interfaces port 8080
+	//   - "0.0.0.0:8080" - Explicitly listen on all IPv4 interfaces
 	ErrInvalidAddress = fmt.Errorf("invalid listen address")
 
-	// ErrContextClosed is returned when an operation is cancelled due to context cancellation.
-	ErrContextClosed = fmt.Errorf("context closed")
-
-	// ErrServerClosed is returned when attempting to perform operations on a closed server.
-	ErrServerClosed = fmt.Errorf("server closed")
-
 	// ErrInvalidHandler is returned when attempting to start a server without a valid handler function.
-	// A handler must be provided via the New() constructor.
+	// A handler must be provided via the New() constructor and must not be nil.
+	//
+	// Example of valid usage:
+	//   handler := func(r socket.Reader, w socket.Writer) { /* ... */ }
+	//   srv, err := tcp.New(nil, handler, config)
 	ErrInvalidHandler = fmt.Errorf("invalid handler")
 
 	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
-	// This typically happens when StopListen() takes longer than expected.
+	// This typically happens when StopListen() takes longer than expected to complete.
+	// The server will attempt to close all active connections before returning this error.
+	//
+	// To handle this error, you may want to implement a fallback strategy or log the event.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
 
-	// ErrGoneTimeout is returned when connection draining exceeds the context timeout.
-	// This occurs during StopGone() when waiting for all connections to close.
-	ErrGoneTimeout = fmt.Errorf("timeout on closing connections")
-
 	// ErrInvalidInstance is returned when operating on a nil server instance.
+	// This typically occurs if the server was not properly initialized or has been set to nil.
+	// Always check for this error when working with server instances that might be nil.
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

@@ -38,7 +38,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// ReadWriter tests verify the bufio.ReadWriter wrapper with io.Closer support.
+// Tests cover creation, bidirectional I/O, flush on close (no reset due to
+// ambiguous methods), custom close functions, and nil parameter handling.
 var _ = Describe("ReadWriter", func() {
+	// Creation tests verify readwriter instantiation and nil handling.
 	Context("Creation", func() {
 		It("should create readwriter from bufio.ReadWriter", func() {
 			buf := &bytes.Buffer{}
@@ -63,8 +67,29 @@ var _ = Describe("ReadWriter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(closed).To(BeTrue())
 		})
+
+		It("should create readwriter with defaults when readwriter is nil", func() {
+			rw := NewReadWriter(nil, nil)
+			Expect(rw).ToNot(BeNil())
+
+			// Should be able to write (to io.Discard)
+			n, err := rw.WriteString("test")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(4))
+
+			// Should return EOF on read (empty source)
+			data := make([]byte, 10)
+			n, err = rw.Read(data)
+			Expect(err).To(HaveOccurred()) // EOF
+			Expect(n).To(Equal(0))
+
+			// Close should work
+			err = rw.Close()
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 
+	// Read operations tests verify read delegation in bidirectional context.
 	Context("Read operations", func() {
 		It("should read data", func() {
 			buf := bytes.NewBufferString("hello world")
@@ -104,6 +129,7 @@ var _ = Describe("ReadWriter", func() {
 		})
 	})
 
+	// Write operations tests verify write delegation and buffering.
 	Context("Write operations", func() {
 		It("should write data", func() {
 			buf := &bytes.Buffer{}
@@ -176,6 +202,7 @@ var _ = Describe("ReadWriter", func() {
 		})
 	})
 
+	// Close operations tests verify flush (no reset) and custom function execution.
 	Context("Close operations", func() {
 		It("should flush and close readwriter", func() {
 			buf := &bytes.Buffer{}
@@ -232,6 +259,7 @@ var _ = Describe("ReadWriter", func() {
 		})
 	})
 
+	// Edge cases tests verify combined read/write and error handling.
 	Context("Edge cases", func() {
 		It("should handle empty buffer", func() {
 			buf := &bytes.Buffer{}

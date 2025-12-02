@@ -59,7 +59,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.IsRunning()).To(BeFalse())
@@ -81,7 +81,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Start multiple times
@@ -112,7 +112,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -139,7 +139,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -172,7 +172,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -219,7 +219,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -244,7 +244,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -268,7 +268,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.IsRunning()).To(BeFalse())
@@ -285,7 +285,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -317,7 +317,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -348,7 +348,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -388,7 +388,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.IsRunning()).To(BeFalse())
@@ -410,7 +410,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -441,7 +441,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.IsRunning()).To(BeFalse())
@@ -456,7 +456,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -476,7 +476,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -502,7 +502,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.Uptime()).To(Equal(time.Duration(0)))
@@ -517,7 +517,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -541,7 +541,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)

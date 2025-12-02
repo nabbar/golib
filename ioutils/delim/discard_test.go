@@ -35,6 +35,22 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// This test file validates the DiscardCloser implementation.
+// DiscardCloser is a no-op io.ReadWriteCloser used for:
+//   - Testing scenarios requiring a valid reader/writer that does nothing
+//   - Placeholder implementations where data should be discarded
+//   - Benchmarking to isolate I/O operations
+//
+// Tests cover:
+//   - Read operations (always returns 0 without error)
+//   - Write operations (accepts all data, returns success)
+//   - Close operations (no-op, always succeeds)
+//   - Interface compliance (io.ReadWriteCloser)
+//   - Concurrent access patterns
+//   - Integration with BufferDelim and io.Copy
+//
+// DiscardCloser is similar to io.Discard but also implements Reader and Closer.
+
 var _ = Describe("DiscardCloser", func() {
 	var dc iotdlm.DiscardCloser
 

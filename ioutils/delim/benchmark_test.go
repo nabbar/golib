@@ -38,6 +38,23 @@ import (
 	"github.com/onsi/gomega/gmeasure"
 )
 
+// This test file provides performance benchmarks using gmeasure.
+// It measures:
+//   - Read performance with various data sizes (small, medium, large)
+//   - ReadBytes performance across different scenarios
+//   - WriteTo performance for data copying
+//   - Constructor overhead with different buffer configurations
+//   - UnRead operation performance
+//   - Memory allocation patterns
+//   - Real-world scenarios (CSV parsing, log processing, variable streams)
+//
+// Benchmarks use gmeasure.Experiment for statistical analysis including:
+//   - Minimum, median, mean, max, and standard deviation
+//   - Multiple sample iterations for reliability
+//   - Performance reports integrated with test output
+//
+// Run with: go test -v to see performance reports.
+
 var _ = Describe("BufferDelim Benchmarks", func() {
 	Describe("Read performance", func() {
 		It("should efficiently read small chunks", func() {

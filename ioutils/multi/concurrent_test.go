@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -38,6 +38,10 @@ import (
 	"github.com/nabbar/golib/ioutils/multi"
 )
 
+// Tests for Multi concurrent operations and thread safety.
+// These tests verify that all operations (Read, Write, AddWriter, SetInput,
+// Clean) are safe for concurrent use and do not cause data races or panics.
+// Uses the --race flag to detect race conditions.
 var _ = Describe("Multi Concurrent Operations", func() {
 	var m multi.Multi
 
@@ -340,27 +344,3 @@ var _ = Describe("Multi Concurrent Operations", func() {
 		})
 	})
 })
-
-// safeBuffer is a thread-safe bytes.Buffer for testing
-type safeBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (s *safeBuffer) Write(p []byte) (n int, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.Write(p)
-}
-
-func (s *safeBuffer) Len() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.Len()
-}
-
-func (s *safeBuffer) String() string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.buf.String()
-}

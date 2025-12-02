@@ -37,6 +37,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// This test file validates all read operations of BufferDelim.
+// It covers:
+//   - Read() method with various delimiters and data patterns
+//   - ReadBytes() for reading complete delimited chunks
+//   - UnRead() for peeking at buffered data
+//   - Behavior with different buffer sizes
+//   - EOF handling and edge cases
+//   - Multiple sequential reads
+//   - Delimiter preservation in returned data
+//
+// These tests ensure robust read functionality across all use cases.
+
 var _ = Describe("BufferDelim Read Operations", func() {
 	Describe("Read method", func() {
 		Context("with newline delimiter", func() {

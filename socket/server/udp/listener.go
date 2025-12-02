@@ -30,8 +30,10 @@ import (
 	"context"
 	"net"
 	"sync/atomic"
+	"time"
 
 	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -39,13 +41,11 @@ import (
 // Returns an empty string if no address has been set via RegisterServer().
 // This is an internal helper used by Listen().
 func (o *srv) getAddress() string {
-	f := o.ad.Load()
-
-	if f != nil {
-		return f.(string)
+	if s := o.ad.Load(); len(s) > 0 {
+		return s
+	} else {
+		return ""
 	}
-
-	return ""
 }
 
 // getListen creates and binds a UDP listener socket on the specified address.
@@ -62,7 +62,7 @@ func (o *srv) getAddress() string {
 //   - error: Any error during resolution or socket creation
 //
 // This is an internal helper called by Listen().
-func (o *srv) getListen(addr string) (*net.UDPAddr, *net.UDPConn, error) {
+func (o *srv) getListen(addr string) (*net.UDPConn, error) {
 	var (
 		adr *net.UDPAddr
 		lis *net.UDPConn
@@ -70,17 +70,17 @@ func (o *srv) getListen(addr string) (*net.UDPAddr, *net.UDPConn, error) {
 	)
 
 	if adr, err = net.ResolveUDPAddr(libptc.NetworkUDP.Code(), addr); err != nil {
-		return nil, nil, err
+		return nil, err
 	} else if lis, err = net.ListenUDP(libptc.NetworkUDP.Code(), adr); err != nil {
 		if lis != nil {
 			_ = lis.Close()
 		}
-		return nil, nil, err
+		return nil, err
 	} else {
 		o.fctInfoSrv("starting listening socket '%s %s'", libptc.NetworkUDP.String(), addr)
 	}
 
-	return adr, lis, nil
+	return lis, nil
 }
 
 // Listen starts the UDP server and begins accepting datagrams.
@@ -126,19 +126,38 @@ func (o *srv) getListen(addr string) (*net.UDPAddr, *net.UDPConn, error) {
 //
 // See github.com/nabbar/golib/socket.HandlerFunc for handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
-	var (
-		e error
-		s = new(atomic.Bool)
-		a = o.getAddress()
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/udp/listen", r)
+		}
+	}()
 
-		loc *net.UDPAddr
-		con *net.UDPConn
+	var (
+		e   error            // error
+		a   = o.getAddress() // address
+		sx  *sCtx            // socket context
+		con *net.UDPConn     // udp con listener
 		cnl context.CancelFunc
-		cor libsck.Reader
-		cow libsck.Writer
 	)
 
-	s.Store(false)
+	ctx, cnl = context.WithCancel(ctx)
+
+	defer func() {
+		if cnl != nil {
+			cnl()
+		}
+
+		if sx != nil {
+			_ = sx.Close()
+		}
+
+		if con != nil {
+			_ = con.Close()
+		}
+
+		o.run.Store(false)
+		o.gon.Store(true)
+	}()
 
 	if len(a) == 0 {
 		o.fctError(ErrInvalidInstance)
@@ -146,174 +165,72 @@ func (o *srv) Listen(ctx context.Context) error {
 	} else if o.hdl == nil {
 		o.fctError(ErrInvalidInstance)
 		return ErrInvalidHandler
-	} else if loc, con, e = o.getListen(a); e != nil {
+	} else if con, e = o.getListen(a); e != nil {
 		o.fctError(e)
 		return e
-	}
-
-	if o.upd != nil {
+	} else if o.upd != nil {
 		o.upd(con)
 	}
 
-	ctx, cnl = context.WithCancel(ctx)
-	cor, cow = o.getReadWriter(ctx, con, loc)
+	sx = &sCtx{
+		loc: "",
+		ctx: ctx,
+		cnl: cnl,
+		con: con,
+		clo: new(atomic.Bool),
+	}
 
-	o.stp.Store(make(chan struct{}))
+	if l := con.LocalAddr(); l == nil {
+		sx.loc = ""
+	} else {
+		sx.loc = l.String()
+	}
+
+	o.gon.Store(false)
 	o.run.Store(true)
+	time.Sleep(time.Millisecond)
 
-	defer func() {
-		// cancel context for connection
-		cnl()
-
-		// send info about connection closing
-		o.fctInfo(loc, &net.UDPAddr{}, libsck.ConnectionClose)
-		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUDP.String(), a)
-
-		// close connection
-		_ = con.Close()
-
-		o.run.Store(false)
+	// Create Channel to check server is Going to shutdown
+	cG := make(chan bool, 1)
+	go func() {
+		tc := time.NewTicker(time.Millisecond)
+		for {
+			<-tc.C
+			if o.IsGone() {
+				cG <- true
+				return
+			}
+		}
 	}()
 
 	// get handler or exit if nil
-	go o.hdl(cor, cow)
+	go func(conn net.Conn) {
+		defer func() {
+			if r := recover(); r != nil {
+				librun.RecoveryCaller("golib/socket/server/udp/handler", r)
+			}
+		}()
+
+		lc := conn.LocalAddr()
+		rc := &net.UDPAddr{}
+
+		if lc == nil {
+			lc = &net.UDPAddr{}
+		}
+
+		defer o.fctInfo(lc, rc, libsck.ConnectionClose)
+		o.fctInfo(lc, rc, libsck.ConnectionNew)
+
+		time.Sleep(time.Millisecond)
+		o.hdl(sx)
+	}(con)
 
 	for {
 		select {
 		case <-ctx.Done():
-			return ErrContextClosed
-		case <-o.Done():
+			return ctx.Err()
+		case <-cG:
 			return nil
 		}
 	}
-}
-
-// getReadWriter creates Reader and Writer wrappers for the UDP connection.
-// These wrappers provide a higher-level interface to the handler while managing
-// UDP-specific behavior.
-//
-// Parameters:
-//   - ctx: Context for lifecycle management
-//   - con: The UDP connection to wrap
-//   - loc: Local address (used for info callbacks)
-//
-// Reader behavior:
-//   - Read() calls con.ReadFrom() to receive datagrams
-//   - Stores the sender's address atomically for response routing
-//   - Invokes ConnectionRead info callback
-//   - Checks context cancellation before each read
-//
-// Writer behavior:
-//   - Write() calls con.WriteTo() with the last sender's address
-//   - Falls back to con.Write() if no sender address is available
-//   - Invokes ConnectionWrite info callback
-//   - Checks context cancellation before each write
-//
-// Both Reader and Writer:
-//   - Implement Close() to shut down the UDP connection
-//   - Implement IsAlive() to check connection and context health
-//   - Implement Done() returning the context's Done channel
-//
-// The remote address tracking allows responses to be sent back to the
-// originating sender for each datagram, simulating request-response patterns
-// over UDP's connectionless protocol.
-//
-// This is an internal helper called by Listen().
-//
-// See github.com/nabbar/golib/socket.NewReader and NewWriter for the
-// wrapper constructors.
-func (o *srv) getReadWriter(ctx context.Context, con *net.UDPConn, loc net.Addr) (libsck.Reader, libsck.Writer) {
-	var (
-		re = &net.UDPAddr{}
-		ra = new(atomic.Value)
-		fg = func() net.Addr {
-			if i := ra.Load(); i != nil {
-				if v, k := i.(net.Addr); k {
-					return v
-				}
-			}
-			return &net.UDPAddr{}
-		}
-	)
-	ra.Store(re)
-
-	fctClose := func() error {
-		o.fctInfo(loc, fg(), libsck.ConnectionClose)
-		return libsck.ErrorFilter(con.Close())
-	}
-
-	rdr := libsck.NewReader(
-		func(p []byte) (n int, err error) {
-			if ctx.Err() != nil {
-				_ = fctClose()
-				return 0, ctx.Err()
-			}
-
-			var a net.Addr
-			n, a, err = con.ReadFrom(p)
-
-			if a != nil {
-				ra.Store(a)
-			} else {
-				ra.Store(re)
-			}
-
-			o.fctInfo(loc, fg(), libsck.ConnectionRead)
-			return n, err
-		},
-		fctClose,
-		func() bool {
-			if ctx.Err() != nil {
-				_ = fctClose()
-				return false
-			}
-			_, e := con.Read(nil)
-
-			if e != nil {
-				_ = fctClose()
-			}
-
-			return true
-		},
-		func() <-chan struct{} {
-			return ctx.Done()
-		},
-	)
-
-	wrt := libsck.NewWriter(
-		func(p []byte) (n int, err error) {
-			if ctx.Err() != nil {
-				_ = fctClose()
-				return 0, ctx.Err()
-			}
-
-			if a := fg(); a != nil && a != re {
-				o.fctInfo(loc, a, libsck.ConnectionWrite)
-				return con.WriteTo(p, a)
-			}
-
-			o.fctInfo(loc, fg(), libsck.ConnectionWrite)
-			return con.Write(p)
-		},
-		fctClose,
-		func() bool {
-			if ctx.Err() != nil {
-				_ = fctClose()
-				return false
-			}
-
-			_, e := con.Write(nil)
-
-			if e != nil {
-				_ = fctClose()
-			}
-
-			return true
-		},
-		func() <-chan struct{} {
-			return ctx.Done()
-		},
-	)
-
-	return rdr, wrt
 }

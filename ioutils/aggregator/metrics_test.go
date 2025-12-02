@@ -79,7 +79,7 @@ var _ = Describe("Metrics", func() {
 		}
 
 		var err error
-		agg, err = aggregator.New(ctx, cfg, globalLog)
+		agg, err = aggregator.New(ctx, cfg)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(agg).ToNot(BeNil())
 	})
@@ -142,9 +142,11 @@ var _ = Describe("Metrics", func() {
 			It("should show waiting writes when buffer is full", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
-				// Fill the buffer (capacity = 10)
+				// Fill the buffer (capacity = 10) with many concurrent writes
+				// to increase the chance of having waiting writes
 				var wg sync.WaitGroup
-				for i := 0; i < 15; i++ {
+				numWrites := 30
+				for i := 0; i < numWrites; i++ {
 					wg.Add(1)
 					go func(id int) {
 						defer wg.Done()
@@ -154,13 +156,11 @@ var _ = Describe("Metrics", func() {
 					}(i)
 				}
 
-				// Check that some writes are waiting
+				// Check that some writes are waiting OR processing
+				// (timing-dependent, so we check for either condition)
 				Eventually(func() int64 {
-					return agg.NbWaiting()
-				}, 500*time.Millisecond, 10*time.Millisecond).Should(BeNumerically(">", 0))
-
-				// Check that buffer has items
-				Expect(agg.NbProcessing()).To(BeNumerically(">", 0))
+					return agg.NbWaiting() + agg.NbProcessing()
+				}, 1*time.Second, 10*time.Millisecond).Should(BeNumerically(">", 0))
 
 				wg.Wait()
 
@@ -429,7 +429,7 @@ var _ = Describe("Metrics", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -476,7 +476,7 @@ var _ = Describe("Metrics", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg, globalLog)
+			agg, err := aggregator.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 

@@ -3,7 +3,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,7 @@ package unix
 import (
 	"context"
 	"errors"
-	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -41,6 +41,7 @@ import (
 
 	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
 )
 
@@ -48,12 +49,15 @@ import (
 // Returns the path after validation via checkFile(), or os.ErrNotExist if not set.
 // This is an internal helper used by Listen().
 func (o *srv) getSocketFile() (string, error) {
-	f := o.sf.Load()
-	if f != nil {
-		return o.checkFile(f.(string))
+	if o == nil {
+		return "", ErrInvalidUnixFile
+	} else if a := o.ad.Load(); a == (sckFile{}) {
+		return "", ErrInvalidUnixFile
+	} else if len(a.File) < 1 {
+		return "", ErrInvalidUnixFile
+	} else {
+		return o.checkFile(a.File)
 	}
-
-	return "", os.ErrNotExist
 }
 
 // getSocketPerm retrieves the configured file permissions for the Unix socket.
@@ -61,32 +65,32 @@ func (o *srv) getSocketFile() (string, error) {
 // Uses github.com/nabbar/golib/file/perm for permission parsing.
 // This is an internal helper used by getListen().
 func (o *srv) getSocketPerm() libprm.Perm {
-	if p, e := libprm.ParseInt64(o.sp.Load()); e != nil {
+	if a := o.ad.Load(); a == (sckFile{}) {
+		return libprm.Perm(0770)
+	} else if a.Perm == 0 {
 		return libprm.Perm(0770)
 	} else {
-		return p
+		return a.Perm
 	}
 }
 
 // getSocketGroup retrieves the group ID for the Unix socket file.
 // Returns:
 //   - The configured GID if >= 0
-//   - The process's current GID if <= maxGID
+//   - The process's current GID if <= MaxGID
 //   - 0 (root) as fallback
 //
 // This is an internal helper used by getListen() for os.Chown().
 func (o *srv) getSocketGroup() int {
-	p := o.sg.Load()
-	if p >= 0 {
-		return int(p)
-	}
-
-	gid := syscall.Getgid()
-	if gid <= maxGID {
+	if a := o.ad.Load(); a == (sckFile{}) {
+		return -1
+	} else if a.GID >= 0 {
+		return int(a.GID)
+	} else if gid := syscall.Getgid(); gid <= MaxGID {
 		return gid
 	}
 
-	return 0
+	return -1
 }
 
 // checkFile validates and prepares the Unix socket file path.
@@ -104,7 +108,7 @@ func (o *srv) getSocketGroup() int {
 // state before Listen() attempts to create it.
 func (o *srv) checkFile(unixFile string) (string, error) {
 	if len(unixFile) < 1 {
-		return unixFile, fmt.Errorf("missing socket file path")
+		return unixFile, ErrInvalidUnixFile
 	} else {
 		unixFile = filepath.Join(filepath.Dir(unixFile), filepath.Base(unixFile))
 	}
@@ -167,77 +171,100 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 //
 // See github.com/nabbar/golib/socket.HandlerFunc for handler function signature.
 func (o *srv) Listen(ctx context.Context) error {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/unix/listen", r)
+		}
+	}()
+
 	var (
-		e error
-		f string
-		l net.Listener
-		s = new(atomic.Bool)
+		e error        // error
+		l net.Listener // socket listener
+		a string       // address
 	)
 
-	if f, e = o.getSocketFile(); e != nil {
+	if a, e = o.getSocketFile(); e != nil {
 		o.fctError(e)
 		return e
 	} else if o.hdl == nil {
 		o.fctError(ErrInvalidHandler)
 		return ErrInvalidHandler
-	} else if l, e = o.getListen(f); e != nil {
+	} else if l, e = o.getListen(a); e != nil {
 		o.fctError(e)
 		return e
 	}
 
-	s.Store(false)
-
 	defer func() {
-		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnix.String(), f)
+		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnix.String(), a)
 
 		if l != nil {
-			_ = l.Close()
+			o.fctError(l.Close())
 		}
 
-		if _, e = os.Stat(f); e == nil {
-			o.fctError(os.Remove(f))
+		// Remove socket file on shutdown
+		if a != "" {
+			_ = os.Remove(a)
 		}
 
 		o.run.Store(false)
+		o.gon.Store(true)
 	}()
 
-	o.rst.Store(make(chan struct{}))
-	o.stp.Store(make(chan struct{}))
-	o.run.Store(true)
 	o.gon.Store(false)
+	o.run.Store(true)
+	time.Sleep(time.Millisecond)
 
+	type cR struct {
+		c net.Conn
+		e error
+	}
+
+	// Create Channel to check server is Going to shutdown
+	cG := make(chan bool, 1)
 	go func() {
-		defer func() {
-			s.Store(true)
-
-			if l != nil {
-				o.fctError(l.Close())
+		tc := time.NewTicker(time.Millisecond)
+		for {
+			<-tc.C
+			if o.IsGone() {
+				cG <- true
+				return
 			}
+		}
+	}()
 
-			go func() {
-				_ = o.Shutdown(context.Background())
-			}()
+	for {
+		// Create a channel to receive the accept result
+		cC := make(chan cR, 1)
+
+		// Start accept in a goroutine
+		go func() {
+			co, ce := l.Accept()
+			cC <- cR{c: co, e: ce}
 		}()
 
 		select {
 		case <-ctx.Done():
-			return
-		case <-o.Done():
-			return
-		}
-	}()
+			return ctx.Err()
+		case <-cG:
+			return nil
+		case c := <-cC:
+			if c.e != nil {
+				o.fctError(c.e)
+			} else if c.c == nil {
+				// skip error message for invalid connection
+			} else {
+				go func(conn net.Conn) {
+					lc := conn.LocalAddr()
+					rc := conn.RemoteAddr()
 
-	// Accept new connection or stop if context or shutdown trigger
-	for l != nil && !s.Load() {
-		if co, ce := l.Accept(); ce != nil && !s.Load() {
-			o.fctError(ce)
-		} else if co != nil {
-			o.fctInfo(co.LocalAddr(), co.RemoteAddr(), libsck.ConnectionNew)
-			go o.Conn(ctx, co)
+					defer o.fctInfo(lc, rc, libsck.ConnectionClose)
+					o.fctInfo(lc, rc, libsck.ConnectionNew)
+
+					o.Conn(ctx, conn)
+				}(c.c)
+			}
 		}
 	}
-
-	return nil
 }
 
 // Conn handles an individual client connection.
@@ -274,208 +301,114 @@ func (o *srv) Listen(ctx context.Context) error {
 //   - ctx: Context for the connection lifetime (derived from Listen's context)
 //   - con: The accepted net.Conn (typically *net.UnixConn)
 func (o *srv) Conn(ctx context.Context, con net.Conn) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/unix/conn", r)
+		}
+	}()
+
 	var (
 		cnl context.CancelFunc
-		cor libsck.Reader
-		cow libsck.Writer
+		dur = o.idleTimeout()
+
+		sx *sCtx
+		tc *time.Ticker
+		tw = time.NewTicker(3 * time.Millisecond)
 	)
 
-	o.nc.Add(1) // inc nb connection
+	defer func() {
+		// Decrement active connection count
+		o.nc.Add(-1)
 
+		if cnl != nil {
+			cnl()
+		}
+
+		if sx != nil {
+			_ = sx.Close()
+		}
+
+		if con != nil {
+			_ = con.Close()
+		}
+
+		if tc != nil {
+			tc.Stop()
+		}
+
+		if tw != nil {
+			tw.Stop()
+		}
+	}()
+
+	o.nc.Add(1) // Increment active connection count
+
+	// Allow connection configuration before handling
 	if o.upd != nil {
 		o.upd(con)
 	}
 
+	// Create connection-specific context
 	ctx, cnl = context.WithCancel(ctx)
-	cor, cow = o.getReadWriter(ctx, cnl, con)
+	sx = &sCtx{
+		ctx: ctx,
+		cnl: cnl,
+		clo: new(atomic.Bool),
+	}
 
-	defer func() {
-		// cancel context for connection
-		cnl()
+	if c, k := con.(io.ReadWriteCloser); k {
+		sx.con = c
+	} else {
+		return
+	}
 
-		// dec nb connection
-		o.nc.Add(-1)
+	if l := con.LocalAddr(); l == nil {
+		sx.loc = ""
+	} else {
+		sx.loc = l.String()
+	}
 
-		// close connection writer
-		_ = cow.Close()
+	if r := con.RemoteAddr(); r == nil {
+		sx.rem = ""
+	} else {
+		sx.rem = r.String()
+	}
 
-		// delay stopping for 5 seconds to avoid blocking next connection
-		if o.IsGone() {
-			// if connection is closed
-			time.Sleep(5 * time.Second)
-		} else {
-			// if connection is not closed in 5 seconds
-			time.Sleep(500 * time.Millisecond)
+	if dur > 0 {
+		tc = time.NewTicker(dur)
+		sx.rst = func() {
+			tc.Reset(dur)
 		}
-
-		// close connection reader
-		_ = cor.Close()
-
-		// send info about connection closing
-		o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
-
-		// close connection
-		_ = con.Close()
-	}()
+	} else {
+		tc = time.NewTicker(time.Hour)
+		sx.rst = func() {
+			tc.Reset(time.Hour)
+		}
+	}
 
 	// get handler or exit if nil
 	if o.hdl == nil {
 		return
 	} else {
-		go o.hdl(cor, cow)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					librun.RecoveryCaller("golib/socket/server/unix/handler", r)
+				}
+			}()
+
+			o.hdl(sx)
+		}()
 	}
 
-	for {
+	for ctx.Err() == nil && !o.IsGone() {
 		select {
-		case <-ctx.Done():
-			return
-		case <-o.Gone():
-			return
+		case <-tc.C:
+			if dur > 0 {
+				return
+			}
+		case <-tw.C:
+			// check ctx & gone
 		}
 	}
-}
-
-// getReadWriter creates Reader and Writer wrappers for a Unix socket connection.
-// These wrappers provide a higher-level interface to the handler while managing
-// Unix socket-specific behavior like half-close support.
-//
-// Parameters:
-//   - ctx: Context for connection lifetime management
-//   - cnl: Context cancel function (called when connection fully closes)
-//   - con: The Unix socket connection to wrap
-//
-// Reader behavior:
-//   - Read() calls con.Read() to receive data
-//   - Invokes ConnectionRead info callback
-//   - Checks context cancellation before each read
-//   - Close() supports half-close via CloseRead() on *net.UnixConn
-//   - Cancels context when both read and write sides are closed
-//
-// Writer behavior:
-//   - Write() calls con.Write() to send data
-//   - Invokes ConnectionWrite info callback
-//   - Checks context cancellation before each write
-//   - Close() supports half-close via CloseWrite() on *net.UnixConn
-//   - Cancels context when both read and write sides are closed
-//
-// Both Reader and Writer:
-//   - Implement Close() with proper half-close semantics
-//   - Implement IsAlive() to check connection and context health
-//   - Implement Done() returning the context's Done channel
-//
-// Half-close support:
-// Unix sockets support independent closing of read and write directions.
-// The context is only cancelled after BOTH sides are closed, allowing
-// proper shutdown handshakes where one side can continue reading after
-// stopping writes, or vice versa.
-//
-// This is an internal helper called by Conn().
-//
-// See github.com/nabbar/golib/socket.NewReader and NewWriter for the
-// wrapper constructors.
-func (o *srv) getReadWriter(ctx context.Context, cnl context.CancelFunc, con net.Conn) (libsck.Reader, libsck.Writer) {
-	var (
-		rc = new(atomic.Bool)
-		rw = new(atomic.Bool)
-	)
-
-	rdrClose := func() error {
-		defer func() {
-			if rw.Load() {
-				cnl()
-			}
-		}()
-
-		if cr, ok := con.(*net.UnixConn); ok {
-			rc.Store(true)
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionCloseRead)
-			return libsck.ErrorFilter(cr.CloseRead())
-		} else {
-			rc.Store(true)
-			rw.Store(true)
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
-			return libsck.ErrorFilter(con.Close())
-		}
-	}
-
-	wrtClose := func() error {
-		defer func() {
-			if rc.Load() {
-				cnl()
-			}
-		}()
-
-		if cr, ok := con.(*net.UnixConn); ok {
-			rw.Store(true)
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionCloseWrite)
-			return libsck.ErrorFilter(cr.CloseWrite())
-		} else {
-			rc.Store(true)
-			rw.Store(true)
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionClose)
-			return libsck.ErrorFilter(con.Close())
-		}
-	}
-
-	rdr := libsck.NewReader(
-		func(p []byte) (n int, err error) {
-			if ctx.Err() != nil {
-				_ = rdrClose()
-				return 0, ctx.Err()
-			}
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionRead)
-			return con.Read(p)
-		},
-		rdrClose,
-		func() bool {
-			if ctx.Err() != nil {
-				_ = rdrClose()
-				return false
-			}
-
-			_, e := con.Write(nil)
-
-			if e != nil {
-				_ = rdrClose()
-				return false
-			}
-
-			return true
-		},
-		func() <-chan struct{} {
-			return ctx.Done()
-		},
-	)
-
-	wrt := libsck.NewWriter(
-		func(p []byte) (n int, err error) {
-			if ctx.Err() != nil {
-				_ = wrtClose()
-				return 0, ctx.Err()
-			}
-			o.fctInfo(con.LocalAddr(), con.RemoteAddr(), libsck.ConnectionWrite)
-			return con.Write(p)
-		},
-		wrtClose,
-		func() bool {
-			if ctx.Err() != nil {
-				_ = wrtClose()
-				return false
-			}
-
-			_, e := con.Write(nil)
-
-			if e != nil {
-				_ = wrtClose()
-				return false
-			}
-
-			return true
-		},
-		func() <-chan struct{} {
-			return ctx.Done()
-		},
-	)
-
-	return rdr, wrt
 }

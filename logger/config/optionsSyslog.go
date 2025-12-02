@@ -1,32 +1,33 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
 package config
 
+// OptionsSyslog defines configuration options for syslog logging.
+// This structure controls syslog connection settings (local or remote) and formatting options.
 type OptionsSyslog struct {
 	// LogLevel define the allowed level of log for this syslog.
 	LogLevel []string `json:"logLevel,omitempty" yaml:"logLevel,omitempty" toml:"logLevel,omitempty" mapstructure:"logLevel,omitempty"`
@@ -61,8 +62,16 @@ type OptionsSyslog struct {
 	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
 }
 
+// OptionsSyslogs is a collection of syslog logging configurations.
+// It allows defining multiple syslog destinations with different settings.
 type OptionsSyslogs []OptionsSyslog
 
+// Clone creates a deep copy of the OptionsSyslog structure.
+// This is useful for creating independent copies that can be modified
+// without affecting the original configuration.
+//
+// Returns a new OptionsSyslog instance with all fields copied, including
+// a deep copy of the LogLevel slice.
 func (o OptionsSyslog) Clone() OptionsSyslog {
 	// Deep copy LogLevel slice
 	var logLevel []string
@@ -84,6 +93,10 @@ func (o OptionsSyslog) Clone() OptionsSyslog {
 	}
 }
 
+// Clone creates a deep copy of the OptionsSyslogs collection.
+// Each OptionsSyslog in the collection is cloned individually.
+//
+// Returns a new OptionsSyslogs collection with cloned elements.
 func (o OptionsSyslogs) Clone() OptionsSyslogs {
 	var c = make([]OptionsSyslog, 0)
 	for _, i := range o {

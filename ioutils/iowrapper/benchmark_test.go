@@ -24,6 +24,20 @@
  *
  */
 
+// This file contains performance benchmarks using gmeasure.
+//
+// Test Strategy:
+//   - Measure wrapper creation overhead
+//   - Benchmark default read/write operations (delegation)
+//   - Benchmark custom function read/write operations
+//   - Measure function update (SetRead/SetWrite) performance
+//   - Benchmark seek operations
+//   - Test mixed operation performance
+//
+// Uses github.com/onsi/gomega/gmeasure for statistical performance testing.
+// Results are reported with min/median/mean/stddev/max metrics.
+//
+// Coverage: 8 specs measuring performance characteristics and overhead.
 package iowrapper_test
 
 import (

@@ -53,6 +53,8 @@ func (o *agg) Close() error {
 	return o.closeRun(context.Background())
 }
 
+// closeRun is the internal close function called by the runner.
+// It stops the aggregator, closes the context, and closes the channel.
 func (o *agg) closeRun(ctx context.Context) error {
 	defer runner.RecoveryCaller("golib/ioutils/aggregator/close", recover())
 
@@ -107,6 +109,7 @@ func (o *agg) Write(p []byte) (n int, err error) {
 		return 0, nil
 	}
 
+	// Track this write as waiting (will block if channel is full)
 	o.cntWaitInc(n)
 	defer o.cntWaitDec(n)
 
@@ -120,15 +123,17 @@ func (o *agg) Write(p []byte) (n int, err error) {
 	} else if o.Err() != nil {
 		return 0, o.Err()
 	} else {
+		// Increment processing counter before sending to channel
 		o.cntDataInc(n)
+		// Send to channel (may block if buffer is full)
 		c <- p
 		return len(p), nil
 	}
 }
 
 // chanData returns the read-only channel for consuming write data.
-// This is used internally by the processing goroutine.
-// Returns closedChan if the channel is not initialized or has been closed.
+// This is used internally by the processing goroutine in the run() loop.
+// Returns closedChan sentinel if the channel is not initialized or has been closed.
 func (o *agg) chanData() <-chan []byte {
 	if c := o.ch.Load(); c == nil {
 		return closedChan
@@ -141,6 +146,7 @@ func (o *agg) chanData() <-chan []byte {
 
 // chanOpen creates a new buffered channel for writes and marks it as open.
 // This is called by run() when the aggregator starts.
+// The channel capacity is determined by Config.BufWriter (stored in sh).
 func (o *agg) chanOpen() {
 	// Mark channel as closing to prevent new writes
 	o.op.Store(true)
@@ -149,6 +155,7 @@ func (o *agg) chanOpen() {
 
 // chanClose marks the channel as closed and replaces it with closedChan sentinel.
 // This prevents new writes and signals to readers that the channel is closed.
+// The actual channel is not closed to avoid panics; instead we use a sentinel value.
 func (o *agg) chanClose() {
 	// Mark channel as closing to prevent new writes
 	o.op.Store(false)

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,9 @@ import (
 	"github.com/nabbar/golib/ioutils/multi"
 )
 
+// Tests for Multi write operations and output management.
+// These tests verify proper handling of multiple writers, write broadcasting,
+// and dynamic writer management through AddWriter() and Clean().
 var _ = Describe("Multi Writer Operations", func() {
 	var m multi.Multi
 

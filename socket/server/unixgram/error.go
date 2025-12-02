@@ -59,11 +59,7 @@ package unixgram
 import "fmt"
 
 var (
-	// ErrContextClosed is returned when an operation is cancelled due to context cancellation.
-	ErrContextClosed = fmt.Errorf("context closed")
-
-	// ErrServerClosed is returned when attempting to perform operations on a closed server.
-	ErrServerClosed = fmt.Errorf("server closed")
+	ErrInvalidUnixFile = fmt.Errorf("invalid unix file for socket listening")
 
 	// ErrInvalidGroup is returned when the specified GID exceeds the maximum allowed value (32767).
 	// Unix group IDs must be within the valid range for the operating system.
@@ -76,10 +72,6 @@ var (
 	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
 	// This typically happens when StopListen() takes longer than expected.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
-
-	// ErrGoneTimeout is returned when waiting for server shutdown exceeds the timeout.
-	// Note: For datagram servers, this is rarely used as there are no persistent connections.
-	ErrGoneTimeout = fmt.Errorf("timeout on closing connections")
 
 	// ErrInvalidInstance is returned when operating on a nil server instance.
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")

@@ -1,8 +1,8 @@
 # IOUtils Aggregator
 
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue)](https://go.dev/doc/install)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Coverage](https://img.shields.io/badge/Coverage-86.0%25-brightgreen)](TESTING.md)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.19-blue)](https://go.dev/doc/install)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
+[![Coverage](https://img.shields.io/badge/Coverage-87.0%25-brightgreen)](TESTING.md)
 
 Thread-safe write aggregator that serializes concurrent write operations to a single output function with optional periodic callbacks and real-time monitoring.
 
@@ -29,15 +29,14 @@ Thread-safe write aggregator that serializes concurrent write operations to a si
   - [Socket to File](#socket-to-file)
   - [With Callbacks](#with-callbacks)
   - [Real-time Monitoring](#real-time-monitoring)
+- [Best Practices](#best-practices)
 - [API Reference](#api-reference)
   - [Aggregator Interface](#aggregator-interface)
   - [Configuration](#configuration)
   - [Metrics](#metrics)
   - [Error Codes](#error-codes)
-- [Best Practices](#best-practices)
-- [Testing](#testing)
 - [Contributing](#contributing)
-- [Future Enhancements](#future-enhancements)
+- [Improvements & Security](#improvements--security)
 - [Resources](#resources)
 - [AI Transparency](#ai-transparency)
 - [License](#license)
@@ -164,7 +163,7 @@ See [doc.go](doc.go) for detailed buffer sizing guidelines and example calculati
 
 ### Benchmarks
 
-Based on actual test results (115 specs, 86.0% coverage, ~30s execution):
+Based on actual test results from the comprehensive test suite:
 
 | Operation | Median | Mean | Max |
 |-----------|--------|------|-----|
@@ -215,7 +214,7 @@ agg, _ := aggregator.New(ctx, aggregator.Config{
     FctWriter: func(p []byte) (int, error) {
         return logFile.Write(p)
     },
-}, logger)
+})
 ```
 
 **Real-world**: Used with `github.com/nabbar/golib/socket/server` for high-traffic socket applications.
@@ -235,7 +234,7 @@ agg, _ := aggregator.New(ctx, aggregator.Config{
     SyncFct: func(ctx context.Context) {
         db.Exec("COMMIT")  // Periodic commit
     },
-}, logger)
+})
 ```
 
 ### 3. Network Stream Multiplexer
@@ -253,7 +252,7 @@ agg, _ := aggregator.New(ctx, aggregator.Config{
         // Send keepalive
         networkConn.Write([]byte("PING\n"))
     },
-}, logger)
+})
 ```
 
 ### 4. Metrics Collection Pipeline
@@ -270,7 +269,7 @@ agg, _ := aggregator.New(ctx, aggregator.Config{
     SyncFct: func(ctx context.Context) {
         metricsDB.Flush()  // Batch flush
     },
-}, logger)
+})
 ```
 
 ### 5. Temporary File Accumulator
@@ -289,7 +288,7 @@ agg, _ := aggregator.New(ctx, aggregator.Config{
     SyncFct: func(ctx context.Context) {
         tmpFile.Sync()  // Ensure data is flushed
     },
-}, logger)
+})
 ```
 
 ---
@@ -325,7 +324,7 @@ func main() {
         },
     }
 
-    agg, err := aggregator.New(ctx, cfg, nil)
+    agg, err := aggregator.New(ctx, cfg)
     if err != nil {
         panic(err)
     }
@@ -364,7 +363,7 @@ cfg := aggregator.Config{
     },
 }
 
-agg, _ := aggregator.New(ctx, cfg, logger)
+agg, _ := aggregator.New(ctx, cfg)
 agg.Start(ctx)
 defer agg.Close()
 
@@ -387,7 +386,7 @@ cfg := aggregator.Config{
     },
 }
 
-agg, _ := aggregator.New(ctx, cfg, logger)
+agg, _ := aggregator.New(ctx, cfg)
 agg.Start(ctx)
 
 // In socket server handler (github.com/nabbar/golib/socket/server)
@@ -418,7 +417,7 @@ cfg := aggregator.Config{
     },
 }
 
-agg, _ := aggregator.New(ctx, cfg, logger)
+agg, _ := aggregator.New(ctx, cfg)
 agg.Start(ctx)
 defer agg.Close()
 ```
@@ -426,7 +425,7 @@ defer agg.Close()
 ### Real-time Monitoring
 
 ```go
-agg, _ := aggregator.New(ctx, cfg, logger)
+agg, _ := aggregator.New(ctx, cfg)
 agg.Start(ctx)
 
 // Monitor loop
@@ -461,129 +460,20 @@ go func() {
 
 ---
 
-## API Reference
-
-### Aggregator Interface
-
-```go
-type Aggregator interface {
-    context.Context
-    librun.StartStop
-    io.Closer
-    io.Writer
-
-    // Monitoring metrics
-    NbWaiting() int64
-    NbProcessing() int64
-    SizeWaiting() int64
-    SizeProcessing() int64
-}
-```
-
-**Methods:**
-
-- **`Write(p []byte) (int, error)`**: Write data to aggregator (thread-safe)
-- **`Start(ctx context.Context) error`**: Start processing loop
-- **`Stop() error`**: Stop processing and wait for completion
-- **`Restart(ctx context.Context) error`**: Stop and restart
-- **`Close() error`**: Stop and release all resources
-- **`IsRunning() bool`**: Check if aggregator is running
-- **`Uptime() time.Duration`**: Get running duration
-- **`ErrorsLast() error`**: Get most recent error
-- **`ErrorsList() []error`**: Get all errors
-
-### Configuration
-
-```go
-type Config struct {
-    // Core
-    FctWriter  func(p []byte) (n int, err error)  // Required: write function
-    BufWriter  int                                 // Buffer size (default: 1)
-
-    // Async callback
-    AsyncTimer time.Duration                       // Async callback interval
-    AsyncMax   int                                 // Max concurrent async calls
-    AsyncFct   func(ctx context.Context)           // Async callback function
-
-    // Sync callback
-    SyncTimer  time.Duration                       // Sync callback interval
-    SyncFct    func(ctx context.Context)           // Sync callback function
-}
-```
-
-**Validation:**
-- `FctWriter` is required (returns `ErrInvalidWriter` if nil)
-- Default `BufWriter` is 1 if not specified
-- Timers of 0 disable callbacks
-- `AsyncMax` of -1 means unlimited concurrency
-
-### Metrics
-
-#### Count-Based Metrics
-
-**`NbWaiting() int64`**
-- Number of `Write()` calls currently blocked waiting for buffer space
-- **Healthy**: Always 0
-- **Warning**: > 0 indicates backpressure
-- **Critical**: Growing value indicates buffer too small
-
-**`NbProcessing() int64`**
-- Number of items buffered in channel awaiting processing
-- **Healthy**: Varies with load but < BufWriter
-- **Warning**: Consistently near BufWriter
-- **Critical**: Always at BufWriter (buffer saturated)
-
-#### Size-Based Metrics
-
-**`SizeWaiting() int64`**
-- Total bytes in blocked `Write()` calls
-- **Healthy**: 0
-- **Warning**: > 0 indicates memory pressure from blocking
-- **Use**: Detect memory buildup before it becomes critical
-
-**`SizeProcessing() int64`**
-- Total bytes in buffer awaiting processing
-- **Healthy**: Varies with load
-- **Use**: Actual memory consumption of buffer
-- **Formula**: `AvgMsgSize = SizeProcessing / NbProcessing`
-
-#### Derived Metrics
-
-```go
-// Buffer utilization percentage
-bufferUsage := float64(agg.NbProcessing()) / float64(bufWriter) * 100
-
-// Total memory in flight
-totalMemory := agg.SizeWaiting() + agg.SizeProcessing()
-
-// Average message size
-avgSize := agg.SizeProcessing() / max(agg.NbProcessing(), 1)
-
-// Estimated max memory
-maxMemory := bufWriter * avgSize
-```
-
-### Error Codes
-
-```go
-var (
-    ErrInvalidWriter   = errors.New("invalid writer")      // FctWriter is nil
-    ErrInvalidInstance = errors.New("invalid instance")    // Internal corruption
-    ErrStillRunning    = errors.New("still running")       // Start() while running
-    ErrClosedResources = errors.New("closed resources")    // Write() after Close()
-)
-```
-
-**Error Handling:**
-
-- Errors from `FctWriter` are logged internally but don't stop processing
-- Use `ErrorsLast()` and `ErrorsList()` to retrieve logged errors
-- Context errors propagate through `Err()` method
-- Panics in callbacks are recovered automatically
-
----
-
 ## Best Practices
+
+### Testing
+
+The package includes a comprehensive test suite with **87.0% code coverage** and **119 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
+
+**Key test coverage:**
+- ✅ All public APIs and lifecycle operations
+- ✅ Concurrent access with race detector (zero races detected)
+- ✅ Performance benchmarks (throughput, latency, memory)
+- ✅ Error handling and edge cases
+- ✅ Context integration and cancellation
+
+For detailed test documentation, see **[TESTING.md](TESTING.md)**.
 
 ### ✅ DO
 
@@ -601,7 +491,7 @@ bufWriter := int(float64(writeRate * maxTime) * 1.5)  // 750
 ctx, cancel := context.WithCancel(parent)
 defer cancel()
 
-agg, _ := aggregator.New(ctx, cfg, logger)
+agg, _ := aggregator.New(ctx, cfg)
 agg.Start(ctx)
 defer agg.Close()  // Always close
 ```
@@ -729,28 +619,125 @@ if float64(agg.SizeProcessing()) > memoryBudget {
 
 ---
 
-## Testing
+## API Reference
 
-Comprehensive test suite with 115 specs and 86.0% coverage.
+### Aggregator Interface
 
-See [TESTING.md](TESTING.md) for detailed test documentation including:
-- Running tests (standard, race detection, coverage)
-- Performance benchmarks
-- Writing new tests
-- CI integration
+```go
+type Aggregator interface {
+    context.Context
+    librun.StartStop
+    io.Closer
+    io.Writer
 
-**Quick test:**
-```bash
-# Standard tests
-go test -v
-
-# With race detector
-CGO_ENABLED=1 go test -race -v
-
-# Coverage report
-go test -cover -coverprofile=coverage.out
-go tool cover -html=coverage.out
+    // Monitoring metrics
+    NbWaiting() int64
+    NbProcessing() int64
+    SizeWaiting() int64
+    SizeProcessing() int64
+}
 ```
+
+**Methods:**
+
+- **`Write(p []byte) (int, error)`**: Write data to aggregator (thread-safe)
+- **`Start(ctx context.Context) error`**: Start processing loop
+- **`Stop() error`**: Stop processing and wait for completion
+- **`Restart(ctx context.Context) error`**: Stop and restart
+- **`Close() error`**: Stop and release all resources
+- **`IsRunning() bool`**: Check if aggregator is running
+- **`Uptime() time.Duration`**: Get running duration
+- **`ErrorsLast() error`**: Get most recent error
+- **`ErrorsList() []error`**: Get all errors
+
+### Configuration
+
+```go
+type Config struct {
+    // Core
+    FctWriter  func(p []byte) (n int, err error)  // Required: write function
+    BufWriter  int                                 // Buffer size (default: 1)
+
+    // Async callback
+    AsyncTimer time.Duration                       // Async callback interval
+    AsyncMax   int                                 // Max concurrent async calls
+    AsyncFct   func(ctx context.Context)           // Async callback function
+
+    // Sync callback
+    SyncTimer  time.Duration                       // Sync callback interval
+    SyncFct    func(ctx context.Context)           // Sync callback function
+}
+```
+
+**Validation:**
+- `FctWriter` is required (returns `ErrInvalidWriter` if nil)
+- Default `BufWriter` is 1 if not specified
+- Timers of 0 disable callbacks
+- `AsyncMax` of -1 means unlimited concurrency
+
+### Metrics
+
+#### Count-Based Metrics
+
+**`NbWaiting() int64`**
+- Number of `Write()` calls currently blocked waiting for buffer space
+- **Healthy**: Always 0
+- **Warning**: > 0 indicates backpressure
+- **Critical**: Growing value indicates buffer too small
+
+**`NbProcessing() int64`**
+- Number of items buffered in channel awaiting processing
+- **Healthy**: Varies with load but < BufWriter
+- **Warning**: Consistently near BufWriter
+- **Critical**: Always at BufWriter (buffer saturated)
+
+#### Size-Based Metrics
+
+**`SizeWaiting() int64`**
+- Total bytes in blocked `Write()` calls
+- **Healthy**: 0
+- **Warning**: > 0 indicates memory pressure from blocking
+- **Use**: Detect memory buildup before it becomes critical
+
+**`SizeProcessing() int64`**
+- Total bytes in buffer awaiting processing
+- **Healthy**: Varies with load
+- **Use**: Actual memory consumption of buffer
+- **Formula**: `AvgMsgSize = SizeProcessing / NbProcessing`
+
+#### Derived Metrics
+
+```go
+// Buffer utilization percentage
+bufferUsage := float64(agg.NbProcessing()) / float64(bufWriter) * 100
+
+// Total memory in flight
+totalMemory := agg.SizeWaiting() + agg.SizeProcessing()
+
+// Average message size
+avgSize := agg.SizeProcessing() / max(agg.NbProcessing(), 1)
+
+// Estimated max memory
+maxMemory := bufWriter * avgSize
+```
+
+### Error Codes
+
+```go
+var (
+    ErrInvalidWriter   = errors.New("invalid writer")      // FctWriter is nil
+    ErrInvalidInstance = errors.New("invalid instance")    // Internal corruption
+    ErrStillRunning    = errors.New("still running")       // Start() while running
+    ErrClosedResources = errors.New("closed resources")    // Write() after Close()
+)
+```
+
+**Error Handling:**
+
+- Errors from `FctWriter` are logged internally but don't stop processing
+- Use `ErrorsLast()` and `ErrorsList()` to retrieve logged errors
+- Context errors propagate through `Err()` method
+- Panics in callbacks are recovered automatically
 
 ---
 
@@ -765,12 +752,12 @@ Contributions are welcome! Please follow these guidelines:
    - Use `gofmt` and `golint`
 
 2. **AI Usage Policy**
-   - ❌ **Do NOT use AI** for implementing package functionality or core logic
-   - ✅ **AI may assist** with:
-     - Writing and improving tests
-     - Documentation and comments
-     - Debugging and troubleshooting
-   - All AI-assisted contributions must be reviewed and validated by humans
+   - ❌ **AI must NEVER be used** to generate package code or core functionality
+   - ✅ **AI assistance is limited to**:
+     - Testing (writing and improving tests)
+     - Debugging (troubleshooting and bug resolution)
+     - Documentation (comments, README, TESTING.md)
+   - All AI-assisted work must be reviewed and validated by humans
 
 3. **Testing**
    - Add tests for new features
@@ -793,55 +780,62 @@ Contributions are welcome! Please follow these guidelines:
 
 ---
 
-## Future Enhancements
+## Improvements & Security
 
-Potential improvements for consideration:
+### Current Status
 
-1. **Metrics Export**
-   - Prometheus metrics exporter
-   - StatsD integration
-   - Custom metrics backends
+The package is **production-ready** with no urgent improvements or security vulnerabilities identified.
 
-2. **Advanced Buffering**
-   - Priority queues for write ordering
-   - Message batching strategies
-   - Adaptive buffer sizing
+### Code Quality Metrics
 
-3. **Enhanced Monitoring**
-   - Built-in profiling integration
-   - Latency histograms
-   - Throughput tracking
+- ✅ **87.0% test coverage** (target: >80%)
+- ✅ **Zero race conditions** detected with `-race` flag
+- ✅ **Thread-safe** implementation using atomic operations
+- ✅ **Panic recovery** in all critical paths
+- ✅ **Memory-safe** with proper resource cleanup
 
-4. **Reliability Features**
-   - Persistent buffer (survive restarts)
-   - At-least-once delivery guarantees
-   - Dead letter queue for failed writes
+### Future Enhancements (Non-urgent)
 
-5. **Configuration**
-   - Dynamic configuration updates
-   - Hot-reload of callbacks
-   - Buffer resize without restart
+The following enhancements could be considered for future versions:
 
-These are suggestions only. Actual implementation depends on real-world usage feedback and community needs.
+1. **Configurable Panic Handling**: Allow users to provide custom panic handlers instead of automatic recovery
+2. **Metrics Export**: Optional integration with Prometheus or other metrics systems
+3. **Dynamic Buffer Resizing**: Automatic buffer size adjustment based on runtime metrics
+4. **Write Batching**: Optional batching of multiple small writes into larger chunks for efficiency
+
+These are **optional improvements** and not required for production use. The current implementation is stable and performant.
 
 ---
 
 ## Resources
 
-### Internal Documentation
-- [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/ioutils/aggregator) - Complete API documentation
-- [doc.go](doc.go) - Detailed buffer sizing and usage patterns
-- [TESTING.md](TESTING.md) - Test suite documentation
+### Package Documentation
 
-### Related Packages
-- [github.com/nabbar/golib/runner/startStop](../../../runner/startStop) - Lifecycle management interface
-- [github.com/nabbar/golib/logger](../../../logger) - Logging interface
-- [github.com/nabbar/golib/socket/server](../../../socket/server) - Socket server (common use case)
+- **[GoDoc](https://pkg.go.dev/github.com/nabbar/golib/ioutils/aggregator)** - Complete API reference with function signatures, method descriptions, and runnable examples. Essential for understanding the public interface and usage patterns.
+
+- **[doc.go](doc.go)** - In-depth package documentation including design philosophy, architecture diagrams, buffer sizing formulas, and performance considerations. Provides detailed explanations of internal mechanisms and best practices for production use.
+
+- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, coverage analysis (87.0%), performance benchmarks, and guidelines for writing new tests. Includes troubleshooting and CI integration examples.
+
+### Related golib Packages
+
+- **[github.com/nabbar/golib/runner/startStop](https://pkg.go.dev/github.com/nabbar/golib/runner/startStop)** - Lifecycle management interface implemented by the aggregator. Provides standardized Start/Stop/Restart operations with state tracking and error handling. Used for controlled service lifecycle management.
+
+- **[github.com/nabbar/golib/atomic](https://pkg.go.dev/github.com/nabbar/golib/atomic)** - Thread-safe atomic value storage used internally for context and logger management. Provides lock-free atomic operations for better performance in concurrent scenarios.
+
+- **[github.com/nabbar/golib/semaphore](https://pkg.go.dev/github.com/nabbar/golib/semaphore)** - Concurrency control mechanism used for limiting parallel async function executions. Prevents resource exhaustion when AsyncMax is configured.
+
+- **[github.com/nabbar/golib/socket/server](https://pkg.go.dev/github.com/nabbar/golib/socket/server)** - Socket server implementation that commonly uses aggregator for thread-safe logging and data collection from multiple client connections. Real-world use case example.
 
 ### External References
-- [Go Concurrency Patterns](https://go.dev/blog/pipelines) - Official Go blog
-- [Effective Go](https://go.dev/doc/effective_go) - Go best practices
-- [Context Package](https://pkg.go.dev/context) - Standard library context
+
+- **[Go Concurrency Patterns: Pipelines](https://go.dev/blog/pipelines)** - Official Go blog article explaining pipeline patterns and fan-in/fan-out techniques. Relevant for understanding how the aggregator implements the fan-in pattern to merge multiple write streams.
+
+- **[Effective Go](https://go.dev/doc/effective_go)** - Official Go programming guide covering best practices for concurrency, error handling, and interface design. The aggregator follows these conventions for idiomatic Go code.
+
+- **[Context Package](https://pkg.go.dev/context)** - Standard library documentation for context.Context. The aggregator fully implements this interface for cancellation propagation and deadline management in concurrent operations.
+
+- **[Go Memory Model](https://go.dev/ref/mem)** - Official specification of Go's memory consistency guarantees. Essential for understanding the thread-safety guarantees provided by atomic operations and channels used in the aggregator.
 
 ---
 

@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -23,12 +23,6 @@
  *
  */
 
-// Package nopwritecloser provides a wrapper that implements io.WriteCloser for an io.Writer
-// by adding a no-op Close() method. This is similar to io.NopCloser but for writers instead of readers.
-//
-// The wrapper delegates Write() calls to the underlying io.Writer and implements Close()
-// as a no-operation that always returns nil, allowing io.Writer implementations to satisfy
-// the io.WriteCloser interface without requiring actual close semantics.
 package nopwritecloser
 
 import "io"

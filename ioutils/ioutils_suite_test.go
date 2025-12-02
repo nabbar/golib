@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2021 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// TestIOUtils is the entry point for the BDD test suite using Ginkgo/Gomega.
+// This suite validates the ioutils package functionality including:
+//   - PathCheckCreate function for file and directory management
+//   - Permission handling across different scenarios
+//   - Edge cases and concurrent operations
+//
+// Run with: go test -v
+// Run with coverage: go test -v -cover
+// Run with race detector: CGO_ENABLED=1 go test -race -v
 func TestIOUtils(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "IOUtils Suite")

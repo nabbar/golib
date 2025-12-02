@@ -35,6 +35,33 @@ import (
 	libmap "github.com/go-viper/mapstructure/v2"
 )
 
+func (n NetworkProtocol) IsTCP() bool {
+	switch n {
+	case NetworkTCP, NetworkTCP4, NetworkTCP6:
+		return true
+	default:
+		return false
+	}
+}
+
+func (n NetworkProtocol) IsUDP() bool {
+	switch n {
+	case NetworkUDP, NetworkUDP4, NetworkUDP6:
+		return true
+	default:
+		return false
+	}
+}
+
+func (n NetworkProtocol) IsUnixLike() bool {
+	switch n {
+	case NetworkUnix, NetworkUnixGram:
+		return true
+	default:
+		return false
+	}
+}
+
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (

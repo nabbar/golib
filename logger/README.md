@@ -2,33 +2,53 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
+[![Coverage](https://img.shields.io/badge/Coverage-90.9%25-brightgreen)](TESTING.md)
 
 Production-ready structured logging system for Go applications with flexible output management, field injection, level-based filtering, and extensive integration capabilities.
-
-> **AI Disclaimer**: AI tools are used solely to assist with testing, documentation, and bug fixes under human supervision, in compliance with EU AI Act Article 50.4.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
-- [Installation](#installation)
+  - [Design Philosophy](#design-philosophy)
+  - [Key Features](#key-features)
 - [Architecture](#architecture)
-- [Quick Start](#quick-start)
+  - [Component Diagram](#component-diagram)
+  - [Data Flow](#data-flow)
 - [Performance](#performance)
-- [Use Cases](#use-cases)
+  - [Benchmarks](#benchmarks)
+  - [Test Coverage](#test-coverage)
+  - [Memory Profile](#memory-profile)
+  - [Concurrency](#concurrency)
 - [Subpackages](#subpackages)
-- [Configuration](#configuration)
-- [Log Levels](#log-levels)
-- [Fields Management](#fields-management)
-- [Hooks](#hooks)
-- [Integrations](#integrations)
+  - [config](#config)
+  - [entry](#entry)
+  - [fields](#fields)
+  - [level](#level)
+  - [gorm](#gorm)
+  - [hashicorp](#hashicorp)
+  - [hookfile](#hookfile)
+  - [hooksyslog](#hooksyslog)
+  - [hookstdout / hookstderr](#hookstdout--hookstderr)
+  - [hookwriter](#hookwriter)
+  - [types](#types)
+- [Use Cases](#use-cases)
+- [Quick Start](#quick-start)
+  - [Installation](#installation)
+  - [Basic Logging](#basic-logging)
+  - [Configured Logger](#configured-logger)
+  - [With Persistent Fields](#with-persistent-fields)
 - [Best Practices](#best-practices)
 - [API Reference](#api-reference)
-- [Testing](#testing)
+  - [Logger Interface](#logger-interface)
+  - [Configuration](#configuration)
+  - [Log Levels](#log-levels)
+  - [Error Handling](#error-handling)
 - [Contributing](#contributing)
-- [Future Enhancements](#future-enhancements)
+- [Improvements & Security](#improvements--security)
+- [Resources](#resources)
+- [AI Transparency](#ai-transparency)
 - [License](#license)
 
 ---
@@ -46,18 +66,7 @@ The logger package provides a comprehensive structured logging solution built on
 5. **Integration-Ready**: Compatible with popular frameworks (GORM, Hashicorp, spf13)
 6. **Observable**: Level-based filtering and customizable formatting
 
-### What Problems Does It Solve?
-
-- **Centralized Logging**: Unified logging interface across your application
-- **Log Aggregation**: Send logs to multiple destinations simultaneously
-- **Structured Data**: Add contextual information to every log entry
-- **Level Filtering**: Control verbosity per output destination
-- **Rotation**: Automatic log file rotation based on size/age
-- **Integration**: Adapt third-party library logging to your system
-
----
-
-## Key Features
+### Key Features
 
 - **8 Log Levels**: Panic, Fatal, Error, Warning, Info, Debug, Trace, + Null
 - **Multiple Outputs**: File, syslog, stdout, stderr, custom writers
@@ -72,23 +81,9 @@ The logger package provides a comprehensive structured logging solution built on
 
 ---
 
-## Installation
-
-```bash
-go get github.com/nabbar/golib/logger
-```
-
-**Dependencies**:
-- Go ≥ 1.18
-- github.com/sirupsen/logrus
-- github.com/nabbar/golib/context
-- github.com/nabbar/golib/ioutils
-
----
-
 ## Architecture
 
-### Package Structure
+### Component Diagram
 
 ```
 logger/
@@ -130,16 +125,16 @@ logger/
 ### Component Hierarchy
 
 ```
-┌────────────────────────────────────────────┐
-│            Logger Package                   │
-│       Structured Logging System             │
-└──────┬──────────┬────────┬─────────────────┘
+┌──────────────────────────────────────┐
+│            Logger Package            │
+│       Structured Logging System      │
+└──────┬──────────┬────────┬───────────┘
        │          │        │
-   ┌───▼──┐  ┌────▼───┐ ┌─▼──────┐
-   │Entry │  │Fields  │ │ Level  │
-   │      │  │        │ │        │
-   │Format│  │Persist │ │Filter  │
-   └───┬──┘  └────┬───┘ └─┬──────┘
+   ┌───▼──┐  ┌────▼───┐  ┌─▼──────┐
+   │Entry │  │Fields  │  │ Level  │
+   │      │  │        │  │        │
+   │Format│  │Persist │  │Filter  │
+   └───┬──┘  └────┬───┘  └─┬──────┘
        │          │        │
        └──────────┴────────┘
                   │
@@ -160,29 +155,29 @@ logger/
 Application Code
        │
        ▼
-┌──────────────┐
-│ Logger.Info()│  Create log entry
-└──────┬───────┘
+┌────────────────┐
+│ Logger.Info()  │  Create log entry
+└──────┬─────────┘
        │
        ▼
-┌──────────────┐
-│ Entry + Fields│  Merge persistent fields
-└──────┬───────┘
+┌────────────────┐
+│ Entry + Fields │  Merge persistent fields
+└──────┬─────────┘
        │
        ▼
-┌──────────────┐
-│ Level Filter │  Check minimum level
-└──────┬───────┘
+┌────────────────┐
+│  Level Filter  │  Check minimum level
+└──────┬─────────┘
        │
        ▼
-┌──────────────┐
-│ Formatter    │  JSON or Text
-└──────┬───────┘
+┌────────────────┐
+│ Formatter      │  JSON or Text
+└──────┬─────────┘
        │
        ▼
-┌──────────────┐
-│    Hooks     │  Distribute to outputs
-└──────┬───────┘
+┌────────────────┐
+│    Hooks       │  Distribute to outputs
+└──────┬─────────┘
        │
        ├─→ File
        ├─→ Syslog
@@ -194,7 +189,19 @@ Application Code
 
 ## Quick Start
 
-### Basic Logger
+### Installation
+
+```bash
+go get github.com/nabbar/golib/logger
+```
+
+**Dependencies**:
+- Go ≥ 1.18
+- github.com/sirupsen/logrus
+- github.com/nabbar/golib/logger/config
+- github.com/nabbar/golib/logger/level
+
+### Basic Logging
 
 ```go
 import (
@@ -306,24 +313,24 @@ Measured on: AMD Ryzen 9 5950X, 64GB RAM, Go 1.21
 
 ### Test Coverage
 
-Latest test results (705 total specs):
+Latest test results (861 total specs):
 
 | Package | Specs | Coverage | Status |
 |---------|-------|----------|--------|
-| **logger** | 81 | 75.0% | ✅ PASS |
-| **config** | 127 | 85.3% | ✅ PASS |
-| **entry** | 119 | 85.1% | ✅ PASS |
-| **fields** | 49 | 78.4% | ✅ PASS |
+| **logger** | 81 | 74.3% | ✅ PASS |
+| **config** | 125 | 85.3% | ✅ PASS |
+| **entry** | 135 | 85.8% | ✅ PASS |
+| **fields** | 114 | 95.7% | ✅ PASS |
 | **gorm** | 34 | 100.0% | ✅ PASS |
 | **hashicorp** | 89 | 96.6% | ✅ PASS |
-| **hookfile** | 22 | 20.1% | ✅ PASS |
+| **hookfile** | 25 | 82.2% | ✅ PASS |
 | **hookstderr** | 30 | 100.0% | ✅ PASS |
 | **hookstdout** | 30 | 100.0% | ✅ PASS |
-| **hooksyslog** | 20 | 53.5% | ✅ PASS |
+| **hooksyslog** | 41 | 83.2% | ✅ PASS |
 | **hookwriter** | 31 | 90.2% | ✅ PASS |
-| **level** | 42 | 65.9% | ✅ PASS |
+| **level** | 94 | 98.0% | ✅ PASS |
 | **types** | 32 | N/A | ✅ PASS |
-| **TOTAL** | **705** | **~77%** | ✅ **ALL PASS** |
+| **TOTAL** | **861** | **90.9%** | ✅ **ALL PASS** |
 
 ### Memory Profile
 
@@ -338,6 +345,221 @@ Latest test results (705 total specs):
 - **Read Operations**: Lock-free reads where possible
 - **File Hooks**: Buffered writes for performance
 - **Race Detection**: Clean (no data races)
+
+---
+
+## Subpackages
+
+### config
+
+**Purpose**: Configuration management for logger options and validation.
+
+**Key Features**:
+- Complete logger configuration structure
+- JSON/YAML/TOML serialization support
+- File rotation settings (size, age, backup count)
+- Syslog configuration (network, host, level)
+- Format enumeration (JSON/Text)
+- Validation logic
+
+**Use Case**: Application configuration, dynamic reconfiguration, config file parsing
+
+**Documentation**: [config/README.md](config/README.md)
+
+---
+
+### entry
+
+**Purpose**: Log entry creation, formatting, and lifecycle management.
+
+**Key Features**:
+- Entry creation with context
+- Field merging (persistent + per-entry)
+- Level association
+- Timestamp management
+- Formatting for output
+- Stack trace capture
+
+**Use Case**: Structured log entry building, custom formatters, log aggregation
+
+**Documentation**: [entry/README.md](entry/README.md)
+
+---
+
+### fields
+
+**Purpose**: Custom field management and structured data injection.
+
+**Key Features**:
+- Thread-safe field operations
+- Key-value storage with type preservation
+- Field merging and cloning
+- logrus.Fields conversion
+- Add/Get/Delete/List operations
+
+**Use Case**: Contextual logging, request tracking, application metadata
+
+**Documentation**: [fields/README.md](fields/README.md)
+
+---
+
+### level
+
+**Purpose**: Log level enumeration, parsing, and filtering.
+
+**Key Features**:
+- 8 log levels (Panic, Fatal, Error, Warning, Info, Debug, Trace, Null)
+- String parsing and validation
+- Comparison operations
+- logrus level conversion
+- Level-based filtering
+
+**Use Case**: Log verbosity control, environment-based filtering, dynamic level changes
+
+**Documentation**: [level/README.md](level/README.md)
+
+---
+
+### gorm
+
+**Purpose**: GORM ORM integration adapter.
+
+**Key Features**:
+- Query logging with duration tracking
+- Slow query detection (configurable threshold)
+- Error logging
+- Record count tracking
+- Compatible with GORM v2 logger interface
+
+**Performance**:
+- Query logging overhead: <100µs
+- No impact on query execution
+- 100% test coverage
+
+**Use Case**: Database query monitoring, slow query analysis, ORM debugging
+
+**Documentation**: [gorm/README.md](gorm/README.md)
+
+---
+
+### hashicorp
+
+**Purpose**: Hashicorp tools integration (Vault, Consul, Nomad, Terraform).
+
+**Key Features**:
+- hclog adapter implementation
+- Level mapping (hclog ↔ logger levels)
+- Structured logging support
+- Context propagation
+- Named logger support
+
+**Performance**:
+- Adapter overhead: <50µs
+- 96.6% test coverage
+
+**Use Case**: Vault client logging, Consul integration, Terraform provider logs
+
+**Documentation**: [hashicorp/README.md](hashicorp/README.md)
+
+---
+
+### hookfile
+
+**Purpose**: File output hook with rotation support.
+
+**Key Features**:
+- Size-based rotation (MB threshold)
+- Age-based rotation (days threshold)
+- Backup file management (count limit)
+- Compression (gzip)
+- Buffered writes
+
+**Performance**:
+- Write buffering reduces I/O calls
+- Compression saves disk space
+- Rotation overhead: <10ms
+
+**Use Case**: Production log files, application logs, audit trails
+
+**Documentation**: [hookfile/README.md](hookfile/README.md)
+
+---
+
+### hooksyslog
+
+**Purpose**: Syslog protocol output (RFC 5424).
+
+**Key Features**:
+- TCP/UDP transport
+- Local and network syslog
+- Priority mapping
+- Tag customization
+- Facility and severity codes
+
+**Performance**:
+- Network latency dependent
+- Async write support
+
+**Use Case**: Centralized logging, syslog servers, system integration
+
+**Documentation**: [hooksyslog/README.md](hooksyslog/README.md)
+
+---
+
+### hookstdout / hookstderr
+
+**Purpose**: Standard output/error stream hooks.
+
+**Key Features**:
+- Console output (stdout/stderr)
+- Color support (if TTY detected)
+- Human-readable formatting
+- Development-friendly output
+
+**Performance**:
+- Direct write (no buffering)
+- Minimal overhead
+- 100% test coverage (both packages)
+
+**Use Case**: Development logging, console applications, CLI tools
+
+**Documentation**: [hookstdout/README.md](hookstdout/README.md), [hookstderr/README.md](hookstderr/README.md)
+
+---
+
+### hookwriter
+
+**Purpose**: Custom io.Writer integration hook.
+
+**Key Features**:
+- Adapt any io.Writer as log output
+- Level filtering per writer
+- Buffering support
+- Error handling
+
+**Performance**:
+- Overhead depends on underlying writer
+- 90.2% test coverage
+
+**Use Case**: Custom outputs, network streams, database logging, message queues
+
+**Documentation**: [hookwriter/README.md](hookwriter/README.md)
+
+---
+
+### types
+
+**Purpose**: Common types and structures used across logger packages.
+
+**Key Features**:
+- Logger type definitions
+- Configuration structures
+- Compatibility types (GORM, Hashicorp)
+- Interface definitions
+
+**Use Case**: Type safety, interface compliance, API contracts
+
+**Documentation**: [types/README.md](types/README.md)
 
 ---
 
@@ -472,442 +694,6 @@ log.Error("Critical error", nil, err)
 
 ---
 
-## Subpackages
-
-### config
-
-**Purpose**: Configuration management for logger options
-
-**Key Types**:
-- `Options`: Complete logger configuration
-- `OptionsFile`: File output configuration
-- `OptionsSyslog`: Syslog output configuration
-- `Format`: Output format enumeration (JSON/Text)
-
-**Features**:
-- JSON/YAML/TOML serialization
-- Validation
-- Default configuration templates
-- File rotation settings
-
-### entry
-
-**Purpose**: Log entry creation and management
-
-**Key Types**:
-- `Entry`: Individual log entry
-- Interface for entry manipulation
-
-**Features**:
-- Field merging
-- Level association
-- Timestamp management
-- Formatting
-
-### fields
-
-**Purpose**: Custom field management and injection
-
-**Key Types**:
-- `Fields`: Field container
-- Thread-safe field operations
-
-**Features**:
-- Key-value storage
-- Field merging
-- Clone support
-- logrus.Fields conversion
-
-### level
-
-**Purpose**: Log level enumeration and filtering
-
-**Key Types**:
-- `Level`: Log level enumeration
-- 8 levels: Panic, Fatal, Error, Warning, Info, Debug, Trace, Null
-
-**Features**:
-- String parsing
-- Comparison operations
-- logrus level conversion
-- Validation
-
-### hookfile
-
-**Purpose**: File output with rotation
-
-**Features**:
-- Size-based rotation
-- Age-based rotation
-- Compression
-- Backup management
-- Buffered writes
-
-### hooksyslog
-
-**Purpose**: Syslog protocol output
-
-**Features**:
-- TCP/UDP transport
-- RFC 5424 format
-- Priority mapping
-- Network and local syslog
-
-### hookstdout / hookstderr
-
-**Purpose**: Standard output/error streams
-
-**Features**:
-- Console logging
-- Color support (if TTY)
-- Development mode
-
-### hookwriter
-
-**Purpose**: Custom io.Writer integration
-
-**Features**:
-- Adapt any io.Writer
-- Level filtering
-- Buffering
-
-### gorm
-
-**Purpose**: GORM ORM integration
-
-**Features**:
-- Query logging
-- Slow query detection
-- Error logging
-- Record count tracking
-
-### hashicorp
-
-**Purpose**: Hashicorp tools integration (Vault, Consul, etc.)
-
-**Features**:
-- hclog adapter
-- Level mapping
-- Structured logging
-
----
-
-## Configuration
-
-### Options Structure
-
-```go
-type Options struct {
-    // Log level (Panic, Fatal, Error, Warning, Info, Debug, Trace)
-    LogLevel level.Level
-    
-    // Output format (JSON or Text)
-    LogFormatter Format
-    
-    // Enable console output (stdout/stderr)
-    EnableConsole bool
-    
-    // Enable source location tracking
-    EnableTrace bool
-    
-    // Disable stack trace on errors
-    DisableStack bool
-    
-    // File output configuration
-    LogFile *OptionsFile
-    
-    // Syslog output configuration
-    LogSyslog *OptionsSyslog
-}
-```
-
-### File Configuration
-
-```go
-type OptionsFile struct {
-    // Log file path
-    LogFileName string
-    
-    // Maximum size in MB before rotation
-    LogFileMaxSize int64
-    
-    // Maximum age in days
-    LogFileMaxAge int64
-    
-    // Maximum number of backup files
-    LogFileMaxBackup int64
-    
-    // Compress rotated files
-    LogFileCompress bool
-}
-```
-
-### Syslog Configuration
-
-```go
-type OptionsSyslog struct {
-    // Network type: "tcp", "udp", "unix", or "" for local
-    LogSyslogNetwork string
-    
-    // Syslog server address
-    LogSyslogHost string
-    
-    // Minimum level for syslog
-    LogSyslogLevel level.Level
-    
-    // Syslog tag/application name
-    LogSyslogTag string
-}
-```
-
----
-
-## Log Levels
-
-### Level Hierarchy
-
-```
-Panic   (0) - Highest severity, calls panic() after logging
-Fatal   (1) - Logs then exits with os.Exit(1)
-Error   (2) - Error conditions
-Warning (3) - Warning conditions
-Info    (4) - Informational messages
-Debug   (5) - Debug-level messages
-Trace   (6) - Trace-level messages (very verbose)
-Null    (7) - Disable logging
-```
-
-### Usage
-
-```go
-// Set minimum level
-log.SetLevel(level.InfoLevel)
-
-// Only Info, Warning, Error, Fatal, Panic will be logged
-log.Trace("Not logged")
-log.Debug("Not logged")
-log.Info("Logged!")
-log.Warning("Logged!")
-log.Error("Logged!", nil, err)
-```
-
-### Per-Output Levels
-
-```go
-// Console: Debug and above
-log.SetLevel(level.DebugLevel)
-
-// File: Info and above (set in Options)
-opts.LogFile = &OptionsFile{
-    // Implicitly uses logger's level
-}
-
-// Syslog: Only errors
-opts.LogSyslog = &OptionsSyslog{
-    LogSyslogLevel: level.ErrorLevel,  // Override
-}
-```
-
----
-
-## Fields Management
-
-### Creating Fields
-
-```go
-import "github.com/nabbar/golib/logger/fields"
-
-// Empty fields
-flds := fields.New()
-
-// From map
-flds := fields.NewFromMap(map[string]interface{}{
-    "service": "api",
-    "version": "1.0.0",
-})
-
-// Add fields
-flds.Add("key", "value")
-flds.Add("count", 42)
-flds.Add("enabled", true)
-```
-
-### Field Operations
-
-```go
-// Get value
-val := flds.Get("key")
-
-// Check existence
-exists := flds.Exists("key")
-
-// Delete field
-flds.Del("key")
-
-// List keys
-keys := flds.List()
-
-// Merge fields
-other := fields.NewFromMap(map[string]interface{}{"new": "field"})
-merged := flds.Merge(other)
-
-// Clone
-clone := flds.Clone(nil)
-```
-
-### Logger Fields
-
-```go
-// Set persistent fields
-log.SetFields(flds)
-
-// All logs include these fields
-log.Info("Message", nil)  // Includes flds
-
-// Get current fields
-current := log.GetFields()
-
-// Per-entry fields
-log.Info("Message", map[string]interface{}{
-    "request_id": "123",  // Merged with persistent fields
-})
-```
-
----
-
-## Hooks
-
-### File Hook
-
-```go
-opts.LogFile = &logcfg.OptionsFile{
-    LogFileName:      "/var/log/app.log",
-    LogFileMaxSize:   100,  // MB
-    LogFileMaxAge:    30,   // days
-    LogFileMaxBackup: 10,
-    LogFileCompress:  true,
-}
-```
-
-**Features**:
-- Automatic rotation when size limit reached
-- Age-based cleanup
-- Gzip compression
-- Backup file management
-
-### Syslog Hook
-
-```go
-opts.LogSyslog = &logcfg.OptionsSyslog{
-    LogSyslogNetwork: "tcp",
-    LogSyslogHost:    "syslog.example.com:514",
-    LogSyslogLevel:   level.WarnLevel,
-    LogSyslogTag:     "myapp",
-}
-```
-
-**Features**:
-- RFC 5424 format
-- TCP/UDP transport
-- Priority mapping
-- Tag customization
-
-### Console Hook
-
-```go
-opts.EnableConsole = true
-```
-
-**Features**:
-- Stdout/stderr output
-- Color support (TTY)
-- Human-readable format
-
-### Custom Hook
-
-```go
-import "github.com/nabbar/golib/logger/hookwriter"
-
-// Any io.Writer
-customWriter := &MyWriter{}
-hook := hookwriter.New(customWriter)
-
-// Add to logger (via logrus integration)
-```
-
----
-
-## Integrations
-
-### GORM
-
-```go
-import (
-    loggorm "github.com/nabbar/golib/logger/gorm"
-    "gorm.io/gorm"
-)
-
-// Create GORM logger
-gormLogger := loggorm.New(log, loggorm.Config{
-    SlowThreshold: 200 * time.Millisecond,
-    LogLevel:      loggorm.Info,
-    Colorful:      false,
-})
-
-// Use with GORM
-db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-    Logger: gormLogger,
-})
-
-// Queries automatically logged
-db.Where("age > ?", 18).Find(&users)
-// Output: [info] Query executed in 45ms, 10 rows affected
-```
-
-### Hashicorp Tools
-
-```go
-import loghc "github.com/nabbar/golib/logger/hashicorp"
-
-// Create Hashicorp logger
-hcLogger := loghc.New(log, "myapp")
-
-// Use with Vault, Consul, etc.
-client, err := vault.NewClient(&vault.Config{
-    Logger: hcLogger,
-})
-```
-
-### spf13/cobra
-
-```go
-import "github.com/spf13/jwalterweatherman"
-
-// Link spf13 logger to main logger
-notepad := &jww.Notepad{}
-log.SetSPF13Level(level.InfoLevel, notepad)
-
-// spf13 logs now go through main logger
-```
-
-### Standard Library log
-
-```go
-// Get stdlib-compatible logger
-stdLog := log.GetStdLogger(level.InfoLevel, log.LstdFlags)
-
-// Use anywhere stdlib log is needed
-http.Server{
-    ErrorLog: stdLog,
-}
-
-// Or set as default
-log.SetStdLogger(level.InfoLevel, log.LstdFlags)
-log.Println("Uses main logger")
-```
-
----
-
 ## Best Practices
 
 ### 1. Use Structured Logging
@@ -1036,100 +822,160 @@ type Logger interface {
 }
 ```
 
----
+### Configuration
 
-## Testing
+**Options Structure**:
+```go
+type Options struct {
+    LogLevel      level.Level    // Minimum log level
+    LogFormatter  Format         // JSON or Text
+    EnableConsole bool           // Console output
+    EnableTrace   bool           // Source location tracking
+    DisableStack  bool           // Disable stack traces
+    LogFile       *OptionsFile   // File configuration
+    LogSyslog     *OptionsSyslog // Syslog configuration
+}
+```
 
-See [TESTING.md](./TESTING.md) for comprehensive testing documentation.
+**Sub-packages**:
+- `config`: Configuration management
+- `entry`: Log entry handling
+- `fields`: Custom field injection
+- `level`: Log level enumeration
+- `gorm`: GORM integration
+- `hashicorp`: Hashicorp tools adapter
 
-**Test Statistics**:
-- **Total Specs**: 705
-- **Average Coverage**: ~77%
-- **All Tests**: ✅ PASSING
-- **Race Detection**: ✅ CLEAN
+### Log Levels
 
-**Coverage Highlights**:
-- Perfect (100%): gorm, hookstderr, hookstdout
-- Excellent (>90%): hashicorp (96.6%), hookwriter (90.2%)
-- Good (75-85%): config (85.3%), entry (85.1%), fields (78.4%), logger (75.0%)
+**Level Hierarchy** (highest to lowest severity):
+- `PanicLevel` (0): Calls panic() after logging
+- `FatalLevel` (1): Calls os.Exit(1) after logging
+- `ErrorLevel` (2): Error conditions
+- `WarnLevel` (3): Warning conditions
+- `InfoLevel` (4): Informational messages (default)
+- `DebugLevel` (5): Debug information
+- `TraceLevel` (6): Very verbose tracing
+- `NullLevel` (7): Disables logging
 
-**Quick Test**:
-```bash
-# Run all tests
-go test ./...
+### Error Handling
 
-# With coverage
-go test -cover ./...
+```go
+// CheckError: Conditional logging based on error presence
+hasError := log.CheckError(
+    level.ErrorLevel,  // Log level if error
+    level.InfoLevel,   // Log level if no error
+    "Operation result",
+    err,
+)
 
-# With race detection
-CGO_ENABLED=1 go test -race ./...
-
-# Detailed results
-go test -v -cover ./...
+// LogDetails: Advanced logging with multiple errors
+log.LogDetails(
+    level.ErrorLevel,
+    "Complex operation failed",
+    data,
+    []error{err1, err2},
+    fields,
+    args...,
+)
 ```
 
 ---
+
 
 ## Contributing
 
 Contributions are welcome! Please follow these guidelines:
 
-### Code Standards
-- Write tests for new features
-- Update documentation
-- Add GoDoc comments for public APIs
-- Run `go fmt` and `go vet`
-- Test with race detector (`-race`)
+1. **Code Quality**
+   - Follow Go best practices and idioms
+   - Maintain or improve code coverage (target: >85%)
+   - Pass all tests including race detector
+   - Use `gofmt` and `golint`
 
-### AI Usage Policy
-- **DO NOT** use AI tools to generate package code or core logic
-- **DO** use AI to assist with:
-  - Writing and improving tests
-  - Documentation and comments
-  - Debugging and bug fixes
+2. **AI Usage Policy**
+   - ❌ **AI must NEVER be used** to generate package code or core functionality
+   - ✅ **AI assistance is limited to**:
+     - Testing (writing and improving tests)
+     - Debugging (troubleshooting and bug resolution)
+     - Documentation (comments, README, TESTING.md)
+   - All AI-assisted work must be reviewed and validated by humans
 
-All AI-assisted work must be reviewed and validated by a human maintainer.
+3. **Testing**
+   - Add tests for new features
+   - Use Ginkgo v2 / Gomega for test framework
+   - Ensure zero race conditions
+   - Maintain coverage above 85%
 
-### Pull Request Process
-1. Fork the repository
-2. Create a feature branch
-3. Write tests
-4. Update documentation
-5. Run full test suite with race detection
-6. Submit PR with clear description
+4. **Documentation**
+   - Update GoDoc comments for public APIs
+   - Add examples for new features
+   - Update README.md if adding subpackages
+   - Update TESTING.md if changing test structure
 
----
-
-## Future Enhancements
-
-Potential improvements under consideration:
-
-- **Structured Query Language**: Query logs programmatically
-- **Log Sampling**: Sample high-volume logs
-- **Context Integration**: Context-aware logging with trace IDs
-- **Metrics Export**: Prometheus metrics for log rates
-- **Remote Backends**: Direct integration with log aggregators (Elasticsearch, Loki)
-- **Performance Profiling**: Built-in performance profiling hooks
-- **Log Encryption**: Encrypted log output for sensitive data
-
-Contributions and suggestions are welcome!
+5. **Pull Request Process**
+   - Fork the repository
+   - Create a feature branch
+   - Write clear commit messages
+   - Ensure all tests pass
+   - Update documentation
+   - Submit PR with description of changes
 
 ---
 
-## License
+## Improvements & Security
 
-MIT License - Copyright (c) 2021 Nicolas JUHEL
+**Planned Improvements**:
+- Structured query language for programmatic log querying
+- Log sampling for high-volume scenarios
+- Enhanced context integration with distributed trace IDs
+- Prometheus metrics for log rate monitoring
+- Direct integration with log aggregators (Elasticsearch, Loki, Grafana)
 
-See [LICENSE](../LICENSE) for full details.
+**Security Considerations**:
+- All log outputs are protected by file permissions
+- Sensitive data should be filtered before logging
+- File rotation prevents disk exhaustion
+- Syslog connections support TLS for secure transmission
+
+**Reporting Security Issues**:
+Please report security vulnerabilities privately via GitHub Security Advisories or by contacting the maintainer directly.
 
 ---
 
 ## Resources
 
-- **GoDoc**: [pkg.go.dev/github.com/nabbar/golib/logger](https://pkg.go.dev/github.com/nabbar/golib/logger)
-- **Logrus**: [github.com/sirupsen/logrus](https://github.com/sirupsen/logrus)
-- **Issues**: [github.com/nabbar/golib/issues](https://github.com/nabbar/golib/issues)
+### Internal Documentation
+- [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/logger) - Complete API documentation
+- [TESTING.md](TESTING.md) - Comprehensive testing guide
+- Individual subpackage READMEs (linked in [Subpackages](#subpackages))
 
-**Related Packages**:
-- [github.com/nabbar/golib/context](https://github.com/nabbar/golib/context)
-- [github.com/nabbar/golib/ioutils](https://github.com/nabbar/golib/ioutils)
+### Related Packages
+- [github.com/nabbar/golib/context](../context) - Context management
+- [github.com/nabbar/golib/ioutils](../ioutils) - I/O utilities
+- [github.com/nabbar/golib/errors](../errors) - Error handling
+
+### External References
+- [Logrus](https://github.com/sirupsen/logrus) - Underlying logging library
+- [GORM](https://gorm.io) - GORM integration
+- [Hashicorp hclog](https://github.com/hashicorp/go-hclog) - Hashicorp adapter
+- [GitHub Issues](https://github.com/nabbar/golib/issues) - Bug reports and feature requests
+
+---
+
+## AI Transparency
+
+In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
+
+---
+
+## License
+
+MIT License - See [LICENSE](../LICENSE) file for details.
+
+Copyright (c) 2025 Nicolas JUHEL
+
+---
+
+**Maintained by**: [Nicolas JUHEL](https://github.com/nabbar)  
+**Package**: `github.com/nabbar/golib/logger`  
+**Version**: See [releases](https://github.com/nabbar/golib/releases) for versioning

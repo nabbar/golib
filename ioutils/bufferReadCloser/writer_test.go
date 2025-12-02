@@ -38,7 +38,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// Writer tests verify the bufio.Writer wrapper with io.Closer support.
+// Tests cover creation, write operations, flush behavior, close with reset,
+// custom close functions, error propagation, and nil parameter handling.
 var _ = Describe("Writer", func() {
+	// Creation tests verify writer instantiation and nil handling (io.Discard).
 	Context("Creation", func() {
 		It("should create writer from bufio.Writer", func() {
 			dest := &bytes.Buffer{}
@@ -63,8 +67,23 @@ var _ = Describe("Writer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(closed).To(BeTrue())
 		})
+
+		It("should create writer to discard when writer is nil", func() {
+			writer := NewWriter(nil, nil)
+			Expect(writer).ToNot(BeNil())
+
+			// Should be able to write without error (to io.Discard)
+			n, err := writer.WriteString("test data")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(9))
+
+			// Close should work
+			err = writer.Close()
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 
+	// Write operations tests verify delegation and buffering behavior.
 	Context("Write operations", func() {
 		It("should write data", func() {
 			dest := &bytes.Buffer{}
@@ -129,6 +148,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	// Close operations tests verify flush, reset, and custom function execution.
 	Context("Close operations", func() {
 		It("should flush and close writer", func() {
 			dest := &bytes.Buffer{}
@@ -188,6 +208,7 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	// Edge cases tests verify behavior with large writes and flush errors.
 	Context("Edge cases", func() {
 		It("should handle empty write", func() {
 			dest := &bytes.Buffer{}

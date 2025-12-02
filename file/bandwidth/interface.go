@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2023 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -69,60 +69,106 @@ import (
 // This interface provides methods to register bandwidth limiting callbacks
 // with progress-enabled file operations. It integrates seamlessly with the
 // progress package to enforce bytes-per-second transfer limits.
+//
+// All methods are safe for concurrent use across multiple goroutines.
 type BandWidth interface {
 
-	// RegisterIncrement registers a function to be called when the progress of
-	// a file being read or written reaches a certain number of bytes. The
-	// function will be called with the number of bytes that have been read or
-	// written from the start of the file. The function is called even if the
-	// registered progress is not reached (i.e. if the file is smaller than
-	// the registered progress). The function is called with the current
-	// progress when the file is closed (i.e. when io.Copy returns io.EOF).
+	// RegisterIncrement registers a bandwidth-limited increment callback with a progress tracker.
 	//
-	// The function is called with the following signature:
+	// This method wraps the provided callback function with bandwidth throttling logic. When
+	// the progress tracker detects bytes transferred, the bandwidth limiter enforces the
+	// configured rate limit before invoking the user-provided callback.
 	//
-	// func(size int64)
+	// The callback function will be invoked with the total number of bytes transferred since
+	// the last increment. The callback is optional; if nil, only bandwidth limiting is applied
+	// without additional notification.
 	//
-	// If the function is nil, it is simply ignored.
+	// Parameters:
+	//   - fpg: Progress tracker to register the callback with
+	//   - fi: Optional callback function with signature func(size int64)
 	//
+	// The callback is invoked:
+	//   - After each read/write operation that transfers data
+	//   - When the file reaches EOF
+	//   - Even if the file is smaller than expected
+	//
+	// Thread safety: This method is safe to call concurrently with other BandWidth methods.
+	//
+	// Example:
+	//   bw.RegisterIncrement(fpg, func(size int64) {
+	//       fmt.Printf("Transferred %d bytes at limited rate\n", size)
+	//   })
 	RegisterIncrement(fpg libfpg.Progress, fi libfpg.FctIncrement)
 
-	// RegisterReset registers a function to be called when the progress of a
-	// file being read or written is reset. The function will be called with the
-	// maximum progress that has been reached and the current progress when
-	// the file is closed (i.e. when io.Copy returns io.EOF).
+	// RegisterReset registers a reset callback that clears bandwidth tracking state.
 	//
-	// The function is called with the following signature:
+	// This method registers a callback to be invoked when the progress tracker is reset.
+	// The bandwidth limiter clears its internal timestamp state, allowing a fresh rate
+	// calculation after the reset. The user-provided callback is then invoked with
+	// the reset parameters.
 	//
-	// func(size, current int64)
+	// Parameters:
+	//   - fpg: Progress tracker to register the callback with
+	//   - fr: Optional callback function with signature func(size, current int64)
 	//
-	// If the function is nil, it is simply ignored.
+	// The callback receives:
+	//   - size: Maximum progress reached before reset
+	//   - current: Current progress at the time of reset
+	//
+	// The callback is invoked:
+	//   - When fpg.Reset() is explicitly called
+	//   - When the file is repositioned (seek operations)
+	//   - When io.Copy completes and progress is finalized
+	//
+	// Thread safety: This method is safe to call concurrently with other BandWidth methods.
+	//
+	// Example:
+	//   bw.RegisterReset(fpg, func(size, current int64) {
+	//       fmt.Printf("Reset: max=%d current=%d\n", size, current)
+	//   })
 	RegisterReset(fpg libfpg.Progress, fr libfpg.FctReset)
 }
 
-// New returns a new BandWidth instance with the given bytes by second limit.
-// The instance returned by New implements the BandWidth interface.
+// New creates a new BandWidth instance with the specified rate limit.
 //
-// The bytesBySecond argument specifies the maximum number of bytes that
-// can be read or written to the underlying file per second. If the
-// underlying file is smaller than the maximum number of bytes, the
-// registered functions will be called with the size of the underlying
-// file. The registered functions will be called with the current progress
-// when the file is closed (i.e. when io.Copy returns io.EOF).
+// This function returns a bandwidth limiter that enforces the given bytes-per-second
+// transfer rate. The limiter uses time-based throttling with atomic operations for
+// thread-safe concurrent usage.
 //
-// The returned instance is safe for concurrent use.
+// Parameters:
+//   - bytesBySecond: Maximum transfer rate in bytes per second
+//   - Use 0 for unlimited bandwidth (no throttling overhead)
+//   - Common values: size.SizeKilo (1KB/s), size.SizeMega (1MB/s), etc.
 //
-// The returned instance is not safe for concurrent writes. If the
-// returned instance is used concurrently, the caller must ensure that
-// the instance is not modified concurrently.
+// Behavior:
+//   - When limit is 0: No throttling applied, zero overhead
+//   - When limit > 0: Enforces rate by introducing sleep delays
+//   - Rate calculation: bytes / elapsed_seconds
+//   - Sleep duration: capped at 1 second maximum per operation
 //
-// The returned instance is not safe for concurrent reads. If the
-// returned instance is used concurrently, the caller must ensure that
-// the instance is not modified concurrently.
+// The returned instance is safe for concurrent use across multiple goroutines.
+// All methods can be called concurrently without external synchronization.
 //
-// The returned instance is not safe for concurrent seeks. If the
-// returned instance is used concurrently, the caller must ensure that
-// the instance is not modified concurrently.
+// Thread safety:
+//   - Safe for concurrent RegisterIncrement/RegisterReset calls
+//   - Internal state protected by atomic operations
+//   - No mutexes required for concurrent access
+//
+// Performance:
+//   - Zero-cost when unlimited (bytesBySecond = 0)
+//   - Minimal overhead when limiting enabled (<1ms per operation)
+//   - Lock-free implementation using atomic.Value
+//
+// Example usage:
+//
+//	// Unlimited bandwidth
+//	bw := bandwidth.New(0)
+//
+//	// 1 MB/s limit
+//	bw := bandwidth.New(size.SizeMega)
+//
+//	// Custom 512 KB/s limit
+//	bw := bandwidth.New(512 * size.SizeKilo)
 func New(bytesBySecond libsiz.Size) BandWidth {
 	return &bw{
 		t: new(atomic.Value),

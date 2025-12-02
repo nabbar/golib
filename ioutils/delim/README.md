@@ -11,17 +11,16 @@ Lightweight, high-performance buffered reader for delimiter-separated data strea
 ## Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
-- [Installation](#installation)
 - [Architecture](#architecture)
-- [Quick Start](#quick-start)
 - [Performance](#performance)
 - [Use Cases](#use-cases)
+- [Quick Start](#quick-start)
 - [API Reference](#api-reference)
 - [Best Practices](#best-practices)
-- [Testing](#testing)
 - [Contributing](#contributing)
-- [Future Enhancements](#future-enhancements)
+- [Improvements & Security](#improvements--security)
+- [Resources](#resources)
+- [AI Transparency](#ai-transparency)
 - [License](#license)
 
 ---
@@ -46,9 +45,7 @@ The `delim` package provides a buffered reader that efficiently processes data s
 - **Standard Interfaces**: Drop-in replacement for `io.ReadCloser`
 - **Predictable Behavior**: Explicit control over buffer and delimiter handling
 
----
-
-## Key Features
+### Key Features
 
 - **Custom Delimiters**: Any rune character (ASCII, Unicode, control characters)
 - **Constant Memory**: ~4KB default buffer regardless of file size
@@ -61,14 +58,6 @@ The `delim` package provides a buffered reader that efficiently processes data s
   - `WriteTo(w io.Writer)` - Efficient streaming
 - **Performance**: Sub-millisecond operations for typical workloads
 - **No External Dependencies**: Only standard library + `github.com/nabbar/golib/size`
-
----
-
-## Installation
-
-```bash
-go get github.com/nabbar/golib/ioutils/delim
-```
 
 ---
 
@@ -229,6 +218,12 @@ This package excels in scenarios requiring delimiter-based data processing:
 ---
 
 ## Quick Start
+
+### Installation
+
+```bash
+go get github.com/nabbar/golib/ioutils/delim
+```
 
 ### Basic Line Reading
 
@@ -722,39 +717,18 @@ func processParallel() {
 }
 ```
 
----
+### Testing
 
-## Testing
+The package includes a comprehensive test suite with **100% code coverage** and **198 test specifications** using Ginkgo v2 and Gomega. All tests pass with race detection enabled, ensuring thread safety.
 
-**Test Suite**: 198 specs using Ginkgo v2 and Gomega (100% coverage)
-
+**Quick test commands:**
 ```bash
-# Run tests
-go test ./...
-
-# With coverage
-go test -cover ./...
-
-# With race detection (recommended)
-CGO_ENABLED=1 go test -race ./...
+go test ./...                          # Run all tests
+go test -cover ./...                   # With coverage
+CGO_ENABLED=1 go test -race ./...      # With race detection
 ```
 
-**Coverage Areas**:
-- Constructor with various delimiters and buffer sizes
-- Read operations (Read, ReadBytes, UnRead)
-- Write operations (WriteTo, Copy)
-- Edge cases (Unicode, binary data, empty input, large data)
-- DiscardCloser functionality
-- Concurrency and thread safety
-- Performance benchmarks (30 scenarios)
-
-**Quality Metrics**:
-- ✅ 100% statement coverage
-- ✅ Zero data races (verified with `-race`)
-- ✅ 198 passing specs
-- ✅ Sub-second test execution (~0.17s normal, ~2.1s with race)
-
-See [TESTING.md](TESTING.md) for detailed testing documentation.
+See **[TESTING.md](TESTING.md)** for comprehensive testing documentation, including test architecture, performance benchmarks, and troubleshooting guides.
 
 ---
 
@@ -762,69 +736,129 @@ See [TESTING.md](TESTING.md) for detailed testing documentation.
 
 Contributions are welcome! Please follow these guidelines:
 
-**Code Contributions**
-- Do not use AI to generate package implementation code
-- AI may assist with tests, documentation, and bug fixing
-- All contributions must pass `go test -race`
-- Maintain 100% test coverage
-- Follow existing code style and patterns
+1. **Code Quality**
+   - Follow Go best practices and idioms
+   - Maintain or improve code coverage (target: 100%)
+   - Pass all tests including race detector
+   - Use `gofmt` and `golint`
 
-**Documentation**
-- Update README.md for new features
-- Add examples for common use cases
-- Keep TESTING.md synchronized with test changes
-- Update GoDoc comments
+2. **AI Usage Policy**
+   - ❌ **AI must NEVER be used** to generate package code or core functionality
+   - ✅ **AI assistance is limited to**:
+     - Testing (writing and improving tests)
+     - Debugging (troubleshooting and bug resolution)
+     - Documentation (comments, README, TESTING.md)
+   - All AI-assisted work must be reviewed and validated by humans
 
-**Testing**
-- Write tests for all new features
-- Test edge cases and error conditions
-- Verify thread safety with race detector
-- Add benchmarks for performance-critical code
+3. **Testing**
+   - Add tests for new features
+   - Use Ginkgo v2 / Gomega for test framework
+   - Use `gmeasure` for performance benchmarks
+   - Ensure zero race conditions with `go test -race`
 
-**Pull Requests**
-- Provide clear description of changes
-- Reference related issues
-- Include test results
-- Update documentation
+4. **Documentation**
+   - Update GoDoc comments for public APIs
+   - Add examples for new features
+   - Update README.md and TESTING.md if needed
+
+5. **Pull Request Process**
+   - Fork the repository
+   - Create a feature branch
+   - Write clear commit messages
+   - Ensure all tests pass
+   - Update documentation
+   - Submit PR with description of changes
 
 See [CONTRIBUTING.md](../../CONTRIBUTING.md) for detailed guidelines.
 
 ---
 
-## Future Enhancements
+## Improvements & Security
 
-Potential improvements for future versions:
+### Current Status
 
-**Performance**
-- Memory-mapped reading for very large files
-- Parallel processing for multi-delimiter extraction
-- SIMD optimizations for delimiter scanning
-- Buffer pooling for reduced GC pressure
+The package is **production-ready** with no urgent improvements or security vulnerabilities identified.
 
-**Features**
-- Multi-byte delimiter support (string delimiters)
-- Delimiter transformation (e.g., convert CRLF to LF)
-- Progress callbacks for long operations
-- Delimiter statistics and profiling
-- Record counting and indexing
+### Code Quality Metrics
 
-**Compatibility**
-- Scanner-compatible API wrapper
-- Integration with `encoding/csv`
-- Integration with `bufio.Scanner` SplitFunc
+- ✅ **100% test coverage** (target: >80%)
+- ✅ **Zero race conditions** detected with `-race` flag
+- ✅ **Thread-safe** per instance (one goroutine per BufferDelim)
+- ✅ **Memory-safe** with proper resource cleanup
+- ✅ **Standard interfaces** for maximum compatibility
 
-**Quality of Life**
-- Helper functions for common delimiters
-- Delimiter auto-detection
-- Validation and sanitization options
+### Future Enhancements (Non-urgent)
 
-Suggestions and contributions are welcome via GitHub issues.
+The following enhancements could be considered for future versions:
+
+**Performance Optimizations:**
+1. Memory-mapped reading for very large files
+2. Parallel processing for multi-delimiter extraction
+3. SIMD optimizations for delimiter scanning
+4. Buffer pooling for reduced GC pressure
+
+**Feature Additions:**
+1. Multi-byte delimiter support (string delimiters instead of rune)
+2. Delimiter transformation (e.g., convert CRLF to LF)
+3. Progress callbacks for long operations
+4. Delimiter statistics and profiling
+5. Record counting and indexing
+
+**API Extensions:**
+1. Scanner-compatible API wrapper for easier migration
+2. Integration helpers with `encoding/csv`
+3. Custom `bufio.Scanner` SplitFunc generator
+
+**Quality of Life:**
+1. Helper functions for common delimiters (CSV, TSV, etc.)
+2. Delimiter auto-detection
+3. Validation and sanitization options
+
+These are **optional improvements** and not required for production use. The current implementation is stable, performant, and feature-complete for its intended use cases.
+
+Suggestions and contributions are welcome via [GitHub issues](https://github.com/nabbar/golib/issues).
 
 ---
 
-## AI Transparency Notice
+## Resources
 
-In accordance with Article 50.4 of the EU AI Act, AI assistance has been used for testing, documentation, and bug fixing under human supervision.
+### Package Documentation
+
+- **[GoDoc](https://pkg.go.dev/github.com/nabbar/golib/ioutils/delim)** - Complete API reference with function signatures, method descriptions, and runnable examples. Essential for understanding the public interface and usage patterns.
+
+- **[doc.go](doc.go)** - In-depth package documentation including design philosophy, delimiter handling, buffer management, performance considerations, and comparison with `bufio.Scanner`. Provides detailed explanations of internal mechanisms and best practices for production use.
+
+- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, 100% coverage analysis, performance benchmarks, and guidelines for writing new tests. Includes troubleshooting and CI integration examples.
+
+### Related golib Packages
+
+- **[github.com/nabbar/golib/size](https://pkg.go.dev/github.com/nabbar/golib/size)** - Size constants and utilities (KiB, MiB, GiB, etc.) used for configurable buffer sizing. Provides type-safe size constants to avoid magic numbers and improve code readability when specifying buffer sizes.
+
+- **[github.com/nabbar/golib/ioutils/aggregator](https://pkg.go.dev/github.com/nabbar/golib/ioutils/aggregator)** - Thread-safe write aggregator that can work with `delim` for concurrent log processing. Useful when multiple goroutines need to write delimiter-separated data to a single output stream.
+
+### Standard Library References
+
+- **[bufio](https://pkg.go.dev/bufio)** - Standard library buffered I/O package. The `delim` package builds upon `bufio.Reader` to provide delimiter-aware reading with additional control and flexibility. Understanding `bufio` helps in choosing the right tool for the task.
+
+- **[io](https://pkg.go.dev/io)** - Standard I/O interfaces implemented by `delim`. The package fully implements `io.ReadCloser` and `io.WriterTo` for seamless integration with Go's I/O ecosystem and compatibility with existing tools and libraries.
+
+### External References
+
+- **[Effective Go](https://go.dev/doc/effective_go)** - Official Go programming guide covering best practices for interfaces, error handling, and I/O patterns. The `delim` package follows these conventions for idiomatic Go code.
+
+- **[Go I/O Patterns](https://go.dev/blog/pipelines)** - Official Go blog article explaining pipeline patterns and streaming I/O. Relevant for understanding how `delim` fits into larger data processing pipelines with delimiter-based segmentation.
+
+### Community & Support
+
+- **[GitHub Issues](https://github.com/nabbar/golib/issues)** - Report bugs, request features, or ask questions about the `delim` package. Check existing issues before creating new ones.
+
+- **[Contributing Guide](../../CONTRIBUTING.md)** - Detailed guidelines for contributing code, tests, and documentation to the project. Includes code style requirements, testing procedures, and pull request process.
+
+---
+
+## AI Transparency
+
+In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
 
 ---
 
@@ -832,15 +866,10 @@ In accordance with Article 50.4 of the EU AI Act, AI assistance has been used fo
 
 MIT License - See [LICENSE](../../LICENSE) file for details.
 
+Copyright (c) 2025 Nicolas JUHEL
+
 ---
 
-## Resources
-
-- **Package Documentation**: [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/ioutils/delim)
-- **Testing Guide**: [TESTING.md](TESTING.md)
-- **Issues**: [GitHub Issues](https://github.com/nabbar/golib/issues)
-- **Contributing**: [CONTRIBUTING.md](../../CONTRIBUTING.md)
-- **Related Packages**:
-  - [github.com/nabbar/golib/size](https://pkg.go.dev/github.com/nabbar/golib/size) - Size constants
-  - [bufio](https://pkg.go.dev/bufio) - Standard library buffered I/O
-  - [io](https://pkg.go.dev/io) - Standard I/O interfaces
+**Maintained by**: [Nicolas JUHEL](https://github.com/nabbar)  
+**Package**: `github.com/nabbar/golib/ioutils/delim`  
+**Version**: See [releases](https://github.com/nabbar/golib/releases) for versioning

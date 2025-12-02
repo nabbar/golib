@@ -24,10 +24,28 @@
  *
  */
 
+// Package ioprogress_test provides comprehensive tests for Writer implementation.
+//
+// This file contains 20 test specifications covering all aspects of the Writer interface:
+//   - Constructor and initialization
+//   - Write operations (single, multiple, empty data)
+//   - Progress tracking with increment callbacks
+//   - EOF callback behavior (rare for writers)
+//   - Reset callback for multi-stage operations
+//   - Close operations (single and multiple)
+//   - Combined operations (multiple writes, state tracking)
+//   - Edge cases (large data, many small writes)
+//   - Concurrency (concurrent callback registration)
+//
+// Test Strategy: Each test validates a specific behavior or edge case using BDD-style
+// organization. Tests use helper types (closeableWriter) to provide controlled test
+// environments that track state and capture written data.
+//
+// Thread Safety: Tests explicitly validate concurrent callback registration to ensure
+// atomic operations work correctly. All tests pass race detection (-race flag).
 package ioprogress_test
 
 import (
-	"bytes"
 	"strings"
 	"sync/atomic"
 
@@ -37,22 +55,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-type closeableWriter struct {
-	*bytes.Buffer
-	closed bool
-}
-
-func (c *closeableWriter) Close() error {
-	c.closed = true
-	return nil
-}
-
-func newCloseableWriter() *closeableWriter {
-	return &closeableWriter{
-		Buffer: &bytes.Buffer{},
-		closed: false,
-	}
-}
+// Helper types (closeableWriter, newCloseableWriter) are defined in helper_test.go
+// to avoid code duplication across test files.
 
 var _ = Describe("Writer", func() {
 	Context("Creation", func() {

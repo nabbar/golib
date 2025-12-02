@@ -32,7 +32,6 @@ import (
 	"time"
 
 	libatm "github.com/nabbar/golib/atomic"
-	liblog "github.com/nabbar/golib/logger"
 	"github.com/nabbar/golib/runner"
 	librun "github.com/nabbar/golib/runner/startStop"
 	libsem "github.com/nabbar/golib/semaphore"
@@ -61,9 +60,10 @@ import (
 type agg struct {
 	x libatm.Value[context.Context]    // context control
 	n libatm.Value[context.CancelFunc] // running control
+	r libatm.Value[librun.StartStop]   // runner instance
 
-	l libatm.Value[liblog.Logger]    // logger instance
-	r libatm.Value[librun.StartStop] // runner instance
+	le libatm.Value[func(msg string, err ...error)] // logger instance
+	li libatm.Value[func(msg string, arg ...any)]   // logger instance
 
 	at time.Duration             // ticker duration of asynchronous function
 	am int                       // maximum asynchronous call in same time
@@ -83,6 +83,54 @@ type agg struct {
 
 	sd *atomic.Int64 // size of message in buffered channel
 	sw *atomic.Int64 // size of waiting write to buffered channel
+}
+
+// SetLoggerError sets a custom error logging function for the aggregator.
+//
+// The provided function will be called whenever an error occurs during internal
+// operations, such as write failures or context cancellation.
+//
+// Parameters:
+//   - f: The error logging function. If nil, a no-op function is used.
+//
+// This method is safe for concurrent use.
+//
+// Example:
+//
+//	agg.SetLoggerError(func(msg string, err ...error) {
+//	    log.Printf("ERROR: %s: %v", msg, err)
+//	})
+func (a *agg) SetLoggerError(f func(msg string, err ...error)) {
+	if f == nil {
+		a.le.Store(func(msg string, err ...error) {})
+		return
+	}
+
+	a.le.Store(f)
+}
+
+// SetLoggerInfo sets a custom info logging function for the aggregator.
+//
+// The provided function will be called for informational messages during
+// normal operations, such as start/stop events.
+//
+// Parameters:
+//   - f: The info logging function. If nil, a no-op function is used.
+//
+// This method is safe for concurrent use.
+//
+// Example:
+//
+//	agg.SetLoggerInfo(func(msg string, arg ...any) {
+//	    log.Printf("INFO: "+msg, arg...)
+//	})
+func (a *agg) SetLoggerInfo(f func(msg string, arg ...any)) {
+	if f == nil {
+		a.li.Store(func(msg string, arg ...any) {})
+		return
+	}
+
+	a.li.Store(f)
 }
 
 // NbWaiting returns the number of Write() calls currently waiting to send data to the channel.
@@ -140,6 +188,7 @@ func (o *agg) run(ctx context.Context) error {
 	)
 
 	defer func() {
+		// Cleanup: release semaphore, close aggregator, stop timers
 		if sem != nil {
 			sem.DeferMain()
 		}
@@ -158,7 +207,7 @@ func (o *agg) run(ctx context.Context) error {
 	// Initialize context and open channel (which sets op to true)
 	o.ctxNew(ctx)
 	o.chanOpen()
-	o.cntReset() // Reset counters on start
+	o.cntReset() // Reset counters on start to ensure clean state
 
 	sem = libsem.New(context.Background(), o.am, false)
 	o.logInfo("starting aggregator")
@@ -174,10 +223,13 @@ func (o *agg) run(ctx context.Context) error {
 			o.callSyn()
 
 		case p, ok := <-o.chanData():
+			// Decrement counter immediately when data is received from channel
 			o.cntDataDec(len(p))
 			if !ok {
+				// Channel closed, skip this iteration
 				continue
 			} else if e := o.fctWrite(p); e != nil {
+				// Log write errors but continue processing
 				o.logError("error writing data", e)
 			}
 		}
@@ -230,11 +282,13 @@ func (o *agg) callASyn(sem libsem.Semaphore) {
 	} else if o.x.Load() == nil {
 		return
 	} else if !sem.NewWorkerTry() {
+		// Semaphore full, skip this async call to avoid blocking
 		return
 	} else if e := sem.NewWorker(); e != nil {
 		o.logError("aggregator failed to start new async worker", e)
 		return
 	} else {
+		// Launch async function in new goroutine
 		go func() {
 			defer sem.DeferWorker()
 			o.af(o.x.Load())
@@ -259,11 +313,15 @@ func (o *agg) callSyn() {
 	o.sf(o.x.Load())
 }
 
+// cntDataInc increments the processing counters when data enters the buffer.
+// It tracks both the number of items and total bytes in the channel.
 func (o *agg) cntDataInc(i int) {
 	o.cd.Add(1)
 	o.sd.Add(int64(i))
 }
 
+// cntDataDec decrements the processing counters when data is consumed from the buffer.
+// It ensures counters never go negative by resetting to 0 if needed.
 func (o *agg) cntDataDec(i int) {
 	o.cd.Add(-1)
 	if j := o.cd.Load(); j < 0 {
@@ -275,11 +333,15 @@ func (o *agg) cntDataDec(i int) {
 	}
 }
 
+// cntWaitInc increments the waiting counters when a Write() call blocks.
+// It tracks both the number of blocked writes and total bytes waiting.
 func (o *agg) cntWaitInc(i int) {
 	o.cw.Add(1)
 	o.sw.Add(int64(i))
 }
 
+// cntWaitDec decrements the waiting counters when a blocked Write() proceeds.
+// It ensures counters never go negative by resetting to 0 if needed.
 func (o *agg) cntWaitDec(i int) {
 	o.cw.Add(-1)
 	if j := o.cw.Load(); j < 0 {
@@ -291,6 +353,8 @@ func (o *agg) cntWaitDec(i int) {
 	}
 }
 
+// cntReset resets all counters to zero.
+// Called when the aggregator starts to ensure clean state.
 func (o *agg) cntReset() {
 	o.cd.Store(0)
 	o.sd.Store(0)

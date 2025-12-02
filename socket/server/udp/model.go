@@ -33,23 +33,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	libatm "github.com/nabbar/golib/atomic"
 	libtls "github.com/nabbar/golib/certificates"
 	libptc "github.com/nabbar/golib/network/protocol"
+	librun "github.com/nabbar/golib/runner"
 	libsck "github.com/nabbar/golib/socket"
 )
-
-var (
-	// closedChanStruct is a pre-closed channel used as a sentinel value
-	// to indicate that a channel has been closed or should be treated as closed.
-	// This avoids repeated channel allocations and provides a consistent closed state.
-	closedChanStruct chan struct{}
-)
-
-// init initializes the package-level closedChanStruct sentinel channel.
-func init() {
-	closedChanStruct = make(chan struct{})
-	close(closedChanStruct)
-}
 
 // srv is the internal implementation of the ServerUdp interface.
 // It uses atomic operations for thread-safe state management and operates
@@ -58,7 +47,7 @@ func init() {
 // Unlike TCP servers, UDP servers:
 //   - Do not maintain per-client connections
 //   - Have a single handler processing all datagrams
-//   - OpenConnections() returns 1 when running, 0 when stopped
+//   - OpenConnections() always returns 0 (UDP is stateless)
 //   - Cannot use TLS (SetTLS is a no-op)
 //
 // All fields use atomic types or are immutable after construction to ensure
@@ -66,28 +55,26 @@ func init() {
 type srv struct {
 	upd libsck.UpdateConn  // Connection update callback (optional, called once on socket creation)
 	hdl libsck.HandlerFunc // Datagram handler function (required)
-	msg *atomic.Value      // Message channel (chan []byte)
-	stp *atomic.Value      // Stop listening channel (chan struct{})
-	run *atomic.Bool       // Server is accepting datagrams flag
+	run *atomic.Bool       // Server is accepting connections flag
+	gon *atomic.Bool       // Server is draining connections flag
 
-	fe *atomic.Value // Error callback (FuncError)
-	fi *atomic.Value // Datagram info callback (FuncInfo)
-	fs *atomic.Value // Server info callback (FuncInfoSrv)
+	fe libatm.Value[libsck.FuncError]   // Error callback (FuncError)
+	fi libatm.Value[libsck.FuncInfo]    // Connection info callback (FuncInfo)
+	fs libatm.Value[libsck.FuncInfoSrv] // Server info callback (FuncInfoSrv)
 
-	ad *atomic.Value // Server listen address (string)
+	ad libatm.Value[string] // Server listen address (string)
+}
+
+func (o *srv) Listener() (network libptc.NetworkProtocol, listener string, tls bool) {
+	return libptc.NetworkUDP, o.getAddress(), false
 }
 
 // OpenConnections returns the connection count for the UDP server.
-// Unlike TCP, UDP is connectionless, so this returns:
-//   - 1 when the server is running (actively listening for datagrams)
-//   - 0 when the server is stopped
+// Unlike TCP, UDP is connectionless, so this always returns 0.
+// UDP has no persistent connections to track.
 //
 // This is safe to call from multiple goroutines.
 func (o *srv) OpenConnections() int64 {
-	if o.IsRunning() {
-		return 1
-	}
-
 	return 0
 }
 
@@ -105,35 +92,7 @@ func (o *srv) IsRunning() bool {
 //
 // This state is set by calling Shutdown() or Close().
 func (o *srv) IsGone() bool {
-	return !o.IsRunning()
-}
-
-// Done returns a channel that is closed when the server stops accepting datagrams.
-// This channel is closed during shutdown.
-//
-// Use this to detect when Listen() has exited.
-// Returns a pre-closed channel if the server is nil or not initialized.
-func (o *srv) Done() <-chan struct{} {
-	if o == nil {
-		return closedChanStruct
-	}
-
-	if i := o.stp.Load(); i != nil {
-		if c, k := i.(chan struct{}); k {
-			return c
-		}
-	}
-
-	return closedChanStruct
-}
-
-// Gone returns a channel that indicates when the server is fully stopped.
-// For UDP servers, this always returns a closed channel since there are no
-// persistent connections to drain.
-//
-// Unlike TCP servers, UDP shutdown is immediate once the listener stops.
-func (o *srv) Gone() <-chan struct{} {
-	return closedChanStruct
+	return o.gon.Load()
 }
 
 // Close performs an immediate shutdown of the server using a background context.
@@ -142,60 +101,6 @@ func (o *srv) Gone() <-chan struct{} {
 // For controlled shutdown with a custom timeout, use Shutdown() directly.
 func (o *srv) Close() error {
 	return o.Shutdown(context.Background())
-}
-
-// StopListen signals the server to stop accepting datagrams and waits
-// for the listener to exit. The Done() channel is closed when this completes.
-//
-// The method uses a 10-second timeout (overriding the provided context) and polls
-// every 5ms until IsRunning() returns false. Returns ErrShutdownTimeout if the
-// listener doesn't stop within the timeout.
-//
-// For UDP servers, this is typically fast since there are no connections to drain.
-//
-// The method is safe against double-close panics using defer/recover.
-func (o *srv) StopListen(ctx context.Context) error {
-	if o == nil {
-		return ErrInvalidInstance
-	}
-
-	if i := o.stp.Load(); i != nil {
-		if c, k := i.(chan struct{}); k && c != closedChanStruct {
-			// Use defer recover to handle potential double close
-			func() {
-				defer func() {
-					_ = recover() // Ignore panic from closing already closed channel
-				}()
-				close(c)
-			}()
-		}
-	}
-	o.stp.Store(closedChanStruct)
-
-	var (
-		tck = time.NewTicker(5 * time.Millisecond)
-		cnl context.CancelFunc
-	)
-
-	ctx, cnl = context.WithTimeout(ctx, 10*time.Second)
-
-	defer func() {
-		tck.Stop()
-		cnl()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ErrShutdownTimeout
-		case <-tck.C:
-			if o.IsRunning() {
-				continue
-			}
-			return nil
-		}
-	}
-
 }
 
 // Shutdown performs a graceful server shutdown by stopping the listener.
@@ -208,12 +113,33 @@ func (o *srv) StopListen(ctx context.Context) error {
 func (o *srv) Shutdown(ctx context.Context) error {
 	if o == nil {
 		return ErrInvalidInstance
+	} else if !o.IsRunning() || o.IsGone() {
+		return nil
 	}
 
-	var cnl context.CancelFunc
-	ctx, cnl = context.WithTimeout(ctx, 25*time.Second)
-	defer cnl()
-	return o.StopListen(ctx)
+	o.gon.Store(true)
+
+	var (
+		tck = time.NewTicker(3 * time.Millisecond)
+		cnl context.CancelFunc
+	)
+
+	ctx, cnl = context.WithTimeout(ctx, time.Second)
+	defer func() {
+		tck.Stop()
+		cnl()
+	}()
+
+	for o.IsRunning() || o.OpenConnections() > 0 {
+		select {
+		case <-ctx.Done():
+			return ErrShutdownTimeout
+		case <-tck.C:
+			break // nolint
+		}
+	}
+
+	return nil
 }
 
 // SetTLS is a no-op for UDP servers.
@@ -222,7 +148,7 @@ func (o *srv) Shutdown(ctx context.Context) error {
 //
 // For secure UDP communication, consider using DTLS (not implemented here)
 // or application-level encryption.
-func (o *srv) SetTLS(enable bool, config libtls.TLSConfig) error {
+func (o *srv) SetTLS(_ bool, _ libtls.TLSConfig) error {
 	return nil
 }
 
@@ -308,18 +234,31 @@ func (o *srv) RegisterServer(address string) error {
 // fctError invokes the registered error callback if one exists.
 // Safely handles nil server instances and nil errors.
 // This is an internal helper used throughout the server for error reporting.
-func (o *srv) fctError(e error) {
+func (o *srv) fctError(e ...error) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/udp/fctError", r)
+		}
+	}()
+
 	if o == nil {
 		return
-	}
-
-	if e == nil {
+	} else if len(e) < 1 {
 		return
 	}
 
-	v := o.fe.Load()
-	if v != nil {
-		v.(libsck.FuncError)(e)
+	var ok = false
+	for _, err := range e {
+		if err != nil {
+			ok = true
+			break
+		}
+	}
+
+	if !ok {
+		return
+	} else if f := o.fe.Load(); f != nil {
+		f(e...)
 	}
 }
 
@@ -328,15 +267,16 @@ func (o *srv) fctError(e error) {
 // Safely handles nil callbacks to prevent panics.
 // This is an internal helper called from datagram handling.
 func (o *srv) fctInfo(local, remote net.Addr, state libsck.ConnState) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/udp/fctInfo", r)
+		}
+	}()
+
 	if o == nil {
 		return
-	}
-
-	v := o.fi.Load()
-	if v != nil {
-		if fn, ok := v.(libsck.FuncInfo); ok && fn != nil {
-			fn(local, remote, state)
-		}
+	} else if f := o.fi.Load(); f != nil {
+		f(local, remote, state)
 	}
 }
 
@@ -345,14 +285,15 @@ func (o *srv) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 // Safely handles nil callbacks to prevent panics.
 // This is an internal helper for server lifecycle logging.
 func (o *srv) fctInfoSrv(msg string, args ...interface{}) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/socket/server/udp/fctInfoSrv", r)
+		}
+	}()
+
 	if o == nil {
 		return
-	}
-
-	v := o.fs.Load()
-	if v != nil {
-		if fn, ok := v.(libsck.FuncInfoSrv); ok && fn != nil {
-			fn(fmt.Sprintf(msg, args...))
-		}
+	} else if f := o.fs.Load(); f != nil {
+		f(fmt.Sprintf(msg, args...))
 	}
 }

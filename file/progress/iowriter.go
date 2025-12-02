@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,10 @@ import (
 	"io"
 )
 
+// Write writes len(p) bytes from p to the underlying file.
+// It implements the io.Writer interface with integrated progress tracking.
+// The increment callback is invoked with the number of bytes written.
+// Returns ErrorNilPointer if called on nil instance or closed file.
 func (o *progress) Write(p []byte) (n int, err error) {
 	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
@@ -39,6 +43,10 @@ func (o *progress) Write(p []byte) (n int, err error) {
 	return o.analyze(o.f.Write(p))
 }
 
+// WriteAt writes len(p) bytes from p to the file starting at offset off.
+// It implements the io.WriterAt interface with integrated progress tracking.
+// The increment callback is invoked with the number of bytes written.
+// Returns ErrorNilPointer if called on nil instance or closed file.
 func (o *progress) WriteAt(p []byte, off int64) (n int, err error) {
 	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
@@ -47,6 +55,10 @@ func (o *progress) WriteAt(p []byte, off int64) (n int, err error) {
 	return o.analyze(o.f.WriteAt(p, off))
 }
 
+// WriteTo reads data from the file and writes it to w until EOF.
+// It implements the io.WriterTo interface for efficient file copying.
+// The EOF callback is invoked when the end of file is reached.
+// Returns ErrorNilPointer if called on nil instance, nil writer, or closed file.
 func (o *progress) WriteTo(w io.Writer) (n int64, err error) {
 	if o == nil || w == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)
@@ -95,6 +107,10 @@ func (o *progress) WriteTo(w io.Writer) (n int64, err error) {
 	return n, err
 }
 
+// WriteString writes the contents of string s to the file.
+// It implements the io.StringWriter interface with integrated progress tracking.
+// The increment callback is invoked with the number of bytes written.
+// Returns ErrorNilPointer if called on nil instance or closed file.
 func (o *progress) WriteString(s string) (n int, err error) {
 	if o == nil || o.f == nil {
 		return 0, ErrorNilPointer.Error(nil)

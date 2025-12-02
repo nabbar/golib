@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,27 @@
  *
  */
 
+// Package multi_test provides comprehensive test coverage for the multi package.
+//
+// The test suite is organized into the following files:
+//   - suite_test.go: Test suite entry point and configuration
+//   - constructor_test.go: Tests for constructor and interface compliance
+//   - reader_test.go: Tests for read operations and input management
+//   - writer_test.go: Tests for write operations and output management
+//   - copy_test.go: Tests for copy operations and integration scenarios
+//   - concurrent_test.go: Tests for concurrent safety and thread-safe operations
+//   - edge_cases_test.go: Tests for error handling and boundary conditions
+//   - benchmark_test.go: Performance benchmarks and allocation measurements
+//   - helper_test.go: Shared test helpers and utilities
+//   - example_test.go: Runnable examples demonstrating package usage
+//
+// The test suite uses Ginkgo/Gomega for BDD-style testing and gmeasure
+// for performance benchmarking. Tests are designed to validate:
+//   - Thread-safe concurrent operations
+//   - Error propagation and handling
+//   - Interface compliance (io.ReadWriteCloser, io.StringWriter)
+//   - Memory allocation efficiency
+//   - Edge cases and boundary conditions
 package multi_test
 
 import (
@@ -33,7 +54,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// TestMulti is the entry point for the Ginkgo test suite
+// TestMulti is the entry point for the Ginkgo test suite.
+// It registers the Gomega fail handler and runs all specs in the multi package.
 func TestMulti(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "IOUtils/Multi Package Suite")

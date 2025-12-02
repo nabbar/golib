@@ -42,7 +42,7 @@ import (
 	libsck "github.com/nabbar/golib/socket"
 )
 
-// maxGID defines the maximum allowed Unix group ID value (32767).
+// MaxGID defines the maximum allowed Unix group ID value (32767).
 const maxGID = 32767
 
 // ServerUnixGram is a stub interface for non-Linux, non-Darwin platforms.

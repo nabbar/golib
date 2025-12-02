@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,10 @@ import (
 	"io"
 )
 
+// ReadByte reads and returns a single byte from the file.
+// It implements the io.ByteReader interface.
+// The function preserves file position by seeking if more than one byte is read.
+// Returns the byte and any error encountered, including io.EOF at end of file.
 func (o *progress) ReadByte() (byte, error) {
 	var (
 		p = make([]byte, 1)
@@ -54,6 +58,10 @@ func (o *progress) ReadByte() (byte, error) {
 	return p[0], nil
 }
 
+// WriteByte writes a single byte to the file.
+// It implements the io.ByteWriter interface.
+// The function preserves file position by seeking if more than one byte is written.
+// Returns any error encountered during the write operation.
 func (o *progress) WriteByte(c byte) error {
 	var (
 		p = []byte{0: c}

@@ -1,29 +1,28 @@
-/***********************************************************************************************************************
+/*
+ * MIT License
  *
- *   MIT License
+ * Copyright (c) 2025 Nicolas JUHEL
  *
- *   Copyright (c) 2021 Nicolas JUHEL
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- *   Permission is hereby granted, free of charge, to any person obtaining a copy
- *   of this software and associated documentation files (the "Software"), to deal
- *   in the Software without restriction, including without limitation the rights
- *   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *   copies of the Software, and to permit persons to whom the Software is
- *   furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
  *
- *   The above copyright notice and this permission notice shall be included in all
- *   copies or substantial portions of the Software.
- *
- *   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *   SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  *
  *
- **********************************************************************************************************************/
+ */
 
 package hooksyslog
 
@@ -37,77 +36,131 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// HookSyslog is a logrus hook that writes log entries to syslog.
+// It extends the standard logrus.Hook interface with additional methods
+// for lifecycle management and direct syslog writing.
+//
+// The hook operates asynchronously using a buffered channel (capacity: 250)
+// to prevent blocking the logging goroutine. A background goroutine (started
+// via Run) processes the buffered entries and writes them to syslog.
+//
+// Platform support:
+//   - Unix/Linux: Uses log/syslog with TCP, UDP, or Unix domain sockets
+//   - Windows: Uses Windows Event Log via golang.org/x/sys/windows/svc/eventlog
+//
+// Thread safety:
+//   - Fire() is safe for concurrent calls (buffered channel)
+//   - WriteSev() is safe for concurrent calls (buffered channel)
+//   - Done() and Close() should only be called once during shutdown
+//
+// Example:
+//
+//	opts := logcfg.OptionsSyslog{
+//		Network:  "unixgram",
+//		Host:     "/dev/log",
+//		Tag:      "myapp",
+//		LogLevel: []string{"info", "error"},
+//	}
+//	hook, _ := New(opts, &logrus.JSONFormatter{})
+//	go hook.Run(ctx)
+//	logger.AddHook(hook)
 type HookSyslog interface {
 	logtps.Hook
 
-	// Done returns a channel that will be closed when the hook is finished.
-	// Use this channel to wait until the hook is finished and then flush
-	// the buffer before exit function.
+	// Done returns a receive-only channel that is closed when the hook's
+	// Run goroutine terminates. This allows graceful shutdown coordination.
 	//
-	// It is important to note that this channel is not safe for concurrent
-	// access from multiple goroutines. If you need to wait until the hook is
-	// finished from multiple goroutines, you should use a wait group from the
-	// sync package.
+	// The channel is closed when:
+	//   - The context passed to Run() is cancelled
+	//   - Close() is called on the hook
 	//
-	// Example:
-	// h, _ := NewHookSyslog(LogOptionsSyslog{}, &logrus.JSONFormatter{})
-	// go func() {
-	// 	<-h.Done()
-	// 	h.Flush()
-	// }()
+	// Use this to wait for all buffered log entries to be written before
+	// terminating the application:
 	//
-	// It is important to note that you should not call Flush function after
-	// getting the channel from Done function. This will block the hook from writing
-	// new entries in the buffer.
+	//	cancel() // Stop the Run goroutine
+	//	hook.Close() // Close the channels
+	//	<-hook.Done() // Wait for completion
+	//
+	// Note: This channel is safe to read from multiple goroutines, but
+	// each reader will only receive the close signal once.
 	Done() <-chan struct{}
-	// WriteSev writes a new entry in the syslog buffer with the specified severity
-	// and data.
+	// WriteSev writes a log entry to the syslog buffer with the specified
+	// severity level and data.
 	//
-	// The function returns the number of bytes written in the buffer and an
-	// error if the write operation failed.
+	// This method bypasses the logrus.Entry mechanism and directly writes
+	// to syslog. It's useful for custom logging scenarios or when you need
+	// explicit control over the severity level.
 	//
-	// The severity parameter should be one of the constants defined in the
-	// SyslogSeverity type.
+	// Parameters:
+	//   - s: Syslog severity (Emergency, Alert, Critical, Error, Warning, Notice, Info, Debug)
+	//   - p: Log message data (will be sent as-is to syslog)
 	//
-	// The data parameter should contain the data to write in the syslog buffer.
-	// It is important to note that the data parameter should not contain any
-	// newline character, as it will be interpreted as the end of the syslog
-	// entry.
+	// Returns:
+	//   - n: Number of bytes accepted (len(p)) if successful
+	//   - err: Error if the channel is closed or buffer is full
 	//
-	// The hook will automatically add a newline character at the end of the
-	// syslog entry if it is not already present.
+	// Behavior:
+	//   - Non-blocking if buffer has space (typical case)
+	//   - Blocks if buffer is full (250 entries) until space is available
+	//   - Returns error if Close() was called (channel closed)
+	//
+	// The data is queued to a buffered channel and written asynchronously
+	// by the Run() goroutine. There's no guarantee of immediate delivery.
 	//
 	// Example:
-	// h, _ := NewHookSyslog(LogOptionsSyslog{}, &logrus.JSONFormatter{})
-	// _, err = h.WriteSev(SyslogSeverityInfo, []byte("My syslog entry"))
-	// if err != nil {
-	// 	fmt.Println(err.Error())
-	// }
 	//
+	//	hook, _ := New(opts, nil)
+	//	go hook.Run(ctx)
+	//	_, err := hook.WriteSev(SyslogSeverityInfo, []byte("Custom log entry"))
+	//	if err != nil {
+	//		log.Printf("Failed to write: %v", err)
+	//	}
 	WriteSev(s SyslogSeverity, p []byte) (n int, err error)
 }
 
-// New returns a new HookSyslog instance.
+// New creates a new HookSyslog instance with the specified configuration.
 //
-// The opt parameter is required and cannot be nil.
+// This function initializes the hook but does NOT start the background writer
+// goroutine. You must call Run(ctx) in a separate goroutine after creating
+// the hook.
 //
-// The function sets the syslog facility to the value of opt.Facility, the
-// syslog severity to the value of opt.Severity, the network to the value of
-// opt.Network, the host to the value of opt.Host, and the tag to the value of
-// opt.Tag.
+// Parameters:
+//   - opt: Configuration options including network, host, tag, facility, and filters
+//   - format: Logrus formatter for log entries (nil for default text format)
 //
-// The function then sets the levels of the hook to the value of opt.LogLevel.
-// If the length of opt.LogLevel is less than 1, the function sets the levels to
-// logrus.AllLevels.
+// Configuration:
+//   - opt.Network: Protocol ("tcp", "udp", "unixgram", "unix", "" for local)
+//   - opt.Host: Syslog server address ("host:port" for TCP/UDP, "/dev/log" for Unix)
+//   - opt.Tag: Syslog tag/application name (appears in syslog output)
+//   - opt.Facility: Syslog facility ("LOCAL0"-"LOCAL7", "USER", "DAEMON", etc.)
+//   - opt.LogLevel: Filter log levels (empty = all levels)
+//   - opt.DisableStack: Remove "stack" field from output
+//   - opt.DisableTimestamp: Remove "time" field from output
+//   - opt.EnableTrace: Include "caller", "file", "line" fields
+//   - opt.EnableAccessLog: Write entry.Message instead of formatted fields
 //
-// The function then creates a new io.Writer instance. If opt.DisableColor is true, it
-// sets w to os.Stdout. Otherwise, it sets w to colorable.NewColorableStdout().
+// Returns:
+//   - HookSyslog: Configured hook ready to use (call Run to start)
+//   - error: Non-nil if unable to connect to syslog (validates connection)
 //
-// The function then creates a new hkstd instance and sets its fields to w, lvls, f,
-// opt.DisableStack, opt.DisableTimestamp, opt.EnableTrace, opt.DisableColor, and
-// opt.EnableAccessLog.
+// The function validates the syslog connection by opening and immediately
+// closing it. This ensures early detection of configuration errors.
 //
-// Finally, the function returns the new hkstd instance and no error.
+// Example:
+//
+//	opts := logcfg.OptionsSyslog{
+//		Network:  "unixgram",
+//		Host:     "/dev/log",
+//		Tag:      "myapp",
+//		Facility: "USER",
+//		LogLevel: []string{"info", "warning", "error"},
+//	}
+//	hook, err := New(opts, &logrus.JSONFormatter{})
+//	if err != nil {
+//		return fmt.Errorf("failed to create syslog hook: %w", err)
+//	}
+//	go hook.Run(context.Background())
+//	defer hook.Close()
 func New(opt logcfg.OptionsSyslog, format logrus.Formatter) (HookSyslog, error) {
 	var (
 		LVLs = make([]logrus.Level, 0)
