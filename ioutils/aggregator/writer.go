@@ -56,7 +56,11 @@ func (o *agg) Close() error {
 // closeRun is the internal close function called by the runner.
 // It stops the aggregator, closes the context, and closes the channel.
 func (o *agg) closeRun(ctx context.Context) error {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/close", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/close", r)
+		}
+	}()
 
 	var e error
 
@@ -101,7 +105,11 @@ func (o *agg) closeRun(ctx context.Context) error {
 //
 // Note: The aggregator must be started with Start() before calling Write.
 func (o *agg) Write(p []byte) (n int, err error) {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/write", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/write", r)
+		}
+	}()
 
 	// Don't send empty data to channel
 	n = len(p)
@@ -125,8 +133,10 @@ func (o *agg) Write(p []byte) (n int, err error) {
 	} else {
 		// Increment processing counter before sending to channel
 		o.cntDataInc(n)
+
 		// Send to channel (may block if buffer is full)
-		c <- p
+		// using new slice to prevent reset params slice p
+		c <- append(make([]byte, 0, n+1), p[:n]...)
 		return len(p), nil
 	}
 }

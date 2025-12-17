@@ -1,8 +1,8 @@
 # IOUtils Aggregator
 
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.19-blue)](https://go.dev/doc/install)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
-[![Coverage](https://img.shields.io/badge/Coverage-87.0%25-brightgreen)](TESTING.md)
+[![Coverage](https://img.shields.io/badge/Coverage-85.7%25-brightgreen)](TESTING.md)
 
 Thread-safe write aggregator that serializes concurrent write operations to a single output function with optional periodic callbacks and real-time monitoring.
 
@@ -309,6 +309,7 @@ package main
 import (
     "context"
     "fmt"
+	"time"
     "github.com/nabbar/golib/ioutils/aggregator"
 )
 
@@ -464,7 +465,7 @@ go func() {
 
 ### Testing
 
-The package includes a comprehensive test suite with **87.0% code coverage** and **119 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
+The package includes a comprehensive test suite with **85.7% code coverage** and **119 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
 
 **Key test coverage:**
 - ✅ All public APIs and lifecycle operations
@@ -788,7 +789,7 @@ The package is **production-ready** with no urgent improvements or security vuln
 
 ### Code Quality Metrics
 
-- ✅ **87.0% test coverage** (target: >80%)
+- ✅ **85.7% test coverage** (target: >80%)
 - ✅ **Zero race conditions** detected with `-race` flag
 - ✅ **Thread-safe** implementation using atomic operations
 - ✅ **Panic recovery** in all critical paths
@@ -815,7 +816,7 @@ These are **optional improvements** and not required for production use. The cur
 
 - **[doc.go](doc.go)** - In-depth package documentation including design philosophy, architecture diagrams, buffer sizing formulas, and performance considerations. Provides detailed explanations of internal mechanisms and best practices for production use.
 
-- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, coverage analysis (87.0%), performance benchmarks, and guidelines for writing new tests. Includes troubleshooting and CI integration examples.
+- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, coverage analysis (85.7%), performance benchmarks, and guidelines for writing new tests. Includes troubleshooting and CI integration examples.
 
 ### Related golib Packages
 

@@ -178,13 +178,21 @@ func (o *agg) SizeProcessing() int64 {
 // Returns:
 //   - error: ErrStillRunning if already running, or the context error on cancellation
 func (o *agg) run(ctx context.Context) error {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/run", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/run", r)
+		}
+	}()
 
 	var (
 		sem libsem.Semaphore
 
 		tckAsc = time.NewTicker(o.at)
 		tckSnc = time.NewTicker(o.st)
+
+		fctWrt  func(p []byte) error
+		fctSyn  func()
+		fctAsyn func(sem libsem.Semaphore)
 	)
 
 	defer func() {
@@ -199,6 +207,11 @@ func (o *agg) run(ctx context.Context) error {
 		tckAsc.Stop()
 	}()
 
+	// Check if function write is set
+	if o.fw == nil {
+		return ErrInvalidInstance
+	}
+
 	// Check if already running - prevent multi-start
 	if o.op.Load() {
 		return ErrStillRunning
@@ -209,18 +222,33 @@ func (o *agg) run(ctx context.Context) error {
 	o.chanOpen()
 	o.cntReset() // Reset counters on start to ensure clean state
 
+	fctWrt = func(p []byte) error {
+		if len(p) < 1 {
+			return nil
+		} else {
+			o.mw.Lock()
+			defer o.mw.Unlock()
+			_, e := o.fw(p)
+			return e
+		}
+	}
+
+	fctAsyn = o.callASyn()
+	fctSyn = o.callSyn()
+
 	sem = libsem.New(context.Background(), o.am, false)
 	o.logInfo("starting aggregator")
+
 	for o.Err() == nil {
 		select {
 		case <-o.Done():
 			return o.Err()
 
 		case <-tckAsc.C:
-			o.callASyn(sem)
+			fctAsyn(sem)
 
 		case <-tckSnc.C:
-			o.callSyn()
+			fctSyn()
 
 		case p, ok := <-o.chanData():
 			// Decrement counter immediately when data is received from channel
@@ -228,38 +256,14 @@ func (o *agg) run(ctx context.Context) error {
 			if !ok {
 				// Channel closed, skip this iteration
 				continue
-			} else if e := o.fctWrite(p); e != nil {
+			} else {
 				// Log write errors but continue processing
-				o.logError("error writing data", e)
+				o.logError("error writing data", fctWrt(p))
 			}
 		}
 	}
 
 	return o.Err()
-}
-
-// fctWrite calls the configured writer function with mutex protection.
-//
-// This ensures that Config.FctWriter is never called concurrently, even though
-// multiple goroutines may be calling Write() simultaneously.
-//
-// Parameters:
-//   - p: Data to write
-//
-// Returns:
-//   - error: nil on success, ErrInvalidInstance if no writer configured, or writer error
-func (o *agg) fctWrite(p []byte) error {
-	o.mw.Lock()
-	defer o.mw.Unlock()
-
-	if len(p) < 1 {
-		return nil
-	} else if o.fw == nil {
-		return ErrInvalidInstance
-	} else {
-		_, e := o.fw(p)
-		return e
-	}
 }
 
 // callASyn invokes the async callback function if configured.
@@ -272,25 +276,32 @@ func (o *agg) fctWrite(p []byte) error {
 //
 // Parameters:
 //   - sem: Semaphore for limiting concurrent workers
-func (o *agg) callASyn(sem libsem.Semaphore) {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/callasyn", recover())
+func (o *agg) callASyn() func(sem libsem.Semaphore) {
 
 	if !o.op.Load() {
-		return
+		return func(sem libsem.Semaphore) {}
 	} else if o.af == nil {
-		return
+		return func(sem libsem.Semaphore) {}
 	} else if o.x.Load() == nil {
-		return
-	} else if !sem.NewWorkerTry() {
-		// Semaphore full, skip this async call to avoid blocking
-		return
-	} else if e := sem.NewWorker(); e != nil {
-		o.logError("aggregator failed to start new async worker", e)
-		return
-	} else {
+		return func(sem libsem.Semaphore) {}
+	}
+
+	return func(sem libsem.Semaphore) {
+		if !sem.NewWorkerTry() {
+			// Semaphore full, skip this async call to avoid blocking
+			return
+		}
+
 		// Launch async function in new goroutine
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					runner.RecoveryCaller("golib/ioutils/aggregator/callasyn", r)
+				}
+			}()
+
 			defer sem.DeferWorker()
+
 			o.af(o.x.Load())
 		}()
 	}
@@ -300,17 +311,24 @@ func (o *agg) callASyn(sem libsem.Semaphore) {
 //
 // This function is called synchronously (blocking) on the timer tick.
 // It should complete quickly to avoid delaying write processing.
-func (o *agg) callSyn() {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/callsyn", recover())
-
+func (o *agg) callSyn() func() {
 	if !o.op.Load() {
-		return
+		return func() {}
 	} else if o.sf == nil {
-		return
+		return func() {}
 	} else if o.x.Load() == nil {
-		return
+		return func() {}
 	}
-	o.sf(o.x.Load())
+
+	return func() {
+		defer func() {
+			if r := recover(); r != nil {
+				runner.RecoveryCaller("golib/ioutils/aggregator/callsyn", r)
+			}
+		}()
+
+		o.sf(o.x.Load())
+	}
 }
 
 // cntDataInc increments the processing counters when data enters the buffer.

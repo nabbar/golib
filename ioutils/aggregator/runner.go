@@ -63,7 +63,11 @@ import (
 // Note: Start returns immediately. The processing goroutine starts asynchronously.
 // A small delay (10ms) is added to allow the goroutine to initialize before returning.
 func (o *agg) Start(ctx context.Context) error {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/start", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/start", r)
+		}
+	}()
 
 	r := o.getRunner()
 	if r == nil {
@@ -102,7 +106,11 @@ func (o *agg) Start(ctx context.Context) error {
 //	    log.Printf("stop failed: %v", err)
 //	}
 func (o *agg) Stop(ctx context.Context) error {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/stop", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/stop", r)
+		}
+	}()
 
 	r := o.getRunner()
 	if r == nil {
@@ -138,7 +146,11 @@ func (o *agg) Stop(ctx context.Context) error {
 //	    log.Printf("restart failed: %v", err)
 //	}
 func (o *agg) Restart(ctx context.Context) error {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/restart", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/restart", r)
+		}
+	}()
 
 	if e := o.Stop(ctx); e != nil {
 		return e
@@ -171,7 +183,11 @@ func (o *agg) Restart(ctx context.Context) error {
 //	}
 //	agg.Write(data)
 func (o *agg) IsRunning() bool {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/isrunning", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/isrunning", r)
+		}
+	}()
 
 	r := o.getRunner()
 
@@ -223,7 +239,11 @@ func (o *agg) IsRunning() bool {
 //	    log.Printf("aggregator has been running for %v", uptime)
 //	}
 func (o *agg) Uptime() time.Duration {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/uptime", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/uptime", r)
+		}
+	}()
 
 	r := o.getRunner()
 	if r == nil {

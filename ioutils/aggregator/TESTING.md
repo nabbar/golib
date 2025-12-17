@@ -1,10 +1,10 @@
 # Testing Documentation
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.19-blue)](https://go.dev/doc/install)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
 [![Tests](https://img.shields.io/badge/Tests-119%20specs-success)](aggregator_suite_test.go)
 [![Assertions](https://img.shields.io/badge/Assertions-450+-blue)](aggregator_suite_test.go)
-[![Coverage](https://img.shields.io/badge/Coverage-87.0%25-brightgreen)](coverage.out)
+[![Coverage](https://img.shields.io/badge/Coverage-85.7%25-brightgreen)](coverage.out)
 
 Comprehensive testing guide for the `github.com/nabbar/golib/ioutils/aggregator` package using BDD methodology with Ginkgo v2 and Gomega.
 
@@ -54,8 +54,8 @@ This test suite provides **comprehensive validation** of the `aggregator` packag
 ### Test Completeness
 
 **Coverage Metrics:**
-- **Code Coverage**: 87.0% of statements (target: >80%)
-- **Branch Coverage**: ~85% of conditional branches
+- **Code Coverage**: 85.7% of statements (target: >80%)
+- **Branch Coverage**: ~84% of conditional branches
 - **Function Coverage**: 100% of public functions
 - **Race Conditions**: 0 detected across all scenarios
 
@@ -130,8 +130,8 @@ Passed:              119
 Failed:              0
 Skipped:             0
 Execution Time:      ~30 seconds
-Coverage:            87.0% (standard)
-                     84.9% (with race detector)
+Coverage:            85.7% (standard)
+                     85.7% (with race detector)
 Race Conditions:     0
 ```
 
@@ -258,8 +258,8 @@ Ran 119 of 119 Specs in 29.096 seconds
 SUCCESS! -- 119 Passed | 0 Failed | 0 Pending | 0 Skipped
 
 PASS
-coverage: 87.0% of statements
-ok  	github.com/nabbar/golib/ioutils/aggregator	30.005s
+coverage: 85.7% of statements
+ok  	github.com/nabbar/golib/ioutils/aggregator	32.495s
 ```
 
 ---
@@ -270,11 +270,11 @@ ok  	github.com/nabbar/golib/ioutils/aggregator	30.005s
 
 | Component | File | Coverage | Critical Paths |
 |-----------|------|----------|----------------|
-| **Interface** | interface.go | 95.8% | New(), error definitions |
-| **Core Logic** | model.go | 96.3% | run(), metrics tracking |
-| **Writer** | writer.go | 82.4% | Write(), channel management |
-| **Runner** | runner.go | 89.5% | Start(), Stop(), lifecycle |
-| **Context** | context.go | 66.7% | Context interface impl |
+| **Interface** | interface.go | 94.1% | New(), error definitions |
+| **Core Logic** | model.go | 94.8% | run(), metrics tracking |
+| **Writer** | writer.go | 80.5% | Write(), channel management |
+| **Runner** | runner.go | 87.8% | Start(), Stop(), lifecycle |
+| **Context** | context.go | 64.9% | Context interface impl |
 | **Config** | config.go | 100% | Validation |
 | **Logger** | logger.go | 100% | Error logging |
 
@@ -300,7 +300,7 @@ Uptime()             100.0%  - Duration tracking
 
 ### Uncovered Code Analysis
 
-**Uncovered Lines: 13.0% (target: <20%)**
+**Uncovered Lines: 14.3% (target: <20%)**
 
 #### 1. Context Interface Implementation (context.go)
 

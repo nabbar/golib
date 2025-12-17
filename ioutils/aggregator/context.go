@@ -108,7 +108,11 @@ func (o *agg) Value(key any) any {
 // cancel function for later use. If there was a previous context, its cancel
 // function is called to prevent resource leaks.
 func (o *agg) ctxNew(ctx context.Context) {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/ctxnew", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/ctxnew", r)
+		}
+	}()
 
 	if ctx == nil || ctx.Err() != nil {
 		ctx = context.Background()
@@ -129,7 +133,11 @@ func (o *agg) ctxNew(ctx context.Context) {
 //
 // The method is safe to call multiple times.
 func (o *agg) ctxClose() {
-	defer runner.RecoveryCaller("golib/ioutils/aggregator/ctxclose", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/ctxclose", r)
+		}
+	}()
 
 	// Cancel old context first and clear it atomically
 	old := o.n.Swap(func() {})

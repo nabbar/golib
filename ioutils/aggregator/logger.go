@@ -26,12 +26,14 @@
 package aggregator
 
 // logError calls the configured error logger if set, otherwise does nothing.
-func (o *agg) logError(msg string, err ...error) {
-	if i := o.le.Load(); i == nil {
+func (o *agg) logError(msg string, err error) {
+	i := o.le.Load()
+
+	if i == nil || err == nil {
 		return
-	} else {
-		i(msg, err...)
 	}
+
+	i(msg, err)
 }
 
 // logInfo calls the configured info logger if set, otherwise does nothing.
