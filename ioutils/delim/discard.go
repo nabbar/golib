@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -46,7 +46,7 @@ package delim
 //
 //	// Use as a no-op reader for testing
 //	dc := delim.DiscardCloser{}
-//	bd := delim.New(dc, '\n', 0)
+//	bd := delim.New(dc, '\n', 0, false)
 //	defer bd.Close()
 //
 //	// Any reads will return 0 bytes

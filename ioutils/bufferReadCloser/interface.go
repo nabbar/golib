@@ -62,15 +62,15 @@ type FuncClose func() error
 //
 // Thread safety: Not thread-safe. Concurrent access requires external synchronization.
 type Buffer interface {
-	io.Reader        // Read reads data from the buffer
-	io.ReaderFrom    // ReadFrom reads data from a reader into the buffer
-	io.ByteReader    // ReadByte reads a single byte
-	io.RuneReader    // ReadRune reads a single UTF-8 encoded rune
-	io.Writer        // Write writes data to the buffer
-	io.WriterTo      // WriteTo writes buffer data to a writer
-	io.ByteWriter    // WriteByte writes a single byte
-	io.StringWriter  // WriteString writes a string
-	io.Closer        // Close resets the buffer and calls custom close function
+	io.Reader       // Read reads data from the buffer
+	io.ReaderFrom   // ReadFrom reads data from a reader into the buffer
+	io.ByteReader   // ReadByte reads a single byte
+	io.RuneReader   // ReadRune reads a single UTF-8 encoded rune
+	io.Writer       // Write writes data to the buffer
+	io.WriterTo     // WriteTo writes buffer data to a writer
+	io.ByteWriter   // WriteByte writes a single byte
+	io.StringWriter // WriteString writes a string
+	io.Closer       // Close resets the buffer and calls custom close function
 }
 
 // New creates a new Buffer from a bytes.Buffer without a custom close function.

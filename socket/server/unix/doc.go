@@ -113,11 +113,15 @@
 // The server maintains two atomic state flags:
 //
 //   - IsRunning: Server is accepting new connections
+//
 //   - false → true: Listen() called successfully
+//
 //   - true → false: Shutdown/Close initiated
 //
 //   - IsGone: Server is draining existing connections
+//
 //   - false → true: Shutdown() called
+//
 //   - Used to signal accept loop to stop
 //
 // ## Thread Safety Model
@@ -363,25 +367,25 @@
 //     log.Println("Shutting down...")
 //
 //     shutdownCtx, cancel := context.WithTimeout(
-//         context.Background(), 30*time.Second)
+//     context.Background(), 30*time.Second)
 //     defer cancel()
 //
 //     if err := srv.Shutdown(shutdownCtx); err != nil {
-//         log.Printf("Shutdown error: %v", err)
+//     log.Printf("Shutdown error: %v", err)
 //     }
 //
 //  3. Monitor connection count:
 //
 //     go func() {
-//         ticker := time.NewTicker(10 * time.Second)
-//         defer ticker.Stop()
+//     ticker := time.NewTicker(10 * time.Second)
+//     defer ticker.Stop()
 //
-//         for range ticker.C {
-//             count := srv.OpenConnections()
-//             if count > warnThreshold {
-//                 log.Printf("WARNING: High connection count: %d", count)
-//             }
-//         }
+//     for range ticker.C {
+//     count := srv.OpenConnections()
+//     if count > warnThreshold {
+//     log.Printf("WARNING: High connection count: %d", count)
+//     }
+//     }
 //     }()
 //
 // ## Security
@@ -408,11 +412,11 @@
 //  1. Test with concurrent connections:
 //
 //     for i := 0; i < numClients; i++ {
-//         go func() {
-//             conn, _ := net.Dial("unix", socketPath)
-//             defer conn.Close()
-//             // Test logic...
-//         }()
+//     go func() {
+//     conn, _ := net.Dial("unix", socketPath)
+//     defer conn.Close()
+//     // Test logic...
+//     }()
 //     }
 //
 //  2. Test graceful shutdown under load

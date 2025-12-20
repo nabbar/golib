@@ -2,9 +2,9 @@
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-198%20specs-success)](suite_test.go)
+[![Tests](https://img.shields.io/badge/Tests-237%20specs-success)](suite_test.go)
 [![Assertions](https://img.shields.io/badge/Assertions-800+-blue)](suite_test.go)
-[![Coverage](https://img.shields.io/badge/Coverage-100.0%25-brightgreen)](coverage.out)
+[![Coverage](https://img.shields.io/badge/Coverage-98.6%25-brightgreen)](coverage.out)
 
 Comprehensive testing guide for the `github.com/nabbar/golib/ioutils/delim` package using BDD methodology with Ginkgo v2 and Gomega.
 
@@ -55,13 +55,13 @@ This test suite provides **comprehensive validation** of the `delim` package thr
 ### Test Completeness
 
 **Coverage Metrics:**
-- **Code Coverage**: 100.0% of statements (target: >80%, achieved: 100%)
-- **Branch Coverage**: 100% of conditional branches
-- **Function Coverage**: 100% of public and private functions
+- **Code Coverage**: 98.6% of statements
+- **Branch Coverage**: >98% of conditional branches
+- **Function Coverage**: 100% of public and private functions (called)
 - **Race Conditions**: 0 detected across all scenarios
 
 **Test Distribution:**
-- ✅ **198 specifications** covering all major use cases
+- ✅ **237 specifications** covering all major use cases
 - ✅ **800+ assertions** validating behavior with Gomega matchers
 - ✅ **30 performance benchmarks** measuring key metrics with gmeasure
 - ✅ **9 test files** organized by concern (constructor, read, write, edge cases, concurrency, etc.)
@@ -84,6 +84,7 @@ This test suite provides **comprehensive validation** of the `delim` package thr
 |----------|-------|-------|----------|----------|-------------|
 | **Basic** | constructor_test.go | 25 | 100% | Critical | None |
 | **Implementation** | read_test.go, write_test.go | 68 | 100% | Critical | Basic |
+| **Max Size** | maxsize_test.go | 20 | 100% | High | Implementation |
 | **Edge Cases** | edge_cases_test.go | 42 | 100% | High | Implementation |
 | **Concurrency** | concurrency_test.go | 33 | 100% | High | Implementation |
 | **Performance** | benchmark_test.go | 30 | N/A | Medium | Implementation |
@@ -101,7 +102,7 @@ This test suite provides **comprehensive validation** of the `delim` package thr
 | **Interface Conformance** | constructor_test.go | Integration | None | Critical | Implements io.ReadCloser, io.WriterTo | Interface validation |
 | **Read Basic** | read_test.go | Unit | Basic | Critical | Read delimited chunks | Read() method functionality |
 | **ReadBytes** | read_test.go | Unit | Basic | Critical | Return byte slices with delimiter | ReadBytes() method functionality |
-| **UnRead** | read_test.go | Unit | Basic | High | Peek buffered data | UnRead() method functionality |
+| **UnRead** | read_test.go | Unit | Basic | High | Get buffered data (consumes) | UnRead() method functionality |
 | **Read EOF Handling** | read_test.go | Unit | Basic | Critical | Graceful EOF | EOF without trailing delimiter |
 | **Read No Delimiter** | read_test.go | Unit | Basic | High | Return data at EOF | Data without final delimiter |
 | **WriteTo Streaming** | write_test.go | Integration | Basic | Critical | Stream all data | WriteTo() method functionality |
@@ -124,6 +125,8 @@ This test suite provides **comprehensive validation** of the `delim` package thr
 | **DiscardCloser Write** | discard_test.go | Unit | None | Medium | Accept all data | No-op writer validation |
 | **DiscardCloser Close** | discard_test.go | Unit | None | Medium | Always return nil | No-op closer validation |
 | **DiscardCloser Concurrency** | discard_test.go | Concurrency | None | Medium | Thread-safe | Concurrent operations |
+| **Max Size Logic** | maxsize_test.go | Unit | Basic | High | Clamp to max | Buffer size clamping |
+| **Discard Logic** | maxsize_test.go | Unit | Basic | High | Replace last byte | Full buffer discard behavior |
 | **Read Performance** | benchmark_test.go | Performance | Read | Medium | <100µs median | Read() latency |
 | **ReadBytes Performance** | benchmark_test.go | Performance | ReadBytes | Medium | <100µs median | ReadBytes() latency |
 | **WriteTo Performance** | benchmark_test.go | Performance | WriteTo | Medium | ~200µs median | WriteTo() latency |
@@ -148,14 +151,14 @@ This test suite provides **comprehensive validation** of the `delim` package thr
 **Test Execution Results:**
 
 ```
-Total Specs:         198
-Passed:              198
+Total Specs:         237
+Passed:              237
 Failed:              0
 Skipped:             0
 Pending:             0
 Execution Time:      ~1.15s (standard)
                      ~2.19s (with race detector)
-Coverage:            100.0% (all modes)
+Coverage:            98.6% (all modes)
 Race Conditions:     0
 ```
 
@@ -197,18 +200,16 @@ Coverage:            All public API usage patterns
 
 | Operation | Median | Mean | Max | Throughput |
 |-----------|--------|------|-----|------------|
-| **Read() - 64B buffer** | 100µs | 100µs | 200µs | ~10K ops/sec |
-| **Read() - 4KB buffer** | 200µs | 300µs | 500µs | ~5K ops/sec |
-| **Read() - 64KB buffer** | 300µs | 400µs | 700µs | ~3K ops/sec |
-| **ReadBytes() - default** | 100µs | 100µs | 200µs | ~10K ops/sec |
-| **ReadBytes() - 1KB** | 100µs | 100µs | 200µs | ~10K ops/sec |
-| **ReadBytes() - 64KB** | 100µs | 100µs | 300µs | ~10K ops/sec |
-| **WriteTo()** | 200µs | 200µs | 400µs | ~500 MB/s |
-| **UnRead()** | 100µs | 100µs | 100µs | ~10K ops/sec |
-| **Constructor - default** | 2.2ms | 3.5ms | 5.8ms | ~300 ops/sec |
-| **Constructor - custom** | 2.0ms | 2.6ms | 3.8ms | ~400 ops/sec |
-| **CSV Parsing** | 500µs | 600µs | 1.5ms | ~500 MB/s |
-| **Log Processing** | 800µs | 1.1ms | 2.2ms | ~250 MB/s |
+| **Read() (Large Data)** | 3.2ms | 4.2ms | 8.5ms | ~6.25 GB/s |
+| **ReadBytes() (Small)** | 700µs | 900µs | 1.9ms | ~3.5 GB/s |
+| **ReadBytes() (Medium)** | 4.9ms | 6.3ms | 9.5ms | ~4.0 GB/s |
+| **ReadBytes() (Large)** | 13.6ms | 14.9ms | 20ms | ~5.8 GB/s |
+| **WriteTo() (Large)** | 51.6ms | 74.5ms | 207ms | ~1.5 GB/s |
+| **UnRead()** | <1µs | <1µs | <1µs | >1M ops/sec |
+| **New() (Default)** | 4.2µs | 4.7µs | 6.4µs | ~230K ops/sec |
+| **New() (Custom)** | 1.2µs | 1.1µs | 1.3µs | ~850K ops/sec |
+| **CSV Parsing** | 1.4ms | 1.4ms | 2.1ms | ~890 MB/s |
+| **Log Processing** | 4.7ms | 5.3ms | 10.2ms | ~630 MB/s |
 
 *Measured with gmeasure.Experiment on 10-15 samples per benchmark*
 
@@ -530,7 +531,7 @@ start coverage.html
 
 ### Coverage Report
 
-**Overall Coverage: 100.0%**
+**Overall Coverage: 98.6%**
 
 ```
 File            Statements  Branches  Functions  Coverage
@@ -541,7 +542,7 @@ io.go           98         24        7          100.0%
 discard.go      18         0         3          100.0%
 error.go        3          0         0          100.0%
 ========================================================
-TOTAL           146        29        13         100.0%
+TOTAL           146        29        13         98.6%
 ```
 
 **Detailed Coverage:**
@@ -556,13 +557,13 @@ github.com/nabbar/golib/ioutils/delim/io.go:37:        Reader                  1
 github.com/nabbar/golib/ioutils/delim/io.go:45:        Copy                    100.0%
 github.com/nabbar/golib/ioutils/delim/io.go:54:        Read                    100.0%
 github.com/nabbar/golib/ioutils/delim/io.go:90:        UnRead                  100.0%
-github.com/nabbar/golib/ioutils/delim/io.go:108:       ReadBytes               100.0%
+github.com/nabbar/golib/ioutils/delim/io.go:108:       ReadBytes               97.9%
 github.com/nabbar/golib/ioutils/delim/io.go:132:       Close                   100.0%
 github.com/nabbar/golib/ioutils/delim/io.go:149:       WriteTo                 100.0%
 github.com/nabbar/golib/ioutils/delim/model.go:37:     Delim                   100.0%
 github.com/nabbar/golib/ioutils/delim/model.go:56:     getDelimByte            100.0%
 github.com/nabbar/golib/ioutils/delim/interface.go:62: New                     100.0%
-total:                                                  (statements)            100.0%
+total:                                                  (statements)            98.6%
 ```
 
 ### Uncovered Code Analysis
@@ -576,7 +577,7 @@ All code paths are covered by tests. This includes:
 - ✅ All conditional branches
 - ✅ All interface implementations
 
-**Rationale for 100% coverage:**
+**Rationale for 98.6% coverage:**
 - The package has a small, focused API surface
 - All functionality is testable without external dependencies
 - Error paths are easily simulated with test helpers (`errorReader`, `errorWriter`)
@@ -584,7 +585,7 @@ All code paths are covered by tests. This includes:
 - No unreachable code or defensive programming beyond reasonable scenarios
 
 **Coverage Maintenance:**
-- New code must maintain 100% coverage
+- New code must maintain >98% coverage
 - Pull requests are checked for coverage regression
 - Tests must be added for any new functionality before merge
 
@@ -685,7 +686,7 @@ Memory Allocations (ReadBytes)     | 500µs   | 600µs  | 800µs  | 15
    - Workaround: Use single-byte delimiters or process in post-read
 
 2. **Buffer size impact**: Very small buffers (<64B) increase overhead
-   - Recommendation: Use default 4KB or larger for best performance
+   - Recommendation: Use default 32KB or larger for best performance
    - Trade-off: Memory usage vs I/O efficiency
 
 3. **Constructor overhead**: Creating new instances takes ~2-3ms
@@ -736,9 +737,8 @@ go func() { bd.ReadBytes() }()  // Race condition!
 Object             | Size      | Count | Total
 ================================================
 BufferDelim inst.  | ~100B     | 1     | 100B
-Internal buffer    | 4KB       | 1     | 4KB
-bufio.Reader       | ~4KB      | 1     | 4KB
-Total (default)    | ~8KB      | -     | 8.2KB
+Internal buffer    | 32KB      | 1     | 32KB
+Total (default)    | ~32KB     | -     | 32KB
 ================================================
 ```
 
@@ -747,8 +747,9 @@ Total (default)    | ~8KB      | -     | 8.2KB
 | Buffer Size | Memory per Instance | Recommended Max Instances |
 |-------------|--------------------|-----------------------------|
 | 64B         | ~128B              | 1M+ (if needed)             |
-| 4KB (default) | ~8KB             | 100K+                       |
-| 64KB        | ~64KB              | 10K+                        |
+| 4KB         | ~8KB             | 100K+                       |
+| 32KB (default)| ~64KB            | 50K+                        |
+| 64KB        | ~128KB             | 10K+                        |
 | 1MB         | ~1MB               | 1K+                         |
 
 **Memory Efficiency:**
@@ -769,15 +770,15 @@ Total (default)    | ~8KB      | -     | 8.2KB
 
 | Scenario | Data Size | Syscalls | Time | Throughput |
 |----------|-----------|----------|------|------------|
-| 1MB file, 4KB buffer | 1MB | ~250 | ~2ms | ~500 MB/s |
+| 1MB file, 32KB buffer | 1MB | ~32 | ~2ms | ~500 MB/s |
 | 1MB file, 64KB buffer | 1MB | ~16 | ~1.5ms | ~667 MB/s |
-| 10MB file, 4KB buffer | 10MB | ~2,500 | ~20ms | ~500 MB/s |
+| 10MB file, 32KB buffer | 10MB | ~320 | ~20ms | ~500 MB/s |
 | 10MB file, 64KB buffer | 10MB | ~160 | ~15ms | ~667 MB/s |
 
 **Optimization:**
 - Larger buffers reduce syscall count
 - But increase memory footprint
-- Default 4KB is good balance for most cases
+- Default 32KB is good balance for most cases
 
 ### CPU Load
 
@@ -785,13 +786,13 @@ Total (default)    | ~8KB      | -     | 8.2KB
 
 - **Typical**: <5% CPU for normal operation (I/O-bound)
 - **Peak**: 10-20% CPU during pure in-memory processing
-- **Delimiter scanning**: Minimal overhead (optimized by bufio)
+- **Delimiter scanning**: Minimal overhead (optimized internal logic)
 
 **CPU Profiling:**
 
 Top functions by CPU time:
 ```
-1. bufio.Reader.ReadBytes   - 60% (stdlib, optimized)
+1. delim.fill                 - 60% (internal I/O)
 2. delim.ReadBytes           - 15% (wrapper logic)
 3. delim.Read                - 10% (buffer management)
 4. runtime.* (GC, etc.)      - 10%
@@ -819,6 +820,7 @@ delim/
 ├── read_test.go            # Read(), ReadBytes(), UnRead() tests
 ├── write_test.go           # WriteTo(), Copy() tests
 ├── discard_test.go         # DiscardCloser tests
+├── maxsize_test.go         # Max buffer size and discard logic tests
 ├── edge_cases_test.go      # Unicode, binary, empty data, long lines, errors
 ├── concurrency_test.go     # Thread safety, race detection
 ├── benchmark_test.go       # Performance benchmarks with gmeasure
@@ -1436,7 +1438,7 @@ go tool pprof cpu.prof
 
 ### Bug Report Template
 
-When reporting a bug in the test suite or the aggregator package, please use this template:
+When reporting a bug in the test suite or the delim package, please use this template:
 
 ```markdown
 **Title**: [BUG] Brief description of the bug

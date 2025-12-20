@@ -109,7 +109,7 @@ var _ = Describe("Additional Coverage Tests", func() {
 
 			path := p.Path()
 			p.Write([]byte("test"))
-			
+
 			// Close temp file
 			err = p.Close()
 			Expect(err).ToNot(HaveOccurred())
@@ -137,7 +137,7 @@ var _ = Describe("Additional Coverage Tests", func() {
 			// After reading
 			buf := make([]byte, 3)
 			p.Read(buf)
-			
+
 			eof, err = p.SizeEOF()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(eof).To(Equal(int64(7)))
@@ -162,7 +162,7 @@ var _ = Describe("Additional Coverage Tests", func() {
 			// After reading
 			buf := make([]byte, 7)
 			p.Read(buf)
-			
+
 			bof, err = p.SizeBOF()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bof).To(Equal(int64(7)))

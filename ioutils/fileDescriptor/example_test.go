@@ -177,9 +177,9 @@ func Example_serverInitialization() {
 // Shows how to calculate required limits based on connection pool sizes.
 func Example_databaseApplication() {
 	// Application configuration
-	dbPools := 3         // Number of database pools
-	poolSize := 50       // Connections per pool
-	overhead := 200      // Reserved for logs, temp files, etc.
+	dbPools := 3    // Number of database pools
+	poolSize := 50  // Connections per pool
+	overhead := 200 // Reserved for logs, temp files, etc.
 	required := dbPools*poolSize + overhead
 
 	// Check and set limits

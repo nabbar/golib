@@ -42,10 +42,11 @@
 // AAA pattern (Arrange, Act, Assert).
 //
 // Running Tests:
-//   go test ./...                    # Basic test run
-//   go test -cover ./...             # With coverage report
-//   CGO_ENABLED=1 go test -race ./... # With race detector
-//   ginkgo -v                        # Using Ginkgo CLI (verbose)
+//
+//	go test ./...                    # Basic test run
+//	go test -cover ./...             # With coverage report
+//	CGO_ENABLED=1 go test -race ./... # With race detector
+//	ginkgo -v                        # Using Ginkgo CLI (verbose)
 //
 // Race Detection: All tests pass with -race flag, validating lock-free thread safety
 // using atomic operations throughout the implementation.

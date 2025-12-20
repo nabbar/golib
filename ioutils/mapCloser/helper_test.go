@@ -45,9 +45,9 @@ var (
 //
 // Thread-safe: Uses mutex to protect concurrent access to closed flag.
 type mockCloser struct {
-	closed   bool        // Flag indicating if Close() has been called
-	closeErr error       // Error to return from Close(), nil for success
-	mu       sync.Mutex  // Protects concurrent access to closed flag
+	closed   bool       // Flag indicating if Close() has been called
+	closeErr error      // Error to return from Close(), nil for success
+	mu       sync.Mutex // Protects concurrent access to closed flag
 }
 
 // Close implements io.Closer interface.

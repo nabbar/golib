@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,7 @@ func Example_basic() {
 	r := io.NopCloser(strings.NewReader(data))
 
 	// Create BufferDelim with newline delimiter and default buffer
-	bd := delim.New(r, '\n', 0)
+	bd := delim.New(r, '\n', 0, false)
 	defer bd.Close()
 
 	// Read first line
@@ -63,7 +63,7 @@ func Example_readAllLines() {
 	data := "line 1\nline 2\nline 3\n"
 	r := io.NopCloser(strings.NewReader(data))
 
-	bd := delim.New(r, '\n', 0)
+	bd := delim.New(r, '\n', 0, false)
 	defer bd.Close()
 
 	// Read all lines until EOF
@@ -93,7 +93,7 @@ func Example_csvProcessing() {
 	r := io.NopCloser(strings.NewReader(data))
 
 	// Use comma as delimiter
-	bd := delim.New(r, ',', 0)
+	bd := delim.New(r, ',', 0, false)
 	defer bd.Close()
 
 	// Process each field
@@ -127,7 +127,7 @@ func Example_customDelimiter() {
 	r := io.NopCloser(strings.NewReader(data))
 
 	// Use pipe as delimiter
-	bd := delim.New(r, '|', 0)
+	bd := delim.New(r, '|', 0, false)
 	defer bd.Close()
 
 	// Read sections
@@ -153,7 +153,7 @@ func Example_readMethod() {
 	data := "hello\nworld\n"
 	r := io.NopCloser(strings.NewReader(data))
 
-	bd := delim.New(r, '\n', 0)
+	bd := delim.New(r, '\n', 0, false)
 	defer bd.Close()
 
 	// Using Read method with buffer
@@ -165,7 +165,9 @@ func Example_readMethod() {
 	}
 
 	fmt.Printf("Read %d bytes: %s", n, string(buf[:n]))
-	// Output: Read 6 bytes: hello
+	// Output: Read 12 bytes: hello
+	//world
+
 }
 
 // Example_writeTo demonstrates efficient copying using WriteTo.
@@ -173,7 +175,7 @@ func Example_writeTo() {
 	data := "line1\nline2\nline3\n"
 	r := io.NopCloser(strings.NewReader(data))
 
-	bd := delim.New(r, '\n', 0)
+	bd := delim.New(r, '\n', 0, false)
 	defer bd.Close()
 
 	// Copy all data to a strings.Builder
@@ -199,7 +201,7 @@ func Example_customBufferSize() {
 	r := io.NopCloser(strings.NewReader(data))
 
 	// Use 64KB buffer for better performance with large data
-	bd := delim.New(r, '\n', 64*libsiz.SizeKilo)
+	bd := delim.New(r, '\n', 64*libsiz.SizeKilo, false)
 	defer bd.Close()
 
 	// Count lines
@@ -227,7 +229,7 @@ func Example_nullTerminatedStrings() {
 	r := io.NopCloser(strings.NewReader(data))
 
 	// Use null byte as delimiter
-	bd := delim.New(r, 0, 0)
+	bd := delim.New(r, 0, 0, false)
 	defer bd.Close()
 
 	// Read null-terminated strings
@@ -256,7 +258,7 @@ func Example_tabDelimitedData() {
 	data := "Name\tAge\tCity\tCountry\t"
 	r := io.NopCloser(strings.NewReader(data))
 
-	bd := delim.New(r, '\t', 0)
+	bd := delim.New(r, '\t', 0, false)
 	defer bd.Close()
 
 	// Read fields
@@ -280,7 +282,7 @@ func Example_errorHandling() {
 	data := "line1\nline2\nline3"
 	r := io.NopCloser(strings.NewReader(data))
 
-	bd := delim.New(r, '\n', 0)
+	bd := delim.New(r, '\n', 0, false)
 	defer bd.Close()
 
 	for {
@@ -314,7 +316,7 @@ func Example_copyMethod() {
 	data := "data1\ndata2\ndata3\n"
 	r := io.NopCloser(strings.NewReader(data))
 
-	bd := delim.New(r, '\n', 0)
+	bd := delim.New(r, '\n', 0, false)
 	defer bd.Close()
 
 	// Copy is an alias for WriteTo
@@ -335,7 +337,7 @@ func Example_multipleDelimiters() {
 	data := "name:John:age:30:city:NYC:"
 	r := io.NopCloser(strings.NewReader(data))
 
-	bd := delim.New(r, ':', 0)
+	bd := delim.New(r, ':', 0, false)
 	defer bd.Close()
 
 	// Read pairs
@@ -369,7 +371,7 @@ func Example_readerInterface() {
 	data := "test\ndata\n"
 	r := io.NopCloser(strings.NewReader(data))
 
-	bd := delim.New(r, '\n', 0)
+	bd := delim.New(r, '\n', 0, false)
 	defer bd.Close()
 
 	// Get as io.ReadCloser interface
@@ -385,6 +387,7 @@ func Example_readerInterface() {
 
 	fmt.Printf("Read: %s", string(buf[:n]))
 	// Output: Read: test
+	//data
 }
 
 // Example_discardCloser demonstrates using DiscardCloser for testing.
@@ -409,4 +412,37 @@ func Example_discardCloser() {
 	// Written: 9 bytes, error: <nil>
 	// Read: 0 bytes, error: <nil>
 	// Close error: <nil>
+}
+
+// Example_unRead demonstrates how UnRead retrieves and consumes buffered data.
+func Example_unRead() {
+	data := "line1\nline2\n"
+	r := io.NopCloser(strings.NewReader(data))
+
+	// Use a small buffer to ensure some data is buffered but not all
+	// Here 0 means default (32KB), which is plenty for our small data
+	bd := delim.New(r, '\n', 0, false)
+	defer bd.Close()
+
+	// Read the first line
+	// This will read "line1\n" and buffer "line2\n" (and potentially more if available)
+	line, err := bd.ReadBytes()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Printf("Read: %s", string(line))
+
+	// Check what's left in the buffer
+	// This consumes the buffer content ("line2\n")
+	buffered, err := bd.UnRead()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fmt.Printf("Buffered: %s", string(buffered))
+
+	// Output:
+	// Read: line1
+	// Buffered: line2
 }

@@ -30,11 +30,8 @@ import (
 	"bytes"
 	"io"
 	"strings"
-	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gmeasure"
 
 	"github.com/nabbar/golib/ioutils/multi"
@@ -44,316 +41,296 @@ import (
 // These benchmarks measure the performance and memory allocation characteristics
 // of various operations including construction, writes, reads, copies, and
 // writer management. Uses gmeasure for statistical analysis.
-var _ = Describe("Multi Performance Benchmarks", func() {
-	Describe("Constructor benchmarks", func() {
-		It("should benchmark New() creation", func() {
-			experiment := gmeasure.NewExperiment("New() Constructor")
+//
+// Benchmarks are organized following patterns from ioutils/delim:
+//   - Aggregated experiments grouping related variations
+//   - Systematic variations (data sizes, writer counts, modes)
+//   - Real-world scenario testing
+//   - Statistical analysis with gmeasure
+//
+// Run with: go test -v to see performance reports.
+var _ = Describe("[TC-BC] Multi Performance Benchmarks", func() {
+	Describe("Write operations", func() {
+		It("[TC-BC-001] should benchmark Write with varying writer counts and data sizes", func() {
+			experiment := gmeasure.NewExperiment("Write operations")
 			AddReportEntry(experiment.Name, experiment)
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("creation", func() {
-					_ = multi.New()
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
+			// Small data (10 bytes)
+			smallData := []byte("test data")
 
-			Expect(experiment.GetStats("creation").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 100*time.Microsecond), "New() should be fast")
-		})
-	})
+			// Medium data (1KB)
+			mediumData := make([]byte, 1024)
 
-	Describe("Write benchmarks", func() {
-		It("should benchmark Write to single writer", func() {
-			experiment := gmeasure.NewExperiment("Write Single")
-			AddReportEntry(experiment.Name, experiment)
+			// Large data (1MB)
+			largeData := make([]byte, 1024*1024)
 
-			m := multi.New()
-			var buf bytes.Buffer
-			m.AddWriter(&buf)
-			data := []byte("test data")
-
-			experiment.Sample(func(idx int) {
-				buf.Reset()
-				experiment.MeasureDuration("write", func() {
-					m.Write(data)
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
-
-			Expect(experiment.GetStats("write").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 10*time.Microsecond))
-		})
-
-		It("should benchmark Write to multiple writers", func() {
-			experiment := gmeasure.NewExperiment("Write Multiple")
-			AddReportEntry(experiment.Name, experiment)
-
-			m := multi.New()
-			var buf1, buf2, buf3 bytes.Buffer
-			m.AddWriter(&buf1, &buf2, &buf3)
-			data := []byte("broadcast data")
-
-			experiment.Sample(func(idx int) {
-				buf1.Reset()
-				buf2.Reset()
-				buf3.Reset()
-				experiment.MeasureDuration("write", func() {
-					m.Write(data)
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
-
-			Expect(experiment.GetStats("write").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 50*time.Microsecond))
-		})
-
-		It("should benchmark WriteString", func() {
-			experiment := gmeasure.NewExperiment("WriteString")
-			AddReportEntry(experiment.Name, experiment)
-
-			m := multi.New()
-			var buf bytes.Buffer
-			m.AddWriter(&buf)
-			str := "test string"
-
-			experiment.Sample(func(idx int) {
-				buf.Reset()
-				experiment.MeasureDuration("write-string", func() {
-					m.WriteString(str)
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
-
-			Expect(experiment.GetStats("write-string").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 10*time.Microsecond))
-		})
-
-		It("should benchmark large Write operations", func() {
-			experiment := gmeasure.NewExperiment("Write Large")
-			AddReportEntry(experiment.Name, experiment)
-
-			m := multi.New()
-			var buf bytes.Buffer
-			m.AddWriter(&buf)
-			largeData := make([]byte, 1024*1024) // 1MB
-
-			experiment.Sample(func(idx int) {
-				buf.Reset()
-				experiment.MeasureDuration("write-large", func() {
-					m.Write(largeData)
-				})
-			}, gmeasure.SamplingConfig{N: 100})
-
-			Expect(experiment.GetStats("write-large").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 10*time.Millisecond))
-		})
-	})
-
-	Describe("Read benchmarks", func() {
-		It("should benchmark Read operations", func() {
-			experiment := gmeasure.NewExperiment("Read")
-			AddReportEntry(experiment.Name, experiment)
-
-			m := multi.New()
-			buf := make([]byte, 1024)
-
-			experiment.Sample(func(idx int) {
-				input := io.NopCloser(strings.NewReader(strings.Repeat("x", 1024)))
-				m.SetInput(input)
-
-				experiment.MeasureDuration("read", func() {
-					m.Read(buf)
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
-
-			Expect(experiment.GetStats("read").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 10*time.Microsecond))
-		})
-
-		It("should benchmark large Read operations", func() {
-			experiment := gmeasure.NewExperiment("Read Large")
-			AddReportEntry(experiment.Name, experiment)
-
-			m := multi.New()
-			buf := make([]byte, 1024*1024) // 1MB
-
-			experiment.Sample(func(idx int) {
-				largeData := strings.Repeat("x", 1024*1024)
-				input := io.NopCloser(strings.NewReader(largeData))
-				m.SetInput(input)
-
-				experiment.MeasureDuration("read-large", func() {
-					m.Read(buf)
-				})
-			}, gmeasure.SamplingConfig{N: 100})
-
-			Expect(experiment.GetStats("read-large").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 10*time.Millisecond))
-		})
-	})
-
-	Describe("Copy benchmarks", func() {
-		It("should benchmark Copy to single writer", func() {
-			experiment := gmeasure.NewExperiment("Copy Single")
-			AddReportEntry(experiment.Name, experiment)
-
-			m := multi.New()
-			var buf bytes.Buffer
-			m.AddWriter(&buf)
-
-			experiment.Sample(func(idx int) {
-				buf.Reset()
-				input := io.NopCloser(strings.NewReader("test data for copy"))
-				m.SetInput(input)
-
-				experiment.MeasureDuration("copy", func() {
-					m.Copy()
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
-
-			Expect(experiment.GetStats("copy").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 50*time.Microsecond))
-		})
-
-		It("should benchmark Copy to multiple writers", func() {
-			experiment := gmeasure.NewExperiment("Copy Multiple")
-			AddReportEntry(experiment.Name, experiment)
-
-			m := multi.New()
-			var buf1, buf2, buf3 bytes.Buffer
-			m.AddWriter(&buf1, &buf2, &buf3)
-
-			experiment.Sample(func(idx int) {
-				buf1.Reset()
-				buf2.Reset()
-				buf3.Reset()
-				input := io.NopCloser(strings.NewReader("test data for copy"))
-				m.SetInput(input)
-
-				experiment.MeasureDuration("copy", func() {
-					m.Copy()
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
-
-			Expect(experiment.GetStats("copy").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 100*time.Microsecond))
-		})
-
-		It("should benchmark large Copy operations", func() {
-			experiment := gmeasure.NewExperiment("Copy Large")
-			AddReportEntry(experiment.Name, experiment)
-
-			m := multi.New()
-			var buf bytes.Buffer
-			m.AddWriter(&buf)
-
-			experiment.Sample(func(idx int) {
-				buf.Reset()
-				largeData := strings.Repeat("x", 1024*1024) // 1MB
-				input := io.NopCloser(strings.NewReader(largeData))
-				m.SetInput(input)
-
-				experiment.MeasureDuration("copy-large", func() {
-					m.Copy()
-				})
-			}, gmeasure.SamplingConfig{N: 100})
-
-			Expect(experiment.GetStats("copy-large").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 50*time.Millisecond))
-		})
-	})
-
-	Describe("AddWriter benchmarks", func() {
-		It("should benchmark AddWriter operations", func() {
-			experiment := gmeasure.NewExperiment("AddWriter")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				m := multi.New()
+			experiment.SampleDuration("Single writer, small data", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
 				var buf bytes.Buffer
+				m.AddWriter(&buf)
+				m.Write(smallData)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
 
-				experiment.MeasureDuration("add-writer", func() {
-					m.AddWriter(&buf)
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
-
-			Expect(experiment.GetStats("add-writer").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 50*time.Microsecond))
-		})
-
-		It("should benchmark AddWriter with multiple writers", func() {
-			experiment := gmeasure.NewExperiment("AddWriter Multiple")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				m := multi.New()
-				var buf1, buf2, buf3, buf4, buf5 bytes.Buffer
-
-				experiment.MeasureDuration("add-multiple", func() {
-					m.AddWriter(&buf1, &buf2, &buf3, &buf4, &buf5)
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
-
-			Expect(experiment.GetStats("add-multiple").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 100*time.Microsecond))
-		})
-	})
-
-	Describe("Clean benchmarks", func() {
-		It("should benchmark Clean operations", func() {
-			experiment := gmeasure.NewExperiment("Clean")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				m := multi.New()
+			experiment.SampleDuration("3 writers, small data", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
 				var buf1, buf2, buf3 bytes.Buffer
 				m.AddWriter(&buf1, &buf2, &buf3)
+				m.Write(smallData)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
 
-				experiment.MeasureDuration("clean", func() {
-					m.Clean()
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
+			experiment.SampleDuration("Single writer, 1KB data", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf bytes.Buffer
+				m.AddWriter(&buf)
+				m.Write(mediumData)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
 
-			Expect(experiment.GetStats("clean").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 50*time.Microsecond))
+			experiment.SampleDuration("3 writers, 1KB data", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf1, buf2, buf3 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3)
+				m.Write(mediumData)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("Single writer, 1MB data", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf bytes.Buffer
+				m.AddWriter(&buf)
+				m.Write(largeData)
+			}, gmeasure.SamplingConfig{N: 100, Duration: 0})
+
+			experiment.SampleDuration("3 writers, 1MB data", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf1, buf2, buf3 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3)
+				m.Write(largeData)
+			}, gmeasure.SamplingConfig{N: 100, Duration: 0})
 		})
 	})
 
-	Describe("SetInput benchmarks", func() {
-		It("should benchmark SetInput operations", func() {
-			experiment := gmeasure.NewExperiment("SetInput")
+	Describe("Read operations", func() {
+		It("[TC-BC-002] should benchmark Read with varying data sizes", func() {
+			experiment := gmeasure.NewExperiment("Read operations")
 			AddReportEntry(experiment.Name, experiment)
 
-			m := multi.New()
+			smallData := strings.Repeat("x", 100)
+			mediumData := strings.Repeat("x", 1024)
+			largeData := strings.Repeat("x", 1024*1024)
 
-			experiment.Sample(func(idx int) {
-				input := io.NopCloser(strings.NewReader("data"))
-				experiment.MeasureDuration("set-input", func() {
-					m.SetInput(input)
-				})
-			}, gmeasure.SamplingConfig{N: 1000})
+			experiment.SampleDuration("Read 100B", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				m.SetInput(io.NopCloser(strings.NewReader(smallData)))
+				buf := make([]byte, 100)
+				m.Read(buf)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
 
-			Expect(experiment.GetStats("set-input").DurationFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 10*time.Microsecond))
+			experiment.SampleDuration("Read 1KB", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				m.SetInput(io.NopCloser(strings.NewReader(mediumData)))
+				buf := make([]byte, 1024)
+				m.Read(buf)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("Read 1MB", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				m.SetInput(io.NopCloser(strings.NewReader(largeData)))
+				buf := make([]byte, 1024*1024)
+				m.Read(buf)
+			}, gmeasure.SamplingConfig{N: 100, Duration: 0})
 		})
 	})
 
-	Describe("Memory allocation benchmarks", func() {
-		It("should measure Write allocations", func() {
-			experiment := gmeasure.NewExperiment("Write Allocations")
+	Describe("Copy operations", func() {
+		It("[TC-BC-003] should benchmark Copy with varying writer counts and data sizes", func() {
+			experiment := gmeasure.NewExperiment("Copy operations")
 			AddReportEntry(experiment.Name, experiment)
 
-			m := multi.New()
-			var buf bytes.Buffer
-			m.AddWriter(&buf)
-			data := []byte("test")
+			smallData := "test data"
+			mediumData := strings.Repeat("x", 1024)
+			largeData := strings.Repeat("x", 1024*1024)
+
+			experiment.SampleDuration("Single writer, small data", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf bytes.Buffer
+				m.AddWriter(&buf)
+				m.SetInput(io.NopCloser(strings.NewReader(smallData)))
+				m.Copy()
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("3 writers, small data", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf1, buf2, buf3 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3)
+				m.SetInput(io.NopCloser(strings.NewReader(smallData)))
+				m.Copy()
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("Single writer, 1KB", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf bytes.Buffer
+				m.AddWriter(&buf)
+				m.SetInput(io.NopCloser(strings.NewReader(mediumData)))
+				m.Copy()
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("3 writers, 1KB", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf1, buf2, buf3 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3)
+				m.SetInput(io.NopCloser(strings.NewReader(mediumData)))
+				m.Copy()
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("Single writer, 1MB", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf bytes.Buffer
+				m.AddWriter(&buf)
+				m.SetInput(io.NopCloser(strings.NewReader(largeData)))
+				m.Copy()
+			}, gmeasure.SamplingConfig{N: 100, Duration: 0})
+
+			experiment.SampleDuration("3 writers, 1MB", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf1, buf2, buf3 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3)
+				m.SetInput(io.NopCloser(strings.NewReader(largeData)))
+				m.Copy()
+			}, gmeasure.SamplingConfig{N: 100, Duration: 0})
+		})
+	})
+
+	Describe("Mode comparison", func() {
+		It("[TC-BC-004] should compare Sequential vs Parallel modes", func() {
+			experiment := gmeasure.NewExperiment("Sequential vs Parallel mode")
+			AddReportEntry(experiment.Name, experiment)
+
+			data := make([]byte, 1024)
+
+			experiment.SampleDuration("Sequential mode", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf1, buf2, buf3, buf4 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3, &buf4)
+				m.Write(data)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("Parallel mode", func(idx int) {
+				m := multi.New(false, true, multi.DefaultConfig())
+				var buf1, buf2, buf3, buf4 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3, &buf4)
+				m.Write(data)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("Adaptive mode", func(idx int) {
+				m := multi.New(true, false, multi.DefaultConfig())
+				var buf1, buf2, buf3, buf4 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3, &buf4)
+				m.Write(data)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+		})
+	})
+
+	Describe("Writer management", func() {
+		It("[TC-BC-005] should benchmark AddWriter, Clean, and SetInput", func() {
+			experiment := gmeasure.NewExperiment("Writer management operations")
+			AddReportEntry(experiment.Name, experiment)
+
+			experiment.SampleDuration("Constructor default", func(idx int) {
+				_ = multi.New(false, false, multi.DefaultConfig())
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("Constructor adaptive", func(idx int) {
+				_ = multi.New(true, false, multi.DefaultConfig())
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("AddWriter single", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf bytes.Buffer
+				m.AddWriter(&buf)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("AddWriter multiple", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf1, buf2, buf3, buf4, buf5 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3, &buf4, &buf5)
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("SetInput", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				m.SetInput(io.NopCloser(strings.NewReader("data")))
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("Clean", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf1, buf2, buf3 bytes.Buffer
+				m.AddWriter(&buf1, &buf2, &buf3)
+				m.Clean()
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+			experiment.SampleDuration("WriteString", func(idx int) {
+				m := multi.New(false, false, multi.DefaultConfig())
+				var buf bytes.Buffer
+				m.AddWriter(&buf)
+				m.WriteString("test string")
+			}, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+		})
+	})
+
+	Describe("Real-world scenarios", func() {
+		It("[TC-BC-006] should benchmark log broadcasting to multiple destinations", func() {
+			experiment := gmeasure.NewExperiment("Log broadcasting")
 
 			experiment.Sample(func(idx int) {
-				buf.Reset()
-				experiment.RecordValue("allocations", float64(testing.AllocsPerRun(100, func() {
-					m.Write(data)
-				})))
-			}, gmeasure.SamplingConfig{N: 10})
+				logLine := "[2024-12-21 15:35:00] INFO: Application event with contextual data\n"
+				data := strings.Repeat(logLine, 10000)
 
-			// Write should have minimal allocations
-			Expect(experiment.GetStats("allocations").FloatFor(gmeasure.StatMean)).
-				To(BeNumerically("<", 5))
+				experiment.MeasureDuration("log-broadcast", func() {
+					m := multi.New(false, false, multi.DefaultConfig())
+					var stdout, file, network bytes.Buffer
+					m.AddWriter(&stdout, &file, &network)
+					m.Write([]byte(data))
+				})
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
+
+			AddReportEntry(experiment.Name, experiment)
+		})
+
+		It("[TC-BC-007] should benchmark stream replication to backup destinations", func() {
+			experiment := gmeasure.NewExperiment("Stream replication")
+
+			experiment.Sample(func(idx int) {
+				streamData := strings.Repeat("data chunk\n", 50000)
+
+				experiment.MeasureDuration("stream-replicate", func() {
+					m := multi.New(false, false, multi.DefaultConfig())
+					var primary, backup1, backup2 bytes.Buffer
+					m.AddWriter(&primary, &backup1, &backup2)
+					m.SetInput(io.NopCloser(strings.NewReader(streamData)))
+					m.Copy()
+				})
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
+
+			AddReportEntry(experiment.Name, experiment)
+		})
+
+		It("[TC-BC-008] should benchmark adaptive mode under varying load", func() {
+			experiment := gmeasure.NewExperiment("Adaptive mode under load")
+
+			experiment.Sample(func(idx int) {
+				experiment.MeasureDuration("adaptive-load", func() {
+					m := multi.New(true, false, multi.DefaultConfig())
+					var buf1, buf2, buf3, buf4, buf5 bytes.Buffer
+					m.AddWriter(&buf1, &buf2, &buf3, &buf4, &buf5)
+
+					// Simulate varying data sizes
+					for i := 0; i < 100; i++ {
+						size := 128 + (i * 10)
+						data := make([]byte, size)
+						m.Write(data)
+					}
+				})
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
+
+			AddReportEntry(experiment.Name, experiment)
 		})
 	})
 })

@@ -183,10 +183,10 @@ func (o *sCtx) Value(key any) any {
 // Returns:
 //   - n: Number of bytes actually read into p
 //   - err: Any error encountered during reading:
-//     - io.ErrClosedPipe: If the connection is already closed
-//     - io.EOF: If the connection reached end of stream (triggers close)
-//     - Context errors: If the context was cancelled
-//     - Network errors: Any underlying TCP errors
+//   - io.ErrClosedPipe: If the connection is already closed
+//   - io.EOF: If the connection reached end of stream (triggers close)
+//   - Context errors: If the context was cancelled
+//   - Network errors: Any underlying TCP errors
 //
 // # Behavior
 //
@@ -263,10 +263,10 @@ func (o *sCtx) Read(p []byte) (n int, err error) {
 // Returns:
 //   - n: Number of bytes actually written from p
 //   - err: Any error encountered during writing:
-//     - io.ErrClosedPipe: If the connection is already closed
-//     - io.EOF: If the connection reached end of stream (triggers close)
-//     - Context errors: If the context was cancelled
-//     - Network errors: Any underlying TCP errors (buffer full, broken pipe, etc.)
+//   - io.ErrClosedPipe: If the connection is already closed
+//   - io.EOF: If the connection reached end of stream (triggers close)
+//   - Context errors: If the context was cancelled
+//   - Network errors: Any underlying TCP errors (buffer full, broken pipe, etc.)
 //
 // # Behavior
 //

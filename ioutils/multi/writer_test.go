@@ -38,16 +38,16 @@ import (
 // Tests for Multi write operations and output management.
 // These tests verify proper handling of multiple writers, write broadcasting,
 // and dynamic writer management through AddWriter() and Clean().
-var _ = Describe("Multi Writer Operations", func() {
+var _ = Describe("[TC-WR] Multi Writer Operations", func() {
 	var m multi.Multi
 
 	BeforeEach(func() {
-		m = multi.New()
+		m = multi.New(false, false, multi.DefaultConfig())
 	})
 
 	Describe("AddWriter", func() {
 		Context("adding single writer", func() {
-			It("should add one writer successfully", func() {
+			It("[TC-WR-001] should add one writer successfully", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -57,7 +57,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(buf.String()).To(Equal("test"))
 			})
 
-			It("should replace io.Discard after adding writer", func() {
+			It("[TC-WR-001] should replace io.Discard after adding writer", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -67,7 +67,7 @@ var _ = Describe("Multi Writer Operations", func() {
 		})
 
 		Context("adding multiple writers", func() {
-			It("should add multiple writers at once", func() {
+			It("[TC-WR-001] should add multiple writers at once", func() {
 				var buf1, buf2, buf3 bytes.Buffer
 				m.AddWriter(&buf1, &buf2, &buf3)
 
@@ -79,7 +79,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(buf3.String()).To(Equal("broadcast"))
 			})
 
-			It("should add writers incrementally", func() {
+			It("[TC-WR-001] should add writers incrementally", func() {
 				var buf1, buf2 bytes.Buffer
 				m.AddWriter(&buf1)
 				m.AddWriter(&buf2)
@@ -93,7 +93,7 @@ var _ = Describe("Multi Writer Operations", func() {
 		})
 
 		Context("handling nil writers", func() {
-			It("should skip nil writers", func() {
+			It("[TC-WR-001] should skip nil writers", func() {
 				var buf bytes.Buffer
 				m.AddWriter(nil, &buf, nil)
 
@@ -103,7 +103,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(buf.String()).To(Equal("test"))
 			})
 
-			It("should handle all nil writers gracefully", func() {
+			It("[TC-WR-001] should handle all nil writers gracefully", func() {
 				m.AddWriter(nil, nil, nil)
 
 				// Should use io.Discard
@@ -114,7 +114,7 @@ var _ = Describe("Multi Writer Operations", func() {
 		})
 
 		Context("no writers added", func() {
-			It("should use io.Discard by default", func() {
+			It("[TC-WR-001] should use io.Discard by default", func() {
 				// No writers added
 				n, err := m.Write([]byte("test"))
 				Expect(err).NotTo(HaveOccurred())
@@ -125,12 +125,12 @@ var _ = Describe("Multi Writer Operations", func() {
 
 	Describe("Writer", func() {
 		Context("getting writer instance", func() {
-			It("should return non-nil writer", func() {
+			It("[TC-WR-005] should return non-nil writer", func() {
 				writer := m.Writer()
 				Expect(writer).NotTo(BeNil())
 			})
 
-			It("should return writer after adding writers", func() {
+			It("[TC-WR-005] should return writer after adding writers", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -147,7 +147,7 @@ var _ = Describe("Multi Writer Operations", func() {
 
 	Describe("Write", func() {
 		Context("writing to single writer", func() {
-			It("should write data successfully", func() {
+			It("[TC-WR-002] should write data successfully", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -157,7 +157,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(buf.String()).To(Equal("hello world"))
 			})
 
-			It("should handle empty write", func() {
+			It("[TC-WR-002] should handle empty write", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -166,7 +166,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(n).To(Equal(0))
 			})
 
-			It("should handle multiple writes", func() {
+			It("[TC-WR-002] should handle multiple writes", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -179,7 +179,7 @@ var _ = Describe("Multi Writer Operations", func() {
 		})
 
 		Context("writing to multiple writers", func() {
-			It("should write to all writers", func() {
+			It("[TC-WR-002] should write to all writers", func() {
 				var buf1, buf2, buf3 bytes.Buffer
 				m.AddWriter(&buf1, &buf2, &buf3)
 
@@ -195,7 +195,7 @@ var _ = Describe("Multi Writer Operations", func() {
 		})
 
 		Context("writing large data", func() {
-			It("should handle large writes", func() {
+			It("[TC-WR-002] should handle large writes", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -214,7 +214,7 @@ var _ = Describe("Multi Writer Operations", func() {
 
 	Describe("WriteString", func() {
 		Context("writing strings", func() {
-			It("should write string successfully", func() {
+			It("[TC-WR-003] should write string successfully", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -224,7 +224,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(buf.String()).To(Equal("string data"))
 			})
 
-			It("should handle empty string", func() {
+			It("[TC-WR-003] should handle empty string", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -233,7 +233,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(n).To(Equal(0))
 			})
 
-			It("should write to multiple writers", func() {
+			It("[TC-WR-003] should write to multiple writers", func() {
 				var buf1, buf2 bytes.Buffer
 				m.AddWriter(&buf1, &buf2)
 
@@ -244,7 +244,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(buf2.String()).To(Equal("broadcast string"))
 			})
 
-			It("should handle Unicode strings", func() {
+			It("[TC-WR-003] should handle Unicode strings", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -259,7 +259,7 @@ var _ = Describe("Multi Writer Operations", func() {
 
 	Describe("Clean", func() {
 		Context("cleaning writers", func() {
-			It("should remove all writers", func() {
+			It("[TC-WR-004] should remove all writers", func() {
 				var buf1, buf2 bytes.Buffer
 				m.AddWriter(&buf1, &buf2)
 
@@ -277,7 +277,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(buf2.String()).To(Equal("before")) // unchanged
 			})
 
-			It("should reset writer count", func() {
+			It("[TC-WR-004] should reset writer count", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 				m.Clean()
@@ -291,7 +291,7 @@ var _ = Describe("Multi Writer Operations", func() {
 				Expect(buf.String()).To(BeEmpty())
 			})
 
-			It("should handle multiple clean calls", func() {
+			It("[TC-WR-004] should handle multiple clean calls", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -304,7 +304,7 @@ var _ = Describe("Multi Writer Operations", func() {
 		})
 
 		Context("clean on empty multi", func() {
-			It("should handle clean without writers", func() {
+			It("[TC-WR-004] should handle clean without writers", func() {
 				Expect(func() {
 					m.Clean()
 				}).NotTo(Panic())

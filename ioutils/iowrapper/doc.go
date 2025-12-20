@@ -174,10 +174,10 @@ Wrapper chaining:
 	// Chain: file → logging → compression → encryption
 	logged := iowrapper.New(file)
 	logged.SetRead(logFunc)
-	
+
 	compressed := iowrapper.New(logged)
 	compressed.SetRead(compressFunc)
-	
+
 	encrypted := iowrapper.New(compressed)
 	encrypted.SetRead(encryptFunc)
 

@@ -453,14 +453,14 @@ var _ = Describe("MapCloser", func() {
 			defer closer.Close()
 
 			mock1 := newMockCloser()
-			
+
 			// Add same closer multiple times
 			closer.Add(mock1)
 			closer.Add(mock1)
 			closer.Add(mock1)
 
 			Expect(closer.Len()).To(Equal(3))
-			
+
 			// Get should return it three times
 			result := closer.Get()
 			Expect(result).To(HaveLen(3))
@@ -489,7 +489,7 @@ var _ = Describe("MapCloser", func() {
 
 		It("should handle Get after Close", func() {
 			closer := New(ctx)
-			
+
 			mock := newMockCloser()
 			closer.Add(mock)
 
@@ -502,21 +502,21 @@ var _ = Describe("MapCloser", func() {
 
 		It("should handle Add after Close", func() {
 			closer := New(ctx)
-			
+
 			closer.Add(newMockCloser())
 			closer.Close()
 
 			// Add after close should be no-op
 			initialLen := closer.Len()
 			closer.Add(newMockCloser())
-			
+
 			// Length should not increase
 			Expect(closer.Len()).To(Equal(initialLen))
 		})
 
 		It("should handle Clean after Close", func() {
 			closer := New(ctx)
-			
+
 			closer.Add(newMockCloser())
 			closer.Close()
 

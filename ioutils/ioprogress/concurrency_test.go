@@ -33,7 +33,8 @@
 //   - Lock-free concurrent access
 //
 // Running with Race Detector:
-//   CGO_ENABLED=1 go test -race ./...
+//
+//	CGO_ENABLED=1 go test -race ./...
 //
 // All tests should pass with zero data races detected.
 package ioprogress_test
@@ -95,7 +96,7 @@ var _ = Describe("Concurrency", func() {
 			// Note: Most readers don't support concurrent Read() operations
 			// This test validates that the counter remains consistent even if
 			// callbacks are invoked from multiple goroutines
-			
+
 			data := strings.Repeat("x", 5000)
 			var totalFromCallbacks int64
 			var readCount int32
@@ -117,7 +118,7 @@ var _ = Describe("Concurrency", func() {
 				go func(r Reader) {
 					defer wg.Done()
 					defer r.Close()
-					
+
 					buf := make([]byte, 500)
 					for {
 						n, err := r.Read(buf)
@@ -228,7 +229,7 @@ var _ = Describe("Concurrency", func() {
 				go func(w Writer) {
 					defer wg.Done()
 					defer w.Close()
-					
+
 					for j := 0; j < len(data); j += 500 {
 						end := j + 500
 						if end > len(data) {
@@ -275,21 +276,21 @@ var _ = Describe("Concurrency", func() {
 
 			// Replace callbacks multiple times concurrently
 			wg.Add(3)
-			
+
 			go func() {
 				defer wg.Done()
 				reader.RegisterFctIncrement(func(size int64) {
 					counter1.Add(size)
 				})
 			}()
-			
+
 			go func() {
 				defer wg.Done()
 				reader.RegisterFctIncrement(func(size int64) {
 					counter2.Add(size)
 				})
 			}()
-			
+
 			go func() {
 				defer wg.Done()
 				reader.RegisterFctIncrement(func(size int64) {
@@ -309,10 +310,10 @@ var _ = Describe("Concurrency", func() {
 		It("should maintain memory consistency with concurrent operations", func() {
 			// This test validates that atomic operations provide proper
 			// memory ordering guarantees
-			
+
 			const iterations = 1000
 			const goroutines = 10
-			
+
 			var wg sync.WaitGroup
 			var globalCounter int64
 
@@ -320,15 +321,15 @@ var _ = Describe("Concurrency", func() {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					
+
 					for i := 0; i < iterations; i++ {
 						data := strings.Repeat("x", 100)
 						reader := NewReadCloser(io.NopCloser(strings.NewReader(data)))
-						
+
 						reader.RegisterFctIncrement(func(size int64) {
 							atomic.AddInt64(&globalCounter, size)
 						})
-						
+
 						buf := make([]byte, 10)
 						for {
 							_, err := reader.Read(buf)
@@ -336,7 +337,7 @@ var _ = Describe("Concurrency", func() {
 								break
 							}
 						}
-						
+
 						reader.Close()
 					}
 				}()
@@ -356,7 +357,7 @@ var _ = Describe("Concurrency", func() {
 			const numReaders = 5
 			const numWriters = 5
 			const dataSize = 10000
-			
+
 			var wg sync.WaitGroup
 			var totalRead int64
 			var totalWritten int64
@@ -366,15 +367,15 @@ var _ = Describe("Concurrency", func() {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					
+
 					data := strings.Repeat("x", dataSize)
 					reader := NewReadCloser(io.NopCloser(strings.NewReader(data)))
 					defer reader.Close()
-					
+
 					reader.RegisterFctIncrement(func(size int64) {
 						atomic.AddInt64(&totalRead, size)
 					})
-					
+
 					io.Copy(io.Discard, reader)
 				}()
 			}
@@ -384,14 +385,14 @@ var _ = Describe("Concurrency", func() {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					
+
 					writer := NewWriteCloser(newCloseableWriter())
 					defer writer.Close()
-					
+
 					writer.RegisterFctIncrement(func(size int64) {
 						atomic.AddInt64(&totalWritten, size)
 					})
-					
+
 					data := bytes.Repeat([]byte("x"), dataSize)
 					writer.Write(data)
 				}()

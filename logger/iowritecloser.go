@@ -112,6 +112,7 @@ func (o *logger) SetIOWriterLevel(lvl loglvl.Level) {
 
 	o.x.Store(keyWriter, lvl)
 }
+
 // GetIOWriterLevel returns the current log level for Write() method calls.
 //
 // Returns:

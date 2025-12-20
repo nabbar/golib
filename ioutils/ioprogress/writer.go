@@ -46,7 +46,7 @@ import (
 //   - w: 16 bytes (interface: pointer + type)
 //   - cr: 8 bytes (pointer to atomic.Int64)
 //   - fi, fe, fr: ~24 bytes each (atomic.Value with function pointer)
-//   Total: ~120 bytes per instance
+//     Total: ~120 bytes per instance
 //
 // Thread Safety: All fields except 'w' use atomic operations. The underlying writer 'w'
 // is accessed only through Write() and Close() methods. Concurrent writes should be
@@ -101,8 +101,9 @@ func (w *wrt) Write(p []byte) (n int, err error) {
 // multiple times (idempotent).
 //
 // Typical Usage: Always defer Close() immediately after creating the wrapper:
-//   writer := ioprogress.NewWriteCloser(file)
-//   defer writer.Close()  // Closes both wrapper and underlying file
+//
+//	writer := ioprogress.NewWriteCloser(file)
+//	defer writer.Close()  // Closes both wrapper and underlying file
 func (w *wrt) Close() error {
 	return w.w.Close()
 }
@@ -254,17 +255,18 @@ func (w *wrt) finish() {
 // callback retrieval (atomic.Value.Load) and counter reading (atomic.Int64.Load).
 //
 // Example Use Case:
-//   writer.Reset(totalSize)   // Update progress bar with total size
-//   writePhase1(writer)       // First write phase
-//   writer.Reset(totalSize)   // Update for second phase
-//   writePhase2(writer)       // Second write phase
+//
+//	writer.Reset(totalSize)   // Update progress bar with total size
+//	writePhase1(writer)       // First write phase
+//	writer.Reset(totalSize)   // Update for second phase
+//	writePhase2(writer)       // Second write phase
 func (w *wrt) Reset(max int64) {
 	if w == nil {
 		// Defensive nil check
 		return
 	}
 
-	f := w.fr.Load()         // Atomic load of reset callback
+	f := w.fr.Load() // Atomic load of reset callback
 	if f != nil {
 		f(max, w.cr.Load()) // Invoke with max and current cumulative count
 	}

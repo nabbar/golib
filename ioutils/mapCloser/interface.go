@@ -52,10 +52,10 @@ import (
 //   - Close is idempotent but returns an error on subsequent calls
 //
 // Lifecycle:
-//   1. Create with New(ctx)
-//   2. Add io.Closer instances dynamically
-//   3. Automatic close when context is done OR manual Close()
-//   4. Post-close: all operations become no-ops
+//  1. Create with New(ctx)
+//  2. Add io.Closer instances dynamically
+//  3. Automatic close when context is done OR manual Close()
+//  4. Post-close: all operations become no-ops
 type Closer interface {
 	// Add registers one or more io.Closer instances for management.
 	//

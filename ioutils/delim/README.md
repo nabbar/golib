@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
-[![Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/Coverage-98.6%25-brightgreen)](TESTING.md)
 
 Lightweight, high-performance buffered reader for delimiter-separated data streams with custom delimiter support, constant memory usage, and zero-copy operations.
 
@@ -48,13 +48,13 @@ The `delim` package provides a buffered reader that efficiently processes data s
 ### Key Features
 
 - **Custom Delimiters**: Any rune character (ASCII, Unicode, control characters)
-- **Constant Memory**: ~4KB default buffer regardless of file size
-- **100% Test Coverage**: 198 comprehensive test specs with race detection
+- **Constant Memory**: ~32KB default buffer regardless of file size
+- **98.6% Test Coverage**: 198 comprehensive test specs with race detection
 - **Thread-Safe**: Safe for concurrent use (one goroutine per instance)
 - **Multiple Read Methods**:
   - `Read(p []byte)` - io.Reader compatibility
   - `ReadBytes()` - Returns delimited chunks
-  - `UnRead()` - Peek at buffered data
+  - `UnRead()` - Get buffered but unread data (consumes buffer)
   - `WriteTo(w io.Writer)` - Efficient streaming
 - **Performance**: Sub-millisecond operations for typical workloads
 - **No External Dependencies**: Only standard library + `github.com/nabbar/golib/size`
@@ -92,7 +92,7 @@ ioutils/delim/
 │              │                    │
 │              ▼                    │
 │  ┌──────────────────────────────┐ │
-│  │  bufio.Reader (buffered)     │ │
+│  │  Internal Buffer             │ │
 │  └──────────────────────────────┘ │
 │              │                    │
 │              ▼                    │
@@ -111,8 +111,8 @@ ioutils/delim/
 
 ### How It Works
 
-1. **Initialization**: `New()` wraps an `io.ReadCloser` with `bufio.Reader`
-2. **Buffering**: Data read in configurable chunks (default 4KB)
+1. **Initialization**: `New()` wraps an `io.ReadCloser` with an internal buffer
+2. **Buffering**: Data read in configurable chunks (default 32KB)
 3. **Delimiter Detection**: Scan buffer for delimiter byte
 4. **Chunk Extraction**: Return data up to and including delimiter
 5. **Memory Management**: Reuse buffer, minimal allocations
@@ -126,38 +126,37 @@ ioutils/delim/
 **Constant Memory Usage** - The package maintains O(1) memory regardless of input size:
 
 ```
-Buffer Size: 4KB (default) or custom
+Buffer Size: 32KB (default) or custom
 Memory Growth: ZERO (no additional allocation per delimiter)
-Example: Process 10GB file using only ~4KB RAM
+Example: Process 10GB file using only ~32KB RAM
 ```
 
 ### Throughput Benchmarks
 
 Performance measurements from test suite (AMD64, Go 1.21):
 
-| Operation | Throughput | Latency | Memory |
-|-----------|------------|---------|--------|
-| Read small chunks | N/A | <100µs | O(1) |
-| Read medium chunks | N/A | ~300µs | O(1) |
-| Read large chunks | N/A | ~500µs | O(1) |
-| ReadBytes | ~300 MB/s | <100µs | O(1) |
-| WriteTo | ~500 MB/s | ~200µs | O(1) |
-| CSV parsing | ~500 MB/s | ~100µs | O(1) |
-| Log processing | ~250 MB/s | ~200µs | O(1) |
-| Constructor | N/A | ~1.3ms | O(1) |
+| Operation | Throughput | Latency (Median) | Memory |
+|-----------|------------|------------------|--------|
+| Read (Buffered) | ~6.2 GB/s | 3.2ms (20MB) | O(1) |
+| ReadBytes (Small) | ~3.5 GB/s | 700µs (2.5MB) | O(1) |
+| ReadBytes (Large) | ~5.8 GB/s | 13.6ms (80MB) | O(1) |
+| WriteTo | ~1.5 GB/s | 51.6ms (80MB) | O(1) |
+| CSV parsing | ~890 MB/s | 1.4ms (1.2MB) | O(1) |
+| Log processing | ~630 MB/s | 4.7ms (3MB) | O(1) |
 
-*Measured with default 4KB buffer, actual performance varies with buffer size and data characteristics*
+*Measured with default 32KB buffer, actual performance varies with buffer size and data characteristics*
 
 ### Buffer Size Impact
 
 | Buffer Size | Use Case | Memory | Speed |
 |-------------|----------|--------|-------|
 | 64 bytes | Micro-optimization | Minimal | Slower (more reads) |
-| 4KB (default) | General purpose | Low | Balanced |
+| 4KB | Legacy default | Low | Balanced |
+| 32KB (default) | General purpose | Low | High performance |
 | 64KB | Large records | Medium | Faster (fewer reads) |
 | 1MB | High throughput | Higher | Fastest (bulk operations) |
 
-**Recommendation**: Use default 4KB unless profiling shows benefit from larger buffers
+**Recommendation**: Use default 32KB unless profiling shows benefit from larger buffers
 
 ### Comparison with Alternatives
 
@@ -245,7 +244,7 @@ func main() {
     defer file.Close()
     
     // Create BufferDelim with newline delimiter
-    bd := delim.New(file, '\n', 0)  // 0 = default buffer
+    bd := delim.New(file, '\n', 0)  // 0 = default buffer (32KB)
     defer bd.Close()
     
     // Read line by line
@@ -431,7 +430,7 @@ func main() {
     bd := delim.New(file, '\n', 1024)  // 1KB buffer
     defer bd.Close()
     
-    // Peek at buffered data
+    // Get buffered data
     buffered, _ := bd.UnRead()
     fmt.Printf("Next %d bytes: %s\n", len(buffered), buffered)
     
@@ -503,7 +502,7 @@ Primary interface for delimiter-based reading.
 - `Reader() io.ReadCloser` - Get self as io.ReadCloser
 - `Copy(w io.Writer) (n int64, err error)` - Alias for WriteTo
 - `ReadBytes() ([]byte, error)` - Read next delimited chunk
-- `UnRead() ([]byte, error)` - Peek at buffered data
+- `UnRead() ([]byte, error)` - Get buffered data (consumes buffer)
 
 #### DiscardCloser Struct
 
@@ -649,11 +648,11 @@ func processBad(path string) error {
 
 **Choose appropriate buffer size**:
 ```go
-// Small records (<1KB): Default buffer
+// Small records (<1KB): Default buffer (32KB)
 bd := delim.New(file, '\n', 0)
 
-// Medium records (1-10KB): Small buffer
-bd := delim.New(file, '\n', 8*size.KiB)
+// Specific size (4KB)
+bd := delim.New(file, '\n', 4*size.KiB)
 
 // Large records (10KB-1MB): Large buffer
 bd := delim.New(file, '\n', 64*size.KiB)
@@ -719,7 +718,7 @@ func processParallel() {
 
 ### Testing
 
-The package includes a comprehensive test suite with **100% code coverage** and **198 test specifications** using Ginkgo v2 and Gomega. All tests pass with race detection enabled, ensuring thread safety.
+The package includes a comprehensive test suite with **98.6% code coverage** and **198 test specifications** using Ginkgo v2 and Gomega. All tests pass with race detection enabled, ensuring thread safety.
 
 **Quick test commands:**
 ```bash
@@ -738,7 +737,7 @@ Contributions are welcome! Please follow these guidelines:
 
 1. **Code Quality**
    - Follow Go best practices and idioms
-   - Maintain or improve code coverage (target: 100%)
+   - Maintain or improve code coverage (target: >98%)
    - Pass all tests including race detector
    - Use `gofmt` and `golint`
 
@@ -781,7 +780,7 @@ The package is **production-ready** with no urgent improvements or security vuln
 
 ### Code Quality Metrics
 
-- ✅ **100% test coverage** (target: >80%)
+- ✅ **98.6% test coverage** (target: >80%)
 - ✅ **Zero race conditions** detected with `-race` flag
 - ✅ **Thread-safe** per instance (one goroutine per BufferDelim)
 - ✅ **Memory-safe** with proper resource cleanup
@@ -828,7 +827,7 @@ Suggestions and contributions are welcome via [GitHub issues](https://github.com
 
 - **[doc.go](doc.go)** - In-depth package documentation including design philosophy, delimiter handling, buffer management, performance considerations, and comparison with `bufio.Scanner`. Provides detailed explanations of internal mechanisms and best practices for production use.
 
-- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, 100% coverage analysis, performance benchmarks, and guidelines for writing new tests. Includes troubleshooting and CI integration examples.
+- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, 98.6% coverage analysis, performance benchmarks, and guidelines for writing new tests. Includes troubleshooting and CI integration examples.
 
 ### Related golib Packages
 
@@ -838,7 +837,7 @@ Suggestions and contributions are welcome via [GitHub issues](https://github.com
 
 ### Standard Library References
 
-- **[bufio](https://pkg.go.dev/bufio)** - Standard library buffered I/O package. The `delim` package builds upon `bufio.Reader` to provide delimiter-aware reading with additional control and flexibility. Understanding `bufio` helps in choosing the right tool for the task.
+- **[bufio](https://pkg.go.dev/bufio)** - Standard library buffered I/O package. The `delim` package provides similar delimiter-aware reading functionality but with additional control, custom delimiters, and constant memory usage. Understanding `bufio` helps in choosing the right tool for the task.
 
 - **[io](https://pkg.go.dev/io)** - Standard I/O interfaces implemented by `delim`. The package fully implements `io.ReadCloser` and `io.WriterTo` for seamless integration with Go's I/O ecosystem and compatibility with existing tools and libraries.
 

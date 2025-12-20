@@ -31,12 +31,12 @@
 // of the test suite.
 //
 // Examples covered:
-//   1. Basic progress tracking (simplest usage)
-//   2. Progress with percentage calculation
-//   3. File copy with progress bar
-//   4. Bandwidth monitoring
-//   5. Multi-stage processing with reset
-//   6. Complete download simulation (most complex)
+//  1. Basic progress tracking (simplest usage)
+//  2. Progress with percentage calculation
+//  3. File copy with progress bar
+//  4. Bandwidth monitoring
+//  5. Multi-stage processing with reset
+//  6. Complete download simulation (most complex)
 package ioprogress_test
 
 import (
@@ -229,7 +229,7 @@ func Example_multiStageProcessing() {
 	})
 
 	buf := make([]byte, 50)
-	
+
 	// Stage 1: Validation
 	reader.Read(buf) // Read first 50 bytes
 	currentStage = "Validation"
@@ -283,7 +283,7 @@ func Example_completeDownload() {
 	reader.RegisterFctIncrement(func(size int64) {
 		atomic.AddInt64(&downloaded, size)
 		current := atomic.LoadInt64(&downloaded)
-		
+
 		// Calculate progress
 		progress := current * 100 / fileSize
 

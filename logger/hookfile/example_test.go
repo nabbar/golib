@@ -96,9 +96,9 @@ func Example_productionSetup() {
 
 	opts := logcfg.OptionsFile{
 		Filepath:         logFile,
-		FileMode:         0644,  // Readable by others
-		PathMode:         0755,  // Standard directory permissions
-		CreatePath:       true,  // Create directories if needed (enables rotation detection)
+		FileMode:         0644, // Readable by others
+		PathMode:         0755, // Standard directory permissions
+		CreatePath:       true, // Create directories if needed (enables rotation detection)
 		LogLevel:         []string{"info", "warning", "error"},
 		DisableStack:     true,  // Don't log stack traces
 		DisableTimestamp: false, // Include timestamps

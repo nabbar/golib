@@ -1,10 +1,10 @@
 # Testing Documentation
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.19-blue)](https://go.dev/doc/install)
-[![Tests](https://img.shields.io/badge/Tests-112%20specs-success)](suite_test.go)
-[![Assertions](https://img.shields.io/badge/Assertions-350+-blue)](suite_test.go)
-[![Coverage](https://img.shields.io/badge/Coverage-81.7%25-brightgreen)](coverage.out)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
+[![Tests](https://img.shields.io/badge/Tests-120%20specs-success)](suite_test.go)
+[![Assertions](https://img.shields.io/badge/Assertions-300+-blue)](suite_test.go)
+[![Coverage](https://img.shields.io/badge/Coverage-80.8%25-brightgreen)](coverage.out)
 
 Comprehensive testing guide for the `github.com/nabbar/golib/ioutils/multi` package using BDD methodology with Ginkgo v2 and Gomega.
 
@@ -13,23 +13,10 @@ Comprehensive testing guide for the `github.com/nabbar/golib/ioutils/multi` pack
 ## Table of Contents
 
 - [Overview](#overview)
-  - [Test Plan](#test-plan)
-  - [Test Completeness](#test-completeness)
 - [Test Architecture](#test-architecture)
-  - [Test Matrix](#test-matrix)
-  - [Detailed Test Inventory](#detailed-test-inventory)
 - [Test Statistics](#test-statistics)
-  - [Latest Test Run](#latest-test-run)
-  - [Coverage Distribution](#coverage-distribution)
-  - [Performance Metrics](#performance-metrics)
 - [Framework & Tools](#framework--tools)
-  - [Ginkgo v2](#ginkgo-v2)
-  - [Gomega](#gomega)
-  - [gmeasure](#gmeasure)
 - [Quick Launch](#quick-launch)
-  - [Basic Commands](#basic-commands)
-  - [Race Detection](#race-detection)
-  - [Coverage Generation](#coverage-generation)
 - [Coverage](#coverage)
   - [Coverage Report](#coverage-report)
   - [Uncovered Code Analysis](#uncovered-code-analysis)
@@ -46,7 +33,7 @@ Comprehensive testing guide for the `github.com/nabbar/golib/ioutils/multi` pack
   - [Running New Tests](#running-new-tests)
   - [Helper Functions](#helper-functions)
   - [Benchmark Template](#benchmark-template)
-- [Best Practices](#best-practices)
+  - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
 - [Reporting Bugs & Vulnerabilities](#reporting-bugs--vulnerabilities)
 
@@ -56,36 +43,25 @@ Comprehensive testing guide for the `github.com/nabbar/golib/ioutils/multi` pack
 
 ### Test Plan
 
-This test suite provides **comprehensive validation** of the `multi` package through:
+This test suite provides **comprehensive validation** of the `multi` package following **ISTQB** principles. It focuses on validating the **MultiWriter** behavior, adaptive strategies, and concurrency safety through:
 
-1. **Functional Testing**: Verification of all public APIs and core I/O multiplexing functionality
-2. **Concurrency Testing**: Thread-safety validation with race detector for concurrent write/read operations
-3. **Performance Testing**: Benchmarking throughput, latency, memory usage, and writer scaling
-4. **Robustness Testing**: Error handling, edge cases (nil values, zero-length operations, large data)
-5. **Boundary Testing**: Single vs. multiple writers, reader lifecycle, error propagation
-6. **Integration Testing**: Compatibility with standard I/O interfaces and real-world usage scenarios
+1.  **Functional Testing**: Verification of all public APIs (AddWriter, SetInput, Write, Read, Copy).
+2.  **Non-Functional Testing**: Performance benchmarking and concurrency safety validation.
+3.  **Structural Testing**: Ensuring all code paths and logic branches are exercised, while acknowledging that coverage metrics are just one indicator of quality.
 
 ### Test Completeness
 
-**Coverage Metrics:**
-- **Code Coverage**: 81.7% of statements (target: >80%, achieved: 81.7%)
-- **Branch Coverage**: ~80% of conditional branches
-- **Function Coverage**: 100% of public functions
-- **Race Conditions**: 0 detected across all scenarios
+**Quality Indicators:**
+-   **Code Coverage**: 80.8% of statements (Note: Used as a guide, not a guarantee of correctness).
+-   **Race Conditions**: 0 detected across all scenarios.
+-   **Flakiness**: 0 flaky tests detected.
 
 **Test Distribution:**
-- ✅ **112 specifications** passing (1 intentionally skipped)
-- ✅ **350+ assertions** validating behavior with Gomega matchers
-- ✅ **13 performance benchmarks** measuring key metrics with gmeasure
-- ✅ **8 test files** organized by concern (constructor, writer, reader, copy, edge cases, concurrency, benchmarks)
-- ✅ **Zero flaky tests** - all tests are deterministic and reproducible
-
-**Quality Assurance:**
-- All tests pass with `-race` detector enabled (zero data races)
-- All tests pass on Go 1.19, 1.20, 1.21, 1.22, 1.23, 1.24, and 1.25
-- Tests run in ~0.13 seconds (standard) or ~1.18 seconds (with race detector)
-- No external dependencies required for testing (only standard library + golib packages)
-- **14 runnable examples** in `example_test.go` demonstrating real-world usage
+-   ✅ **120 specifications** covering all major use cases
+-   ✅ **300+ assertions** validating behavior
+-   ✅ **15 performance benchmarks** measuring key metrics
+-   ✅ **9 test files** organized by functional area
+-   ✅ **Zero flaky tests** - all tests are deterministic
 
 ---
 
@@ -95,369 +71,149 @@ This test suite provides **comprehensive validation** of the `multi` package thr
 
 | Category | Files | Specs | Coverage | Priority | Dependencies |
 |----------|-------|-------|----------|----------|-------------|
-| **Basic** | constructor_test.go | 9 | 100% | Critical | None |
-| **Implementation** | writer_test.go, reader_test.go, copy_test.go | 54 | 90%+ | Critical | Basic |
-| **Edge Cases** | edge_cases_test.go | 23 | 85%+ | High | Implementation |
-| **Concurrency** | concurrent_test.go | 12 | 95%+ | High | Implementation |
-| **Performance** | benchmark_test.go | 13 | N/A | Medium | Implementation |
+| **Basic** | constructor_test.go | 14 | 90%+ | Critical | None |
+| **Reader Operations** | reader_test.go | 14 | 85%+ | Critical | Basic |
+| **Writer Operations** | writer_test.go | 22 | 85%+ | Critical | Basic |
+| **Copy Operations** | copy_test.go | 12 | 85%+ | Critical | Basic |
+| **Concurrency** | concurrent_test.go | 11 | 90%+ | Critical | Implementation |
+| **Adaptive Mode** | mode_test.go | 7 | 80%+ | High | Implementation |
+| **Edge Cases** | edge_cases_test.go | 25 | 75%+ | High | Implementation |
+| **Performance** | benchmark_test.go | 15 | N/A | Medium | Implementation |
 | **Helpers** | helper_test.go | N/A | N/A | Low | All |
-| **Examples** | example_test.go | 14 | N/A | Low | All |
+| **Examples** | example_test.go | N/A | N/A | Low | All |
 
 ### Detailed Test Inventory
 
-| Test Name | File | Type | Dependencies | Priority | Expected Outcome | Comments |
-|-----------|------|------|--------------|----------|------------------|----------|
-| **Constructor** | constructor_test.go | Unit | None | Critical | Success with New() | Validates instance creation |
-| **Interface Conformance** | constructor_test.go | Integration | None | Critical | Implements io.ReadWriteCloser | Interface validation |
-| **AddWriter Single** | writer_test.go | Unit | Basic | Critical | Accept single writer | Writer registration |
-| **AddWriter Multiple** | writer_test.go | Unit | Basic | Critical | Accept multiple writers | Broadcast setup |
-| **Write Single Writer** | writer_test.go | Unit | Basic | Critical | Data written correctly | Write() method functionality |
-| **Write Multi Writer** | writer_test.go | Unit | Basic | Critical | Broadcast to all writers | MultiWriter behavior |
-| **WriteString** | writer_test.go | Unit | Basic | High | String optimization | WriteString() method |
-| **Clean Writers** | writer_test.go | Unit | Basic | High | Remove all writers | Clean() method |
-| **SetInput Valid** | reader_test.go | Unit | Basic | Critical | Accept valid reader | Reader registration |
-| **SetInput Nil** | reader_test.go | Unit | Basic | High | Handle nil gracefully | Nil handling |
-| **Read Basic** | reader_test.go | Unit | Basic | Critical | Read data from input | Read() method functionality |
-| **Read EOF** | reader_test.go | Unit | Basic | Critical | Graceful EOF handling | EOF propagation |
-| **Close Reader** | reader_test.go | Unit | Basic | Critical | Close input | Close() method |
-| **Copy Basic** | copy_test.go | Integration | Read+Write | Critical | Data flows correctly | Copy() method functionality |
-| **Copy Large Data** | copy_test.go | Integration | Read+Write | High | Handle large transfers | Stress testing |
-| **Copy Multi Writers** | copy_test.go | Integration | Read+Write | High | Broadcast during copy | Integration validation |
-| **Concurrent Writes** | concurrent_test.go | Concurrency | Write | Critical | No race conditions | Thread-safe writes |
-| **Concurrent AddWriter** | concurrent_test.go | Concurrency | Write | High | No race conditions | Dynamic writer addition |
-| **Concurrent SetInput** | concurrent_test.go | Concurrency | Read | High | No race conditions | Dynamic reader setup |
-| **Nil Writer** | edge_cases_test.go | Boundary | Basic | High | Ignore nil gracefully | Nil handling |
-| **Zero-Length Write** | edge_cases_test.go | Boundary | Write | High | Handle zero bytes | Boundary condition |
-| **Large Write** | edge_cases_test.go | Stress | Write | Medium | Process large data | Memory efficiency |
-| **Write Errors** | edge_cases_test.go | Unit | Write | High | Propagate errors | Error handling |
-| **Read Errors** | edge_cases_test.go | Unit | Read | High | Propagate errors | Error handling |
-| **Write Benchmark** | benchmark_test.go | Performance | Write | Medium | <10µs median | Write() latency |
-| **Copy Benchmark** | benchmark_test.go | Performance | Copy | Medium | ~50µs median | Copy() latency |
-| **AddWriter Benchmark** | benchmark_test.go | Performance | Write | Medium | <40µs median | AddWriter() latency |
+**Test ID Pattern by File:**
+- **TC-CT-xxx**: Constructor tests (constructor_test.go)
+- **TC-RD-xxx**: Reader tests (reader_test.go)
+- **TC-WR-xxx**: Writer tests (writer_test.go)
+- **TC-CP-xxx**: Copy tests (copy_test.go)
+- **TC-CC-xxx**: Concurrent tests (concurrent_test.go)
+- **TC-MD-xxx**: Mode tests (mode_test.go)
+- **TC-EC-xxx**: Edge case tests (edge_cases_test.go)
+- **TC-BC-xxx**: Benchmark tests (benchmark_test.go)
 
-**Prioritization:**
-- **Critical**: Must pass for release (core functionality, thread safety)
-- **High**: Should pass for release (important features, error handling)
-- **Medium**: Nice to have (performance, real-world scenarios)
-- **Low**: Optional (coverage improvements, examples)
-
-### File Organization
-
-```
-ioutils/multi/
-├── suite_test.go              # Ginkgo test suite entry point
-├── constructor_test.go         # Constructor and interface compliance (9 specs)
-├── writer_test.go              # Write operations and management (21 specs)
-├── reader_test.go              # Read operations and input management (18 specs)
-├── copy_test.go                # Copy integration and workflows (15 specs)
-├── concurrent_test.go          # Thread-safety and race conditions (12 specs)
-├── edge_cases_test.go          # Error handling and boundaries (23 specs)
-├── benchmark_test.go           # Performance benchmarks with gmeasure (13 specs)
-├── helper_test.go              # Shared test helpers and utilities
-└── example_test.go             # Runnable examples for documentation
-```
-
-**Total**: 112 specs (1 intentionally skipped)
+| Test ID | File | Use Case | Priority | Expected Outcome |
+|---------|------|----------|----------|------------------|
+| **TC-CT-001** | constructor_test.go | **Initialization**: Create Multi with default configuration | Critical | Instance created with safe defaults (Discarders) |
+| **TC-CT-002** | constructor_test.go | **Interface Compliance**: Verify Multi implements all interfaces | Critical | Implements Multi, io.ReadWriteCloser, io.StringWriter |
+| **TC-CT-003** | constructor_test.go | **DiscardCloser**: Verify no-op reader/writer behavior | Medium | Read returns 0, Write accepts all data, Close is no-op |
+| **TC-RD-001** | reader_test.go | **SetInput**: Set/Replace input reader atomically | Critical | Input source swapped safely without race conditions |
+| **TC-RD-002** | reader_test.go | **Read Operations**: Read from input source | Critical | Data read correctly from underlying reader |
+| **TC-RD-003** | reader_test.go | **Reader Access**: Get Reader() reference | High | Returns current reader instance |
+| **TC-RD-004** | reader_test.go | **Close**: Close input reader | High | Underlying reader closed properly |
+| **TC-WR-001** | writer_test.go | **AddWriter**: Add single/multiple writers atomically | Critical | Writer list updated safely, new writers receive data |
+| **TC-WR-002** | writer_test.go | **Write Broadcasting**: Write data to multiple destinations | Critical | Data appears exactly once on all writers |
+| **TC-WR-003** | writer_test.go | **WriteString**: String write operations | High | String data broadcast to all writers |
+| **TC-WR-004** | writer_test.go | **Clean**: Remove all writers | Medium | Subsequent writes go to Discard until new writers added |
+| **TC-WR-005** | writer_test.go | **Writer Access**: Get Writer() reference | High | Returns current writer instance |
+| **TC-CP-001** | copy_test.go | **Copy Single**: Copy from Input to single Writer | Critical | Full stream replication to destination |
+| **TC-CP-002** | copy_test.go | **Copy Multiple**: Copy from Input to multiple Writers | Critical | Full stream replication to all destinations |
+| **TC-CP-003** | copy_test.go | **Copy Large Data**: Copy large data streams | High | Handles large data efficiently |
+| **TC-CP-004** | copy_test.go | **Copy Errors**: Error handling in copy operations | High | Errors from reader/writer propagated correctly |
+| **TC-CP-005** | copy_test.go | **Integration**: Mixed read/write/copy operations | High | Sequential operations work together |
+| **TC-CC-001** | concurrent_test.go | **Concurrent AddWriter**: Concurrent writer additions | Critical | No race conditions during writer additions |
+| **TC-CC-002** | concurrent_test.go | **Concurrent Write**: Concurrent write operations | Critical | No data races, no panics, consistent state |
+| **TC-CC-003** | concurrent_test.go | **Concurrent SetInput**: Concurrent input changes | Critical | Safe input replacement during active operations |
+| **TC-CC-004** | concurrent_test.go | **Concurrent Mixed**: Mixed Read/Write/Add operations | Critical | All operations thread-safe |
+| **TC-MD-001** | mode_test.go | **Mode Flags**: IsParallel, IsSequential, IsAdaptive | High | Correct mode reported |
+| **TC-MD-002** | mode_test.go | **Sequential Mode**: Force sequential write strategy | High | Uses sequential writes |
+| **TC-MD-003** | mode_test.go | **Parallel Mode**: Force parallel write strategy | High | Uses parallel writes for large data |
+| **TC-MD-004** | mode_test.go | **Adaptive Switch (S→P)**: High latency detected | High | Switches to Parallel mode automatically |
+| **TC-MD-005** | mode_test.go | **Adaptive Switch (P→S)**: Low latency detected | High | Switches back to Sequential mode automatically |
+| **TC-EC-001** | edge_cases_test.go | **Nil Handling**: Add nil writers or set nil input | High | Silently ignored or defaulted to DiscardCloser |
+| **TC-EC-002** | edge_cases_test.go | **Empty Data**: Zero-length write/read operations | Medium | Handled gracefully without errors |
+| **TC-EC-003** | edge_cases_test.go | **Large Data**: Very large write operations | Medium | Handles large buffers efficiently |
+| **TC-EC-004** | edge_cases_test.go | **Error Propagation**: Write failure in one writer | High | Error returned to caller (first error encountered) |
+| **TC-EC-005** | edge_cases_test.go | **Multiple Errors**: Errors from multiple writers | High | First error returned |
+| **TC-BC-001** | benchmark_test.go | **Write Operations Benchmark**: 6 variations (writers × data sizes) | High | Sub-µs to 900µs mean, validates write efficiency |
+| **TC-BC-002** | benchmark_test.go | **Read Operations Benchmark**: 3 variations (data sizes) | Medium | <1µs to 600µs mean, validates read delegation |
+| **TC-BC-003** | benchmark_test.go | **Copy Operations Benchmark**: 6 variations (writers × data sizes) | High | Sub-µs to 900µs mean, validates broadcasting |
+| **TC-BC-004** | benchmark_test.go | **Mode Comparison Benchmark**: Sequential vs Parallel vs Adaptive | High | Adaptive matches Sequential efficiency |
+| **TC-BC-005** | benchmark_test.go | **Writer Management Benchmark**: 7 operations (constructor, add, clean, etc.) | Medium | All operations <1µs median |
+| **TC-BC-006** | benchmark_test.go | **Log Broadcasting Scenario**: 10K lines to 3 destinations | High | 800µs mean validates real-world logging |
+| **TC-BC-007** | benchmark_test.go | **Stream Replication Scenario**: 50K chunks to backups | High | 1.5ms mean validates replication |
+| **TC-BC-008** | benchmark_test.go | **Adaptive Load Scenario**: Variable sizes with mode switching | Medium | 200µs mean validates adaptive behavior |
 
 ---
 
 ## Test Statistics
 
-### Latest Test Run
-
-**Test Execution Results:**
+**Latest Test Run Results:**
 
 ```
-Total Specs:         113
-Passed:              112
+Total Specs:         120
+Passed:              119
 Failed:              0
-Skipped:             1 (intentional)
-Pending:             0
-Execution Time:      ~0.13s (standard)
-                     ~1.18s (with race detector)
-Coverage:            81.7% (atomic mode)
+Skipped:             1
+Execution Time:      ~2.03 seconds
+Coverage:            80.8%
 Race Conditions:     0
 ```
-
-**Example Tests:**
-
-```
-Example Tests:       14
-Passed:              14
-Failed:              0
-Coverage:            All public API usage patterns
-```
-
-### Coverage Distribution
-
-| File | Statements | Branches | Functions | Coverage |
-|------|-----------|----------|-----------|----------|
-| **interface.go** | 8 | 0 | 1 | 100.0% |
-| **model.go** | 98 | 18 | 10 | 81.6% |
-| **discard.go** | 10 | 0 | 3 | 100.0% |
-| **error.go** | 1 | 0 | 0 | 0.0% |
-| **TOTAL** | **117** | **18** | **14** | **81.7%** |
-
-**Coverage by Category:**
-
-| Category | Count | Coverage |
-|----------|-------|----------|
-| Constructor & Interface | 9 | 100% |
-| Write Operations | 21 | 100% |
-| Read Operations | 18 | 90%+ |
-| Copy Operations | 15 | 90%+ |
-| Concurrency | 12 | 95%+ |
-| Edge Cases | 23 | 85%+ |
-| Error Handling | All | 100% |
-
-### Performance Metrics
-
-**Benchmark Results (AMD64, Go 1.21+):**
-
-| Operation | Median | Mean | Max | Throughput |
-|-----------|--------|------|-----|------------|
-| **Write 1KB** | 8µs | 9µs | 25µs | ~110K ops/sec |
-| **Write 1KB (3 writers)** | 22µs | 24µs | 50µs | ~40K ops/sec |
-| **Read 1KB** | 7µs | 8µs | 18µs | ~125K ops/sec |
-| **Copy 1KB** | 45µs | 48µs | 90µs | ~20K ops/sec |
-| **Copy 1MB** | 380µs | 395µs | 600µs | ~2.5 GB/s |
-| **AddWriter (single)** | 35µs | 38µs | 80µs | ~26K ops/sec |
-| **Clean** | 25µs | 28µs | 70µs | ~35K ops/sec |
 
 ---
 
 ## Framework & Tools
 
-### Ginkgo v2
+### Testing Frameworks
 
-**BDD Testing Framework** - [Documentation](https://onsi.github.io/ginkgo/)
+#### Ginkgo v2 - BDD Testing Framework
 
-Ginkgo provides expressive, hierarchical test organization with rich CLI features:
+**Why Ginkgo over standard Go testing:**
+-   ✅ **Hierarchical organization**: `Describe`, `Context`, `It` for clear test structure.
+-   ✅ **Better readability**: Tests read like specifications.
+-   ✅ **Rich lifecycle hooks**: `BeforeEach`, `AfterEach` for setup/teardown.
+-   ✅ **Async testing**: `Eventually`, `Consistently` for concurrent behavior.
+-   ✅ **Parallel execution**: Built-in support for concurrent test runs.
 
-**Key Features:**
-- **Hierarchical Specs**: `Describe`, `Context`, `It`, `BeforeEach`, `AfterEach`
-- **Focus & Skip**: `FDescribe`, `FIt`, `XDescribe`, `XIt`, `PDescribe`, `PIt`
-- **Parallel Execution**: `-p` flag for concurrent test execution
-- **Rich Output**: Detailed failure messages, stack traces
-- **Test Filtering**: `--focus`, `--skip`, `--focus-file`
-- **Reporting**: JUnit XML, JSON, custom reporters
+#### Gomega - Matcher Library
 
-**Installation:**
-```bash
-go install github.com/onsi/ginkgo/v2/ginkgo@latest
-```
+**Advantages:**
+-   ✅ **Expressive matchers**: `Equal`, `BeNumerically`, `HaveOccurred`.
+-   ✅ **Async assertions**: `Eventually` polls for state changes.
 
-**Usage in Tests:**
-```go
-var _ = Describe("Multi Writer Operations", func() {
-    var m multi.Multi
+#### gmeasure - Performance Measurement
 
-    BeforeEach(func() {
-        m = multi.New()
-    })
+Used for benchmarking throughput and latency within the BDD suite.
 
-    Context("when adding writers", func() {
-        It("should accept single writer", func() {
-            var buf bytes.Buffer
-            m.AddWriter(&buf)
-            Expect(m.Writer()).NotTo(BeNil())
-        })
-    })
-})
-```
+### Testing Concepts & Standards
 
-### Gomega
+#### ISTQB Alignment
 
-**Matcher Library** - [Documentation](https://onsi.github.io/gomega/)
+This test suite follows **ISTQB (International Software Testing Qualifications Board)** principles:
 
-Gomega provides expressive matchers for assertions:
+1.  **Test Levels** (ISTQB Foundation Level):
+    *   **Unit Testing**: Individual functions (`New`, `AddWriter`, `SetInput`).
+    *   **Integration Testing**: Component interactions (`Write` broadcasting, `Copy`).
+    *   **System Testing**: End-to-end scenarios (Concurrency, Examples).
 
-**Common Matchers:**
-```go
-Expect(value).To(Equal(expected))
-Expect(value).NotTo(Equal(unexpected))
-Expect(err).NotTo(HaveOccurred())
-Expect(err).To(MatchError(multi.ErrInstance))
-Expect(list).To(HaveLen(3))
-Expect(list).To(ContainElement(item))
-Expect(num).To(BeNumerically(">", 0))
-Expect(text).To(ContainSubstring("part"))
-Expect(value).To(BeNil())
-Expect(channel).To(BeClosed())
-```
+2.  **Test Types** (ISTQB Advanced Level):
+    *   **Functional Testing**: Verify behavior meets specifications (Broadcasting).
+    *   **Non-Functional Testing**: Performance, concurrency, memory usage.
+    *   **Structural Testing**: Code coverage (Branch coverage).
 
-**Async Assertions:**
-```go
-Eventually(func() int {
-    return len(results)
-}).Should(Equal(100))
+3.  **Test Design Techniques**:
+    *   **Equivalence Partitioning**: Valid writers vs `nil` writers.
+    *   **Boundary Value Analysis**: 0 writers, 1 writer, Threshold limits.
+    *   **State Transition Testing**: Adaptive mode switching (Sequential <-> Parallel).
+    *   **Error Guessing**: Concurrent access patterns.
 
-Consistently(func() error {
-    return m.Write([]byte("data"))
-}).Should(Succeed())
-```
+#### Testing Pyramid
 
-### gmeasure
-
-**Performance Benchmarking** - [Documentation](https://onsi.github.io/gomega/#gmeasure-benchmarking-code)
-
-gmeasure integrates with Ginkgo for statistical performance analysis:
-
-**Features:**
-- Statistical measurements: Mean, Median, StdDev, Min, Max
-- Memory allocation tracking
-- Duration measurements
-- Configurable sampling (N iterations)
-- Report integration with Ginkgo output
-
-**Usage Example:**
-```go
-It("should benchmark writes", func() {
-    exp := gmeasure.NewExperiment("Write Performance")
-    AddReportEntry(exp.Name, exp)
-
-    exp.Sample(func(idx int) {
-        exp.MeasureDuration("write-1kb", func() {
-            m.Write(make([]byte, 1024))
-        })
-    }, gmeasure.SamplingConfig{N: 100})
-
-    stats := exp.GetStats("write-1kb")
-    Expect(stats.DurationFor(gmeasure.StatMean)).
-        To(BeNumerically("<", 100*time.Microsecond))
-})
-```
-
----
-
-## Quick Launch
-
-### Basic Commands
-
-```bash
-# Run all tests
-go test ./...
-
-# Verbose output
-go test -v ./...
-
-# With coverage
-go test -cover ./...
-
-# Specific package
-go test github.com/nabbar/golib/ioutils/multi
-
-# Using Ginkgo CLI (recommended)
-ginkgo
-
-# Parallel execution
-ginkgo -p
-
-# Verbose with trace
-ginkgo -v --trace
-
-# Focus on specific tests
-ginkgo --focus="concurrent"
-
-# Skip specific tests
-ginkgo --skip="benchmark"
-```
-
-### Race Detection
-
-**Critical for validating thread safety:**
-
-```bash
-# Enable race detector (requires CGO)
-CGO_ENABLED=1 go test -race ./...
-
-# With verbose output
-CGO_ENABLED=1 go test -race -v ./...
-
-# With timeout
-CGO_ENABLED=1 go test -race -timeout=10m ./...
-
-# Using Ginkgo
-CGO_ENABLED=1 ginkgo -race
-
-# Focus on concurrent tests
-CGO_ENABLED=1 go test -race -run="Concurrent" -v ./...
-
-# Stress test (run multiple times)
-for i in {1..10}; do
-    CGO_ENABLED=1 go test -race ./... || break
-done
-```
-
-**Race Detector Output:**
-
-```bash
-# ✅ Success (no races)
-ok  	github.com/nabbar/golib/ioutils/multi	1.180s	coverage: 81.7%
-
-# ❌ Race detected (should not occur)
-==================
-WARNING: DATA RACE
-Write at 0x00c00012a0d8 by goroutine 8:
-  github.com/nabbar/golib/ioutils/multi.(*mlt).Write()
-      /path/to/model.go:123 +0x89
-
-Previous write at 0x00c00012a0d8 by goroutine 7:
-  github.com/nabbar/golib/ioutils/multi.(*mlt).AddWriter()
-      /path/to/model.go:85 +0x123
-==================
-Found 1 data race(s)
-FAIL	github.com/nabbar/golib/ioutils/multi	1.234s
-```
-
-**Current Status**: ✅ **Zero data races** detected
-
-### Coverage Generation
-
-```bash
-# Generate coverage profile
-go test -coverprofile=coverage.out -covermode=atomic ./...
-
-# View coverage percentage
-go test -cover ./...
-
-# View function-level coverage
-go tool cover -func=coverage.out
-
-# Generate HTML report
-go tool cover -html=coverage.out -o coverage.html
-
-# Open HTML report (macOS)
-open coverage.html
-
-# Open HTML report (Linux)
-xdg-open coverage.html
-
-# Open HTML report (Windows)
-start coverage.html
-
-# Coverage with race detection
-CGO_ENABLED=1 go test -race -coverprofile=coverage.out -covermode=atomic ./...
-```
-
-**Coverage Output Example:**
+The suite follows the Testing Pyramid principle:
 
 ```
-github.com/nabbar/golib/ioutils/multi/discard.go:49:  Read       100.0%
-github.com/nabbar/golib/ioutils/multi/discard.go:58:  Write      100.0%
-github.com/nabbar/golib/ioutils/multi/discard.go:65:  Close      100.0%
-github.com/nabbar/golib/ioutils/multi/interface.go:109: New       100.0%
-github.com/nabbar/golib/ioutils/multi/model.go:73:    AddWriter  100.0%
-github.com/nabbar/golib/ioutils/multi/model.go:111:   Clean      100.0%
-github.com/nabbar/golib/ioutils/multi/model.go:137:   SetInput   100.0%
-github.com/nabbar/golib/ioutils/multi/model.go:159:   Reader     92.3%
-github.com/nabbar/golib/ioutils/multi/model.go:180:   Writer     100.0%
-github.com/nabbar/golib/ioutils/multi/model.go:195:   Read       85.7%
-github.com/nabbar/golib/ioutils/multi/model.go:222:   Write      100.0%
-github.com/nabbar/golib/ioutils/multi/model.go:237:   WriteString 100.0%
-github.com/nabbar/golib/ioutils/multi/model.go:252:   Close      85.7%
-github.com/nabbar/golib/ioutils/multi/model.go:279:   Copy       90.0%
-total:                                                            81.7%
+         /\
+        /  \
+       / E2E\       (System/Concurrency Tests)
+      /______\
+     /        \
+    / Integr.  \    (Write/Copy/Mode Tests)
+   /____________\
+  /              \
+ /   Unit Tests   \ (Constructor, Config, Helpers)
+/__________________\
 ```
 
 ---
@@ -466,114 +222,135 @@ total:                                                            81.7%
 
 ### Coverage Report
 
-| File | Statements | Covered | Coverage | Critical Areas |
-|------|------------|---------|----------|----------------|
-| **discard.go** | 10 | 10 | 100.0% | DiscardCloser implementation |
-| **interface.go** | 8 | 8 | 100.0% | Constructor and interface |
-| **model.go** | 98 | 80 | 81.6% | Core functionality |
-| **error.go** | 1 | 0 | 0.0% | Error definition (constant) |
-| **Total** | **117** | **98** | **81.7%** | Overall coverage |
+| Component | File | Coverage | Critical Paths |
+|-----------|------|----------|----------------|
+| **Interface** | interface.go | 100.0% | New(), configuration validation |
+| **Core Logic** | model.go | 90.5% | AddWriter, SetInput, update logic |
+| **Read** | read.go | 85.7% | Reader wrapper, Close handling |
+| **Write** | writer.go | 78.5% | Sequential/Parallel write strategies |
+| **Config** | config.go | 100.0% | DefaultConfig, validation |
+| **Stats** | stat.go | 95.0% | Statistics tracking |
+
+**Detailed Coverage:**
+
+```
+New()                100.0%  - All configuration paths tested
+AddWriter()          100.0%  - Writer registration fully covered
+SetInput()           100.0%  - Input source management
+Write()               82.4%  - Standard and parallel paths
+Read()                85.7%  - Wrapper delegation
+Close()              100.0%  - Resource cleanup
+Stats()               95.0%  - Metrics retrieval
+IsParallel()         100.0%  - Mode checking
+IsSequential()       100.0%  - Mode checking
+IsAdaptive()         100.0%  - Mode checking
+```
 
 ### Uncovered Code Analysis
 
-**Reasons for Uncovered Lines:**
+**Uncovered Lines: 19.2% (target: <20%)**
 
-Lines not covered are primarily:
-1. **Error constant declaration** (`error.go`) - Not executable code
-2. **Defensive nil checks** - Rare edge cases (return path for type assertion failures)
-3. **Error return paths** - Occur only with internal corruption (`ErrInstance`)
+#### 1. Parallel Write Error Paths (writer.go)
 
-**Justification:**
+**Uncovered**: Lines handling concurrent write failures in parallel mode
 
-These uncovered lines represent:
-- **Infrastructure code**: Constants and type definitions (not executable)
-- **Defensive programming**: Checks for impossible states (type assertion failures)
-- **Error paths**: Should never execute in normal usage (internal state corruption)
+```go
+// UNCOVERED: Multiple concurrent writer failures
+if e := <-errCh; e != nil {
+    return len(p), e
+}
+```
 
-**Conclusion:**
+**Reason**: Difficult to trigger specific error conditions with multiple goroutines failing simultaneously in integration tests.
 
-Coverage is **appropriate for production use** as:
-- ✅ All reachable user-facing code paths are tested
-- ✅ All public APIs have 100% coverage
-- ✅ All error scenarios are tested
-- ✅ Uncovered code is defensive/infrastructure only
+**Impact**: Low - error paths are defensive, sequential fallback is well-tested
+
+#### 2. Edge Cases in Adaptive Switching
+
+**Uncovered**: Some state transition combinations in adaptive mode
+
+**Reason**: Requires precise timing and latency conditions that are hard to reproduce consistently in tests.
+
+**Impact**: Medium - core adaptive logic is tested, edge transitions are rare
 
 ### Thread Safety Assurance
 
-**Race Detection Status:** ✅ **Zero data races detected**
-
-**Concurrent Operations Tested:**
-- ✅ Concurrent `Write()` calls from multiple goroutines
-- ✅ Concurrent `AddWriter()` dynamic registration
-- ✅ Concurrent `SetInput()` reader changes
-- ✅ Concurrent `Clean()` writer removal
-- ✅ Mixed concurrent operations (write + add + read)
-
-**Thread-Safety Mechanisms:**
-1. **Atomic Operations**: `atomic.Value`, `atomic.Int64` for lock-free access
-2. **sync.Map**: Thread-safe writer registry
-3. **io.MultiWriter**: Standard library's thread-safe broadcast
-4. **Immutable Access**: Reader/Writer accessors use atomic loads
-
-**Race Detector Commands:**
+**Race Detection Results:**
 
 ```bash
-# Enable race detector
-CGO_ENABLED=1 go test -race ./...
+$ CGO_ENABLED=1 go test -race -v
+Running Suite: IOUtils/Multi Package Suite
+===========================================
+Will run 120 of 120 specs
 
-# Focus on concurrent tests
-CGO_ENABLED=1 go test -race -run="Concurrent" -v ./...
+Ran 120 of 120 Specs in 2.03s
+SUCCESS! -- 119 Passed | 0 Failed | 1 Skipped | 0 Pending
 
-# Stress test (10 iterations)
-for i in {1..10}; do
-    CGO_ENABLED=1 go test -race ./... || break
-done
+PASS
+ok      github.com/nabbar/golib/ioutils/multi      2.123s
 ```
 
-**Result**: ✅ **0 data races** across all test runs
+**Zero data races detected** across:
+- ✅ Concurrent AddWriter operations
+- ✅ Concurrent Write operations
+- ✅ SetInput during active writes
+- ✅ Stats() reads during writes
+- ✅ Adaptive mode switching
 
-### Detailed Coverage Reports
+**Synchronization Mechanisms:**
 
-**Generate Detailed Coverage:**
+| Primitive | Usage | Thread-Safe Operations |
+|-----------|-------|------------------------|
+| `atomic.Value` | Reader/Writer storage | `Load()`, `Store()`, `Swap()` |
+| `atomic.Int64` | Counters and stats | `Add()`, `Load()`, `Store()` |
+| `atomic.Bool` | Mode flags | `Load()`, `Store()` |
+| `sync.Map` | Writer registry | Thread-safe map operations |
+| Channels | Error propagation | Buffered channels in parallel mode |
+
+**Verified Thread-Safe:**
+- All public methods can be called concurrently
+- Dynamic writer addition during active writes
+- Input source replacement without races
+- Statistics reading without blocking writes
+
+
+---
+
+## Quick Launch
+
+### Running All Tests
 
 ```bash
-# Function-level coverage with details
-go tool cover -func=coverage.out | grep -v "100.0%"
+# Standard test run
+go test -v
 
-# HTML coverage with highlighted uncovered lines
-go tool cover -html=coverage.out -o coverage.html
+# With race detector (recommended)
+CGO_ENABLED=1 go test -race -v
+
+# With coverage
+go test -cover -coverprofile=coverage.out
+
+# Complete test suite (as used in CI)
+go test -timeout=10m -v -cover -covermode=atomic ./...
 ```
 
-**HTML Report Features:**
-- 🟢 Green: Covered statements
-- 🔴 Red: Uncovered statements
-- ⚪ Gray: Non-executable (comments, declarations)
-- Interactive: Click files to view line-by-line coverage
-- Statistics: Per-file coverage percentages
+### Expected Output
 
-**Reading Coverage Reports:**
+```
+Running Suite: IOUtils/Multi Package Suite
+===========================================
+Random Seed: 1234567890
 
-```go
-// Example from model.go
+Will run 120 of 120 specs
 
-// 🟢 Covered (100% execution in tests)
-func (m *mlt) AddWriter(w ...io.Writer) {
-    for _, v := range w {
-        if v != nil {
-            m.w.Store(m.c.Add(1), v)
-        }
-    }
-    m.rebuild()
-}
+••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-// 🔴 Partially covered (defensive nil check rarely hit)
-func (m *mlt) Reader() io.ReadCloser {
-    r, ok := m.i.Load().(readerWrapper)
-    if !ok {  // 🔴 Defensive check (impossible in practice)
-        return DiscardCloser{}
-    }
-    return r.ReadCloser  // 🟢 Covered
-}
+Ran 120 of 120 Specs in 2.03 seconds
+SUCCESS! -- 119 Passed | 0 Failed | 1 Skipped | 0 Pending
+
+PASS
+coverage: 80.8% of statements
+ok      github.com/nabbar/golib/ioutils/multi   2.123s
 ```
 
 ---
@@ -582,136 +359,95 @@ func (m *mlt) Reader() io.ReadCloser {
 
 ### Performance Report
 
-Performance measurements using gmeasure with 100-1000 samples per benchmark:
+**Benchmark Results (Aggregated Experiments):**
 
-| Operation | N | Min | Median | Mean | StdDev | Max | Notes |
-|-----------|---|-----|--------|------|--------|-----|-------|
-| **Constructor** | 1000 | 80µs | 95µs | 98µs | 12µs | 150µs | Initialization overhead |
-| **Write 1KB** | 1000 | 5µs | 8µs | 9µs | 3µs | 25µs | Single writer |
-| **Write 1KB (3 writers)** | 1000 | 15µs | 22µs | 24µs | 6µs | 50µs | MultiWriter overhead |
-| **WriteString 1KB** | 1000 | 5µs | 8µs | 9µs | 3µs | 20µs | Optimized path |
-| **Read 1KB** | 1000 | 5µs | 7µs | 8µs | 2µs | 18µs | Delegation overhead |
-| **Copy 1KB** | 100 | 30µs | 45µs | 48µs | 10µs | 90µs | io.Copy + buffer |
-| **Copy 1MB** | 100 | 300µs | 380µs | 395µs | 40µs | 600µs | ~2.5 GB/s throughput |
-| **AddWriter (single)** | 1000 | 20µs | 35µs | 38µs | 8µs | 80µs | sync.Map + rebuild |
-| **AddWriter (10)** | 100 | 150µs | 220µs | 230µs | 30µs | 400µs | Multiple rebuilds |
-| **Clean** | 1000 | 15µs | 25µs | 28µs | 7µs | 70µs | Map iteration |
+#### Write Operations
 
-*Measured on AMD64, Go 1.21+, with race detector enabled*
+| Configuration | Sample Size | Median | Mean | Max | Notes |
+|---------------|-------------|--------|------|-----|-------|
+| Single writer, small data | 1000 | <1µs | <1µs | 300µs | Negligible overhead |
+| 3 writers, small data | 1000 | <1µs | <1µs | 300µs | Broadcasting efficiency |
+| Single writer, 1KB | 1000 | <1µs | <1µs | 400µs | Scales with data size |
+| 3 writers, 1KB | 1000 | <1µs | <1µs | 300µs | Efficient multi-write |
+| Single writer, 1MB | 100 | 400µs | 700µs | 3.4ms | Large data handling |
+| 3 writers, 1MB | 100 | 600µs | 900µs | 3.4ms | Parallel write benefit |
 
-**Key Insights:**
+#### Read Operations
 
-1. **Write Performance**: <10µs per write (single writer), scales linearly with writer count
-2. **Read Performance**: ~8µs delegation overhead (negligible)
-3. **Copy Throughput**: ~2.5 GB/s for large transfers
-4. **Atomic Operations**: <1µs for atomic load/store
-5. **Dynamic Management**: AddWriter <40µs, Clean <30µs
+| Configuration | Sample Size | Median | Mean | Max | Notes |
+|---------------|-------------|--------|------|-----|-------|
+| Read 100B | 1000 | <1µs | <1µs | 300µs | Minimal wrapper overhead |
+| Read 1KB | 1000 | <1µs | <1µs | 400µs | Efficient delegation |
+| Read 1MB | 100 | 400µs | 600µs | 3ms | Throughput maintained |
 
-### Test Conditions
+#### Mode Comparison
 
-**Hardware Configuration:**
-- **Processor**: AMD64 / Intel x86_64
-- **Go Version**: 1.21+ (tested up to 1.25)
-- **OS**: Linux (primary), macOS, Windows
-- **Race Detector**: Enabled for all concurrency tests
+| Mode | Sample Size | Median | Mean | Max | Winner |
+|------|-------------|--------|------|-----|--------|
+| Sequential | 1000 | <1µs | <1µs | 100µs | ✅ Best for low latency |
+| Parallel | 1000 | <1µs | <1µs | 600µs | Overhead visible |
+| Adaptive | 1000 | <1µs | <1µs | 100µs | ✅ Smart switching |
 
-**Benchmark Configuration:**
-- **Sampling**: 100-1000 iterations per benchmark using gmeasure
-- **Statistical Analysis**: Mean, Median, StdDev, Min, Max tracked
-- **Buffer Sizes**: 1KB, 64KB, 1MB for realistic scenarios
-- **Writer Counts**: 1, 3, 10, 100 for scaling analysis
+#### Writer Management
 
-### Performance Limitations
+| Operation | Sample Size | Median | Mean | Max | Notes |
+|-----------|-------------|--------|------|-----|-------|
+| Constructor (default) | 1000 | <1µs | <1µs | <1µs | Minimal overhead |
+| Constructor (adaptive) | 1000 | <1µs | <1µs | <1µs | No config penalty |
+| AddWriter (single) | 1000 | <1µs | <1µs | <1µs | Atomic operation |
+| AddWriter (multiple) | 1000 | <1µs | <1µs | 100µs | Batch efficient |
+| SetInput | 1000 | <1µs | <1µs | 100µs | Atomic swap |
+| Clean | 1000 | <1µs | <1µs | <1µs | Fast cleanup |
+| WriteString | 1000 | <1µs | <1µs | 200µs | String conversion |
 
-**Known Constraints:**
+#### Real-World Scenarios
 
-1. **Writer Scaling**: Performance degrades linearly with writer count
-   - 1 writer: ~9µs per 1KB write
-   - 3 writers: ~24µs per 1KB write (~8µs per writer)
-   - 10 writers: ~80µs per 1KB write (~8µs per writer)
-   
-2. **Initialization Overhead**: ~100µs for `New()` constructor
-   - Acceptable for long-lived instances
-   - Consider pooling for very high-frequency creation
+| Scenario | Sample Size | Median | Mean | Max | Description |
+|----------|-------------|--------|------|-----|-------------|
+| Log broadcasting | 10 | 700µs | 800µs | 1.9ms | 10K log lines to 3 destinations |
+| Stream replication | 10 | 1.3ms | 1.5ms | 2.8ms | 50K chunks to backup destinations |
+| Adaptive under load | 10 | 200µs | 200µs | 500µs | Variable sizes with mode switching |
 
-3. **Dynamic Management**: `AddWriter()` and `Clean()` have rebuild overhead
-   - ~30-40µs per operation
-   - Use sparingly in hot paths
+### Performance Analysis
 
-4. **No Buffering**: Streaming passthrough (no intermediate buffers)
-   - Advantage: Low memory footprint
-   - Limitation: Performance tied to slowest writer
+**Key Findings:**
 
-**Optimization Opportunities:**
-- Use single writer when possible (avoid broadcast overhead)
-- Preallocate writers at initialization (avoid dynamic additions)
-- Batch operations to amortize setup costs
+1.  **Sub-microsecond Operations**: Most operations complete in <1µs (median), demonstrating excellent efficiency
+2.  **Large Data Handling**: 1MB writes scale predictably (600-900µs mean) with minimal degradation
+3.  **Mode Efficiency**: Adaptive mode matches Sequential performance while enabling automatic optimization
+4.  **Broadcasting Overhead**: Writing to 3 destinations adds minimal overhead vs single writer
+5.  **Real-World Performance**: Log broadcasting (800µs) and stream replication (1.5ms) validate production readiness
 
-### Concurrency Performance
+**Test Conditions:**
+-   **Hardware**: AMD64/ARM64 Multi-core, 8GB+ RAM
+-   **Sample Sizes**: 1000 samples (micro-ops), 100 samples (large data), 10 samples (scenarios)
+-   **Data Sizes**: Small (10B), Medium (1KB), Large (1MB)
+-   **Writer Counts**: 1, 3, 5 concurrent destinations
 
-**Thread-Safe Operations:**
+### Performance Characteristics
 
-| Operation | Concurrency Level | Performance Impact | Notes |
-|-----------|-------------------|-------------------|-------|
-| `Write()` | 100 goroutines | ~10% overhead | Atomic operations, minimal contention |
-| `AddWriter()` | 10 goroutines | ~15% overhead | sync.Map + rebuild |
-| `SetInput()` | 10 goroutines | ~5% overhead | Atomic store |
-| `Clean()` | 10 goroutines | ~10% overhead | Map iteration |
-| Mixed ops | 50 goroutines | ~20% overhead | Combined workload |
+**Strengths:**
+-   ✅ **Atomic Operations**: Sub-microsecond writer/input management
+-   ✅ **Efficient Broadcasting**: Multi-writer overhead <30% vs single writer
+-   ✅ **Scalable**: 1MB data handled in <1ms mean latency
+-   ✅ **Predictable**: Low standard deviation across all benchmarks
+-   ✅ **Adaptive**: Mode switching without performance penalty
 
-**Scalability:**
-- ✅ **Horizontal**: Performance scales linearly with CPUs (no global locks)
-- ✅ **Vertical**: Handles 1000+ concurrent operations without degradation
-- ✅ **No Bottlenecks**: Lock-free design eliminates contention
+**Limitations:**
+1.  **Goroutine Overhead**: Parallel mode adds latency for very small writes (<100B)
+    -   *Observation*: Parallel max latency (600µs) > Sequential (100µs) in mode comparison
+    -   *Mitigation*: Adaptive mode automatically avoids parallel for small payloads
+2.  **Peak Latency**: Max latencies (P99) can reach 2-4ms under load
+    -   *Context*: Acceptable for I/O-bound operations, GC-related spikes
+3.  **Memory Allocation**: Parallel mode allocates 1 goroutine/writer + error channel per write
+    -   *Impact*: Negligible for typical use cases (<10 writers)
 
-**Race Detector Impact:**
-- Standard tests: ~0.13s
-- With `-race`: ~1.18s (~9x slower)
-- **Expected**: Race detector adds significant overhead but ensures correctness
+### Memory Profile
 
-### Memory Usage
-
-**Base Memory Footprint:**
-
-```
-Multi instance:        ~100 bytes (struct fields + atomic wrappers)
-Reader wrapper:        ~24 bytes (interface wrapping)
-Writer registry:       ~48 bytes (sync.Map base)
-Total (empty):         ~200 bytes
-```
-
-**Per-Writer Overhead:**
-
-```
-Single writer:         +0 bytes (MultiWriter doesn't allocate for wrapped data)
-Additional writers:    +24 bytes per entry (sync.Map key-value pair)
-```
-
-**Scaling Example:**
-
-```
-10 writers:            ~200 + (10 × 24) = ~440 bytes
-100 writers:           ~200 + (100 × 24) = ~2.6 KB
-1000 writers:          ~200 + (1000 × 24) = ~24 KB
-```
-
-**Runtime Allocations:**
-
-| Operation | Allocations | Bytes | Notes |
-|-----------|-------------|-------|-------|
-| `New()` | 5 | ~200 | Struct + atomic wrappers |
-| `Write()` | 0 | 0 | Zero-allocation in steady state |
-| `Read()` | 0 | 0 | Delegation, no copies |
-| `AddWriter()` | 1 | ~24 | sync.Map entry |
-| `Clean()` | 0 | 0 | Reuses existing structures |
-| `Copy()` | 1 | 32KB | io.Copy buffer (reused) |
-
-**Memory Characteristics:**
-- ✅ O(1) memory per write (zero allocations)
-- ✅ O(n) memory for n writers (linear scaling)
-- ✅ No buffering (streaming passthrough)
-- ✅ No intermediate copies
-- ✅ GC-friendly (minimal allocations)
+-   **Sequential Write**: Zero allocations per operation
+-   **Parallel Write**: ~1 allocation per writer (goroutine stack)
+-   **Struct Overhead**: ~1KB base size (atomic values, maps)
+-   **Real-World**: Log broadcasting (10K lines) = ~800µs, minimal GC pressure
 
 ---
 
@@ -719,800 +455,181 @@ Additional writers:    +24 bytes per entry (sync.Map key-value pair)
 
 ### File Organization
 
-Tests are organized by concern for clarity and maintainability:
-
 ```
-ioutils/multi/
-├── suite_test.go              # Test suite initialization
-├── constructor_test.go         # Constructor and interface compliance
-├── writer_test.go              # Write operations and writer management
-├── reader_test.go              # Read operations and reader management
-├── copy_test.go                # Copy integration workflows
-├── concurrent_test.go          # Concurrency and race conditions
-├── edge_cases_test.go          # Error handling and edge cases
-├── benchmark_test.go           # Performance benchmarks with gmeasure
-├── helper_test.go              # Shared test utilities
-└── example_test.go             # Runnable examples for godoc
+multi/
+├── suite_test.go           # Test suite entry point (Ginkgo suite setup)
+├── constructor_test.go     # Constructor and interface compliance tests (14 specs)
+├── reader_test.go          # Read operations and input management tests (14 specs)
+├── writer_test.go          # Write operations and output management tests (22 specs)
+├── copy_test.go            # Copy operations and integration tests (12 specs)
+├── concurrent_test.go      # Concurrent safety and race condition tests (11 specs)
+├── mode_test.go            # Adaptive mode and strategy switching tests (7 specs)
+├── edge_cases_test.go      # Edge cases and error handling tests (25 specs)
+├── benchmark_test.go       # Performance benchmarks with gmeasure (8 aggregated experiments)
+├── helper_test.go          # Shared test helpers and utilities
+└── example_test.go         # Runnable examples for GoDoc
 ```
 
-**Naming Conventions:**
-- `*_test.go`: Test files (standard Go convention)
-- `suite_test.go`: Ginkgo test suite entry point
-- `helper_test.go`: Shared helpers (not a Ginkgo spec file)
-- `example_test.go`: Runnable examples (godoc compatible)
+**File Purpose Alignment:**
+
+Each test file has a **specific, non-overlapping scope** aligned with ISTQB test organization principles:
+
+| File | Primary Responsibility | Unique Scope | Justification |
+|------|------------------------|--------------|---------------|
+| **suite_test.go** | Test suite bootstrap | Ginkgo suite initialization only | Required entry point for BDD tests |
+| **constructor_test.go** | Object creation & interfaces | New(), DefaultConfig(), interface compliance, DiscardCloser | Unit tests for factory methods and type compliance |
+| **reader_test.go** | Input operations | SetInput(), Read(), Reader(), Close() on input side | Isolated tests for read path and input lifecycle |
+| **writer_test.go** | Output operations | AddWriter(), Write(), WriteString(), Clean(), Writer() | Isolated tests for write path and writer management |
+| **copy_test.go** | Integration workflows | Copy() method and mixed read/write scenarios | Integration tests combining multiple operations |
+| **concurrent_test.go** | Thread-safety | Race detection, concurrent access patterns | Validates atomicity and thread-safety guarantees |
+| **mode_test.go** | Adaptive behavior | Mode switching, IsParallel(), IsSequential(), IsAdaptive() | Tests adaptive strategy and mode detection |
+| **edge_cases_test.go** | Boundary & error cases | Nil handling, empty/large data, error propagation | Negative testing and boundary value analysis |
+| **benchmark_test.go** | Performance metrics | **Aggregated experiments** with systematic variations | Non-functional performance validation using gmeasure |
+| **helper_test.go** | Test infrastructure | errorReader, errorWriter, slowWriter utilities | Shared test doubles (not executable tests) |
+| **example_test.go** | Documentation | 16 runnable GoDoc examples | Documentation via executable examples (not counted in 120 specs) |
+
+**Benchmark Organization (Following ioutils/delim Pattern):**
+
+The benchmark file uses **aggregated experiments** instead of fragmented individual tests:
+
+| Experiment Group | Variations Tested | Sample Count | Purpose |
+|------------------|-------------------|--------------|---------|
+| **Write operations** | 6 variations (1/3 writers × small/1KB/1MB data) | 1000/100 | Measure write throughput with varying load |
+| **Read operations** | 3 variations (100B/1KB/1MB data) | 1000/100 | Measure read performance across data sizes |
+| **Copy operations** | 6 variations (1/3 writers × small/1KB/1MB data) | 1000/100 | Measure copy efficiency with broadcasting |
+| **Mode comparison** | 3 variations (Sequential/Parallel/Adaptive) | 1000 | Compare strategy performance |
+| **Writer management** | 7 operations (Constructor, AddWriter, Clean, SetInput, WriteString) | 1000 | Measure management overhead |
+| **Real-world scenarios** | 3 scenarios (Log broadcasting, Stream replication, Adaptive load) | 10 | Validate real-world performance |
+
+**Total**: **6 aggregated experiments** containing **28 systematic variations** (vs 15 fragmented tests before refactoring)
+
+**Non-Redundancy Verification:**
+
+- ✅ **No overlap** between reader_test.go (input) and writer_test.go (output) - separate I/O paths
+- ✅ **copy_test.go is justified** - tests integration of read+write, not covered by isolated read/write tests
+- ✅ **concurrent_test.go is unique** - only file using race detector, tests concurrent scenarios not tested elsewhere
+- ✅ **mode_test.go is specific** - only file testing adaptive strategy switching logic
+- ✅ **edge_cases_test.go is distinct** - focuses on error paths and boundaries, complementing happy-path tests
+- ✅ **benchmark_test.go is non-functional** - performance testing is separate concern from correctness
+- ✅ **helper_test.go is infrastructure** - provides test utilities, contains no executable tests
+- ✅ **example_test.go is documentation** - GoDoc examples are separate from test specs
+
+**Total Specs Distribution:**
+- **Unit Tests** (constructor, reader, writer): 50 specs (42%)
+- **Integration Tests** (copy): 12 specs (10%)
+- **Concurrent Tests**: 11 specs (9%)
+- **Mode/Adaptive Tests**: 7 specs (6%)
+- **Edge/Boundary Tests**: 25 specs (21%)
+- **Performance Tests**: 15 specs (12%)
+- **Total**: **120 specs** across 8 test files
+
+All test files are **necessary and justified** - no redundant files identified.
 
 ### Test Templates
 
-**Standard BDD Pattern:**
+**Basic Unit Test:**
 
 ```go
-var _ = Describe("Multi/Feature Name", func() {
+var _ = Describe("Multi", func() {
     var m multi.Multi
 
     BeforeEach(func() {
-        // Setup: Create fresh instance
-        m = multi.New()
-    })
-
-    AfterEach(func() {
-        // Cleanup: Close resources
-        if m != nil {
-            m.Close()
-        }
-    })
-
-    Context("when using feature", func() {
-        It("should behave correctly", func() {
-            // Arrange - Setup test data
-            var buf bytes.Buffer
-            m.AddWriter(&buf)
-
-            // Act - Execute operation
-            n, err := m.Write([]byte("test data"))
-
-            // Assert - Verify outcomes
-            Expect(err).NotTo(HaveOccurred())
-            Expect(n).To(Equal(9))
-            Expect(buf.String()).To(Equal("test data"))
-        })
-
-        It("should handle errors properly", func() {
-            // Test error scenarios
-            errWriter := &errorWriter{err: io.ErrShortWrite}
-            m.AddWriter(errWriter)
-
-            _, err := m.Write([]byte("data"))
-            Expect(err).To(MatchError(io.ErrShortWrite))
-        })
-    })
-})
-```
-
-**Test Naming Conventions:**
-
-```go
-// ✅ Good: Descriptive and specific
-It("should broadcast writes to all registered writers", func() { ... })
-It("should return ErrInstance when internal state is corrupted", func() { ... })
-It("should handle concurrent AddWriter operations safely", func() { ... })
-
-// ❌ Bad: Vague or generic
-It("test write", func() { ... })
-It("should work", func() { ... })
-It("writes data", func() { ... })
-```
-
-**Concurrency Testing:**
-
-```go
-var _ = Describe("Concurrent Operations", func() {
-    It("should handle concurrent writes safely", func() {
-        m := multi.New()
-        var buf safeBuffer  // Thread-safe buffer from helper_test.go
-        m.AddWriter(&buf)
-
-        var wg sync.WaitGroup
-        concurrency := 100
-
-        // Launch concurrent writers
-        for i := 0; i < concurrency; i++ {
-            wg.Add(1)
-            go func(id int) {
-                defer wg.Done()
-                data := fmt.Sprintf("msg%d ", id)
-                _, err := m.WriteString(data)
-                Expect(err).NotTo(HaveOccurred())
-            }(i)
-        }
-
-        wg.Wait()
-
-        // Verify all writes succeeded
-        Expect(buf.Len()).To(BeNumerically(">", 0))
-        output := buf.String()
-        for i := 0; i < concurrency; i++ {
-            Expect(output).To(ContainSubstring(fmt.Sprintf("msg%d", i)))
-        }
-    })
-
-    It("should handle mixed concurrent operations", func() {
-        m := multi.New()
-        var wg sync.WaitGroup
-
-        // Concurrent writes
-        for i := 0; i < 50; i++ {
-            wg.Add(1)
-            go func(id int) {
-                defer wg.Done()
-                m.Write([]byte(fmt.Sprintf("w%d ", id)))
-            }(i)
-        }
-
-        // Concurrent AddWriter
-        for i := 0; i < 20; i++ {
-            wg.Add(1)
-            go func() {
-                defer wg.Done()
-                var b bytes.Buffer
-                m.AddWriter(&b)
-            }()
-        }
-
-        // Concurrent SetInput
-        for i := 0; i < 10; i++ {
-            wg.Add(1)
-            go func(id int) {
-                defer wg.Done()
-                r := io.NopCloser(strings.NewReader(fmt.Sprintf("data%d", id)))
-                m.SetInput(r)
-            }(i)
-        }
-
-        wg.Wait()
-        // No panics, no races = success
-    })
-})
-```
-
-**Race Detection Validation:**
-
-```bash
-# This test MUST pass with race detector
-CGO_ENABLED=1 go test -race -run="Concurrent" -v ./...
-```
-
-### Running New Tests
-
-**Execute All Tests:**
-
-```bash
-# Run all tests
-go test ./...
-
-# With verbose output
-go test -v ./...
-
-# Using Ginkgo (recommended)
-ginkgo -v
-```
-
-**Focus on Specific Tests:**
-
-```bash
-# Focus on specific file
-go test -v -run="Constructor"
-
-# Focus with Ginkgo
-ginkgo --focus="Constructor"
-
-# Focus in code (temporarily)
-FDescribe("Constructor", func() { ... })  # Only this runs
-FIt("specific test", func() { ... })      # Only this runs
-```
-
-**Skip Tests:**
-
-```bash
-# Skip specific tests
-ginkgo --skip="Performance"
-
-# Skip in code
-XDescribe("slow tests", func() { ... })  # Skipped
-XIt("skip this", func() { ... })         # Skipped
-```
-
-**Watch Mode:**
-
-```bash
-# Auto-run on file changes
-ginkgo watch
-```
-
-### Helper Functions
-
-**Available Helpers in `helper_test.go`:**
-
-```go
-// Safe buffer for concurrent tests
-type safeBuffer struct {
-    mu  sync.Mutex
-    buf bytes.Buffer
-}
-
-func (sb *safeBuffer) Write(p []byte) (int, error) {
-    sb.mu.Lock()
-    defer sb.mu.Unlock()
-    return sb.buf.Write(p)
-}
-
-// Error writer for testing error propagation
-type errorWriter struct {
-    err error
-}
-
-func (ew *errorWriter) Write(p []byte) (int, error) {
-    return 0, ew.err
-}
-
-// Error reader for testing error propagation
-type errorReader struct {
-    err error
-}
-
-func (er *errorReader) Read(p []byte) (int, error) {
-    return 0, er.err
-}
-
-// Slow writer for performance tests
-type slowWriter struct {
-    delay time.Duration
-}
-
-func (sw *slowWriter) Write(p []byte) (int, error) {
-    time.Sleep(sw.delay)
-    return len(p), nil
-}
-```
-
-**Usage in Tests:**
-
-```go
-It("should propagate write errors", func() {
-    m := multi.New()
-    errWriter := &errorWriter{err: io.ErrShortWrite}
-    m.AddWriter(errWriter)
-    
-    _, err := m.Write([]byte("data"))
-    Expect(err).To(MatchError(io.ErrShortWrite))
-})
-
-It("should handle concurrent writes safely", func() {
-    m := multi.New()
-    var buf safeBuffer
-    m.AddWriter(&buf)
-    
-    // Safe for concurrent access
-    var wg sync.WaitGroup
-    for i := 0; i < 100; i++ {
-        wg.Add(1)
-        go func() {
-            defer wg.Done()
-            m.Write([]byte("data"))
-        }()
-    }
-    wg.Wait()
-})
-```
-
-### Benchmark Template
-
-**Using gmeasure for Statistical Analysis:**
-
-```go
-var _ = Describe("Performance Benchmarks", func() {
-    It("should benchmark write operations", func() {
-        exp := gmeasure.NewExperiment("Write Performance")
-        AddReportEntry(exp.Name, exp)
-
-        m := multi.New()
-        var buf bytes.Buffer
-        m.AddWriter(&buf)
-        data := make([]byte, 1024)
-
-        exp.Sample(func(idx int) {
-            exp.MeasureDuration("write-1kb", func() {
-                m.Write(data)
-            })
-        }, gmeasure.SamplingConfig{N: 1000})
-
-        stats := exp.GetStats("write-1kb")
-        
-        // Log statistics
-        GinkgoWriter.Printf("Mean: %v\n", stats.DurationFor(gmeasure.StatMean))
-        GinkgoWriter.Printf("Median: %v\n", stats.DurationFor(gmeasure.StatMedian))
-        GinkgoWriter.Printf("StdDev: %v\n", stats.DurationFor(gmeasure.StatStdDev))
-
-        // Assert performance requirement
-        Expect(stats.DurationFor(gmeasure.StatMean)).
-            To(BeNumerically("<", 50*time.Microsecond))
-    })
-
-    It("should benchmark with multiple writers", func() {
-        exp := gmeasure.NewExperiment("Multi-Writer Scaling")
-        AddReportEntry(exp.Name, exp)
-
-        data := make([]byte, 1024)
-
-        for _, numWriters := range []int{1, 3, 10, 100} {
-            name := fmt.Sprintf("writers-%d", numWriters)
-            
-            m := multi.New()
-            for i := 0; i < numWriters; i++ {
-                m.AddWriter(&bytes.Buffer{})
-            }
-
-            exp.Sample(func(idx int) {
-                exp.MeasureDuration(name, func() {
-                    m.Write(data)
-                })
-            }, gmeasure.SamplingConfig{N: 100})
-        }
-
-        // Compare scaling
-        stats1 := exp.GetStats("writers-1")
-        stats10 := exp.GetStats("writers-10")
-        
-        // Should scale linearly (or better)
-        overhead := stats10.DurationFor(gmeasure.StatMean) / 
-                    stats1.DurationFor(gmeasure.StatMean)
-        Expect(overhead).To(BeNumerically("<", 15))  // Less than 15x overhead for 10x writers
-    })
-})
-```
-
-**Benchmark Output Example:**
-
-```
-Write Performance - benchmark_test.go:45
-  Name      | N    | Min  | Median | Mean  | StdDev | Max
-  ================================================================
-  write-1kb | 1000 | 5µs  | 8µs    | 9µs   | 3µs    | 25µs
-
-Multi-Writer Scaling - benchmark_test.go:78
-  Name        | N   | Min  | Median | Mean  | StdDev | Max
-  ================================================================
-  writers-1   | 100 | 5µs  | 8µs    | 9µs   | 3µs    | 20µs
-  writers-3   | 100 | 15µs | 22µs   | 24µs  | 6µs    | 50µs
-  writers-10  | 100 | 40µs | 60µs   | 65µs  | 15µs   | 120µs
-  writers-100 | 100 | 350µs| 520µs  | 540µs | 80µs   | 900µs
-```
-
----
-
-## Best Practices
-
-### Test Design Dos
-
-#### ✅ DO: Use descriptive test names
-
-```go
-// Good
-It("should return delimiter character when Delim() is called", func() { /* ... */ })
-It("should handle concurrent AddWriter operations without data races", func() { /* ... */ })
-
-// Bad
-It("test write", func() { /* ... */ })
-It("works", func() { /* ... */ })
-```
-
-#### ✅ DO: Follow Arrange-Act-Assert pattern
-
-```go
-It("should broadcast write to all writers", func() {
-    // Arrange - Setup test data
-    m := multi.New()
-    var buf1, buf2, buf3 bytes.Buffer
-    m.AddWriter(&buf1, &buf2, &buf3)
-
-    // Act - Execute operation
-    data := []byte("test data")
-    n, err := m.Write(data)
-
-    // Assert - Verify outcomes
-    Expect(err).NotTo(HaveOccurred())
-    Expect(n).To(Equal(len(data)))
-    Expect(buf1.String()).To(Equal("test data"))
-    Expect(buf2.String()).To(Equal("test data"))
-    Expect(buf3.String()).To(Equal("test data"))
-})
-```
-
-#### ✅ DO: Test error paths explicitly
-
-```go
-It("should propagate write errors from writers", func() {
-    m := multi.New()
-    errWriter := &errorWriter{err: io.ErrShortWrite}
-    m.AddWriter(errWriter)
-
-    _, err := m.Write([]byte("data"))
-    Expect(err).To(MatchError(io.ErrShortWrite))
-})
-```
-
-#### ✅ DO: Use table-driven tests for similar scenarios
-
-```go
-DescribeTable("writer combinations",
-    func(numWriters int, data string, expectedLen int) {
-        m := multi.New()
-        for i := 0; i < numWriters; i++ {
-            m.AddWriter(&bytes.Buffer{})
-        }
-        n, err := m.WriteString(data)
-        Expect(err).NotTo(HaveOccurred())
-        Expect(n).To(Equal(expectedLen))
-    },
-    Entry("single writer", 1, "test", 4),
-    Entry("three writers", 3, "data", 4),
-    Entry("ten writers", 10, "hello", 5),
-)
-```
-
-#### ✅ DO: Clean up resources with defer
-
-```go
-It("should clean up resources", func() {
-    tmpFile, err := os.CreateTemp("", "test-*.dat")
-    Expect(err).NotTo(HaveOccurred())
-    defer os.Remove(tmpFile.Name())
-    defer tmpFile.Close()
-
-    m := multi.New()
-    defer m.Close()
-
-    m.SetInput(tmpFile)
-    m.AddWriter(&bytes.Buffer{})
-
-    _, err = m.Copy()
-    Expect(err).NotTo(HaveOccurred())
-})
-```
-
-#### ✅ DO: Use helper functions from helper_test.go
-
-```go
-It("should handle read errors", func() {
-    m := multi.New()
-    
-    // Use helper from helper_test.go
-    errReader := &errorReader{err: io.ErrUnexpectedEOF}
-    m.SetInput(io.NopCloser(errReader))
-
-    buf := make([]byte, 10)
-    _, err := m.Read(buf)
-    Expect(err).To(MatchError(io.ErrUnexpectedEOF))
-})
-```
-
-#### ✅ DO: Test boundary conditions
-
-```go
-It("should handle zero-length writes", func() {
-    m := multi.New()
-    var buf bytes.Buffer
-    m.AddWriter(&buf)
-
-    n, err := m.Write([]byte{})
-    Expect(err).NotTo(HaveOccurred())
-    Expect(n).To(Equal(0))
-    Expect(buf.Len()).To(Equal(0))
-})
-
-It("should handle very large writes", func() {
-    m := multi.New()
-    var buf bytes.Buffer
-    m.AddWriter(&buf)
-
-    largeData := make([]byte, 10*1024*1024) // 10MB
-    n, err := m.Write(largeData)
-    Expect(err).NotTo(HaveOccurred())
-    Expect(n).To(Equal(len(largeData)))
-})
-```
-
-#### ✅ DO: Use meaningful variable names
-
-```go
-// Good
-expectedData := []byte("test data")
-actualData := buf.String()
-Expect(actualData).To(Equal(string(expectedData)))
-
-// Bad
-e := []byte("test data")
-a := buf.String()
-Expect(a).To(Equal(string(e)))
-```
-
-### Test Design Don'ts
-
-#### ❌ DON'T: Test multiple things in one spec
-
-```go
-// Bad
-It("should do everything", func() {
-    m := multi.New()  // Testing constructor
-    m.AddWriter(&bytes.Buffer{})  // Testing AddWriter
-    m.Write([]byte("data"))  // Testing Write
-    m.Clean()  // Testing Clean
-    m.Close()  // Testing Close
-})
-
-// Good - Split into separate specs
-It("should create new instance with New()", func() { /* ... */ })
-It("should add writers with AddWriter()", func() { /* ... */ })
-It("should write data with Write()", func() { /* ... */ })
-It("should clean writers with Clean()", func() { /* ... */ })
-It("should close input with Close()", func() { /* ... */ })
-```
-
-#### ❌ DON'T: Ignore errors in tests
-
-```go
-// Bad
-n, _ := m.Write(data)  // Ignoring error!
-
-// Good
-n, err := m.Write(data)
-Expect(err).NotTo(HaveOccurred())
-Expect(n).To(Equal(len(data)))
-```
-
-#### ❌ DON'T: Use time.Sleep for synchronization
-
-```go
-// Bad
-go m.Write([]byte("data"))
-time.Sleep(100 * time.Millisecond)  // Race condition!
-
-// Good - Use proper synchronization
-var wg sync.WaitGroup
-wg.Add(1)
-go func() {
-    defer wg.Done()
-    m.Write([]byte("data"))
-}()
-wg.Wait()
-```
-
-#### ❌ DON'T: Share state between tests
-
-```go
-// Bad - Shared instance
-var sharedMulti multi.Multi
-
-var _ = Describe("Tests", func() {
-    BeforeEach(func() {
-        sharedMulti = multi.New()  // Creates new but uses shared var
-    })
-
-    It("test 1", func() {
-        sharedMulti.Write([]byte("data"))
-    })
-
-    It("test 2", func() {
-        // May depend on state from test 1!
-        sharedMulti.Write([]byte("more"))
-    })
-})
-
-// Good - Fresh instance per test
-var _ = Describe("Tests", func() {
-    var m multi.Multi
-
-    BeforeEach(func() {
-        m = multi.New()
+        m = multi.New(false, false, multi.DefaultConfig())
     })
 
     AfterEach(func() {
         m.Close()
     })
 
-    It("test 1", func() {
-        m.Write([]byte("data"))
+    It("should write data", func() {
+        var buf bytes.Buffer
+        m.AddWriter(&buf)
+        n, err := m.Write([]byte("test"))
+        Expect(err).ToNot(HaveOccurred())
+        Expect(n).To(Equal(4))
+        Expect(buf.String()).To(Equal("test"))
     })
-
-    It("test 2", func() {
-        m.Write([]byte("more"))  // Independent
-    })
 })
 ```
 
-#### ❌ DON'T: Test implementation details
+### Running New Tests
+
+```bash
+# Focus on specific test
+go test -ginkgo.focus="should write data" -v
+
+# Run new test file
+go test -v -run TestMulti/NewFeature
+```
+
+### Helper Functions
+
+-   `newSlowWriter(delay)`: Creates a writer that sleeps to simulate latency.
+-   `newErrorWriter(err)`: Creates a writer that always fails.
+-   `newTestReader(data)`: Creates a reader with known data.
+
+### Benchmark Template
+
+**Aggregated Experiment Pattern (Recommended):**
 
 ```go
-// Bad - Testing internal structure
-It("should use atomic.Value internally", func() {
-    // Don't test private fields or implementation
+It("should benchmark operation with variations", func() {
+    experiment := gmeasure.NewExperiment("Operation name")
+    AddReportEntry(experiment.Name, experiment)
+
+    // Variation 1
+    experiment.SampleDuration("Small data", func(idx int) {
+        // Test code here
+    }, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+
+    // Variation 2
+    experiment.SampleDuration("Large data", func(idx int) {
+        // Test code here
+    }, gmeasure.SamplingConfig{N: 100, Duration: 0})
 })
+```
 
-// Good - Test observable behavior
-It("should provide thread-safe writes", func() {
-    // Test public API behavior
-    var wg sync.WaitGroup
-    for i := 0; i < 100; i++ {
-        wg.Add(1)
-        go func() {
-            defer wg.Done()
-            m.Write([]byte("data"))
-        }()
-    }
-    wg.Wait()
+**Real-world Scenario Pattern:**
+
+```go
+It("should benchmark real scenario", func() {
+    experiment := gmeasure.NewExperiment("Scenario name")
+
+    experiment.Sample(func(idx int) {
+        // Setup
+        experiment.MeasureDuration("operation", func() {
+            // Actual operation
+        })
+    }, gmeasure.SamplingConfig{N: 10, Duration: 0})
+
+    AddReportEntry(experiment.Name, experiment)
 })
 ```
 
-#### ❌ DON'T: Use magic numbers
+### Best Practices
 
-```go
-// Bad
-m.Write(make([]byte, 65536))  // What is 65536?
-
-// Good
-const testDataSize = 64 * 1024  // 64KB
-m.Write(make([]byte, testDataSize))
-```
-
-#### ❌ DON'T: Create large test data inline
-
-```go
-// Bad
-data := []byte("line1\nline2\nline3\n...[thousands of lines]...")
-
-// Good - Use helper function
-func generateTestData(size int) []byte {
-    return make([]byte, size)
-}
-
-data := generateTestData(1024 * 1024)  // 1MB
-```
+-   ✅ **Use Atomic Helpers**: Verify state changes with `Eventually` in concurrent tests.
+-   ✅ **Clean Up**: Always `Close()` the Multi instance.
+-   ✅ **Test Both Modes**: Verify logic in both Sequential and Parallel modes.
+-   ❌ **Avoid Sleep**: Use synchronization primitives or `Eventually` instead of `time.Sleep`.
 
 ---
 
 ## Troubleshooting
 
-### Common Errors
+### Common Issues
 
-#### Error: "undefined: multi"
+**1. Race Conditions**
+-   *Symptom*: `WARNING: DATA RACE`
+-   *Fix*: Ensure all shared state access goes through the Multi API (which uses atomics) or is guarded by tests.
 
-**Cause**: Package not imported correctly
+**2. Flaky Adaptive Tests**
+-   *Symptom*: Mode doesn't switch when expected.
+-   *Fix*: Increase the simulated latency gap between threshold and actual writer latency. Increase `SampleWrite` count in test config.
 
-**Solution**:
-```go
-import (
-    iotmul "github.com/nabbar/golib/ioutils/multi"
-)
-
-// Use as iotmul.New()
-m := iotmul.New()
-```
-
-#### Error: "cannot use 'reader' (type *strings.Reader) as type io.ReadCloser"
-
-**Cause**: `strings.Reader` doesn't implement `io.Closer`
-
-**Solution**:
-```go
-// Wrap with io.NopCloser
-reader := io.NopCloser(strings.NewReader("data"))
-m.SetInput(reader)
-```
-
-#### Error: "WARNING: DATA RACE" with -race flag
-
-**Cause**: Concurrent access to same Multi instance for reads
-
-**Solution**:
-```go
-// Bad - Shared reader
-var m multi.Multi
-go func() { m.Read(buf1) }()  // Race!
-go func() { m.Read(buf2) }()  // Race!
-
-// Good - Synchronize reads or use separate instances
-var wg sync.WaitGroup
-wg.Add(1)
-go func() {
-    defer wg.Done()
-    m.Read(buf)
-}()
-wg.Wait()
-
-// Or: One Multi per goroutine for reading
-```
-
-#### Error: "invalid instance"
-
-**Cause**: Internal state corruption (extremely rare)
-
-**Solution**:
-```go
-// Always use New() constructor
-m := multi.New()  // Correct initialization
-
-// Check for ErrInstance
-_, err := m.Write(data)
-if err == multi.ErrInstance {
-    // Handle corrupted state
-    log.Fatal("internal state corrupted")
-}
-```
-
-#### Error: Test timeout or hang
-
-**Cause**: Reading from blocking source without EOF
-
-**Solution**:
-```go
-// Ensure data source eventually returns EOF
-data := "test\n"  // Fixed data
-reader := io.NopCloser(strings.NewReader(data))
-
-// Or use context with timeout
-ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-defer cancel()
-```
-
-### Debugging Tests
-
-**Enable verbose output:**
-```bash
-go test -v ./...
-ginkgo -v
-```
-
-**Run single test:**
-```bash
-go test -v -run="TestMulti/Concurrent/should_handle_concurrent_writes"
-ginkgo --focus="should handle concurrent writes"
-```
-
-**Focus single spec in code:**
-```go
-FIt("focus on this test", func() {
-    // Only this test runs
-})
-```
-
-**Print debug info:**
-```go
-It("debug test", func() {
-    n, err := m.Write(data)
-    fmt.Fprintf(GinkgoWriter, "DEBUG: n=%d err=%v\n", n, err)
-    Expect(err).NotTo(HaveOccurred())
-})
-```
-
-**Use GinkgoWriter for output:**
-```go
-It("with output", func() {
-    GinkgoWriter.Println("Test starting")
-    m.Write([]byte("data"))
-    GinkgoWriter.Printf("Wrote %d bytes\n", buf.Len())
-})
-```
-
-**Check test execution time:**
-```bash
-go test -v -timeout 30s ./...
-ginkgo -v | grep "seconds"
-```
-
-**Profile slow tests:**
-```bash
-go test -v -cpuprofile=cpu.prof ./...
-go tool pprof cpu.prof
-```
+**3. Coverage Gaps**
+-   *Symptom*: Low coverage in `writer.go`.
+-   *Fix*: Add tests with `newErrorWriter` to trigger error paths in parallel execution.
 
 ---
 
@@ -1647,8 +764,22 @@ When creating GitHub issues, use these labels:
 
 ---
 
-**License**: MIT License - See [LICENSE](../../../../LICENSE) file for details  
-**Maintained By**: [Nicolas JUHEL](https://github.com/nabbar)  
-**Package**: `github.com/nabbar/golib/ioutils/multi`  
+## AI Transparency
 
-**AI Transparency**: In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
+In compliance with EU AI Act Article 50.4: AI assistance was used for test generation, debugging, and documentation under human supervision. All tests are validated and reviewed by humans.
+
+---
+
+## License
+
+MIT License - See [LICENSE](../../../../LICENSE) file for details.
+
+Copyright (c) 2025 Nicolas JUHEL
+
+---
+
+**Test Suite Maintained by**: [Nicolas JUHEL](https://github.com/nabbar)
+**Package**: `github.com/nabbar/golib/ioutils/multi`
+**Framework**: Ginkgo v2 + Gomega + gmeasure
+**Coverage Target**: 80%+ (Current: 80.8% ✅)
+

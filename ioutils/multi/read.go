@@ -24,18 +24,43 @@
  *
  */
 
-package delim
+package multi
 
-import "fmt"
+import "io"
 
-// ErrInstance is returned when operations are attempted on an invalid or closed BufferDelim instance.
-// This error typically occurs when:
-//   - Calling methods on a nil BufferDelim
-//   - Calling methods after Close() has been called
-//   - The internal buffer has been invalidated
+// readerWrapper wraps an io.Reader to maintain type consistency in atomic.Value.
 //
-// When you receive this error, the BufferDelim instance should be discarded and a new one created if needed.
-var (
-	ErrInstance   = fmt.Errorf("invalid buffer delim instance")
-	ErrBufferFull = fmt.Errorf("buffer is full and delimiter not found")
-)
+// atomic.Value requires that all stored values have the same concrete type.
+// By wrapping all readers in readerWrapper, we ensure this constraint is met
+// even when different io.ReadCloser implementations are used.
+type readerWrapper struct {
+	io.Reader
+}
+
+// Read delegates to the wrapped Reader.
+func (w *readerWrapper) Read(p []byte) (n int, err error) {
+	return w.Reader.Read(p)
+}
+
+// Close attempts to close the wrapped Reader if it implements io.Closer.
+// Returns nil if the Reader does not implement io.Closer.
+func (w *readerWrapper) Close() error {
+	if c, k := w.Reader.(io.Closer); k {
+		return c.Close()
+	}
+	return nil
+}
+
+// newReadWrapper creates a new readerWrapper. If r is nil, returns a wrapper
+// containing DiscardCloser as a safe default.
+func newReadWrapper(r io.Reader) *readerWrapper {
+	if r == nil {
+		return &readerWrapper{
+			DiscardCloser{},
+		}
+	}
+
+	return &readerWrapper{
+		Reader: r,
+	}
+}

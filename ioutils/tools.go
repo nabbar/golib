@@ -50,11 +50,11 @@ import (
 //
 // Returns:
 //   - error: nil on success, or an error if:
-//     * The path exists but is the wrong type (file when directory expected, or vice versa)
-//     * Parent directory creation fails
-//     * Permission updates fail
-//     * File/directory creation fails
-//     * Path is empty or invalid
+//   - The path exists but is the wrong type (file when directory expected, or vice versa)
+//   - Parent directory creation fails
+//   - Permission updates fail
+//   - File/directory creation fails
+//   - Path is empty or invalid
 //
 // Behavior:
 //   - If path exists as expected type: validates and updates permissions if needed

@@ -240,14 +240,14 @@ func Example_hookLifecycle() {
 
 	// Start background processing
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Start hook and wait for it to be running
 	done := make(chan bool)
 	go func() {
 		hook.Run(ctx)
 		done <- true
 	}()
-	
+
 	// Give goroutine time to start
 	for !hook.IsRunning() {
 		// Spin until running

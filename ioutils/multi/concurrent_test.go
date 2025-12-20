@@ -42,16 +42,16 @@ import (
 // These tests verify that all operations (Read, Write, AddWriter, SetInput,
 // Clean) are safe for concurrent use and do not cause data races or panics.
 // Uses the --race flag to detect race conditions.
-var _ = Describe("Multi Concurrent Operations", func() {
+var _ = Describe("[TC-CC] Multi Concurrent Operations", func() {
 	var m multi.Multi
 
 	BeforeEach(func() {
-		m = multi.New()
+		m = multi.New(false, false, multi.DefaultConfig())
 	})
 
 	Describe("Concurrent writes", func() {
 		Context("multiple goroutines writing", func() {
-			It("should handle concurrent writes safely", func() {
+			It("[TC-CC-002] should handle concurrent writes safely", func() {
 				var buf safeBuffer
 				m.AddWriter(&buf)
 
@@ -116,7 +116,7 @@ var _ = Describe("Multi Concurrent Operations", func() {
 
 	Describe("Concurrent reads", func() {
 		Context("sequential reads with proper synchronization", func() {
-			It("should handle reads when properly synchronized", func() {
+			It("[TC-CC-002] should handle reads when properly synchronized", func() {
 				// Note: concurrent reads from the same Reader is not safe
 				// as the underlying Reader (like strings.Reader) is not thread-safe.
 				// This test verifies that reads work correctly with synchronization.
@@ -146,7 +146,7 @@ var _ = Describe("Multi Concurrent Operations", func() {
 
 	Describe("Concurrent AddWriter calls", func() {
 		Context("adding writers concurrently", func() {
-			It("should handle concurrent AddWriter calls", func() {
+			It("[TC-CC-001] should handle concurrent AddWriter calls", func() {
 				var wg sync.WaitGroup
 				iterations := 50
 
@@ -193,7 +193,7 @@ var _ = Describe("Multi Concurrent Operations", func() {
 
 	Describe("Concurrent Clean calls", func() {
 		Context("cleaning while writing", func() {
-			It("should handle concurrent Clean and Write", func() {
+			It("[TC-CC-002] should handle concurrent Clean and Write", func() {
 				var buf safeBuffer
 				m.AddWriter(&buf)
 
@@ -249,7 +249,7 @@ var _ = Describe("Multi Concurrent Operations", func() {
 
 	Describe("Concurrent SetInput calls", func() {
 		Context("setting input concurrently", func() {
-			It("should handle concurrent SetInput calls", func() {
+			It("[TC-CC-003] should handle concurrent SetInput calls", func() {
 				var wg sync.WaitGroup
 				iterations := 50
 
@@ -273,7 +273,7 @@ var _ = Describe("Multi Concurrent Operations", func() {
 
 	Describe("Mixed concurrent operations", func() {
 		Context("all operations running concurrently", func() {
-			It("should handle mixed concurrent operations", func() {
+			It("[TC-CC-004] should handle mixed concurrent operations", func() {
 				var wg sync.WaitGroup
 				iterations := 20
 

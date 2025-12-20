@@ -85,14 +85,14 @@ func (c *concurrentCounter) reset() {
 func concurrentRunner(n int, fn func(id int)) {
 	var wg sync.WaitGroup
 	wg.Add(n)
-	
+
 	for i := 0; i < n; i++ {
 		go func(id int) {
 			defer wg.Done()
 			fn(id)
 		}(i)
 	}
-	
+
 	wg.Wait()
 }
 

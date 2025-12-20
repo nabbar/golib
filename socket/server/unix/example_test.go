@@ -69,9 +69,9 @@ func Example() {
 
 	// Create server configuration
 	cfg := sckcfg.Server{
-		Network:  libptc.NetworkUnix,
-		Address:  socketPath,
-		PermFile: libprm.Perm(0600),
+		Network:   libptc.NetworkUnix,
+		Address:   socketPath,
+		PermFile:  libprm.Perm(0600),
 		GroupPerm: -1,
 	}
 

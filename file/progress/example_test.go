@@ -180,7 +180,7 @@ func ExampleProgress_RegisterFctEOF() {
 
 // ExampleProgress_RegisterFctReset demonstrates position reset tracking.
 func ExampleProgress_RegisterFctReset() {
-	// Create test file  
+	// Create test file
 	testFile := "/tmp/progress-reset.txt"
 	testData := []byte("0123456789")
 	if err := os.WriteFile(testFile, testData, 0644); err != nil {

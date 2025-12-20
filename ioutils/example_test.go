@@ -187,9 +187,9 @@ func ExamplePathCheckCreate_applicationInit() {
 
 	// Create important files
 	files := map[string]os.FileMode{
-		filepath.Join(appRoot, "config", "app.conf"):  0640, // Restrictive config
-		filepath.Join(appRoot, "logs", "app.log"):     0644, // Standard log
-		filepath.Join(appRoot, "data", "state.json"):  0644, // Data file
+		filepath.Join(appRoot, "config", "app.conf"): 0640, // Restrictive config
+		filepath.Join(appRoot, "logs", "app.log"):    0644, // Standard log
+		filepath.Join(appRoot, "data", "state.json"): 0644, // Data file
 	}
 
 	for file, perm := range files {

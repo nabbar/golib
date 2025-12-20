@@ -31,10 +31,11 @@
 // minimal performance impact (<0.1% overhead) as documented.
 //
 // Running Benchmarks:
-//   go test -bench=. -benchmem
-//   go test -bench=BenchmarkReader -benchmem
-//   go test -bench=BenchmarkWriter -benchmem
-//   go test -bench=. -benchtime=10s -benchmem  # Longer run for stability
+//
+//	go test -bench=. -benchmem
+//	go test -bench=BenchmarkReader -benchmem
+//	go test -bench=BenchmarkWriter -benchmem
+//	go test -bench=. -benchtime=10s -benchmem  # Longer run for stability
 //
 // Performance Targets:
 //   - Overhead: <100ns per operation
@@ -80,10 +81,10 @@ func BenchmarkReaderBaseline(b *testing.B) {
 		b.Run(bm.name, func(b *testing.B) {
 			data := strings.Repeat("x", bm.size)
 			buf := make([]byte, 4096)
-			
+
 			b.ResetTimer()
 			b.SetBytes(int64(bm.size))
-			
+
 			for i := 0; i < b.N; i++ {
 				reader := io.NopCloser(strings.NewReader(data))
 				io.CopyBuffer(io.Discard, reader, buf)
@@ -115,10 +116,10 @@ func BenchmarkReaderWithProgress(b *testing.B) {
 		b.Run(bm.name, func(b *testing.B) {
 			data := strings.Repeat("x", bm.size)
 			buf := make([]byte, 4096)
-			
+
 			b.ResetTimer()
 			b.SetBytes(int64(bm.size))
-			
+
 			for i := 0; i < b.N; i++ {
 				reader := ioprogress.NewReadCloser(io.NopCloser(strings.NewReader(data)))
 				io.CopyBuffer(io.Discard, reader, buf)
@@ -148,10 +149,10 @@ func BenchmarkReaderWithCallback(b *testing.B) {
 		b.Run(bm.name, func(b *testing.B) {
 			data := strings.Repeat("x", bm.size)
 			buf := make([]byte, 4096)
-			
+
 			b.ResetTimer()
 			b.SetBytes(int64(bm.size))
-			
+
 			for i := 0; i < b.N; i++ {
 				var total int64
 				reader := ioprogress.NewReadCloser(io.NopCloser(strings.NewReader(data)))
@@ -171,14 +172,14 @@ func BenchmarkReaderWithCallback(b *testing.B) {
 func BenchmarkReaderMultipleCallbacks(b *testing.B) {
 	data := strings.Repeat("x", benchMediumSize)
 	buf := make([]byte, 4096)
-	
+
 	b.ResetTimer()
 	b.SetBytes(int64(benchMediumSize))
-	
+
 	for i := 0; i < b.N; i++ {
 		var total int64
 		reader := ioprogress.NewReadCloser(io.NopCloser(strings.NewReader(data)))
-		
+
 		reader.RegisterFctIncrement(func(size int64) {
 			atomic.AddInt64(&total, size)
 		})
@@ -188,7 +189,7 @@ func BenchmarkReaderMultipleCallbacks(b *testing.B) {
 		reader.RegisterFctReset(func(max, current int64) {
 			// Reset callback
 		})
-		
+
 		io.CopyBuffer(io.Discard, reader, buf)
 		reader.Close()
 	}
@@ -216,10 +217,10 @@ func BenchmarkWriterBaseline(b *testing.B) {
 			data := strings.Repeat("x", bm.size)
 			source := strings.NewReader(data)
 			buf := make([]byte, 4096)
-			
+
 			b.ResetTimer()
 			b.SetBytes(int64(bm.size))
-			
+
 			for i := 0; i < b.N; i++ {
 				source.Reset(data)
 				writer := newCloseableWriter()
@@ -248,10 +249,10 @@ func BenchmarkWriterWithProgress(b *testing.B) {
 			data := strings.Repeat("x", bm.size)
 			source := strings.NewReader(data)
 			buf := make([]byte, 4096)
-			
+
 			b.ResetTimer()
 			b.SetBytes(int64(bm.size))
-			
+
 			for i := 0; i < b.N; i++ {
 				source.Reset(data)
 				writer := ioprogress.NewWriteCloser(newCloseableWriter())
@@ -280,10 +281,10 @@ func BenchmarkWriterWithCallback(b *testing.B) {
 			data := strings.Repeat("x", bm.size)
 			source := strings.NewReader(data)
 			buf := make([]byte, 4096)
-			
+
 			b.ResetTimer()
 			b.SetBytes(int64(bm.size))
-			
+
 			for i := 0; i < b.N; i++ {
 				source.Reset(data)
 				var total int64
@@ -309,13 +310,13 @@ func BenchmarkWriterWithCallback(b *testing.B) {
 func BenchmarkCallbackRegistration(b *testing.B) {
 	reader := ioprogress.NewReadCloser(io.NopCloser(strings.NewReader("data")))
 	defer reader.Close()
-	
+
 	callback := func(size int64) {
 		// No-op callback
 	}
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		reader.RegisterFctIncrement(callback)
 	}
@@ -327,11 +328,11 @@ func BenchmarkCallbackRegistration(b *testing.B) {
 func BenchmarkCallbackRegistrationConcurrent(b *testing.B) {
 	reader := ioprogress.NewReadCloser(io.NopCloser(strings.NewReader("data")))
 	defer reader.Close()
-	
+
 	callback := func(size int64) {
 		// No-op callback
 	}
-	
+
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
@@ -350,19 +351,19 @@ func BenchmarkCallbackRegistrationConcurrent(b *testing.B) {
 func BenchmarkReaderAllocations(b *testing.B) {
 	data := strings.Repeat("x", benchMediumSize)
 	buf := make([]byte, 4096)
-	
+
 	// Create wrapper outside the benchmark loop
 	reader := ioprogress.NewReadCloser(io.NopCloser(strings.NewReader(data)))
 	defer reader.Close()
-	
+
 	var total int64
 	reader.RegisterFctIncrement(func(size int64) {
 		atomic.AddInt64(&total, size)
 	})
-	
+
 	b.ResetTimer()
 	b.ReportAllocs()
-	
+
 	for i := 0; i < b.N; i++ {
 		// This should cause 0 allocations
 		_, _ = reader.Read(buf)
@@ -379,7 +380,7 @@ func BenchmarkReaderAllocations(b *testing.B) {
 func BenchmarkOverheadComparison(b *testing.B) {
 	data := strings.Repeat("x", benchMediumSize)
 	buf := make([]byte, 4096)
-	
+
 	b.Run("Unwrapped", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -388,7 +389,7 @@ func BenchmarkOverheadComparison(b *testing.B) {
 			reader.Close()
 		}
 	})
-	
+
 	b.Run("Wrapped", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
@@ -397,7 +398,7 @@ func BenchmarkOverheadComparison(b *testing.B) {
 			reader.Close()
 		}
 	})
-	
+
 	b.Run("Wrapped_WithCallback", func(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {

@@ -41,32 +41,32 @@ import (
 var _ = Describe("Multi Constructor and Interface", func() {
 	Describe("New constructor", func() {
 		Context("creating a new Multi instance", func() {
-			It("should create a new Multi instance successfully", func() {
-				m := multi.New()
+			It("[TC-CT-001] should create a new Multi instance successfully", func() {
+				m := multi.New(false, false, multi.DefaultConfig())
 				Expect(m).NotTo(BeNil())
 			})
 
-			It("should implement Multi interface", func() {
-				m := multi.New()
+			It("[TC-CT-002] should implement Multi interface", func() {
+				m := multi.New(false, false, multi.DefaultConfig())
 				var _ multi.Multi = m
 				Expect(m).NotTo(BeNil())
 			})
 
-			It("should implement io.ReadWriteCloser", func() {
-				m := multi.New()
+			It("[TC-CT-002] should implement io.ReadWriteCloser", func() {
+				m := multi.New(false, false, multi.DefaultConfig())
 				var _ io.ReadWriteCloser = m
 				Expect(m).NotTo(BeNil())
 			})
 
-			It("should implement io.StringWriter", func() {
-				m := multi.New()
+			It("[TC-CT-002] should implement io.StringWriter", func() {
+				m := multi.New(false, false, multi.DefaultConfig())
 				var _ io.StringWriter = m
 				Expect(m).NotTo(BeNil())
 			})
 		})
 	})
 
-	Describe("DiscardCloser", func() {
+	Describe("[TC-CT-003] DiscardCloser", func() {
 		var d multi.DiscardCloser
 
 		BeforeEach(func() {

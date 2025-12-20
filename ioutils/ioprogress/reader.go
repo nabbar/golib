@@ -46,7 +46,7 @@ import (
 //   - r: 16 bytes (interface: pointer + type)
 //   - cr: 8 bytes (pointer to atomic.Int64)
 //   - fi, fe, fr: ~24 bytes each (atomic.Value with function pointer)
-//   Total: ~120 bytes per instance
+//     Total: ~120 bytes per instance
 //
 // Thread Safety: All fields except 'r' use atomic operations. The underlying reader 'r'
 // is accessed only through the Read() and Close() methods, and concurrent reads on the
@@ -102,8 +102,9 @@ func (r *rdr) Read(p []byte) (n int, err error) {
 // multiple times (idempotent).
 //
 // Typical Usage: Always defer Close() immediately after creating the wrapper:
-//   reader := ioprogress.NewReadCloser(file)
-//   defer reader.Close()  // Closes both wrapper and underlying file
+//
+//	reader := ioprogress.NewReadCloser(file)
+//	defer reader.Close()  // Closes both wrapper and underlying file
 func (r *rdr) Close() error {
 	return r.r.Close()
 }
@@ -252,17 +253,18 @@ func (r *rdr) finish() {
 // callback retrieval (atomic.Value.Load) and counter reading (atomic.Int64.Load).
 //
 // Example Use Case:
-//   reader.Reset(fileSize)  // Update progress bar with total size
-//   validateData(reader)    // First pass
-//   reader.Reset(fileSize)  // Update for second pass
-//   processData(reader)     // Second pass
+//
+//	reader.Reset(fileSize)  // Update progress bar with total size
+//	validateData(reader)    // First pass
+//	reader.Reset(fileSize)  // Update for second pass
+//	processData(reader)     // Second pass
 func (r *rdr) Reset(max int64) {
 	if r == nil {
 		// Defensive nil check
 		return
 	}
 
-	f := r.fr.Load()         // Atomic load of reset callback
+	f := r.fr.Load() // Atomic load of reset callback
 	if f != nil {
 		f(max, r.cr.Load()) // Invoke with max and current cumulative count
 	}

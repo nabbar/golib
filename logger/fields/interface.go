@@ -42,11 +42,11 @@ import (
 //  3. Key-value storage with various access patterns
 //
 // Thread Safety:
-// - Read operations (Get, Logrus, Walk) are thread-safe for concurrent access
-// - Single write operations (Add, Store, Delete, LoadOrStore, LoadAndDelete) are thread-safe
-//   thanks to the underlying sync.Map implementation
-// - Composite operations (Map, Merge, Clean) require external synchronization if used concurrently
-// - For concurrent composite operations, use Clone() to create independent instances per goroutine
+//   - Read operations (Get, Logrus, Walk) are thread-safe for concurrent access
+//   - Single write operations (Add, Store, Delete, LoadOrStore, LoadAndDelete) are thread-safe
+//     thanks to the underlying sync.Map implementation
+//   - Composite operations (Map, Merge, Clean) require external synchronization if used concurrently
+//   - For concurrent composite operations, use Clone() to create independent instances per goroutine
 //
 // Context Integration:
 // Fields fully implements context.Context, allowing it to participate in Go's cancellation

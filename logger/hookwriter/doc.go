@@ -325,20 +325,20 @@ IOUtils Aggregator:
 
 # Limitations
 
-1. Synchronous Writes: Hook writes are synchronous with log calls. Slow writers block logging.
-   Mitigation: Use aggregator package for async writes or buffered writers.
+ 1. Synchronous Writes: Hook writes are synchronous with log calls. Slow writers block logging.
+    Mitigation: Use aggregator package for async writes or buffered writers.
 
-2. No Write Retries: Failed writes return errors but don't retry or queue.
-   Mitigation: Use reliable writers or add retry logic in custom writers.
+ 2. No Write Retries: Failed writes return errors but don't retry or queue.
+    Mitigation: Use reliable writers or add retry logic in custom writers.
 
-3. No Buffer Management: Hook doesn't buffer or flush data.
-   Mitigation: Use bufio.Writer and call Flush() explicitly when needed.
+ 3. No Buffer Management: Hook doesn't buffer or flush data.
+    Mitigation: Use bufio.Writer and call Flush() explicitly when needed.
 
-4. No Compression: No built-in log compression or rotation.
-   Mitigation: Use external log rotation tools (logrotate) or writer wrappers.
+ 4. No Compression: No built-in log compression or rotation.
+    Mitigation: Use external log rotation tools (logrotate) or writer wrappers.
 
-5. Writer Lifecycle: Hook doesn't manage writer Close().
-   Mitigation: Caller must close writers when done. Not an issue - proper design.
+ 5. Writer Lifecycle: Hook doesn't manage writer Close().
+    Mitigation: Caller must close writers when done. Not an issue - proper design.
 
 # Best Practices
 

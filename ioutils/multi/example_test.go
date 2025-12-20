@@ -38,9 +38,9 @@ import (
 )
 
 // ExampleNew demonstrates the basic creation of a Multi instance.
-// This is the simplest usage pattern - creating the multiplexer.
+// This is the simplest usage pattern - creating the multi-writer.
 func ExampleNew() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 	fmt.Printf("Multi instance created: %T\n", m)
 	// Output:
 	// Multi instance created: *multi.mlt
@@ -49,7 +49,7 @@ func ExampleNew() {
 // Example_simpleWrite demonstrates writing to a single destination.
 // This is the most basic use case for broadcasting writes.
 func Example_simpleWrite() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var buf bytes.Buffer
 	m.AddWriter(&buf)
@@ -64,7 +64,7 @@ func Example_simpleWrite() {
 // Example_multipleWriters demonstrates broadcasting to multiple destinations.
 // Data is automatically replicated to all registered writers.
 func Example_multipleWriters() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var buf1, buf2, buf3 bytes.Buffer
 	m.AddWriter(&buf1, &buf2, &buf3)
@@ -83,7 +83,7 @@ func Example_multipleWriters() {
 // Example_writeString demonstrates using WriteString for efficient string writes.
 // This can be more efficient than Write for string data.
 func Example_writeString() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var buf bytes.Buffer
 	m.AddWriter(&buf)
@@ -98,7 +98,7 @@ func Example_writeString() {
 // Example_setInputAndRead demonstrates setting an input source and reading from it.
 // The input can be any io.ReadCloser.
 func Example_setInputAndRead() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	input := io.NopCloser(strings.NewReader("input data"))
 	m.SetInput(input)
@@ -114,7 +114,7 @@ func Example_setInputAndRead() {
 // Example_copy demonstrates copying from input to all outputs.
 // This is useful for replicating streams to multiple destinations.
 func Example_copy() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var buf1, buf2 bytes.Buffer
 	m.AddWriter(&buf1, &buf2)
@@ -137,9 +137,9 @@ func Example_copy() {
 }
 
 // Example_clean demonstrates removing all writers.
-// Useful for resetting the multiplexer or changing output destinations.
+// Useful for resetting the multi-writer or changing output destinations.
 func Example_clean() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var buf1 bytes.Buffer
 	m.AddWriter(&buf1)
@@ -161,7 +161,7 @@ func Example_clean() {
 // Example_replaceInput demonstrates changing the input source.
 // The input can be replaced at any time.
 func Example_replaceInput() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	input1 := io.NopCloser(strings.NewReader("first"))
 	m.SetInput(input1)
@@ -184,7 +184,7 @@ func Example_replaceInput() {
 // Example_dynamicWriters demonstrates adding writers dynamically.
 // Writers can be added at any time, even after data has been written.
 func Example_dynamicWriters() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var buf1 bytes.Buffer
 	m.AddWriter(&buf1)
@@ -204,7 +204,7 @@ func Example_dynamicWriters() {
 // Example_readerWriter demonstrates accessing the underlying reader and writer.
 // Direct access to reader/writer allows integration with standard io functions.
 func Example_readerWriter() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var buf bytes.Buffer
 	m.AddWriter(&buf)
@@ -223,10 +223,10 @@ func Example_readerWriter() {
 	// Copied 13 bytes: direct access
 }
 
-// Example_loggingMultiplexer demonstrates a practical use case:
+// Example_loggingMultiWriter demonstrates a practical use case:
 // logging to both console and file simultaneously.
-func Example_loggingMultiplexer() {
-	m := multi.New()
+func Example_loggingMultiWriter() {
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var fileBuffer bytes.Buffer // Simulating a file
 
@@ -244,7 +244,7 @@ func Example_loggingMultiplexer() {
 // Example_streamReplication demonstrates replicating an input stream
 // to multiple outputs, useful for data pipelines.
 func Example_streamReplication() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var processed, archived, backup bytes.Buffer
 	m.AddWriter(&processed, &archived, &backup)
@@ -268,7 +268,7 @@ func Example_streamReplication() {
 // Example_conditionalWriters demonstrates dynamically managing writers
 // based on conditions, useful for selective logging or output routing.
 func Example_conditionalWriters() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var normalLog, errorLog bytes.Buffer
 
@@ -293,7 +293,7 @@ func Example_conditionalWriters() {
 // Example_mixedOperations demonstrates a complex scenario combining
 // multiple features: reading, writing, copying, and managing destinations.
 func Example_mixedOperations() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	var primary, secondary bytes.Buffer
 
@@ -320,7 +320,7 @@ func Example_mixedOperations() {
 // Example_closeInput demonstrates proper resource management by closing
 // the input source when done.
 func Example_closeInput() {
-	m := multi.New()
+	m := multi.New(false, false, multi.DefaultConfig())
 
 	input := io.NopCloser(strings.NewReader("data"))
 	m.SetInput(input)

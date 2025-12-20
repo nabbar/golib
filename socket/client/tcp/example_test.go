@@ -335,12 +335,12 @@ func ExampleClientTCP_RegisterFuncInfo() {
 	// Collect states in order
 	time.Sleep(10 * time.Millisecond)
 	close(states)
-	
+
 	var collected []string
 	for s := range states {
 		collected = append(collected, s)
 	}
-	
+
 	// Print in consistent order
 	for _, s := range collected {
 		fmt.Printf("Connection state: %s\n", s)

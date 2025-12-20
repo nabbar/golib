@@ -48,17 +48,18 @@ The package consists of two main components:
 1. Closer Interface: The public API providing Add, Get, Clean, Clone, and Close operations.
 
 2. closer Implementation: Internal structure using:
-   - atomic.Bool for closed state tracking
-   - atomic.Uint64 for counter management
-   - github.com/nabbar/golib/context.Config for thread-safe storage
-   - context cancellation function for lifecycle control
+  - atomic.Bool for closed state tracking
+  - atomic.Uint64 for counter management
+  - github.com/nabbar/golib/context.Config for thread-safe storage
+  - context cancellation function for lifecycle control
 
 Data Flow:
-  Context Created → New(ctx) → Background Goroutine Monitors Context
-                                     ↓
-                              Add closers dynamically
-                                     ↓
-                    Context Done OR Close() → Close All Resources
+
+	Context Created → New(ctx) → Background Goroutine Monitors Context
+	                                   ↓
+	                            Add closers dynamically
+	                                   ↓
+	                  Context Done OR Close() → Close All Resources
 
 # Advantages
 

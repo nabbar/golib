@@ -24,18 +24,36 @@
  *
  */
 
-package delim
+package multi
 
-import "fmt"
+// Config defines configuration for adaptive writer behavior.
+type Config struct {
+	// SampleWrite is the number of write operations to sample before evaluating mode switch.
+	// Default: 100
+	SampleWrite int
 
-// ErrInstance is returned when operations are attempted on an invalid or closed BufferDelim instance.
-// This error typically occurs when:
-//   - Calling methods on a nil BufferDelim
-//   - Calling methods after Close() has been called
-//   - The internal buffer has been invalidated
-//
-// When you receive this error, the BufferDelim instance should be discarded and a new one created if needed.
-var (
-	ErrInstance   = fmt.Errorf("invalid buffer delim instance")
-	ErrBufferFull = fmt.Errorf("buffer is full and delimiter not found")
-)
+	// ThresholdLatency is the latency threshold in nanoseconds above which parallel mode is enabled.
+	// If average write latency exceeds this value, the writer switches to parallel mode.
+	// Default: 5000 (5µs)
+	ThresholdLatency int64
+
+	// MinimalWriter is the minimum number of writers required to consider parallel mode.
+	// Parallel mode is only enabled if writer count >= MinimalWriter.
+	// Default: 3
+	MinimalWriter int
+
+	// MinimalSize is the minimum data size in bytes that justifies parallel writes.
+	// Parallel mode is only used if data size >= MinimalSize.
+	// Default: 512 bytes
+	MinimalSize int
+}
+
+// DefaultConfig returns default adaptive configuration based on benchmark results.
+func DefaultConfig() Config {
+	return Config{
+		SampleWrite:      100,
+		ThresholdLatency: 5000, // 5µs
+		MinimalWriter:    3,
+		MinimalSize:      512,
+	}
+}

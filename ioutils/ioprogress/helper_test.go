@@ -45,10 +45,11 @@ import (
 // Thread Safety: Not thread-safe. Each test should create its own instance.
 //
 // Usage:
-//   reader := newCloseableReader("test data")
-//   defer reader.Close()
-//   // ... perform operations
-//   Expect(reader.closed).To(BeTrue())  // Verify Close() was called
+//
+//	reader := newCloseableReader("test data")
+//	defer reader.Close()
+//	// ... perform operations
+//	Expect(reader.closed).To(BeTrue())  // Verify Close() was called
 type closeableReader struct {
 	*strings.Reader
 	closed bool // Tracks whether Close() has been called
@@ -90,11 +91,12 @@ func newCloseableReader(s string) *closeableReader {
 // Thread Safety: Not thread-safe. Each test should create its own instance.
 //
 // Usage:
-//   writer := newCloseableWriter()
-//   defer writer.Close()
-//   writer.Write([]byte("data"))
-//   Expect(writer.String()).To(Equal("data"))  // Verify written content
-//   Expect(writer.closed).To(BeTrue())         // Verify Close() was called
+//
+//	writer := newCloseableWriter()
+//	defer writer.Close()
+//	writer.Write([]byte("data"))
+//	Expect(writer.String()).To(Equal("data"))  // Verify written content
+//	Expect(writer.closed).To(BeTrue())         // Verify Close() was called
 type closeableWriter struct {
 	*bytes.Buffer
 	closed bool // Tracks whether Close() has been called
@@ -132,9 +134,10 @@ func newCloseableWriter() *closeableWriter {
 // Thread Safety: Depends on the underlying Writer.
 //
 // Usage:
-//   var buf bytes.Buffer
-//   writer := &nopWriteCloser{Writer: &buf}
-//   defer writer.Close()  // No-op
+//
+//	var buf bytes.Buffer
+//	writer := &nopWriteCloser{Writer: &buf}
+//	defer writer.Close()  // No-op
 type nopWriteCloser struct {
 	io.Writer
 }

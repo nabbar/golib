@@ -47,6 +47,7 @@ func (o *progress) RegisterFctIncrement(fct FctIncrement) {
 // is reset (e.g., via Seek or Truncate operations). The callback receives two parameters:
 //   - size: the maximum size of the file
 //   - current: the current position after the reset
+//
 // If fct is nil, a no-op function is registered.
 // The callback is stored atomically and can be safely called from concurrent goroutines.
 func (o *progress) RegisterFctReset(fct FctReset) {

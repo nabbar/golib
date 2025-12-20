@@ -76,24 +76,24 @@ Build tags ensure that only the appropriate implementation is compiled for each 
 
 The SystemFileDescriptor function follows this decision tree:
 
-	1. Query current limits via platform-specific syscall
-	   │
-	   ├─ Unix/Linux/macOS: syscall.Getrlimit(RLIMIT_NOFILE)
-	   └─ Windows: maxstdio.GetMaxStdio()
-	   │
-	2. If newValue <= 0 or newValue <= current
-	   └─ Return current limits (no modification)
-	   │
-	3. If newValue > current
-	   ├─ Unix: Attempt syscall.Setrlimit()
-	   │   ├─ Success if newValue <= hard limit (no privileges needed)
-	   │   └─ Requires root if newValue > hard limit
-	   │
-	   └─ Windows: Attempt maxstdio.SetMaxStdio()
-	       ├─ Auto-cap at 8192 (Windows hard limit)
-	       └─ No privileges required
-	   │
-	4. Return new limits or error
+ 1. Query current limits via platform-specific syscall
+    │
+    ├─ Unix/Linux/macOS: syscall.Getrlimit(RLIMIT_NOFILE)
+    └─ Windows: maxstdio.GetMaxStdio()
+    │
+ 2. If newValue <= 0 or newValue <= current
+    └─ Return current limits (no modification)
+    │
+ 3. If newValue > current
+    ├─ Unix: Attempt syscall.Setrlimit()
+    │   ├─ Success if newValue <= hard limit (no privileges needed)
+    │   └─ Requires root if newValue > hard limit
+    │
+    └─ Windows: Attempt maxstdio.SetMaxStdio()
+    ├─ Auto-cap at 8192 (Windows hard limit)
+    └─ No privileges required
+    │
+ 4. Return new limits or error
 
 # Platform Behavior Comparison
 

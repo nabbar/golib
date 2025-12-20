@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +42,40 @@ delimiter and provides more control over the reading process.
   - Zero-copy operations where possible
   - Memory-efficient chunk processing
   - Thread-safe when used correctly (one goroutine per instance)
+
+# Architecture
+
+The package follows a layered architecture to provide efficient, buffered reading with custom delimiters.
+
+	┌────────────────────────────────────────────────┐
+	│           BufferDelim Interface                │
+	│  io.ReadCloser + io.WriterTo + Custom Methods  │
+	└──────────┬─────────────────────────────────────┘
+	           │
+	┌──────────▼────────────────────────┐
+	│        dlm Implementation         │
+	│                                   │
+	│  ┌──────────────────────────────┐ │
+	│  │  io.ReadCloser (source)      │ │
+	│  └──────────────────────────────┘ │
+	│              │                    │
+	│              ▼                    │
+	│  ┌──────────────────────────────┐ │
+	│  │  Internal Buffer             │ │
+	│  └──────────────────────────────┘ │
+	│              │                    │
+	│              ▼                    │
+	│     delimiter detection           │
+	│              │                    │
+	│              ▼                    │
+	│     chunk extraction              │
+	└───────────────────────────────────┘
+
+Component Characteristics:
+
+	BufferDelim:   O(1) memory, Simple API, Thread-safe per instance
+	dlm:           O(1) memory, Internal logic, Thread-safe per instance
+	DiscardCloser: O(1) memory, Minimal logic, Always thread-safe
 
 # Basic Usage
 
@@ -84,10 +118,10 @@ ReadBytes() - Returns the next delimited chunk as a byte slice
 	chunk, err := bd.ReadBytes()
 	// chunk includes the delimiter
 
-UnRead() - Peeks at buffered but unread data
+UnRead() - Returns buffered but unread data (consumes buffer)
 
 	buffered, err := bd.UnRead()
-	// Data remains in buffer for next Read
+	// Data is removed from buffer for next Read
 
 # Writing Methods
 
@@ -97,7 +131,7 @@ BufferDelim also implements io.WriterTo for efficient copying:
 	defer outputFile.Close()
 
 	written, err := bd.WriteTo(outputFile)
-	fmt.Printf("Copied %d bytes\n", written)
+	fmt.Printf("Copied %r bytes\n", written)
 
 # Common Use Cases
 
@@ -148,7 +182,7 @@ Buffer Size:
 The sizeBufferRead parameter in New() controls the internal buffer size.
 Larger buffers can improve performance when reading large data chunks:
 
-	// Default buffer (4096 bytes)
+	// Default buffer (32KB)
 	bd := delim.New(reader, '\n', 0)
 
 	// Large buffer for high-throughput scenarios
@@ -189,10 +223,40 @@ useful for testing and benchmarking:
 	n, _ := dc.Write([]byte("test"))  // n == 4, data discarded
 	n, _ = dc.Read(buf)               // n == 0, immediate EOF
 
+# Best Practices
+
+  - Always close the BufferDelim instance to release resources.
+  - Use the default buffer size (0) for most use cases unless profiling indicates a bottleneck.
+  - For high-throughput scenarios with large records, consider using a larger buffer (e.g., 64KB).
+  - Ensure thread safety by using one BufferDelim instance per goroutine.
+  - Check for io.EOF to detect the end of the stream gracefully.
+  - For comprehensive testing examples and guidelines, refer to the TESTING.md file.
+
+# API Reference
+
+The main interface is BufferDelim, which combines io.ReadCloser and io.WriterTo with custom delimiter methods.
+
+	type BufferDelim interface {
+	    io.ReadCloser
+	    io.WriterTo
+	    Delim() rune
+	    Reader() io.ReadCloser
+	    Copy(w io.Writer) (n int64, err error)
+	    ReadBytes() ([]byte, error)
+	    UnRead() ([]byte, error)
+	}
+
+Key Functions:
+  - New(r io.ReadCloser, delim rune, sizeBufferRead size.Size) BufferDelim
+
+Error Handling:
+  - ErrInstance: Returned when accessing a closed or invalid instance.
+  - io.EOF: Returned when the stream ends.
+
 # Related Packages
 
   - github.com/nabbar/golib/size - Convenient size constants (KiB, MiB, etc.)
-  - bufio - Standard library buffered I/O (delim builds upon this)
+  - bufio - Standard library buffered I/O (delim provides similar functionality but with custom delimiters)
   - io - Standard library I/O interfaces
 
 # Concurrency

@@ -28,8 +28,9 @@ package multi
 
 import (
 	"io"
-	"sync"
 	"sync/atomic"
+
+	libatm "github.com/nabbar/golib/atomic"
 )
 
 // mlt is the concrete implementation of the Multi interface.
@@ -45,31 +46,20 @@ import (
 //   - Input readers are always wrapped in readerWrapper
 //   - Output writers always use io.MultiWriter, even for single writers or io.Discard
 type mlt struct {
-	i *atomic.Value // Input reader (stored as *readerWrapper)
-	d *atomic.Value // Output writer (stored as io.Writer from io.MultiWriter)
-	c *atomic.Int64 // Counter for writer keys
-	w sync.Map      // Map of registered writers
+	i libatm.Value[*readerWrapper]      // Input reader (stored as *readerWrapper)
+	d libatm.Value[*writeWrapper]       // Output writer (stored as io.Writer from io.MultiWriter)
+	c *atomic.Int64                     // Counter for writer keys
+	w libatm.MapTyped[int64, io.Writer] // Map of registered writers
+	g Config                            // Adaptive configuration parameters
+
+	// Performance tracking for adaptive mode
+	adp *atomic.Bool  // False=sequential/parallel sticky, True=adaptive mode
+	par *atomic.Bool  // False=sequential, True=parallel
+	lst *atomic.Int64 // Last known writer count
 }
 
-// readerWrapper wraps an io.ReadCloser to maintain type consistency in atomic.Value.
-//
-// atomic.Value requires that all stored values have the same concrete type.
-// By wrapping all readers in readerWrapper, we ensure this constraint is met
-// even when different io.ReadCloser implementations are used.
-type readerWrapper struct {
-	io.ReadCloser
-}
-
-// AddWriter adds one or more writers to the multiplexer.
-// All subsequent write operations will be broadcast to these writers.
-//
-// Implementation notes:
-//   - Nil writers are skipped
-//   - Writers are stored with unique keys in a sync.Map
-//   - A new io.MultiWriter is created encompassing all registered writers
-//   - The MultiWriter is stored atomically to ensure thread-safe access
-//
-// Thread-safety: This method is safe for concurrent use.
+// AddWriter adds one or more io.Writer destinations to the multi-writer.
+// Nil writers are silently skipped. Thread-safe for concurrent use.
 func (o *mlt) AddWriter(w ...io.Writer) {
 	for _, wrt := range w {
 		if wrt != nil {
@@ -77,181 +67,139 @@ func (o *mlt) AddWriter(w ...io.Writer) {
 		}
 	}
 
-	var l = make([]io.Writer, 0)
+	o.update()
+}
 
-	o.w.Range(func(key, value any) bool {
-		if value != nil {
-			if v, k := value.(io.Writer); k {
-				l = append(l, v)
-			}
+// Clean removes all registered writers from the multi-writer.
+// After Clean, writes will be discarded until new writers are added.
+func (o *mlt) Clean() {
+	o.w.Range(func(k int64, v io.Writer) bool {
+		o.w.Delete(k)
+		return true
+	})
+	o.update()
+}
+
+// update rebuilds the internal writer based on current mode and registered writers.
+// Creates either a sequential or parallel writer wrapper depending on the current mode.
+func (o *mlt) update() {
+	var (
+		l = make([]io.Writer, 0)
+		c = int64(0)
+	)
+	o.w.Range(func(k int64, v io.Writer) bool {
+		if v != nil {
+			c++
+			l = append(l, v)
 		}
 		return true
 	})
 
-	// Always use MultiWriter to maintain consistent type in atomic.Value.
-	// This ensures atomic.Value never stores different concrete types,
-	// which would cause a panic.
-	if len(l) < 1 {
-		o.d.Store(io.MultiWriter(io.Discard))
+	if o.par.Load() {
+		o.d.Store(newWritePar(int64(o.g.SampleWrite), o.check, o.g.MinimalSize, l...))
 	} else {
-		o.d.Store(io.MultiWriter(l...))
-	}
-}
-
-// Clean removes all registered writers and resets to io.Discard.
-// After calling Clean, all write operations will discard data until
-// new writers are added via AddWriter.
-//
-// Implementation notes:
-//   - Atomically sets the writer to io.MultiWriter(io.Discard)
-//   - Collects all keys from sync.Map and deletes them
-//   - Resets the writer counter to 0
-//
-// Thread-safety: This method is safe for concurrent use.
-func (o *mlt) Clean() {
-	o.d.Store(io.MultiWriter(io.Discard))
-
-	var keys = make([]any, 0)
-
-	o.w.Range(func(key, value any) bool {
-		keys = append(keys, key)
-		return true
-	})
-
-	for _, k := range keys {
-		o.w.Delete(k)
+		o.d.Store(newWriteSeq(int64(o.g.SampleWrite), o.check, l...))
 	}
 
-	o.c.Store(0)
+	o.lst.Store(c)
 }
 
-// SetInput sets the input source for read operations.
-// If i is nil, it defaults to DiscardCloser which returns 0 bytes on reads.
-//
-// Implementation notes:
-//   - The input is wrapped in readerWrapper for type consistency
-//   - The wrapped input is stored atomically
-//   - Previous input is not automatically closed; caller must manage lifecycle
-//
-// Thread-safety: This method is safe for concurrent use, though the underlying
-// io.ReadCloser itself may not support concurrent reads.
-func (o *mlt) SetInput(i io.ReadCloser) {
-	if o == nil {
+// check evaluates write latency and switches between sequential and parallel modes
+// in adaptive mode. Only active when adaptive mode is enabled.
+func (o *mlt) check(lat int64) {
+	if !o.adp.Load() {
 		return
-	} else if i == nil {
-		i = DiscardCloser{}
 	}
 
+	var (
+		p = o.par.Load()
+		c = o.lst.Load()
+	)
+
+	if p {
+		if lat < o.g.ThresholdLatency {
+			o.par.Store(false)
+			o.update()
+		}
+	} else if c >= int64(o.g.MinimalWriter) {
+		if lat > o.g.ThresholdLatency {
+			o.par.Store(true)
+			o.update()
+		}
+	}
+}
+
+// SetInput sets or replaces the input source for read operations.
+// If i is nil, a DiscardCloser is used as default. Closes the previous reader if any.
+func (o *mlt) SetInput(i io.Reader) {
 	// Wrap in readerWrapper to maintain consistent type in atomic.Value
-	o.i.Store(&readerWrapper{ReadCloser: i})
+	l := o.i.Swap(newReadWrapper(i))
+
+	if l == nil {
+		return
+	}
+
+	_ = l.Close()
 }
 
-// Writer returns the current output writer.
-// This is typically an io.MultiWriter combining all registered writers,
-// or io.MultiWriter(io.Discard) if no writers have been added.
-//
-// The returned Writer can be used directly for io.Copy or other operations.
-// Changes to registered writers via AddWriter or Clean will not affect
-// the returned Writer - call Writer() again to get the updated writer.
+// IsParallel reports whether the Multi is currently in parallel write mode.
+func (o *mlt) IsParallel() bool {
+	return o.par.Load()
+}
+
+// IsSequential reports whether the Multi is currently in sequential write mode.
+func (o *mlt) IsSequential() bool {
+	return !o.par.Load()
+}
+
+// IsAdaptive reports whether the Multi is in adaptive mode.
+func (o *mlt) IsAdaptive() bool {
+	return o.adp.Load()
+}
+
+// Writer returns the current write destination wrapper.
 func (o *mlt) Writer() io.Writer {
-	return o.d.Load().(io.Writer)
+	return o.d.Load()
 }
 
-// Reader returns the current input source.
-// Returns the io.ReadCloser set via SetInput, or DiscardCloser if none was set.
-//
-// The returned ReadCloser can be used directly for io.Copy or other operations.
+// Reader returns the current input source reader.
 func (o *mlt) Reader() io.ReadCloser {
-	w := o.i.Load().(*readerWrapper)
-	return w.ReadCloser
+	return o.i.Load()
 }
 
 // Copy copies data from the input source to all registered writers.
-// It's a convenience wrapper around io.Copy(o.Writer(), o.Reader()).
-//
 // Returns the number of bytes copied and any error encountered.
-// The copy operation stops at EOF or the first write error.
-//
-// Note: If the underlying reader supports WriteTo or the writer supports
-// ReadFrom, io.Copy may use those for optimization.
 func (o *mlt) Copy() (n int64, err error) {
 	return io.Copy(o.Writer(), o.Reader())
 }
 
-// Read implements io.Reader by reading from the current input source.
-//
-// Returns:
-//   - The number of bytes read and any error from the underlying reader
-//   - ErrInstance if the internal state is invalid (should not occur normally)
-//
-// The behavior matches the semantics of the underlying io.ReadCloser's Read method.
+// Read reads data from the input source into p.
+// Implements io.Reader interface.
 func (o *mlt) Read(p []byte) (n int, err error) {
-	if i := o.i.Load(); i == nil {
-		return 0, ErrInstance
-	} else if w, ok := i.(*readerWrapper); !ok {
-		return 0, ErrInstance
-	} else if w.ReadCloser == nil {
-		return 0, ErrInstance
-	} else {
-		return w.Read(p)
-	}
+	return o.i.Load().Read(p)
 }
 
-// Write implements io.Writer by broadcasting data to all registered writers.
-//
-// Returns:
-//   - The number of bytes written (matches len(p) on success)
-//   - Any error from the underlying io.MultiWriter
-//   - ErrInstance if the internal state is invalid (should not occur normally)
-//
-// All writes are performed atomically to the current set of writers.
-// If any writer returns an error, the error is returned immediately.
+// Write writes data to all registered writers.
+// Implements io.Writer interface.
 func (o *mlt) Write(p []byte) (n int, err error) {
-	if i := o.d.Load(); i == nil {
-		return 0, ErrInstance
-	} else if v, k := i.(io.Writer); !k {
-		return 0, ErrInstance
-	} else {
-		return v.Write(p)
-	}
+	return o.d.Load().Write(p)
 }
 
-// WriteString implements io.StringWriter by broadcasting the string to all registered writers.
-//
-// This method uses io.WriteString which may be more efficient than Write
-// if the underlying writers implement io.StringWriter.
-//
-// Returns:
-//   - The number of bytes written (matches len(s) on success)
-//   - Any error from the underlying writers
-//   - ErrInstance if the internal state is invalid (should not occur normally)
+// WriteString writes a string to all registered writers.
+// Implements io.StringWriter interface.
 func (o *mlt) WriteString(s string) (n int, err error) {
-	if i := o.d.Load(); i == nil {
-		return 0, ErrInstance
-	} else if v, k := i.(io.Writer); !k {
-		return 0, ErrInstance
-	} else {
-		return io.WriteString(v, s)
-	}
+	return o.Write([]byte(s))
 }
 
-// Close implements io.Closer by closing the current input source.
-//
-// This method closes the reader set via SetInput. It does NOT close
-// any of the registered writers - those remain open and usable.
-//
-// Returns:
-//   - Any error from closing the underlying reader
-//   - ErrInstance if the internal state is invalid (should not occur normally)
-//   - nil if the close succeeds or if using DiscardCloser
+// Close closes the input reader and cleans up all writers.
+// Implements io.Closer interface.
 func (o *mlt) Close() error {
-	if i := o.i.Load(); i == nil {
-		return ErrInstance
-	} else if w, ok := i.(*readerWrapper); !ok {
-		return ErrInstance
-	} else if w.ReadCloser == nil {
-		return ErrInstance
-	} else {
-		return w.Close()
-	}
+	e := o.i.Load().Close()
+	o.d.Store(newWriteSeq(0, nil))
+	o.w.Range(func(k int64, v io.Writer) bool {
+		o.w.Delete(k)
+		return true
+	})
+	o.c.Store(0)
+	return e
 }

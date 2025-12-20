@@ -234,7 +234,7 @@ var _ = Describe("UDP Client Callbacks", func() {
 
 			// Write and read with echo server
 			_, _ = cli.Write([]byte("test"))
-			
+
 			// Read with timeout in goroutine to avoid blocking
 			done := make(chan struct{})
 			go func() {

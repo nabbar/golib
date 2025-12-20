@@ -189,9 +189,9 @@ func (o *sCtx) Value(key any) any {
 // Returns:
 //   - n: Number of bytes read (0 if error occurred before reading)
 //   - err: Error if any occurred:
-//     * io.ErrClosedPipe: Connection was already closed or is nil
-//     * Context error: Context was cancelled or deadline exceeded
-//     * Network errors: Any error from the underlying UDP socket
+//   - io.ErrClosedPipe: Connection was already closed or is nil
+//   - Context error: Context was cancelled or deadline exceeded
+//   - Network errors: Any error from the underlying UDP socket
 //
 // Behavior:
 //   - Returns immediately with io.ErrClosedPipe if connection is closed
@@ -257,12 +257,14 @@ func (o *sCtx) Read(p []byte) (n int, err error) {
 //   - Forces explicit handling of remote address per datagram
 //
 // Alternative:
-//   To send responses, the handler should use the underlying *net.UDPConn
-//   with WriteTo() method, specifying the remote address explicitly.
+//
+//	To send responses, the handler should use the underlying *net.UDPConn
+//	with WriteTo() method, specifying the remote address explicitly.
 //
 // Note:
-//   This is a design choice for safety. Client-side UDP contexts may
-//   implement Write() differently with a persistent remote address.
+//
+//	This is a design choice for safety. Client-side UDP contexts may
+//	implement Write() differently with a persistent remote address.
 func (o *sCtx) Write(p []byte) (n int, err error) {
 	if o == nil {
 		return 0, io.ErrClosedPipe
@@ -284,11 +286,11 @@ func (o *sCtx) Write(p []byte) (n int, err error) {
 //   - error: Any error from closing the underlying UDP connection, or nil
 //
 // Behavior:
-//   1. Cancels the context (triggers Done() channel)
-//   2. Marks connection as closed atomically
-//   3. Closes the underlying UDP socket
-//   4. Safe to call multiple times (idempotent)
-//   5. Safe to call from multiple goroutines (only first call does work)
+//  1. Cancels the context (triggers Done() channel)
+//  2. Marks connection as closed atomically
+//  3. Closes the underlying UDP socket
+//  4. Safe to call multiple times (idempotent)
+//  5. Safe to call from multiple goroutines (only first call does work)
 //
 // Side Effects:
 //   - Context's Done() channel is closed
@@ -297,14 +299,15 @@ func (o *sCtx) Write(p []byte) (n int, err error) {
 //   - UDP socket resources are released to OS
 //
 // Thread Safety:
-//   This method is safe to call concurrently from multiple goroutines.
-//   Only the first call will perform actual cleanup; subsequent calls
-//   are no-ops returning nil.
+//
+//	This method is safe to call concurrently from multiple goroutines.
+//	Only the first call will perform actual cleanup; subsequent calls
+//	are no-ops returning nil.
 //
 // Example:
 //
 //	defer ctx.Close() // Always close to avoid resource leaks
-//	
+//
 //	if err := ctx.Close(); err != nil {
 //	    log.Printf("Error closing connection: %v", err)
 //	}
@@ -335,11 +338,13 @@ func (o *sCtx) Close() error {
 // It does not perform any I/O operations, making it very fast.
 //
 // Thread Safety:
-//   Safe to call from multiple goroutines.
+//
+//	Safe to call from multiple goroutines.
 //
 // Note:
-//   For UDP servers, "connected" means the socket is open, not that
-//   there's an active connection to a remote peer (UDP is connectionless).
+//
+//	For UDP servers, "connected" means the socket is open, not that
+//	there's an active connection to a remote peer (UDP is connectionless).
 //
 // Example:
 //
@@ -362,12 +367,14 @@ func (o *sCtx) IsConnected() bool {
 //   - "" if connection is nil or has no remote address
 //
 // UDP-Specific Behavior:
-//   For UDP servers, RemoteAddr() may be nil or zero-valued because UDP
-//   is connectionless. The remote address is only known per-datagram when
-//   using ReadFrom().
+//
+//	For UDP servers, RemoteAddr() may be nil or zero-valued because UDP
+//	is connectionless. The remote address is only known per-datagram when
+//	using ReadFrom().
 //
 // Thread Safety:
-//   Safe to call from multiple goroutines.
+//
+//	Safe to call from multiple goroutines.
 //
 // Example:
 //
@@ -399,7 +406,8 @@ func (o *sCtx) RemoteHost() string {
 // The local address is cached at connection creation time for performance.
 //
 // Thread Safety:
-//   Safe to call from multiple goroutines (reads immutable cached value).
+//
+//	Safe to call from multiple goroutines (reads immutable cached value).
 //
 // Example:
 //

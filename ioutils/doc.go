@@ -92,17 +92,17 @@ Benchmarks show:
 # Limitations
 
 1. Platform Dependencies:
-   - Permission handling varies between Unix and Windows
-   - File descriptor operations may require OS-specific handling
-   - Some permissions (e.g., write-only on Windows) have limited support
+  - Permission handling varies between Unix and Windows
+  - File descriptor operations may require OS-specific handling
+  - Some permissions (e.g., write-only on Windows) have limited support
 
 2. Concurrency:
-   - PathCheckCreate is not atomic for the same path across goroutines
-   - Subpackages provide their own concurrency guarantees
+  - PathCheckCreate is not atomic for the same path across goroutines
+  - Subpackages provide their own concurrency guarantees
 
 3. Error Handling:
-   - Does not use panic; all errors must be explicitly handled
-   - Some operations may partially succeed before returning an error
+  - Does not use panic; all errors must be explicitly handled
+  - Some operations may partially succeed before returning an error
 
 # Common Use Cases
 
@@ -112,7 +112,7 @@ Application Initialization:
 	if err := ioutils.PathCheckCreate(false, "/var/app/data", 0644, 0755); err != nil {
 	    return fmt.Errorf("data dir: %w", err)
 	}
-	
+
 	// Create log file with proper permissions
 	if err := ioutils.PathCheckCreate(true, "/var/log/app.log", 0644, 0755); err != nil {
 	    return fmt.Errorf("log file: %w", err)
@@ -126,7 +126,7 @@ Configuration Management:
 	    "/etc/app/config/plugins",
 	    "/etc/app/config/templates",
 	}
-	
+
 	for _, path := range configPaths {
 	    if err := ioutils.PathCheckCreate(false, path, 0644, 0750); err != nil {
 	        return err
@@ -140,7 +140,7 @@ Log File Rotation:
 	if err := ioutils.PathCheckCreate(false, logDir, 0644, 0755); err != nil {
 	    return err
 	}
-	
+
 	// Create new log file
 	if err := ioutils.PathCheckCreate(true, logPath, 0644, 0755); err != nil {
 	    return err
@@ -190,7 +190,7 @@ When migrating from os package functions:
 	if err := os.MkdirAll(path, 0755); err != nil {
 	    return err
 	}
-	
+
 	// After - also handles permission updates
 	if err := ioutils.PathCheckCreate(false, path, 0644, 0755); err != nil {
 	    return err

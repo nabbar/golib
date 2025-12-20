@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -57,555 +57,324 @@ import (
 
 var _ = Describe("BufferDelim Benchmarks", func() {
 	Describe("Read performance", func() {
-		It("should efficiently read small chunks", func() {
-			experiment := gmeasure.NewExperiment("Read small chunks")
+		It("should efficiently read with Read", func() {
+			data := strings.Repeat(strings.Repeat("x", 1023)+"\n", 20480)
+			fctBytes := func(r iotdlm.BufferDelim, size int) {
+				defer GinkgoRecover()
+				defer func() {
+					_ = r.Close()
+				}()
+
+				buf := make([]byte, size) // Small read buffer
+				for {
+					_, err := r.Read(buf)
+					if err == io.EOF {
+						break
+					}
+				}
+			}
+
+			experiment := gmeasure.NewExperiment("Read 20MB data")
 			AddReportEntry(experiment.Name, experiment)
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("read-small", func() {
-					data := strings.Repeat("small line\n", 100)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
+			experiment.SampleDuration("128B Buffer Read", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(data)), '\n', 32*libsiz.SizeKilo, false), 128)
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-					buf := make([]byte, 100)
-					for {
-						_, err := bd.Read(buf)
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 20, Duration: 0})
-		})
+			experiment.SampleDuration("1KB Buffer Read", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(data)), '\n', 32*libsiz.SizeKilo, false), 1024)
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-		It("should efficiently read medium chunks", func() {
-			experiment := gmeasure.NewExperiment("Read medium chunks")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("read-medium", func() {
-					data := strings.Repeat("medium length line with more content\n", 500)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					buf := make([]byte, 200)
-					for {
-						_, err := bd.Read(buf)
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 20, Duration: 0})
-		})
-
-		It("should efficiently read large chunks", func() {
-			experiment := gmeasure.NewExperiment("Read large chunks")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("read-large", func() {
-					data := strings.Repeat(strings.Repeat("x", 1000)+"\n", 100)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					buf := make([]byte, 2000)
-					for {
-						_, err := bd.Read(buf)
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 20, Duration: 0})
+			experiment.SampleDuration("4KB Buffer Read", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(data)), '\n', 32*libsiz.SizeKilo, false), 4*1024)
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 		})
 	})
 
 	Describe("ReadBytes performance", func() {
-		It("should efficiently read with ReadBytes - small data", func() {
-			experiment := gmeasure.NewExperiment("ReadBytes small data")
+		It("should efficiently read with ReadBytes", func() {
+			dataSmall := strings.Repeat(strings.Repeat("x", 127)+"\n", 20480)
+			dataMedium := strings.Repeat(strings.Repeat("x", 1023)+"\n", 20480)
+			dataLarge := strings.Repeat(strings.Repeat("x", 4095)+"\n", 20480)
+			fctBytes := func(r iotdlm.BufferDelim) {
+				defer GinkgoRecover()
+				defer func() {
+					_ = r.Close()
+				}()
+
+				for {
+					_, err := r.ReadBytes()
+					if err == io.EOF {
+						break
+					}
+				}
+			}
+
+			experiment := gmeasure.NewExperiment("ReadBytes 20480 chunks")
 			AddReportEntry(experiment.Name, experiment)
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("readbytes-small", func() {
-					data := strings.Repeat("line\n", 1000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
+			experiment.SampleDuration("Chunk of 128B", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(dataSmall)), '\n', 32*libsiz.SizeKilo, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 20, Duration: 0})
-		})
+			experiment.SampleDuration("Chunk of 1KB", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(dataMedium)), '\n', 32*libsiz.SizeKilo, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-		It("should efficiently read with ReadBytes - medium data", func() {
-			experiment := gmeasure.NewExperiment("ReadBytes medium data")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("readbytes-medium", func() {
-					data := strings.Repeat(strings.Repeat("x", 100)+"\n", 500)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 20, Duration: 0})
-		})
-
-		It("should efficiently read with ReadBytes - large data", func() {
-			experiment := gmeasure.NewExperiment("ReadBytes large data")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("readbytes-large", func() {
-					data := strings.Repeat(strings.Repeat("x", 1000)+"\n", 100)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 20, Duration: 0})
+			experiment.SampleDuration("Chunk of 4KB", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(dataLarge)), '\n', 32*libsiz.SizeKilo, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 		})
 	})
 
 	Describe("WriteTo performance", func() {
-		It("should efficiently write small data", func() {
-			experiment := gmeasure.NewExperiment("WriteTo small data")
+		It("should efficiently write with WriteTo", func() {
+			dataSmall := strings.Repeat(strings.Repeat("x", 127)+"\n", 20480)
+			dataMedium := strings.Repeat(strings.Repeat("x", 1023)+"\n", 20480)
+			dataLarge := strings.Repeat(strings.Repeat("x", 4095)+"\n", 20480)
+			fctBytes := func(r iotdlm.BufferDelim) {
+				defer GinkgoRecover()
+				defer func() {
+					_ = r.Close()
+				}()
+				_, _ = r.WriteTo(&bytes.Buffer{})
+			}
+
+			experiment := gmeasure.NewExperiment("WriteTo 20480 chunks")
 			AddReportEntry(experiment.Name, experiment)
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("writeto-small", func() {
-					data := strings.Repeat("line\n", 1000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
+			experiment.SampleDuration("Chunk of 128B", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(dataSmall)), '\n', 32*libsiz.SizeKilo, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-					buf := &bytes.Buffer{}
-					_, _ = bd.WriteTo(buf)
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 20, Duration: 0})
-		})
+			experiment.SampleDuration("Chunk of 1KB", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(dataMedium)), '\n', 32*libsiz.SizeKilo, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-		It("should efficiently write medium data", func() {
-			experiment := gmeasure.NewExperiment("WriteTo medium data")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("writeto-medium", func() {
-					data := strings.Repeat(strings.Repeat("x", 100)+"\n", 500)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					buf := &bytes.Buffer{}
-					_, _ = bd.WriteTo(buf)
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 20, Duration: 0})
-		})
-
-		It("should efficiently write large data", func() {
-			experiment := gmeasure.NewExperiment("WriteTo large data")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("writeto-large", func() {
-					data := strings.Repeat(strings.Repeat("x", 1000)+"\n", 1000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					buf := &bytes.Buffer{}
-					_, _ = bd.WriteTo(buf)
-					_ = bd.Close()
-				})
+			experiment.SampleDuration("Chunk of 4KB", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(dataLarge)), '\n', 32*libsiz.SizeKilo, false))
 			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 		})
 	})
 
 	Describe("Buffer size impact", func() {
 		It("performance with default buffer", func() {
-			experiment := gmeasure.NewExperiment("Default buffer")
+			data := strings.Repeat(strings.Repeat("x", 4095)+"\n", 20480)
+			fctBytes := func(r iotdlm.BufferDelim) {
+				defer GinkgoRecover()
+				defer func() {
+					_ = r.Close()
+				}()
+				for {
+					_, err := r.ReadBytes()
+					if err == io.EOF {
+						break
+					}
+				}
+			}
+
+			experiment := gmeasure.NewExperiment("Buffer size impact for 20MB data")
 			AddReportEntry(experiment.Name, experiment)
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("default-buffer", func() {
-					data := strings.Repeat("test line\n", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
+			experiment.SampleDuration("Default buffer", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(data)), '\n', 0, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
+			experiment.SampleDuration("64B Buffer", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(data)), '\n', 64*libsiz.SizeUnit, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-		It("performance with small buffer (64 bytes)", func() {
-			experiment := gmeasure.NewExperiment("Small buffer 64B")
-			AddReportEntry(experiment.Name, experiment)
+			experiment.SampleDuration("1KB Buffer", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(data)), '\n', libsiz.SizeKilo, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("buffer-64", func() {
-					data := strings.Repeat("test line\n", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 64*libsiz.SizeUnit)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
-
-		It("performance with medium buffer (1KB)", func() {
-			experiment := gmeasure.NewExperiment("Medium buffer 1KB")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("buffer-1kb", func() {
-					data := strings.Repeat("test line\n", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', libsiz.SizeKilo)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
-
-		It("performance with large buffer (64KB)", func() {
-			experiment := gmeasure.NewExperiment("Large buffer 64KB")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("buffer-64kb", func() {
-					data := strings.Repeat("test line\n", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 64*libsiz.SizeKilo)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
+			experiment.SampleDuration("64KB Buffer", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(io.NopCloser(strings.NewReader(data)), '\n', 64*libsiz.SizeKilo, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 		})
 	})
 
 	Describe("Different delimiters performance", func() {
 		It("performance with newline delimiter", func() {
-			experiment := gmeasure.NewExperiment("Newline delimiter")
+			data := func(mrk string) io.ReadCloser {
+				return io.NopCloser(strings.NewReader(strings.Repeat(strings.Repeat("x", 4095)+mrk, 20480)))
+			}
+
+			fctBytes := func(r iotdlm.BufferDelim) {
+				defer GinkgoRecover()
+				defer func() {
+					_ = r.Close()
+				}()
+				for {
+					_, err := r.ReadBytes()
+					if err == io.EOF {
+						break
+					}
+				}
+			}
+
+			experiment := gmeasure.NewExperiment("Different delimiters performance for 20480 chunks")
 			AddReportEntry(experiment.Name, experiment)
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("delim-newline", func() {
-					data := strings.Repeat("test\n", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
+			experiment.SampleDuration("Newline delimiter", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(data("\n"), '\n', 0, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
+			experiment.SampleDuration("Comma delimiter", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(data(","), ',', 0, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-		It("performance with comma delimiter", func() {
-			experiment := gmeasure.NewExperiment("Comma delimiter")
-			AddReportEntry(experiment.Name, experiment)
+			experiment.SampleDuration("Pipe delimiter", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(data("|"), '|', 0, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("delim-comma", func() {
-					data := strings.Repeat("test,", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, ',', 0)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
-
-		It("performance with pipe delimiter", func() {
-			experiment := gmeasure.NewExperiment("Pipe delimiter")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("delim-pipe", func() {
-					data := strings.Repeat("test|", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '|', 0)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
-
-		It("performance with null byte delimiter", func() {
-			experiment := gmeasure.NewExperiment("Null byte delimiter")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("delim-null", func() {
-					data := strings.Repeat("test\x00", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, 0, 0)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
-					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
+			experiment.SampleDuration("Null byte delimiter", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctBytes(iotdlm.New(data("\x00"), 0, 0, false))
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 		})
 	})
 
 	Describe("Copy vs WriteTo performance", func() {
 		It("Copy method performance", func() {
-			experiment := gmeasure.NewExperiment("Copy method")
+			data := func(mrk string) io.ReadCloser {
+				return io.NopCloser(strings.NewReader(strings.Repeat(strings.Repeat("x", 4095)+mrk, 20480)))
+			}
+
+			fctCopy := func(r iotdlm.BufferDelim) {
+				defer GinkgoRecover()
+				defer func() {
+					_ = r.Close()
+				}()
+				_, _ = r.Copy(&bytes.Buffer{})
+			}
+
+			fctWriteTo := func(r iotdlm.BufferDelim) {
+				defer GinkgoRecover()
+				defer func() {
+					_ = r.Close()
+				}()
+				_, _ = r.WriteTo(&bytes.Buffer{})
+			}
+
+			experiment := gmeasure.NewExperiment("Copy vs WriteTo with 20480 chunks")
 			AddReportEntry(experiment.Name, experiment)
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("copy", func() {
-					data := strings.Repeat("test line\n", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					buf := &bytes.Buffer{}
-					_, _ = bd.Copy(buf)
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
-
-		It("WriteTo method performance", func() {
-			experiment := gmeasure.NewExperiment("WriteTo method")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("writeto", func() {
-					data := strings.Repeat("test line\n", 5000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					buf := &bytes.Buffer{}
-					_, _ = bd.WriteTo(buf)
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
-	})
-
-	Describe("DiscardCloser performance", func() {
-		It("Read performance", func() {
-			experiment := gmeasure.NewExperiment("DiscardCloser Read")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("discard-read", func() {
-					dc := iotdlm.DiscardCloser{}
-					buf := make([]byte, 1024)
-					for i := 0; i < 10000; i++ {
-						_, _ = dc.Read(buf)
-					}
-				})
+			experiment.SampleDuration("Copy method", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctCopy(iotdlm.New(data("\n"), '\n', 0, false))
 			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
-		})
 
-		It("Write performance", func() {
-			experiment := gmeasure.NewExperiment("DiscardCloser Write")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("discard-write", func() {
-					dc := iotdlm.DiscardCloser{}
-					data := []byte("test data to discard")
-					for i := 0; i < 10000; i++ {
-						_, _ = dc.Write(data)
-					}
-				})
-			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
-		})
-
-		It("Close performance", func() {
-			experiment := gmeasure.NewExperiment("DiscardCloser Close")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("discard-close", func() {
-					dc := iotdlm.DiscardCloser{}
-					for i := 0; i < 10000; i++ {
-						_ = dc.Close()
-					}
-				})
+			experiment.SampleDuration("WriteTo method", func(idx int) {
+				// 20,000 lines, small size (~10 bytes)
+				fctWriteTo(iotdlm.New(data("\n"), '\n', 0, false))
 			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 		})
 	})
 
-	Describe("Construction overhead", func() {
-		It("New constructor performance", func() {
-			experiment := gmeasure.NewExperiment("Constructor default")
+	Describe("Others performance", func() {
+		It("Others performance", func() {
+			data := io.NopCloser(strings.NewReader(strings.Repeat(strings.Repeat("x", 4095)+"\n", 20480)))
+
+			experiment := gmeasure.NewExperiment("Others performance")
 			AddReportEntry(experiment.Name, experiment)
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("new-default", func() {
-					for i := 0; i < 1000; i++ {
-						data := "test\n"
-						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
-						_ = bd.Close()
-					}
-				})
+			experiment.SampleDuration("DiscardCloser Read", func(idx int) {
+				dc := iotdlm.DiscardCloser{}
+				buf := make([]byte, 1024)
+				for i := 0; i < 50000; i++ {
+					_, _ = dc.Read(buf)
+				}
 			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
-		})
 
-		It("New constructor with custom buffer", func() {
-			experiment := gmeasure.NewExperiment("Constructor custom buffer")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("new-custom", func() {
-					for i := 0; i < 1000; i++ {
-						data := "test\n"
-						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 4096)
-						_ = bd.Close()
-					}
-				})
+			experiment.SampleDuration("DiscardCloser Write", func(idx int) {
+				dc := iotdlm.DiscardCloser{}
+				data := []byte("test data to discard")
+				for i := 0; i < 50000; i++ {
+					_, _ = dc.Write(data)
+				}
 			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
-		})
-	})
 
-	Describe("UnRead performance", func() {
-		It("UnRead call performance", func() {
-			experiment := gmeasure.NewExperiment("UnRead operations")
-			AddReportEntry(experiment.Name, experiment)
+			experiment.SampleDuration("DiscardCloser Close", func(idx int) {
+				dc := iotdlm.DiscardCloser{}
+				for i := 0; i < 50000; i++ {
+					_ = dc.Close()
+				}
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("unread", func() {
-					data := strings.Repeat("test\n", 100)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 1024)
-
-					for i := 0; i < 50; i++ {
-						_, _ = bd.ReadBytes()
-						_, _ = bd.UnRead()
-					}
+			experiment.SampleDuration("Constructor default", func(idx int) {
+				for i := 0; i < 10000; i++ {
+					bd := iotdlm.New(data, '\n', 0, false)
 					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
-	})
+				}
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-	Describe("Memory allocation patterns", func() {
-		It("allocation in Read operations", func() {
-			experiment := gmeasure.NewExperiment("Read allocations")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("read-alloc", func() {
-					data := strings.Repeat("line\n", 1000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					buf := make([]byte, 100)
-					for {
-						_, err := bd.Read(buf)
-						if err == io.EOF {
-							break
-						}
-					}
+			experiment.SampleDuration("Constructor custom buffer", func(idx int) {
+				for i := 0; i < 10000; i++ {
+					bd := iotdlm.New(data, '\n', 4096, false)
 					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
-		})
+				}
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-		It("allocation in ReadBytes operations", func() {
-			experiment := gmeasure.NewExperiment("ReadBytes allocations")
-			AddReportEntry(experiment.Name, experiment)
+			experiment.SampleDuration("UnRead operations", func(idx int) {
+				bd := iotdlm.New(data, '\n', 1024, false)
+				for i := 0; i < 50; i++ {
+					_, _ = bd.ReadBytes()
+					_, _ = bd.UnRead()
+				}
+				_ = bd.Close()
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("readbytes-alloc", func() {
-					data := strings.Repeat("line\n", 1000)
-					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
-
-					for {
-						_, err := bd.ReadBytes()
-						if err == io.EOF {
-							break
-						}
+			experiment.SampleDuration("Read operations", func(idx int) {
+				bd := iotdlm.New(data, '\n', 0, false)
+				buf := make([]byte, 100)
+				for {
+					_, err := bd.Read(buf)
+					if err == io.EOF {
+						break
 					}
-					_ = bd.Close()
-				})
-			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
+				}
+				_ = bd.Close()
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
+
+			experiment.SampleDuration("ReadBytes operations", func(idx int) {
+				bd := iotdlm.New(data, '\n', 0, false)
+				for {
+					_, err := bd.ReadBytes()
+					if err == io.EOF {
+						break
+					}
+				}
+				_ = bd.Close()
+			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
 		})
 	})
 
 	Describe("Real-world scenarios", func() {
 		It("CSV-like data parsing", func() {
 			experiment := gmeasure.NewExperiment("CSV parsing")
-			AddReportEntry(experiment.Name, experiment)
 
 			experiment.Sample(func(idx int) {
+				data := strings.Repeat("col1,col2,col3,col4,col5\n", 50000)
 				experiment.MeasureDuration("csv-parse", func() {
-					data := strings.Repeat("col1,col2,col3,col4,col5\n", 1000)
 					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
+					bd := iotdlm.New(r, '\n', 0, false)
 
 					for {
 						_, err := bd.ReadBytes()
@@ -616,40 +385,43 @@ var _ = Describe("BufferDelim Benchmarks", func() {
 					_ = bd.Close()
 				})
 			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
+
+			AddReportEntry(experiment.Name, experiment)
 		})
 
 		It("Log file processing", func() {
 			experiment := gmeasure.NewExperiment("Log processing")
-			AddReportEntry(experiment.Name, experiment)
 
 			experiment.Sample(func(idx int) {
+				logLine := "[2024-01-01 12:00:00] INFO: Sample log message with some data\n"
+				data := strings.Repeat(logLine, 50000)
 				experiment.MeasureDuration("log-process", func() {
-					logLine := "[2024-01-01 12:00:00] INFO: Sample log message with some data\n"
-					data := strings.Repeat(logLine, 1000)
 					r := io.NopCloser(strings.NewReader(data))
-					bd := iotdlm.New(r, '\n', 0)
+					bd := iotdlm.New(r, '\n', 0, false)
 
 					buf := &bytes.Buffer{}
 					_, _ = bd.WriteTo(buf)
 					_ = bd.Close()
 				})
 			}, gmeasure.SamplingConfig{N: 15, Duration: 0})
+
+			AddReportEntry(experiment.Name, experiment)
 		})
 
 		It("Stream processing with various line lengths", func() {
 			experiment := gmeasure.NewExperiment("Variable length streams")
-			AddReportEntry(experiment.Name, experiment)
 
 			experiment.Sample(func(idx int) {
+				var data strings.Builder
+				for i := 0; i < 10000; i++ {
+					lineLen := (i % 100) + 10
+					data.WriteString(strings.Repeat("x", lineLen))
+					data.WriteString("\n")
+				}
+				dataStr := data.String()
 				experiment.MeasureDuration("variable-stream", func() {
-					var data strings.Builder
-					for i := 0; i < 1000; i++ {
-						lineLen := (i % 100) + 10
-						data.WriteString(strings.Repeat("x", lineLen))
-						data.WriteString("\n")
-					}
-					r := io.NopCloser(strings.NewReader(data.String()))
-					bd := iotdlm.New(r, '\n', 0)
+					r := io.NopCloser(strings.NewReader(dataStr))
+					bd := iotdlm.New(r, '\n', 0, false)
 
 					for {
 						_, err := bd.ReadBytes()
@@ -660,6 +432,8 @@ var _ = Describe("BufferDelim Benchmarks", func() {
 					_ = bd.Close()
 				})
 			}, gmeasure.SamplingConfig{N: 10, Duration: 0})
+
+			AddReportEntry(experiment.Name, experiment)
 		})
 	})
 })

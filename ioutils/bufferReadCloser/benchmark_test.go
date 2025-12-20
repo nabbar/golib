@@ -46,7 +46,7 @@ import (
 func BenchmarkBufferRead(b *testing.B) {
 	data := generateTestData(1024)
 	readBuf := make([]byte, 128)
-	
+
 	b.Run("stdlib_bytes.Buffer", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -59,7 +59,7 @@ func BenchmarkBufferRead(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("wrapped_Buffer", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -79,7 +79,7 @@ func BenchmarkBufferRead(b *testing.B) {
 // BenchmarkBufferWrite measures write performance compared to bytes.Buffer.
 func BenchmarkBufferWrite(b *testing.B) {
 	data := generateTestData(1024)
-	
+
 	b.Run("stdlib_bytes.Buffer", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -87,7 +87,7 @@ func BenchmarkBufferWrite(b *testing.B) {
 			buf.Write(data)
 		}
 	})
-	
+
 	b.Run("wrapped_Buffer", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -109,7 +109,7 @@ func BenchmarkBufferClose(b *testing.B) {
 			wrapped.Close()
 		}
 	})
-	
+
 	b.Run("with_custom_close", func(b *testing.B) {
 		closeFn := func() error { return nil }
 		b.ReportAllocs()
@@ -125,7 +125,7 @@ func BenchmarkBufferClose(b *testing.B) {
 func BenchmarkReaderRead(b *testing.B) {
 	data := generateTestData(1024)
 	readBuf := make([]byte, 128)
-	
+
 	b.Run("stdlib_bufio.Reader", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -139,7 +139,7 @@ func BenchmarkReaderRead(b *testing.B) {
 			}
 		}
 	})
-	
+
 	b.Run("wrapped_Reader", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -160,7 +160,7 @@ func BenchmarkReaderRead(b *testing.B) {
 // BenchmarkWriterWrite measures write performance compared to bufio.Writer.
 func BenchmarkWriterWrite(b *testing.B) {
 	data := generateTestData(1024)
-	
+
 	b.Run("stdlib_bufio.Writer", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -170,7 +170,7 @@ func BenchmarkWriterWrite(b *testing.B) {
 			writer.Flush()
 		}
 	})
-	
+
 	b.Run("wrapped_Writer", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -187,7 +187,7 @@ func BenchmarkWriterWrite(b *testing.B) {
 func BenchmarkReadWriterBidirectional(b *testing.B) {
 	data := generateTestData(512)
 	readBuf := make([]byte, 128)
-	
+
 	b.Run("stdlib_bufio.ReadWriter", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -198,7 +198,7 @@ func BenchmarkReadWriterBidirectional(b *testing.B) {
 			rw.Flush()
 		}
 	})
-	
+
 	b.Run("wrapped_ReadWriter", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -221,7 +221,7 @@ func BenchmarkAllocation(b *testing.B) {
 			_ = bufferReadCloser.NewBuffer(buf, nil)
 		}
 	})
-	
+
 	b.Run("NewReader", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -230,7 +230,7 @@ func BenchmarkAllocation(b *testing.B) {
 			_ = bufferReadCloser.NewReader(br, nil)
 		}
 	})
-	
+
 	b.Run("NewWriter", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -239,7 +239,7 @@ func BenchmarkAllocation(b *testing.B) {
 			_ = bufferReadCloser.NewWriter(bw, nil)
 		}
 	})
-	
+
 	b.Run("NewReadWriter", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -253,10 +253,10 @@ func BenchmarkAllocation(b *testing.B) {
 // BenchmarkLargeData measures performance with large data transfers.
 func BenchmarkLargeData(b *testing.B) {
 	sizes := []int{1024, 10240, 102400, 1024000} // 1KB, 10KB, 100KB, 1MB
-	
+
 	for _, size := range sizes {
 		data := generateTestData(size)
-		
+
 		b.Run("Buffer_"+byteSizeString(size), func(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(size))
@@ -294,7 +294,7 @@ func BenchmarkNilHandling(b *testing.B) {
 			wrapped.Close()
 		}
 	})
-	
+
 	b.Run("Reader_nil", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -304,7 +304,7 @@ func BenchmarkNilHandling(b *testing.B) {
 			wrapped.Close()
 		}
 	})
-	
+
 	b.Run("Writer_nil", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +27,8 @@
 package delim
 
 import (
-	"bufio"
 	"io"
+	"math"
 
 	libsiz "github.com/nabbar/golib/size"
 )
@@ -75,10 +75,11 @@ type BufferDelim interface {
 	// Returns ErrInstance if the BufferDelim has been closed.
 	ReadBytes() ([]byte, error)
 
-	// UnRead returns the data currently buffered in the internal bufio.Reader
+	// UnRead returns the data currently buffered in the internal buffer
 	// that has not yet been read by any Read operation.
 	//
-	// This is useful for peeking at upcoming data without consuming it.
+	// Warning: This consumes the data from the buffer. The data returned will
+	// not be available in subsequent Read calls.
 	// Returns nil if no data is buffered, or ErrInstance if the BufferDelim has been closed.
 	UnRead() ([]byte, error)
 }
@@ -90,8 +91,11 @@ type BufferDelim interface {
 //   - delim: The rune character used as delimiter. Common delimiters include:
 //     '\n' for newlines, ',' for CSV, '|' for pipes, '\t' for tabs, or any custom character.
 //   - sizeBufferRead: The size of the internal buffer. If 0 or negative, the default
-//     bufio.Reader buffer size (4096 bytes) is used. For better performance with large
-//     data chunks, consider using larger buffer sizes (e.g., 64*libsiz.KiB or libsiz.MiB).
+//     buffer size (32KB) is used. For better performance with large data chunks,
+//     consider using larger buffer sizes (e.g., 64*libsiz.SizeKilo or libsiz.SizeMega).
+//   - discardOverflow: If true, when the buffer is full and no delimiter is found,
+//     the buffer content is discarded until a delimiter is found or EOF. If false,
+//     ErrBufferFull is returned when the buffer is full and no delimiter is found.
 //
 // The returned BufferDelim must be closed when done to properly release resources
 // and close the underlying reader.
@@ -99,26 +103,30 @@ type BufferDelim interface {
 // Example:
 //
 //	// Using default buffer size
-//	bd := delim.New(file, '\n', 0)
+//	bd := delim.New(file, '\n', 0, false)
 //	defer bd.Close()
 //
-//	// Using custom buffer size (64KB)
-//	bd := delim.New(file, ',', 64*libsiz.KiB)
+//	// Using custom buffer size (64KB) with overflow discard enabled
+//	bd := delim.New(file, ',', 64*libsiz.SizeKilo, true)
 //	defer bd.Close()
 //
 // See also: github.com/nabbar/golib/size package for convenient size constants.
-func New(r io.ReadCloser, delim rune, sizeBufferRead libsiz.Size) BufferDelim {
-	var b *bufio.Reader
+func New(r io.ReadCloser, delim rune, sizeBuffer libsiz.Size, discardOverflow bool) BufferDelim {
+	if sizeBuffer < 1 {
+		sizeBuffer = 32 * libsiz.SizeKilo
+	}
 
-	if sizeBufferRead > 0 {
-		b = bufio.NewReaderSize(r, sizeBufferRead.Int())
-	} else {
-		b = bufio.NewReader(r)
+	var b = sizeBuffer.Uint64()
+
+	if i := uint64(math.MaxInt/2) - 1; i < b {
+		sizeBuffer = libsiz.ParseUint64(i)
 	}
 
 	return &dlm{
 		i: r,
-		r: b,
-		d: delim,
+		r: delim,
+		b: make([]byte, 0, sizeBuffer.Int()*2),
+		s: sizeBuffer,
+		d: discardOverflow,
 	}
 }

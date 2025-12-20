@@ -217,7 +217,7 @@ var _ = Describe("SystemFileDescriptor - Performance", func() {
 			// Batch average should be similar to single call
 			// (indicates no significant state or caching effects)
 			ratio := float64(avgTimePerCall) / float64(singleTime)
-			
+
 			// Informational output - actual ratio depends on system characteristics
 			if ratio > 0.5 && ratio < 1.5 {
 				GinkgoWriter.Printf("  Overhead is consistent\n")

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -291,7 +291,7 @@ var _ = Describe("DiscardCloser", func() {
 
 		Context("with BufferDelim", func() {
 			It("should work as input to BufferDelim", func() {
-				bd := iotdlm.New(dc, '\n', 0)
+				bd := iotdlm.New(dc, '\n', 0, false)
 				Expect(bd).NotTo(BeNil())
 
 				// Reading from DiscardCloser via BufferDelim

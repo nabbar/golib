@@ -38,12 +38,12 @@ import (
 // ohks holds the immutable configuration options for the hook.
 // These values are set at creation time and never modified.
 type ohks struct {
-	format           logrus.Formatter   // Log entry formatter (nil = default)
-	levels           []logrus.Level     // Enabled log levels
-	disableStack     bool               // Filter out "stack" field
-	disableTimestamp bool               // Filter out "time" field
-	enableTrace      bool               // Keep "caller", "file", "line" fields
-	enableAccessLog  bool               // Write entry.Message instead of fields
+	format           logrus.Formatter // Log entry formatter (nil = default)
+	levels           []logrus.Level   // Enabled log levels
+	disableStack     bool             // Filter out "stack" field
+	disableTimestamp bool             // Filter out "time" field
+	enableTrace      bool             // Keep "caller", "file", "line" fields
+	enableAccessLog  bool             // Write entry.Message instead of fields
 
 	network  libptc.NetworkProtocol // Syslog protocol (tcp, udp, unix, unixgram)
 	endpoint string                 // Syslog server address

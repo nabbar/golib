@@ -39,16 +39,16 @@ import (
 // Tests for Multi read operations and input management.
 // These tests verify proper handling of input sources, read operations,
 // and resource cleanup through Close().
-var _ = Describe("Multi Reader Operations", func() {
+var _ = Describe("[TC-RD] Multi Reader Operations", func() {
 	var m multi.Multi
 
 	BeforeEach(func() {
-		m = multi.New()
+		m = multi.New(false, false, multi.DefaultConfig())
 	})
 
 	Describe("SetInput", func() {
 		Context("setting input reader", func() {
-			It("should set input successfully", func() {
+			It("[TC-RD-001] should set input successfully", func() {
 				input := io.NopCloser(strings.NewReader("test data"))
 				m.SetInput(input)
 
@@ -59,7 +59,7 @@ var _ = Describe("Multi Reader Operations", func() {
 				Expect(string(buf)).To(Equal("test data"))
 			})
 
-			It("should replace previous input", func() {
+			It("[TC-RD-001] should replace previous input", func() {
 				input1 := io.NopCloser(strings.NewReader("first"))
 				m.SetInput(input1)
 
@@ -75,7 +75,7 @@ var _ = Describe("Multi Reader Operations", func() {
 		})
 
 		Context("setting nil input", func() {
-			It("should use DiscardCloser for nil input", func() {
+			It("[TC-RD-001] should use DiscardCloser for nil input", func() {
 				m.SetInput(nil)
 
 				buf := make([]byte, 10)
@@ -96,7 +96,7 @@ var _ = Describe("Multi Reader Operations", func() {
 
 	Describe("Reader", func() {
 		Context("getting reader instance", func() {
-			It("should return reader after SetInput", func() {
+			It("[TC-RD-003] should return reader after SetInput", func() {
 				input := io.NopCloser(strings.NewReader("data"))
 				m.SetInput(input)
 
@@ -114,7 +114,7 @@ var _ = Describe("Multi Reader Operations", func() {
 
 	Describe("Read", func() {
 		Context("reading from input", func() {
-			It("should read data successfully", func() {
+			It("[TC-RD-002] should read data successfully", func() {
 				input := io.NopCloser(strings.NewReader("hello world"))
 				m.SetInput(input)
 
@@ -125,7 +125,7 @@ var _ = Describe("Multi Reader Operations", func() {
 				Expect(string(buf)).To(Equal("hello world"))
 			})
 
-			It("should handle partial reads", func() {
+			It("[TC-RD-002] should handle partial reads", func() {
 				input := io.NopCloser(strings.NewReader("hello world"))
 				m.SetInput(input)
 
@@ -143,7 +143,7 @@ var _ = Describe("Multi Reader Operations", func() {
 				Expect(string(buf2)).To(Equal(" world"))
 			})
 
-			It("should return EOF when input is exhausted", func() {
+			It("[TC-RD-002] should return EOF when input is exhausted", func() {
 				input := io.NopCloser(strings.NewReader("short"))
 				m.SetInput(input)
 
@@ -159,7 +159,7 @@ var _ = Describe("Multi Reader Operations", func() {
 		})
 
 		Context("reading with default input", func() {
-			It("should handle read with default DiscardCloser", func() {
+			It("[TC-RD-002] should handle read with default DiscardCloser", func() {
 				// With new initialization, a default DiscardCloser is set
 				buf := make([]byte, 10)
 				n, err := m.Read(buf)
@@ -169,7 +169,7 @@ var _ = Describe("Multi Reader Operations", func() {
 		})
 
 		Context("reading large data", func() {
-			It("should handle large reads", func() {
+			It("[TC-RD-002] should handle large reads", func() {
 				largeData := strings.Repeat("x", 1024*1024) // 1MB
 				input := io.NopCloser(strings.NewReader(largeData))
 				m.SetInput(input)
@@ -184,7 +184,7 @@ var _ = Describe("Multi Reader Operations", func() {
 
 	Describe("Close", func() {
 		Context("closing input", func() {
-			It("should close input successfully", func() {
+			It("[TC-RD-004] should close input successfully", func() {
 				input := io.NopCloser(strings.NewReader("test"))
 				m.SetInput(input)
 
@@ -192,7 +192,7 @@ var _ = Describe("Multi Reader Operations", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should propagate close error", func() {
+			It("[TC-RD-004] should propagate close error", func() {
 				// Create a closer that returns an error
 				errorCloser := &closeErrorReader{
 					Reader:   strings.NewReader("test"),
@@ -206,7 +206,7 @@ var _ = Describe("Multi Reader Operations", func() {
 		})
 
 		Context("closing with default input", func() {
-			It("should close successfully with default DiscardCloser", func() {
+			It("[TC-RD-004] should close successfully with default DiscardCloser", func() {
 				// With new initialization, a default DiscardCloser is set
 				err := m.Close()
 				Expect(err).NotTo(HaveOccurred())
@@ -214,7 +214,7 @@ var _ = Describe("Multi Reader Operations", func() {
 		})
 
 		Context("closing with DiscardCloser", func() {
-			It("should close successfully with nil input", func() {
+			It("[TC-RD-004] should close successfully with nil input", func() {
 				m.SetInput(nil)
 
 				err := m.Close()

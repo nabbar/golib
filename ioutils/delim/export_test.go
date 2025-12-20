@@ -26,16 +26,30 @@
 
 package delim
 
-import "fmt"
+import (
+	"io"
 
-// ErrInstance is returned when operations are attempted on an invalid or closed BufferDelim instance.
-// This error typically occurs when:
-//   - Calling methods on a nil BufferDelim
-//   - Calling methods after Close() has been called
-//   - The internal buffer has been invalidated
-//
-// When you receive this error, the BufferDelim instance should be discarded and a new one created if needed.
-var (
-	ErrInstance   = fmt.Errorf("invalid buffer delim instance")
-	ErrBufferFull = fmt.Errorf("buffer is full and delimiter not found")
+	"github.com/nabbar/golib/size"
 )
+
+// Dlm is an alias to the internal dlm struct, exposed for testing purposes.
+type Dlm = dlm
+
+// NewInternal creates a new Dlm with specific internal state for testing.
+func NewInternal(r io.ReadCloser, s size.Size, buffer []byte) *Dlm {
+	return &dlm{
+		i: r,
+		s: s,
+		b: buffer,
+	}
+}
+
+// Fill exposes the private fill method for testing.
+func (o *Dlm) Fill() error {
+	return o.fill()
+}
+
+// ReadBuf exposes the private readBuf method for testing.
+func (o *Dlm) ReadBuf(p []byte) (int, error) {
+	return o.readBuf(p)
+}

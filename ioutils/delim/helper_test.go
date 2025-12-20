@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,11 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"strings"
+	"sync/atomic"
+
+	libbuf "github.com/nabbar/golib/ioutils/bufferReadCloser"
 
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -41,6 +45,7 @@ import (
 var (
 	testCtx    context.Context
 	testCancel context.CancelFunc
+	closedBuf  = new(atomic.Bool)
 )
 
 // initTestContext initializes the global test context.
@@ -301,4 +306,93 @@ func assertError(err error, msg string) {
 	if err == nil {
 		GinkgoT().Fatalf("%s: expected error but got nil", msg)
 	}
+}
+
+// newClosableBuffer creates a new io.ReadCloser that returns error after Close().
+// After Close() is called, any subsequent Read() will return io.ErrClosedPipe.
+func newClosableBuffer(data string) io.ReadCloser {
+	closedBuf.Store(false)
+	return libbuf.NewBuffer(bytes.NewBuffer([]byte(data)), func() error {
+		o := closedBuf.Swap(true)
+		if o {
+			return os.ErrClosed
+		} else {
+			return nil
+		}
+	})
+}
+
+// mockReader0Nil simulates a Reader that returns (0, nil) on first call, then EOF.
+type mockReader0Nil struct {
+	called bool
+}
+
+func (m *mockReader0Nil) Read(p []byte) (n int, err error) {
+	if !m.called {
+		m.called = true
+		return 0, nil
+	}
+	return 0, io.EOF
+}
+
+// mockReaderError simulates a Reader that returns a specific error.
+type mockReaderError struct {
+	err error
+}
+
+func (m *mockReaderError) Read(p []byte) (n int, err error) {
+	return 0, m.err
+}
+
+// mockReaderEOFData returns data and EOF in the same Read call
+type mockReaderEOFData struct {
+	data string
+	done bool
+}
+
+func (m *mockReaderEOFData) Read(p []byte) (n int, err error) {
+	if m.done {
+		return 0, io.EOF
+	}
+	m.done = true
+	if len(p) < len(m.data) {
+		copy(p, []byte(m.data))
+		return len(p), io.EOF // Partial read with EOF
+	}
+	copy(p, []byte(m.data))
+	return len(m.data), io.EOF
+}
+
+func (m *mockReaderEOFData) Close() error {
+	return nil
+}
+
+// transientReader simulates a temporary error followed by successful read.
+type transientReader struct {
+	data []byte
+	err  error
+	call int
+}
+
+func (r *transientReader) Read(p []byte) (n int, err error) {
+	r.call++
+	if r.call == 1 {
+		// First call: return partial data and error
+		if len(p) < len(r.data) {
+			copy(p, r.data)
+			return len(p), r.err
+		}
+		copy(p, r.data)
+		return len(r.data), r.err
+	}
+	// Second call: return delimiter
+	if len(p) > 0 {
+		p[0] = '\n'
+		return 1, nil
+	}
+	return 0, nil
+}
+
+func (r *transientReader) Close() error {
+	return nil
 }

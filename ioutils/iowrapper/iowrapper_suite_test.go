@@ -40,9 +40,10 @@
 // Framework: Ginkgo v2 (BDD) + Gomega (matchers)
 //
 // Run tests with:
-//   go test -v -cover .
-//   go test -race .  # With race detector
-//   ginkgo -v -cover # With Ginkgo CLI
+//
+//	go test -v -cover .
+//	go test -race .  # With race detector
+//	ginkgo -v -cover # With Ginkgo CLI
 package iowrapper_test
 
 import (

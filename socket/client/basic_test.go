@@ -31,8 +31,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	libptc "github.com/nabbar/golib/network/protocol"
-	sckcfg "github.com/nabbar/golib/socket/config"
 	sckclt "github.com/nabbar/golib/socket/client"
+	sckcfg "github.com/nabbar/golib/socket/config"
 )
 
 var _ = Describe("Basic Client Operations", func() {

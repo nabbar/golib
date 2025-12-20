@@ -221,12 +221,12 @@ func (o *srv) PortNotUse(ctx context.Context, listen string) error {
 	)
 
 	if strings.Contains(listen, ":") {
-		uri := &url.URL{
-			Host: listen,
-		}
+		part := strings.Split(listen, ":")
+		port := part[len(part)-1]
+		addr := strings.Join(part[:len(part)-1], ":")
 
-		if h := uri.Hostname(); h == "0.0.0.0" || h == "::1" {
-			listen = "127.0.0.1:" + uri.Port()
+		if strings.HasPrefix(addr, "0.") || strings.HasPrefix(addr, "::") {
+			listen = "127.0.0.1:" + port
 		}
 	}
 

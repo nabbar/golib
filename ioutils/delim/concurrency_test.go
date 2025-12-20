@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -62,7 +62,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 			It("should handle sequential reads safely", func() {
 				data := strings.Repeat("line\n", 100)
 				r := io.NopCloser(strings.NewReader(data))
-				bd := iotdlm.New(r, '\n', 0)
+				bd := iotdlm.New(r, '\n', 0, false)
 
 				for i := 0; i < 100; i++ {
 					_, err := bd.ReadBytes()
@@ -76,7 +76,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 			It("should handle sequential Read calls safely", func() {
 				data := strings.Repeat("test\n", 50)
 				r := io.NopCloser(strings.NewReader(data))
-				bd := iotdlm.New(r, '\n', 0)
+				bd := iotdlm.New(r, '\n', 0, false)
 
 				buf := make([]byte, 100)
 				for i := 0; i < 50; i++ {
@@ -104,7 +104,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := strings.Repeat("line\n", 100)
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 
 						for j := 0; j < 100; j++ {
 							_, err := bd.ReadBytes()
@@ -131,7 +131,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := strings.Repeat("test\n", 50)
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 
 						buf := make([]byte, 100)
 						for j := 0; j < 50; j++ {
@@ -152,7 +152,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 			It("should handle Delim() calls during reads", func() {
 				data := strings.Repeat("line\n", 100)
 				r := io.NopCloser(strings.NewReader(data))
-				bd := iotdlm.New(r, '\n', 0)
+				bd := iotdlm.New(r, '\n', 0, false)
 
 				var wg sync.WaitGroup
 				wg.Add(2)
@@ -188,7 +188,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 			It("should handle Reader() calls during reads", func() {
 				data := strings.Repeat("line\n", 100)
 				r := io.NopCloser(strings.NewReader(data))
-				bd := iotdlm.New(r, '\n', 0)
+				bd := iotdlm.New(r, '\n', 0, false)
 
 				var wg sync.WaitGroup
 				wg.Add(2)
@@ -237,7 +237,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := strings.Repeat("line\n", 100)
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 
 						buf := &bytes.Buffer{}
 						_, err := bd.WriteTo(buf)
@@ -260,7 +260,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := strings.Repeat("test\n", 50)
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 
 						buf := &bytes.Buffer{}
 						_, err := bd.Copy(buf)
@@ -287,7 +287,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := strings.Repeat("line\n", 50)
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 
 						if id%2 == 0 {
 							// Read operations
@@ -321,7 +321,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := strings.Repeat("test\n", 50)
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', libsiz.Size(512))
+						bd := iotdlm.New(r, '\n', libsiz.Size(512), false)
 
 						switch id % 4 {
 						case 0:
@@ -369,7 +369,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := "test\n"
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 						Expect(bd).NotTo(BeNil())
 						Expect(bd.Delim()).To(Equal('\n'))
 					}()
@@ -391,7 +391,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 							data := "test\n"
 							r := io.NopCloser(strings.NewReader(data))
-							bd := iotdlm.New(r, '\n', s)
+							bd := iotdlm.New(r, '\n', s, false)
 							Expect(bd).NotTo(BeNil())
 						}(size)
 					}
@@ -414,7 +414,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := "test\n"
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 
 						// Do some work
 						_, _ = bd.ReadBytes()
@@ -444,7 +444,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := strings.Repeat("line\n", 1000)
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 
 						if id%3 == 0 {
 							buf := make([]byte, 100)
@@ -485,7 +485,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := "quick\ntest\n"
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 0)
+						bd := iotdlm.New(r, '\n', 0, false)
 
 						_, _ = bd.ReadBytes()
 						_ = bd.Close()
@@ -510,7 +510,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 							data := strings.Repeat("x", s) + "\n"
 							r := io.NopCloser(strings.NewReader(data))
-							bd := iotdlm.New(r, '\n', 0)
+							bd := iotdlm.New(r, '\n', 0, false)
 
 							buf := &bytes.Buffer{}
 							_, err := bd.WriteTo(buf)
@@ -539,7 +539,7 @@ var _ = Describe("BufferDelim Concurrency and Race Detection", func() {
 
 						data := strings.Repeat("test\n", 100)
 						r := io.NopCloser(strings.NewReader(data))
-						bd := iotdlm.New(r, '\n', 100)
+						bd := iotdlm.New(r, '\n', 100, false)
 
 						// Read some data
 						_, _ = bd.ReadBytes()

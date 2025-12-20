@@ -40,16 +40,16 @@ import (
 // Tests for Multi edge cases, error handling, and boundary conditions.
 // These tests verify proper behavior with error conditions, zero-length
 // operations, nil values, very large data, and special data patterns.
-var _ = Describe("Multi Edge Cases and Error Handling", func() {
+var _ = Describe("[TC-EC] Multi Edge Cases and Error Handling", func() {
 	var m multi.Multi
 
 	BeforeEach(func() {
-		m = multi.New()
+		m = multi.New(false, false, multi.DefaultConfig())
 	})
 
 	Describe("Error handling", func() {
 		Context("ErrInstance error", func() {
-			It("should handle read with default input", func() {
+			It("[TC-EC-004] should handle read with default input", func() {
 				// With the new initialization, a default DiscardCloser is set
 				buf := make([]byte, 10)
 				n, err := m.Read(buf)
@@ -57,19 +57,19 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 				Expect(n).To(Equal(0))
 			})
 
-			It("should handle close with default input", func() {
+			It("[TC-EC-001] should handle close with default input", func() {
 				// With the new initialization, a default DiscardCloser is set
 				err := m.Close()
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should have meaningful error message", func() {
+			It("[TC-EC-004] should have meaningful error message", func() {
 				Expect(multi.ErrInstance.Error()).To(ContainSubstring("invalid instance"))
 			})
 		})
 
 		Context("writer errors", func() {
-			It("should handle partial write errors", func() {
+			It("[TC-EC-004] should handle partial write errors", func() {
 				errorWriter := &partialWriter{maxBytes: 5}
 				m.AddWriter(errorWriter)
 
@@ -81,7 +81,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 				}
 			})
 
-			It("should propagate writer errors", func() {
+			It("[TC-EC-004] should propagate writer errors", func() {
 				errorWriter := &errorWriter{err: io.ErrShortWrite}
 				m.AddWriter(errorWriter)
 
@@ -91,7 +91,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 		})
 
 		Context("reader errors", func() {
-			It("should propagate reader errors", func() {
+			It("[TC-EC-004] should propagate reader errors", func() {
 				errorReader := &errorReadCloser{
 					Reader:   strings.NewReader(""),
 					readErr:  io.ErrUnexpectedEOF,
@@ -108,7 +108,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 
 	Describe("Boundary conditions", func() {
 		Context("zero-length operations", func() {
-			It("should handle zero-length Write", func() {
+			It("[TC-EC-002] should handle zero-length Write", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -117,7 +117,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 				Expect(n).To(Equal(0))
 			})
 
-			It("should handle zero-length Read", func() {
+			It("[TC-EC-002] should handle zero-length Read", func() {
 				input := io.NopCloser(strings.NewReader("data"))
 				m.SetInput(input)
 
@@ -126,7 +126,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 				Expect(n).To(Equal(0))
 			})
 
-			It("should handle zero-length WriteString", func() {
+			It("[TC-EC-002] should handle zero-length WriteString", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -137,7 +137,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 		})
 
 		Context("nil buffer operations", func() {
-			It("should handle Read with nil buffer", func() {
+			It("[TC-EC-001] should handle Read with nil buffer", func() {
 				input := io.NopCloser(strings.NewReader("data"))
 				m.SetInput(input)
 
@@ -146,7 +146,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 				Expect(n).To(Equal(0))
 			})
 
-			It("should handle Write with nil buffer", func() {
+			It("[TC-EC-001] should handle Write with nil buffer", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -157,7 +157,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 		})
 
 		Context("very large operations", func() {
-			It("should handle very large writes", func() {
+			It("[TC-EC-003] should handle very large writes", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -173,7 +173,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 				Expect(buf.Len()).To(Equal(len(largeData)))
 			})
 
-			It("should handle very large reads", func() {
+			It("[TC-EC-003] should handle very large reads", func() {
 				largeData := strings.Repeat("x", 10*1024*1024) // 10MB
 				input := io.NopCloser(strings.NewReader(largeData))
 				m.SetInput(input)
@@ -184,7 +184,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 				Expect(n).To(Equal(10 * 1024 * 1024))
 			})
 
-			It("should handle very large copy", func() {
+			It("[TC-EC-003] should handle very large copy", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -201,7 +201,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 
 	Describe("State transitions", func() {
 		Context("operations after clean", func() {
-			It("should work correctly after clean", func() {
+			It("[TC-EC-001] should work correctly after clean", func() {
 				var buf1 bytes.Buffer
 				m.AddWriter(&buf1)
 				m.Write([]byte("before"))
@@ -264,7 +264,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 
 	Describe("Special data patterns", func() {
 		Context("binary data", func() {
-			It("should handle binary data correctly", func() {
+			It("[TC-EC-003] should handle binary data correctly", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -311,7 +311,7 @@ var _ = Describe("Multi Edge Cases and Error Handling", func() {
 
 	Describe("Interface compliance", func() {
 		Context("io.Reader compliance", func() {
-			It("should follow io.Reader contract", func() {
+			It("[TC-EC-002] should follow io.Reader contract", func() {
 				input := io.NopCloser(strings.NewReader("test"))
 				m.SetInput(input)
 

@@ -40,16 +40,16 @@ import (
 // Tests for Multi copy operations and integration scenarios.
 // These tests verify the Copy() method and demonstrate integration
 // of read/write/copy operations in realistic workflows.
-var _ = Describe("Multi Copy Operations", func() {
+var _ = Describe("[TC-CP] Multi Copy Operations", func() {
 	var m multi.Multi
 
 	BeforeEach(func() {
-		m = multi.New()
+		m = multi.New(false, false, multi.DefaultConfig())
 	})
 
 	Describe("Copy", func() {
 		Context("copying to single writer", func() {
-			It("should copy data from reader to writer", func() {
+			It("[TC-CP-001] should copy data from reader to writer", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -62,7 +62,7 @@ var _ = Describe("Multi Copy Operations", func() {
 				Expect(buf.String()).To(Equal("test data"))
 			})
 
-			It("should handle empty input", func() {
+			It("[TC-CP-001] should handle empty input", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -77,7 +77,7 @@ var _ = Describe("Multi Copy Operations", func() {
 		})
 
 		Context("copying to multiple writers", func() {
-			It("should copy to all writers simultaneously", func() {
+			It("[TC-CP-002] should copy to all writers simultaneously", func() {
 				var buf1, buf2, buf3 bytes.Buffer
 				m.AddWriter(&buf1, &buf2, &buf3)
 
@@ -94,7 +94,7 @@ var _ = Describe("Multi Copy Operations", func() {
 		})
 
 		Context("copying large data", func() {
-			It("should handle large data copy", func() {
+			It("[TC-CP-003] should handle large data copy", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -110,7 +110,7 @@ var _ = Describe("Multi Copy Operations", func() {
 		})
 
 		Context("copying with errors", func() {
-			It("should return error from reader", func() {
+			It("[TC-CP-004] should return error from reader", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -122,7 +122,7 @@ var _ = Describe("Multi Copy Operations", func() {
 				Expect(n).To(Equal(int64(0)))
 			})
 
-			It("should return error from writer", func() {
+			It("[TC-CP-004] should return error from writer", func() {
 				errorWriter := &errorWriter{err: io.ErrShortWrite}
 				m.AddWriter(errorWriter)
 
@@ -137,7 +137,7 @@ var _ = Describe("Multi Copy Operations", func() {
 
 	Describe("Integration scenarios", func() {
 		Context("mixed read, write, and copy operations", func() {
-			It("should handle sequential operations", func() {
+			It("[TC-CP-005] should handle sequential operations", func() {
 				var buf bytes.Buffer
 				m.AddWriter(&buf)
 
@@ -152,7 +152,7 @@ var _ = Describe("Multi Copy Operations", func() {
 				Expect(buf.String()).To(Equal("direct: copied"))
 			})
 
-			It("should handle writer changes between operations", func() {
+			It("[TC-CP-005] should handle writer changes between operations", func() {
 				var buf1 bytes.Buffer
 				m.AddWriter(&buf1)
 
@@ -169,7 +169,7 @@ var _ = Describe("Multi Copy Operations", func() {
 				Expect(buf2.String()).To(Equal(" data2"))
 			})
 
-			It("should handle clean and re-add between copies", func() {
+			It("[TC-CP-005] should handle clean and re-add between copies", func() {
 				var buf1 bytes.Buffer
 				m.AddWriter(&buf1)
 

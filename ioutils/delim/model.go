@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +27,10 @@
 package delim
 
 import (
-	"bufio"
 	"io"
+	"sync"
+
+	libsiz "github.com/nabbar/golib/size"
 )
 
 // dlm is the internal implementation of the BufferDelim interface.
@@ -36,29 +38,34 @@ import (
 //
 // Fields:
 //   - i: The underlying io.ReadCloser that provides the input stream
-//   - r: A bufio.Reader that wraps i for efficient buffered reading
-//   - d: The delimiter rune used to separate data chunks
+//   - r: The delimiter rune used to separate data chunks
+//   - b: The internal byte buffer used for reading chunks
+//   - s: The maximum size of the buffer
+//   - d: Flag indicating whether to discard data on buffer overflow
 //
 // The struct is not exported to maintain encapsulation and allow future implementation changes
 // without breaking the public API.
 type dlm struct {
+	m sync.Mutex
 	i io.ReadCloser // input io.ReadCloser
-	r *bufio.Reader // buffered reader wrapping the input
-	d rune          // delimiter rune character
+	r rune          // delimiter rune character
+	b []byte        // buffer
+	s libsiz.Size   // size of buffer
+	d bool          // if max size is reached, discard overflow or return error
 }
 
 // Delim returns the delimiter rune configured for this BufferDelim instance.
 // This value is set during construction via New() and remains constant for the lifetime of the instance.
 func (o *dlm) Delim() rune {
-	return o.d
+	return o.r
 }
 
-// getDelimByte converts the delimiter rune to a byte for use with bufio.Reader.ReadBytes().
+// getDelimByte converts the delimiter rune to a byte for scanning.
 //
 // IMPORTANT LIMITATION: This method assumes the delimiter fits within a single byte (0-255).
 // For multi-byte Unicode delimiters (runes > 255), only the least significant byte is used,
 // which will NOT produce the expected behavior. This is a known limitation of using
-// bufio.Reader.ReadBytes() which only accepts byte delimiters.
+// scanning which only accepts byte delimiters.
 //
 // Supported delimiters include all ASCII characters (0-127) and extended ASCII (128-255):
 //   - '\n' (newline), '\r' (carriage return), '\t' (tab)
@@ -69,5 +76,5 @@ func (o *dlm) Delim() rune {
 // For multi-byte Unicode delimiters, consider using alternative approaches or
 // contribute a scanner-based implementation.
 func (o *dlm) getDelimByte() byte {
-	return byte(o.d)
+	return byte(o.r)
 }

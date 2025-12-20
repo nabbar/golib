@@ -36,6 +36,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 	"time"
 
 	libatm "github.com/nabbar/golib/atomic"
@@ -45,7 +46,7 @@ import (
 // fileAgg represents an aggregated file writer with reference counting.
 // It manages a single log file that can be shared by multiple loggers.
 type fileAgg struct {
-	i uint64
+	i *atomic.Int64
 	r *os.Root
 	f *os.File
 	a iotagg.Aggregator
@@ -91,7 +92,7 @@ func setAgg(k string, m os.FileMode, cre bool) (io.Writer, error) {
 	i, l := agg.Load(k)
 
 	if l && i != nil {
-		i.i++
+		i.i.Add(1)
 		agg.Store(k, i)
 		return i.a, nil
 	}
@@ -120,7 +121,7 @@ func delAgg(k string) {
 		return
 	}
 
-	if i.i--; i.i > 0 {
+	if i.i.Add(-1) > 0 {
 		agg.Store(k, i)
 	} else {
 		agg.Delete(k)
@@ -147,7 +148,7 @@ func delAgg(k string) {
 // reopens the file when rotation is detected.
 func newAgg(p string, m os.FileMode, cre bool) (*fileAgg, error) {
 	i := &fileAgg{
-		i: 1,
+		i: new(atomic.Int64),
 		r: nil,
 		f: nil,
 		a: nil,

@@ -179,13 +179,13 @@ var _ = Describe("TCP Server Robustness", func() {
 			cfg1 := createDefaultConfig(adr)
 			srv1, err := scksrt.New(nil, echoHandler, cfg1)
 			Expect(err).ToNot(HaveOccurred())
-			
+
 			startServerInBackground(c, srv1)
 			waitForServerAcceptingConnections(adr, 2*time.Second)
 			defer func() { _ = srv1.Close() }()
 
 			// Tenter de démarrer un second serveur sur le même port
-			cfg2 := createDefaultConfig(adr)  // Même adresse!
+			cfg2 := createDefaultConfig(adr) // Même adresse!
 			srv, err = scksrt.New(nil, echoHandler, cfg2)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -199,7 +199,6 @@ var _ = Describe("TCP Server Robustness", func() {
 			// Vérifier que le callback d'erreur a été appelé
 			Eventually(errorReceived, 2*time.Second).Should(Receive(Not(BeNil())))
 		})
-
 
 		It("should call info callback on connection events", func() {
 			infoCnt := new(atomic.Int32)
@@ -348,10 +347,10 @@ var _ = Describe("TCP Server Robustness", func() {
 		It("should close idle connections after ConIdleTimeout", func() {
 			cfg := createDefaultConfig(adr)
 			cfg.ConIdleTimeout = 2 * time.Second // Configure idle timeout > 1 second
-			
+
 			handlerStarted := make(chan time.Time, 1)
 			handlerEnded := make(chan time.Time, 1)
-			
+
 			handler := func(ctx libsck.Context) {
 				defer func() {
 					ctx.Close()
@@ -359,7 +358,7 @@ var _ = Describe("TCP Server Robustness", func() {
 				}()
 
 				handlerStarted <- time.Now()
-				
+
 				// Wait passively - don't call Read/Write which would reset the idle timer
 				// Just wait for the context to be cancelled by idle timeout
 				<-ctx.Done()

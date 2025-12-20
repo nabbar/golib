@@ -104,7 +104,7 @@ var _ = Describe("UDP Context Operations", func() {
 
 			doneChan := c.Done()
 			Expect(doneChan).ToNot(BeNil())
-			
+
 			// Just verify channel exists
 			_ = doneChan
 		})

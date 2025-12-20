@@ -70,7 +70,7 @@ func (h *testHandler) handler(ctx libsck.Context) {
 	defer ctx.Close()
 
 	buf := make([]byte, 65507) // Max UDP datagram size
-	
+
 	if h.readOnce {
 		// Read once and return
 		n, err := ctx.Read(buf)
@@ -78,7 +78,7 @@ func (h *testHandler) handler(ctx libsck.Context) {
 			h.setError(err)
 			return
 		}
-		
+
 		if n > 0 {
 			h.addData(buf[:n])
 		}
@@ -223,11 +223,11 @@ func (i *infoCollector) callback(local, remote net.Addr, state libsck.ConnState)
 	evt := connEvent{
 		state: state,
 	}
-	
+
 	if local != nil {
 		evt.local = local.String()
 	}
-	
+
 	if remote != nil {
 		evt.remote = remote.String()
 	}
@@ -311,7 +311,7 @@ func (s *serverInfoCollector) clear() {
 
 // contains checks if string contains substring
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || 
+	return len(s) >= len(substr) && (s == substr ||
 		(len(s) > len(substr) && findSubstring(s, substr)))
 }
 
