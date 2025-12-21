@@ -349,17 +349,17 @@ The table below lists all 165 Go packages with their test coverage and links to 
 | **file/bandwidth** | 77.8% | 25 | Bandwidth-limited I/O | [README](file/) |
 | **file/perm** | 88.9% | 141 | File permission utilities | - |
 | **file/progress** | 71.1% | 90 | File operation progress tracking | - |
-| **ioutils** | 87.7% | 31 | I/O utilities base | [README](ioutils/) |
-| **ioutils/aggregator** | 86.0% | 115 | Write operation aggregator | [README](ioutils/aggregator/) |
-| **ioutils/bufferReadCloser** | 100% | 57 | Buffered reader with closer | [README](ioutils/bufferReadCloser/) |
-| **ioutils/delim** | 100% | 198 | Delimiter-based stream processing | [README](ioutils/delim/) |
-| **ioutils/fileDescriptor** | 85.7% | 23 | File descriptor management | [README](ioutils/fileDescriptor/) |
-| **ioutils/ioprogress** | 84.7% | 42 | I/O progress tracking | [README](ioutils/ioprogress/) |
-| **ioutils/iowrapper** | 100% | 114 | Generic I/O wrappers | [README](ioutils/iowrapper/) |
-| **ioutils/mapCloser** | 77.5% | 29 | Multiple closer management | [README](ioutils/mapCloser/) |
+| **ioutils** | 88.2% | 31 | I/O utilities base | [README](ioutils/) |
+| **ioutils/aggregator** | 84.9% | 115 | Thread-safe write aggregator that buffers and serializes concurrent writes | [README](ioutils/aggregator/) |
+| **ioutils/bufferReadCloser** | 100% | 44 | Lightweight wrappers adding io.Closer to bytes.Buffer and bufio types | [README](ioutils/bufferReadCloser/) |
+| **ioutils/delim** | 98.6% | 95 | Delimiter-based stream processing | [README](ioutils/delim/) |
+| **ioutils/fileDescriptor** | 85.7% | 28 | Cross-platform file descriptor limit management | [README](ioutils/fileDescriptor/) |
+| **ioutils/ioprogress** | 84.7% | 54 | I/O progress tracking | [README](ioutils/ioprogress/) |
+| **ioutils/iowrapper** | 100% | 88 | Generic I/O wrappers | [README](ioutils/iowrapper/) |
+| **ioutils/mapCloser** | 80.8% | 82 | Thread-safe, context-aware manager for multiple io.Closer instances | [README](ioutils/mapCloser/) |
 | **ioutils/maxstdio** | No tests | - | Stdio limit management | [README](ioutils/maxstdio/) |
-| **ioutils/multi** | 81.7% | 113 | Write multiplexing | [README](ioutils/multi/) |
-| **ioutils/nopwritecloser** | 100% | 54 | No-op writer closer | [README](ioutils/nopwritecloser/) |
+| **ioutils/multi** | 80.8% | 112 | Thread-safe adaptive multi-writer extending io.MultiWriter | [README](ioutils/multi/) |
+| **ioutils/nopwritecloser** | 100% | 54 | Wrapper implementing io.WriteCloser with no-op Close() | [README](ioutils/nopwritecloser/) |
 
 ### Security & Communication
 
@@ -652,7 +652,7 @@ Race Conditions:      0 (verified with -race flag)
 |----------------|-------|------------|------------------|
 | **100%** | 14 | 11.0% | errors/pool, logger/gorm, router/authheader, semaphore/sem |
 | **90-99%** | 24 | 18.9% | atomic (91.8%), version (93.8%), size (95.4%) |
-| **80-89%** | 29 | 22.8% | ioutils (87.7%), mail/queuer (90.8%), static (82.6%), context (87.5%) |
+| **80-89%** | 29 | 22.8% | ioutils (88.2%), mail/queuer (90.8%), static (82.6%), context (87.5%) |
 | **70-79%** | 19 | 15.0% | cobra (76.7%), viper (73.3%), file/bandwidth (77.8%) |
 | **60-69%** | 10 | 7.9% | config (61.9%), logger (68.0%), database/kvmap (66.7%) |
 | **<60%** | 31 | 24.4% | archive (8.6%), aws (5.4%), httpserver (52.5%) |
@@ -671,7 +671,7 @@ Race Conditions:      0 (verified with -race flag)
 
 **Well-Tested Core Packages:**
 
-- **ioutils**: 87.7% average across 10 subpackages, 772 specs
+- **ioutils**: 90.4% average across 10 subpackages, 776 specs
 - **mail**: 89.0% average across 6 subpackages, 970 specs
 - **logger**: 74.7% base + 85%+ in config/entry, 573 specs
 - **errors**: 87.6% base + 100% pool, 305 specs

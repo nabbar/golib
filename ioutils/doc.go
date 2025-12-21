@@ -43,16 +43,16 @@ The package is organized into a root-level utility and several specialized subpa
 	Root Package (ioutils)
 	├── PathCheckCreate      - File/directory creation with permission management
 	│
-	├── aggregator          - Buffered write aggregation for concurrent operations
-	├── bufferReadCloser    - Memory-efficient buffer management with io.ReadCloser
-	├── delim               - Delimiter-based stream processing
-	├── fileDescriptor      - Low-level file descriptor operations
-	├── ioprogress          - Progress tracking for I/O operations
-	├── iowrapper           - Generic I/O wrappers and decorators
-	├── mapCloser           - Collection-based closer management
+	├── aggregator          - Thread-safe write aggregator that buffers and serializes concurrent writes to a single writer function
+	├── bufferReadCloser    - io.Closer wrappers for bytes.Buffer and bufio types
+	├── delim               - Buffered reader for reading delimiter-separated data streams
+	├── fileDescriptor      - Cross-platform utilities for managing file descriptor limits
+	├── ioprogress          - Thread-safe I/O progress tracking wrappers for monitoring read and write operations
+	├── iowrapper           - Flexible I/O wrapper enabling customization and interception of I/O operations
+	├── mapCloser           - Thread-safe, context-aware manager for multiple io.Closer instances
 	├── maxstdio            - Standard I/O redirection and capture
-	├── multi               - Multiple writer/reader composition
-	└── nopwritecloser      - No-op writer/closer implementations
+	├── multi               - Thread-safe, adaptive multi-writer extending io.MultiWriter with advanced features
+	└── nopwritecloser      - io.WriteCloser wrapper with no-op Close()
 
 Each subpackage is designed to solve specific I/O challenges while maintaining
 compatibility with standard library interfaces.
@@ -210,15 +210,15 @@ validation in a single call.
 
 For detailed documentation, see individual subpackage docs:
 
-  - aggregator: Concurrent-safe write buffering and aggregation
-  - bufferReadCloser: Memory-efficient buffer with ReadCloser interface
-  - delim: Delimiter-based stream parsing and processing
-  - fileDescriptor: Low-level file descriptor operations and management
-  - ioprogress: Progress tracking and reporting for I/O operations
-  - iowrapper: Generic wrappers for io.Reader/Writer interfaces
-  - mapCloser: Collection management for multiple io.Closer instances
+  - aggregator: Thread-safe write aggregator that buffers and serializes concurrent write operations to a single writer function
+  - bufferReadCloser: io.Closer wrappers for bytes.Buffer and bufio types with cleanup
+  - delim: Buffered reader for reading delimiter-separated data streams
+  - fileDescriptor: Cross-platform utilities for managing file descriptor limits in Go applications
+  - ioprogress: Thread-safe I/O progress tracking wrappers for monitoring read and write operations in real-time through customizable callbacks
+  - iowrapper: Flexible I/O wrapper that enables customization and interception of read, write, seek, and close operations on any underlying I/O object
+  - mapCloser: Thread-safe, context-aware manager for multiple io.Closer instances
   - maxstdio: Standard I/O stream redirection and capture
-  - multi: Composite readers/writers for multiple sources/destinations
-  - nopwritecloser: No-op implementations for testing and composition
+  - multi: Thread-safe, adaptive multi-writer that extends Go's standard io.MultiWriter with advanced features
+  - nopwritecloser: No-op Close() wrapper for io.Writer (delegates Write unchanged)
 */
 package ioutils

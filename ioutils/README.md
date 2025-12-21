@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../LICENSE)
-[![Coverage](https://img.shields.io/badge/Coverage-88.2%25-brightgreen)](TESTING.md)
+[![Coverage](https://img.shields.io/badge/Coverage-90.4%25-brightgreen)](TESTING.md)
 
 Production-ready I/O utilities collection providing specialized tools for stream processing, resource management, progress tracking, and concurrent I/O operations with comprehensive testing and thread-safe implementations.
 
@@ -15,7 +15,6 @@ Production-ready I/O utilities collection providing specialized tools for stream
   - [Key Features](#key-features)
 - [Architecture](#architecture)
   - [Package Organization](#package-organization)
-  - [Dependency Graph](#dependency-graph)
 - [Performance](#performance)
   - [Benchmark Summary](#benchmark-summary)
   - [Coverage Statistics](#coverage-statistics)
@@ -57,13 +56,13 @@ The **ioutils** package is a comprehensive collection of I/O utilities for Go ap
 3. **Streaming-Oriented**: Designed for continuous data flow with constant memory usage, not batch processing
 4. **Resource Management**: Proper cleanup with `defer`, context cancellation support, and automatic lifecycle handling
 5. **Zero External Dependencies**: Only standard library and internal golib packages
-6. **Production Hardened**: 772 test specs, 90.7% average coverage, extensive documentation
+6. **Production Hardened**: 776 test specs, 90.4% average coverage, extensive documentation
 
 ### Key Features
 
 ✅ **Thread-Safe Operations**: All subpackages safe for concurrent use  
 ✅ **Context Integration**: Cancellation and deadline propagation throughout  
-✅ **Comprehensive Testing**: 772 specs, zero race conditions  
+✅ **Comprehensive Testing**: 776 specs, zero race conditions  
 ✅ **Rich Subpackage Ecosystem**: 10 specialized packages for different I/O needs  
 ✅ **High Performance**: Benchmarked and optimized for throughput and latency  
 ✅ **Well Documented**: GoDoc comments, examples, README per subpackage  
@@ -78,77 +77,39 @@ The **ioutils** package is a comprehensive collection of I/O utilities for Go ap
 ioutils/
 ├── tools.go                    Root-level utilities (PathCheckCreate)
 │
-├── aggregator/                 Concurrent write aggregation
-│   └── [115 specs, 86.0% coverage]
+├── aggregator/                 Thread-safe write aggregator that buffers and serializes concurrent writes
+│   └── [115 specs, 84.9% coverage]
 │
-├── bufferReadCloser/           Buffered readers with closer
+├── bufferReadCloser/           io.Closer wrappers for bytes.Buffer and bufio types
 │   └── [44 specs, 100% coverage]
 │
-├── delim/                      Delimiter-based stream processing
-│   └── [95 specs, 100% coverage]
+├── delim/                      Buffered reader for reading delimiter-separated data streams
+│   └── [95 specs, 98.6% coverage]
 │
-├── fileDescriptor/             File descriptor management
+├── fileDescriptor/             Cross-platform file descriptor limit management
 │   └── [28 specs, 85.7% coverage]
 │
-├── ioprogress/                 Progress tracking wrappers
+├── ioprogress/                 Thread-safe I/O progress tracking wrappers
 │   └── [54 specs, 84.7% coverage]
 │
-├── iowrapper/                  Generic I/O wrappers
+├── iowrapper/                  Flexible I/O wrapper for customization and interception
 │   └── [88 specs, 100% coverage]
 │
-├── mapCloser/                  Multiple closer management
-│   └── [82 specs, 77.5% coverage]
+├── mapCloser/                  Thread-safe, context-aware manager for multiple io.Closer instances
+│   └── [82 specs, 80.8% coverage]
 │
-├── maxstdio/                   Stdio limit management
+├── maxstdio/                   Standard I/O limit management
 │   └── [No specs - utility package]
 │
-├── multi/                      Write multiplexing
-│   └── [112 specs, 81.7% coverage]
+├── multi/                      Thread-safe adaptive multi-writer extending io.MultiWriter
+│   └── [112 specs, 80.8% coverage]
 │
-└── nopwritecloser/             No-op writer closers
+└── nopwritecloser/             io.WriteCloser wrapper with no-op Close()
     └── [54 specs, 100% coverage]
 ```
 
-**Total**: 772 test specs, 90.7% average coverage
+**Total**: 776 test specs, 90.4% average coverage
 
-### Dependency Graph
-
-```
-                     ┌──────────────────────┐
-                     │   ioutils (root)     │
-                     │   PathCheckCreate    │
-                     └──────────────────────┘
-                               │
-         ┌─────────────────────┼─────────────────────┐
-         │                     │                     │
-         ▼                     ▼                     ▼
-┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-│   aggregator    │   │   ioprogress    │   │      multi      │
-│  (concurrent)   │   │   (tracking)    │   │ (multiplexing)  │
-└─────────────────┘   └─────────────────┘   └─────────────────┘
-         │                     │                     │
-         └─────────────────────┴─────────────────────┘
-                               │
-         ┌─────────────────────┼─────────────────────┐
-         │                     │                     │
-         ▼                     ▼                     ▼
-┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-│  iowrapper      │   │   mapCloser     │   │ nopwritecloser  │
-│  (generic)      │   │   (lifecycle)   │   │   (no-op)       │
-└─────────────────┘   └─────────────────┘   └─────────────────┘
-         │                     │                     │
-         └─────────────────────┴─────────────────────┘
-                               │
-         ┌─────────────────────┼─────────────────────┐
-         │                     │                     │
-         ▼                     ▼                     ▼
-┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-│bufferReadCloser │   │     delim       │   │ fileDescriptor  │
-│   (buffering)   │   │  (delimiter)    │   │    (limits)     │
-└─────────────────┘   └─────────────────┘   └─────────────────┘
-```
-
-**Note**: Arrows represent conceptual grouping by complexity, not actual import dependencies.
 
 ---
 
@@ -156,43 +117,43 @@ ioutils/
 
 ### Benchmark Summary
 
-Based on actual test execution (772 specs, ~33 seconds total):
+Based on actual test execution (776 specs, ~41 seconds total):
 
 | Package | Specs | Coverage | Execution Time | Notable Metrics |
 |---------|-------|----------|----------------|-----------------|
-| **aggregator** | 115 | 86.0% | ~30.8s | Start: 10.7ms, Throughput: 5000-10000/s |
+| **aggregator** | 115 | 84.9% | ~33.3s | Start: 10.7ms, Throughput: 5000-10000/s |
 | **bufferReadCloser** | 44 | 100% | ~0.03s | Read: <1ms, Buffer: configurable |
-| **delim** | 95 | 100% | ~0.19s | Read: <500µs, Scan: <1ms |
+| **delim** | 95 | 98.6% | ~6.68s | Read: <500µs, Scan: <1ms |
 | **fileDescriptor** | 28 | 85.7% | ~0.01s | Limit check: <1µs |
 | **ioprogress** | 54 | 84.7% | ~0.02s | Callback: <10µs overhead |
 | **iowrapper** | 88 | 100% | ~0.08s | Wrap: <1µs, Pass-through |
-| **mapCloser** | 82 | 77.5% | ~0.02s | Add/Remove: <1µs, Close all: <1ms |
-| **multi** | 112 | 81.7% | ~0.15s | Write to N: O(N), Copy: <100µs |
+| **mapCloser** | 82 | 80.8% | ~0.05s | Add/Remove: <1µs, Close all: <1ms |
+| **multi** | 112 | 80.8% | ~0.69s | Write to N: O(N), Copy: <100µs |
 | **nopwritecloser** | 54 | 100% | ~0.24s | No-op: <1ns |
-| **ioutils (root)** | - | 88.2% | ~0.02s | PathCheckCreate: varies |
+| **ioutils (root)** | 31 | 88.2% | ~0.04s | PathCheckCreate: varies |
 
 **Aggregate Performance:**
-- **Total execution**: ~33 seconds (including setup/teardown)
-- **Average spec time**: ~43ms (dominated by aggregator's timing tests)
+- **Total execution**: ~41 seconds (including setup/teardown)
+- **Average spec time**: ~53ms (dominated by aggregator's timing tests)
 - **Zero race conditions**: All tests pass with `-race` detector
 - **Memory efficiency**: Constant memory for streaming operations
 
 ### Coverage Statistics
 
 ```
-Overall Coverage:       90.7% (weighted average)
-Packages at 100%:       5/10 (bufferReadCloser, delim, iowrapper, nopwritecloser, root)
-Packages >85%:          8/10
-Lowest Coverage:        77.5% (mapCloser - primarily error paths)
+Overall Coverage:       90.4% (weighted average)
+Packages at 100%:       3/10 (bufferReadCloser, iowrapper, nopwritecloser)
+Packages >85%:          5/10
+Lowest Coverage:        80.8% (mapCloser, multi - primarily error paths)
 ```
 
 **Coverage Breakdown:**
 
 | Coverage Range | Count | Packages |
 |----------------|-------|----------|
-| 100% | 5 | bufferReadCloser, delim, iowrapper, nopwritecloser, root |
-| 85-99% | 3 | aggregator (86%), fileDescriptor (85.7%), ioprogress (84.7%) |
-| 75-84% | 2 | mapCloser (77.5%), multi (81.7%) |
+| 100% | 3 | bufferReadCloser, iowrapper, nopwritecloser |
+| 85-99% | 4 | delim (98.6%), ioutils (88.2%), fileDescriptor (85.7%), ioprogress (84.7%) |
+| 80-89% | 3 | aggregator (84.9%), mapCloser (80.8%), multi (80.8%) |
 
 ---
 
@@ -200,7 +161,7 @@ Lowest Coverage:        77.5% (mapCloser - primarily error paths)
 
 ### aggregator
 
-**Purpose**: Thread-safe write aggregator that serializes concurrent write operations to a single output function.
+**Purpose**: Thread-safe write aggregator that buffers and serializes concurrent write operations to a single writer function.
 
 **Key Features**:
 - Concurrent writes from multiple goroutines
@@ -222,20 +183,21 @@ Lowest Coverage:        77.5% (mapCloser - primarily error paths)
 
 ### bufferReadCloser
 
-**Purpose**: Buffered reader implementation with proper closer interface.
+**Purpose**: Lightweight wrappers around Go's standard buffered I/O types (bytes.Buffer, bufio.Reader, bufio.Writer, bufio.ReadWriter) that add io.Closer support with automatic resource cleanup and custom close callbacks.
 
 **Key Features**:
-- Wraps any `io.Reader` with buffering
-- Implements `io.ReadCloser`
-- Configurable buffer size
-- Proper resource cleanup
+- Wraps bytes.Buffer, bufio.Reader, bufio.Writer, bufio.ReadWriter
+- Adds io.Closer interface to non-closeable buffers
+- Automatic reset/flush on close
+- Optional custom close callbacks
+- Zero-copy passthrough to underlying buffers
 
 **Performance**:
-- Read overhead: <1ms
-- Buffer size: configurable (default 4KB)
-- Zero-copy when possible
+- Wrapper overhead: ~5.7ms per 10,000 operations
+- I/O operations: 0-100ns (direct delegation)
+- Memory: 24 bytes per wrapper
 
-**Use Case**: Network streams, file reading with buffering, pipe wrapping
+**Use Case**: Adding lifecycle management to standard buffers, automatic cleanup with defer, composable close operations
 
 **Documentation**: [bufferReadCloser/README.md](bufferReadCloser/README.md)
 
@@ -243,7 +205,7 @@ Lowest Coverage:        77.5% (mapCloser - primarily error paths)
 
 ### delim
 
-**Purpose**: High-performance delimiter-based stream processing.
+**Purpose**: Buffered reader for reading delimiter-separated data streams.
 
 **Key Features**:
 - Read until any delimiter character
@@ -264,7 +226,7 @@ Lowest Coverage:        77.5% (mapCloser - primarily error paths)
 
 ### fileDescriptor
 
-**Purpose**: File descriptor limit management and validation.
+**Purpose**: Cross-platform utilities for managing file descriptor limits, offering a unified API for querying and modifying the maximum number of open files or I/O resources allowed for a process.
 
 **Key Features**:
 - Check system-wide FD limits
@@ -284,7 +246,7 @@ Lowest Coverage:        77.5% (mapCloser - primarily error paths)
 
 ### ioprogress
 
-**Purpose**: Thread-safe I/O progress tracking wrappers.
+**Purpose**: Thread-safe I/O progress tracking wrappers for monitoring read and write operations in real-time through customizable callbacks.
 
 **Key Features**:
 - Reader/Writer progress callbacks
@@ -305,7 +267,7 @@ Lowest Coverage:        77.5% (mapCloser - primarily error paths)
 
 ### iowrapper
 
-**Purpose**: Generic I/O wrappers for extending Reader/Writer functionality.
+**Purpose**: Flexible I/O wrapper that enables customization and interception of read, write, seek, and close operations on any underlying I/O object without modifying its implementation.
 
 **Key Features**:
 - Wrap readers and writers
@@ -361,7 +323,7 @@ Lowest Coverage:        77.5% (mapCloser - primarily error paths)
 
 ### multi
 
-**Purpose**: Thread-safe I/O multiplexer for broadcasting writes to multiple destinations.
+**Purpose**: Thread-safe, adaptive multi-writer that extends Go's standard io.MultiWriter with advanced features including adaptive sequential/parallel execution, latency monitoring, and comprehensive concurrency support.
 
 **Key Features**:
 - Write to multiple writers atomically
@@ -383,20 +345,20 @@ Lowest Coverage:        77.5% (mapCloser - primarily error paths)
 
 ### nopwritecloser
 
-**Purpose**: No-op writer closer for testing and interface satisfaction.
+**Purpose**: Wrapper that implements io.WriteCloser for an io.Writer by adding a no-op Close() method.
 
 **Key Features**:
-- Implements `io.WriteCloser`
-- Write discards all data
-- Close is always successful
-- Useful for testing
+- Implements `io.WriteCloser` for any `io.Writer`
+- Write operations delegate to underlying writer unchanged
+- Close() is no-op (always returns nil, never affects writer)
+- Thread-safe if underlying writer is thread-safe
 
 **Performance**:
-- Write: <1ns (no-op)
+- Write: Direct delegation (no overhead)
 - Close: <1ns (no-op)
 - Zero allocation
 
-**Use Case**: Testing, benchmarking, interface mocking, discard sinks
+**Use Case**: Protecting stdout/stderr from closure, API compatibility (io.Writer → io.WriteCloser), testing with inspectable buffers after close, shared resource management
 
 **Documentation**: [nopwritecloser/README.md](nopwritecloser/README.md)
 
@@ -738,7 +700,7 @@ defer closer.Close()
 
 ## Testing
 
-Comprehensive test suite with 772 specs across all subpackages.
+Comprehensive test suite with 776 specs across all subpackages.
 
 **Quick Test:**
 
@@ -754,10 +716,10 @@ go test -cover ./...
 ```
 
 **Expected Results:**
-- 772 specs passed
-- 90.7% average coverage
+- 776 specs passed
+- 90.4% average coverage
 - Zero race conditions
-- ~33 seconds execution time
+- ~41 seconds execution time
 
 See [TESTING.md](TESTING.md) for detailed testing documentation including:
 - Running tests (standard, race, coverage, profiling)
@@ -815,12 +777,12 @@ The package is **production-ready** with no urgent improvements or security vuln
 
 ### Code Quality Metrics
 
-- ✅ **90.7% average test coverage** (target: >85%)
+- ✅ **90.4% average test coverage** (target: >85%)
 - ✅ **Zero race conditions** detected with `-race` flag
 - ✅ **Thread-safe** implementations across all subpackages
 - ✅ **Memory-safe** with proper resource cleanup
 - ✅ **Standard interfaces** for maximum compatibility
-- ✅ **772 comprehensive test specs** ensuring reliability
+- ✅ **776 comprehensive test specs** ensuring reliability
 
 ### Future Enhancements (Non-urgent)
 
