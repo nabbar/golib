@@ -6,8 +6,8 @@
 [![GoDoc](https://pkg.go.dev/badge/github.com/nabbar/golib)](https://pkg.go.dev/github.com/nabbar/golib)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nabbar/golib)](https://goreportcard.com/report/github.com/nabbar/golib)
 [![Known Vulnerabilities](https://snyk.io/test/github/nabbar/golib/badge.svg)](https://snyk.io/test/github/nabbar/golib)
-[![Tests](https://img.shields.io/badge/Tests-10964%20Specs-green)](TESTING.md)
-[![Coverage](https://img.shields.io/badge/Coverage-73.9%25-yellow)](TESTING.md)
+[![Tests](https://img.shields.io/badge/Tests-11818%20Specs-green)](TESTING.md)
+[![Coverage](https://img.shields.io/badge/Coverage-75.49%25-yellow)](TESTING.md)
 
 Comprehensive Go library collection providing production-ready packages for cloud services, web infrastructure, data management, security, monitoring, and development utilities. Built for enterprise-grade applications with extensive testing and documentation.
 
@@ -47,7 +47,7 @@ This library provides building blocks for cloud-native applications, web service
 ### Design Philosophy
 
 1. **Modularity**: Self-contained packages with minimal cross-dependencies
-2. **Production-Ready**: Comprehensive testing with 10,964 specs across 127 packages
+2. **Production-Ready**: Comprehensive testing with 11,818 specs across 131 packages
 3. **Performance-First**: Streaming operations, zero-allocation paths, optimized throughput
 4. **Thread-Safe**: All concurrent operations validated with race detector
 5. **Observable**: Structured logging, Prometheus metrics, health checks, monitoring
@@ -56,15 +56,16 @@ This library provides building blocks for cloud-native applications, web service
 ### Repository Statistics
 
 ```
-Total Packages:       165 (127 with tests, 38 utility/types packages)
+Total Packages:       165 (131 with tests, 34 utility/types packages)
 Documented Packages:  62 packages with individual README.md files
-Test Specifications:  10,964
-Test Assertions:      21,470
-Benchmarks:           92
+Test Specifications:  11,818
+Test Assertions:      23,080
+Benchmarks:           151
 Pending Tests:        18
-Average Coverage:     73.9%
-Packages ≥80%:        67/127 (52.8%)
-Packages ≥90%:        38/127 (29.9%)
+Skipped Tests:        6
+Average Coverage:     75.49%
+Packages ≥80%:        71/131 (54.2%)
+Packages ≥90%:        43/131 (32.8%)
 Go Version:           1.24+ (1.25+ recommended)
 Platforms:            Linux, macOS, Windows
 Thread Safety:        ✅ Zero race conditions

@@ -34,18 +34,18 @@ Comprehensive testing guide for the `github.com/nabbar/golib` library and all it
 
 ```
 Total Packages:           165
-Packages with Tests:      127 (77.0%)
-Packages without Tests:   38 (23.0%)
+Packages with Tests:      131 (79.4%)
+Packages without Tests:   34 (20.6%)
 
-Test Specifications:      10,964
-Test Assertions:          21,470
-Benchmarks:               92
+Test Specifications:      11,818
+Test Assertions:          23,080
+Benchmarks:               151
 Pending Tests:            18
-Skipped Tests:            0
+Skipped Tests:            6
 
-Average Coverage:         73.9%
-Packages ≥80%:            67/127 (52.8%)
-Packages at 100%:         14/127 (11.0%)
+Average Coverage:         75.49%
+Packages ≥80%:            71/131 (54.2%)
+Packages at 100%:         16/131 (12.2%)
 
 Race Conditions:          0 (verified with CGO_ENABLED=1 go test -race)
 Thread Safety:            ✅ All concurrent operations validated
@@ -55,12 +55,12 @@ Thread Safety:            ✅ All concurrent operations validated
 
 | Range | Count | Percentage | Examples |
 |-------|-------|------------|----------|
-| 100% | 14 | 11.1% | errors/pool, logger/gorm, router/authheader, semaphore/sem |
-| 90-99% | 24 | 19.0% | atomic, version, size, prometheus/metrics |
-| 80-89% | 29 | 23.0% | ioutils, mail/queuer, context, runner |
-| 70-79% | 18 | 14.3% | cobra, viper, socket/client/* |
-| 60-69% | 10 | 7.9% | config, logger, database/kvmap |
-| <60% | 31 | 24.6% | archive, aws, httpserver |
+| 100% | 16 | 12.2% | errors/pool, logger/gorm, router/authheader, semaphore/sem |
+| 90-99% | 27 | 20.6% | atomic, version, size, prometheus/metrics |
+| 80-89% | 28 | 21.4% | ioutils, mail/queuer, context, runner |
+| 70-79% | 16 | 12.2% | cobra, viper, socket/client/* |
+| 60-69% | 9 | 6.9% | config, logger, database/kvmap |
+| <60% | 35 | 26.7% | archive, aws, httpserver |
 
 ---
 
