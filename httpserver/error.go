@@ -34,9 +34,11 @@ import (
 
 const (
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgHttpServer
+	ErrorInvalidInstance
 	ErrorHTTP2Configure
 	ErrorServerValidate
 	ErrorServerStart
+	ErrorInvalidAddress
 	ErrorPortUse
 )
 
@@ -51,12 +53,16 @@ func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:
 		return "given parameters is empty"
+	case ErrorInvalidInstance:
+		return "invalid instance"
 	case ErrorHTTP2Configure:
 		return "cannot initialize http2 over http srv"
 	case ErrorServerValidate:
 		return "config srv seems to be not valid"
 	case ErrorServerStart:
 		return "server killed : server start but not listen"
+	case ErrorInvalidAddress:
+		return "address seems to be invalid"
 	case ErrorPortUse:
 		return "srv port is still used"
 	}

@@ -28,7 +28,6 @@ package httpserver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -42,8 +41,6 @@ import (
 	loglvl "github.com/nabbar/golib/logger/level"
 	libsrv "github.com/nabbar/golib/runner"
 )
-
-var errInvalid = errors.New("invalid instance")
 
 func (o *srv) getServer() *http.Server {
 	if o == nil || o.s == nil {
@@ -65,7 +62,7 @@ func (o *srv) delServer() {
 
 func (o *srv) setServer(ctx context.Context) error {
 	if o == nil || o.s == nil {
-		return errInvalid
+		return ErrorInvalidInstance.Error()
 	}
 
 	var (
@@ -137,7 +134,7 @@ func (o *srv) Start(ctx context.Context) error {
 
 func (o *srv) Stop(ctx context.Context) error {
 	if o == nil || o.s == nil || o.r == nil {
-		return errInvalid
+		return ErrorInvalidInstance.Error()
 	}
 
 	r := o.r.Load()
@@ -222,6 +219,11 @@ func (o *srv) PortNotUse(ctx context.Context, listen string) error {
 
 	if strings.Contains(listen, ":") {
 		part := strings.Split(listen, ":")
+
+		if len(part) < 2 {
+			return ErrorInvalidAddress.Error()
+		}
+
 		port := part[len(part)-1]
 		addr := strings.Join(part[:len(part)-1], ":")
 
