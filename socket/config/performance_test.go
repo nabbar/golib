@@ -212,7 +212,7 @@ var _ = Describe("Server Performance", func() {
 				Network: libptc.NetworkTCP,
 				Address: ":8080",
 			}
-			s.TLS.Enable = false
+			s.TLS.Enabled = false
 
 			exp := gmeasure.NewExperiment("GetTLS Call")
 			AddReportEntry(exp.Name, exp)

@@ -233,7 +233,7 @@ var _ = Describe("Basic Server Configuration", func() {
 			Expect(s.Address).To(BeEmpty())
 			Expect(s.PermFile).To(Equal(libprm.Perm(0)))
 			Expect(s.GroupPerm).To(Equal(int32(0)))
-			Expect(s.TLS.Enable).To(BeFalse())
+			Expect(s.TLS.Enabled).To(BeFalse())
 		})
 
 		It("should create a server with values", func() {

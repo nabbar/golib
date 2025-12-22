@@ -566,7 +566,7 @@ var _ = Describe("Validation State Boundaries", func() {
 			_ = s.Validate()
 
 			// Modify TLS
-			s.TLS.Enable = false
+			s.TLS.Enabled = false
 			_ = s.Validate()
 		})
 	})

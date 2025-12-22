@@ -313,7 +313,7 @@ var _ = Describe("Server Implementation", func() {
 				Network: libptc.NetworkTCP,
 				Address: ":8080",
 			}
-			s.TLS.Enable = false
+			s.TLS.Enabled = false
 			err := s.Validate()
 			expectNoValidationError(err)
 		})
@@ -323,7 +323,7 @@ var _ = Describe("Server Implementation", func() {
 				Network: libptc.NetworkUDP,
 				Address: ":9000",
 			}
-			s.TLS.Enable = true
+			s.TLS.Enabled = true
 			s.TLS.Config = libtls.Config{}
 			err := s.Validate()
 			expectValidationError(err, config.ErrInvalidTLSConfig)
@@ -336,7 +336,7 @@ var _ = Describe("Server Implementation", func() {
 				Network: libptc.NetworkTCP,
 				Address: ":8080",
 			}
-			s.TLS.Enable = true
+			s.TLS.Enabled = true
 			s.TLS.Config = libtls.Config{}
 
 			// GetTLS should return true when TLS is enabled
@@ -349,7 +349,7 @@ var _ = Describe("Server Implementation", func() {
 				Network: libptc.NetworkTCP,
 				Address: ":8080",
 			}
-			s.TLS.Enable = false
+			s.TLS.Enabled = false
 
 			enabled, tlsCfg := s.GetTLS()
 			Expect(enabled).To(BeFalse())

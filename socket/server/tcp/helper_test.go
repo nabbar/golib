@@ -281,7 +281,7 @@ func createDefaultConfig(addr string) sckcfg.Server {
 // createTLSConfig creates a TLS-enabled server configuration
 func createTLSConfig(addr string) sckcfg.Server {
 	cfg := createDefaultConfig(addr)
-	cfg.TLS.Enable = true
+	cfg.TLS.Enabled = true
 	cfg.TLS.Config = srvTLSCfg
 	return cfg
 }

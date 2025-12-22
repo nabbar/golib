@@ -61,7 +61,7 @@ var _ = Describe("TLS Configuration", func() {
 				Address: ":8443",
 			}
 
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = cfgTLSSrv
 
 			err := srv.Validate()
@@ -74,7 +74,7 @@ var _ = Describe("TLS Configuration", func() {
 				Address: "127.0.0.1:8443",
 			}
 
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = cfgTLSSrv
 
 			err := srv.Validate()
@@ -87,7 +87,7 @@ var _ = Describe("TLS Configuration", func() {
 				Address: "[::1]:8443",
 			}
 
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = cfgTLSSrv
 
 			err := srv.Validate()
@@ -100,7 +100,7 @@ var _ = Describe("TLS Configuration", func() {
 				Address: ":9000",
 			}
 
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = cfgTLSSrv
 
 			err := srv.Validate()
@@ -115,7 +115,7 @@ var _ = Describe("TLS Configuration", func() {
 				Address: "/tmp/test.sock",
 			}
 
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = cfgTLSSrv
 
 			err := srv.Validate()
@@ -128,7 +128,7 @@ var _ = Describe("TLS Configuration", func() {
 				Address: ":8443",
 			}
 
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = libtls.Config{}
 
 			err := srv.Validate()
@@ -141,7 +141,7 @@ var _ = Describe("TLS Configuration", func() {
 				Address: ":8080",
 			}
 
-			srv.TLS.Enable = false
+			srv.TLS.Enabled = false
 
 			err := srv.Validate()
 			expectNoValidationError(err)
@@ -254,7 +254,7 @@ var _ = Describe("TLS Configuration", func() {
 				Address: ":8443",
 			}
 
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = cfgTLSSrv
 
 			// Set default TLS configuration
@@ -275,7 +275,7 @@ var _ = Describe("TLS Configuration", func() {
 				Network: libptc.NetworkTCP,
 				Address: ":8080",
 			}
-			srv.TLS.Enable = false
+			srv.TLS.Enabled = false
 
 			enabled, tlsCfg := srv.GetTLS()
 			Expect(enabled).To(BeFalse())
@@ -287,7 +287,7 @@ var _ = Describe("TLS Configuration", func() {
 				Network: libptc.NetworkTCP,
 				Address: ":8443",
 			}
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = cfgTLSSrv
 
 			// Should not panic with nil
@@ -353,7 +353,7 @@ var _ = Describe("TLS Configuration", func() {
 				Network: libptc.NetworkTCP,
 				Address: ":8443",
 			}
-			srv.TLS.Enable = true
+			srv.TLS.Enabled = true
 			srv.TLS.Config = cfgTLSSrv
 
 			done := make(chan bool)

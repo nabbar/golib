@@ -92,7 +92,7 @@ type Client struct {
 	//
 	// The protocol determines both the transport layer and the addressing scheme.
 	// See github.com/nabbar/golib/network/protocol for protocol definitions.
-	Network libptc.NetworkProtocol
+	Network libptc.NetworkProtocol `json:"network" yaml:"network" toml:"network" mapstructure:"network"`
 
 	// Address specifies the destination to connect to.
 	//
@@ -111,7 +111,7 @@ type Client struct {
 	//   - Maximum path length depends on OS (typically 108 bytes)
 	//
 	// Empty address will cause New() to return an error.
-	Address string
+	Address string `json:"address" yaml:"address" toml:"address" mapstructure:"address"`
 
 	// TLS provides Transport Layer Security configuration for the client.
 	//
@@ -136,15 +136,11 @@ type Client struct {
 	//
 	// The Config must provide valid certificates and the ServerName must match
 	// the server's certificate for successful validation.
-	TLS struct {
-		Enabled    bool
-		Config     libtls.Config
-		ServerName string
-	}
+	TLS TLSClient `json:"tls" yaml:"tls" toml:"tls" mapstructure:"tls"`
 
 	// defTls holds the default TLS configuration set via DefaultTLS().
 	// This is merged with TLS.Config when GetTLS() is called.
-	defTls libtls.TLSConfig
+	defTls libtls.TLSConfig `json:"-" yaml:"-" toml:"-" mapstructure:"-"`
 }
 
 // Validate checks the client configuration for correctness and compatibility.

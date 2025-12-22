@@ -85,7 +85,7 @@ type Server struct {
 	//
 	// See github.com/nabbar/golib/network/protocol for protocol definitions.
 	// See github.com/nabbar/golib/socket/server for implementation details.
-	Network libptc.NetworkProtocol
+	Network libptc.NetworkProtocol `json:"network" yaml:"network" toml:"network" mapstructure:"network"`
 
 	// Address specifies where the server should listen.
 	//
@@ -107,7 +107,7 @@ type Server struct {
 	//   - Maximum path length depends on OS (typically 108 bytes)
 	//
 	// Empty address will cause New() to return an error.
-	Address string
+	Address string `json:"address" yaml:"address" toml:"address" mapstructure:"address"`
 
 	// PermFile specifies file permissions for Unix domain socket files.
 	//
@@ -130,7 +130,7 @@ type Server struct {
 	//   PermFile: 0660  // Owner and group members can connect
 	//
 	// See os.FileMode for permission representation.
-	PermFile libprm.Perm
+	PermFile libprm.Perm `json:"perm-file" yaml:"perm-file" toml:"perm-file" mapstructure:"perm-file"`
 
 	// GroupPerm specifies the group ownership for Unix domain socket files.
 	//
@@ -155,7 +155,7 @@ type Server struct {
 	//   GroupPerm: 1000  // Set to group 1000
 	//
 	// Combined with PermFile 0660, this enables group-based access control.
-	GroupPerm int32
+	GroupPerm int32 `json:"group-perm" yaml:"group-perm" toml:"group-perm" mapstructure:"group-perm"`
 
 	// ConIdleTimeout specifies the maximum duration a connection can remain idle.
 	//
@@ -177,7 +177,7 @@ type Server struct {
 	//
 	// Note: This timeout is independent of read/write deadlines that may be
 	// set on individual operations.
-	ConIdleTimeout time.Duration
+	ConIdleTimeout time.Duration `json:"con-idle-timeout" yaml:"con-idle-timeout" toml:"con-idle-timeout" mapstructure:"con-idle-timeout"`
 
 	// TLS provides Transport Layer Security configuration for the server.
 	//
@@ -205,14 +205,11 @@ type Server struct {
 	//
 	// Use DefaultTLS() to set a fallback TLS configuration that will be used
 	// if Config doesn't provide all necessary settings.
-	TLS struct {
-		Enable bool
-		Config libtls.Config
-	}
+	TLS TLSServer `json:"tls" yaml:"tls" toml:"tls" mapstructure:"tls"`
 
 	// defTls holds the default TLS configuration set via DefaultTLS().
 	// This is merged with TLS.Config when GetTLS() is called.
-	defTls libtls.TLSConfig
+	defTls libtls.TLSConfig `json:"-" yaml:"-" toml:"-" mapstructure:"-"`
 }
 
 // Validate checks the server configuration for correctness and compatibility.
@@ -268,7 +265,7 @@ func (o *Server) Validate() error {
 		return ErrInvalidProtocol
 	}
 
-	if !o.TLS.Enable {
+	if !o.TLS.Enabled {
 		return nil
 	}
 
@@ -327,7 +324,7 @@ func (o *Server) DefaultTLS(t libtls.TLSConfig) {
 //
 // See DefaultTLS() for setting the default configuration.
 func (o *Server) GetTLS() (bool, libtls.TLSConfig) {
-	if !o.TLS.Enable {
+	if !o.TLS.Enabled {
 		return false, nil
 	}
 	return true, o.TLS.Config.NewFrom(o.defTls)
