@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,14 +30,10 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	liberr "github.com/nabbar/golib/errors"
-	srvtps "github.com/nabbar/golib/httpserver/types"
 	loglvl "github.com/nabbar/golib/logger/level"
 	libsrv "github.com/nabbar/golib/runner"
 )
@@ -115,6 +111,9 @@ func (o *srv) setServer(ctx context.Context) error {
 	return nil
 }
 
+// Start begins serving HTTP requests on the configured bind address.
+// The server runs in the background until Stop is called or the context is cancelled.
+// Returns an error if the server fails to start or if the port is already in use.
 func (o *srv) Start(ctx context.Context) error {
 	// Register Runner to runner
 	if o.getServer() != nil {
@@ -132,6 +131,9 @@ func (o *srv) Start(ctx context.Context) error {
 	return nil
 }
 
+// Stop gracefully shuts down the server without interrupting active connections.
+// It waits for active connections to complete up to the context timeout.
+// Returns an error if shutdown fails or times out.
 func (o *srv) Stop(ctx context.Context) error {
 	if o == nil || o.s == nil || o.r == nil {
 		return ErrorInvalidInstance.Error()
@@ -145,11 +147,16 @@ func (o *srv) Stop(ctx context.Context) error {
 	return r.Stop(ctx)
 }
 
+// Restart performs a stop followed by a start operation.
+// This is useful for applying configuration changes that require a server restart.
+// Returns an error if either stop or start operations fail.
 func (o *srv) Restart(ctx context.Context) error {
 	_ = o.Stop(ctx)
 	return o.Start(ctx)
 }
 
+// IsRunning returns true if the server is currently running and accepting connections.
+// Returns false if the server is stopped or has not been started.
 func (o *srv) IsRunning() bool {
 	if o == nil || o.s == nil || o.r == nil {
 		return false
@@ -163,93 +170,12 @@ func (o *srv) IsRunning() bool {
 	return r.IsRunning()
 }
 
-func (o *srv) PortInUse(ctx context.Context, listen string) liberr.Error {
-	var (
-		dia = net.Dialer{}
-		con net.Conn
-		err error
-		cnl context.CancelFunc
-	)
-
-	defer func() {
-		if cnl != nil {
-			cnl()
-		}
-		if con != nil {
-			_ = con.Close()
-		}
-	}()
-
-	if strings.Contains(listen, ":") {
-		uri := &url.URL{
-			Host: listen,
-		}
-
-		if h := uri.Hostname(); h == "0.0.0.0" || h == "::1" {
-			listen = "127.0.0.1:" + uri.Port()
-		}
-	}
-
-	if _, ok := ctx.Deadline(); !ok {
-		ctx, cnl = context.WithTimeout(ctx, srvtps.TimeoutWaitingPortFreeing)
-		defer cnl()
-	}
-
-	con, err = dia.DialContext(ctx, "tcp", listen)
-	defer func() {
-		if con != nil {
-			_ = con.Close()
-		}
-	}()
-	if err != nil {
-		return nil
-	}
-
-	return ErrorPortUse.Error(nil)
-}
-
-func (o *srv) PortNotUse(ctx context.Context, listen string) error {
-	var (
-		err error
-
-		cnl context.CancelFunc
-		con net.Conn
-		dia = net.Dialer{}
-	)
-
-	if strings.Contains(listen, ":") {
-		part := strings.Split(listen, ":")
-
-		if len(part) < 2 {
-			return ErrorInvalidAddress.Error()
-		}
-
-		port := part[len(part)-1]
-		addr := strings.Join(part[:len(part)-1], ":")
-
-		if strings.HasPrefix(addr, "0.") || strings.HasPrefix(addr, "::") {
-			listen = "127.0.0.1:" + port
-		}
-	}
-
-	if _, ok := ctx.Deadline(); !ok {
-		ctx, cnl = context.WithTimeout(ctx, srvtps.TimeoutWaitingPortFreeing)
-		defer cnl()
-	}
-
-	con, err = dia.DialContext(ctx, "tcp", listen)
-	defer func() {
-		if con != nil {
-			_ = con.Close()
-		}
-	}()
-
-	return err
-}
-
+// RunIfPortInUse checks if the specified port is available and retries if in use.
+// It calls fct callback if the port is in use, then retries up to nbr times.
+// Returns ErrorPortUse if the port remains unavailable after all retries.
 func (o *srv) RunIfPortInUse(ctx context.Context, listen string, nbr uint8, fct func()) liberr.Error {
 	chk := func() bool {
-		return o.PortInUse(ctx, listen) == nil
+		return PortInUse(ctx, listen) == nil
 	}
 
 	if !libsrv.RunNbr(nbr, chk, fct) {

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,14 +26,14 @@
 
 package types
 
+// HandlerDefault is the default key used for handler registration when no specific key is provided.
+const HandlerDefault = "default"
+
 // FieldType identifies server fields for filtering and listing operations.
 // Used primarily by the pool package to filter servers by specific attributes.
 type FieldType uint8
 
 const (
-	// HandlerDefault is the default key used for handler registration when no specific key is provided.
-	HandlerDefault = "default"
-
 	// FieldName identifies the server name field for filtering operations.
 	FieldName FieldType = iota
 

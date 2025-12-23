@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2024 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,39 +36,21 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// configDefaultHandler provides a minimal handler for tests
-func configDefaultHandler() map[string]http.Handler {
-	return map[string]http.Handler{
-		"": http.NotFoundHandler(),
-	}
-}
-
-// makeConfigConfig creates a config with handler for testing
-func makeConfigConfig(name, listen, expose string) libhtp.Config {
-	cfg := libhtp.Config{
-		Name:   name,
-		Listen: listen,
-		Expose: expose,
-	}
-	cfg.RegisterHandlerFunc(configDefaultHandler)
-	return cfg
-}
-
-var _ = Describe("Pool Config", func() {
+var _ = Describe("[TC-CF] Pool Config", func() {
 	Describe("Config Validation", func() {
-		It("should validate all valid configs", func() {
+		It("[TC-CF-001] should validate all valid configs", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
-				makeConfigConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
 			}
 
 			err := cfg.Validate()
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should fail validation with invalid config", func() {
+		It("[TC-CF-002] should fail validation with invalid config", func() {
 			cfg := Config{
-				makeConfigConfig("valid-server", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("valid-server", "127.0.0.1:8080", "http://localhost:8080"),
 				{
 					Name: "invalid-server",
 					// Missing Listen and Expose
@@ -79,7 +61,7 @@ var _ = Describe("Pool Config", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should validate empty config", func() {
+		It("[TC-CF-003] should validate empty config", func() {
 			cfg := Config{}
 
 			err := cfg.Validate()
@@ -88,10 +70,10 @@ var _ = Describe("Pool Config", func() {
 	})
 
 	Describe("Config Pool Creation", func() {
-		It("should create pool from valid configs", func() {
+		It("[TC-CF-004] should create pool from valid configs", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
-				makeConfigConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
 			}
 
 			pool, err := cfg.Pool(nil, nil, nil)
@@ -100,7 +82,7 @@ var _ = Describe("Pool Config", func() {
 			Expect(pool.Len()).To(Equal(2))
 		})
 
-		It("should fail to create pool with invalid configs", func() {
+		It("[TC-CF-005] should fail to create pool with invalid configs", func() {
 			cfg := Config{
 				{
 					Name: "invalid",
@@ -114,7 +96,7 @@ var _ = Describe("Pool Config", func() {
 			Expect(pool.Len()).To(Equal(0))
 		})
 
-		It("should create empty pool from empty config", func() {
+		It("[TC-CF-006] should create empty pool from empty config", func() {
 			cfg := Config{}
 
 			pool, err := cfg.Pool(nil, nil, nil)
@@ -125,10 +107,10 @@ var _ = Describe("Pool Config", func() {
 	})
 
 	Describe("Config Walk", func() {
-		It("should walk all configs", func() {
+		It("[TC-CF-007] should walk all configs", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
-				makeConfigConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
 			}
 
 			var count int
@@ -144,11 +126,11 @@ var _ = Describe("Pool Config", func() {
 			Expect(names).To(ContainElements("server1", "server2"))
 		})
 
-		It("should stop walking when callback returns false", func() {
+		It("[TC-CF-008] should stop walking when callback returns false", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
-				makeConfigConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
-				makeConfigConfig("server3", "127.0.0.1:8082", "http://localhost:8082"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
+				makeTestConfig("server3", "127.0.0.1:8082", "http://localhost:8082"),
 			}
 
 			var count int
@@ -161,16 +143,16 @@ var _ = Describe("Pool Config", func() {
 			Expect(count).To(Equal(2))
 		})
 
-		It("should handle nil walk function", func() {
+		It("[TC-CF-009] should handle nil walk function", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
 			}
 
 			// Should not panic
 			cfg.Walk(nil)
 		})
 
-		It("should walk empty config", func() {
+		It("[TC-CF-010] should walk empty config", func() {
 			cfg := Config{}
 
 			var count int
@@ -184,10 +166,10 @@ var _ = Describe("Pool Config", func() {
 	})
 
 	Describe("Config SetHandlerFunc", func() {
-		It("should set handler function for all configs", func() {
+		It("[TC-CF-011] should set handler function for all configs", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
-				makeConfigConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
 			}
 
 			handlerFunc := func() map[string]http.Handler {
@@ -203,16 +185,16 @@ var _ = Describe("Pool Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should handle nil handler function", func() {
+		It("[TC-CF-012] should handle nil handler function", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
 			}
 
 			// Should not panic
 			cfg.SetHandlerFunc(nil)
 		})
 
-		It("should work on empty config", func() {
+		It("[TC-CF-013] should work on empty config", func() {
 			cfg := Config{}
 
 			handlerFunc := func() map[string]http.Handler {
@@ -225,10 +207,10 @@ var _ = Describe("Pool Config", func() {
 	})
 
 	Describe("Config SetContext", func() {
-		It("should set context function for all configs", func() {
+		It("[TC-CF-014] should set context function for all configs", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
-				makeConfigConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server2", "127.0.0.1:8081", "http://localhost:8081"),
 			}
 
 			cfg.SetContext(context.Background())
@@ -238,9 +220,9 @@ var _ = Describe("Pool Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should handle nil context function", func() {
+		It("[TC-CF-015] should handle nil context function", func() {
 			cfg := Config{
-				makeConfigConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("server1", "127.0.0.1:8080", "http://localhost:8080"),
 			}
 
 			// Should not panic
@@ -249,7 +231,7 @@ var _ = Describe("Pool Config", func() {
 	})
 
 	Describe("Config with Multiple Operations", func() {
-		It("should handle all config operations in sequence", func() {
+		It("[TC-CF-016] should handle all config operations in sequence", func() {
 			// Create configs without handler first
 			cfg := Config{
 				{
@@ -287,7 +269,7 @@ var _ = Describe("Pool Config", func() {
 	})
 
 	Describe("Config Partial Validation", func() {
-		It("should report all validation errors", func() {
+		It("[TC-CF-017] should report all validation errors", func() {
 			cfg := Config{
 				{
 					Name: "invalid1",
@@ -303,9 +285,9 @@ var _ = Describe("Pool Config", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should create pool with valid configs only", func() {
+		It("[TC-CF-018] should create pool with valid configs only", func() {
 			cfg := Config{
-				makeConfigConfig("valid", "127.0.0.1:8080", "http://localhost:8080"),
+				makeTestConfig("valid", "127.0.0.1:8080", "http://localhost:8080"),
 				{
 					Name: "invalid",
 					// Missing required fields

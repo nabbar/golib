@@ -32,9 +32,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Config", func() {
+var _ = Describe("[TC-CF] Config", func() {
 	Describe("Config Validation", func() {
-		It("should fail validation without name", func() {
+		It("[TC-CF-001] should fail validation without name", func() {
 			cfg := Config{
 				Listen: "127.0.0.1:8080",
 				Expose: "http://localhost:8080",
@@ -44,7 +44,7 @@ var _ = Describe("Config", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should fail validation without listen address", func() {
+		It("[TC-CF-002] should fail validation without listen address", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Expose: "http://localhost:8080",
@@ -54,7 +54,7 @@ var _ = Describe("Config", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should fail validation without expose URL", func() {
+		It("[TC-CF-003] should fail validation without expose URL", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: "127.0.0.1:8080",
@@ -64,7 +64,7 @@ var _ = Describe("Config", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should validate valid config", func() {
+		It("[TC-CF-004] should validate valid config", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: "127.0.0.1:8080",
@@ -75,7 +75,7 @@ var _ = Describe("Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should fail validation with invalid listen format", func() {
+		It("[TC-CF-005] should fail validation with invalid listen format", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: "invalid format",
@@ -86,7 +86,7 @@ var _ = Describe("Config", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should fail validation with invalid expose URL", func() {
+		It("[TC-CF-006] should fail validation with invalid expose URL", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: "127.0.0.1:8080",
@@ -99,7 +99,7 @@ var _ = Describe("Config", func() {
 	})
 
 	Describe("Config Fields", func() {
-		It("should set server name", func() {
+		It("[TC-CF-007] should set server name", func() {
 			cfg := Config{
 				Name:   "my-server",
 				Listen: "127.0.0.1:8080",
@@ -109,7 +109,7 @@ var _ = Describe("Config", func() {
 			Expect(cfg.Name).To(Equal("my-server"))
 		})
 
-		It("should set listen address with port", func() {
+		It("[TC-CF-008] should set listen address with port", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: "192.168.1.100:9000",
@@ -119,7 +119,7 @@ var _ = Describe("Config", func() {
 			Expect(cfg.Listen).To(Equal("192.168.1.100:9000"))
 		})
 
-		It("should set expose URL", func() {
+		It("[TC-CF-009] should set expose URL", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: "127.0.0.1:8080",
@@ -129,7 +129,7 @@ var _ = Describe("Config", func() {
 			Expect(cfg.Expose).To(Equal("https://api.example.com"))
 		})
 
-		It("should set handler key", func() {
+		It("[TC-CF-010] should set handler key", func() {
 			cfg := Config{
 				Name:       "test-server",
 				Listen:     "127.0.0.1:8080",
@@ -140,7 +140,7 @@ var _ = Describe("Config", func() {
 			Expect(cfg.HandlerKey).To(Equal("api-v1"))
 		})
 
-		It("should set disabled flag", func() {
+		It("[TC-CF-011] should set disabled flag", func() {
 			cfg := Config{
 				Name:     "test-server",
 				Listen:   "127.0.0.1:8080",
@@ -151,7 +151,7 @@ var _ = Describe("Config", func() {
 			Expect(cfg.Disabled).To(BeTrue())
 		})
 
-		It("should set TLS mandatory flag", func() {
+		It("[TC-CF-012] should set TLS mandatory flag", func() {
 			cfg := Config{
 				Name:         "test-server",
 				Listen:       "127.0.0.1:8443",
@@ -164,7 +164,7 @@ var _ = Describe("Config", func() {
 	})
 
 	Describe("Config with Different Listen Formats", func() {
-		It("should accept IPv4 address", func() {
+		It("[TC-CF-013] should accept IPv4 address", func() {
 			cfg := Config{
 				Name:   "ipv4-server",
 				Listen: "192.168.1.1:8080",
@@ -175,7 +175,7 @@ var _ = Describe("Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should accept localhost", func() {
+		It("[TC-CF-014] should accept localhost", func() {
 			cfg := Config{
 				Name:   "localhost-server",
 				Listen: "localhost:8080",
@@ -186,7 +186,7 @@ var _ = Describe("Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should accept all interfaces binding", func() {
+		It("[TC-CF-015] should accept all interfaces binding", func() {
 			cfg := Config{
 				Name:   "all-interfaces",
 				Listen: "0.0.0.0:8080",
@@ -199,7 +199,7 @@ var _ = Describe("Config", func() {
 	})
 
 	Describe("Config with Different Expose URLs", func() {
-		It("should accept HTTP URL", func() {
+		It("[TC-CF-016] should accept HTTP URL", func() {
 			cfg := Config{
 				Name:   "http-server",
 				Listen: "127.0.0.1:8080",
@@ -210,7 +210,7 @@ var _ = Describe("Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should accept HTTPS URL", func() {
+		It("[TC-CF-017] should accept HTTPS URL", func() {
 			cfg := Config{
 				Name:   "https-server",
 				Listen: "127.0.0.1:8443",
@@ -221,7 +221,7 @@ var _ = Describe("Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should accept URL with port", func() {
+		It("[TC-CF-018] should accept URL with port", func() {
 			cfg := Config{
 				Name:   "custom-port",
 				Listen: "127.0.0.1:9000",
@@ -232,7 +232,7 @@ var _ = Describe("Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should accept URL with path", func() {
+		It("[TC-CF-019] should accept URL with path", func() {
 			cfg := Config{
 				Name:   "with-path",
 				Listen: "127.0.0.1:8080",

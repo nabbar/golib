@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2024 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,15 +35,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Handler Types", func() {
+var _ = Describe("[TC-HT] Handler Types", func() {
 	Describe("BadHandler", func() {
-		It("should create bad handler", func() {
+		It("[TC-HT-001] should create bad handler", func() {
 			handler := NewBadHandler()
 
 			Expect(handler).ToNot(BeNil())
 		})
 
-		It("should return 500 status code", func() {
+		It("[TC-HT-002] should return 500 status code", func() {
 			handler := NewBadHandler()
 
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -54,7 +54,7 @@ var _ = Describe("Handler Types", func() {
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
 		})
 
-		It("should handle different HTTP methods", func() {
+		It("[TC-HT-003] should handle different HTTP methods", func() {
 			handler := NewBadHandler()
 
 			methods := []string{
@@ -75,7 +75,7 @@ var _ = Describe("Handler Types", func() {
 			}
 		})
 
-		It("should handle different paths", func() {
+		It("[TC-HT-004] should handle different paths", func() {
 			handler := NewBadHandler()
 
 			paths := []string{
@@ -97,7 +97,7 @@ var _ = Describe("Handler Types", func() {
 	})
 
 	Describe("FuncHandler Type", func() {
-		It("should define handler function returning map", func() {
+		It("[TC-HT-007] should define handler function returning map", func() {
 			var handlerFunc FuncHandler
 
 			handlerFunc = func() map[string]http.Handler {
@@ -111,7 +111,7 @@ var _ = Describe("Handler Types", func() {
 			Expect(result).To(HaveKey("test"))
 		})
 
-		It("should allow returning empty map", func() {
+		It("[TC-HT-009] should allow returning empty map", func() {
 			var handlerFunc FuncHandler
 
 			handlerFunc = func() map[string]http.Handler {
@@ -123,7 +123,7 @@ var _ = Describe("Handler Types", func() {
 			Expect(result).To(BeEmpty())
 		})
 
-		It("should allow returning nil", func() {
+		It("[TC-HT-010] should allow returning nil", func() {
 			var handlerFunc FuncHandler
 
 			handlerFunc = func() map[string]http.Handler {
@@ -134,7 +134,7 @@ var _ = Describe("Handler Types", func() {
 			Expect(result).To(BeNil())
 		})
 
-		It("should support multiple handler keys", func() {
+		It("[TC-HT-011] should support multiple handler keys", func() {
 			var handlerFunc FuncHandler
 
 			handlerFunc = func() map[string]http.Handler {
@@ -156,7 +156,7 @@ var _ = Describe("Handler Types", func() {
 	})
 
 	Describe("BadHandler Direct Usage", func() {
-		It("should work with http.Handler interface", func() {
+		It("[TC-HT-005] should work with http.Handler interface", func() {
 			var handler http.Handler = &BadHandler{}
 
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -167,7 +167,7 @@ var _ = Describe("Handler Types", func() {
 			Expect(w.Code).To(Equal(http.StatusInternalServerError))
 		})
 
-		It("should create multiple handler instances", func() {
+		It("[TC-HT-006] should create multiple handler instances", func() {
 			handler1 := NewBadHandler()
 			handler2 := NewBadHandler()
 

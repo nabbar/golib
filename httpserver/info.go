@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,6 +28,8 @@ package httpserver
 
 import "net/url"
 
+// GetName returns the unique identifier name of the server instance.
+// Falls back to the bind address if no name is configured.
 func (o *srv) GetName() string {
 	if i, l := o.c.Load(cfgName); !l {
 		return o.GetBindable()
@@ -38,6 +40,8 @@ func (o *srv) GetName() string {
 	}
 }
 
+// GetBindable returns the local bind address (host:port) the server listens on.
+// Returns empty string if no bind address is configured.
 func (o *srv) GetBindable() string {
 	if i, l := o.c.Load(cfgListen); !l {
 		return ""
@@ -48,6 +52,8 @@ func (o *srv) GetBindable() string {
 	}
 }
 
+// GetExpose returns the public-facing URL host:port used to access this server externally.
+// Falls back to the bind address if no expose URL is configured.
 func (o *srv) GetExpose() string {
 	if i, l := o.c.Load(cfgExpose); !l {
 		return o.GetBindable()
@@ -58,6 +64,8 @@ func (o *srv) GetExpose() string {
 	}
 }
 
+// IsDisable returns true if the server is configured as disabled and should not start.
+// Disabled servers maintain their configuration but do not accept connections.
 func (o *srv) IsDisable() bool {
 	if i, l := o.c.Load(cfgDisabled); !l {
 		return false
@@ -68,6 +76,8 @@ func (o *srv) IsDisable() bool {
 	}
 }
 
+// IsTLS returns true if the server is configured to use TLS/HTTPS.
+// Checks both TLSMandatory flag and presence of valid certificate pairs.
 func (o *srv) IsTLS() bool {
 	if o.cfgTLSMandatory() {
 		return true

@@ -198,7 +198,7 @@ func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (Serv
 	}
 
 	if cfg.ConIdleTimeout > 0 {
-		s.idl = cfg.ConIdleTimeout
+		s.idl = cfg.ConIdleTimeout.Time()
 	}
 
 	if e := s.RegisterSocket(cfg.Address, cfg.PermFile, cfg.GroupPerm); e != nil {

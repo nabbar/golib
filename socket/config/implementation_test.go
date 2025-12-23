@@ -27,9 +27,8 @@
 package config_test
 
 import (
-	"time"
-
 	libtls "github.com/nabbar/golib/certificates"
+	libdur "github.com/nabbar/golib/duration"
 	libptc "github.com/nabbar/golib/network/protocol"
 	"github.com/nabbar/golib/socket/config"
 
@@ -290,7 +289,7 @@ var _ = Describe("Server Implementation", func() {
 			s := config.Server{
 				Network:        libptc.NetworkTCP,
 				Address:        ":8080",
-				ConIdleTimeout: 5 * time.Minute,
+				ConIdleTimeout: libdur.Minutes(5),
 			}
 			err := s.Validate()
 			expectNoValidationError(err)
@@ -300,7 +299,7 @@ var _ = Describe("Server Implementation", func() {
 			s := config.Server{
 				Network:        libptc.NetworkTCP,
 				Address:        ":8080",
-				ConIdleTimeout: -1 * time.Second,
+				ConIdleTimeout: libdur.Seconds(-1),
 			}
 			err := s.Validate()
 			expectNoValidationError(err)

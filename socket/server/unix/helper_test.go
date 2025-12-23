@@ -41,6 +41,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
@@ -198,7 +199,7 @@ func createConfigWithIdleTimeout(socketPath string, timeout time.Duration) sckcf
 		Address:        socketPath,
 		PermFile:       libprm.Perm(0600),
 		GroupPerm:      -1,
-		ConIdleTimeout: timeout,
+		ConIdleTimeout: libdur.ParseDuration(timeout),
 	}
 }
 

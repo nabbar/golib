@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -44,13 +44,18 @@ import (
 )
 
 const (
+	// DefaultNameMonitor is the default prefix for monitoring identifiers.
 	DefaultNameMonitor = "HTTP Server"
 )
 
 var (
+	// errNotRunning is returned when health check is attempted on a stopped server.
 	errNotRunning = errors.New("server is not running")
 )
 
+// HealthCheck performs a health check on the server.
+// Verifies the server is running, checks for errors, and attempts a TCP connection to the bind address.
+// Returns nil if healthy, or an error describing the health issue.
 func (o *srv) HealthCheck(ctx context.Context) error {
 	var (
 		ent logent.Entry
@@ -87,7 +92,7 @@ func (o *srv) runAndHealthy(ctx context.Context) error {
 	x, n := context.WithTimeout(ctx, 50*time.Microsecond)
 	defer n()
 
-	if e := o.PortNotUse(ctx, o.GetBindable()); e != nil {
+	if e := PortNotUse(ctx, o.GetBindable()); e != nil {
 		return e
 	} else {
 		d := &net.Dialer{}
@@ -101,10 +106,15 @@ func (o *srv) runAndHealthy(ctx context.Context) error {
 	}
 }
 
+// MonitorName returns the unique monitoring identifier for this server instance.
+// The identifier includes the server's bind address for uniqueness.
 func (o *srv) MonitorName() string {
 	return fmt.Sprintf("%s [%s]", DefaultNameMonitor, o.GetBindable())
 }
 
+// Monitor returns monitoring data for the server including health checks and metrics.
+// The vrs parameter provides version information included in the monitoring data.
+// Returns a configured Monitor instance or an error if initialization fails.
 func (o *srv) Monitor(vrs libver.Version) (montps.Monitor, error) {
 	var (
 		e   error

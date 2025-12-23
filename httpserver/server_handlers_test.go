@@ -38,7 +38,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Server Handlers", func() {
+var _ = Describe("[TC-HD] Server Handlers", func() {
 	var (
 		srv      Server
 		err      error
@@ -56,7 +56,7 @@ var _ = Describe("Server Handlers", func() {
 	})
 
 	Describe("Handler Registration", func() {
-		It("should register and use custom handlers", func() {
+		It("[TC-HD-010] should register and use custom handlers", func() {
 			cfg := Config{
 				Name:   "handler-test",
 				Listen: testPort,
@@ -104,7 +104,7 @@ var _ = Describe("Server Handlers", func() {
 			Expect(string(body2)).To(Equal("hello-world"))
 		})
 
-		It("should handle multiple handler keys", func() {
+		It("[TC-HD-011] should handle multiple handler keys", func() {
 			cfg := Config{
 				Name:       "multi-handler-test",
 				Listen:     testPort,
@@ -136,7 +136,7 @@ var _ = Describe("Server Handlers", func() {
 			Expect(cfg.GetHandlerKey()).To(Equal("handler1"))
 		})
 
-		It("should update handlers dynamically", func() {
+		It("[TC-HD-012] should update handlers dynamically", func() {
 			cfg := Config{
 				Name:   "dynamic-handler-test",
 				Listen: testPort,
@@ -170,7 +170,7 @@ var _ = Describe("Server Handlers", func() {
 	})
 
 	Describe("Handler Validation", func() {
-		It("should handle requests with different methods", func() {
+		It("[TC-HD-013] should handle requests with different methods", func() {
 			cfg := Config{
 				Name:   "method-test",
 				Listen: testPort,
@@ -214,7 +214,7 @@ var _ = Describe("Server Handlers", func() {
 			Expect(resp2.StatusCode).To(Equal(http.StatusMethodNotAllowed))
 		})
 
-		It("should handle 404 for unknown paths", func() {
+		It("[TC-HD-014] should handle 404 for unknown paths", func() {
 			cfg := Config{
 				Name:   "404-test",
 				Listen: testPort,

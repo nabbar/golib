@@ -2,11 +2,11 @@
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
-[![Tests](https://img.shields.io/badge/Tests-5%20specs-success)](socket_test.go)
-[![Assertions](https://img.shields.io/badge/Assertions-30+-blue)](socket_test.go)
+[![Tests](https://img.shields.io/badge/Tests-62%20specs-success)](suite_test.go)
+[![Assertions](https://img.shields.io/badge/Assertions-200+-blue)](suite_test.go)
 [![Coverage](https://img.shields.io/badge/Coverage-100.0%25-brightgreen)](coverage.out)
 
-Comprehensive testing guide for the `github.com/nabbar/golib/socket` package core interfaces and types.
+Comprehensive testing guide for the `github.com/nabbar/golib/socket` package core interfaces and types using BDD methodology with Ginkgo v2 and Gomega.
 
 ---
 
@@ -29,6 +29,7 @@ Comprehensive testing guide for the `github.com/nabbar/golib/socket` package cor
   - [Test Templates](#test-templates)
   - [Running New Tests](#running-new-tests)
   - [Helper Functions](#helper-functions)
+  - [Benchmark Template](#benchmark-template)
   - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
 - [Reporting Bugs & Vulnerabilities](#reporting-bugs--vulnerabilities)
@@ -39,34 +40,29 @@ Comprehensive testing guide for the `github.com/nabbar/golib/socket` package cor
 
 ### Test Plan
 
-This test suite provides **comprehensive validation** of the `socket` package core functionality through:
+This test suite provides **comprehensive validation** of the `socket` package core functionality following **ISTQB** principles. It focuses on validating the error handling, state management, and constant values through:
 
 1. **Functional Testing**: Verification of ErrorFilter and ConnState.String()
 2. **Constant Validation**: Testing of all connection state constants
 3. **Value Testing**: Verification of DefaultBufferSize and EOL constants
 4. **Boundary Testing**: Edge cases for error filtering and state strings
-5. **Performance Testing**: Benchmarking of critical functions
+5. **Concurrency Testing**: Thread-safe concurrent operations validation
+6. **Performance Testing**: Benchmarking of critical functions
 
 ### Test Completeness
 
-**Coverage Metrics:**
+**Quality Indicators:**
 - **Code Coverage**: 100.0% of statements (target: >80%)
-- **Branch Coverage**: 100% of conditional branches
-- **Function Coverage**: 100% of public functions
 - **Race Conditions**: 0 detected across all scenarios
+- **Flakiness**: 0 flaky tests detected
 
 **Test Distribution:**
-- ✅ **5 unit tests** covering all functionality
-- ✅ **30+ assertions** validating behavior
+- ✅ **62 specifications** covering all functionality
+- ✅ **200+ assertions** validating behavior
 - ✅ **13 example tests** demonstrating usage patterns
-- ✅ **4 benchmarks** measuring performance
+- ✅ **4 performance benchmarks** measuring key metrics
+- ✅ **7 test files** organized by functional area
 - ✅ **Zero flaky tests** - all tests are deterministic
-
-**Quality Assurance:**
-- All tests pass with `-race` detector enabled
-- All tests pass on Go 1.18 through 1.25
-- Tests run in ~0.004 seconds
-- No external dependencies required for testing
 
 ---
 
@@ -76,28 +72,36 @@ This test suite provides **comprehensive validation** of the `socket` package co
 
 | Category | Files | Specs | Coverage | Priority | Dependencies |
 |----------|-------|-------|----------|----------|-------------|
-| **Core Functions** | socket_test.go | 5 | 100% | Critical | None |
-| **Examples** | example_test.go | 13 | N/A | High | None |
-| **Benchmarks** | socket_test.go | 4 | N/A | Medium | None |
+| **Basic Tests** | basic_test.go | 23 | 100% | Critical | None |
+| **Benchmarks** | benchmark_test.go | 4 | N/A | Medium | Basic |
+| **Edge Cases** | edge_cases_test.go | 23 | 100% | High | Basic |
+| **Concurrency** | concurrent_test.go | 9 | 100% | Critical | Basic |
+| **Helpers** | helper_test.go | N/A | N/A | Low | All |
+| **Examples** | example_test.go | 13 | N/A | High | All |
 
 ### Detailed Test Inventory
 
-| Test Name | File | Type | Dependencies | Priority | Expected Outcome | Comments |
-|-----------|------|------|--------------|----------|------------------|----------|
-| **TestErrorFilter** | socket_test.go | Unit | None | Critical | Success | Tests all error scenarios |
-| **TestConnState_String** | socket_test.go | Unit | None | Critical | Success | Tests all state strings |
-| **TestConnState_Values** | socket_test.go | Unit | None | Critical | Success | Validates constant values |
-| **TestDefaultBufferSize** | socket_test.go | Unit | None | High | Success | Validates 32KB constant |
-| **TestEOL** | socket_test.go | Unit | None | High | Success | Validates newline constant |
-| **BenchmarkErrorFilter** | socket_test.go | Benchmark | None | Medium | Success | Measures filter performance |
-| **BenchmarkErrorFilter_Nil** | socket_test.go | Benchmark | None | Medium | Success | Measures nil case |
-| **BenchmarkErrorFilter_Closed** | socket_test.go | Benchmark | None | Medium | Success | Measures closed conn case |
-| **BenchmarkConnState_String** | socket_test.go | Benchmark | None | Medium | Success | Measures string conversion |
+**Test ID Pattern by File:**
+- **TC-BS-xxx**: Basic tests (basic_test.go)
+- **TC-BM-xxx**: Benchmark tests (benchmark_test.go)
+- **TC-EC-xxx**: Edge case tests (edge_cases_test.go)
+- **TC-CC-xxx**: Concurrent tests (concurrent_test.go)
 
-**Prioritization:**
-- **Critical**: Must pass for release (core functionality)
-- **High**: Should pass for release (important features)
-- **Medium**: Nice to have (performance verification)
+| Test ID | File | Use Case | Priority | Expected Outcome |
+|---------|------|----------|----------|------------------|
+| **TC-BS-001** | basic_test.go | **DefaultBufferSize**: Validate 32KB constant | Critical | Constant equals 32*1024 |
+| **TC-BS-002** | basic_test.go | **EOL**: Validate newline character | Critical | Constant equals '\n' |
+| **TC-BS-003** | basic_test.go | **ErrorFilter(nil)**: Nil error handling | Critical | Returns nil |
+| **TC-BS-004** | basic_test.go | **ErrorFilter(closed)**: Closed connection filter | Critical | Returns nil for closed errors |
+| **TC-BS-005** | basic_test.go | **ErrorFilter(normal)**: Normal error passthrough | Critical | Returns original error |
+| **TC-BS-006-022** | basic_test.go | **ConnState.String()**: All state strings | Critical | Correct string for each state |
+| **TC-BS-023** | basic_test.go | **ConnState iteration**: All states valid | High | No unknown states |
+| **TC-BM-001** | benchmark_test.go | **ErrorFilter benchmark**: Various error types | Medium | Sub-microsecond performance |
+| **TC-BM-002** | benchmark_test.go | **ConnState.String benchmark**: All states | Medium | Nanosecond performance |
+| **TC-BM-003** | benchmark_test.go | **Error lifecycle benchmark**: Real-world scenario | Medium | Consistent performance |
+| **TC-BM-004** | benchmark_test.go | **State tracking benchmark**: Overhead measurement | Medium | Minimal overhead |
+| **TC-EC-001-023** | edge_cases_test.go | **Edge cases**: Complex errors, boundaries | High | Correct behavior at boundaries |
+| **TC-CC-001-009** | concurrent_test.go | **Concurrent operations**: Thread safety | Critical | Zero race conditions |
 
 ---
 
@@ -106,11 +110,11 @@ This test suite provides **comprehensive validation** of the `socket` package co
 **Latest Test Run Results:**
 
 ```
-Total Specs:         5
-Passed:              5
+Total Specs:         62
+Passed:              62
 Failed:              0
 Skipped:             0
-Execution Time:      ~0.004 seconds
+Execution Time:      ~0.046 seconds
 Coverage:            100.0%
 Race Conditions:     0
 ```
@@ -119,16 +123,11 @@ Race Conditions:     0
 
 | Test Category | Count | Coverage |
 |---------------|-------|----------|
-| Error Handling | 1 | 100% |
-| State Management | 3 | 100% |
-| Constants | 2 | 100% |
-
-**Example Tests:**
-
-| Example | Count | Status |
-|---------|-------|--------|
-| Basic Usage | 13 | ✅ PASS |
-| All examples pass and produce expected output | - | ✅ PASS |
+| Basic Functionality | 23 | 100% |
+| Edge Cases | 23 | 100% |
+| Concurrency | 9 | 100% |
+| Performance | 4 | N/A |
+| Examples | 13 | N/A |
 
 ---
 
@@ -136,45 +135,45 @@ Race Conditions:     0
 
 ### Testing Frameworks
 
-#### Standard Go Testing
+#### Ginkgo v2 - BDD Testing Framework
 
-**Why standard testing for this package:**
-- ✅ **Simple functionality**: Only two functions and constants to test
-- ✅ **No complex scenarios**: No need for BDD organization
-- ✅ **Fast execution**: <5ms total
-- ✅ **Clear assertions**: Standard testing is sufficient
-- ✅ **Minimal dependencies**: Only standard library
+**Why Ginkgo over standard Go testing:**
+- ✅ **Hierarchical organization**: `Describe`, `Context`, `It` for clear test structure
+- ✅ **Better readability**: Tests read like specifications
+- ✅ **Rich lifecycle hooks**: `BeforeEach`, `AfterEach` for setup/teardown
+- ✅ **Async testing**: `Eventually`, `Consistently` for concurrent behavior
+- ✅ **Parallel execution**: Built-in support for concurrent test runs
 
-**Test Structure:**
-```go
-func TestErrorFilter(t *testing.T) {
-    tests := []struct {
-        name string
-        err  error
-        want error
-    }{
-        // Test cases...
-    }
-    
-    for _, tc := range tests {
-        t.Run(tc.name, func(t *testing.T) {
-            // Test implementation
-        })
-    }
-}
-```
+#### Gomega - Matcher Library
 
-#### Example Tests
+**Advantages:**
+- ✅ **Expressive matchers**: `Equal`, `BeNumerically`, `HaveOccurred`
+- ✅ **Clear failures**: Detailed error messages
+- ✅ **Async assertions**: `Eventually` polls for state changes
 
-**Purpose**: Demonstrate package usage patterns
+#### gmeasure - Performance Measurement
 
-**Benefits:**
-- ✅ Executable documentation
-- ✅ Verified by go test
-- ✅ Shown in GoDoc
-- ✅ Real-world usage patterns
+Used for benchmarking throughput and latency within the BDD suite.
 
-**Reference**: See [example_test.go](example_test.go)
+### Testing Concepts & Standards
+
+#### ISTQB Alignment
+
+This test suite follows **ISTQB (International Software Testing Qualifications Board)** principles:
+
+1. **Test Levels** (ISTQB Foundation Level):
+   - **Unit Testing**: Individual functions (`ErrorFilter`, `ConnState.String`)
+   - **Integration Testing**: Component interactions (concurrent operations)
+
+2. **Test Types** (ISTQB Advanced Level):
+   - **Functional Testing**: Verify behavior meets specifications
+   - **Non-Functional Testing**: Performance, concurrency, memory usage
+   - **Structural Testing**: Code coverage
+
+3. **Test Design Techniques**:
+   - **Equivalence Partitioning**: Nil errors vs closed errors vs normal errors
+   - **Boundary Value Analysis**: State enum boundaries, unknown states
+   - **Error Guessing**: Concurrent access patterns
 
 ---
 
@@ -186,7 +185,7 @@ func TestErrorFilter(t *testing.T) {
 # Install Go 1.18 or later
 go version  # Should be >= 1.18
 
-# No additional tools required
+# No additional tools required (Ginkgo/Gomega vendored)
 ```
 
 ### Running Tests
@@ -208,9 +207,6 @@ go tool cover -html=coverage.out -o coverage.html
 # Race detection (requires CGO)
 CGO_ENABLED=1 go test -race
 
-# Run benchmarks
-go test -bench=. -benchmem
-
 # Run examples
 go test -v -run Example
 ```
@@ -220,42 +216,23 @@ go test -v -run Example
 ```bash
 $ go test -v
 
-=== RUN   TestErrorFilter
-=== RUN   TestErrorFilter/nil_error
-=== RUN   TestErrorFilter/closed_connection_error
-=== RUN   TestErrorFilter/normal_error
-=== RUN   TestErrorFilter/connection_refused
---- PASS: TestErrorFilter (0.00s)
-    --- PASS: TestErrorFilter/nil_error (0.00s)
-    --- PASS: TestErrorFilter/closed_connection_error (0.00s)
-    --- PASS: TestErrorFilter/normal_error (0.00s)
-    --- PASS: TestErrorFilter/connection_refused (0.00s)
-=== RUN   TestConnState_String
-=== RUN   TestConnState_String/Dial_Connection
-=== RUN   TestConnState_String/New_Connection
-=== RUN   TestConnState_String/Read_Incoming_Stream
-=== RUN   TestConnState_String/Close_Incoming_Stream
-=== RUN   TestConnState_String/Run_HandlerFunc
-=== RUN   TestConnState_String/Write_Outgoing_Steam
-=== RUN   TestConnState_String/Close_Outgoing_Stream
-=== RUN   TestConnState_String/Close_Connection
-=== RUN   TestConnState_String/unknown_connection_state
---- PASS: TestConnState_String (0.00s)
-    [9 sub-tests passed]
-=== RUN   TestConnState_Values
---- PASS: TestConnState_Values (0.00s)
-=== RUN   TestDefaultBufferSize
---- PASS: TestDefaultBufferSize (0.00s)
-=== RUN   TestEOL
---- PASS: TestEOL (0.00s)
+Running Suite: Socket Package Suite
+====================================
+Random Seed: 1766487880
+
+Will run 62 of 62 specs
+
+••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+Ran 62 of 62 Specs in 0.046 seconds
+SUCCESS! -- 62 Passed | 0 Failed | 0 Pending | 0 Skipped
+--- PASS: TestSocket (0.05s)
 === RUN   ExampleConnState
 --- PASS: ExampleConnState (0.00s)
-=== RUN   ExampleErrorFilter
---- PASS: ExampleErrorFilter (0.00s)
-[... 11 more examples ...]
+[... 12 more examples ...]
 PASS
 coverage: 100.0% of statements
-ok      github.com/nabbar/golib/socket  0.004s
+ok      github.com/nabbar/golib/socket  0.089s
 ```
 
 ---
@@ -282,7 +259,7 @@ ok      github.com/nabbar/golib/socket  0.004s
 
 **Why 100% is Achieved:**
 - ✅ All code paths exercised
-- ✅ All branches tested
+- ✅ All branches tested  
 - ✅ All edge cases covered
 - ✅ Unknown state tested
 - ✅ Nil error tested
@@ -313,9 +290,17 @@ xdg-open coverage.html  # Linux
 ```bash
 $ CGO_ENABLED=1 go test -race
 
+Running Suite: Socket Package Suite
+====================================
+Will run 62 of 62 specs
+
+••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
+
+Ran 62 of 62 Specs in 0.089 seconds
+SUCCESS! -- 62 Passed | 0 Failed | 0 Pending | 0 Skipped
+
 PASS
-coverage: 100.0% of statements
-ok      github.com/nabbar/golib/socket  0.015s
+ok      github.com/nabbar/golib/socket  1.123s
 ```
 
 **Why Thread-Safe:**
@@ -325,8 +310,8 @@ ok      github.com/nabbar/golib/socket  0.015s
 - ✅ **Constant values**: DefaultBufferSize and EOL are constants
 
 **Verified Thread-Safe:**
-- ConnState.String() can be called concurrently
-- ErrorFilter() can be called concurrently
+- ConnState.String() can be called concurrently (tested with 1000 goroutines)
+- ErrorFilter() can be called concurrently (tested with 1000 goroutines)
 - All constants are immutable
 
 ---
@@ -339,20 +324,37 @@ ok      github.com/nabbar/golib/socket  0.015s
 
 | Function | Time/op | Notes |
 |----------|---------|-------|
-| **ConnState.String()** | ~8ns | Switch statement, very fast |
-| **ErrorFilter(nil)** | ~3ns | Early return |
-| **ErrorFilter(closed)** | ~40ns | String contains check |
-| **ErrorFilter(other)** | ~40ns | String contains check |
+| **ConnState.String()** | <10ns | Switch statement, very fast |
+| **ErrorFilter(nil)** | <5ns | Early return |
+| **ErrorFilter(closed)** | <50ns | String contains check |
+| **ErrorFilter(other)** | <50ns | String contains check |
 
-**Benchmark Results:**
+**Benchmark Results (from gmeasure):**
 
-```bash
-$ go test -bench=. -benchmem
+```
+ErrorFilter operations
+====================================================================
+Name                               | N     | Min | Median | Mean | Max
+Normal error [duration]            | 10000 | 0s  | 0s     | 0s   | 0s
+Nil error [duration]               | 10000 | 0s  | 0s     | 0s   | 100µs
+Closed connection error [duration] | 10000 | 0s  | 0s     | 0s   | 200µs
 
-BenchmarkConnState_String-8          155,189,350    7.71 ns/op    0 B/op    0 allocs/op
-BenchmarkErrorFilter-8               29,418,483     40.8 ns/op    0 B/op    0 allocs/op
-BenchmarkErrorFilter_Nil-8           384,293,670    3.11 ns/op    0 B/op    0 allocs/op
-BenchmarkErrorFilter_Closed-8        29,201,694     41.1 ns/op    0 B/op    0 allocs/op
+ConnState String conversion
+====================================================================
+Name                             | N     | Min | Median | Mean | Max
+Dial Connection [duration]       | 10000 | 0s  | 0s     | 0s   | 0s
+New Connection [duration]        | 10000 | 0s  | 0s     | 0s   | 0s
+[... all states < 1µs ...]
+
+Connection lifecycle error handling
+====================================================================
+Name                       | N    | Min | Median | Mean | Max
+error-lifecycle [duration] | 1000 | 0s  | 0s     | 0s   | 0s
+
+State tracking overhead
+====================================================================
+Name                      | N    | Min | Median | Mean | Max
+state-tracking [duration] | 1000 | 0s  | 0s     | 0s   | 0s
 ```
 
 **Key Observations:**
@@ -376,7 +378,7 @@ BenchmarkErrorFilter_Closed-8        29,201,694     41.1 ns/op    0 B/op    0 al
 
 ### Performance Limitations
 
-**Why No Detailed Benchmarks:**
+**Why Minimal Benchmarks:**
 
 1. **Simple Functions**: ConnState.String() and ErrorFilter() are trivial
 2. **Negligible Overhead**: <100ns per call
@@ -399,57 +401,58 @@ BenchmarkErrorFilter_Closed-8        29,201,694     41.1 ns/op    0 B/op    0 al
 
 ```
 socket/
-├── socket_test.go           # Unit tests and benchmarks
-├── example_test.go          # Example tests (for documentation)
-└── doc.go                   # Package documentation
+├── suite_test.go           # Test suite entry point (Ginkgo suite setup)
+├── basic_test.go           # Basic tests for constants and functions (23 specs)
+├── benchmark_test.go       # Performance benchmarks with gmeasure (4 experiments)
+├── edge_cases_test.go      # Edge cases and boundary tests (23 specs)
+├── concurrent_test.go      # Concurrent safety tests (9 specs)
+├── helper_test.go          # Shared test helpers and utilities
+└── example_test.go         # Runnable examples for GoDoc (13 examples)
 ```
 
-**File Naming Convention:**
-- `*_test.go`: Test files
-- `example_test.go`: Runnable examples
+**File Purpose Alignment:**
+
+| File | Primary Responsibility | Unique Scope | Justification |
+|------|------------------------|--------------|---------------|
+| **suite_test.go** | Test suite bootstrap | Ginkgo suite initialization only | Required entry point for BDD tests |
+| **basic_test.go** | Core functionality | ErrorFilter, ConnState, constants | Unit tests for core package functions |
+| **benchmark_test.go** | Performance metrics | gmeasure experiments | Non-functional performance validation |
+| **edge_cases_test.go** | Boundary & error cases | Complex errors, boundaries | Negative testing and boundary value analysis |
+| **concurrent_test.go** | Thread-safety | Race detection, concurrent patterns | Validates thread-safety guarantees |
+| **helper_test.go** | Test infrastructure | Shared utilities | Test support (not executable tests) |
+| **example_test.go** | Documentation | Runnable GoDoc examples | Documentation via executable examples |
 
 ### Test Templates
 
-#### Basic Test Structure
+**Basic Test Structure:**
 
 ```go
 package socket_test
 
 import (
-    "fmt"
-    "testing"
+    . "github.com/onsi/ginkgo/v2"
+    . "github.com/onsi/gomega"
     
     libsck "github.com/nabbar/golib/socket"
 )
 
-func TestFeature(t *testing.T) {
-    tests := []struct {
-        name string
-        // Input fields
-        want interface{}
-    }{
-        {
-            name: "descriptive test case name",
-            // Test data
-        },
-    }
-    
-    for _, tc := range tests {
-        t.Run(tc.name, func(t *testing.T) {
+var _ = Describe("Feature", func() {
+    Context("specific scenario", func() {
+        It("[TC-XX-001] should behave correctly", func() {
             // Arrange
+            input := setupInput()
+            
             // Act
-            got := featureUnderTest(tc.input)
+            result := libsck.Feature(input)
             
             // Assert
-            if got != tc.want {
-                t.Errorf("got %v, want %v", got, tc.want)
-            }
+            Expect(result).To(Equal(expected))
         })
-    }
-}
+    })
+})
 ```
 
-#### Example Test Structure
+**Example Test Structure:**
 
 ```go
 package socket_test
@@ -475,67 +478,38 @@ func ExampleFeature() {
 }
 ```
 
-#### Benchmark Structure
-
-```go
-func BenchmarkFeature(b *testing.B) {
-    // Setup
-    input := prepareInput()
-    
-    b.ResetTimer()
-    
-    for i := 0; i < b.N; i++ {
-        _ = featureUnderTest(input)
-    }
-}
-```
-
 ### Running New Tests
 
 ```bash
-# Run specific test
-go test -run TestFeature -v
+# Focus on specific test
+go test -ginkgo.focus="should behave correctly" -v
+
+# Run specific test file
+go test -v -run TestSocket
 
 # Run specific example
 go test -run ExampleFeature -v
-
-# Run specific benchmark
-go test -bench=BenchmarkFeature
-
-# Fast validation workflow
-go test -run TestFeature && go test -race -run TestFeature
 ```
 
 ### Helper Functions
 
-**Test Utilities:**
+**Test Utilities** (helper_test.go):
+
+Currently minimal, ready for future utilities as package grows.
+
+### Benchmark Template
+
+**gmeasure Experiment Pattern:**
 
 ```go
-// assertError checks error expectation
-func assertError(t *testing.T, got, want error) {
-    t.Helper()
-    
-    if want == nil {
-        if got != nil {
-            t.Errorf("unexpected error: %v", got)
-        }
-    } else {
-        if got == nil {
-            t.Errorf("expected error, got nil")
-        } else if got.Error() != want.Error() {
-            t.Errorf("got error %v, want %v", got, want)
-        }
-    }
-}
+It("[TC-BM-XXX] should benchmark operation", func() {
+    experiment := gmeasure.NewExperiment("Operation name")
+    AddReportEntry(experiment.Name, experiment)
 
-// assertEqual checks value equality
-func assertEqual(t *testing.T, got, want interface{}) {
-    t.Helper()
-    
-    if got != want {
-        t.Errorf("got %v, want %v", got, want)
-    }
-}
+    experiment.SampleDuration("Test case", func(idx int) {
+        // Test code here
+    }, gmeasure.SamplingConfig{N: 1000, Duration: 0})
+})
 ```
 
 ### Best Practices
@@ -544,83 +518,53 @@ func assertEqual(t *testing.T, got, want interface{}) {
 
 **Write Clear Test Names:**
 ```go
-// ✅ Good: Descriptive
-func TestErrorFilter_NilError(t *testing.T) {
+// ✅ Good: Descriptive with test ID
+It("[TC-BS-003] should return nil for nil error", func() {
     // Test implementation
-}
-
-// ❌ Bad: Vague
-func TestFilter1(t *testing.T) {
-    // Test implementation
-}
+})
 ```
 
-**Use Table-Driven Tests:**
+**Use Gomega Matchers:**
 ```go
-// ✅ Good: Table-driven
-tests := []struct {
-    name string
-    in   error
-    want error
-}{
-    {"nil error", nil, nil},
-    {"closed conn", closedErr, nil},
-    {"other error", otherErr, otherErr},
-}
-
-for _, tc := range tests {
-    t.Run(tc.name, func(t *testing.T) {
-        got := ErrorFilter(tc.in)
-        assertEqual(t, got, tc.want)
-    })
-}
+// ✅ Good: Expressive assertions
+Expect(result).To(BeNil())
+Expect(value).To(Equal(expected))
+Expect(state.String()).To(ContainSubstring("Connection"))
 ```
 
 **Test All Branches:**
 ```go
-// ✅ Good: All branches covered
-func TestConnState_String(t *testing.T) {
-    tests := []struct {
-        state ConnState
-        want  string
-    }{
-        {ConnectionDial, "Dial Connection"},
-        {ConnectionNew, "New Connection"},
-        // ... all states ...
-        {ConnState(255), "unknown connection state"},
-    }
+// ✅ Good: All states covered
+states := []libsck.ConnState{
+    libsck.ConnectionDial,
+    libsck.ConnectionNew,
+    // ... all states ...
+    libsck.ConnState(255), // Unknown
 }
 ```
 
 #### ❌ DON'T
 
-**Don't Skip Error Checks:**
+**Don't Skip Concurrent Tests:**
 ```go
-// ❌ Bad: Ignoring errors in tests
-func TestFeature(t *testing.T) {
-    result, _ := Feature()
-}
+// ❌ Bad: Skipping race detection
+It("concurrent test", func() {
+    Skip("TODO: add race detection")
+})
 
-// ✅ Good: Check all errors
-func TestFeature(t *testing.T) {
-    result, err := Feature()
-    if err != nil {
-        t.Fatalf("unexpected error: %v", err)
+// ✅ Good: Use defer GinkgoRecover()
+It("concurrent test", func() {
+    var wg sync.WaitGroup
+    for i := 0; i < 100; i++ {
+        wg.Add(1)
+        go func() {
+            defer GinkgoRecover()
+            defer wg.Done()
+            // Test code
+        }()
     }
-}
-```
-
-**Don't Use Magic Numbers:**
-```go
-// ❌ Bad: Magic numbers
-if size != 32768 {
-    t.Error("wrong size")
-}
-
-// ✅ Good: Use constants
-if size != DefaultBufferSize {
-    t.Error("wrong size")
-}
+    wg.Wait()
+})
 ```
 
 ---
@@ -635,7 +579,7 @@ if size != DefaultBufferSize {
 
 **Solution**: This package is platform-independent. If tests fail in CI:
 - Check Go version compatibility
-- Verify no external dependencies
+- Verify Ginkgo/Gomega are properly vendored
 - Review CI environment setup
 
 **2. Coverage Not 100%**
@@ -651,18 +595,14 @@ go tool cover -html=coverage.out
 # Add tests for uncovered branches
 ```
 
-**3. Benchmarks Show High Variance**
+**3. Race Conditions Detected**
 
-**Problem**: System load affecting benchmarks
+**Problem**: Concurrent access without proper synchronization
 
 **Solution**:
-```bash
-# Run multiple times
-go test -bench=. -count=10 -benchmem
-
-# Run with more iterations
-go test -bench=. -benchtime=10s
-```
+- Add `defer GinkgoRecover()` in all goroutines
+- Use sync primitives (WaitGroup, Mutex)
+- Use atomic operations for shared state
 
 ### Debug Techniques
 
@@ -671,9 +611,9 @@ go test -bench=. -benchtime=10s
 go test -v
 ```
 
-**2. Run Specific Test:**
+**2. Focus on Specific Test:**
 ```bash
-go test -run TestErrorFilter/nil_error
+go test -ginkgo.focus="TC-BS-003"
 ```
 
 **3. Check Coverage:**
@@ -702,11 +642,13 @@ CGO_ENABLED=1 go test -race -v
 
 ### Bug Report Template
 
-If you encounter a bug, please report it via [GitHub Issues](https://github.com/nabbar/golib/issues/new) using this template:
+When reporting a bug in the test suite or the socket package, please use this template:
 
 ```markdown
-**Bug Description:**
-[A clear and concise description of what the bug is]
+**Title**: [BUG] Brief description of the bug
+
+**Description**:
+[A clear and concise description of what the bug is.]
 
 **Steps to Reproduce:**
 1. [First step]
@@ -827,8 +769,21 @@ When creating GitHub issues, use these labels:
 
 ---
 
-**License**: MIT License - See [LICENSE](../../LICENSE) file for details  
-**Maintained By**: [Nicolas JUHEL](https://github.com/nabbar)  
-**Package**: `github.com/nabbar/golib/socket`  
+## AI Transparency
 
-**AI Transparency**: In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
+In compliance with EU AI Act Article 50.4: AI assistance was used for test generation, debugging, and documentation under human supervision. All tests are validated and reviewed by humans.
+
+---
+
+## License
+
+MIT License - See [LICENSE](../../LICENSE) file for details.
+
+Copyright (c) 2025 Nicolas JUHEL
+
+---
+
+**Test Suite Maintained by**: [Nicolas JUHEL](https://github.com/nabbar)
+**Package**: `github.com/nabbar/golib/socket`
+**Framework**: Ginkgo v2 + Gomega + gmeasure
+**Coverage Target**: 80%+ (Current: 100.0% ✅)

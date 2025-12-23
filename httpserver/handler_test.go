@@ -35,24 +35,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// Mock HTTP handler for testing
-type mockHandler struct {
-	called bool
-	status int
-}
-
-func (m *mockHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	m.called = true
-	if m.status == 0 {
-		m.status = http.StatusOK
-	}
-	w.WriteHeader(m.status)
-	_, _ = w.Write([]byte("mock response"))
-}
-
-var _ = Describe("Handler Management", func() {
+var _ = Describe("[TC-HD] Handler Management", func() {
 	Describe("Handler Registration", func() {
-		It("should register handler function", func() {
+		It("[TC-HD-001] should register handler function", func() {
 			mock := &mockHandler{}
 			handlerFunc := func() map[string]http.Handler {
 				return map[string]http.Handler{
@@ -75,7 +60,7 @@ var _ = Describe("Handler Management", func() {
 			// Handler is registered (no error means success)
 		})
 
-		It("should handle nil handler function gracefully", func() {
+		It("[TC-HD-002] should handle nil handler function gracefully", func() {
 			cfg := Config{
 				Name:   "nil-handler-server",
 				Listen: "127.0.0.1:8080",
@@ -92,7 +77,7 @@ var _ = Describe("Handler Management", func() {
 	})
 
 	Describe("Handler with HandlerKey", func() {
-		It("should use handler key from config", func() {
+		It("[TC-HD-003] should use handler key from config", func() {
 			mock := &mockHandler{}
 			handlerFunc := func() map[string]http.Handler {
 				return map[string]http.Handler{
@@ -113,7 +98,7 @@ var _ = Describe("Handler Management", func() {
 			Expect(srv).ToNot(BeNil())
 		})
 
-		It("should work with multiple handler keys", func() {
+		It("[TC-HD-004] should work with multiple handler keys", func() {
 			mock1 := &mockHandler{status: http.StatusOK}
 			mock2 := &mockHandler{status: http.StatusAccepted}
 
@@ -139,7 +124,7 @@ var _ = Describe("Handler Management", func() {
 	})
 
 	Describe("Handler Execution", func() {
-		It("should execute custom handler", func() {
+		It("[TC-HD-005] should execute custom handler", func() {
 			mock := &mockHandler{}
 
 			// Test the handler directly
@@ -153,7 +138,7 @@ var _ = Describe("Handler Management", func() {
 			Expect(w.Body.String()).To(Equal("mock response"))
 		})
 
-		It("should handle custom status codes", func() {
+		It("[TC-HD-006] should handle custom status codes", func() {
 			mock := &mockHandler{status: http.StatusCreated}
 
 			req := httptest.NewRequest(http.MethodPost, "/create", nil)
@@ -166,7 +151,7 @@ var _ = Describe("Handler Management", func() {
 	})
 
 	Describe("Multiple Handler Registration", func() {
-		It("should allow handler replacement", func() {
+		It("[TC-HD-007] should allow handler replacement", func() {
 			cfg := Config{
 				Name:   "replace-handler-server",
 				Listen: "127.0.0.1:8080",
@@ -196,7 +181,7 @@ var _ = Describe("Handler Management", func() {
 	})
 
 	Describe("Handler Edge Cases", func() {
-		It("should handle empty handler map", func() {
+		It("[TC-HD-008] should handle empty handler map", func() {
 			cfg := Config{
 				Name:   "empty-handler-server",
 				Listen: "127.0.0.1:8080",
@@ -215,7 +200,7 @@ var _ = Describe("Handler Management", func() {
 			// Should not panic with empty map
 		})
 
-		It("should handle handler returning nil map", func() {
+		It("[TC-HD-009] should handle handler returning nil map", func() {
 			cfg := Config{
 				Name:   "nil-map-handler-server",
 				Listen: "127.0.0.1:8080",

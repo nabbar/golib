@@ -29,9 +29,9 @@ package config
 import (
 	"net"
 	"runtime"
-	"time"
 
 	libtls "github.com/nabbar/golib/certificates"
+	libdur "github.com/nabbar/golib/duration"
 	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
 )
@@ -177,7 +177,7 @@ type Server struct {
 	//
 	// Note: This timeout is independent of read/write deadlines that may be
 	// set on individual operations.
-	ConIdleTimeout time.Duration `json:"con-idle-timeout" yaml:"con-idle-timeout" toml:"con-idle-timeout" mapstructure:"con-idle-timeout"`
+	ConIdleTimeout libdur.Duration `json:"con-idle-timeout" yaml:"con-idle-timeout" toml:"con-idle-timeout" mapstructure:"con-idle-timeout"`
 
 	// TLS provides Transport Layer Security configuration for the server.
 	//

@@ -234,7 +234,7 @@ func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (Serv
 	}
 
 	if cfg.ConIdleTimeout > 0 {
-		s.idl = cfg.ConIdleTimeout
+		s.idl = cfg.ConIdleTimeout.Time()
 	}
 
 	if e := s.RegisterServer(cfg.Address); e != nil {

@@ -31,8 +31,8 @@ package tcp_test
 
 import (
 	"net"
-	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	scksrt "github.com/nabbar/golib/socket/server/tcp"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -75,7 +75,7 @@ var _ = Describe("TCP Server Creation", func() {
 
 		It("should create server with idle timeout configuration", func() {
 			cfg := createDefaultConfig(getTestAddr())
-			cfg.ConIdleTimeout = 30 * time.Second
+			cfg.ConIdleTimeout = libdur.Seconds(30)
 
 			srv, err := scksrt.New(nil, echoHandler, cfg)
 

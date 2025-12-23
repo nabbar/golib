@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -56,23 +56,29 @@ const (
 	cfgServerOptions = "cfgServerOptions"
 )
 
-// nolint #maligned
+// Config defines the complete HTTP server configuration including network settings,
+// TLS options, timeouts, and HTTP/2 parameters. All fields are serializable to
+// various formats (JSON, YAML, TOML) for externalized configuration.
 type Config struct {
 
-	// Name is the name of the current srv
-	// the configuration allow multipke srv, which each one must be identify by a name
-	// If not defined, will use the listen address
+	// Name is the unique identifier for the server instance.
+	// Multiple servers can be configured, each identified by a unique name.
+	// If not defined, the listen address is used as the name.
 	Name string `mapstructure:"name" json:"name" yaml:"name" toml:"name" validate:"required"`
 
-	// Listen is the local address (ip, hostname, unix socket, ...) with a port
-	// The srv will bind with this address only and listen for the port defined
+	// Listen is the local bind address (host:port) for the server.
+	// The server will bind to this address and listen for incoming connections.
+	// Examples: "127.0.0.1:8080", "0.0.0.0:443", "localhost:3000"
 	Listen string `mapstructure:"listen" json:"listen" yaml:"listen" toml:"listen" validate:"required,hostname_port"`
 
-	// Expose is the address use to call this srv. This can be allow to use a single fqdn to multiple srv"
+	// Expose is the public-facing URL used to access this server externally.
+	// This allows using a single domain with multiple servers on different ports.
+	// Examples: "http://localhost:8080", "https://api.example.com"
 	Expose string `mapstructure:"expose" json:"expose" yaml:"expose" toml:"expose" validate:"required,url"`
 
-	// HandlerKey is an options to associate current srv with a specifc handler defined by the key
-	// This key allow to defined multiple srv in only one config for different handler to start multiple api
+	// HandlerKey associates this server with a specific handler from the handler map.
+	// This enables multiple servers to use different handlers from a shared registry,
+	// allowing different APIs to run on different ports with a single configuration.
 	HandlerKey string `mapstructure:"handler_key" json:"handler_key" yaml:"handler_key" toml:"handler_key"`
 
 	//private
@@ -84,18 +90,21 @@ type Config struct {
 	//private
 	getHandlerFunc srvtps.FuncHandler
 
-	// Enabled allow to disable a srv without clean his configuration
+	// Disabled allows disabling a server without removing its configuration.
+	// Useful for maintenance mode or gradual rollout scenarios.
 	Disabled bool `mapstructure:"disabled" json:"disabled" yaml:"disabled" toml:"disabled"`
 
-	// Monitor defined the monitoring options to monitor the status & metrics about the health of this srv
+	// Monitor defines the monitoring configuration for health checks and metrics collection.
+	// Enables integration with the monitoring system for server health tracking.
 	Monitor moncfg.Config `mapstructure:"monitor" json:"monitor" yaml:"monitor" toml:"monitor"`
 
-	// TLSMandatory is a flag to defined that TLS must be valid to start current srv.
+	// TLSMandatory requires valid TLS configuration for the server to start.
+	// If true, the server will fail to start without proper TLS certificates.
 	TLSMandatory bool `mapstructure:"tls_mandatory" json:"tls_mandatory" yaml:"tls_mandatory" toml:"tls_mandatory"`
 
-	// TLS is the tls configuration for this srv.
-	// To allow tls on this srv, at least the TLS Config option InheritDefault must be at true and the default TLS config must be set.
-	// If you don't want any tls config, just omit or set an empty struct.
+	// TLS is the certificate configuration for HTTPS/TLS support.
+	// Set InheritDefault to true to inherit from default TLS config, or provide
+	// specific certificate paths. Leave empty to disable TLS for this server.
 	TLS libtls.Config `mapstructure:"tls" json:"tls" yaml:"tls" toml:"tls"`
 
 	/*** http options ***/

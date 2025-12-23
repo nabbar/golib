@@ -35,6 +35,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	libsck "github.com/nabbar/golib/socket"
 	scksrt "github.com/nabbar/golib/socket/server/tcp"
 
@@ -346,7 +347,7 @@ var _ = Describe("TCP Server Robustness", func() {
 
 		It("should close idle connections after ConIdleTimeout", func() {
 			cfg := createDefaultConfig(adr)
-			cfg.ConIdleTimeout = 2 * time.Second // Configure idle timeout > 1 second
+			cfg.ConIdleTimeout = libdur.Seconds(2) // Configure idle timeout > 1 second
 
 			handlerStarted := make(chan time.Time, 1)
 			handlerEnded := make(chan time.Time, 1)

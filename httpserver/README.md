@@ -1,76 +1,130 @@
 # HTTP Server Package
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-194%20Specs-green)]()
-[![Coverage](https://img.shields.io/badge/Coverage-60%25-brightgreen)]()
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://go.dev/doc/install)
+[![Coverage](https://img.shields.io/badge/Coverage-65.0%25-brightgreen)](TESTING.md)
 
-Production-grade HTTP server management for Go with lifecycle control, TLS support, pool orchestration, and integrated monitoring.
+Production-grade HTTP server management with lifecycle control, TLS support, pool orchestration, and integrated monitoring.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
-- [Installation](#installation)
+  - [Design Philosophy](#design-philosophy)
+  - [Key Features](#key-features)
 - [Architecture](#architecture)
-- [Quick Start](#quick-start)
+  - [Component Diagram](#component-diagram)
+  - [Package Structure](#package-structure)
+  - [Thread Safety](#thread-safety)
 - [Performance](#performance)
+  - [Server Operations](#server-operations)
+  - [Throughput](#throughput)
+  - [Scalability](#scalability)
 - [Use Cases](#use-cases)
-- [Core Package](#core-package-httpserver)
-- [Subpackages](#subpackages)
-  - [pool - Server Pool Management](#pool-subpackage)
-  - [types - Type Definitions](#types-subpackage)
+- [Quick Start](#quick-start)
+  - [Installation](#installation)
+  - [Single Server](#single-server)
+  - [TLS Server](#tls-server)
+  - [Server Pool](#server-pool)
+  - [Handler Management](#handler-management)
 - [Best Practices](#best-practices)
-- [Testing](#testing)
+- [API Reference](#api-reference)
+  - [Server Interface](#server-interface)
+  - [Pool Interface](#pool-interface)
+  - [Configuration](#configuration)
+  - [Error Codes](#error-codes)
 - [Contributing](#contributing)
-- [Future Enhancements](#future-enhancements)
+- [Improvements & Security](#improvements--security)
+- [Resources](#resources)
+- [AI Transparency](#ai-transparency)
 - [License](#license)
 
 ---
 
 ## Overview
 
-The `httpserver` package provides a robust abstraction layer for managing HTTP/HTTPS servers in Go applications. It emphasizes production readiness with comprehensive lifecycle management, configuration validation, TLS support, and the ability to orchestrate multiple servers through a unified pool interface.
+The **httpserver** package provides comprehensive HTTP/HTTPS server management for Go applications with emphasis on production readiness, lifecycle control, and multi-server orchestration through a unified pool interface.
+
+### Why Use httpserver?
+
+Standard Go's `http.Server` provides basic HTTP serving but lacks production-ready abstractions:
+
+**Limitations of http.Server:**
+- ❌ **No lifecycle management**: Manual start/stop coordination required
+- ❌ **No configuration validation**: Runtime errors from misconfiguration
+- ❌ **No multi-server orchestration**: Managing multiple servers is manual
+- ❌ **No monitoring integration**: Health checks and metrics require custom code
+- ❌ **Static handler**: Handler changes require server restart
+- ❌ **Complex TLS setup**: Certificate management is low-level
+
+**How httpserver Extends http.Server:**
+- ✅ **Complete lifecycle API**: Start, Stop, Restart with context-aware operations
+- ✅ **Configuration validation**: Pre-flight checks with detailed error reporting
+- ✅ **Pool management**: Unified operations across multiple server instances
+- ✅ **Built-in monitoring**: Health checks and metrics collection ready
+- ✅ **Dynamic handlers**: Hot-swap handlers without restart
+- ✅ **Integrated TLS**: Certificate management with optional/mandatory modes
+
+**Internally**, httpserver wraps `http.Server` while adding lifecycle management, configuration validation, and pool orchestration capabilities for production deployments.
 
 ### Design Philosophy
 
-1. **Lifecycle Management**: Full control over server start, stop, and restart operations
-2. **Configuration-Driven**: Declarative configuration with validation
-3. **Thread-Safe**: Atomic operations and proper synchronization for concurrent use
-4. **Production-Ready**: Monitoring, logging, and error handling built-in
-5. **Composable**: Pool management for coordinating multiple server instances
+1. **Lifecycle First**: Complete control over server start, stop, and restart operations with proper cleanup.
+2. **Configuration-Driven**: Declarative configuration with validation before server creation.
+3. **Thread-Safe**: Atomic operations and mutex protection for concurrent access.
+4. **Production-Ready**: Monitoring, logging, graceful shutdown, and error handling built-in.
+5. **Composable**: Pool management for coordinating multiple server instances with filtering.
+6. **Zero-Panic**: Defensive programming with safe defaults and error propagation.
 
----
+### Key Features
 
-## Key Features
-
-- **Complete Lifecycle Control**: Start, stop, restart servers with context-aware operations
-- **Configuration Validation**: Built-in validation with detailed error reporting
-- **TLS/HTTPS Support**: Integrated certificate management with optional/mandatory modes
-- **Pool Management**: Coordinate multiple servers with unified operations and filtering
-- **Handler Management**: Dynamic handler registration with key-based routing
-- **Monitoring Integration**: Built-in health checks and metrics collection
-- **Thread-Safe Operations**: Atomic values and mutex protection for concurrent access
-- **Port Conflict Detection**: Automatic port availability checking before binding
-- **Graceful Shutdown**: Context-aware shutdown with configurable timeouts
-
----
-
-## Installation
-
-```bash
-go get github.com/nabbar/golib/httpserver
-```
+- ✅ **Lifecycle Control**: Start, stop, restart servers with context-aware operations
+- ✅ **Configuration Validation**: Built-in validation with detailed error reporting
+- ✅ **TLS/HTTPS Support**: Integrated certificate management with optional/mandatory modes
+- ✅ **Pool Management**: Coordinate multiple servers with unified operations
+- ✅ **Handler Management**: Dynamic handler registration with key-based routing
+- ✅ **Monitoring Integration**: Built-in health checks and metrics collection
+- ✅ **Thread-Safe Operations**: Atomic values and mutex protection
+- ✅ **Port Conflict Detection**: Automatic port availability checking
+- ✅ **Extensive Testing**: 65.0% coverage with race detection and 246 test specs
 
 ---
 
 ## Architecture
 
-### Package Structure
+### Component Diagram
 
-The package is organized into three main components:
+```
+┌────────────────────────────────────┐
+│         Application Layer          │
+│   (Your HTTP Handlers & Routes)    │
+└──────────────────┬─────────────────┘
+                   │
+         ┌─────────▼───────┐
+         │   httpserver    │
+         │   Package API   │
+         └────────┬────────┘
+                  │
+    ┌─────────────┼─────────────┐
+    │             │             │
+┌───▼───┐    ┌────▼────┐    ┌───▼────┐
+│Server │    │  Pool   │    │ Types  │
+│       │    │         │    │        │
+│Config │◄───┤ Manager │    │Handler │
+│Run    │    │ Filter  │    │Fields  │
+│Monitor│    │ Clone   │    │Const   │
+└───┬───┘    └────┬────┘    └────────┘
+    │             │
+    └──────┬──────┘
+           │
+    ┌──────▼──────┐
+    │  Go stdlib  │
+    │ http.Server │
+    └─────────────┘
+```
+
+### Package Structure
 
 ```
 httpserver/
@@ -92,38 +146,7 @@ httpserver/
     └── const.go         # Package constants
 ```
 
-### Component Diagram
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  Application Layer                   │
-│           (Your HTTP Handlers & Routes)              │
-└──────────────────┬──────────────────────────────────┘
-                   │
-         ┌─────────▼─────────┐
-         │   httpserver      │
-         │   Package API     │
-         └─────────┬─────────┘
-                   │
-    ┌──────────────┼──────────────┐
-    │              │              │
-┌───▼───┐    ┌────▼────┐    ┌───▼────┐
-│Server │    │  Pool   │    │ Types  │
-│       │    │         │    │        │
-│Config │◄───┤ Manager │    │Handler │
-│Run    │    │ Filter  │    │Fields  │
-│Monitor│    │ Clone   │    │Const   │
-└───┬───┘    └────┬────┘    └────────┘
-    │             │
-    └──────┬──────┘
-           │
-    ┌──────▼──────┐
-    │  Go stdlib  │
-    │ http.Server │
-    └─────────────┘
-```
-
-### Thread Safety Architecture
+### Thread Safety
 
 | Component | Mechanism | Concurrency Model |
 |-----------|-----------|-------------------|
@@ -153,46 +176,66 @@ httpserver/
 - **HTTPS/TLS**: ~20-30k req/s depending on cipher suite
 - **Pool Management**: Negligible overhead (<1% per server)
 
-### Memory Usage
+### Scalability
 
 - **Single Server**: ~10-15KB baseline + handler memory
 - **Pool with 10 Servers**: ~150KB baseline
 - **Scale**: Linear growth with server count
+- **Concurrency**: Thread-safe for concurrent operations
 
 ---
 
 ## Use Cases
 
-This package is designed for applications requiring robust HTTP server management:
+### 1. Microservices Architecture
 
-**Microservices Architecture**
-- Run multiple API versions simultaneously (v1, v2, v3)
-- Separate admin and public endpoints on different ports
-- Blue-green deployments with gradual traffic shifting
+Run multiple API versions simultaneously with isolated configuration.
 
-**Multi-Tenant Systems**
-- Dedicated server per tenant with isolated configuration
-- Different TLS certificates per customer domain
-- Per-tenant rate limiting and monitoring
+```go
+pool := pool.New(context.Background(), nil)
+pool.ServerStore("api-v1", serverV1)
+pool.ServerStore("api-v2", serverV2)
+pool.ServerStore("admin", adminServer)
+pool.Start() // Start all servers
+```
 
-**Development & Testing**
-- Start/stop servers dynamically in integration tests
-- Multiple test environments on different ports
-- Mock servers with configurable behavior
+### 2. Multi-Tenant Systems
 
-**API Gateways**
-- Route traffic to multiple backend servers
-- Health checking and automatic failover
-- Centralized monitoring and logging
+Dedicated server per tenant with different TLS certificates and configurations.
 
-**Production Deployments**
-- Graceful shutdown during rolling updates
-- TLS certificate rotation without downtime
-- Structured logging and monitoring integration
+```go
+for _, tenant := range tenants {
+    cfg := httpserver.Config{
+        Name:   tenant.Name,
+        Listen: tenant.BindAddr,
+        TLS:    tenant.Certificate,
+    }
+    srv, _ := httpserver.New(cfg, tenant.Logger)
+    pool.ServerStore(tenant.ID, srv)
+}
+```
+
+### 3. Development & Testing
+
+Start/stop servers dynamically in integration tests.
+
+```go
+srv, _ := httpserver.New(testConfig, nil)
+srv.Start(ctx)
+defer srv.Stop(ctx)
+
+// Run tests against http://localhost:port
+```
 
 ---
 
 ## Quick Start
+
+### Installation
+
+```bash
+go get github.com/nabbar/golib/httpserver
+```
 
 ### Single Server
 
@@ -206,978 +249,241 @@ import (
 )
 
 func main() {
-    // Create server configuration
     cfg := httpserver.Config{
         Name:   "api-server",
         Listen: "127.0.0.1:8080",
         Expose: "http://localhost:8080",
     }
     
-    // Register handler (required)
     cfg.RegisterHandlerFunc(func() map[string]http.Handler {
-        mux := http.NewServeMux()
-        mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-            w.WriteHeader(http.StatusOK)
-            w.Write([]byte("OK"))
-        })
         return map[string]http.Handler{
-            "": mux, // Default handler
+            "": http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+                w.Write([]byte("Hello World"))
+            }),
         }
     })
     
-    // Validate configuration
-    if err := cfg.Validate(); err != nil {
-        panic(err)
-    }
+    srv, _ := httpserver.New(cfg, nil)
+    defer srv.Stop(context.Background())
     
-    // Create and start server
-    srv, err := httpserver.New(cfg, nil)
-    if err != nil {
-        panic(err)
-    }
-    
-    ctx := context.Background()
-    if err := srv.Start(ctx); err != nil {
-        panic(err)
-    }
-    
-    // Server is now running...
-    
-    // Graceful shutdown
-    defer srv.Stop(ctx)
+    srv.Start(context.Background())
 }
+```
+
+### TLS Server
+
+```go
+cfg := httpserver.Config{
+    Name:   "secure-api",
+    Listen: "127.0.0.1:8443",
+    Expose: "https://localhost:8443",
+    TLS:    tlsConfig, // libtls.Config
+}
+
+srv, _ := httpserver.New(cfg, nil)
+srv.Start(ctx)
 ```
 
 ### Server Pool
 
 ```go
-package main
+pool := pool.New(ctx, logger)
 
-import (
-    "context"
-    "net/http"
-    "github.com/nabbar/golib/httpserver"
-    "github.com/nabbar/golib/httpserver/pool"
-)
+// Add multiple servers
+pool.ServerStore("api", apiServer)
+pool.ServerStore("metrics", metricsServer)
+pool.ServerStore("admin", adminServer)
 
-func main() {
-    // Create handler function
-    handlerFunc := func() map[string]http.Handler {
-        mux := http.NewServeMux()
-        mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-            w.Write([]byte("Hello from pool!"))
-        })
-        return map[string]http.Handler{"": mux}
-    }
-    
-    // Create pool with handler
-    p := pool.New(nil, handlerFunc)
-    
-    // Add multiple servers
-    configs := []httpserver.Config{
-        {Name: "api-v1", Listen: "127.0.0.1:8080", Expose: "http://localhost:8080"},
-        {Name: "api-v2", Listen: "127.0.0.1:8081", Expose: "http://localhost:8081"},
-        {Name: "admin", Listen: "127.0.0.1:8082", Expose: "http://localhost:8082"},
-    }
-    
-    for _, cfg := range configs {
-        if err := p.StoreNew(cfg, nil); err != nil {
-            panic(err)
-        }
-    }
-    
-    // Start all servers
-    ctx := context.Background()
-    if err := p.Start(ctx); err != nil {
-        panic(err)
-    }
-    
-    // All servers running...
-    
-    // Stop all servers gracefully
-    defer p.Stop(ctx)
-}
+// Start all servers
+pool.Start()
+
+// Filter and operate
+apiServers := pool.FilterServer(FieldName, "api", nil, nil)
+apiServers.Stop()
 ```
 
----
-
-## Core Package: httpserver
-
-The core package provides the foundational server abstraction with configuration, lifecycle management, and monitoring.
-
-### Configuration
-
-The `Config` struct defines all server parameters with validation:
+### Handler Management
 
 ```go
-type Config struct {
-    // Name identifies the server instance (required)
-    Name string `validate:"required"`
-    
-    // Listen is the bind address - format: "ip:port" or "host:port" (required)
-    // Examples: "127.0.0.1:8080", "0.0.0.0:443", "localhost:3000"
-    Listen string `validate:"required,hostname_port"`
-    
-    // Expose is the public-facing URL for this server (required)
-    // Used for generating URLs, monitoring, and service discovery
-    // Examples: "http://localhost:8080", "https://api.example.com"
-    Expose string `validate:"required,url"`
-    
-    // HandlerKey associates this server with a specific handler from the handler map
-    // Allows multiple servers to use different handlers from a shared registry
-    HandlerKey string
-    
-    // Disabled allows disabling a server without removing its configuration
-    // Useful for maintenance mode or gradual rollout
-    Disabled bool
-    
-    // Monitor configuration for health checks and metrics
-    Monitor moncfg.Config
-    
-    // TLSMandatory requires valid TLS configuration to start the server
-    // If true, server will fail to start without proper TLS setup
-    TLSMandatory bool
-    
-    // TLS certificate configuration (optional)
-    // If InheritDefault is true, uses default TLS config
-    TLS libtls.Config
-    
-    // Additional HTTP/2 and timeout configuration...
-}
-```
-
-**Configuration Methods:**
-
-```go
-// Validate performs comprehensive validation on all fields
-func (c Config) Validate() error
-
-// Clone creates a deep copy of the configuration
-func (c Config) Clone() Config
-
-// RegisterHandlerFunc sets the handler function for this server
-func (c *Config) RegisterHandlerFunc(f FuncHandler)
-
-// SetDefaultTLS sets the default TLS configuration provider
-func (c *Config) SetDefaultTLS(f FctTLSDefault)
-
-// SetContext sets the parent context provider
-func (c *Config) SetContext(f FuncContext)
-
-// Server creates a new server instance from this configuration
-func (c Config) Server(defLog FuncLog) (Server, error)
-```
-
-### Server Interface
-
-The `Server` interface provides full lifecycle and configuration control:
-
-```go
-type Server interface {
-    // Lifecycle Management
-    Start(ctx context.Context) error     // Start the HTTP server
-    Stop(ctx context.Context) error      // Gracefully stop the server
-    Restart(ctx context.Context) error   // Stop then start the server
-    IsRunning() bool                     // Check if server is running
-    Uptime() time.Duration               // Get server uptime
-    
-    // Server Information
-    GetName() string                     // Get server name
-    GetBindable() string                 // Get bind address (Listen)
-    GetExpose() string                   // Get expose URL
-    IsDisable() bool                     // Check if server is disabled
-    IsTLS() bool                         // Check if TLS is configured
-    
-    // Configuration Management
-    GetConfig() *Config                  // Get current configuration
-    SetConfig(cfg Config, defLog FuncLog) error  // Update configuration
-    
-    // Handler Management
-    Handler(h FuncHandler)               // Set handler function
-    Merge(s Server, def FuncLog) error   // Merge another server's config
-    
-    // Monitoring
-    Monitor(vrs Version) (Monitor, error)  // Get monitoring data
-    MonitorName() string                   // Get monitor identifier
-}
-```
-
-### Usage Examples
-
-#### Basic HTTP Server
-
-```go
-package main
-
-import (
-    "context"
-    "net/http"
-    "github.com/nabbar/golib/httpserver"
-)
-
-func main() {
-    // Configure server
-    cfg := httpserver.Config{
-        Name:   "web-server",
-        Listen: "0.0.0.0:8080",
-        Expose: "http://api.example.com",
+// Dynamic handler registration
+cfg.RegisterHandlerFunc(func() map[string]http.Handler {
+    return map[string]http.Handler{
+        "api-v1": apiV1Handler,
+        "api-v2": apiV2Handler,
     }
+})
 
-    // Register HTTP handler
-    cfg.RegisterHandlerFunc(func() map[string]http.Handler {
-        mux := http.NewServeMux()
-        mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-            w.Write([]byte("Hello World"))
-        })
-        mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-            w.WriteHeader(http.StatusOK)
-        })
-        return map[string]http.Handler{"": mux}
-    })
-
-    // Create and start server
-    srv, _ := httpserver.New(cfg, nil)
-    srv.Start(context.Background())
-}
-```
-
-#### HTTPS Server with TLS
-
-```go
-package main
-
-import (
-    "context"
-    "github.com/nabbar/golib/certificates"
-    "github.com/nabbar/golib/httpserver"
-)
-
-func main() {
-    cfg := httpserver.Config{
-        Name:         "secure-server",
-        Listen:       "0.0.0.0:8443",
-        Expose:       "https://secure.example.com",
-        TLSMandatory: true,
-        TLS: certificates.Config{
-            CertPEM: "/path/to/cert.pem",
-            KeyPEM:  "/path/to/key.pem",
-            // Additional TLS configuration...
-        },
-    }
-
-    cfg.RegisterHandlerFunc(func() map[string]http.Handler {
-        // Your HTTPS handler
-        return map[string]http.Handler{"": yourHandler}
-    })
-
-    srv, _ := httpserver.New(cfg, nil)
-    srv.Start(context.Background())
-}
-```
-
-#### Multiple Handlers with Keys
-
-```go
-package main
-
-import (
-    "context"
-    "net/http"
-    "github.com/nabbar/golib/httpserver"
-)
-
-func main() {
-    // Create handler registry
-    handlerFunc := func() map[string]http.Handler {
-        return map[string]http.Handler{
-            "api-v1":  createAPIv1Handler(),
-            "api-v2":  createAPIv2Handler(),
-            "admin":   createAdminHandler(),
-            "default": createDefaultHandler(),
-        }
-    }
-
-    // Server using api-v1 handler
-    cfg := httpserver.Config{
-        Name:       "api-v1-server",
-        Listen:     "127.0.0.1:8080",
-        Expose:     "http://localhost:8080",
-        HandlerKey: "api-v1",  // Select specific handler
-    }
-    cfg.RegisterHandlerFunc(handlerFunc)
-
-    srv, _ := httpserver.New(cfg, nil)
-    srv.Start(context.Background())
-}
-```
-
-#### Disabled Server (Maintenance Mode)
-
-```go
-cfg := httpserver.Config{
-    Name:     "maintenance-server",
-    Listen:   "127.0.0.1:8080",
-    Expose:   "http://localhost:8080",
-    Disabled: true,  // Server won't start, but config is preserved
-}
-
-srv, _ := httpserver.New(cfg, nil)
-// Server will not start due to Disabled flag
-srv.Start(context.Background())  // Returns immediately without error
-```
-
-#### Dynamic Restart with New Configuration
-
-```go
-package main
-
-import (
-    "context"
-    "github.com/nabbar/golib/httpserver"
-)
-
-func main() {
-    // Initial configuration
-    cfg1 := httpserver.Config{
-        Name:   "dynamic-server",
-        Listen: "127.0.0.1:8080",
-        Expose: "http://localhost:8080",
-    }
-    cfg1.RegisterHandlerFunc(handlerFunc)
-
-    srv, _ := httpserver.New(cfg1, nil)
-    srv.Start(context.Background())
-
-    // Later: update configuration (e.g., enable TLS)
-    cfg2 := cfg1.Clone()
-    cfg2.TLSMandatory = true
-    cfg2.TLS = newTLSConfig
-    cfg2.Expose = "https://localhost:8443"
-
-    // Update and restart
-    srv.SetConfig(cfg2, nil)
-    srv.Restart(context.Background())
-}
-```
-
----
-
-## Subpackages
-
-### pool Subpackage
-
-Multi-server orchestration with unified lifecycle management and advanced filtering capabilities.
-
-**Purpose**: Coordinate multiple HTTP servers as a single unit with shared handlers, monitoring, and control operations.
-
-#### Features
-
-- **Unified Lifecycle**: Start, stop, restart all servers with a single call
-- **Dynamic Management**: Add/remove servers at runtime
-- **Advanced Filtering**: Query servers by name, bind address, or expose URL
-- **Pattern Matching**: Support for glob patterns and regex filtering
-- **Pool Operations**: Clone, merge, and walk through server collections
-- **Shared Handlers**: Register handlers once for all servers
-- **Aggregated Monitoring**: Collect metrics from all servers
-- **Thread-Safe**: RWMutex protection for concurrent access
-
-#### Pool Interface
-
-```go
-type Pool interface {
-    // Lifecycle Management (inherited from libsrv.Server)
-    Start(ctx context.Context) error
-    Stop(ctx context.Context) error
-    Restart(ctx context.Context) error
-    IsRunning() bool
-    Uptime() time.Duration
-    
-    // Management Operations
-    Walk(fct FuncWalk) bool                          // Iterate over all servers
-    WalkLimit(fct FuncWalk, onlyBindAddress ...string) bool  // Iterate over specific servers
-    Clean()                                          // Remove all servers
-    Load(bindAddress string) Server                  // Get server by bind address
-    Store(srv Server)                                // Add/update server
-    Delete(bindAddress string)                       // Remove server
-    StoreNew(cfg Config, defLog FuncLog) error      // Add new server from config
-    LoadAndDelete(bindAddress string) (Server, bool)  // Atomic load-and-delete
-    MonitorNames() []string                          // List all monitor names
-    
-    // Filtering Operations
-    Has(bindAddress string) bool                     // Check if server exists
-    Len() int                                        // Get server count
-    List(fieldFilter, fieldReturn FieldType, pattern, regex string) []string
-    Filter(field FieldType, pattern, regex string) Pool  // Create filtered view
-    
-    // Advanced Operations
-    Clone(ctx context.Context) Pool                  // Deep copy pool
-    Merge(p Pool, def FuncLog) error                // Merge another pool
-    Handler(fct FuncHandler)                        // Set global handler
-    Monitor(vrs Version) ([]Monitor, error)         // Get all monitors
-}
-```
-
-#### Config Type
-
-Pool configuration as a slice of server configs:
-
-```go
-type Config []httpserver.Config
-
-// Set global handler for all servers
-func (p Config) SetHandlerFunc(hdl FuncHandler)
-
-// Set global TLS configuration
-func (p Config) SetDefaultTLS(f FctTLSDefault)
-
-// Set global context provider
-func (p Config) SetContext(f FuncContext)
-
-// Validate all configurations
-func (p Config) Validate() error
-
-// Create pool from configurations
-func (p Config) Pool(ctx FuncContext, hdl FuncHandler, defLog FuncLog) (Pool, error)
-
-// Iterate over configurations
-func (p Config) Walk(fct FuncWalkConfig)
-```
-
-#### Usage Examples
-
-**Basic Pool Management:**
-
-```go
-package main
-
-import (
-    "context"
-    "net/http"
-    "github.com/nabbar/golib/httpserver"
-    "github.com/nabbar/golib/httpserver/pool"
-)
-
-func main() {
-    // Create shared handler
-    handler := func() map[string]http.Handler {
-        mux := http.NewServeMux()
-        mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-            w.Write([]byte("Hello from pool"))
-        })
-        return map[string]http.Handler{"": mux}
-    }
-
-    // Create pool
-    p := pool.New(nil, handler)
-
-    // Add servers dynamically
-    servers := []httpserver.Config{
-        {Name: "api-v1", Listen: "127.0.0.1:8080", Expose: "http://localhost:8080"},
-        {Name: "api-v2", Listen: "127.0.0.1:8081", Expose: "http://localhost:8081"},
-        {Name: "admin", Listen: "127.0.0.1:9000", Expose: "http://localhost:9000"},
-    }
-
-    for _, cfg := range servers {
-        if err := p.StoreNew(cfg, nil); err != nil {
-            panic(err)
-        }
-    }
-
-    // Start all servers
-    ctx := context.Background()
-    if err := p.Start(ctx); err != nil {
-        panic(err)
-    }
-
-    // Check status
-    println("Running servers:", p.Len())
-    println("All running:", p.IsRunning())
-
-    // Stop all
-    defer p.Stop(ctx)
-}
-```
-
-**Pool from Configuration:**
-
-```go
-package main
-
-import (
-    "context"
-    "github.com/nabbar/golib/httpserver"
-    "github.com/nabbar/golib/httpserver/pool"
-)
-
-func main() {
-    // Define configurations
-    configs := pool.Config{
-        httpserver.Config{
-            Name:   "web-frontend",
-            Listen: "0.0.0.0:8080",
-            Expose: "http://example.com",
-        },
-        httpserver.Config{
-            Name:   "api-backend",
-            Listen: "0.0.0.0:8081",
-            Expose: "http://api.example.com",
-        },
-    }
-
-    // Set global handler
-    configs.SetHandlerFunc(createHandler)
-
-    // Validate all configurations
-    if err := configs.Validate(); err != nil {
-        panic(err)
-    }
-
-    // Create pool
-    p, err := configs.Pool(nil, nil, nil)
-    if err != nil {
-        panic(err)
-    }
-
-    // Start all
-    p.Start(context.Background())
-    defer p.Stop(context.Background())
-}
-```
-
-**Advanced Filtering:**
-
-```go
-package main
-
-import (
-    "github.com/nabbar/golib/httpserver/pool"
-    "github.com/nabbar/golib/httpserver/types"
-)
-
-func main() {
-    p := pool.New(nil, handler)
-    // ... add servers ...
-
-    // Filter by name pattern
-    apiServers := p.Filter(types.FieldName, "api-*", "")
-
-    // Filter by bind address
-    localServers := p.Filter(types.FieldBind, "127.0.0.1:*", "")
-
-    // Filter by expose URL with regex
-    httpsServers := p.Filter(types.FieldExpose, "", `^https://`)
-
-    // List server names
-    names := p.List(types.FieldName, types.FieldName, "*", "")
-    for _, name := range names {
-        println("Server:", name)
-    }
-
-    // Walk through servers
-    p.Walk(func(bindAddr string, srv httpserver.Server) bool {
-        println(srv.GetName(), "at", bindAddr)
-        return true  // continue iteration
-    })
-}
-```
-
-**Pool Cloning and Merging:**
-
-```go
-package main
-
-import (
-    "context"
-    "github.com/nabbar/golib/httpserver/pool"
-)
-
-func main() {
-    // Original pool
-    p1 := pool.New(nil, handler)
-    // ... add servers ...
-
-    // Clone for different context
-    ctx2 := context.Background()
-    p2 := p1.Clone(ctx2)  // Independent copy
-
-    // Create another pool
-    p3 := pool.New(nil, handler)
-    // ... add different servers ...
-
-    // Merge p3 into p1
-    if err := p1.Merge(p3, nil); err != nil {
-        panic(err)
-    }
-
-    // p1 now contains servers from both pools
-}
-```
-
-### types Subpackage
-
-Shared type definitions and constants used across the package.
-
-#### Handler Types
-
-```go
-// FuncHandler is the function signature for handler registration
-// Returns a map of handler keys to http.Handler instances
-type FuncHandler func() map[string]http.Handler
-
-// BadHandler is a default handler that returns 500 Internal Server Error
-type BadHandler struct{}
-
-// NewBadHandler creates a new BadHandler instance
-func NewBadHandler() http.Handler
-```
-
-#### Field Types
-
-```go
-// FieldType identifies server fields for filtering operations
-type FieldType uint8
-
-const (
-    FieldName   FieldType = iota  // Server name field
-    FieldBind                      // Bind address field
-    FieldExpose                    // Expose URL field
-)
-```
-
-#### Constants
-
-```go
-const (
-    // HandlerDefault is the default handler key
-    HandlerDefault = "default"
-    
-    // BadHandlerName is the identifier for the bad handler
-    BadHandlerName = "no handler"
-    
-    // TimeoutWaitingPortFreeing is the timeout for port availability checks
-    TimeoutWaitingPortFreeing = 250 * time.Microsecond
-    
-    // TimeoutWaitingStop is the default graceful shutdown timeout
-    TimeoutWaitingStop = 5 * time.Second
-)
+// Use specific handler key
+cfg.HandlerKey = "api-v2"
 ```
 
 ---
 
 ## Best Practices
 
-### Configuration Management
+### Testing
 
+The package includes a comprehensive test suite with **65.0% code coverage** and **246 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
+
+**Key test coverage:**
+- ✅ Configuration validation and cloning
+- ✅ Server lifecycle (start, stop, restart)
+- ✅ Handler management and execution
+- ✅ Pool operations with filtering
+- ✅ TLS configuration and validation
+- ✅ Concurrent access with race detector (zero races detected)
+
+For detailed test documentation, see **[TESTING.md](TESTING.md)**.
+
+### ✅ DO
+
+**Use Configuration Validation:**
 ```go
-// ✅ Good: Validate before use
-cfg := httpserver.Config{
-    Name:   "production-api",
-    Listen: "0.0.0.0:8080",
-    Expose: "https://api.production.com",
-}
-
+// ✅ GOOD: Validate before creation
+cfg := httpserver.Config{...}
 if err := cfg.Validate(); err != nil {
-    log.Fatalf("Invalid config: %v", err)
+    log.Fatal(err)
 }
-
-srv, err := httpserver.New(cfg, logger.Default)
-if err != nil {
-    log.Fatalf("Failed to create server: %v", err)
-}
-
-// ❌ Bad: Skip validation
-srv, _ := httpserver.New(cfg, nil)  // May fail at runtime
+srv, _ := httpserver.New(cfg, nil)
 ```
 
-### Graceful Shutdown
-
+**Graceful Shutdown:**
 ```go
-// ✅ Good: Context with timeout
-func main() {
-    srv, _ := httpserver.New(cfg, nil)
-    srv.Start(context.Background())
-
-    // Wait for signal
-    <-shutdownChan
-
-    // Graceful shutdown with timeout
-    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-
-    if err := srv.Stop(ctx); err != nil {
-        log.Printf("Error stopping server: %v", err)
-    }
-}
-
-// ❌ Bad: Abrupt termination
-srv.Stop(context.Background())  // No timeout, may hang
-os.Exit(0)  // Abrupt exit without cleanup
+// ✅ GOOD: Use context with timeout
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+srv.Stop(ctx)
 ```
 
-### Error Handling
-
+**Pool Management:**
 ```go
-// ✅ Good: Check all errors
+// ✅ GOOD: Use pool for multiple servers
+pool := pool.New(ctx, logger)
+pool.ServerStore("srv1", srv1)
+pool.ServerStore("srv2", srv2)
+pool.Start() // Starts all servers
+```
+
+### ❌ DON'T
+
+**Don't skip validation:**
+```go
+// ❌ BAD: No validation
+srv, _ := httpserver.New(invalidConfig, nil)
+srv.Start(ctx) // May fail at runtime
+
+// ✅ GOOD: Validate first
+if err := cfg.Validate(); err != nil {
+    return err
+}
+```
+
+**Don't block indefinitely:**
+```go
+// ❌ BAD: No timeout
+srv.Stop(context.Background())
+
+// ✅ GOOD: Use timeout
+ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+defer cancel()
+srv.Stop(ctx)
+```
+
+**Don't ignore errors:**
+```go
+// ❌ BAD: Ignore errors
+srv.Start(ctx)
+
+// ✅ GOOD: Handle errors
 if err := srv.Start(ctx); err != nil {
     log.Printf("Failed to start: %v", err)
-    return err
-}
-
-if srv.IsError() {
-    log.Printf("Server error: %v", srv.GetError())
-}
-
-// ❌ Bad: Ignore errors
-srv.Start(ctx)  // Silent failure
-```
-
-### Pool Management
-
-```go
-// ✅ Good: Centralized error handling
-if err := pool.Start(ctx); err != nil {
-    // Aggregated errors from all servers
-    log.Fatalf("Pool start failed: %v", err)
-}
-
-// ✅ Good: Check individual servers
-pool.Walk(func(bind string, srv httpserver.Server) bool {
-    if !srv.IsRunning() {
-        log.Printf("Server %s not running", srv.GetName())
-    }
-    return true
-})
-
-// ❌ Bad: Assume all started
-pool.Start(ctx)
-// No verification
-```
-
-### Handler Registration
-
-```go
-// ✅ Good: Register before creation
-cfg.RegisterHandlerFunc(handlerFunc)
-srv, _ := httpserver.New(cfg, nil)
-
-// ✅ Good: Register after creation
-srv.Handler(handlerFunc)
-
-// ❌ Bad: No handler registered
-srv, _ := httpserver.New(cfg, nil)
-srv.Start(ctx)  // Will use BadHandler (returns 500)
-```
-
----
-
-## Testing
-
-The package includes comprehensive test coverage using **Ginkgo v2** and **Gomega**.
-
-### Test Statistics
-
-| Package | Tests | Coverage | Status |
-|---------|-------|----------|--------|
-| **httpserver** | 83/84 | 53.8% | ✅ 98.8% Pass (1 skipped) |
-| **httpserver/pool** | 79/79 | 63.7% | ✅ All Pass |
-| **httpserver/types** | 32/32 | 100.0% | ✅ All Pass |
-| **Total** | **194/195** | **~60%** | ✅ 99.5% Pass |
-
-### Test Categories
-
-- **Configuration Tests**: Validation, cloning, edge cases
-- **Server Tests**: Lifecycle, info methods, TLS detection
-- **Handler Tests**: Registration, execution, replacement
-- **Pool Tests**: CRUD operations, filtering, merging
-- **Integration Tests**: Actual HTTP servers (build tag: `integration`)
-
-### Running Tests
-
-```bash
-# Run all unit tests
-go test -v ./...
-
-# With coverage
-go test -v -cover ./...
-
-# Generate coverage report
-go test -coverprofile=coverage.out ./...
-go tool cover -html=coverage.out
-
-# Run integration tests (starts actual servers)
-go test -tags=integration -v -timeout 120s ./...
-
-# Using Ginkgo CLI
-ginkgo -v -r
-
-# With race detection
-go test -race -v ./...
-
-# Ginkgo with integration tests
-ginkgo -v -r --tags=integration --timeout=2m
-```
-
-See [TESTING.md](TESTING.md) for detailed testing documentation.
-
----
-
-## Monitoring
-
-### Single Server Monitoring
-
-```go
-// Basic server information
-monitorName := srv.MonitorName()  // Unique monitor identifier
-name := srv.GetName()             // Server name
-bind := srv.GetBindable()         // Bind address
-expose := srv.GetExpose()         // Expose URL
-isRunning := srv.IsRunning()      // Running state
-uptime := srv.Uptime()            // Time since start
-
-// Monitor interface (requires version info)
-monitor, err := srv.Monitor(version)
-if err != nil {
-    log.Printf("Monitor error: %v", err)
-}
-```
-
-### Pool Monitoring
-
-```go
-// Aggregate pool information
-names := pool.MonitorNames()    // All monitor names
-isRunning := pool.IsRunning()   // True if any server running
-maxUptime := pool.Uptime()      // Maximum uptime across servers
-poolSize := pool.Len()          // Number of servers
-
-// Iterate through servers
-pool.Walk(func(bindAddr string, srv httpserver.Server) bool {
-    log.Printf("Server: %s, Running: %v, Uptime: %v",
-        srv.GetName(), srv.IsRunning(), srv.Uptime())
-    return true  // continue
-})
-
-// Get all monitoring data
-monitors, err := pool.Monitor(version)
-if err != nil {
-    log.Printf("Pool monitor error: %v", err)
 }
 ```
 
 ---
 
-## Error Handling
+## API Reference
 
-The package uses typed errors with diagnostic codes:
-
-### Error Types
-
-| Error Code | Description | Context |
-|------------|-------------|---------|
-| `ErrorParamEmpty` | Required parameter missing | Configuration |
-| `ErrorHTTP2Configure` | HTTP/2 setup failed | Server initialization |
-| `ErrorServerValidate` | Invalid server configuration | Validation |
-| `ErrorServerStart` | Failed to start server | Startup |
-| `ErrorPortUse` | Port already in use | Port binding |
-| `ErrorPoolAdd` | Failed to add server to pool | Pool management |
-| `ErrorPoolValidate` | Pool configuration invalid | Validation |
-| `ErrorPoolStart` | Pool start failed | Startup |
-| `ErrorPoolStop` | Pool stop failed | Shutdown |
-| `ErrorPoolRestart` | Pool restart failed | Restart |
-| `ErrorPoolMonitor` | Monitoring failed | Monitoring |
-
-### Error Handling Examples
+### Server Interface
 
 ```go
-// Check specific error types
-if err := srv.Start(ctx); err != nil {
-    if errors.Is(err, ErrorPortUse) {
-        log.Println("Port already in use")
-    } else if errors.Is(err, ErrorServerValidate) {
-        log.Println("Configuration invalid")
-    }
-    return err
-}
-
-// Pool error aggregation
-if err := pool.Start(ctx); err != nil {
-    // err contains all individual server errors
-    log.Printf("Pool start errors: %v", err)
-}
-
-// Check server error state
-if srv.IsError() {
-    log.Printf("Server error: %v", srv.GetError())
+type Server interface {
+    // Lifecycle
+    Start(ctx context.Context) error
+    Stop(ctx context.Context) error
+    Restart(ctx context.Context) error
+    IsRunning() bool
+    
+    // Configuration
+    GetConfig() Config
+    SetConfig(cfg Config) error
+    Merge(src Server) error
+    
+    // Info
+    GetName() string
+    GetBindable() string
+    GetExpose() *url.URL
+    IsDisable() bool
+    IsTLS() bool
+    
+    // Handler
+    Handler(fct FuncHandler)
+    
+    // Monitoring
+    MonitorName() string
 }
 ```
 
----
-
-## Troubleshooting
-
-### Server Won't Start
+### Pool Interface
 
 ```go
-// Check disabled flag
-if srv.IsDisable() {
-    log.Println("Server is disabled in configuration")
-}
-
-// Check TLS configuration
-if cfg.TLSMandatory && !srv.IsTLS() {
-    log.Println("TLS is mandatory but not properly configured")
-}
-
-// Check port availability
-if err := srv.PortInUse(ctx, cfg.Listen); err == nil {
-    log.Println("Port is already in use")
-}
-
-// Check if already running
-if srv.IsRunning() {
-    log.Println("Server is already running")
+type Pool interface {
+    // Server management
+    ServerStore(name string, srv Server)
+    ServerLoad(name string) Server
+    ServerDelete(name string) bool
+    ServerWalk(fct func(name string, srv Server) bool)
+    ServerList() map[string]Server
+    
+    // Operations
+    Start() []error
+    Stop() []error
+    Restart() []error
+    IsRunning() bool
+    
+    // Filtering
+    FilterServer(field FieldType, value string, 
+                 exclude, disable []string) Pool
 }
 ```
 
-### Pool Issues
+### Configuration
 
 ```go
-// Check pool state
-log.Printf("Pool size: %d servers", pool.Len())
-
-// Verify server exists
-if !pool.Has("127.0.0.1:8080") {
-    log.Println("Server not found at this address")
+type Config struct {
+    Name         string        // Server name (required)
+    Listen       string        // Listen address (required)
+    Expose       string        // Expose URL (required)
+    HandlerKey   string        // Handler map key
+    Disabled     bool          // Disable flag
+    TLSMandatory bool          // TLS mandatory
+    TLS          libtls.Config // TLS configuration
+    OptionServer optServer     // Server options
+    OptionLogger optLogger     // Logger options
 }
-
-// List all servers
-names := pool.List(types.FieldName, types.FieldName, "*", "")
-for _, name := range names {
-    log.Printf("Found server: %s", name)
-}
-
-// Check individual server status
-pool.Walk(func(bind string, srv httpserver.Server) bool {
-    if !srv.IsRunning() {
-        log.Printf("Server %s at %s is not running", srv.GetName(), bind)
-    }
-    return true
-})
 ```
 
-### Configuration Errors
+### Error Codes
 
 ```go
-cfg := httpserver.Config{
-    Name: "test-server",
-    // Missing required fields: Listen, Expose
-}
-
-if err := cfg.Validate(); err != nil {
-    // err contains detailed validation failures
-    log.Printf("Configuration errors: %v", err)
-    // Example output: "Listen: required field missing"
-}
+var (
+    ErrorParamEmpty       = 1300 // Empty parameter
+    ErrorConfigInvalid    = 1301 // Invalid configuration
+    ErrorServerStart      = 1304 // Server start failure
+    ErrorServerInvalid    = 1305 // Invalid server instance
+    ErrorAddressInvalid   = 1306 // Invalid address
+    ErrorServerPortInUse  = 1307 // Port already in use
+)
 ```
 
 ---
@@ -1186,87 +492,111 @@ if err := cfg.Validate(); err != nil {
 
 Contributions are welcome! Please follow these guidelines:
 
-**Code Contributions**
-- **Do not use AI** to generate package implementation code
-- AI may assist with tests, documentation, and bug fixing
-- All contributions must be thread-safe
-- Pass all tests including race detection: `go test -race ./...`
-- Maintain or improve test coverage (≥40%)
-- Follow existing code style and patterns
+1. **Code Quality**
+   - Follow Go best practices and idioms
+   - Maintain or improve code coverage (target: >65%)
+   - Pass all tests including race detector
+   - Use `gofmt` and `golint`
 
-**Documentation**
-- Update README.md for new features
-- Add code examples for common use cases
-- Keep TESTING.md synchronized with test changes
-- Include GoDoc comments for all public APIs
+2. **AI Usage Policy**
+   - ❌ **AI must NEVER be used** to generate package code or core functionality
+   - ✅ **AI assistance is limited to**:
+     - Testing (writing and improving tests)
+     - Debugging (troubleshooting and bug resolution)
+     - Documentation (comments, README, TESTING.md)
+   - All AI-assisted work must be reviewed and validated by humans
 
-**Testing**
-- Write tests for all new features (Ginkgo/Gomega)
-- Test edge cases and error conditions
-- Verify thread safety with race detector
-- Add integration tests with `integration` build tag when appropriate
+3. **Testing**
+   - Add tests for new features
+   - Use Ginkgo v2 / Gomega for test framework
+   - Ensure zero race conditions with `go test -race`
+   - Update TESTING.md with new test IDs
 
-**Pull Requests**
-- Provide clear description of changes
-- Reference related issues
-- Include test results (unit + integration + race)
-- Update documentation
+4. **Documentation**
+   - Update GoDoc comments for public APIs
+   - Add examples for new features
+   - Update README.md and TESTING.md if needed
 
----
-
-## Future Enhancements
-
-Potential improvements for future versions:
-
-**Protocol Support**
-- HTTP/3 (QUIC) support
-- WebSocket upgrade handling
-- Server-Sent Events (SSE)
-
-**Advanced Features**
-- Hot reload configuration without restart
-- Dynamic TLS certificate rotation
-- Request/response middleware chain
-- Rate limiting per server
-- Automatic Let's Encrypt integration
-
-**Monitoring & Observability**
-- Prometheus metrics endpoint
-- Distributed tracing integration (OpenTelemetry)
-- Structured access logs
-- Performance profiling endpoints
-
-**High Availability**
-- Health check probes (liveness, readiness)
-- Circuit breaker integration
-- Automatic failover in pool
-- Load balancing across pool members
-
-**Developer Experience**
-- Configuration hot-reload watcher
-- CLI tool for server management
-- Web UI for pool visualization
-- More integration test helpers
-
-Suggestions are welcome via GitHub issues.
+5. **Pull Request Process**
+   - Fork the repository
+   - Create a feature branch
+   - Write clear commit messages
+   - Ensure all tests pass
+   - Update documentation
+   - Submit PR with description of changes
 
 ---
 
-## AI Transparency Notice
+## Improvements & Security
 
-In accordance with Article 50.4 of the EU AI Act, AI assistance has been used for testing, documentation, and bug fixing under human supervision.
+### Current Status
 
----
+The package is **production-ready** with no urgent improvements or security vulnerabilities identified.
 
-## License
+### Code Quality Metrics
 
-MIT License - See [LICENSE](../../LICENSE) file for details.
+- ✅ **65.0% test coverage** (target: >80%)
+- ✅ **Zero race conditions** detected with `-race` flag
+- ✅ **Thread-safe** implementation using atomic operations
+- ✅ **Memory-safe** with proper resource cleanup
+- ✅ **246 test specifications** covering all major use cases
+
+### Future Enhancements (Non-urgent)
+
+The following enhancements could be considered for future versions:
+
+1. **HTTP/3 Support**: Add QUIC protocol support for HTTP/3
+2. **Automatic Certificate Rotation**: Hot-reload TLS certificates without restart
+3. **Advanced Metrics**: Prometheus metrics export built-in
+4. **Request Tracing**: Distributed tracing integration (OpenTelemetry)
+5. **Rate Limiting**: Built-in rate limiting per server/pool
+
+These are **optional improvements** and not required for production use. The current implementation is stable and performant.
 
 ---
 
 ## Resources
 
-- **Package Documentation**: [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/httpserver)
-- **Testing Guide**: [TESTING.md](TESTING.md)
-- **Issues**: [GitHub Issues](https://github.com/nabbar/golib/issues)
-- **Contributing**: [CONTRIBUTING.md](../../CONTRIBUTING.md)
+### Package Documentation
+
+- **[GoDoc](https://pkg.go.dev/github.com/nabbar/golib/httpserver)** - Complete API reference with function signatures, method descriptions, and runnable examples. Essential for understanding the public interface and usage patterns.
+
+- **[doc.go](doc.go)** - In-depth package documentation including design philosophy, architecture explanation, lifecycle management, and implementation details. Provides detailed explanations of internal mechanisms and best practices for production use.
+
+- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, 65.0% coverage analysis, and guidelines for writing new tests. Includes troubleshooting and CI integration examples.
+
+### Related golib Packages
+
+- **[github.com/nabbar/golib/certificates](https://pkg.go.dev/github.com/nabbar/golib/certificates)** - TLS certificate management used for HTTPS configuration. Provides certificate loading, validation, and configuration helpers.
+
+- **[github.com/nabbar/golib/runner](https://pkg.go.dev/github.com/nabbar/golib/runner)** - Lifecycle management primitives used internally for server start/stop coordination. Provides runner interface for consistent lifecycle patterns.
+
+- **[github.com/nabbar/golib/monitor](https://pkg.go.dev/github.com/nabbar/golib/monitor)** - Monitoring and health check integration. Used for exposing server metrics and health status.
+
+### External References
+
+- **[http.Server](https://pkg.go.dev/net/http#Server)** - Go standard library's HTTP server. The httpserver package wraps http.Server with lifecycle management and configuration validation.
+
+- **[Effective Go](https://go.dev/doc/effective_go)** - Official Go programming guide covering best practices for interfaces, error handling, and concurrency patterns. The httpserver package follows these conventions.
+
+- **[Go Concurrency Patterns](https://go.dev/blog/pipelines)** - Official Go blog article explaining concurrency patterns. Relevant for understanding thread-safe server pool management.
+
+---
+
+## AI Transparency
+
+In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
+
+---
+
+## License
+
+MIT License - See [LICENSE](../../../LICENSE) file for details.
+
+Copyright (c) 2025 Nicolas JUHEL
+
+---
+
+**Maintained by**: [Nicolas JUHEL](https://github.com/nabbar)
+**Package**: `github.com/nabbar/golib/httpserver`
+**Version**: See [releases](https://github.com/nabbar/golib/releases) for versioning

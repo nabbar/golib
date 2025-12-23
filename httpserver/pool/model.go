@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -40,10 +40,13 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
+// pool is the internal implementation of the Pool interface.
+// It uses sync.RWMutex for thread-safe operations and stores servers
+// in a libctx.Config map indexed by bind address.
 type pool struct {
-	m sync.RWMutex
-	p libctx.Config[string]
-	h srvtps.FuncHandler
+	m sync.RWMutex          // mutex protects concurrent access
+	p libctx.Config[string] // server map keyed by bind address
+	h srvtps.FuncHandler    // optional shared handler function
 }
 
 func (o *pool) Clone(ctx context.Context) Pool {
@@ -72,6 +75,8 @@ func (o *pool) Merge(p Pool, def liblog.FuncLog) error {
 	return err
 }
 
+// Get retrieves a server by bind address.
+// This is an internal helper method. Use Load for public access.
 func (o *pool) Get(adr string) libhtp.Server {
 	if i, l := o.p.Load(adr); !l {
 		return nil

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,13 +32,27 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 )
 
+// Error codes for pool operations following liberr.CodeError hierarchy.
 const (
+	// ErrorParamEmpty indicates that required parameters are missing or empty.
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgHttpServerPool
+
+	// ErrorPoolAdd indicates failure to add a server to the pool.
 	ErrorPoolAdd
+
+	// ErrorPoolValidate indicates at least one server configuration is invalid.
 	ErrorPoolValidate
+
+	// ErrorPoolStart indicates at least one server failed to start.
 	ErrorPoolStart
+
+	// ErrorPoolStop indicates at least one server failed to stop gracefully.
 	ErrorPoolStop
+
+	// ErrorPoolRestart indicates at least one server failed to restart.
 	ErrorPoolRestart
+
+	// ErrorPoolMonitor indicates failure in monitoring operations.
 	ErrorPoolMonitor
 )
 
@@ -49,6 +63,8 @@ func init() {
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
+// getMessage returns the error message for a given error code.
+// Used internally by the liberr error framework.
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:

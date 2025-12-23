@@ -41,9 +41,9 @@ func defaultHandler() map[string]http.Handler {
 	}
 }
 
-var _ = Describe("Server Info", func() {
+var _ = Describe("[TC-SV] Server Info", func() {
 	Describe("Server Creation", func() {
-		It("should create server from valid config", func() {
+		It("[TC-SV-001] should create server from valid config", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: "127.0.0.1:8080",
@@ -56,7 +56,7 @@ var _ = Describe("Server Info", func() {
 			Expect(srv).ToNot(BeNil())
 		})
 
-		It("should fail with invalid config", func() {
+		It("[TC-SV-002] should fail with invalid config", func() {
 			cfg := Config{
 				Name: "invalid",
 				// Missing Listen and Expose
@@ -83,34 +83,34 @@ var _ = Describe("Server Info", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should return correct server name", func() {
+		It("[TC-SV-003] should return correct server name", func() {
 			name := srv.GetName()
 			Expect(name).To(Equal("info-server"))
 		})
 
-		It("should return correct bind address", func() {
+		It("[TC-SV-004] should return correct bind address", func() {
 			bind := srv.GetBindable()
 			Expect(bind).To(Equal("127.0.0.1:9000"))
 		})
 
-		It("should return correct expose address", func() {
+		It("[TC-SV-005] should return correct expose address", func() {
 			expose := srv.GetExpose()
 			Expect(expose).To(Equal("localhost:9000"))
 		})
 
-		It("should not be disabled by default", func() {
+		It("[TC-SV-006] should not be disabled by default", func() {
 			disabled := srv.IsDisable()
 			Expect(disabled).To(BeFalse())
 		})
 
-		It("should not have TLS by default", func() {
+		It("[TC-SV-007] should not have TLS by default", func() {
 			hasTLS := srv.IsTLS()
 			Expect(hasTLS).To(BeFalse())
 		})
 	})
 
 	Describe("Server Disabled Flag", func() {
-		It("should respect disabled flag", func() {
+		It("[TC-SV-008] should respect disabled flag", func() {
 			cfg := Config{
 				Name:     "disabled-server",
 				Listen:   "127.0.0.1:8080",
@@ -124,7 +124,7 @@ var _ = Describe("Server Info", func() {
 			Expect(srv.IsDisable()).To(BeTrue())
 		})
 
-		It("should not be disabled when flag is false", func() {
+		It("[TC-SV-009] should not be disabled when flag is false", func() {
 			cfg := Config{
 				Name:     "enabled-server",
 				Listen:   "127.0.0.1:8080",
@@ -140,7 +140,7 @@ var _ = Describe("Server Info", func() {
 	})
 
 	Describe("Server TLS Configuration", func() {
-		It("should report TLS when TLSMandatory is true", func() {
+		It("[TC-SV-010] should report TLS when TLSMandatory is true", func() {
 			cfg := Config{
 				Name:         "tls-server",
 				Listen:       "127.0.0.1:8443",
@@ -153,7 +153,7 @@ var _ = Describe("Server Info", func() {
 			Expect(err).To(HaveOccurred()) // Will fail due to missing TLS certificates
 		})
 
-		It("should not report TLS when TLSMandatory is false and no certificates", func() {
+		It("[TC-SV-011] should not report TLS when TLSMandatory is false and no certificates", func() {
 			cfg := Config{
 				Name:         "no-tls-server",
 				Listen:       "127.0.0.1:8080",
@@ -169,7 +169,7 @@ var _ = Describe("Server Info", func() {
 	})
 
 	Describe("Server Config Management", func() {
-		It("should get server config", func() {
+		It("[TC-SV-012] should get server config", func() {
 			cfg := Config{
 				Name:   "config-server",
 				Listen: "127.0.0.1:8080",
@@ -185,7 +185,7 @@ var _ = Describe("Server Info", func() {
 			Expect(retrievedCfg.Name).To(Equal("config-server"))
 		})
 
-		It("should update server config", func() {
+		It("[TC-SV-013] should update server config", func() {
 			originalCfg := Config{
 				Name:   "original-server",
 				Listen: "127.0.0.1:8080",
@@ -208,7 +208,7 @@ var _ = Describe("Server Info", func() {
 			Expect(srv.GetName()).To(Equal("updated-server"))
 		})
 
-		It("should succeed updating compatible config", func() {
+		It("[TC-SV-014] should succeed updating compatible config", func() {
 			cfg := Config{
 				Name:   "valid-server",
 				Listen: "127.0.0.1:8080",
@@ -236,7 +236,7 @@ var _ = Describe("Server Info", func() {
 	})
 
 	Describe("Server Lifecycle State", func() {
-		It("should not be running initially", func() {
+		It("[TC-SV-015] should not be running initially", func() {
 			cfg := Config{
 				Name:   "lifecycle-server",
 				Listen: "127.0.0.1:8080",
@@ -251,7 +251,7 @@ var _ = Describe("Server Info", func() {
 	})
 
 	Describe("Server Merge", func() {
-		It("should merge server configs", func() {
+		It("[TC-SV-016] should merge server configs", func() {
 			cfg1 := Config{
 				Name:   "server1",
 				Listen: "127.0.0.1:8080",

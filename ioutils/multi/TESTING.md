@@ -780,6 +780,4 @@ Copyright (c) 2025 Nicolas JUHEL
 
 **Test Suite Maintained by**: [Nicolas JUHEL](https://github.com/nabbar)
 **Package**: `github.com/nabbar/golib/ioutils/multi`
-**Framework**: Ginkgo v2 + Gomega + gmeasure
-**Coverage Target**: 80%+ (Current: 80.8% ✅)
 

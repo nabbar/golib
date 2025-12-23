@@ -37,6 +37,7 @@ import (
 	"path/filepath"
 	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
@@ -128,7 +129,7 @@ func Example_complete() {
 		Address:        socketPath,
 		PermFile:       libprm.Perm(0660),
 		GroupPerm:      -1,
-		ConIdleTimeout: 5 * time.Minute,
+		ConIdleTimeout: libdur.Minutes(5),
 	}
 
 	// Create server
@@ -459,7 +460,7 @@ func ExampleServerUnix_idleTimeout() {
 		Address:        socketPath,
 		PermFile:       libprm.Perm(0600),
 		GroupPerm:      -1,
-		ConIdleTimeout: 100 * time.Millisecond,
+		ConIdleTimeout: libdur.ParseDuration(100 * time.Millisecond),
 	}
 	srv, _ := scksru.New(nil, handler, cfg)
 

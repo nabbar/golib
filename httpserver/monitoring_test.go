@@ -34,9 +34,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Server Monitoring", func() {
+var _ = Describe("[TC-MON] Server Monitoring", func() {
 	Describe("Monitor Name", func() {
-		It("should return monitor name for server", func() {
+		It("[TC-MON-001] should return monitor name for server", func() {
 			cfg := Config{
 				Name:   "monitor-test-server",
 				Listen: "127.0.0.1:8080",
@@ -57,7 +57,7 @@ var _ = Describe("Server Monitoring", func() {
 			))
 		})
 
-		It("should return unique monitor names for different servers", func() {
+		It("[TC-MON-002] should return unique monitor names for different servers", func() {
 			cfg1 := Config{
 				Name:   "server-1",
 				Listen: "127.0.0.1:8080",
@@ -87,7 +87,7 @@ var _ = Describe("Server Monitoring", func() {
 	})
 
 	Describe("Monitor Interface", func() {
-		It("should have monitor method available", func() {
+		It("[TC-MON-003] should have monitor method available", func() {
 			cfg := Config{
 				Name:   "monitor-interface-test",
 				Listen: "127.0.0.1:8080",
@@ -103,7 +103,7 @@ var _ = Describe("Server Monitoring", func() {
 			Expect(monitorName).ToNot(BeEmpty())
 		})
 
-		It("should handle monitor with custom configuration", func() {
+		It("[TC-MON-004] should handle monitor with custom configuration", func() {
 			cfg := Config{
 				Name:   "custom-monitor-test",
 				Listen: "127.0.0.1:8080",
@@ -128,7 +128,7 @@ var _ = Describe("Server Monitoring", func() {
 	})
 
 	Describe("Server Info for Monitoring", func() {
-		It("should provide complete server information", func() {
+		It("[TC-MON-005] should provide complete server information", func() {
 			cfg := Config{
 				Name:     "info-monitor-test",
 				Listen:   "127.0.0.1:8080",
@@ -150,7 +150,7 @@ var _ = Describe("Server Monitoring", func() {
 			Expect(srv.MonitorName()).ToNot(BeEmpty())
 		})
 
-		It("should reflect server state changes", func() {
+		It("[TC-MON-006] should reflect server state changes", func() {
 			cfg := Config{
 				Name:   "state-monitor-test",
 				Listen: "127.0.0.1:8080",

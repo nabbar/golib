@@ -35,9 +35,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Config Helper Methods", func() {
+var _ = Describe("[TC-CF] Config Helper Methods", func() {
 	Describe("Config Clone", func() {
-		It("should clone config successfully", func() {
+		It("[TC-CF-020] should clone config successfully", func() {
 			original := Config{
 				Name:       "original",
 				Listen:     "127.0.0.1:8080",
@@ -55,7 +55,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(cloned.Disabled).To(Equal(original.Disabled))
 		})
 
-		It("should create independent clone", func() {
+		It("[TC-CF-021] should create independent clone", func() {
 			original := Config{
 				Name:   "original",
 				Listen: "127.0.0.1:8080",
@@ -70,7 +70,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(cloned.Name).To(Equal("modified"))
 		})
 
-		It("should clone disabled flag", func() {
+		It("[TC-CF-022] should clone disabled flag", func() {
 			original := Config{
 				Name:     "original",
 				Listen:   "127.0.0.1:8080",
@@ -83,7 +83,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(cloned.Disabled).To(BeTrue())
 		})
 
-		It("should clone TLS mandatory flag", func() {
+		It("[TC-CF-023] should clone TLS mandatory flag", func() {
 			original := Config{
 				Name:         "original",
 				Listen:       "127.0.0.1:8443",
@@ -98,7 +98,7 @@ var _ = Describe("Config Helper Methods", func() {
 	})
 
 	Describe("Config RegisterHandlerFunc", func() {
-		It("should register handler function", func() {
+		It("[TC-CF-024] should register handler function", func() {
 			cfg := Config{
 				Name:   "test",
 				Listen: "127.0.0.1:8080",
@@ -117,7 +117,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(cfg.Name).To(Equal("test"))
 		})
 
-		It("should allow nil handler function", func() {
+		It("[TC-CF-025] should allow nil handler function", func() {
 			cfg := Config{
 				Name:   "test",
 				Listen: "127.0.0.1:8080",
@@ -130,7 +130,7 @@ var _ = Describe("Config Helper Methods", func() {
 	})
 
 	Describe("Config SetContext", func() {
-		It("should set context function", func() {
+		It("[TC-CF-026] should set context function", func() {
 			cfg := Config{
 				Name:   "test",
 				Listen: "127.0.0.1:8080",
@@ -143,7 +143,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(cfg.Name).To(Equal("test"))
 		})
 
-		It("should allow nil context function", func() {
+		It("[TC-CF-027] should allow nil context function", func() {
 			cfg := Config{
 				Name:   "test",
 				Listen: "127.0.0.1:8080",
@@ -156,7 +156,7 @@ var _ = Describe("Config Helper Methods", func() {
 	})
 
 	Describe("Config Validation Edge Cases", func() {
-		It("should validate with all optional fields", func() {
+		It("[TC-CF-028] should validate with all optional fields", func() {
 			cfg := Config{
 				Name:         "complete-config",
 				Listen:       "127.0.0.1:8080",
@@ -170,7 +170,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should validate disabled server", func() {
+		It("[TC-CF-029] should validate disabled server", func() {
 			cfg := Config{
 				Name:     "disabled",
 				Listen:   "127.0.0.1:8080",
@@ -182,7 +182,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should fail with empty name", func() {
+		It("[TC-CF-030] should fail with empty name", func() {
 			cfg := Config{
 				Name:   "",
 				Listen: "127.0.0.1:8080",
@@ -193,7 +193,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should fail with empty listen", func() {
+		It("[TC-CF-031] should fail with empty listen", func() {
 			cfg := Config{
 				Name:   "test",
 				Listen: "",
@@ -204,7 +204,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should fail with empty expose", func() {
+		It("[TC-CF-032] should fail with empty expose", func() {
 			cfg := Config{
 				Name:   "test",
 				Listen: "127.0.0.1:8080",
@@ -215,7 +215,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should fail with invalid port in listen", func() {
+		It("[TC-CF-033] should fail with invalid port in listen", func() {
 			cfg := Config{
 				Name:   "test",
 				Listen: "127.0.0.1:99999",
@@ -226,7 +226,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("should validate numeric ports", func() {
+		It("[TC-CF-034] should validate numeric ports", func() {
 			cfg := Config{
 				Name:   "port-server",
 				Listen: "127.0.0.1:65535",
@@ -239,7 +239,7 @@ var _ = Describe("Config Helper Methods", func() {
 	})
 
 	Describe("Config Server Creation", func() {
-		It("should create server from config", func() {
+		It("[TC-CF-035] should create server from config", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: "127.0.0.1:8080",
@@ -253,7 +253,7 @@ var _ = Describe("Config Helper Methods", func() {
 			Expect(srv.GetName()).To(Equal("test-server"))
 		})
 
-		It("should fail to create server from invalid config", func() {
+		It("[TC-CF-036] should fail to create server from invalid config", func() {
 			cfg := Config{
 				Name: "invalid",
 			}

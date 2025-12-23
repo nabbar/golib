@@ -30,8 +30,8 @@ import (
 	"fmt"
 	"os"
 	"runtime"
-	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	"github.com/nabbar/golib/socket/config"
 
 	libptc "github.com/nabbar/golib/network/protocol"
@@ -179,7 +179,7 @@ func Example_serverWithIdleTimeout() {
 	cfg := config.Server{
 		Network:        libptc.NetworkTCP,
 		Address:        ":8080",
-		ConIdleTimeout: 5 * time.Minute, // Close idle connections after 5 minutes
+		ConIdleTimeout: libdur.Minutes(5), // Close idle connections after 5 minutes
 	}
 
 	// Validate the configuration
@@ -324,7 +324,7 @@ func Example_multipleServers() {
 	tcpCfg := config.Server{
 		Network:        libptc.NetworkTCP,
 		Address:        ":8080",
-		ConIdleTimeout: 10 * time.Minute,
+		ConIdleTimeout: libdur.Minutes(10),
 	}
 
 	if err := tcpCfg.Validate(); err != nil {

@@ -1,7 +1,7 @@
 # Socket Package
 
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
 [![Coverage](https://img.shields.io/badge/Coverage-100.0%25-brightgreen)](TESTING.md)
 
 Unified, production-ready socket communication framework for TCP, UDP, and Unix domain sockets with optional TLS encryption, comprehensive configuration, and platform-aware protocol selection.

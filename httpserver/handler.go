@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,8 @@ import (
 	srvtps "github.com/nabbar/golib/httpserver/types"
 )
 
+// Handler registers or updates the handler function that provides HTTP handlers.
+// If h is nil, an empty handler map is used as default.
 func (o *srv) Handler(h srvtps.FuncHandler) {
 	if h == nil {
 		h = func() map[string]http.Handler {
@@ -42,6 +44,8 @@ func (o *srv) Handler(h srvtps.FuncHandler) {
 	o.h.Store(h)
 }
 
+// HandlerHas checks if a handler is registered for the specified key.
+// Returns true if the handler exists, false otherwise.
 func (o *srv) HandlerHas(key string) bool {
 	if l := o.getHandler(); len(l) < 1 {
 		return false
@@ -51,6 +55,8 @@ func (o *srv) HandlerHas(key string) bool {
 	}
 }
 
+// HandlerGet retrieves the handler registered for the specified key.
+// Returns BadHandler if no handler is found for the key.
 func (o *srv) HandlerGet(key string) http.Handler {
 	if l := o.getHandler(); len(l) < 1 {
 		return srvtps.NewBadHandler()
@@ -61,6 +67,8 @@ func (o *srv) HandlerGet(key string) http.Handler {
 	}
 }
 
+// HandlerGetValidKey returns the currently active handler key.
+// Returns BadHandlerName if no valid handler is configured.
 func (o *srv) HandlerGetValidKey() string {
 	if i, l := o.c.Load(cfgHandler); !l {
 		return srvtps.BadHandlerName
@@ -77,6 +85,8 @@ func (o *srv) HandlerGetValidKey() string {
 	}
 }
 
+// HandlerStoreFct stores a handler function reference for the specified key.
+// This is used internally to cache the handler function.
 func (o *srv) HandlerStoreFct(key string) {
 	o.c.Store(cfgHandler, func() http.Handler {
 		return o.HandlerGet(key)
@@ -84,6 +94,8 @@ func (o *srv) HandlerStoreFct(key string) {
 	o.c.Store(cfgHandlerKey, key)
 }
 
+// HandlerLoadFct loads and executes the stored handler function.
+// Returns BadHandler if no valid handler function is stored.
 func (o *srv) HandlerLoadFct() http.Handler {
 	if i, l := o.c.Load(cfgHandler); !l {
 		return srvtps.NewBadHandler()

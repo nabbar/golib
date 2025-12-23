@@ -34,6 +34,7 @@ import (
 	"runtime"
 	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -260,7 +261,7 @@ var _ = Describe("Server Factory Creation", func() {
 			cfg := sckcfg.Server{
 				Network:        libptc.NetworkTCP,
 				Address:        getTestTCPAddress(),
-				ConIdleTimeout: 5 * time.Minute,
+				ConIdleTimeout: libdur.Minutes(5),
 			}
 
 			srv, err := scksrv.New(nil, basicHandler(), cfg)

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,14 +36,18 @@ import (
 	librun "github.com/nabbar/golib/runner/startStop"
 )
 
+// srv is the internal server implementation structure.
+// It uses atomic values for thread-safe access to handlers, loggers, and state.
 type srv struct {
-	c libctx.Config[string]
-	h libatm.Value[srvtps.FuncHandler]
-	l libatm.Value[liblog.FuncLog]
-	r libatm.Value[librun.StartStop]
-	s libatm.Value[*http.Server]
+	c libctx.Config[string]            // Configuration storage with context
+	h libatm.Value[srvtps.FuncHandler] // Handler function atomic reference
+	l libatm.Value[liblog.FuncLog]     // Logger function atomic reference
+	r libatm.Value[librun.StartStop]   // Runner for lifecycle management
+	s libatm.Value[*http.Server]       // Standard library HTTP server reference
 }
 
+// Merge combines configuration from another server instance into this one.
+// This updates the current server's configuration with the provided server's settings.
 func (o *srv) Merge(s Server, def liblog.FuncLog) error {
 	return o.SetConfig(*s.GetConfig(), def)
 }

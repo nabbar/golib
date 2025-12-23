@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2024 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,16 +34,16 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Pool", func() {
+var _ = Describe("[TC-PL] Pool", func() {
 	Describe("Pool Creation", func() {
-		It("should create empty pool", func() {
+		It("[TC-PL-001] should create empty pool", func() {
 			pool := New(nil, nil)
 
 			Expect(pool).ToNot(BeNil())
 			Expect(pool.Len()).To(Equal(0))
 		})
 
-		It("should create pool with context", func() {
+		It("[TC-PL-002] should create pool with context", func() {
 			pool := New(context.Background(), nil)
 			Expect(pool).ToNot(BeNil())
 		})
@@ -56,11 +56,11 @@ var _ = Describe("Pool", func() {
 			pool = New(nil, nil)
 		})
 
-		It("should have zero length when empty", func() {
+		It("[TC-PL-003] should have zero length when empty", func() {
 			Expect(pool.Len()).To(Equal(0))
 		})
 
-		It("should clean pool", func() {
+		It("[TC-PL-004] should clean pool", func() {
 			pool.Clean()
 			Expect(pool.Len()).To(Equal(0))
 		})
@@ -73,12 +73,12 @@ var _ = Describe("Pool", func() {
 			pool = New(nil, nil)
 		})
 
-		It("should check if server exists", func() {
+		It("[TC-PL-005] should check if server exists", func() {
 			exists := pool.Has("127.0.0.1:8080")
 			Expect(exists).To(BeFalse())
 		})
 
-		It("should get monitor names", func() {
+		It("[TC-PL-006] should get monitor names", func() {
 			names := pool.MonitorNames()
 			Expect(names).ToNot(BeNil())
 			Expect(len(names)).To(Equal(0))
@@ -86,7 +86,7 @@ var _ = Describe("Pool", func() {
 	})
 
 	Describe("Pool Clone", func() {
-		It("should clone pool", func() {
+		It("[TC-PL-007] should clone pool", func() {
 			original := New(nil, nil)
 			ctx := context.Background()
 
@@ -96,7 +96,7 @@ var _ = Describe("Pool", func() {
 			Expect(cloned).ToNot(Equal(original))
 		})
 
-		It("should clone empty pool", func() {
+		It("[TC-PL-008] should clone empty pool", func() {
 			original := New(nil, nil)
 
 			cloned := original.Clone(context.Background())

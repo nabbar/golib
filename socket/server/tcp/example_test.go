@@ -33,6 +33,7 @@ import (
 	"net"
 	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 	sckcfg "github.com/nabbar/golib/socket/config"
@@ -109,7 +110,7 @@ func Example_complete() {
 	cfg := sckcfg.Server{
 		Network:        libptc.NetworkTCP,
 		Address:        ":8081",
-		ConIdleTimeout: 5 * time.Minute,
+		ConIdleTimeout: libdur.Minutes(5),
 	}
 
 	// Create server
@@ -385,7 +386,7 @@ func ExampleServerTcp_idleTimeout() {
 	cfg := sckcfg.Server{
 		Network:        libptc.NetworkTCP,
 		Address:        ":9007",
-		ConIdleTimeout: 100 * time.Millisecond,
+		ConIdleTimeout: libdur.ParseDuration(100 * time.Millisecond),
 	}
 	srv, _ := scksrt.New(nil, handler, cfg)
 

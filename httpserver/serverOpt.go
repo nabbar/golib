@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,21 +34,26 @@ import (
 	"golang.org/x/net/http2"
 )
 
+// optServer holds HTTP and HTTP/2 server configuration options.
+// These options are applied to the underlying http.Server and http2.Server instances.
 type optServer struct {
-	ReadTimeout                  time.Duration
-	ReadHeaderTimeout            time.Duration
-	WriteTimeout                 time.Duration
-	MaxHeaderBytes               int
-	MaxHandlers                  int
-	MaxConcurrentStreams         uint32
-	MaxReadFrameSize             uint32
-	PermitProhibitedCipherSuites bool
-	IdleTimeout                  time.Duration
-	MaxUploadBufferPerConnection int32
-	MaxUploadBufferPerStream     int32
-	DisableKeepAlive             bool
+	ReadTimeout                  time.Duration // Maximum duration for reading entire request
+	ReadHeaderTimeout            time.Duration // Maximum duration for reading request headers
+	WriteTimeout                 time.Duration // Maximum duration for writing response
+	MaxHeaderBytes               int           // Maximum header size in bytes
+	MaxHandlers                  int           // Maximum concurrent HTTP/2 handlers
+	MaxConcurrentStreams         uint32        // Maximum concurrent HTTP/2 streams per connection
+	MaxReadFrameSize             uint32        // Maximum HTTP/2 frame size
+	PermitProhibitedCipherSuites bool          // Allow prohibited cipher suites for HTTP/2
+	IdleTimeout                  time.Duration // Maximum idle time before closing connection
+	MaxUploadBufferPerConnection int32         // HTTP/2 connection flow control window size
+	MaxUploadBufferPerStream     int32         // HTTP/2 stream flow control window size
+	DisableKeepAlive             bool          // Disable HTTP keep-alive connections
 }
 
+// initServer applies the configuration options to the http.Server and configures HTTP/2.
+// It sets timeouts, header limits, keep-alive, and initializes HTTP/2 support.
+// Returns an error if HTTP/2 configuration fails.
 func (o *optServer) initServer(s *http.Server) liberr.Error {
 	if o.ReadTimeout > 0 {
 		s.ReadTimeout = o.ReadTimeout

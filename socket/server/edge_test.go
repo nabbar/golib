@@ -30,6 +30,7 @@ import (
 	"context"
 	"time"
 
+	libdur "github.com/nabbar/golib/duration"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -135,7 +136,7 @@ var _ = Describe("Server Factory Edge Cases", func() {
 			cfg := sckcfg.Server{
 				Network:        libptc.NetworkTCP,
 				Address:        getTestTCPAddress(),
-				ConIdleTimeout: -1 * time.Second,
+				ConIdleTimeout: libdur.Seconds(-1),
 			}
 
 			srv, err := scksrv.New(nil, basicHandler(), cfg)
@@ -151,7 +152,7 @@ var _ = Describe("Server Factory Edge Cases", func() {
 			cfg := sckcfg.Server{
 				Network:        libptc.NetworkTCP,
 				Address:        getTestTCPAddress(),
-				ConIdleTimeout: 24 * 365 * time.Hour, // 1 year
+				ConIdleTimeout: libdur.Days(365), // 1 year
 			}
 
 			srv, err := scksrv.New(nil, basicHandler(), cfg)

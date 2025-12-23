@@ -27,7 +27,6 @@
 package httpserver_test
 
 import (
-	"net"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,25 +38,9 @@ func TestHttpServer(t *testing.T) {
 	RunSpecs(t, "HTTP Server Suite")
 }
 
-// GetFreePort asks the kernel for a free open port that is ready to use.
-func GetFreePort() int {
-	var (
-		addr *net.TCPAddr
-		lstn *net.TCPListener
-		err  error
-	)
+var _ = BeforeSuite(func() {
+	initTLSConfigs()
+})
 
-	if addr, err = net.ResolveTCPAddr("tcp", "127.0.0.1:0"); err != nil {
-		return 0
-	}
-
-	if lstn, err = net.ListenTCP("tcp", addr); err != nil {
-		return 0
-	}
-
-	defer func() {
-		_ = lstn.Close()
-	}()
-
-	return lstn.Addr().(*net.TCPAddr).Port
-}
+var _ = AfterSuite(func() {
+})

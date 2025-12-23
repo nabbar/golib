@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2024 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,27 +34,27 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Field Types and Constants", func() {
+var _ = Describe("[TC-FT] Field Types and Constants", func() {
 	Describe("FieldType Constants", func() {
-		It("should define FieldName constant", func() {
+		It("[TC-FT-001] should define FieldName constant", func() {
 			Expect(FieldName).To(BeNumerically(">=", 0))
 		})
 
-		It("should define FieldBind constant", func() {
+		It("[TC-FT-001] should define FieldBind constant", func() {
 			Expect(FieldBind).To(BeNumerically(">", FieldName))
 		})
 
-		It("should define FieldExpose constant", func() {
+		It("[TC-FT-001] should define FieldExpose constant", func() {
 			Expect(FieldExpose).To(BeNumerically(">", FieldBind))
 		})
 
-		It("should have unique values for each field type", func() {
+		It("[TC-FT-001] should have unique values for each field type", func() {
 			Expect(FieldName).ToNot(Equal(FieldBind))
 			Expect(FieldName).ToNot(Equal(FieldExpose))
 			Expect(FieldBind).ToNot(Equal(FieldExpose))
 		})
 
-		It("should be usable in switch statements", func() {
+		It("[TC-FT-003] should be usable in switch statements", func() {
 			testField := FieldName
 			var result string
 
@@ -72,7 +72,7 @@ var _ = Describe("Field Types and Constants", func() {
 			Expect(result).To(Equal("name"))
 		})
 
-		It("should handle all field types in switch", func() {
+		It("[TC-FT-003] should handle all field types in switch", func() {
 			fields := []FieldType{FieldName, FieldBind, FieldExpose}
 			results := []string{}
 
@@ -92,11 +92,11 @@ var _ = Describe("Field Types and Constants", func() {
 	})
 
 	Describe("HandlerDefault Constant", func() {
-		It("should define default handler name", func() {
+		It("[TC-FT-006] should define default handler name", func() {
 			Expect(HandlerDefault).To(Equal("default"))
 		})
 
-		It("should be usable as map key", func() {
+		It("[TC-FT-006] should be usable as map key", func() {
 			handlers := map[string]bool{
 				HandlerDefault: true,
 			}
@@ -107,20 +107,20 @@ var _ = Describe("Field Types and Constants", func() {
 	})
 
 	Describe("Timeout Constants", func() {
-		It("should define TimeoutWaitingPortFreeing", func() {
+		It("[TC-FT-008] should define TimeoutWaitingPortFreeing", func() {
 			Expect(TimeoutWaitingPortFreeing).To(Equal(250 * time.Microsecond))
 		})
 
-		It("should define TimeoutWaitingStop", func() {
+		It("[TC-FT-007] should define TimeoutWaitingStop", func() {
 			Expect(TimeoutWaitingStop).To(Equal(5 * time.Second))
 		})
 
-		It("should have reasonable timeout values", func() {
+		It("[TC-FT-007] should have reasonable timeout values", func() {
 			Expect(TimeoutWaitingPortFreeing).To(BeNumerically(">", 0))
 			Expect(TimeoutWaitingStop).To(BeNumerically(">", TimeoutWaitingPortFreeing))
 		})
 
-		It("should be usable with time operations", func() {
+		It("[TC-FT-007] should be usable with time operations", func() {
 			start := time.Now()
 			time.Sleep(TimeoutWaitingPortFreeing)
 			elapsed := time.Since(start)
@@ -130,29 +130,29 @@ var _ = Describe("Field Types and Constants", func() {
 	})
 
 	Describe("BadHandlerName Constant", func() {
-		It("should define bad handler name", func() {
+		It("[TC-FT-009] should define bad handler name", func() {
 			Expect(BadHandlerName).To(Equal("no handler"))
 		})
 
-		It("should be different from HandlerDefault", func() {
+		It("[TC-FT-009] should be different from HandlerDefault", func() {
 			Expect(BadHandlerName).ToNot(Equal(HandlerDefault))
 		})
 
-		It("should be usable in comparisons", func() {
+		It("[TC-FT-009] should be usable in comparisons", func() {
 			handlerName := "no handler"
 			Expect(handlerName).To(Equal(BadHandlerName))
 		})
 	})
 
 	Describe("FieldType as Custom Type", func() {
-		It("should allow variable declaration", func() {
+		It("[TC-FT-002] should allow variable declaration", func() {
 			var field FieldType
 			field = FieldName
 
 			Expect(field).To(Equal(FieldName))
 		})
 
-		It("should allow comparison", func() {
+		It("[TC-FT-002] should allow comparison", func() {
 			field1 := FieldName
 			field2 := FieldName
 			field3 := FieldBind
@@ -161,7 +161,7 @@ var _ = Describe("Field Types and Constants", func() {
 			Expect(field1 == field3).To(BeFalse())
 		})
 
-		It("should be usable in maps", func() {
+		It("[TC-FT-004] should be usable in maps", func() {
 			fieldMap := map[FieldType]string{
 				FieldName:   "name field",
 				FieldBind:   "bind field",
@@ -173,7 +173,7 @@ var _ = Describe("Field Types and Constants", func() {
 			Expect(fieldMap[FieldExpose]).To(Equal("expose field"))
 		})
 
-		It("should be usable in slices", func() {
+		It("[TC-FT-005] should be usable in slices", func() {
 			fields := []FieldType{FieldName, FieldBind, FieldExpose}
 
 			Expect(fields).To(HaveLen(3))
@@ -182,7 +182,7 @@ var _ = Describe("Field Types and Constants", func() {
 			Expect(fields[2]).To(Equal(FieldExpose))
 		})
 
-		It("should support type assertion", func() {
+		It("[TC-FT-002] should support type assertion", func() {
 			var field interface{} = FieldName
 
 			ft, ok := field.(FieldType)
@@ -192,7 +192,7 @@ var _ = Describe("Field Types and Constants", func() {
 	})
 
 	Describe("Constants Integration", func() {
-		It("should use constants together", func() {
+		It("[TC-FT-006] should use constants together", func() {
 			// Simulating usage in filtering
 			filterBy := FieldName
 			defaultHandler := HandlerDefault
@@ -202,7 +202,7 @@ var _ = Describe("Field Types and Constants", func() {
 			Expect(defaultHandler).ToNot(Equal(badHandler))
 		})
 
-		It("should use timeouts in context", func() {
+		It("[TC-FT-007] should use timeouts in context", func() {
 			portTimeout := TimeoutWaitingPortFreeing
 			stopTimeout := TimeoutWaitingStop
 

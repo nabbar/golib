@@ -37,7 +37,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Server Monitoring", func() {
+var _ = Describe("[TC-MON] Server Monitoring", func() {
 	var (
 		srv      Server
 		err      error
@@ -55,7 +55,7 @@ var _ = Describe("Server Monitoring", func() {
 	})
 
 	Describe("Server State", func() {
-		It("should not be running before start", func() {
+		It("[TC-MON-014] should not be running before start", func() {
 			cfg := Config{
 				Name:   "state-test",
 				Listen: testPort,
@@ -72,7 +72,7 @@ var _ = Describe("Server Monitoring", func() {
 			Expect(srv.IsRunning()).To(BeFalse())
 		})
 
-		It("should be running after start", func() {
+		It("[TC-MON-015] should be running after start", func() {
 			cfg := Config{
 				Name:   "running-test",
 				Listen: testPort,
@@ -95,7 +95,7 @@ var _ = Describe("Server Monitoring", func() {
 	})
 
 	Describe("Monitor Name", func() {
-		It("should return a valid monitor name", func() {
+		It("[TC-MON-016] should return a valid monitor name", func() {
 			cfg := Config{
 				Name:   "monitor-name-test",
 				Listen: testPort,
@@ -115,7 +115,7 @@ var _ = Describe("Server Monitoring", func() {
 	})
 
 	Describe("Server Uptime", func() {
-		It("should track uptime correctly", func() {
+		It("[TC-MON-017] should track uptime correctly", func() {
 			cfg := Config{
 				Name:   "uptime-test",
 				Listen: testPort,
@@ -147,7 +147,7 @@ var _ = Describe("Server Monitoring", func() {
 	})
 
 	Describe("Server Configuration", func() {
-		It("should allow configuration updates when stopped", func() {
+		It("[TC-MON-018] should allow configuration updates when stopped", func() {
 			cfg := Config{
 				Name:   "config-update-test",
 				Listen: testPort,

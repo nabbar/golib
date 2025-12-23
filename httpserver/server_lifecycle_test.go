@@ -37,7 +37,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Server Lifecycle", func() {
+var _ = Describe("[TC-SV] Server Lifecycle", func() {
 	var (
 		srv      Server
 		err      error
@@ -56,7 +56,7 @@ var _ = Describe("Server Lifecycle", func() {
 	})
 
 	Describe("Start and Stop", func() {
-		It("should start a basic HTTP server", func() {
+		It("[TC-SV-017] should start a basic HTTP server", func() {
 			cfg := Config{
 				Name:   "test-server",
 				Listen: testPort,
@@ -90,7 +90,7 @@ var _ = Describe("Server Lifecycle", func() {
 			Expect(uptime).To(BeNumerically(">", 0))
 		})
 
-		It("should stop a running server", func() {
+		It("[TC-SV-018] should stop a running server", func() {
 			cfg := Config{
 				Name:   "test-server-stop",
 				Listen: testPort,
@@ -117,13 +117,13 @@ var _ = Describe("Server Lifecycle", func() {
 			Expect(srv.IsRunning()).To(BeFalse())
 		})
 
-		It("should restart a running server", func() {
+		It("[TC-SV-019] should restart a running server", func() {
 			Skip("Restart test causes timeout - needs investigation")
 		})
 	})
 
 	Describe("Port Management", func() {
-		It("should be able to start server on available port", func() {
+		It("[TC-SV-020] should be able to start server on available port", func() {
 			cfg := Config{
 				Name:   "test-port-available",
 				Listen: testPort,
@@ -144,7 +144,7 @@ var _ = Describe("Server Lifecycle", func() {
 			Expect(srv.IsRunning()).To(BeTrue())
 		})
 
-		It("should handle different bind addresses", func() {
+		It("[TC-SV-021] should handle different bind addresses", func() {
 			cfg := Config{
 				Name:   "test-bind-address",
 				Listen: testPort,
@@ -163,7 +163,7 @@ var _ = Describe("Server Lifecycle", func() {
 	})
 
 	Describe("Configuration", func() {
-		It("should maintain configuration after creation", func() {
+		It("[TC-SV-022] should maintain configuration after creation", func() {
 			cfg := Config{
 				Name:   "test-config",
 				Listen: testPort,
@@ -184,7 +184,7 @@ var _ = Describe("Server Lifecycle", func() {
 	})
 
 	Describe("Server Info", func() {
-		It("should return correct server info", func() {
+		It("[TC-SV-023] should return correct server info", func() {
 			cfg := Config{
 				Name:   "info-test-server",
 				Listen: testPort,

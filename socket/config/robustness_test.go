@@ -52,6 +52,7 @@ import (
 	"time"
 
 	libtls "github.com/nabbar/golib/certificates"
+	libdur "github.com/nabbar/golib/duration"
 	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
 	"github.com/nabbar/golib/socket/config"
@@ -571,7 +572,7 @@ var _ = Describe("Server Robustness", func() {
 			s := config.Server{
 				Network:        libptc.NetworkTCP,
 				Address:        ":8080",
-				ConIdleTimeout: 999999 * time.Hour,
+				ConIdleTimeout: libdur.Days(999999),
 			}
 			err := s.Validate()
 			expectNoValidationError(err)
@@ -581,7 +582,7 @@ var _ = Describe("Server Robustness", func() {
 			s := config.Server{
 				Network:        libptc.NetworkTCP,
 				Address:        ":8080",
-				ConIdleTimeout: -1 * time.Second,
+				ConIdleTimeout: libdur.Seconds(-1),
 			}
 			err := s.Validate()
 			expectNoValidationError(err)
@@ -601,7 +602,7 @@ var _ = Describe("Server Robustness", func() {
 				s := config.Server{
 					Network:        libptc.NetworkTCP,
 					Address:        ":8080",
-					ConIdleTimeout: timeout,
+					ConIdleTimeout: libdur.ParseDuration(timeout),
 				}
 				err := s.Validate()
 				Expect(err).NotTo(HaveOccurred(), "Timeout %v should be valid", timeout)
