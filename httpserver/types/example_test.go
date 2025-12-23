@@ -191,7 +191,7 @@ func Example_timeoutConstants() {
 	fmt.Printf("Port freeing timeout: %v\n", portTimeout)
 	fmt.Printf("Stop timeout: %v\n", stopTimeout)
 	// Output:
-	// Port freeing timeout: 250µs
+	// Port freeing timeout: 3s
 	// Stop timeout: 5s
 }
 

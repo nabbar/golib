@@ -108,7 +108,7 @@ var _ = Describe("[TC-FT] Field Types and Constants", func() {
 
 	Describe("Timeout Constants", func() {
 		It("[TC-FT-008] should define TimeoutWaitingPortFreeing", func() {
-			Expect(TimeoutWaitingPortFreeing).To(Equal(250 * time.Microsecond))
+			Expect(TimeoutWaitingPortFreeing).To(Equal(3 * time.Second))
 		})
 
 		It("[TC-FT-007] should define TimeoutWaitingStop", func() {

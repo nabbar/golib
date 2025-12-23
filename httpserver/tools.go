@@ -30,6 +30,7 @@ import (
 	"context"
 	"net"
 	"strings"
+	"time"
 
 	liberr "github.com/nabbar/golib/errors"
 	srvtps "github.com/nabbar/golib/httpserver/types"
@@ -62,11 +63,11 @@ func PortNotUse(ctx context.Context, listen string) error {
 		addr := strings.Join(part[:len(part)-1], ":")
 
 		if strings.HasPrefix(addr, "0") || strings.HasPrefix(addr, "::") {
-			listen = "127.0.0.1:" + port
+			listen = "0.0.0.0:" + port
 		}
 	}
 
-	if _, ok := ctx.Deadline(); !ok {
+	if t, ok := ctx.Deadline(); !ok || t.IsZero() || -time.Since(t) < time.Second {
 		var cnl context.CancelFunc
 		ctx, cnl = context.WithTimeout(ctx, srvtps.TimeoutWaitingPortFreeing)
 		defer cnl()
@@ -103,11 +104,11 @@ func PortInUse(ctx context.Context, listen string) liberr.Error {
 		addr := strings.Join(part[:len(part)-1], ":")
 
 		if strings.HasPrefix(addr, "0") || strings.HasPrefix(addr, "::") {
-			listen = "127.0.0.1:" + port
+			listen = "0.0.0.0:" + port
 		}
 	}
 
-	if _, ok := ctx.Deadline(); !ok {
+	if t, ok := ctx.Deadline(); !ok || t.IsZero() || -time.Since(t) < time.Second {
 		var cnl context.CancelFunc
 		ctx, cnl = context.WithTimeout(ctx, srvtps.TimeoutWaitingPortFreeing)
 		defer cnl()

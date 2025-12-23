@@ -30,16 +30,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"runtime"
-	"time"
 
 	logent "github.com/nabbar/golib/logger/entry"
 	loglvl "github.com/nabbar/golib/logger/level"
 	libmon "github.com/nabbar/golib/monitor"
 	moninf "github.com/nabbar/golib/monitor/info"
 	montps "github.com/nabbar/golib/monitor/types"
-	libptc "github.com/nabbar/golib/network/protocol"
 	libver "github.com/nabbar/golib/version"
 )
 
@@ -79,30 +76,12 @@ func (o *srv) HealthCheck(ctx context.Context) error {
 	} else if e := r.ErrorsLast(); e != nil {
 		fl(e)
 		return e
-	} else if e = o.runAndHealthy(ctx); e != nil {
+	} else if e = PortNotUse(ctx, o.GetBindable()); e != nil {
 		fl(e)
 		return e
 	} else {
 		fl()
 		return nil
-	}
-}
-
-func (o *srv) runAndHealthy(ctx context.Context) error {
-	x, n := context.WithTimeout(ctx, 50*time.Microsecond)
-	defer n()
-
-	if e := PortNotUse(ctx, o.GetBindable()); e != nil {
-		return e
-	} else {
-		d := &net.Dialer{}
-		co, ce := d.DialContext(x, libptc.NetworkTCP.Code(), o.GetBindable())
-		defer func() {
-			if co != nil {
-				_ = co.Close()
-			}
-		}()
-		return ce
 	}
 }
 

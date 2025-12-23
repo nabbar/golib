@@ -31,7 +31,7 @@ import "time"
 const (
 	// TimeoutWaitingPortFreeing is the timeout duration for checking if a port becomes available.
 	// Used when verifying port availability before binding.
-	TimeoutWaitingPortFreeing = 250 * time.Microsecond
+	TimeoutWaitingPortFreeing = 3 * time.Second
 
 	// TimeoutWaitingStop is the default timeout for graceful server shutdown.
 	// Servers have 5 seconds to complete ongoing requests before forced termination.
