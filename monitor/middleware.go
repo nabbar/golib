@@ -58,7 +58,12 @@ type mdl struct {
 // newMiddleware creates a new middleware chain with the given configuration and health check function.
 // The health check function is wrapped as the first middleware in the chain.
 func newMiddleware(cfg *runCfg, fct montps.HealthCheck) middleWare {
-	defer librun.RecoveryCaller("golib/monitor/newMiddleware", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/middleware/newMiddleware", r)
+		}
+	}()
+
 	o := &mdl{
 		ctx: nil,
 		cfg: cfg,
@@ -81,20 +86,23 @@ func newMiddleware(cfg *runCfg, fct montps.HealthCheck) middleWare {
 
 // Context returns the current context with timeout for the health check.
 func (m *mdl) Context() context.Context {
-	defer librun.RecoveryCaller("golib/monitor/middleware/Context", recover())
 	return m.ctx
 }
 
 // Config returns the runtime configuration for the health check.
 func (m *mdl) Config() *runCfg {
-	defer librun.RecoveryCaller("golib/monitor/middleware/Config", recover())
 	return m.cfg
 }
 
 // Run executes the middleware chain with a timeout based on the configuration.
 // It creates a new context with timeout and invokes the chain from the end.
 func (m *mdl) Run(ctx context.Context) {
-	defer librun.RecoveryCaller("golib/monitor/middleware/Run", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/middleware/Run", r)
+		}
+	}()
+
 	var cnl context.CancelFunc
 
 	m.ctx, cnl = context.WithTimeout(ctx, m.cfg.checkTimeout)
@@ -106,8 +114,14 @@ func (m *mdl) Run(ctx context.Context) {
 
 // Next invokes the next middleware function in the chain.
 // Returns nil if there are no more middleware functions to execute.
-func (m *mdl) Next() error {
-	defer librun.RecoveryCaller("golib/monitor/middleware/Next", recover())
+func (m *mdl) Next() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/middleware/Next", r)
+			err = fmt.Errorf("panic recovered: %v", r)
+		}
+	}()
+
 	m.crs--
 
 	if m.crs >= 0 && m.crs < len(m.mdl) {
@@ -119,6 +133,11 @@ func (m *mdl) Next() error {
 
 // Add appends a middleware function to the chain.
 func (m *mdl) Add(fct fctMiddleWare) {
-	defer librun.RecoveryCaller("golib/monitor/middleware/Add", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/middleware/Add", r)
+		}
+	}()
+
 	m.mdl = append(m.mdl, fct)
 }

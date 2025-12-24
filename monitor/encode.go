@@ -65,27 +65,23 @@ type encMod struct {
 
 // Bytes returns the byte representation of the encoded monitor state.
 func (e *encMod) Bytes() []byte {
-	defer librun.RecoveryCaller("golib/monitor/encMod/Bytes", recover())
 	return []byte(e.String())
 }
 
 // String returns a human-readable representation of the monitor state.
 // Format: "<STATUS>: <name> (<info>) | <latency> / <uptime> / <downtime> | <message>"
 func (e *encMod) String() string {
-	defer librun.RecoveryCaller("golib/monitor/encMod/String", recover())
 	return e.Status.String() + encTextSepStatus + e.stringPart()
 }
 
 // stringDuration formats the duration metrics as a string.
 func (e *encMod) stringDuration() string {
-	defer librun.RecoveryCaller("golib/monitor/encMod/stringDuration", recover())
 	part := append(make([]string, 0), e.Latency, e.Uptime, e.Downtime)
 	return strings.Join(part, encTextSepTime)
 }
 
 // stringName formats the name and info as a string.
 func (e *encMod) stringName() string {
-	defer librun.RecoveryCaller("golib/monitor/encMod/stringName", recover())
 	var inf string
 
 	if e.Info != nil {
@@ -102,7 +98,6 @@ func (e *encMod) stringName() string {
 
 // stringPart combines all parts into a formatted string.
 func (e *encMod) stringPart() string {
-	defer librun.RecoveryCaller("golib/monitor/encMod/stringPart", recover())
 	item := make([]string, 0)
 	item = append(item, e.stringName())
 	item = append(item, e.stringDuration())
@@ -116,7 +111,12 @@ func (e *encMod) stringPart() string {
 
 // getEncMod creates an Encode instance from the current monitor state.
 func (o *mon) getEncMod() Encode {
-	defer librun.RecoveryCaller("golib/monitor/getEncMod", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/encMod/getEncMod", r)
+		}
+	}()
+
 	return &encMod{
 		Status:   o.Status(),
 		Name:     o.Name(),
@@ -131,13 +131,17 @@ func (o *mon) getEncMod() Encode {
 // MarshalText implements encoding.TextMarshaler.
 // It returns a human-readable text representation of the monitor state.
 func (o *mon) MarshalText() (text []byte, err error) {
-	defer librun.RecoveryCaller("golib/monitor/MarshalText", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/encMod/MarshalText", r)
+		}
+	}()
+
 	return o.getEncMod().Bytes(), nil
 }
 
 // MarshalJSON implements json.Marshaler.
 // It returns a JSON representation of the monitor state.
 func (o *mon) MarshalJSON() (text []byte, err error) {
-	defer librun.RecoveryCaller("golib/monitor/MarshalJSON", recover())
 	return json.Marshal(o.getEncMod())
 }

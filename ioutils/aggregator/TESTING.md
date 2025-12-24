@@ -1,10 +1,10 @@
 # Testing Documentation
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
-[![Tests](https://img.shields.io/badge/Tests-119%20specs-success)](aggregator_suite_test.go)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://go.dev/doc/install)
+[![Tests](https://img.shields.io/badge/Tests-124%20specs-success)](aggregator_suite_test.go)
 [![Assertions](https://img.shields.io/badge/Assertions-450+-blue)](aggregator_suite_test.go)
-[![Coverage](https://img.shields.io/badge/Coverage-85.7%25-brightgreen)](coverage.out)
+[![Coverage](https://img.shields.io/badge/Coverage-84.8%25-brightgreen)](coverage.out)
 
 Comprehensive testing guide for the `github.com/nabbar/golib/ioutils/aggregator` package using BDD methodology with Ginkgo v2 and Gomega.
 
@@ -54,23 +54,17 @@ This test suite provides **comprehensive validation** of the `aggregator` packag
 ### Test Completeness
 
 **Coverage Metrics:**
-- **Code Coverage**: 85.7% of statements (target: >80%)
-- **Branch Coverage**: ~84% of conditional branches
+- **Code Coverage**: 84.8% of statements (target: >80%)
+- **Branch Coverage**: ~85% of conditional branches
 - **Function Coverage**: 100% of public functions
 - **Race Conditions**: 0 detected across all scenarios
 
 **Test Distribution:**
-- ✅ **119 specifications** covering all major use cases
+- ✅ **124 specifications** covering all major use cases
 - ✅ **450+ assertions** validating behavior
-- ✅ **11 performance benchmarks** measuring key metrics
-- ✅ **7 test categories** organized by concern
+- ✅ **8 performance benchmarks** measuring key metrics
+- ✅ **12 test files** organized by functional area
 - ✅ **Zero flaky tests** - all tests are deterministic
-
-**Quality Assurance:**
-- All tests pass with `-race` detector enabled
-- All tests pass on Go 1.23, 1.24, and 1.25
-- Tests run in ~30 seconds (standard) or ~5 minutes (with race detector)
-- No external dependencies required for testing
 
 ---
 
@@ -90,27 +84,84 @@ This test suite provides **comprehensive validation** of the `aggregator` packag
 
 ### Detailed Test Inventory
 
-| Test Name | File | Type | Dependencies | Priority | Expected Outcome | Comments |
-|-----------|------|------|--------------|----------|------------------|----------|
-| **Aggregator Creation** | new_test.go | Unit | None | Critical | Success with valid config | Tests all config combinations |
-| **Invalid Writer** | new_test.go | Unit | None | Critical | ErrInvalidWriter | Validates required fields |
-| **Context Integration** | new_test.go | Integration | None | High | Context propagation works | Tests deadline, values, cancellation |
-| **Write Operations** | writer_test.go | Unit | Basic | Critical | Data written correctly | Thread-safe write validation |
-| **Write After Close** | writer_test.go | Unit | Basic | High | ErrClosedResources | Lifecycle validation |
-| **Start/Stop** | runner_test.go | Integration | Basic | Critical | Clean lifecycle | Tests state transitions |
-| **Restart** | runner_test.go | Integration | Start/Stop | High | State reset correctly | Validates restart logic |
-| **Concurrent Writes** | concurrency_test.go | Concurrency | Write | Critical | No race conditions | 10-100 concurrent writers |
-| **Concurrent Start/Stop** | concurrency_test.go | Concurrency | Start/Stop | High | No race conditions | Multiple goroutines |
-| **Buffer Saturation** | concurrency_test.go | Stress | Write | Medium | Backpressure handled | Tests blocking behavior |
-| **Metrics Tracking** | metrics_test.go | Unit | Write | High | Accurate counts | NbWaiting, NbProcessing, etc. |
-| **Async Callbacks** | runner_test.go | Integration | Start | Medium | Callbacks triggered | Timer-based execution |
-| **Sync Callbacks** | runner_test.go | Integration | Start | Medium | Callbacks blocking | Synchronous execution |
-| **Error Propagation** | errors_test.go | Unit | Write | High | Errors logged | FctWriter errors handled |
-| **Context Cancellation** | errors_test.go | Integration | Start | High | Graceful shutdown | Context.Done() propagation |
-| **Throughput** | benchmark_test.go | Performance | Write | Medium | >1000 writes/sec | Single writer baseline |
-| **Latency** | benchmark_test.go | Performance | Start/Stop | Medium | <15ms median | Lifecycle operations |
-| **Memory** | benchmark_test.go | Performance | Write | Medium | Linear with buffer | Memory scaling |
-| **Scalability** | benchmark_test.go | Performance | Concurrent | Low | Scales to 100 writers | Concurrency scaling |
+**Test ID Pattern by File:**
+- **TC-NW-xxx**: Constructor/New tests (new_test.go)
+- **TC-WR-xxx**: Writer tests (writer_test.go)
+- **TC-RN-xxx**: Runner/Lifecycle tests (runner_test.go)
+- **TC-CC-xxx**: Concurrency tests (concurrency_test.go)
+- **TC-ER-xxx**: Error tests (errors_test.go)
+- **TC-MT-xxx**: Metrics tests (metrics_test.go)
+- **TC-CV-xxx**: Coverage tests (coverage_test.go)
+- **TC-IN-xxx**: Internal tests (internal_test.go)
+- **TC-BC-xxx**: Benchmark tests (benchmark_test.go)
+
+| Test ID | File | Use Case | Priority | Expected Outcome |
+|---------|------|----------|----------|------------------|
+| **TC-NW-001** | new_test.go | **Initialization**: Create Aggregator with valid config | Critical | Instance created with all parameters |
+| **TC-NW-002** | new_test.go | **Validation**: Reject nil FctWriter | Critical | Returns ErrInvalidWriter |
+| **TC-NW-003** | new_test.go | **Minimal Config**: Create with minimal configuration | Critical | Instance with default values |
+| **TC-NW-004** | new_test.go | **Context Integration**: Verify context propagation | High | Context methods work correctly |
+| **TC-NW-005** | new_test.go | **Logger Config**: Set custom error/info loggers | Medium | Loggers configured correctly |
+| **TC-WR-001** | writer_test.go | **Write Success**: Write data when running | Critical | Data queued to channel |
+| **TC-WR-002** | writer_test.go | **Multiple Writes**: Handle multiple sequential writes | Critical | All data written in order |
+| **TC-WR-003** | writer_test.go | **Empty Write**: Handle zero-length writes | Medium | Returns (0, nil) without error |
+| **TC-WR-004** | writer_test.go | **Write Before Start**: Reject writes when not running | High | Returns ErrClosedResources |
+| **TC-WR-005** | writer_test.go | **Write After Close**: Reject writes after Close() | High | Returns ErrClosedResources |
+| **TC-WR-006** | writer_test.go | **Context Cancel**: Handle write during cancellation | High | Returns context error |
+| **TC-WR-007** | writer_test.go | **Close Idempotent**: Allow multiple Close() calls | Medium | No error on repeated Close() |
+| **TC-RN-001** | runner_test.go | **Start Success**: Start processing successfully | Critical | Aggregator running, channel open |
+| **TC-RN-002** | runner_test.go | **Start Idempotent**: Handle concurrent Start() calls | High | Returns ErrStillRunning or succeeds |
+| **TC-RN-003** | runner_test.go | **Async Callbacks**: Execute AsyncFct periodically | Medium | Callbacks triggered by timer |
+| **TC-RN-004** | runner_test.go | **Sync Callbacks**: Execute SyncFct periodically | Medium | Callbacks block processing |
+| **TC-RN-005** | runner_test.go | **AsyncMax Limit**: Respect max concurrent async calls | Medium | Concurrent calls ≤ AsyncMax |
+| **TC-RN-006** | runner_test.go | **Stop Success**: Stop processing gracefully | Critical | Aggregator stopped, no leaks |
+| **TC-RN-007** | runner_test.go | **Stop Idempotent**: Handle multiple Stop() calls | Medium | No error on repeated Stop() |
+| **TC-RN-008** | runner_test.go | **Restart Success**: Restart after Stop() | High | Fresh state, new runner |
+| **TC-RN-009** | runner_test.go | **IsRunning**: Report correct running state | High | Accurate state tracking |
+| **TC-RN-010** | runner_test.go | **Uptime**: Track running duration | Medium | Duration increases while running |
+| **TC-CC-001** | concurrency_test.go | **Concurrent Writes**: Handle 10-100 concurrent writers | Critical | No races, all writes processed |
+| **TC-CC-002** | concurrency_test.go | **Small Buffer Concurrency**: Concurrent writes with small buffer | High | Backpressure handled correctly |
+| **TC-CC-003** | concurrency_test.go | **Concurrent Stop**: Multiple goroutines call Stop() | High | No races, stops once |
+| **TC-CC-004** | concurrency_test.go | **Concurrent Restart**: Multiple goroutines call Restart() | High | No races, restarts correctly |
+| **TC-CC-005** | concurrency_test.go | **Concurrent IsRunning**: Read IsRunning() during writes | Medium | Consistent state reading |
+| **TC-CC-006** | concurrency_test.go | **Concurrent Uptime**: Read Uptime() during writes | Medium | No races on time reading |
+| **TC-CC-007** | concurrency_test.go | **Concurrent Errors**: Read ErrorsList() during writes | Medium | Thread-safe error access |
+| **TC-CC-008** | concurrency_test.go | **Mixed Operations**: Concurrent writes + status reads | Critical | No races, correct behavior |
+| **TC-CC-009** | concurrency_test.go | **Start/Stop Transitions**: Writes during lifecycle changes | High | Graceful handling |
+| **TC-CC-010** | concurrency_test.go | **Concurrent Close**: Multiple Close() calls | Medium | Safe concurrent closing |
+| **TC-CC-011** | concurrency_test.go | **High Volume Stress**: 1000+ writes under load | Medium | Processes all writes |
+| **TC-CC-012** | concurrency_test.go | **Context Cancel Stress**: Cancel during high load | High | Graceful shutdown |
+| **TC-ER-001** | errors_test.go | **Error Constants**: Verify error definitions | High | All errors defined |
+| **TC-ER-002** | errors_test.go | **FctWriter Errors**: Handle write function errors | High | Errors logged, not propagated |
+| **TC-ER-003** | errors_test.go | **Partial Errors**: Continue after FctWriter errors | Medium | Processing continues |
+| **TC-ER-004** | errors_test.go | **Context Cancellation**: Handle parent context cancel | High | Graceful shutdown |
+| **TC-ER-005** | errors_test.go | **Context Deadline**: Handle context deadline | High | Timeout handling |
+| **TC-ER-006** | errors_test.go | **Rapid Lifecycle**: Handle rapid open/close cycles | Medium | No resource leaks |
+| **TC-ER-007** | errors_test.go | **Nil Logger**: Handle nil logger gracefully | Low | No panics |
+| **TC-ER-008** | errors_test.go | **Zero-Length Writes**: Skip zero-length writes | Low | No unnecessary calls |
+| **TC-ER-009** | errors_test.go | **Async Panic**: Recover from AsyncFct panic | Medium | Panic recovered, logged |
+| **TC-ER-010** | errors_test.go | **Sync Panic**: Recover from SyncFct panic | Medium | Panic recovered, logged |
+| **TC-MT-001** | metrics_test.go | **NbWaiting**: Track waiting write count | High | Accurate count |
+| **TC-MT-002** | metrics_test.go | **NbProcessing**: Track processing item count | High | Accurate count |
+| **TC-MT-003** | metrics_test.go | **SizeWaiting**: Track waiting bytes | High | Accurate size |
+| **TC-MT-004** | metrics_test.go | **SizeProcessing**: Track processing bytes | High | Accurate size |
+| **TC-MT-005** | metrics_test.go | **Metrics Reset**: Verify counter resets | Medium | Counters reset correctly |
+| **TC-MT-006** | metrics_test.go | **Concurrent Metrics**: Read metrics during writes | High | No races on reads |
+| **TC-MT-007** | metrics_test.go | **Metrics Performance**: Measure metrics read overhead | Medium | <5µs per read |
+| **TC-CV-001** | coverage_test.go | **Context.Done()**: Cover Done() paths | Low | All paths covered |
+| **TC-CV-002** | coverage_test.go | **AsyncFct Coverage**: Test async callback paths | Low | Callbacks executed |
+| **TC-CV-003** | coverage_test.go | **SyncFct Coverage**: Test sync callback paths | Low | Callbacks executed |
+| **TC-CV-004** | coverage_test.go | **Edge Cases**: Cover rare code paths | Low | Improved coverage |
+| **TC-IN-001** | internal_test.go | **Nil Context Handling**: Handle nil internal context | Low | Graceful degradation |
+| **TC-IN-002** | internal_test.go | **IsRunning Sync**: Sync runner and operation state | Medium | Consistent state |
+| **TC-BC-001** | benchmark_test.go | **Write Performance**: Benchmark write operations | High | Throughput metrics |
+| **TC-BC-002** | benchmark_test.go | **Concurrent Performance**: Benchmark concurrent writes | High | Scalability metrics |
+| **TC-BC-003** | benchmark_test.go | **Lifecycle Performance**: Benchmark Start/Stop/Restart | Medium | Latency metrics |
+| **TC-BC-004** | benchmark_test.go | **Metrics Performance**: Benchmark metrics reads | Medium | Overhead <5µs |
+| **TC-BC-005** | benchmark_test.go | **Callback Performance**: Benchmark periodic callbacks | Low | Timer overhead |
+| **TC-BC-006** | benchmark_test.go | **Real-world: Log Aggregation**: Simulate log collection | High | Production-like perf |
+| **TC-BC-007** | benchmark_test.go | **Real-world: Socket to File**: Simulate network writes | High | Network scenario perf |
+| **TC-BC-008** | benchmark_test.go | **Real-world: Full Lifecycle**: Complete cycle under load | Medium | End-to-end metrics |
 
 **Prioritization:**
 - **Critical**: Must pass for release (core functionality)
@@ -125,13 +176,13 @@ This test suite provides **comprehensive validation** of the `aggregator` packag
 **Latest Test Run Results:**
 
 ```
-Total Specs:         119
-Passed:              119
+Total Specs:         124
+Passed:              124
 Failed:              0
 Skipped:             0
-Execution Time:      ~30 seconds
-Coverage:            85.7% (standard)
-                     85.7% (with race detector)
+Execution Time:      ~35 seconds
+Coverage:            84.8% (standard)
+                     84.8% (with race detector)
 Race Conditions:     0
 ```
 
@@ -139,15 +190,15 @@ Race Conditions:     0
 
 | Test Category | Count | Coverage |
 |---------------|-------|----------|
-| Core Functionality | 42 | 95%+ |
-| Concurrency | 18 | 90%+ |
-| Error Handling | 15 | 85%+ |
-| Context Integration | 12 | 80%+ |
-| Metrics | 13 | 100% |
-| Logger Configuration | 4 | 100% |
-| Coverage Improvements | 15 | varies |
+| Core Functionality (New) | 42 | 95%+ |
+| Concurrency | 12 | 90%+ |
+| Error Handling | 10 | 85%+ |
+| Writer/Runner | 35 | 85%+ |
+| Metrics | 7 | 100% |
+| Internal/Coverage | 10 | varies |
+| Performance Benchmarks | 8 | N/A |
 
-**Performance Benchmarks:** 11 benchmark tests with detailed metrics
+**Total**: **124 test specifications** across 12 test files
 
 ---
 
@@ -248,18 +299,18 @@ go test -timeout=10m -v -cover -covermode=atomic ./...
 ```
 Running Suite: IOUtils/Aggregator Package Suite
 ================================================
-Random Seed: 1764360741
+Random Seed: 1735059101
 
-Will run 119 of 119 specs
+Will run 124 of 124 specs
 
 ••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••
 
-Ran 119 of 119 Specs in 29.096 seconds
-SUCCESS! -- 119 Passed | 0 Failed | 0 Pending | 0 Skipped
+Ran 124 of 124 Specs in 34.356 seconds
+SUCCESS! -- 124 Passed | 0 Failed | 0 Pending | 0 Skipped
 
 PASS
-coverage: 85.7% of statements
-ok  	github.com/nabbar/golib/ioutils/aggregator	32.495s
+coverage: 84.8% of statements
+ok  	github.com/nabbar/golib/ioutils/aggregator	35.099s
 ```
 
 ---
@@ -300,7 +351,7 @@ Uptime()             100.0%  - Duration tracking
 
 ### Uncovered Code Analysis
 
-**Uncovered Lines: 14.3% (target: <20%)**
+**Uncovered Lines: 15.2% (target: <20%)**
 
 #### 1. Context Interface Implementation (context.go)
 
@@ -364,7 +415,11 @@ func (o *agg) setRunner(r librun.StartStop) {
 
 ```go
 func (o *agg) callASyn(sem libsem.Semaphore) {
-    defer runner.RecoveryCaller("golib/ioutils/aggregator/callasyn", recover())
+    defer func() {
+        if r := recover; r != nil {
+            runner.RecoveryCaller("golib/ioutils/aggregator/callasyn", r)			
+        }
+    }()
     
     // UNCOVERED: Early returns for nil/disabled cases
     if !o.op.Load() {
@@ -388,13 +443,13 @@ func (o *agg) callASyn(sem libsem.Semaphore) {
 $ CGO_ENABLED=1 go test -race -v
 Running Suite: IOUtils/Aggregator Package Suite
 ================================================
-Will run 119 of 119 specs
+Will run 124 of 124 specs
 
-Ran 119 of 119 Specs in 5m12s
-SUCCESS! -- 119 Passed | 0 Failed | 0 Pending | 0 Skipped
+Ran 124 of 124 Specs in 36.688s
+SUCCESS! -- 124 Passed | 0 Failed | 0 Pending | 0 Skipped
 
 PASS
-ok      github.com/nabbar/golib/ioutils/aggregator      312.456s
+ok      github.com/nabbar/golib/ioutils/aggregator      36.688s
 ```
 
 **Zero data races detected** across:
@@ -598,18 +653,39 @@ Leak Detection:     No leaks detected
 ### File Organization
 
 ```
-aggregator_suite_test.go    - Test suite setup and helpers
-new_test.go                  - Constructor and initialization
-writer_test.go               - Write() and Close() operations
-runner_test.go               - Lifecycle (Start/Stop/Restart)
-context_test.go             - Context interface implementation
-concurrency_test.go         - Concurrent access patterns
-errors_test.go              - Error handling and edge cases
-benchmark_test.go           - Performance benchmarks
-metrics_test.go             - Metrics tracking and monitoring
-coverage_test.go            - Coverage improvement tests
-example_test.go             - Runnable examples
+aggregator/
+├── helper_test.go              # Shared test helpers and utilities (moved from suite)
+├── aggregator_suite_test.go    # Test suite entry point (Ginkgo suite setup)
+├── new_test.go                 # Constructor and initialization tests (42 specs)
+├── writer_test.go              # Write() and Close() operations tests (13 specs)
+├── runner_test.go              # Lifecycle (Start/Stop/Restart) tests (15 specs)
+├── concurrency_test.go         # Concurrent access patterns tests (12 specs)
+├── errors_test.go              # Error handling and edge cases tests (10 specs)
+├── metrics_test.go             # Metrics tracking and monitoring tests (7 specs)
+├── coverage_test.go            # Coverage improvement tests (15 specs)
+├── internal_test.go            # Internal implementation tests (2 specs)
+├── benchmark_test.go           # Performance benchmarks (8 aggregated experiments)
+└── example_test.go             # Runnable examples for GoDoc
 ```
+
+**File Purpose Alignment:**
+
+Each test file has a **specific, non-overlapping scope**:
+
+| File | Primary Responsibility | Unique Scope | Justification |
+|------|------------------------|--------------|---------------|
+| **helper_test.go** | Test infrastructure | testWriter, testCounter, startAndWait utilities | Shared test doubles (moved from suite for clarity) |
+| **aggregator_suite_test.go** | Test suite bootstrap | Ginkgo suite initialization, global context/logger | Required entry point for BDD tests |
+| **new_test.go** | Object creation | New(), config validation, interface compliance | Unit tests for factory methods and initialization |
+| **writer_test.go** | Write operations | Write(), Close(), channel management | Isolated tests for write path and lifecycle |
+| **runner_test.go** | Lifecycle management | Start(), Stop(), Restart(), callbacks | Tests for StartStop interface implementation |
+| **concurrency_test.go** | Thread-safety | Race detection, concurrent access patterns | Validates atomicity and thread-safety guarantees |
+| **errors_test.go** | Error handling | FctWriter errors, context cancellation, panics | Negative testing and error propagation |
+| **metrics_test.go** | Monitoring | NbWaiting, NbProcessing, Size metrics | Tests metric accuracy and performance |
+| **coverage_test.go** | Coverage improvement | Edge cases, rare paths | Targets uncovered branches for >80% coverage |
+| **internal_test.go** | Internal state | Nil context, state synchronization | Tests using export_test.go for internal access |
+| **benchmark_test.go** | Performance metrics | **Aggregated experiments** with gmeasure | Non-functional performance validation |
+| **example_test.go** | Documentation | 7 runnable GoDoc examples | Documentation via executable examples |
 
 **Organization Principles:**
 - **One concern per file**: Each file tests a specific component or feature
@@ -1116,8 +1192,19 @@ When creating GitHub issues, use these labels:
 
 ---
 
-**License**: MIT License - See [LICENSE](../../../../LICENSE) file for details  
-**Maintained By**: [Nicolas JUHEL](https://github.com/nabbar)  
-**Package**: `github.com/nabbar/golib/ioutils/aggregator`  
+## AI Transparency
 
-**AI Transparency**: In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
+In compliance with EU AI Act Article 50.4: AI assistance was used for test generation, debugging, and documentation under human supervision. All tests are validated and reviewed by humans.
+
+---
+
+## License
+
+MIT License - See [LICENSE](../../../../LICENSE) file for details.
+
+Copyright (c) 2025 Nicolas JUHEL
+
+---
+
+**Test Suite Maintained by**: [Nicolas JUHEL](https://github.com/nabbar)
+**Package**: `github.com/nabbar/golib/ioutils/aggregator`

@@ -316,6 +316,7 @@ func Example_rotationDetection() {
 	opts := logcfg.OptionsFile{
 		Filepath:   logFile,
 		CreatePath: true, // Required for rotation detection
+		Create:     true, // Required for automatic file creation after rotation
 	}
 
 	hook, err := logfil.New(opts, &logrus.TextFormatter{
@@ -339,10 +340,14 @@ func Example_rotationDetection() {
 	os.Rename(logFile, logFile+".1")
 
 	// Wait for rotation detection (sync timer runs every 1 second)
-	time.Sleep(1200 * time.Millisecond)
+	time.Sleep(2500 * time.Millisecond)
 
 	// Write after rotation - should go to new file
 	logger.WithField("msg", "After rotation").Info("ignored")
+	time.Sleep(500 * time.Millisecond)
+
+	// Close hook to flush
+	_ = hook.Close()
 	time.Sleep(100 * time.Millisecond)
 
 	// Check that new file was created

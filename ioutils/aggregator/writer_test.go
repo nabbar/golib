@@ -29,13 +29,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/nabbar/golib/ioutils/aggregator"
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Writer Operations", func() {
+var _ = Describe("TC-WR-001: Writer Operations", func() {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -51,16 +51,16 @@ var _ = Describe("Writer Operations", func() {
 		}
 	})
 
-	Describe("Write()", func() {
-		Context("when aggregator is running", func() {
-			It("should write data successfully", func() {
+	Describe("TC-WR-002: Write()", func() {
+		Context("TC-WR-003: when aggregator is running", func() {
+			It("TC-WR-004: should write data successfully", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					BufWriter: 10,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -87,14 +87,14 @@ var _ = Describe("Writer Operations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should write multiple data chunks", func() {
+			It("TC-WR-005: should write multiple data chunks", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					BufWriter: 100,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = startAndWait(agg, ctx)
@@ -122,14 +122,14 @@ var _ = Describe("Writer Operations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should handle empty writes", func() {
+			It("TC-WR-006: should handle empty writes", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					BufWriter: 10,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = startAndWait(agg, ctx)
@@ -150,22 +150,22 @@ var _ = Describe("Writer Operations", func() {
 			})
 		})
 
-		Context("when aggregator is not running", func() {
-			It("should reject writes before start", func() {
+		Context("TC-WR-007: when aggregator is not running", func() {
+			It("TC-WR-008: should reject writes before start", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					BufWriter: 10,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Write before starting should fail
 				data := []byte("test data")
 				n, err := agg.Write(data)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(Or(Equal(aggregator.ErrInvalidInstance), Equal(aggregator.ErrClosedResources)))
+				Expect(err).To(Or(Equal(iotagg.ErrInvalidInstance), Equal(iotagg.ErrClosedResources)))
 				Expect(n).To(Equal(0))
 
 				// Cleanup
@@ -174,15 +174,15 @@ var _ = Describe("Writer Operations", func() {
 			})
 		})
 
-		Context("when aggregator is closed", func() {
-			It("should return error on write after close", func() {
+		Context("TC-WR-009: when aggregator is closed", func() {
+			It("TC-WR-010: should return error on write after close", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					BufWriter: 10,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = startAndWait(agg, ctx)
@@ -198,21 +198,21 @@ var _ = Describe("Writer Operations", func() {
 				data := []byte("test data")
 				n, err := agg.Write(data)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(Equal(aggregator.ErrClosedResources))
+				Expect(err).To(Equal(iotagg.ErrClosedResources))
 				Expect(n).To(Equal(0))
 			})
 		})
 
-		Context("when context is cancelled", func() {
-			It("should return error on write after context cancel", func() {
+		Context("TC-WR-011: when context is cancelled", func() {
+			It("TC-WR-012: should return error on write after context cancel", func() {
 				localCtx, localCancel := context.WithCancel(ctx)
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					BufWriter: 10,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(localCtx, cfg)
+				agg, err := iotagg.New(localCtx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = agg.Start(localCtx)
@@ -243,15 +243,15 @@ var _ = Describe("Writer Operations", func() {
 		})
 	})
 
-	Describe("Close()", func() {
-		It("should close successfully when running", func() {
+	Describe("TC-WR-013: Close()", func() {
+		It("TC-WR-014: should close successfully when running", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -261,28 +261,28 @@ var _ = Describe("Writer Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should close successfully when not running", func() {
+		It("TC-WR-015: should close successfully when not running", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Close()
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should be idempotent", func() {
+		It("TC-WR-016: should be idempotent", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -299,15 +299,15 @@ var _ = Describe("Writer Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should process pending writes before closing", func() {
+		It("TC-WR-017: should process pending writes before closing", func() {
 			writer := newTestWriter()
 			writer.SetDelay(10) // Add delay to writer
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 100,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)

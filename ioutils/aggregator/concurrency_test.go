@@ -30,13 +30,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nabbar/golib/ioutils/aggregator"
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Concurrency and Race Conditions", func() {
+var _ = Describe("TC-CC-001: Concurrency and Race Conditions", func() {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -52,15 +52,15 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 		}
 	})
 
-	Describe("Concurrent Writes", func() {
-		It("should handle concurrent writes safely", func() {
+	Describe("TC-CC-002: Concurrent Writes", func() {
+		It("TC-CC-003: should handle concurrent writes safely", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 1000,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -102,14 +102,14 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 			Expect(writer.GetCallCount()).To(BeNumerically(">", 100))
 		})
 
-		It("should handle concurrent writes with small buffer", func() {
+		It("TC-CC-004: should handle concurrent writes with small buffer", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 5, // Small buffer to force blocking
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -139,15 +139,15 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 		})
 	})
 
-	Describe("Concurrent Start/Stop", func() {
+	Describe("TC-CC-005: Concurrent Start/Stop", func() {
 
-		It("should handle concurrent Stop calls", func() {
+		It("TC-CC-006: should handle concurrent Stop calls", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -174,13 +174,13 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 			}, 2*time.Second, 50*time.Millisecond).Should(BeFalse())
 		})
 
-		It("should handle concurrent Restart calls", func() {
+		It("TC-CC-007: should handle concurrent Restart calls", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -207,14 +207,14 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 		})
 	})
 
-	Describe("Concurrent Reads (Status)", func() {
-		It("should handle concurrent IsRunning calls", func() {
+	Describe("TC-CC-008: Concurrent Reads (Status)", func() {
+		It("TC-CC-009: should handle concurrent IsRunning calls", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -241,13 +241,13 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should handle concurrent Uptime calls", func() {
+		It("TC-CC-010: should handle concurrent Uptime calls", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -274,13 +274,13 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should handle concurrent ErrorsList calls", func() {
+		It("TC-CC-011: should handle concurrent ErrorsList calls", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -309,15 +309,15 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 		})
 	})
 
-	Describe("Mixed Operations", func() {
-		It("should handle concurrent writes and status reads", func() {
+	Describe("TC-CC-012: Mixed Operations", func() {
+		It("TC-CC-013: should handle concurrent writes and status reads", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 100,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -362,14 +362,14 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should handle writes during start/stop transitions", func() {
+		It("TC-CC-014: should handle writes during start/stop transitions", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 100,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			var wg sync.WaitGroup
@@ -409,13 +409,13 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should handle concurrent Close calls", func() {
+		It("TC-CC-015: should handle concurrent Close calls", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -439,15 +439,15 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 		})
 	})
 
-	Describe("Stress Tests", func() {
-		It("should handle high volume of writes", func() {
+	Describe("TC-CC-016: Stress Tests", func() {
+		It("TC-CC-017: should handle high volume of writes", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 1000,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -478,16 +478,16 @@ var _ = Describe("Concurrency and Race Conditions", func() {
 			// Should have processed many writes
 			Expect(writer.GetCallCount()).To(BeNumerically(">", 100))
 		})
-		It("should handle context cancellation under load", func() {
+		It("TC-CC-018: should handle context cancellation under load", func() {
 			localCtx, localCancel := context.WithCancel(ctx)
 
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 100,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(localCtx, cfg)
+			agg, err := iotagg.New(localCtx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(localCtx)

@@ -98,7 +98,10 @@ func (o *run) IsRunning() bool {
 // Returns an error if either the stop or start operation fails.
 func (o *run) Restart(ctx context.Context) error {
 	defer func() {
-		runner.RecoveryCaller("golib/server/startstop/restart", recover())
+		// Recover from any panic in the restart function
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/startstop/restart", r)
+		}
 	}()
 
 	if ctx == nil {
@@ -122,7 +125,10 @@ func (o *run) Restart(ctx context.Context) error {
 // Returns an error if the stop function fails (though errors are also tracked internally).
 func (o *run) Stop(ctx context.Context) error {
 	defer func() {
-		runner.RecoveryCaller("golib/server/startstop/stop", recover())
+		// Recover from any panic in the stop function
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/startstop/stop", r)
+		}
 	}()
 
 	if ctx == nil {
@@ -173,7 +179,10 @@ func (o *run) Stop(ctx context.Context) error {
 // any previous instance and start a fresh one. Previous errors are cleared on each start.
 func (o *run) Start(ctx context.Context) error {
 	defer func() {
-		runner.RecoveryCaller("golib/server/startstop/start", recover())
+		// Recover from any panic in the start function
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/startstop/start", r)
+		}
 	}()
 
 	if ctx == nil {
@@ -222,8 +231,11 @@ func (o *run) ErrorsList() []error {
 func (o *run) getFctStart(ctx context.Context) {
 	defer func() {
 		// Recover from any panic in the start function
-		runner.RecoveryCaller("golib/server/startstop/fctStart", recover())
-
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/startstop/fctStart", r)
+		}
+	}()
+	defer func() {
 		// Clear the start time to indicate we're no longer running
 		o.t.Store(time.Time{})
 
@@ -252,7 +264,9 @@ func (o *run) getFctStart(ctx context.Context) {
 func (o *run) getFctStop(ctx context.Context) {
 	defer func() {
 		// Recover from any panic in the stop function
-		runner.RecoveryCaller("golib/runner/startstop/fctStop", recover())
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/startstop/fctStop", r)
+		}
 	}()
 
 	// Cancel the context to ensure the start function stops

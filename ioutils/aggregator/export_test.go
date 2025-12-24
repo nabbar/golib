@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,62 +21,60 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package pool_test
+package aggregator
 
 import (
 	"context"
-	"testing"
-	"time"
 
-	liblog "github.com/nabbar/golib/logger"
-	logcfg "github.com/nabbar/golib/logger/config"
-	libprm "github.com/nabbar/golib/prometheus"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	libatm "github.com/nabbar/golib/atomic"
+	librun "github.com/nabbar/golib/runner/startStop"
 )
 
-var (
-	// Global context for all tests
-	n context.CancelFunc
-	x context.Context
+// Helper functions exported for testing purposes (black-box testing support)
 
-	// Logger for tests
-	l  liblog.Logger
-	fl = func() liblog.Logger {
-		return l
+func InternalCtx(ctx1, ctx2 context.Context, cfg Config) (Aggregator, error) {
+	a, e := New(ctx1, cfg)
+	if e != nil {
+		return nil, e
+	} else if i, k := a.(*agg); k {
+		if ctx2 == nil {
+			i.x = libatm.NewValue[context.Context]()
+		} else {
+			i.x.Store(ctx2)
+		}
+		return i, nil
 	}
-	lo = logcfg.Options{
-		Stdout: &logcfg.OptionsStd{
-			DisableStandard: true,
-		},
-	}
-
-	p libprm.Prometheus
-)
-
-// TestPool is the entry point for the Ginkgo test suite
-func TestPool(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Monitor/Pool Package Suite")
+	return nil, ErrInvalidInstance
 }
 
-var _ = BeforeSuite(func() {
-	x, n = context.WithTimeout(context.Background(), 60*time.Second)
-
-	l = liblog.New(x)
-	opt := lo
-	Expect(l.SetOptions(&opt)).ToNot(HaveOccurred())
-
-	p = libprm.New(x)
-	Expect(p).ToNot(BeNil())
-})
-
-var _ = AfterSuite(func() {
-	if n != nil {
-		n()
+func InternalRunner(a Aggregator, r librun.StartStop) {
+	if i, k := a.(*agg); k {
+		if r == nil {
+			i.r = libatm.NewValue[librun.StartStop]()
+		} else {
+			i.setRunner(r)
+		}
 	}
-})
+}
+
+func InternalOp(a Aggregator, v bool) {
+	if i, k := a.(*agg); k {
+		i.op.Store(v)
+	}
+}
+
+func InternalGetRunner(a Aggregator) librun.StartStop {
+	if i, k := a.(*agg); k {
+		return i.getRunner()
+	}
+	return nil
+}
+
+func InternalGetOp(a Aggregator) bool {
+	if i, k := a.(*agg); k {
+		return i.op.Load()
+	}
+	return false
+}

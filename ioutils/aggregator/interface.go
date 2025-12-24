@@ -29,7 +29,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -53,6 +52,10 @@ var (
 	// ErrClosedResources is returned by Write when attempting to write to an aggregator
 	// that has been closed or whose context has been cancelled.
 	ErrClosedResources = errors.New("closed resources")
+
+	// ErrTimeout is returned by Start when the aggregator fails to initialize
+	// within the expected timeout period (1 second).
+	ErrTimeout = errors.New("timeout")
 
 	// closedChan is a pre-closed channel used as a sentinel value to indicate
 	// that the aggregator's write channel has been closed.
@@ -209,7 +212,6 @@ func New(ctx context.Context, cfg Config) (Aggregator, error) {
 		af: nil,
 		st: time.Minute,
 		sf: nil,
-		mw: sync.Mutex{},
 		fw: nil,
 		sh: 1,
 		ch: libatm.NewValue[chan []byte](),
@@ -223,6 +225,9 @@ func New(ctx context.Context, cfg Config) (Aggregator, error) {
 	// Store initial context (but don't open channel yet - done in run())
 	a.ctxNew(ctx)
 	a.op.Store(false)
+
+	// Initialize runner to prevent race conditions on Start
+	a.setRunner(nil)
 
 	if cfg.AsyncMax > -1 {
 		a.am = cfg.AsyncMax

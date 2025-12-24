@@ -34,7 +34,6 @@ import (
 	libval "github.com/go-playground/validator/v10"
 	cfgtps "github.com/nabbar/golib/config/const"
 	libdur "github.com/nabbar/golib/duration"
-	liberr "github.com/nabbar/golib/errors"
 	logcfg "github.com/nabbar/golib/logger/config"
 )
 
@@ -104,7 +103,7 @@ type Config struct {
 // Validate check if the config is valid according to the constraint.
 // It return nil if the config is valid, otherwise it return an error.
 // The error is an aggregation of all the invalid validation error.
-func (o Config) Validate() liberr.Error {
+func (o Config) Validate() error {
 	var e = ErrorValidatorError.Error(nil)
 
 	if err := libval.New().Struct(o); err != nil {

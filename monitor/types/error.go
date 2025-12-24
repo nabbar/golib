@@ -42,7 +42,7 @@ const (
 
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision with package golib/logger"))
+		panic(fmt.Errorf("error code collision with package golib/monitor/types"))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }

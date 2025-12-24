@@ -32,7 +32,6 @@ import (
 	"encoding/json"
 	"time"
 
-	liberr "github.com/nabbar/golib/errors"
 	liblog "github.com/nabbar/golib/logger"
 	monsts "github.com/nabbar/golib/monitor/status"
 	libprm "github.com/nabbar/golib/prometheus"
@@ -245,7 +244,7 @@ type Monitor interface {
 	libsrv.Runner
 
 	// SetConfig is used to set or update config of the monitor
-	SetConfig(ctx context.Context, cfg Config) liberr.Error
+	SetConfig(ctx context.Context, cfg Config) error
 
 	// RegisterLoggerDefault is used to define the default logger.
 	// Default logger can be used to extend options logger from it
@@ -261,5 +260,5 @@ type Monitor interface {
 	GetHealthCheck() HealthCheck
 
 	// Clone is used to clone monitor to another standalone instance
-	Clone(ctx context.Context) (Monitor, liberr.Error)
+	Clone(ctx context.Context) (Monitor, error)
 }

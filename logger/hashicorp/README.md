@@ -1,6 +1,6 @@
 # Logger HashiCorp Adapter
 
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
 [![Coverage](https://img.shields.io/badge/Coverage-96.6%25-brightgreen)](TESTING.md)
 
@@ -571,7 +571,7 @@ logger.With("key1", "value1", "key2", "value2")
 We welcome contributions! Please follow the project's contribution guidelines defined in [CONTRIBUTING.md](../../../../CONTRIBUTING.md).
 
 **Development Requirements:**
-- Go 1.18 or higher
+- Go 1.24 or higher
 - Ginkgo v2 for BDD testing: `go install github.com/onsi/ginkgo/v2/ginkgo@latest`
 - Gomega for assertions (installed automatically with Ginkgo)
 - golangci-lint for code quality (optional): `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`

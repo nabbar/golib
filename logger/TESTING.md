@@ -1,7 +1,7 @@
 # Logger Testing Guide
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://golang.org/)
 [![Tests](https://img.shields.io/badge/Tests-861%20specs-success)](logger_suite_test.go)
 [![Assertions](https://img.shields.io/badge/Assertions-1734+-blue)]()
 [![Coverage](https://img.shields.io/badge/Coverage-90.9%25-brightgreen)]()
@@ -71,7 +71,7 @@ This test suite provides **comprehensive validation** of the `logger` package th
 
 **Quality Assurance:**
 - All tests pass with `-race` detector enabled (zero data races)
-- All tests pass on Go 1.18 through 1.25
+- All tests pass on Go 1.24 through 1.25
 - Tests run in ~5-10s (full suite with race detection)
 - No external dependencies required for testing (only standard library + golib packages)
 

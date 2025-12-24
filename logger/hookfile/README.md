@@ -1,8 +1,8 @@
 # Logger HookFile
 
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
-[![Coverage](https://img.shields.io/badge/Coverage-82.2%25-brightgreen)](TESTING.md)
+[![Coverage](https://img.shields.io/badge/Coverage-84.0%25-brightgreen)](TESTING.md)
 
 Logrus hook for writing log entries to files with automatic rotation detection, efficient multi-writer aggregation, and configurable field filtering.
 
@@ -65,7 +65,7 @@ The **hookfile** package provides a production-ready logrus.Hook that writes log
 - ✅ **Field Filtering**: Remove stack traces, timestamps, caller info as needed
 - ✅ **Access Log Mode**: Message-only output for HTTP access logs
 - ✅ **Error Recovery**: Automatic file reopening on errors
-- ✅ **82.2% Test Coverage**: 25 specs + 10 examples, zero race conditions
+- ✅ **84.0% Test Coverage**: 28 specs + 10 examples, zero race conditions
 
 ---
 
@@ -304,7 +304,7 @@ go get github.com/nabbar/golib/logger/hookfile
 ```
 
 **Requirements:**
-- Go 1.18 or higher
+- Go 1.24 or higher (requires os.OpenRoot)
 - Compatible with Linux, macOS, Windows
 
 ### Basic Example
@@ -327,6 +327,7 @@ func main() {
         FileMode:   0644,
         PathMode:   0755,
         CreatePath: true,  // Enable rotation detection
+        Create:     true,  // Enable file creation after rotation
     }
 
     // Create hook
@@ -471,7 +472,7 @@ logger.WithFields(logrus.Fields{
 
 ### Testing
 
-The package includes comprehensive tests with **82.2% code coverage** and **25 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
+The package includes comprehensive tests with **84.0% code coverage** and **28 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
 
 **Key test coverage:**
 - ✅ Hook creation and configuration
@@ -628,7 +629,8 @@ type OptionsFile struct {
     Filepath         string      // Required: Path to log file
     FileMode         FileMode    // File permissions (default: 0644)
     PathMode         FileMode    // Directory permissions (default: 0755)
-    CreatePath       bool        // Create parent directories + enable rotation detection
+    CreatePath       bool        // Create parent directories (required for rotation)
+    Create           bool        // Create file if missing (required for rotation)
     LogLevel         []string    // Log levels to handle (default: all)
     DisableStack     bool        // Filter "stack" field
     DisableTimestamp bool        // Filter "time" field
@@ -728,7 +730,7 @@ The package is **production-ready** with no urgent improvements or security vuln
 
 ### Code Quality Metrics
 
-- ✅ **82.2% test coverage** (target: >80%)
+- ✅ **84.0% test coverage** (target: >80%)
 - ✅ **Zero race conditions** detected with `-race` flag
 - ✅ **Thread-safe** implementation with file aggregation
 - ✅ **Memory-safe** with proper resource cleanup

@@ -370,7 +370,7 @@ Sub-packages may have additional dependencies for specialized functionality.
 
 # Compatibility
 
-  - Go: Requires Go 1.18 or later
+  - Go: Requires Go 1.24 or later (hookfile requires os.OpenRoot introduced in Go 1.24)
   - Logrus: Compatible with logrus v1.8+
   - Platforms: Linux, macOS, Windows
   - Architectures: amd64, arm64, arm, 386

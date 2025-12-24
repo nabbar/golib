@@ -30,16 +30,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nabbar/golib/ioutils/aggregator"
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gmeasure"
+	. "github.com/onsi/gomega/gmeasure"
 )
 
-var _ = Describe("Metrics", func() {
+var _ = Describe("TC-MT-001: Metrics", func() {
 	var (
-		agg        aggregator.Aggregator
+		agg        iotagg.Aggregator
 		ctx        context.Context
 		cancel     context.CancelFunc
 		writeCount int
@@ -56,7 +56,7 @@ var _ = Describe("Metrics", func() {
 		writeData = make([][]byte, 0)
 		writeMutex.Unlock()
 
-		cfg := aggregator.Config{
+		cfg := iotagg.Config{
 			BufWriter: 10,
 			FctWriter: func(p []byte) (int, error) {
 				writeMutex.Lock()
@@ -79,7 +79,7 @@ var _ = Describe("Metrics", func() {
 		}
 
 		var err error
-		agg, err = aggregator.New(ctx, cfg)
+		agg, err = iotagg.New(ctx, cfg)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(agg).ToNot(BeNil())
 	})
@@ -92,16 +92,16 @@ var _ = Describe("Metrics", func() {
 		time.Sleep(50 * time.Millisecond)
 	})
 
-	Describe("NbWaiting and NbProcessing", func() {
-		Context("when aggregator is not started", func() {
-			It("should return 0 for both metrics", func() {
+	Describe("TC-MT-002: NbWaiting and NbProcessing", func() {
+		Context("TC-MT-003: when aggregator is not started", func() {
+			It("TC-MT-004: should return 0 for both metrics", func() {
 				Expect(agg.NbWaiting()).To(Equal(int64(0)))
 				Expect(agg.NbProcessing()).To(Equal(int64(0)))
 			})
 		})
 
-		Context("when aggregator is running with no writes", func() {
-			It("should return 0 for both metrics", func() {
+		Context("TC-MT-005: when aggregator is running with no writes", func() {
+			It("TC-MT-006: should return 0 for both metrics", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
 				Expect(agg.NbWaiting()).To(Equal(int64(0)))
@@ -109,8 +109,8 @@ var _ = Describe("Metrics", func() {
 			})
 		})
 
-		Context("when writes are processed immediately", func() {
-			It("should show correct counts during and after processing", func() {
+		Context("TC-MT-007: when writes are processed immediately", func() {
+			It("TC-MT-008: should show correct counts during and after processing", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
 				// Write some data
@@ -132,14 +132,14 @@ var _ = Describe("Metrics", func() {
 			})
 		})
 
-		Context("when buffer is full with slow processing", func() {
+		Context("TC-MT-009: when buffer is full with slow processing", func() {
 			BeforeEach(func() {
 				writeMutex.Lock()
 				writeDelay = 100 * time.Millisecond
 				writeMutex.Unlock()
 			})
 
-			It("should show waiting writes when buffer is full", func() {
+			It("TC-MT-010: should show waiting writes when buffer is full", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
 				// Fill the buffer (capacity = 10) with many concurrent writes
@@ -176,16 +176,16 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 
-	Describe("SizeWaiting and SizeProcessing", func() {
-		Context("when aggregator is not started", func() {
-			It("should return 0 for both metrics", func() {
+	Describe("TC-MT-011: SizeWaiting and SizeProcessing", func() {
+		Context("TC-MT-012: when aggregator is not started", func() {
+			It("TC-MT-013: should return 0 for both metrics", func() {
 				Expect(agg.SizeWaiting()).To(Equal(int64(0)))
 				Expect(agg.SizeProcessing()).To(Equal(int64(0)))
 			})
 		})
 
-		Context("when aggregator is running with no writes", func() {
-			It("should return 0 for both metrics", func() {
+		Context("TC-MT-014: when aggregator is running with no writes", func() {
+			It("TC-MT-015: should return 0 for both metrics", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
 				Expect(agg.SizeWaiting()).To(Equal(int64(0)))
@@ -193,8 +193,8 @@ var _ = Describe("Metrics", func() {
 			})
 		})
 
-		Context("when writes are processed immediately", func() {
-			It("should track correct byte sizes", func() {
+		Context("TC-MT-016: when writes are processed immediately", func() {
+			It("TC-MT-017: should track correct byte sizes", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
 				// Write data of known sizes
@@ -222,14 +222,14 @@ var _ = Describe("Metrics", func() {
 			})
 		})
 
-		Context("when buffer is full with slow processing", func() {
+		Context("TC-MT-018: when buffer is full with slow processing", func() {
 			BeforeEach(func() {
 				writeMutex.Lock()
 				writeDelay = 100 * time.Millisecond
 				writeMutex.Unlock()
 			})
 
-			It("should track byte sizes in waiting and processing states", func() {
+			It("TC-MT-019: should track byte sizes in waiting and processing states", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
 				// Write messages of 10 bytes each
@@ -269,14 +269,14 @@ var _ = Describe("Metrics", func() {
 			})
 		})
 
-		Context("with variable message sizes", func() {
+		Context("TC-MT-020: with variable message sizes", func() {
 			BeforeEach(func() {
 				writeMutex.Lock()
 				writeDelay = 50 * time.Millisecond
 				writeMutex.Unlock()
 			})
 
-			It("should accurately track total byte sizes", func() {
+			It("TC-MT-021: should accurately track total byte sizes", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
 				// Write messages of different sizes
@@ -320,15 +320,15 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 
-	Describe("Combined Metrics", func() {
-		Context("with concurrent writes and slow processing", func() {
+	Describe("TC-MT-022: Combined Metrics", func() {
+		Context("TC-MT-023: with concurrent writes and slow processing", func() {
 			BeforeEach(func() {
 				writeMutex.Lock()
 				writeDelay = 50 * time.Millisecond
 				writeMutex.Unlock()
 			})
 
-			It("should maintain consistency between count and size metrics", func() {
+			It("TC-MT-024: should maintain consistency between count and size metrics", func() {
 				Expect(startAndWait(agg, ctx)).To(Succeed())
 
 				msgSize := 100
@@ -374,8 +374,8 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 
-	Describe("Metrics after Restart", func() {
-		It("should reset metrics after restart", func() {
+	Describe("TC-MT-025: Metrics after Restart", func() {
+		It("TC-MT-026: should reset metrics after restart", func() {
 			Expect(startAndWait(agg, ctx)).To(Succeed())
 
 			// Write some data
@@ -413,23 +413,23 @@ var _ = Describe("Metrics", func() {
 		})
 	})
 
-	Describe("Performance - Metrics Overhead", Ordered, func() {
-		var experiment *gmeasure.Experiment
+	Describe("TC-MT-027: Performance - Metrics Overhead", Ordered, func() {
+		var experiment *Experiment
 
 		BeforeAll(func() {
-			experiment = gmeasure.NewExperiment("Metrics Overhead")
+			experiment = NewExperiment("Metrics Overhead")
 			AddReportEntry(experiment.Name, experiment)
 		})
 
-		It("should measure overhead of metrics tracking", func() {
-			cfg := aggregator.Config{
+		It("TC-MT-028: should measure overhead of metrics tracking", func() {
+			cfg := iotagg.Config{
 				BufWriter: 1000,
 				FctWriter: func(p []byte) (int, error) {
 					return len(p), nil
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -455,7 +455,7 @@ var _ = Describe("Metrics", func() {
 					_ = agg.SizeWaiting()
 					_ = agg.SizeProcessing()
 				})
-			}, gmeasure.SamplingConfig{N: 1000, Duration: 5 * time.Second})
+			}, SamplingConfig{N: 1000, Duration: 5 * time.Second})
 
 			// Wait for all to process
 			time.Sleep(500 * time.Millisecond)
@@ -464,11 +464,11 @@ var _ = Describe("Metrics", func() {
 			AddReportEntry("Write Latency Stats", stats)
 
 			// Metrics overhead should be negligible (< 1ms)
-			Expect(stats.DurationFor(gmeasure.StatMedian)).To(BeNumerically("<", 1*time.Millisecond))
+			Expect(stats.DurationFor(StatMedian)).To(BeNumerically("<", 1*time.Millisecond))
 		})
 
-		It("should measure metrics read performance", func() {
-			cfg := aggregator.Config{
+		It("TC-MT-029: should measure metrics read performance", func() {
+			cfg := iotagg.Config{
 				BufWriter: 100,
 				FctWriter: func(p []byte) (int, error) {
 					time.Sleep(10 * time.Millisecond)
@@ -476,7 +476,7 @@ var _ = Describe("Metrics", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -500,13 +500,13 @@ var _ = Describe("Metrics", func() {
 					_ = agg.SizeWaiting()
 					_ = agg.SizeProcessing()
 				})
-			}, gmeasure.SamplingConfig{N: 10000, Duration: 2 * time.Second})
+			}, SamplingConfig{N: 10000, Duration: 2 * time.Second})
 
 			stats := experiment.GetStats("metrics_read")
 			AddReportEntry("Metrics Read Stats", stats)
 
 			// Reading all 4 metrics should be very fast (< 1µs)
-			Expect(stats.DurationFor(gmeasure.StatMedian)).To(BeNumerically("<", 5*time.Microsecond))
+			Expect(stats.DurationFor(StatMedian)).To(BeNumerically("<", 5*time.Microsecond))
 		})
 	})
 })

@@ -53,7 +53,6 @@ import (
 //	    log.Printf("Metric not found")
 //	}
 func (m *prom) GetMetric(name string) libmet.Metric {
-	defer librun.RecoveryCaller("golib/prometheus/GetMetric", recover())
 	if v := m.web.Get(name); v != nil {
 		return v
 	} else if v = m.oth.Get(name); v != nil {
@@ -91,7 +90,12 @@ func (m *prom) GetMetric(name string) libmet.Metric {
 //	    log.Fatalf("Failed to add metric: %v", err)
 //	}
 func (m *prom) AddMetric(isAPI bool, metric libmet.Metric) error {
-	defer librun.RecoveryCaller("golib/prometheus/AddMetric", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/prometheus/AddMetric", r)
+		}
+	}()
+
 	if isAPI {
 		return m.web.Add(metric)
 	} else {
@@ -111,7 +115,12 @@ func (m *prom) AddMetric(isAPI bool, metric libmet.Metric) error {
 //	prm.DelMetric("temporary_metric")
 //	// Metric is now unregistered and will not appear in /metrics
 func (m *prom) DelMetric(name string) error {
-	defer librun.RecoveryCaller("golib/prometheus/DelMetric", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/prometheus/DelMetric", r)
+		}
+	}()
+
 	if m.web.Get(name) != nil {
 		return m.web.Del(name)
 	} else if m.oth.Get(name) != nil {
@@ -134,7 +143,12 @@ func (m *prom) DelMetric(name string) error {
 //	    log.Printf("  - %s (%s)", name, metric.GetType())
 //	}
 func (m *prom) ListMetric() []string {
-	defer librun.RecoveryCaller("golib/prometheus/ListMetric", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/prometheus/ListMetric", r)
+		}
+	}()
+
 	var res = make([]string, 0)
 	res = append(res, m.web.List()...)
 	res = append(res, m.oth.List()...)
@@ -163,7 +177,12 @@ func (m *prom) ListMetric() []string {
 //	    log.Printf("Clear error: %v", err)
 //	}
 func (m *prom) ClearMetric(Api, Web bool) []error {
-	defer librun.RecoveryCaller("golib/prometheus/Clear", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/prometheus/Clear", r)
+		}
+	}()
+
 	var e = make([]error, 0)
 
 	if Web {
@@ -211,7 +230,12 @@ func (m *prom) Collect(ctx context.Context) {
 //	// Collect specific metrics
 //	prm.CollectMetrics(ctx, "custom_counter", "custom_gauge")
 func (m *prom) CollectMetrics(ctx context.Context, name ...string) {
-	defer librun.RecoveryCaller("golib/prometheus/CollectMetrics", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/prometheus/CollectMetrics", r)
+		}
+	}()
+
 	var (
 		ok bool
 		s  libsem.Semaphore
@@ -246,7 +270,12 @@ func (m *prom) runCollect(ctx context.Context, sem libsem.Semaphore) prmpol.Func
 		}
 
 		go func() {
-			defer librun.RecoveryCaller("golib/prometheus/runCollect/"+key, recover())
+			defer func() {
+				if r := recover(); r != nil {
+					librun.RecoveryCaller("golib/prometheus/runCollect/"+key, r)
+				}
+			}()
+
 			defer sem.DeferWorker()
 			val.Collect(ctx)
 			pool.Set(key, val)

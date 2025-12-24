@@ -161,13 +161,17 @@ func RunTick(ctx context.Context, tick, max time.Duration, chk FunCheck, run Fun
 // Example usage in a defer statement:
 //
 //	defer func() {
-//	    runner.RecoveryCaller("golib/server/startstop/start", recover())
+//		if r := recover(); r != nil {
+//			runner.RecoveryCaller("myservice/mypackage/myfunction", r)
+//		}
 //	}()
 //
 // Example with additional data:
 //
 //	defer func() {
-//	    runner.RecoveryCaller("myservice/worker", recover(), "WorkerID:", workerID)
+//		if r := recover(); r != nil {
+//			runner.RecoveryCaller("myservice/mypackage/myfunction", r, "WorkerID:", workerID)
+//		}
 //	}()
 //
 // Output format:

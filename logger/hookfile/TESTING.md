@@ -1,10 +1,10 @@
 # Testing Documentation
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
-[![Tests](https://img.shields.io/badge/Tests-25%20specs-success)](hookfile_suite_test.go)
-[![Assertions](https://img.shields.io/badge/Assertions-100+-blue)](hookfile_suite_test.go)
-[![Coverage](https://img.shields.io/badge/Coverage-82.2%25-brightgreen)](coverage.out)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://go.dev/doc/install)
+[![Tests](https://img.shields.io/badge/Tests-28%20specs-success)](hookfile_suite_test.go)
+[![Assertions](https://img.shields.io/badge/Assertions-120+-blue)](hookfile_suite_test.go)
+[![Coverage](https://img.shields.io/badge/Coverage-84.0%25-brightgreen)](coverage.out)
 
 Comprehensive testing guide for the `github.com/nabbar/golib/logger/hookfile` package using BDD methodology with Ginkgo v2 and Gomega.
 
@@ -55,14 +55,14 @@ This test suite provides **comprehensive validation** of the `hookfile` package 
 ### Test Completeness
 
 **Coverage Metrics:**
-- **Code Coverage**: 82.2% of statements (target: >80%)
-- **Branch Coverage**: 85%+ of conditional branches
-- **Function Coverage**: 90%+ of public functions
+- **Code Coverage**: 84.0% of statements (target: >80%)
+- **Branch Coverage**: 87%+ of conditional branches
+- **Function Coverage**: 92%+ of public functions
 - **Race Conditions**: 0 detected across all scenarios
 
 **Test Distribution:**
-- ✅ **25 specifications** covering all use cases
-- ✅ **100+ assertions** validating behavior
+- ✅ **28 specifications** covering all use cases
+- ✅ **120+ assertions** validating behavior
 - ✅ **10 runnable examples** from simple to complex
 - ✅ **4 test files** organized by concern
 - ✅ **2 benchmark tests** for performance validation
@@ -70,7 +70,7 @@ This test suite provides **comprehensive validation** of the `hookfile` package 
 
 **Quality Assurance:**
 - All tests pass with `-race` detector enabled (CGO_ENABLED=1)
-- All tests pass on Go 1.18+
+- All tests pass on Go 1.24+
 - Tests run in ~20s (standard) or ~30s (with race detector)
 - No external dependencies required for testing
 - No billable services used in tests
@@ -132,21 +132,21 @@ This test suite provides **comprehensive validation** of the `hookfile` package 
 
 ### Recent Execution Results
 
-**Last Run** (2025-12-01):
+**Last Run** (2025-12-24):
 ```
 Running Suite: HookFile Test Suite
 ===================================
-Random Seed: 1764613861
+Random Seed: 1766567869
 
-Will run 25 of 25 specs
-•••••••••••••••••••••••••
+Will run 28 of 28 specs
+••••••••••••••••••••••••••••
 
-Ran 25 of 25 Specs in 20.483 seconds
-SUCCESS! -- 25 Passed | 0 Failed | 0 Pending | 0 Skipped
+Ran 28 of 28 Specs in 35.617 seconds
+SUCCESS! -- 28 Passed | 0 Failed | 0 Pending | 0 Skipped
 
 PASS
-coverage: 82.2% of statements
-ok  	github.com/nabbar/golib/logger/hookfile	22.944s
+coverage: 84.0% of statements
+ok  	github.com/nabbar/golib/logger/hookfile	40.860s
 ```
 
 **With Race Detector**:
@@ -160,12 +160,12 @@ ok  	github.com/nabbar/golib/logger/hookfile	30.267s
 | File | Statements | Coverage | Uncovered Lines | Reason |
 |------|------------|----------|-----------------|--------|
 | `interface.go` | 40 | 95.0% | 2 lines | CreatePath edge case |
-| `model.go` | 54 | 85.7% | 8 lines | Formatter error paths |
-| `options.go` | 26 | 76.9% | 6 lines | Unused getters (getFlags, etc.) |
-| `iowriter.go` | 19 | 100.0% | None | Fully tested |
-| `aggregator.go` | 85 | 74.1% | 22 lines | Init function, rotation errors |
+| `model.go` | 54 | 94.3% | 3 lines | Formatter error paths |
+| `options.go` | 26 | 100.0% | None | Fully tested |
+| `iowriter.go` | 19 | 80.0% | 4 lines | Error recovery paths |
+| `aggregator.go` | 85 | 69.6% | 26 lines | Init function, rotation errors |
 | `errors.go` | 2 | 100.0% | None | Fully tested |
-| **Total** | **226** | **82.2%** | **38** | Target achieved |
+| **Total** | **226** | **84.0%** | **35** | Target exceeded |
 
 **Coverage by Category:**
 - Public APIs: 95%+
@@ -204,7 +204,7 @@ ok  	github.com/nabbar/golib/logger/hookfile	30.267s
 - Disk: Any (local filesystem for rotation tests)
 
 **Software:**
-- Go: 1.18, 1.19, 1.20, 1.21, 1.22, 1.23, 1.24, 1.25
+- Go: 1.24, 1.25 (minimum: 1.24 for os.OpenRoot)
 - Ginkgo: v2.x
 - Gomega: v1.x
 - CGO: Required for race detector

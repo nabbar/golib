@@ -1,7 +1,7 @@
 # Logger Package
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://golang.org/)
 [![Coverage](https://img.shields.io/badge/Coverage-90.9%25-brightgreen)](TESTING.md)
 
 Production-ready structured logging system for Go applications with flexible output management, field injection, level-based filtering, and extensive integration capabilities.
@@ -196,7 +196,7 @@ go get github.com/nabbar/golib/logger
 ```
 
 **Dependencies**:
-- Go ≥ 1.18
+- Go ≥ 1.24 (hookfile requires os.OpenRoot introduced in Go 1.24)
 - github.com/sirupsen/logrus
 - github.com/nabbar/golib/logger/config
 - github.com/nabbar/golib/logger/level
@@ -300,7 +300,7 @@ log.Info("Request processed", map[string]interface{}{
 
 ### Benchmarks
 
-Measured on: AMD Ryzen 9 5950X, 64GB RAM, Go 1.21
+Measured on: AMD Ryzen 9 5950X, 64GB RAM, Go 1.24+
 
 | Operation | Time | Memory | Allocations |
 |-----------|------|--------|-------------|

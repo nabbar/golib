@@ -33,7 +33,6 @@ import (
 
 	libatm "github.com/nabbar/golib/atomic"
 	prmpol "github.com/nabbar/golib/prometheus/pool"
-	librun "github.com/nabbar/golib/runner"
 	prmsdk "github.com/prometheus/client_golang/prometheus"
 )
 
@@ -81,7 +80,6 @@ type prom struct {
 //
 //	prm.SetSlowTime(10) // Mark requests slower than 10 seconds
 func (m *prom) SetSlowTime(slowTime int32) {
-	defer librun.RecoveryCaller("golib/prometheus/SetSlowTime", recover())
 	m.slw.Store(slowTime)
 }
 
@@ -94,7 +92,6 @@ func (m *prom) SetSlowTime(slowTime int32) {
 //	threshold := prm.GetSlowTime()
 //	log.Printf("Slow request threshold: %d seconds", threshold)
 func (m *prom) GetSlowTime() int32 {
-	defer librun.RecoveryCaller("golib/prometheus/GetSlowTime", recover())
 	return m.slw.Load()
 }
 
@@ -113,7 +110,6 @@ func (m *prom) GetSlowTime() int32 {
 //	// Add additional buckets for very fast or very slow requests
 //	prm.SetDuration([]float64{0.01, 0.05, 15, 30})
 func (m *prom) SetDuration(duration []float64) {
-	defer librun.RecoveryCaller("golib/prometheus/SetDuration", recover())
 	p := append(make([]float64, 0), m.rqd.Load()...)
 	m.rqd.Store(append(p, duration...))
 }
@@ -127,7 +123,6 @@ func (m *prom) SetDuration(duration []float64) {
 //	buckets := prm.GetDuration()
 //	log.Printf("Current buckets: %v", buckets)
 func (m *prom) GetDuration() []float64 {
-	defer librun.RecoveryCaller("golib/prometheus/GetDuration", recover())
 	return m.rqd.Load()
 }
 
@@ -150,7 +145,6 @@ func (m *prom) GetDuration() []float64 {
 //	prm.ExcludePath("/health", "/ready", "/metrics")
 //	prm.ExcludePath("favicon.ico") // Automatically becomes "/favicon.ico"
 func (m *prom) ExcludePath(startWith ...string) {
-	defer librun.RecoveryCaller("golib/prometheus/ExcludePath", recover())
 	r := make([]string, 0, len(startWith))
 	for _, s := range startWith {
 		if len(s) < 1 {
@@ -173,7 +167,6 @@ func (m *prom) ExcludePath(startWith ...string) {
 //
 // The path is normalized by adding a leading slash if missing.
 func (m *prom) isExclude(path string) bool {
-	defer librun.RecoveryCaller("golib/prometheus/isExclude", recover())
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}

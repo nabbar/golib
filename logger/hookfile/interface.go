@@ -41,7 +41,7 @@
 //
 // # Log Rotation
 //
-// The hook automatically detects external log rotation (e.g., by logrotate) when CreatePath is enabled.
+// The hook automatically detects external log rotation (e.g., by logrotate) when CreatePath and Create are enabled.
 // It uses inode comparison to detect when the log file has been moved/renamed and automatically
 // reopens the file at the configured path. The sync timer runs every second to check for rotation.
 //
@@ -85,7 +85,8 @@ type HookFile interface {
 //   - HookFile: The initialized file hook instance
 //   - error: An error if the hook could not be created (e.g., invalid file path)
 //
-// The function will create necessary directories if createPath is enabled in options.
+// The function will create necessary directories if CreatePath is enabled in options.
+// For automatic log rotation support, both CreatePath and Create must be enabled.
 // If no log levels are specified, it will log all levels by default.
 //
 // Example usage:
@@ -93,6 +94,7 @@ type HookFile interface {
 //	opts := logcfg.OptionsFile{
 //	    Filepath:   "/var/log/myapp.log",
 //	    CreatePath: true,
+//	    Create:     true,
 //	    FileMode:   0644,
 //	    PathMode:   0755,
 //	    LogLevel:   []string{"info", "warning", "error"},
@@ -134,7 +136,7 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 		}
 	}
 
-	a, e := setAgg(opt.Filepath, opt.FileMode.FileMode(), opt.CreatePath)
+	a, e := setAgg(opt.Filepath, opt.FileMode.FileMode(), opt.Create)
 	if e != nil {
 		return nil, e
 	}
@@ -148,6 +150,8 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 			enableTrace:      opt.EnableTrace,
 			enableAccessLog:  opt.EnableAccessLog,
 			filepath:         opt.Filepath,
+			filemode:         opt.FileMode.FileMode(),
+			filecreate:       opt.Create,
 		},
 		w: a,
 		r: new(atomic.Bool),

@@ -254,7 +254,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 	})
 
 	Describe("Real-World Scenario: Graceful Shutdown", func() {
-		PIt("should handle graceful shutdown during check", func() {
+		It("should handle graceful shutdown during check", func() {
 			checkStarted := &atomic.Bool{}
 			checkCompleted := &atomic.Bool{}
 
@@ -271,7 +271,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 
 			cfg := newConfig(nfo)
 			cfg.CheckTimeout = libdur.ParseDuration(2 * time.Second)
-			cfg.IntervalCheck = libdur.ParseDuration(1 * time.Second)
+			cfg.IntervalCheck = libdur.ParseDuration(100 * time.Millisecond)
 			Expect(mon.SetConfig(x, cfg)).ToNot(HaveOccurred())
 
 			Expect(mon.Start(ctx)).ToNot(HaveOccurred())
@@ -287,7 +287,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 		})
 	})
 
-	PDescribe("Concurrent Operations", func() {
+	Describe("Concurrent Operations", func() {
 		It("should handle concurrent reads safely", func() {
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
@@ -323,7 +323,9 @@ var _ = Describe("Monitor Integration Tests", func() {
 			for i := 0; i < 5; i++ {
 				wg.Add(1)
 				go func(index int) {
+					defer wg.Done()
 					cfg := newConfig(nfo)
+					cfg.Name = "concurrent-config"
 					cfg.IntervalCheck = libdur.ParseDuration(time.Duration(100+index*10) * time.Millisecond)
 					_ = mon.SetConfig(x, cfg)
 				}(i)

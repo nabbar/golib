@@ -79,7 +79,9 @@ func (o *hks) Run(ctx context.Context) {
 	)
 
 	defer func() {
-		libsrv.RecoveryCaller("golib/logger/hooksyslog/system", recover())
+		if r := recover(); r != nil {
+			libsrv.RecoveryCaller("golib/logger/hooksyslog/system", r)
+		}
 		if s != nil {
 			w.Wait()
 			_ = s.Close()
@@ -149,7 +151,9 @@ func (o *hks) writeWrapper(w Wrapper, done func(), d ...data) {
 	var err error
 
 	defer func() {
-		libsrv.RecoveryCaller("golib/logger/hooksyslog/system", recover())
+		if r := recover(); r != nil {
+			libsrv.RecoveryCaller("golib/logger/hooksyslog/system", r)
+		}
 		done()
 	}()
 

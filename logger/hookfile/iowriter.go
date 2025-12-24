@@ -28,7 +28,12 @@
 // This file implements the io.Writer interface and related methods for the file hook.
 package hookfile
 
-import "context"
+import (
+	"context"
+	"errors"
+
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
+)
 
 // Write writes the given byte slice to the underlying file writer.
 // Implements the io.Writer interface.
@@ -40,7 +45,31 @@ import "context"
 //   - int: The number of bytes written
 //   - error: Any error that occurred during writing
 func (o *hkf) Write(p []byte) (n int, err error) {
-	return o.w.Write(p)
+	n, err = o.w.Write(p)
+
+	if err == nil {
+		return n, err
+	}
+
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	n, err = o.w.Write(p)
+	if err == nil {
+		return n, err
+	}
+
+	if errors.Is(err, iotagg.ErrClosedResources) {
+		a, e := setAgg(o.o.filepath, o.o.filemode, o.o.filecreate)
+		if e != nil {
+			return n, e
+		}
+
+		o.w = a
+		return o.w.Write(p)
+	}
+
+	return n, err
 }
 
 // Close stops the hook and releases associated resources.
@@ -71,12 +100,6 @@ func (o *hkf) IsRunning() bool {
 //
 // The method will automatically clean up resources when the context is done.
 func (o *hkf) Run(ctx context.Context) {
-	defer func() {
-		_ = o.Close()
-	}()
-
-	for o.IsRunning() {
-		<-ctx.Done()
-		return
-	}
+	<-ctx.Done()
+	o.r.Store(false)
 }

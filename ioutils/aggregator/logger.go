@@ -26,6 +26,9 @@
 package aggregator
 
 // logError calls the configured error logger if set, otherwise does nothing.
+// This is used internally to log errors during write operations, context
+// operations, and callback executions. If no logger is configured or the
+// error is nil, the call is silently ignored.
 func (o *agg) logError(msg string, err error) {
 	i := o.le.Load()
 
@@ -37,6 +40,9 @@ func (o *agg) logError(msg string, err error) {
 }
 
 // logInfo calls the configured info logger if set, otherwise does nothing.
+// This is used internally to log informational messages during aggregator
+// lifecycle events (start, stop). If no logger is configured, the call
+// is silently ignored.
 func (o *agg) logInfo(msg string, arg ...any) {
 	if i := o.li.Load(); i == nil {
 		return

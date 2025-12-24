@@ -30,7 +30,9 @@ package hookfile
 
 import (
 	"io"
+	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	logtps "github.com/nabbar/golib/logger/types"
@@ -39,22 +41,27 @@ import (
 
 // ohkf contains the configuration options for the file hook.
 // It's an unexported type to ensure immutability after creation.
+// All fields are set during hook creation and never modified afterwards.
 type ohkf struct {
-	format           logrus.Formatter
-	levels           []logrus.Level
-	disableStack     bool
-	disableTimestamp bool
-	enableTrace      bool
-	enableAccessLog  bool
-	filepath         string
+	format           logrus.Formatter // formatter for log entries
+	levels           []logrus.Level   // log levels to process
+	disableStack     bool             // filter stack field
+	disableTimestamp bool             // filter time field
+	enableTrace      bool             // include caller/file/line fields
+	enableAccessLog  bool             // message-only mode
+	filepath         string           // path to log file
+	filemode         os.FileMode      // file permissions
+	filecreate       bool             // create file if missing (for rotation)
 }
 
 // hkf is the main implementation of the HookFile interface.
 // It handles writing log entries to the configured file with the specified formatting.
+// The hook uses a file aggregator for efficient writes and automatic rotation detection.
 type hkf struct {
-	o ohkf         // config data
-	w io.Writer    //aggregator writer
-	r *atomic.Bool // is running
+	m sync.Mutex   // protects Write during error recovery
+	o ohkf         // immutable config data
+	w io.Writer    // aggregator writer (buffered, shared)
+	r *atomic.Bool // is running flag (thread-safe)
 }
 
 // Levels returns the log levels that this hook is configured to handle.

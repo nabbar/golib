@@ -32,7 +32,6 @@ import (
 
 	ginsdk "github.com/gin-gonic/gin"
 	librtr "github.com/nabbar/golib/router"
-	librun "github.com/nabbar/golib/runner"
 )
 
 // Expose handles the /metrics endpoint for Prometheus scraping.
@@ -72,7 +71,6 @@ func (m *prom) Expose(ctx context.Context) {
 //	metrics.Use(authMiddleware)
 //	metrics.GET("/metrics", prm.ExposeGin)
 func (m *prom) ExposeGin(c *ginsdk.Context) {
-	defer librun.RecoveryCaller("golib/prometheus/ExposeGin", recover())
 	m.hdl.ServeHTTP(c.Writer, c.Request)
 }
 
@@ -97,7 +95,6 @@ func (m *prom) ExposeGin(c *ginsdk.Context) {
 //	// Or with method call
 //	router.Use(prm.MiddleWareGin)
 func (m *prom) MiddleWareGin(c *ginsdk.Context) {
-	defer librun.RecoveryCaller("golib/prometheus/MiddleWareGin", recover())
 	if c.GetInt64(librtr.GinContextStartUnixNanoTime) == 0 {
 		c.Set(librtr.GinContextStartUnixNanoTime, time.Now().UnixNano())
 	}

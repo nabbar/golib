@@ -45,23 +45,29 @@ import (
 
 // fileAgg represents an aggregated file writer with reference counting.
 // It manages a single log file that can be shared by multiple loggers.
+// The reference count tracks how many hooks are using this aggregator.
 type fileAgg struct {
-	i *atomic.Int64
-	r *os.Root
-	f *os.File
-	a iotagg.Aggregator
+	i *atomic.Int64     // reference counter (atomic for thread-safety)
+	r *os.Root          // root directory handle (for safe file operations)
+	f *os.File          // current log file descriptor
+	a iotagg.Aggregator // buffered aggregator with rotation detection
 }
 
-// Global map to manage file aggregators by file path
-// Uses atomic operations for thread-safe access
+// Global map to manage file aggregators by file path.
+// Uses atomic operations for thread-safe access.
+// Each unique file path has at most one aggregator, shared across all hooks.
 var (
-	// agg is a thread-safe map that maintains a collection of file aggregators
-	// The key is the file path, and the value is the file aggregator instance
+	// agg is a thread-safe map that maintains a collection of file aggregators.
+	// The key is the file path, and the value is the file aggregator instance.
+	// The map enables file handle sharing and reference counting across hooks.
 	agg = libatm.NewMapTyped[string, *fileAgg]()
 )
 
 // init initializes the package and sets up a finalizer to clean up resources
 // when the program exits. This ensures all log files are properly closed.
+// The finalizer is a safety net in case Close() is not called on all hooks.
+// It runs when the aggregator map is garbage collected, which typically happens
+// only at program termination.
 func init() {
 	runtime.SetFinalizer(agg, func(a libatm.MapTyped[string, *fileAgg]) {
 		a.Range(func(k string, v *fileAgg) bool {
@@ -137,7 +143,7 @@ func delAgg(k string) {
 // Parameters:
 //   - p: The file path to create the aggregator for
 //   - m: The file mode to use when creating the file
-//   - cre: Whether to create the file if it doesn't exist (enables O_CREATE flag)
+//   - cre: Whether to create the file if it doesn't exist (enables O_CREATE flag for rotation support)
 //
 // Returns:
 //   - *fileAgg: The newly created file aggregator
@@ -145,7 +151,9 @@ func delAgg(k string) {
 //
 // The function ensures proper error handling and resource cleanup in case of failures.
 // It also sets up a sync function that detects external log rotation and automatically
-// reopens the file when rotation is detected.
+// reopens the file when rotation is detected. The sync function compares inodes to detect
+// when the file has been rotated externally (e.g., by logrotate). If rotation is detected,
+// it closes the old file descriptor and opens a new one at the original path.
 func newAgg(p string, m os.FileMode, cre bool) (*fileAgg, error) {
 	i := &fileAgg{
 		i: new(atomic.Int64),

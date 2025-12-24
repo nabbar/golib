@@ -93,6 +93,7 @@ var _ = Describe("Integration Tests", func() {
 		opts := logcfg.OptionsFile{
 			Filepath:   testLogFile,
 			CreatePath: true, // Required for rotation detection and file recreation
+			Create:     true, // Required for automatic file creation after rotation
 		}
 
 		hook, err := logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
@@ -127,7 +128,7 @@ var _ = Describe("Integration Tests", func() {
 
 		// Wait for the next sync cycle to detect the rotation
 		// The SyncFct will notice the file at testLogFile is different/missing
-		time.Sleep(2 * time.Second) // Wait for next sync cycle
+		time.Sleep(2500 * time.Millisecond) // Wait for next sync cycle + margin
 
 		// Write second log entry - should go to newly created file after rotation detection
 		secondEntry := logrus.NewEntry(logger)
@@ -157,11 +158,14 @@ var _ = Describe("Integration Tests", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Ensure all writes are complete
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1500 * time.Millisecond)
 
 		// Close the hook to flush any remaining logs
 		Expect(hook.Close()).To(Succeed())
 		hook = nil
+
+		// Additional delay to ensure file system operations are complete
+		time.Sleep(200 * time.Millisecond)
 
 		// Verify rotated file contains first entry
 		content, err := os.ReadFile(rotatedFile)
@@ -378,5 +382,82 @@ var _ = Describe("Integration Tests", func() {
 					"Logs should contain %s", expected)
 			}
 		}
+	})
+
+	It("should filter fields correctly", func() {
+		opts := logcfg.OptionsFile{
+			Filepath:         testLogFile,
+			CreatePath:       true,
+			DisableStack:     true,
+			DisableTimestamp: true,
+			EnableTrace:      true,
+		}
+
+		hook, err := logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
+		Expect(err).NotTo(HaveOccurred())
+		defer hook.Close()
+
+		logger := logrus.New()
+		logger.SetOutput(io.Discard)
+
+		entry := logrus.NewEntry(logger)
+		entry.Level = logrus.InfoLevel
+		entry.Data = logrus.Fields{
+			"msg":    "test message",
+			"stack":  "should be filtered",
+			"time":   "should be filtered",
+			"caller": "should be kept",
+			"file":   "should be kept",
+			"line":   123,
+			"user":   "john",
+		}
+
+		err = hook.Fire(entry)
+		Expect(err).NotTo(HaveOccurred())
+
+		time.Sleep(250 * time.Millisecond)
+
+		content, err := os.ReadFile(testLogFile)
+		Expect(err).NotTo(HaveOccurred())
+		contentStr := string(content)
+
+		Expect(contentStr).NotTo(ContainSubstring("stack=\"should be filtered\""))
+		Expect(contentStr).NotTo(ContainSubstring("time=\"should be filtered\""))
+		Expect(contentStr).To(ContainSubstring("caller=\"should be kept\""))
+		Expect(contentStr).To(ContainSubstring("file=\"should be kept\""))
+		Expect(contentStr).To(ContainSubstring("line=123"))
+		Expect(contentStr).To(ContainSubstring("user=john"))
+	})
+
+	It("should handle access log with newline in message", func() {
+		accessLogFile := filepath.Join(tempIntDir, "access.log")
+
+		opts := logcfg.OptionsFile{
+			Filepath:        accessLogFile,
+			CreatePath:      true,
+			EnableAccessLog: true,
+		}
+
+		hook, err := logfil.New(opts, nil)
+		Expect(err).NotTo(HaveOccurred())
+		defer hook.Close()
+
+		logger := logrus.New()
+		logger.SetOutput(io.Discard)
+
+		entry := logrus.NewEntry(logger)
+		entry.Level = logrus.InfoLevel
+		entry.Message = "GET /api - 200 OK"
+
+		err = hook.Fire(entry)
+		Expect(err).NotTo(HaveOccurred())
+
+		time.Sleep(250 * time.Millisecond)
+
+		content, err := os.ReadFile(accessLogFile)
+		Expect(err).NotTo(HaveOccurred())
+		contentStr := string(content)
+
+		Expect(contentStr).To(ContainSubstring("GET /api - 200 OK"))
 	})
 })

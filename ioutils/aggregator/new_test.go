@@ -29,13 +29,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/nabbar/golib/ioutils/aggregator"
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Aggregator Creation", func() {
+var _ = Describe("TC-NW-001: Aggregator Creation", func() {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -51,11 +51,11 @@ var _ = Describe("Aggregator Creation", func() {
 		}
 	})
 
-	Describe("New()", func() {
-		Context("with valid configuration", func() {
-			It("should create aggregator with all parameters", func() {
+	Describe("TC-NW-002: New()", func() {
+		Context("TC-NW-003: with valid configuration", func() {
+			It("TC-NW-004: should create aggregator with all parameters", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					AsyncTimer: 100 * time.Millisecond,
 					AsyncMax:   5,
 					AsyncFct:   func(ctx context.Context) {},
@@ -65,7 +65,7 @@ var _ = Describe("Aggregator Creation", func() {
 					FctWriter:  writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -74,13 +74,13 @@ var _ = Describe("Aggregator Creation", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should create aggregator with minimal configuration", func() {
+			It("TC-NW-005: should create aggregator with minimal configuration", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -89,13 +89,13 @@ var _ = Describe("Aggregator Creation", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should create aggregator with nil context", func() {
+			It("TC-NW-006: should create aggregator with nil context", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(nil, cfg)
+				agg, err := iotagg.New(nil, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -104,13 +104,13 @@ var _ = Describe("Aggregator Creation", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should create aggregator with custom logger", func() {
+			It("TC-NW-007: should create aggregator with custom logger", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -119,14 +119,14 @@ var _ = Describe("Aggregator Creation", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should create aggregator with unbuffered channel", func() {
+			It("TC-NW-008: should create aggregator with unbuffered channel", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					BufWriter: 0, // unbuffered
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -135,14 +135,14 @@ var _ = Describe("Aggregator Creation", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should create aggregator with buffered channel", func() {
+			It("TC-NW-009: should create aggregator with buffered channel", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					BufWriter: 100,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -152,31 +152,31 @@ var _ = Describe("Aggregator Creation", func() {
 			})
 		})
 
-		Context("with invalid configuration", func() {
-			It("should return error when FctWriter is nil", func() {
-				cfg := aggregator.Config{
+		Context("TC-NW-010: with invalid configuration", func() {
+			It("TC-NW-011: should return error when FctWriter is nil", func() {
+				cfg := iotagg.Config{
 					AsyncTimer: 100 * time.Millisecond,
 					SyncTimer:  200 * time.Millisecond,
 					BufWriter:  10,
 					FctWriter:  nil, // missing required field
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(Equal(aggregator.ErrInvalidWriter))
+				Expect(err).To(Equal(iotagg.ErrInvalidWriter))
 				Expect(agg).To(BeNil())
 			})
 
-			It("should handle async configuration without function", func() {
+			It("TC-NW-012: should handle async configuration without function", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					AsyncTimer: 100 * time.Millisecond,
 					AsyncMax:   5,
 					AsyncFct:   nil, // timer without function
 					FctWriter:  writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -185,15 +185,15 @@ var _ = Describe("Aggregator Creation", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should handle sync configuration without function", func() {
+			It("TC-NW-013: should handle sync configuration without function", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					SyncTimer: 100 * time.Millisecond,
 					SyncFct:   nil, // timer without function
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -203,15 +203,15 @@ var _ = Describe("Aggregator Creation", func() {
 			})
 		})
 
-		Context("with edge cases", func() {
-			It("should handle zero AsyncMax", func() {
+		Context("TC-NW-014: with edge cases", func() {
+			It("TC-NW-015: should handle zero AsyncMax", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					AsyncMax:  0,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -219,14 +219,14 @@ var _ = Describe("Aggregator Creation", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should handle negative AsyncMax", func() {
+			It("TC-NW-016: should handle negative AsyncMax", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					AsyncMax:  -1,
 					FctWriter: writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -234,15 +234,15 @@ var _ = Describe("Aggregator Creation", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should handle zero timers", func() {
+			It("TC-NW-017: should handle zero timers", func() {
 				writer := newTestWriter()
-				cfg := aggregator.Config{
+				cfg := iotagg.Config{
 					AsyncTimer: 0,
 					SyncTimer:  0,
 					FctWriter:  writer.Write,
 				}
 
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(agg).ToNot(BeNil())
 
@@ -252,19 +252,19 @@ var _ = Describe("Aggregator Creation", func() {
 		})
 	})
 
-	Describe("Context Interface", func() {
+	Describe("TC-NW-018: Context Interface", func() {
 		var (
-			agg aggregator.Aggregator
+			agg iotagg.Aggregator
 		)
 
 		BeforeEach(func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
 			var err error
-			agg, err = aggregator.New(ctx, cfg)
+			agg, err = iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 		})
@@ -275,7 +275,7 @@ var _ = Describe("Aggregator Creation", func() {
 			}
 		})
 
-		It("should implement context.Context interface", func() {
+		It("TC-NW-019: should implement context.Context interface", func() {
 			// Test Done channel
 			doneChan := agg.Done()
 			Expect(doneChan).ToNot(BeNil())
@@ -289,17 +289,17 @@ var _ = Describe("Aggregator Creation", func() {
 			Expect(val).To(BeNil())
 		})
 
-		It("should implement context with deadline", func() {
+		It("TC-NW-020: should implement context with deadline", func() {
 			deadline := time.Now().Add(5 * time.Second)
 			ctxWithDeadline, cancel := context.WithDeadline(ctx, deadline)
 			defer cancel()
 
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg2, err := aggregator.New(ctxWithDeadline, cfg)
+			agg2, err := iotagg.New(ctxWithDeadline, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg2).ToNot(BeNil())
 
@@ -310,7 +310,7 @@ var _ = Describe("Aggregator Creation", func() {
 			_ = agg2.Close()
 		})
 
-		It("should propagate context values", func() {
+		It("TC-NW-021: should propagate context values", func() {
 			type ctxKey string
 			key := ctxKey("test-key")
 			value := "test-value"
@@ -318,11 +318,11 @@ var _ = Describe("Aggregator Creation", func() {
 			ctxWithValue := context.WithValue(ctx, key, value)
 
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg2, err := aggregator.New(ctxWithValue, cfg)
+			agg2, err := iotagg.New(ctxWithValue, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg2).ToNot(BeNil())
 
@@ -333,14 +333,14 @@ var _ = Describe("Aggregator Creation", func() {
 		})
 	})
 
-	Describe("Logger Configuration", func() {
-		It("should set custom error logger", func() {
+	Describe("TC-NW-022: Logger Configuration", func() {
+		It("TC-NW-023: should set custom error logger", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -351,13 +351,13 @@ var _ = Describe("Aggregator Creation", func() {
 			// This test mainly ensures SetLoggerError doesn't panic
 		})
 
-		It("should set custom info logger", func() {
+		It("TC-NW-024: should set custom info logger", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -368,13 +368,13 @@ var _ = Describe("Aggregator Creation", func() {
 			// This test mainly ensures SetLoggerInfo doesn't panic
 		})
 
-		It("should handle nil error logger", func() {
+		It("TC-NW-025: should handle nil error logger", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -382,13 +382,13 @@ var _ = Describe("Aggregator Creation", func() {
 			agg.SetLoggerError(nil)
 		})
 
-		It("should handle nil info logger", func() {
+		It("TC-NW-026: should handle nil info logger", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 

@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nabbar/golib/ioutils/aggregator"
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 )
 
 // ExampleNew demonstrates basic aggregator creation and usage.
@@ -54,13 +54,13 @@ func ExampleNew() {
 	}
 
 	// Configure the aggregator
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 10,
 		FctWriter: writer,
 	}
 
 	// Create and start aggregator
-	agg, err := aggregator.New(ctx, cfg)
+	agg, err := iotagg.New(ctx, cfg)
 	if err != nil {
 		fmt.Printf("Error creating aggregator: %v\n", err)
 		return
@@ -102,13 +102,13 @@ func ExampleNew_fileWriter() {
 	defer tmpFile.Close()
 
 	// Configure aggregator to write to file
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 100,
 		FctWriter: tmpFile.Write,
 	}
 
 	// Create and start
-	agg, err := aggregator.New(ctx, cfg)
+	agg, err := iotagg.New(ctx, cfg)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -147,7 +147,7 @@ func ExampleConfig_asyncCallback() {
 	var mu sync.Mutex
 
 	// Configure with async callback
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 10,
 		FctWriter: func(p []byte) (int, error) {
 			return len(p), nil
@@ -161,7 +161,7 @@ func ExampleConfig_asyncCallback() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg)
+	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
 	defer agg.Close()
 
@@ -181,7 +181,7 @@ func ExampleConfig_syncCallback() {
 
 	var flushCount int
 
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 10,
 		FctWriter: func(p []byte) (int, error) {
 			return len(p), nil
@@ -193,7 +193,7 @@ func ExampleConfig_syncCallback() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg)
+	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
 	defer agg.Close()
 
@@ -210,14 +210,14 @@ func ExampleConfig_syncCallback() {
 func ExampleAggregator_IsRunning() {
 	ctx := context.Background()
 
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 10,
 		FctWriter: func(p []byte) (int, error) {
 			return len(p), nil
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg)
+	agg, _ := iotagg.New(ctx, cfg)
 
 	fmt.Printf("Before Start: %v\n", agg.IsRunning())
 
@@ -244,7 +244,7 @@ func ExampleAggregator_Restart() {
 	var writeCount int
 	var mu sync.Mutex
 
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 10,
 		FctWriter: func(p []byte) (int, error) {
 			mu.Lock()
@@ -254,7 +254,7 @@ func ExampleAggregator_Restart() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg)
+	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
 
 	// Write some data
@@ -283,14 +283,14 @@ func ExampleAggregator_Restart() {
 func ExampleAggregator_contextCancellation() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 10,
 		FctWriter: func(p []byte) (int, error) {
 			return len(p), nil
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg)
+	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
 
 	// Write some data
@@ -315,7 +315,7 @@ func ExampleAggregator_errorHandling() {
 	ctx := context.Background()
 
 	// Writer that fails on specific data
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 10,
 		FctWriter: func(p []byte) (int, error) {
 			if string(p) == "fail" {
@@ -325,7 +325,7 @@ func ExampleAggregator_errorHandling() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg)
+	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
 	defer agg.Close()
 
@@ -356,7 +356,7 @@ func ExampleAggregator_monitoring() {
 	var mu sync.Mutex
 
 	// Slow writer to create backpressure
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 5, // Small buffer to demonstrate monitoring
 		FctWriter: func(p []byte) (int, error) {
 			time.Sleep(50 * time.Millisecond) // Simulate slow I/O
@@ -367,7 +367,7 @@ func ExampleAggregator_monitoring() {
 		},
 	}
 
-	agg, _ := aggregator.New(ctx, cfg)
+	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
 	defer agg.Close()
 
@@ -437,7 +437,7 @@ func Example_socketToFile() {
 	defer tmpFile.Close()
 
 	// Create aggregator to serialize writes to file
-	cfg := aggregator.Config{
+	cfg := iotagg.Config{
 		BufWriter: 1000, // Buffer up to 1000 socket reads
 		FctWriter: tmpFile.Write,
 		SyncTimer: 5 * time.Second,
@@ -447,7 +447,7 @@ func Example_socketToFile() {
 		},
 	}
 
-	agg, err := aggregator.New(ctx, cfg)
+	agg, err := iotagg.New(ctx, cfg)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return

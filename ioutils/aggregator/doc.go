@@ -282,13 +282,16 @@
 //
 // # Performance
 //
-// Typical performance characteristics:
+// Based on real benchmarks (see benchmark_test.go):
 //   - Write throughput: 1000+ writes/second
-//   - Write latency: 15-345µs per operation
+//   - Write latency: < 1ms median (including metrics overhead)
+//   - Metrics read latency: < 5µs median for all 4 metrics
+//   - Start/Stop time: ~130ms median (includes synchronization)
 //   - Memory overhead: ~100 bytes per buffered write
 //
 // Buffer size should be tuned based on write frequency and latency requirements.
-// A larger buffer reduces contention but increases memory usage.
+// A larger buffer reduces contention but increases memory usage. See the
+// Buffer Sizing section above for detailed guidance.
 //
 // # Dependencies
 //

@@ -30,13 +30,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nabbar/golib/ioutils/aggregator"
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Runner Operations", func() {
+var _ = Describe("TC-RN-001: Runner Operations", func() {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -52,14 +52,14 @@ var _ = Describe("Runner Operations", func() {
 		}
 	})
 
-	Describe("Start()", func() {
-		It("should start successfully", func() {
+	Describe("TC-RN-002: Start()", func() {
+		It("TC-RN-003: should start successfully", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.IsRunning()).To(BeFalse())
@@ -75,13 +75,13 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should be idempotent", func() {
+		It("TC-RN-004: should be idempotent", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Start multiple times
@@ -99,11 +99,11 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should trigger async function", func() {
+		It("TC-RN-005: should trigger async function", func() {
 			writer := newTestWriter()
 			counter := newTestCounter()
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				AsyncTimer: 100 * time.Millisecond,
 				AsyncMax:   5,
 				AsyncFct: func(ctx context.Context) {
@@ -112,7 +112,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -127,11 +127,11 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should trigger sync function", func() {
+		It("TC-RN-006: should trigger sync function", func() {
 			writer := newTestWriter()
 			counter := newTestCounter()
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				SyncTimer: 100 * time.Millisecond,
 				SyncFct: func(ctx context.Context) {
 					counter.Inc()
@@ -139,7 +139,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -154,12 +154,12 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should trigger both async and sync functions", func() {
+		It("TC-RN-007: should trigger both async and sync functions", func() {
 			writer := newTestWriter()
 			asyncCounter := newTestCounter()
 			syncCounter := newTestCounter()
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				AsyncTimer: 50 * time.Millisecond,
 				AsyncMax:   5,
 				AsyncFct: func(ctx context.Context) {
@@ -172,7 +172,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -191,12 +191,12 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should respect AsyncMax limit", func() {
+		It("TC-RN-008: should respect AsyncMax limit", func() {
 			writer := newTestWriter()
 			var activeCount atomic.Int32
 			var maxConcurrent atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				AsyncTimer: 10 * time.Millisecond,
 				AsyncMax:   3,
 				AsyncFct: func(ctx context.Context) {
@@ -219,7 +219,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -237,14 +237,14 @@ var _ = Describe("Runner Operations", func() {
 		})
 	})
 
-	Describe("Stop()", func() {
-		It("should stop successfully", func() {
+	Describe("TC-RN-009: Stop()", func() {
+		It("TC-RN-010: should stop successfully", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -262,13 +262,13 @@ var _ = Describe("Runner Operations", func() {
 			}, 2*time.Second, 50*time.Millisecond).Should(BeFalse())
 		})
 
-		It("should stop when not running", func() {
+		It("TC-RN-011: should stop when not running", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.IsRunning()).To(BeFalse())
@@ -279,13 +279,13 @@ var _ = Describe("Runner Operations", func() {
 			Expect(agg.IsRunning()).To(BeFalse())
 		})
 
-		It("should be idempotent", func() {
+		It("TC-RN-012: should be idempotent", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -304,11 +304,11 @@ var _ = Describe("Runner Operations", func() {
 			Expect(agg.IsRunning()).To(BeFalse())
 		})
 
-		It("should stop async functions", func() {
+		It("TC-RN-013: should stop async functions", func() {
 			writer := newTestWriter()
 			counter := newTestCounter()
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				AsyncTimer: 50 * time.Millisecond,
 				AsyncMax:   5,
 				AsyncFct: func(ctx context.Context) {
@@ -317,7 +317,7 @@ var _ = Describe("Runner Operations", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -341,14 +341,14 @@ var _ = Describe("Runner Operations", func() {
 		})
 	})
 
-	Describe("Restart()", func() {
-		It("should restart successfully", func() {
+	Describe("TC-RN-014: Restart()", func() {
+		It("TC-RN-015: should restart successfully", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -382,13 +382,13 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should restart when not running", func() {
+		It("TC-RN-016: should restart when not running", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.IsRunning()).To(BeFalse())
@@ -404,13 +404,13 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should reset uptime on restart", func() {
+		It("TC-RN-017: should reset uptime on restart", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -434,14 +434,14 @@ var _ = Describe("Runner Operations", func() {
 		})
 	})
 
-	Describe("IsRunning()", func() {
-		It("should return false initially", func() {
+	Describe("TC-RN-018: IsRunning()", func() {
+		It("TC-RN-019: should return false initially", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.IsRunning()).To(BeFalse())
@@ -450,13 +450,13 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should return true when running", func() {
+		It("TC-RN-020: should return true when running", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -470,13 +470,13 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should return false after stop", func() {
+		It("TC-RN-021: should return false after stop", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -495,14 +495,14 @@ var _ = Describe("Runner Operations", func() {
 		})
 	})
 
-	Describe("Uptime()", func() {
-		It("should return 0 initially", func() {
+	Describe("TC-RN-022: Uptime()", func() {
+		It("TC-RN-023: should return 0 initially", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(agg.Uptime()).To(Equal(time.Duration(0)))
@@ -511,13 +511,13 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should increase while running", func() {
+		It("TC-RN-024: should increase while running", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)
@@ -535,13 +535,13 @@ var _ = Describe("Runner Operations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should stop increasing after stop", func() {
+		It("TC-RN-025: should stop increasing after stop", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(ctx)

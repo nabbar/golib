@@ -47,7 +47,12 @@ const (
 // It initializes the runner and waits for it to start successfully.
 // Returns an error if the monitor is invalid or fails to start within MaxPoolStart.
 func (o *mon) Start(ctx context.Context) error {
-	defer librun.RecoveryCaller("golib/monitor/Start", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/Start", r)
+		}
+	}()
+
 	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return ErrorInvalid.Error(nil)
 	}
@@ -73,7 +78,12 @@ func (o *mon) Start(ctx context.Context) error {
 // It gracefully shuts down the runner and cleans up resources.
 // Returns an error if the monitor is invalid or the runner fails to stop.
 func (o *mon) Stop(ctx context.Context) error {
-	defer librun.RecoveryCaller("golib/monitor/Stop", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/Stop", r)
+		}
+	}()
+
 	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return ErrorInvalid.Error(nil)
 	} else {
@@ -89,7 +99,12 @@ func (o *mon) Stop(ctx context.Context) error {
 // Restart stops and then starts the monitor.
 // Returns an error if either operation fails.
 func (o *mon) Restart(ctx context.Context) error {
-	defer librun.RecoveryCaller("golib/monitor/Restart", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/Restart", r)
+		}
+	}()
+
 	if e := o.Stop(ctx); e != nil {
 		return e
 	} else if e = o.Start(ctx); e != nil {
@@ -101,7 +116,6 @@ func (o *mon) Restart(ctx context.Context) error {
 
 // IsRunning returns true if the monitor is currently executing health checks.
 func (o *mon) IsRunning() bool {
-	defer librun.RecoveryCaller("golib/monitor/IsRunning", recover())
 	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return false
 	} else if r := o.r.Load(); r == nil {

@@ -1,7 +1,9 @@
+//go:build race
+
 /*
  * MIT License
  *
- * Copyright (c) 2022 Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,62 +23,10 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
-package pool_test
+package monitor_test
 
-import (
-	"context"
-	"testing"
-	"time"
+import "time"
 
-	liblog "github.com/nabbar/golib/logger"
-	logcfg "github.com/nabbar/golib/logger/config"
-	libprm "github.com/nabbar/golib/prometheus"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-var (
-	// Global context for all tests
-	n context.CancelFunc
-	x context.Context
-
-	// Logger for tests
-	l  liblog.Logger
-	fl = func() liblog.Logger {
-		return l
-	}
-	lo = logcfg.Options{
-		Stdout: &logcfg.OptionsStd{
-			DisableStandard: true,
-		},
-	}
-
-	p libprm.Prometheus
-)
-
-// TestPool is the entry point for the Ginkgo test suite
-func TestPool(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Monitor/Pool Package Suite")
-}
-
-var _ = BeforeSuite(func() {
-	x, n = context.WithTimeout(context.Background(), 60*time.Second)
-
-	l = liblog.New(x)
-	opt := lo
-	Expect(l.SetOptions(&opt)).ToNot(HaveOccurred())
-
-	p = libprm.New(x)
-	Expect(p).ToNot(BeNil())
-})
-
-var _ = AfterSuite(func() {
-	if n != nil {
-		n()
-	}
-})
+const suiteTimeout = 4 * time.Minute

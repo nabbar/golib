@@ -50,12 +50,6 @@ import (
 //
 // The method blocks for up to 100ms waiting for the aggregator to stop gracefully.
 func (o *agg) Close() error {
-	return o.closeRun(context.Background())
-}
-
-// closeRun is the internal close function called by the runner.
-// It stops the aggregator, closes the context, and closes the channel.
-func (o *agg) closeRun(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/close", r)
@@ -65,15 +59,28 @@ func (o *agg) closeRun(ctx context.Context) error {
 	var e error
 
 	if o.IsRunning() {
-		x, n := context.WithTimeout(ctx, 100*time.Millisecond)
+		x, n := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer n()
 		e = o.Stop(x)
 	}
 
-	o.ctxClose()
-	o.chanClose()
+	o.cleanup()
 
 	return e
+}
+
+// closeRun is the internal close function called by the runner.
+// It stops the aggregator, closes the context, and closes the channel.
+func (o *agg) closeRun(ctx context.Context) error {
+	defer func() {
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/ioutils/aggregator/closeRun", r)
+		}
+	}()
+
+	o.cleanup()
+
+	return nil
 }
 
 // Write queues data to be written by the aggregator.
@@ -136,7 +143,10 @@ func (o *agg) Write(p []byte) (n int, err error) {
 
 		// Send to channel (may block if buffer is full)
 		// using new slice to prevent reset params slice p
-		c <- append(make([]byte, 0, n+1), p[:n]...)
+		pCpy := make([]byte, n)
+		copy(pCpy, p)
+
+		c <- pCpy
 		return len(p), nil
 	}
 }
@@ -155,8 +165,10 @@ func (o *agg) chanData() <-chan []byte {
 }
 
 // chanOpen creates a new buffered channel for writes and marks it as open.
-// This is called by run() when the aggregator starts.
-// The channel capacity is determined by Config.BufWriter (stored in sh).
+// This is called by run() when the aggregator starts, after verifying the
+// aggregator is not already running. The channel capacity is determined by
+// Config.BufWriter (stored in sh). The op flag is set to true atomically
+// to signal that the channel is ready for writes.
 func (o *agg) chanOpen() {
 	// Mark channel as closing to prevent new writes
 	o.op.Store(true)
@@ -165,7 +177,9 @@ func (o *agg) chanOpen() {
 
 // chanClose marks the channel as closed and replaces it with closedChan sentinel.
 // This prevents new writes and signals to readers that the channel is closed.
-// The actual channel is not closed to avoid panics; instead we use a sentinel value.
+// The actual channel is not closed to avoid panics from concurrent writes;
+// instead we use a pre-closed sentinel channel. The op flag is set to false
+// atomically to signal that writes should be rejected.
 func (o *agg) chanClose() {
 	// Mark channel as closing to prevent new writes
 	o.op.Store(false)

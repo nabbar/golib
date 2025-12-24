@@ -31,13 +31,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nabbar/golib/ioutils/aggregator"
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Error Handling", func() {
+var _ = Describe("TC-ER-001: Error Handling", func() {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -53,26 +53,26 @@ var _ = Describe("Error Handling", func() {
 		}
 	})
 
-	Describe("Error Constants", func() {
-		It("should have defined error constants", func() {
-			Expect(aggregator.ErrInvalidWriter).ToNot(BeNil())
-			Expect(aggregator.ErrInvalidInstance).ToNot(BeNil())
-			Expect(aggregator.ErrClosedResources).ToNot(BeNil())
+	Describe("TC-ER-002: Error Constants", func() {
+		It("TC-ER-003: should have defined error constants", func() {
+			Expect(iotagg.ErrInvalidWriter).ToNot(BeNil())
+			Expect(iotagg.ErrInvalidInstance).ToNot(BeNil())
+			Expect(iotagg.ErrClosedResources).ToNot(BeNil())
 		})
 
-		It("should have distinct error messages", func() {
-			Expect(aggregator.ErrInvalidWriter.Error()).To(ContainSubstring("invalid writer"))
-			Expect(aggregator.ErrInvalidInstance.Error()).To(ContainSubstring("invalid instance"))
-			Expect(aggregator.ErrClosedResources.Error()).To(ContainSubstring("closed resources"))
+		It("TC-ER-004: should have distinct error messages", func() {
+			Expect(iotagg.ErrInvalidWriter.Error()).To(ContainSubstring("invalid writer"))
+			Expect(iotagg.ErrInvalidInstance.Error()).To(ContainSubstring("invalid instance"))
+			Expect(iotagg.ErrClosedResources.Error()).To(ContainSubstring("closed resources"))
 		})
 	})
 
-	Describe("Writer Errors", func() {
-		It("should handle writer function errors gracefully", func() {
+	Describe("TC-ER-005: Writer Errors", func() {
+		It("TC-ER-006: should handle writer function errors gracefully", func() {
 			errorToReturn := errors.New("writer error")
 			var callCount atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: func(p []byte) (n int, err error) {
 					callCount.Add(1)
@@ -80,7 +80,7 @@ var _ = Describe("Error Handling", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -101,12 +101,12 @@ var _ = Describe("Error Handling", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should continue processing after writer errors", func() {
+		It("TC-ER-007: should continue processing after writer errors", func() {
 			var callCount atomic.Int32
 			var failFirst atomic.Bool
 			failFirst.Store(true)
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: func(p []byte) (n int, err error) {
 					callCount.Add(1)
@@ -118,7 +118,7 @@ var _ = Describe("Error Handling", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -138,17 +138,17 @@ var _ = Describe("Error Handling", func() {
 		})
 	})
 
-	Describe("Context Errors", func() {
-		It("should handle parent context cancellation", func() {
+	Describe("TC-ER-008: Context Errors", func() {
+		It("TC-ER-009: should handle parent context cancellation", func() {
 			localCtx, localCancel := context.WithCancel(ctx)
 
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(localCtx, cfg)
+			agg, err := iotagg.New(localCtx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(localCtx)
@@ -163,14 +163,14 @@ var _ = Describe("Error Handling", func() {
 			}, 2*time.Second, 50*time.Millisecond).Should(Equal(context.Canceled))
 		})
 
-		It("should handle parent context deadline", func() {
+		It("TC-ER-010: should handle parent context deadline", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			localCtx, localCancel := context.WithTimeout(ctx, 200*time.Millisecond)
@@ -185,16 +185,16 @@ var _ = Describe("Error Handling", func() {
 			}, 2*time.Second, 50*time.Millisecond).Should(HaveOccurred())
 		})
 
-		It("should reject writes after context cancellation", func() {
+		It("TC-ER-011: should reject writes after context cancellation", func() {
 			localCtx, localCancel := context.WithCancel(ctx)
 
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(localCtx, cfg)
+			agg, err := iotagg.New(localCtx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = agg.Start(localCtx)
@@ -212,11 +212,11 @@ var _ = Describe("Error Handling", func() {
 		})
 	})
 
-	Describe("Async Function Errors", func() {
-		It("should handle panics in async function", func() {
+	Describe("TC-ER-012: Async Function Errors", func() {
+		It("TC-ER-013: should handle panics in async function", func() {
 			writer := newTestWriter()
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				AsyncTimer: 50 * time.Millisecond,
 				AsyncMax:   5,
 				AsyncFct: func(ctx context.Context) {
@@ -229,7 +229,7 @@ var _ = Describe("Error Handling", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -245,11 +245,11 @@ var _ = Describe("Error Handling", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should respect context cancellation in async function", func() {
+		It("TC-ER-014: should respect context cancellation in async function", func() {
 			writer := newTestWriter()
 			counter := newTestCounter()
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				AsyncTimer: 20 * time.Millisecond,
 				AsyncMax:   5,
 				AsyncFct: func(ctx context.Context) {
@@ -265,7 +265,7 @@ var _ = Describe("Error Handling", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -288,12 +288,12 @@ var _ = Describe("Error Handling", func() {
 		})
 	})
 
-	Describe("Sync Function Errors", func() {
-		It("should handle panics in sync function", func() {
+	Describe("TC-ER-015: Sync Function Errors", func() {
+		It("TC-ER-016: should handle panics in sync function", func() {
 			writer := newTestWriter()
 			var panicCount atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				SyncTimer: 50 * time.Millisecond,
 				SyncFct: func(ctx context.Context) {
 					panicCount.Add(1)
@@ -301,7 +301,7 @@ var _ = Describe("Error Handling", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// This might panic during start/run
@@ -318,13 +318,13 @@ var _ = Describe("Error Handling", func() {
 			_ = agg.Close()
 		})
 
-		It("should respect context cancellation in sync function", func() {
+		It("TC-ER-017: should respect context cancellation in sync function", func() {
 			writer := newTestWriter()
 			counter := newTestCounter()
 			var shouldBlock atomic.Bool
 			shouldBlock.Store(true)
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				SyncTimer: 20 * time.Millisecond,
 				SyncFct: func(ctx context.Context) {
 					if shouldBlock.Load() {
@@ -340,7 +340,7 @@ var _ = Describe("Error Handling", func() {
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -360,15 +360,15 @@ var _ = Describe("Error Handling", func() {
 		})
 	})
 
-	Describe("Edge Cases", func() {
-		It("should handle rapid open/close cycles", func() {
+	Describe("TC-ER-018: Edge Cases", func() {
+		It("TC-ER-019: should handle rapid open/close cycles", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
 			for i := 0; i < 10; i++ {
-				agg, err := aggregator.New(ctx, cfg)
+				agg, err := iotagg.New(ctx, cfg)
 				Expect(err).ToNot(HaveOccurred())
 
 				err = startAndWait(agg, ctx)
@@ -379,16 +379,16 @@ var _ = Describe("Error Handling", func() {
 			}
 		})
 
-		It("should handle writes during close", func() {
+		It("TC-ER-020: should handle writes during close", func() {
 			writer := newTestWriter()
 			writer.SetDelay(10) // Slow down writes
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 100,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -412,13 +412,13 @@ var _ = Describe("Error Handling", func() {
 			<-done
 		})
 
-		It("should handle nil logger gracefully", func() {
+		It("TC-ER-021: should handle nil logger gracefully", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -426,14 +426,14 @@ var _ = Describe("Error Handling", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should handle zero-length writes without calling writer", func() {
+		It("TC-ER-022: should handle zero-length writes without calling writer", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)
@@ -456,14 +456,14 @@ var _ = Describe("Error Handling", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should handle nil slices", func() {
+		It("TC-ER-023: should handle nil slices", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = startAndWait(agg, ctx)

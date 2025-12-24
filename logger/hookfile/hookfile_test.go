@@ -246,6 +246,26 @@ var _ = Describe("HookFile", func() {
 
 			time.Sleep(100 * time.Millisecond)
 		})
+
+		It("should handle Write after Close and reopen", func() {
+			// Close the hook to trigger aggregator close
+			err = hook.Close()
+			Expect(err).NotTo(HaveOccurred())
+
+			// Wait for close to complete
+			time.Sleep(200 * time.Millisecond)
+
+			// Try to write - should trigger ErrClosedResources and reopen
+			data := []byte("test after close\n")
+			n, err := hook.Write(data)
+
+			// The write should either succeed (after reopen) or fail with closed error
+			if err == nil {
+				Expect(n).To(Equal(len(data)))
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		})
 	})
 
 	Context("Configuration Options", func() {

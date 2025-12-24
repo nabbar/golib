@@ -102,11 +102,12 @@ func (o *agg) Value(key any) any {
 }
 
 // ctxNew creates a new internal context derived from the provided parent context.
-// This is called during initialization and when the aggregator starts.
+// This is called during initialization in New() and when the aggregator starts in run().
 //
 // The method creates a cancellable context and stores both the context and its
 // cancel function for later use. If there was a previous context, its cancel
-// function is called to prevent resource leaks.
+// function is called first to prevent resource leaks. If the provided context
+// is nil or already cancelled, context.Background() is used as the parent.
 func (o *agg) ctxNew(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -131,7 +132,11 @@ func (o *agg) ctxNew(ctx context.Context) {
 // This ensures that any ongoing operations respecting the context will terminate,
 // and future Done() calls will receive a closed channel.
 //
-// The method is safe to call multiple times.
+// The method atomically swaps the cancel function with a no-op before calling it,
+// ensuring thread safety. A new cancelled context is created and stored to maintain
+// consistent behavior for subsequent calls to context methods.
+//
+// The method is safe to call multiple times and is idempotent.
 func (o *agg) ctxClose() {
 	defer func() {
 		if r := recover(); r != nil {

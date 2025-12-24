@@ -336,11 +336,11 @@ var _ = Describe("Monitor Security and Robustness", func() {
 			Expect(mon.SetConfig(x, newConfig(nfo))).ToNot(HaveOccurred())
 
 			Expect(mon.Start(ctx)).ToNot(HaveOccurred())
-			time.Sleep(100 * time.Millisecond)
 
 			// Should handle long message without issues
-			msg := mon.Message()
-			Expect(len(msg)).To(Equal(10000))
+			Eventually(func() int {
+				return len(mon.Message())
+			}, 1*time.Second, 10*time.Millisecond).Should(Equal(10000))
 
 			Expect(mon.Stop(ctx)).ToNot(HaveOccurred())
 		})
@@ -355,10 +355,10 @@ var _ = Describe("Monitor Security and Robustness", func() {
 			Expect(mon.SetConfig(x, newConfig(nfo))).ToNot(HaveOccurred())
 
 			Expect(mon.Start(ctx)).ToNot(HaveOccurred())
-			time.Sleep(200 * time.Millisecond)
 
-			msg := mon.Message()
-			Expect(msg).To(ContainSubstring("special chars"))
+			Eventually(func() string {
+				return mon.Message()
+			}, 1*time.Second, 10*time.Millisecond).Should(ContainSubstring("special chars"))
 
 			Expect(mon.Stop(ctx)).ToNot(HaveOccurred())
 		})

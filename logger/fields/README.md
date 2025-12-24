@@ -1,6 +1,6 @@
 # Logger Fields
 
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
 [![Coverage](https://img.shields.io/badge/Coverage-95.7%25-brightgreen)](TESTING.md)
 
@@ -311,7 +311,7 @@ go get github.com/nabbar/golib/logger/fields
 ```
 
 **Requirements:**
-- Go 1.18 or higher (generics support required)
+- Go 1.24 or higher (generics support required)
 - Compatible with Linux, macOS, Windows
 
 ### Basic Field Creation

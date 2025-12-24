@@ -107,7 +107,9 @@ func (o *run) IsRunning() bool {
 // Any panic during restart is recovered and logged.
 func (o *run) Restart(ctx context.Context) error {
 	defer func() {
-		runner.RecoveryCaller("golib/server/startstop/restart", recover())
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/ticker/restart", r)
+		}
 	}()
 
 	if ctx == nil {
@@ -145,7 +147,9 @@ func (o *run) Restart(ctx context.Context) error {
 // Any panic during stop is recovered and logged.
 func (o *run) Stop(ctx context.Context) error {
 	defer func() {
-		runner.RecoveryCaller("golib/server/ticker/stop", recover())
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/ticker/stop", r)
+		}
 	}()
 
 	if ctx == nil {
@@ -181,7 +185,9 @@ func (o *run) Stop(ctx context.Context) error {
 // Thread-safety: This method is protected by a mutex and safe for concurrent use.
 func (o *run) Start(ctx context.Context) error {
 	defer func() {
-		runner.RecoveryCaller("golib/server/ticker/start", recover())
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/ticker/start", r)
+		}
 	}()
 
 	if ctx == nil {
@@ -270,7 +276,12 @@ func (o *run) deMuxStart(ctx context.Context) error {
 
 		defer func() {
 			// Recover from any panic to prevent process crash
-			runner.RecoveryCaller("golib/server/ticker", recover())
+			if r := recover(); r != nil {
+				runner.RecoveryCaller("golib/server/ticker/deMuxStart", r)
+			}
+		}()
+
+		defer func() {
 			// Always clean up resources
 			tck.Stop()
 			o.cancel()
@@ -313,7 +324,9 @@ func (o *run) getFunction(ctx context.Context, tck *time.Ticker) {
 	defer func() {
 		// Recover from any panic in the user function
 		// This ensures one bad tick doesn't kill the entire ticker
-		runner.RecoveryCaller("golib/server/startstop/fctStart", recover())
+		if r := recover(); r != nil {
+			runner.RecoveryCaller("golib/server/ticker/getFunction", r)
+		}
 	}()
 
 	// Execute the user function and collect any error

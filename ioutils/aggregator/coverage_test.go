@@ -31,7 +31,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/nabbar/golib/ioutils/aggregator"
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,7 +39,7 @@ import (
 
 // Tests specifically for improving code coverage of low-coverage functions
 
-var _ = Describe("Coverage Improvements", func() {
+var _ = Describe("TC-CV-001: Coverage Improvements", func() {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -54,14 +54,14 @@ var _ = Describe("Coverage Improvements", func() {
 		time.Sleep(50 * time.Millisecond)
 	})
 
-	Describe("Context.Done() coverage", func() {
-		It("should return closed channel when context is cancelled", func() {
+	Describe("TC-CV-002: Context.Done() coverage", func() {
+		It("TC-CV-003: should return closed channel when context is cancelled", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -80,13 +80,13 @@ var _ = Describe("Coverage Improvements", func() {
 			agg.Close()
 		})
 
-		It("should return closed channel when aggregator is closed", func() {
+		It("TC-CV-004: should return closed channel when aggregator is closed", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(startAndWait(agg, ctx)).To(Succeed())
@@ -100,14 +100,14 @@ var _ = Describe("Coverage Improvements", func() {
 			Eventually(done, 2*time.Second).Should(BeClosed())
 		})
 
-		It("should handle Done() call on uninitialized context", func() {
+		It("TC-CV-005: should handle Done() call on uninitialized context", func() {
 			// Create aggregator but don't start it
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Done should still work
@@ -118,11 +118,11 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("AsyncFct and SyncFct coverage", func() {
-		It("should call AsyncFct periodically when configured", func() {
+	Describe("TC-CV-006: AsyncFct and SyncFct coverage", func() {
+		It("TC-CV-007: should call AsyncFct periodically when configured", func() {
 			var asyncCount atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter:  10,
 				FctWriter:  func(p []byte) (int, error) { return len(p), nil },
 				AsyncTimer: 100 * time.Millisecond,
@@ -132,7 +132,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -144,10 +144,10 @@ var _ = Describe("Coverage Improvements", func() {
 			}, 2*time.Second, 50*time.Millisecond).Should(BeNumerically(">=", 1))
 		})
 
-		It("should call SyncFct periodically when configured", func() {
+		It("TC-CV-008: should call SyncFct periodically when configured", func() {
 			var syncCount atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: func(p []byte) (int, error) { return len(p), nil },
 				SyncTimer: 100 * time.Millisecond,
@@ -156,7 +156,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -168,13 +168,13 @@ var _ = Describe("Coverage Improvements", func() {
 			}, 2*time.Second, 50*time.Millisecond).Should(BeNumerically(">=", 1))
 		})
 
-		It("should respect AsyncMax limit", func() {
+		It("TC-CV-009: should respect AsyncMax limit", func() {
 			var (
 				runningCount atomic.Int32
 				maxRunning   atomic.Int32
 			)
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter:  10,
 				FctWriter:  func(p []byte) (int, error) { return len(p), nil },
 				AsyncTimer: 20 * time.Millisecond,
@@ -199,7 +199,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -212,10 +212,10 @@ var _ = Describe("Coverage Improvements", func() {
 			Expect(maxRunning.Load()).To(BeNumerically("<=", 2))
 		})
 
-		It("should not call AsyncFct when AsyncTimer is 0", func() {
+		It("TC-CV-010: should not call AsyncFct when AsyncTimer is 0", func() {
 			var asyncCount atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter:  10,
 				FctWriter:  func(p []byte) (int, error) { return len(p), nil },
 				AsyncTimer: 0,
@@ -224,7 +224,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -236,10 +236,10 @@ var _ = Describe("Coverage Improvements", func() {
 			Expect(asyncCount.Load()).To(Equal(int32(0)))
 		})
 
-		It("should not call SyncFct when SyncTimer is 0", func() {
+		It("TC-CV-011: should not call SyncFct when SyncTimer is 0", func() {
 			var syncCount atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: func(p []byte) (int, error) { return len(p), nil },
 				SyncTimer: 0,
@@ -248,7 +248,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -260,15 +260,15 @@ var _ = Describe("Coverage Improvements", func() {
 			Expect(syncCount.Load()).To(Equal(int32(0)))
 		})
 
-		It("should handle nil AsyncFct", func() {
-			cfg := aggregator.Config{
+		It("TC-CV-012: should handle nil AsyncFct", func() {
+			cfg := iotagg.Config{
 				BufWriter:  10,
 				FctWriter:  func(p []byte) (int, error) { return len(p), nil },
 				AsyncTimer: 50 * time.Millisecond,
 				AsyncFct:   nil,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -278,15 +278,15 @@ var _ = Describe("Coverage Improvements", func() {
 			time.Sleep(200 * time.Millisecond)
 		})
 
-		It("should handle nil SyncFct", func() {
-			cfg := aggregator.Config{
+		It("TC-CV-013: should handle nil SyncFct", func() {
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: func(p []byte) (int, error) { return len(p), nil },
 				SyncTimer: 50 * time.Millisecond,
 				SyncFct:   nil,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -297,11 +297,11 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("fctWrite edge cases", func() {
-		It("should handle empty data", func() {
+	Describe("TC-CV-014: fctWrite edge cases", func() {
+		It("TC-CV-015: should handle empty data", func() {
 			var writeCount atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: func(p []byte) (int, error) {
 					writeCount.Add(1)
@@ -309,7 +309,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -332,15 +332,15 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("chanData edge cases", func() {
-		It("should handle channel transitions", func() {
+	Describe("TC-CV-016: chanData edge cases", func() {
+		It("TC-CV-017: should handle channel transitions", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Before start: write should fail
@@ -364,14 +364,14 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("ErrorsLast and ErrorsList coverage", func() {
-		It("should return nil when no errors and runner is nil", func() {
+	Describe("TC-CV-018: ErrorsLast and ErrorsList coverage", func() {
+		It("TC-CV-019: should return nil when no errors and runner is nil", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Before start, runner might not be initialized
@@ -381,10 +381,10 @@ var _ = Describe("Coverage Improvements", func() {
 			agg.Close()
 		})
 
-		It("should return errors when they occur", func() {
+		It("TC-CV-020: should return errors when they occur", func() {
 			var writeCount atomic.Int32
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 10,
 				FctWriter: func(p []byte) (int, error) {
 					count := writeCount.Add(1)
@@ -395,7 +395,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -417,14 +417,14 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("setRunner edge cases", func() {
-		It("should create new runner when nil is provided", func() {
+	Describe("TC-CV-021: setRunner edge cases", func() {
+		It("TC-CV-022: should create new runner when nil is provided", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -436,14 +436,14 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("Deadline coverage", func() {
-		It("should return zero time when no deadline", func() {
+	Describe("TC-CV-023: Deadline coverage", func() {
+		It("TC-CV-024: should return zero time when no deadline", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -453,14 +453,14 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("Err() coverage", func() {
-		It("should return nil when no error", func() {
+	Describe("TC-CV-025: Err() coverage", func() {
+		It("TC-CV-026: should return nil when no error", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -469,15 +469,15 @@ var _ = Describe("Coverage Improvements", func() {
 			Expect(agg.Err()).To(BeNil())
 		})
 
-		It("should return error when context is cancelled", func() {
+		It("TC-CV-027: should return error when context is cancelled", func() {
 			localCtx, localCancel := context.WithCancel(ctx)
 
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(localCtx, cfg)
+			agg, err := iotagg.New(localCtx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -491,14 +491,14 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("Value() coverage", func() {
-		It("should return nil for non-existent keys", func() {
+	Describe("TC-CV-028: Value() coverage", func() {
+		It("TC-CV-029: should return nil for non-existent keys", func() {
 			writer := newTestWriter()
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				FctWriter: writer.Write,
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 
@@ -507,12 +507,12 @@ var _ = Describe("Coverage Improvements", func() {
 		})
 	})
 
-	Describe("Counter edge cases", func() {
-		It("should handle counter decrements below zero", func() {
+	Describe("TC-CV-030: Counter edge cases", func() {
+		It("TC-CV-031: should handle counter decrements below zero", func() {
 			var mu sync.Mutex
 			var writes [][]byte
 
-			cfg := aggregator.Config{
+			cfg := iotagg.Config{
 				BufWriter: 5,
 				FctWriter: func(p []byte) (int, error) {
 					mu.Lock()
@@ -522,7 +522,7 @@ var _ = Describe("Coverage Improvements", func() {
 				},
 			}
 
-			agg, err := aggregator.New(ctx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer agg.Close()
 

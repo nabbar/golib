@@ -1,6 +1,6 @@
 # Logger GORM Adapter
 
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
 [![Coverage](https://img.shields.io/badge/Coverage-100.0%25-brightgreen)](TESTING.md)
 
@@ -563,7 +563,7 @@ errors.Is(err, gorm.ErrRecordNotFound) → Logs as ErrorLevel
 We welcome contributions! Please follow the project's contribution guidelines defined in [CONTRIBUTING.md](../../../../CONTRIBUTING.md).
 
 **Development Requirements:**
-- Go 1.18 or higher
+- Go 1.24 or higher
 - GORM v2: `go get gorm.io/gorm`
 - Ginkgo v2 for BDD testing: `go install github.com/onsi/ginkgo/v2/ginkgo@latest`
 - Gomega for assertions (installed automatically with Ginkgo)

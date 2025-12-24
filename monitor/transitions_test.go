@@ -40,8 +40,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var ErrorMockTest = fmt.Errorf("mock test error")
-
 var _ = Describe("Monitor Status Transitions", func() {
 	var (
 		ctx context.Context
@@ -278,8 +276,13 @@ var _ = Describe("Monitor Status Transitions", func() {
 			Expect(mon.Stop(ctx)).ToNot(HaveOccurred())
 		})
 
-		PIt("should reset rise counter on failure", func() {
+		It("should reset rise counter on failure", func() {
 			checkCount := &atomic.Int32{}
+
+			cfg := newConfig(nfo)
+			cfg.RiseCountKO = 3
+			cfg.RiseCountWarn = 3
+			Expect(mon.SetConfig(x, cfg)).ToNot(HaveOccurred())
 
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				count := checkCount.Add(1)

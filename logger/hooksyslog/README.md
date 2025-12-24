@@ -1,6 +1,6 @@
 # Logger HookSyslog
 
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
 [![Coverage](https://img.shields.io/badge/Coverage-83.2%25-brightgreen)](TESTING.md)
 

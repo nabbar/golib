@@ -31,7 +31,6 @@ import (
 
 	libatm "github.com/nabbar/golib/atomic"
 	libctx "github.com/nabbar/golib/context"
-	liberr "github.com/nabbar/golib/errors"
 	montps "github.com/nabbar/golib/monitor/types"
 	librun "github.com/nabbar/golib/runner"
 	runtck "github.com/nabbar/golib/runner/ticker"
@@ -70,22 +69,31 @@ type mon struct {
 // SetHealthCheck registers the health check function to be executed periodically.
 // The function should return nil for a healthy state or an error otherwise.
 func (o *mon) SetHealthCheck(fct montps.HealthCheck) {
-	defer librun.RecoveryCaller("golib/monitor/SetHealthCheck", recover())
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/SetHealthCheck", r)
+		}
+	}()
+
 	o.x.Store(keyHealthCheck, fct)
 }
 
 // GetHealthCheck retrieves the currently registered health check function.
 // Returns nil if no health check function has been registered.
 func (o *mon) GetHealthCheck() montps.HealthCheck {
-	defer librun.RecoveryCaller("golib/monitor/GetHealthCheck", recover())
 	return o.getFct()
 }
 
 // Clone creates a copy of the monitor with a new context.
 // If the original monitor is running, the clone will also be started.
 // Returns an error if the cloned monitor fails to start.
-func (o *mon) Clone(ctx context.Context) (montps.Monitor, liberr.Error) {
-	defer librun.RecoveryCaller("golib/monitor/Clone", recover())
+func (o *mon) Clone(ctx context.Context) (montps.Monitor, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			librun.RecoveryCaller("golib/monitor/Clone", r)
+		}
+	}()
+
 	n := &mon{
 		x: nil,
 		i: libatm.NewValue[montps.Info](),
@@ -97,11 +105,7 @@ func (o *mon) Clone(ctx context.Context) (montps.Monitor, liberr.Error) {
 
 	if o.IsRunning() {
 		if e := n.Start(ctx); e != nil {
-			if err, ok := e.(liberr.Error); ok {
-				return nil, err
-			} else {
-				return nil, ErrorTimeout.Error(e)
-			}
+			return nil, e
 		}
 	}
 

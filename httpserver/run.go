@@ -103,7 +103,9 @@ func (o *srv) runFuncStart(ctx context.Context) (err error) {
 	)
 
 	defer func() {
-		libsrv.RecoveryCaller("golib/httpserver/run/fctStart", recover())
+		if r := recover(); r != nil {
+			libsrv.RecoveryCaller("golib/httpserver/run/fctStart", r)
+		}
 		if tls {
 			ent := o.logger().Entry(loglvl.InfoLevel, "TLS HTTP Server stopped")
 			ent.ErrorAdd(true, err)
@@ -159,7 +161,9 @@ func (o *srv) runFuncStop(ctx context.Context) (err error) {
 	)
 
 	defer func() {
-		libsrv.RecoveryCaller("golib/httpserver/run/fctStop", recover())
+		if r := recover(); r != nil {
+			libsrv.RecoveryCaller("golib/httpserver/run/fctStop", r)
+		}
 		o.delServer()
 		if tls {
 			ent := o.logger().Entry(loglvl.InfoLevel, "Shutdown of TLS HTTP Server has been called")

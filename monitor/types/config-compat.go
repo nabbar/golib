@@ -32,7 +32,6 @@ import (
 
 	libval "github.com/go-playground/validator/v10"
 	libdur "github.com/nabbar/golib/duration"
-	liberr "github.com/nabbar/golib/errors"
 	logcfg "github.com/nabbar/golib/logger/config"
 )
 
@@ -75,7 +74,7 @@ type ConfigCompat struct {
 
 // Validate validate the config options using libval validation tags.
 // Return liberr.Error if config is not valid.
-func (o ConfigCompat) Validate() liberr.Error {
+func (o ConfigCompat) Validate() error {
 	var e = ErrorValidatorError.Error(nil)
 
 	if err := libval.New().Struct(o); err != nil {

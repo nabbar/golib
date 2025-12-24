@@ -186,7 +186,7 @@ func (o *lastRun) setStatusFall(cfg *runCfg) {
 
 	switch sts {
 	case monsts.OK:
-		if o.cntFall.Load() >= uint64(cfg.riseCountWarn) {
+		if o.cntFall.Load() >= uint64(cfg.fallCountWarn) {
 			o.cntFall.Store(0)
 			o.status.Store(monsts.Warn.Uint64())
 		} else {
@@ -199,7 +199,7 @@ func (o *lastRun) setStatusFall(cfg *runCfg) {
 		o.uptime.Add(dur)
 
 	case monsts.Warn:
-		if o.cntFall.Load() >= uint64(cfg.riseCountKO) {
+		if o.cntFall.Load() >= uint64(cfg.fallCountKO) {
 			o.isFall.Store(false)
 			o.cntFall.Store(0)
 			o.status.Store(monsts.KO.Uint64())
@@ -270,4 +270,30 @@ func (o *lastRun) setStatusRise(cfg *runCfg) {
 		o.status.Store(monsts.OK.Uint64())
 		o.uptime.Add(dur)
 	}
+}
+
+// Clone creates a deep copy of the lastRun instance.
+// This is used to ensure atomic updates to the monitor status.
+func (o *lastRun) Clone() *lastRun {
+	n := newLastRun()
+
+	n.status.Store(o.status.Load())
+	n.runtime.Store(o.runtime.Load())
+
+	n.isRise.Store(o.isRise.Load())
+	n.isFall.Store(o.isFall.Load())
+
+	n.cntRise.Store(o.cntRise.Load())
+	n.cntFall.Store(o.cntFall.Load())
+
+	n.uptime.Store(o.uptime.Load())
+	n.downtime.Store(o.downtime.Load())
+	n.riseTime.Store(o.riseTime.Load())
+	n.fallTime.Store(o.fallTime.Load())
+	n.latency.Store(o.latency.Load())
+
+	// Copy errors
+	n.err.Add(o.err.Slice()...)
+
+	return n
 }

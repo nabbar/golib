@@ -29,14 +29,10 @@ package monitor_test
 import (
 	"context"
 	"testing"
-	"time"
 
-	libdur "github.com/nabbar/golib/duration"
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
-	libmon "github.com/nabbar/golib/monitor"
-	moninf "github.com/nabbar/golib/monitor/info"
-	montps "github.com/nabbar/golib/monitor/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -64,7 +60,7 @@ func TestMonitor(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	x, n = context.WithTimeout(context.Background(), 30*time.Second)
+	x, n = context.WithTimeout(context.Background(), suiteTimeout)
 
 	l = liblog.New(x)
 	Expect(l.SetOptions(&lo)).ToNot(HaveOccurred())
@@ -76,48 +72,3 @@ var _ = AfterSuite(func() {
 		n()
 	}
 })
-
-func newMonitor(x context.Context, nf montps.Info) montps.Monitor {
-	m, e := libmon.New(x, nf)
-	Expect(e).ToNot(HaveOccurred())
-	Expect(m).ToNot(BeNil())
-	m.RegisterLoggerDefault(fl)
-	return m
-}
-
-func newInfo(d moninf.FuncInfo) montps.Info {
-	return newInfoWithName(key, d)
-}
-
-func newInfoWithName(name string, d moninf.FuncInfo) montps.Info {
-	i, e := moninf.New(name)
-	Expect(e).ToNot(HaveOccurred())
-
-	if d != nil {
-		i.RegisterInfo(d)
-	} else {
-		i.RegisterInfo(func() (map[string]interface{}, error) {
-			return map[string]interface{}{
-				"version": "1.0.0",
-				"check":   "beforeEach",
-			}, nil
-		})
-	}
-
-	return i
-}
-
-func newConfig(nf montps.Info) montps.Config {
-	return montps.Config{
-		Name:          nf.Name(),
-		CheckTimeout:  libdur.ParseDuration(20 * time.Millisecond),
-		IntervalCheck: libdur.ParseDuration(20 * time.Millisecond),
-		IntervalFall:  libdur.ParseDuration(20 * time.Millisecond),
-		IntervalRise:  libdur.ParseDuration(20 * time.Millisecond),
-		FallCountKO:   2,
-		FallCountWarn: 2,
-		RiseCountKO:   2,
-		RiseCountWarn: 2,
-		Logger:        lo,
-	}
-}

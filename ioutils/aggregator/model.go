@@ -72,7 +72,7 @@ type agg struct {
 	st time.Duration             // ticker duration of synchronous function
 	sf func(ctx context.Context) // synchronous function
 
-	mw sync.Mutex                        // mutex single call of fw
+	lc sync.Mutex                        // mutex lifecycle operations
 	fw func(p []byte) (n int, err error) // main function write
 	sh int                               // size of buffered channel data
 	ch libatm.Value[chan []byte]         // channel data
@@ -84,6 +84,10 @@ type agg struct {
 	sd *atomic.Int64 // size of message in buffered channel
 	sw *atomic.Int64 // size of waiting write to buffered channel
 }
+
+type ctxKey string
+
+const ckStartSignal ctxKey = "startSignal"
 
 // SetLoggerError sets a custom error logging function for the aggregator.
 //
@@ -162,12 +166,13 @@ func (o *agg) SizeProcessing() int64 {
 // This function:
 //  1. Checks for multi-start condition and returns ErrStillRunning if already running
 //  2. Initializes the internal context and opens the write channel
-//  3. Creates a semaphore for limiting concurrent async function calls
-//  4. Enters the main select loop to process:
+//  3. Resets all counters to ensure clean state on start
+//  4. Creates a semaphore for limiting concurrent async function calls
+//  5. Enters the main select loop to process:
 //     - Context cancellation (via Done channel)
 //     - Async callback timer ticks
 //     - Sync callback timer ticks
-//     - Write data from the channel
+//     - Write data from the channel (decrements counters immediately on receive)
 //
 // The function runs until the context is cancelled or an error occurs.
 // All cleanup is handled in the deferred function.
@@ -176,7 +181,8 @@ func (o *agg) SizeProcessing() int64 {
 //   - ctx: Parent context for the processing loop
 //
 // Returns:
-//   - error: ErrStillRunning if already running, or the context error on cancellation
+//   - error: ErrStillRunning if already running, ErrInvalidInstance if writer
+//     function is nil, or the context error on cancellation
 func (o *agg) run(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -193,14 +199,35 @@ func (o *agg) run(ctx context.Context) error {
 		fctWrt  func(p []byte) error
 		fctSyn  func()
 		fctAsyn func(sem libsem.Semaphore)
+
+		sig chan error
 	)
+
+	if v := ctx.Value(ckStartSignal); v != nil {
+		if s, ok := v.(chan error); ok {
+			sig = s
+		}
+	}
+
+	// signal is a helper to notify Start of success (nil) or failure
+	// It ensures the channel is sent to and closed exactly once.
+	signal := func(err error) {
+		if sig != nil {
+			select {
+			case sig <- err:
+			default:
+			}
+			close(sig)
+			sig = nil
+		}
+	}
 
 	defer func() {
 		// Cleanup: release semaphore, close aggregator, stop timers
 		if sem != nil {
 			sem.DeferMain()
 		}
-		_ = o.Close()
+		o.cleanup()
 
 		o.logInfo("stopping aggregator")
 		tckSnc.Stop()
@@ -209,11 +236,13 @@ func (o *agg) run(ctx context.Context) error {
 
 	// Check if function write is set
 	if o.fw == nil {
+		signal(ErrInvalidInstance)
 		return ErrInvalidInstance
 	}
 
 	// Check if already running - prevent multi-start
 	if o.op.Load() {
+		signal(ErrStillRunning)
 		return ErrStillRunning
 	}
 
@@ -222,12 +251,12 @@ func (o *agg) run(ctx context.Context) error {
 	o.chanOpen()
 	o.cntReset() // Reset counters on start to ensure clean state
 
+	signal(nil)
+
 	fctWrt = func(p []byte) error {
 		if len(p) < 1 {
 			return nil
 		} else {
-			o.mw.Lock()
-			defer o.mw.Unlock()
 			_, e := o.fw(p)
 			return e
 		}
@@ -266,16 +295,20 @@ func (o *agg) run(ctx context.Context) error {
 	return o.Err()
 }
 
-// callASyn invokes the async callback function if configured.
+// callASyn returns a function that invokes the async callback if configured.
 //
-// The function is called in a new goroutine and is limited by the semaphore
-// to prevent too many concurrent async calls (respecting Config.AsyncMax).
+// The returned function is called periodically by the async timer in run().
+// When invoked, it attempts to acquire a semaphore slot, and if successful,
+// launches the async callback in a new goroutine. If the semaphore is full
+// (max workers reached), the call is skipped to avoid blocking the main loop.
 //
-// If the semaphore is full (max workers reached), the call is skipped.
-// This prevents blocking the main processing loop.
+// The function respects Config.AsyncMax to limit concurrent async executions.
+// Panics in the async callback are recovered and logged via RecoveryCaller.
 //
-// Parameters:
-//   - sem: Semaphore for limiting concurrent workers
+// Returns a no-op function if:
+//   - The aggregator is not running (op.Load() == false)
+//   - No async function is configured (af == nil)
+//   - The context is not initialized (x.Load() == nil)
 func (o *agg) callASyn() func(sem libsem.Semaphore) {
 
 	if !o.op.Load() {
@@ -307,10 +340,19 @@ func (o *agg) callASyn() func(sem libsem.Semaphore) {
 	}
 }
 
-// callSyn invokes the sync callback function if configured.
+// callSyn returns a function that invokes the sync callback if configured.
 //
-// This function is called synchronously (blocking) on the timer tick.
-// It should complete quickly to avoid delaying write processing.
+// The returned function is called periodically by the sync timer in run().
+// Unlike async callbacks, this function is called synchronously (blocking)
+// on each timer tick, so it should complete quickly to avoid delaying the
+// main processing loop and subsequent write operations.
+//
+// Panics in the sync callback are recovered and logged via RecoveryCaller.
+//
+// Returns a no-op function if:
+//   - The aggregator is not running (op.Load() == false)
+//   - No sync function is configured (sf == nil)
+//   - The context is not initialized (x.Load() == nil)
 func (o *agg) callSyn() func() {
 	if !o.op.Load() {
 		return func() {}
@@ -333,6 +375,7 @@ func (o *agg) callSyn() func() {
 
 // cntDataInc increments the processing counters when data enters the buffer.
 // It tracks both the number of items and total bytes in the channel.
+// This is called in Write() after the write is accepted but before sending to the channel.
 func (o *agg) cntDataInc(i int) {
 	o.cd.Add(1)
 	o.sd.Add(int64(i))
@@ -340,6 +383,8 @@ func (o *agg) cntDataInc(i int) {
 
 // cntDataDec decrements the processing counters when data is consumed from the buffer.
 // It ensures counters never go negative by resetting to 0 if needed.
+// This is called immediately when data is received from the channel in the run loop,
+// before the actual write operation, to maintain accurate real-time metrics.
 func (o *agg) cntDataDec(i int) {
 	o.cd.Add(-1)
 	if j := o.cd.Load(); j < 0 {
@@ -378,4 +423,11 @@ func (o *agg) cntReset() {
 	o.sd.Store(0)
 	o.cw.Store(0)
 	o.sw.Store(0)
+}
+
+// cleanup releases internal resources (context and channel).
+// It is used by run() and Close() to ensure resources are freed without deadlock.
+func (o *agg) cleanup() {
+	o.ctxClose()
+	o.chanClose()
 }

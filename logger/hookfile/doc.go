@@ -233,7 +233,11 @@ PathMode: Directory permissions when creating paths (default: 0755)
 
 CreatePath: Create parent directories if they don't exist
 
-	opts.CreatePath = true  // Enables rotation detection too
+	opts.CreatePath = true  // Required for rotation detection
+
+Create: Create file if it doesn't exist
+
+	opts.Create = true  // Required for rotation detection and file recreation
 
 LogLevel: Log levels this hook should handle
 
@@ -573,7 +577,12 @@ Test organization:
   - hookfile_integration_test.go: Rotation detection, multiple hooks
   - hookfile_benchmark_test.go: Performance benchmarks
 
-Coverage target: >80% (current: 68.1%, needs improvement)
+Coverage target: >80% (current: 84.0%, target exceeded)
+
+# Requirements
+
+- Go 1.24 or higher (requires os.OpenRoot introduced in Go 1.24)
+- atomic.Int64 (Go 1.19+) for thread-safe reference counting
 
 # Examples
 

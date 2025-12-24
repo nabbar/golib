@@ -39,9 +39,10 @@ import (
 //  1. Creates a new processing goroutine that reads from the write channel
 //  2. Initializes timers for async and sync callbacks (if configured)
 //  3. Opens the internal channel for accepting writes
+//  4. Waits for the runner and channel to be fully initialized before returning
 //
 // The aggregator must be started before it can accept Write operations.
-// Calling Start on an already-running aggregator returns ErrStillRunning.
+// Calling Start on an already-running aggregator returns nil (idempotent).
 //
 // The provided context is used as the parent context for the processing goroutine.
 // When this context is cancelled, the aggregator stops processing and exits.
@@ -50,19 +51,22 @@ import (
 //   - ctx: Context for cancellation. If nil, context.Background() is used.
 //
 // Returns:
-//   - error: nil on success, ErrStillRunning if already started, or other error.
+//   - error: nil on success, or timeout error if the runner fails to start within 1 second.
 //
 // Example:
 //
-//	agg, _ := aggregator.New(ctx, cfg, logger)
+//	agg, _ := aggregator.New(ctx, cfg)
 //	if err := agg.Start(ctx); err != nil {
 //	    return err
 //	}
 //	defer agg.Close()
 //
-// Note: Start returns immediately. The processing goroutine starts asynchronously.
-// A small delay (10ms) is added to allow the goroutine to initialize before returning.
+// Note: Start waits up to 1 second for the runner and channel to be ready,
+// polling every 100ms to ensure the aggregator is fully operational before returning.
 func (o *agg) Start(ctx context.Context) error {
+	o.lc.Lock()
+	defer o.lc.Unlock()
+
 	defer func() {
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/start", r)
@@ -74,11 +78,30 @@ func (o *agg) Start(ctx context.Context) error {
 		r = o.newRunner()
 	}
 
-	e := r.Start(ctx)
-	o.setRunner(r)
+	s := make(chan error, 1)
+	e := r.Start(context.WithValue(ctx, ckStartSignal, s))
 
-	time.Sleep(10 * time.Millisecond)
-	return e
+	if e != nil {
+		return e
+	}
+
+	select {
+	case err := <-s:
+		if err != nil {
+			return err
+		}
+		o.setRunner(r)
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(time.Second):
+		if r.IsRunning() && o.op.Load() {
+			o.setRunner(r)
+		} else {
+			return ErrTimeout
+		}
+	}
+
+	return nil
 }
 
 // Stop gracefully stops the aggregator's processing goroutine.
@@ -106,6 +129,9 @@ func (o *agg) Start(ctx context.Context) error {
 //	    log.Printf("stop failed: %v", err)
 //	}
 func (o *agg) Stop(ctx context.Context) error {
+	o.lc.Lock()
+	defer o.lc.Unlock()
+
 	defer func() {
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/stop", r)
@@ -119,8 +145,6 @@ func (o *agg) Stop(ctx context.Context) error {
 
 	e := r.Stop(ctx)
 	o.setRunner(r)
-
-	time.Sleep(10 * time.Millisecond)
 	return e
 }
 
@@ -155,9 +179,6 @@ func (o *agg) Restart(ctx context.Context) error {
 	if e := o.Stop(ctx); e != nil {
 		return e
 	}
-
-	time.Sleep(10 * time.Millisecond)
-
 	return o.Start(ctx)
 }
 
@@ -189,13 +210,15 @@ func (o *agg) IsRunning() bool {
 		}
 	}()
 
+	o.lc.Lock()
+	defer o.lc.Unlock()
+
 	r := o.getRunner()
 
 	// If state is inconsistent, fix it without calling Close() to avoid recursion
 	if r == nil {
 		if o.op.Load() {
-			o.chanClose()
-			o.ctxClose()
+			o.cleanup()
 		}
 		return false
 	}
@@ -210,14 +233,13 @@ func (o *agg) IsRunning() bool {
 			// Runner says running but channel is closed: stop runner
 			x, n := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer n()
-			_ = o.Stop(x)
+			_ = r.Stop(x)
 			return false
 		}
 	} else {
 		if o.op.Load() {
 			// Runner stopped but channel still open: close channel
-			o.chanClose()
-			o.ctxClose()
+			o.cleanup()
 			return false
 		} else {
 			// Both agree: not running
@@ -294,7 +316,11 @@ func (o *agg) ErrorsList() []error {
 	if r == nil {
 		return nil
 	}
-	return r.ErrorsList()
+	errs := r.ErrorsList()
+	if len(errs) == 0 {
+		return nil
+	}
+	return errs
 }
 
 // newRunner creates a new StartStop runner with the aggregator's run and closeRun functions.
