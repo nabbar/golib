@@ -1,7 +1,7 @@
 /*
- *  MIT License
+ * MIT License
  *
- *  Copyright (c) 2024 Salim Amine BOU ARAM & Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,9 @@ import (
 	iotnwc "github.com/nabbar/golib/ioutils/nopwritecloser"
 )
 
+// makeCompressWriter creates a compression writer that wraps the provided writer.
+// Data written to the returned Helper will be compressed using the specified algorithm
+// and written to the destination writer.
 func makeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err error) {
 	wc, ok := src.(io.WriteCloser)
 
@@ -50,22 +53,30 @@ func makeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err err
 	}
 }
 
+// compressWriter implements Helper for compression write operations.
+// It compresses data as it is written and forwards the compressed data to the underlying writer.
 type compressWriter struct {
 	dst io.WriteCloser
 }
 
+// Read is not supported for compression writers.
+// Always returns ErrInvalidSource since compression writers are write-only.
 func (o *compressWriter) Read(p []byte) (n int, err error) {
 	return 0, ErrInvalidSource
 }
 
+// Write compresses the provided data and writes it to the underlying writer.
 func (o *compressWriter) Write(p []byte) (n int, err error) {
 	return o.dst.Write(p)
 }
 
+// Close finalizes the compression stream and closes the underlying writer.
 func (o *compressWriter) Close() error {
 	return o.dst.Close()
 }
 
+// makeCompressReader creates a compression reader that wraps the provided reader.
+// Data read from the returned Helper will be compressed on-the-fly from the source reader.
 func makeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err error) {
 	rc, ok := src.(io.ReadCloser)
 
@@ -88,6 +99,8 @@ func makeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err err
 	}, err
 }
 
+// compressReader implements Helper for compression read operations.
+// It reads data from the source, compresses it, and provides the compressed data through Read().
 type compressReader struct {
 	src io.ReadCloser
 	wrt io.WriteCloser
@@ -95,7 +108,8 @@ type compressReader struct {
 	clo *atomic.Bool
 }
 
-// Read for compressor compresses the data and reads it from the buffer in chunks.
+// Read compresses data from the source and returns compressed chunks.
+// It maintains an internal buffer to handle compression output efficiently.
 func (o *compressReader) Read(p []byte) (n int, err error) {
 	if o.src == nil {
 		return 0, ErrInvalidSource
@@ -130,7 +144,8 @@ func (o *compressReader) Read(p []byte) (n int, err error) {
 	return 0, err
 }
 
-// fill handles compressing data from the source and writing to the buffer.
+// fill reads data from the source, compresses it, and fills the internal buffer.
+// It ensures at least 'size' bytes are available in the buffer before returning.
 func (o *compressReader) fill(size int) (n int, err error) {
 	var (
 		buf    = make([]byte, size)
@@ -177,7 +192,8 @@ func (o *compressReader) fill(size int) (n int, err error) {
 	return o.buf.Len(), nil
 }
 
-// Close closes the compressor and underlying writer.
+// Close finalizes the compression stream and releases resources.
+// It closes the compression writer and resets the internal buffer.
 func (o *compressReader) Close() (err error) {
 	a := o.clo.Swap(true)
 
@@ -192,6 +208,8 @@ func (o *compressReader) Close() (err error) {
 	return nil
 }
 
+// Write is not supported for compression readers.
+// Always returns ErrInvalidSource since compression readers are read-only.
 func (o *compressReader) Write(p []byte) (n int, err error) {
 	return 0, ErrInvalidSource
 }

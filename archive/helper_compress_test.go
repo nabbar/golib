@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2024 Salim Amine Bou Aram
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -37,10 +37,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Compress Helper Test", func() {
+var _ = Describe("TC-HC-001: Compress Helper Test", func() {
 	for _, algo := range arccmp.List() {
-		Context("For the algo '"+algo.String()+"', in reader mode", func() {
-			It("should compress/decompress in embedded stream correctly", func() {
+		Context("TC-HC-010: For the algo '"+algo.String()+"', in reader mode", func() {
+			It("TC-HC-011: should compress/decompress in embedded stream correctly", func() {
 				var (
 					siz = len(loremIpsum)
 					src = bytes.NewReader([]byte(loremIpsum)) // source
@@ -73,8 +73,8 @@ var _ = Describe("Compress Helper Test", func() {
 				Expect(r).To(Equal([]byte(loremIpsum)))
 			})
 		})
-		Context("For the algo '"+algo.String()+"', in writer mode", func() {
-			It("should compress/decompress in embedded stream correctly", func() {
+		Context("TC-HC-020: For the algo '"+algo.String()+"', in writer mode", func() {
+			It("TC-HC-021: should compress/decompress in embedded stream correctly", func() {
 				var (
 					siz = len(loremIpsum)
 					src = bytes.NewReader([]byte(loremIpsum)) // source

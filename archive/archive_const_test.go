@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -77,24 +77,24 @@ func testingArchive(alg arcarc.Algorithm, str, ext string) {
 	Expect(res).To(Equal(jsn))
 }
 
-var _ = Describe("archive/archive/algorithm", func() {
-	Context("Using algorithm const", func() {
-		It("gzip must succeed", func() {
+var _ = Describe("TC-AL-001: archive/archive/algorithm", func() {
+	Context("TC-AL-010: Using algorithm const", func() {
+		It("TC-AL-011: gzip must succeed", func() {
 			testingCompress(arccmp.Gzip, "gzip", ".gz")
 		})
-		It("bzip2 must succeed", func() {
+		It("TC-AL-012: bzip2 must succeed", func() {
 			testingCompress(arccmp.Bzip2, "bzip2", ".bz2")
 		})
-		It("lz4 must succeed", func() {
+		It("TC-AL-013: lz4 must succeed", func() {
 			testingCompress(arccmp.LZ4, "lz4", ".lz4")
 		})
-		It("xz must succeed", func() {
+		It("TC-AL-014: xz must succeed", func() {
 			testingCompress(arccmp.XZ, "xz", ".xz")
 		})
-		It("tar must succeed", func() {
+		It("TC-AL-015: tar must succeed", func() {
 			testingArchive(arcarc.Tar, "tar", ".tar")
 		})
-		It("zip must succeed", func() {
+		It("TC-AL-016: zip must succeed", func() {
 			testingArchive(arcarc.Zip, "zip", ".zip")
 		})
 	})

@@ -1,7 +1,7 @@
 /*
- *  MIT License
+ * MIT License
  *
- *  Copyright (c) 2024 Salim Amine BOU ARAM & Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -25,9 +25,13 @@
 
 package helper
 
+// Operation defines the type of operation to perform on data streams.
+// It specifies whether data should be compressed or decompressed.
 type Operation uint8
 
 const (
+	// Compress indicates that data should be compressed using the specified algorithm.
 	Compress Operation = iota
+	// Decompress indicates that data should be decompressed using the specified algorithm.
 	Decompress
 )

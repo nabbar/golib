@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -38,9 +38,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("archive/archive/tar", func() {
-	Context("Write/Read a tar archive file", func() {
-		It("Create a tar archive must succeed", func() {
+var _ = Describe("TC-TR-001: archive/archive/tar", func() {
+	Context("TC-TR-010: Write/Read a tar archive file", func() {
+		It("TC-TR-011: Create a tar archive must succeed", func() {
 			var (
 				hdf *os.File
 				wrt arctps.Writer
@@ -93,7 +93,7 @@ var _ = Describe("archive/archive/tar", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Detect and Extract a tar archive must succeed", func() {
+		It("TC-TR-012: Detect and Extract a tar archive must succeed", func() {
 			var (
 				hdf *os.File
 				alg arcarc.Algorithm
@@ -157,7 +157,7 @@ var _ = Describe("archive/archive/tar", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Detect and Extract a tar archive with walk must succeed", func() {
+		It("TC-TR-013: Detect and Extract a tar archive with walk must succeed", func() {
 			var (
 				hdf *os.File
 				alg arcarc.Algorithm

@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -36,9 +36,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("archive/compress/gzip", func() {
-	Context("Write/Read a gzip compressed file", func() {
-		It("Create a gzip compressed file must succeed", func() {
+var _ = Describe("TC-GZ-001: archive/compress/gzip", func() {
+	Context("TC-GZ-010: Write/Read a gzip compressed file", func() {
+		It("TC-GZ-011: Create a gzip compressed file must succeed", func() {
 			var (
 				hdf *os.File
 				buf *bufio.Writer
@@ -78,7 +78,7 @@ var _ = Describe("archive/compress/gzip", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Detect and Extract a gzip compressed file must succeed", func() {
+		It("TC-GZ-012: Detect and Extract a gzip compressed file must succeed", func() {
 			var (
 				hdf *os.File
 				alg arccmp.Algorithm

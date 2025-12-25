@@ -1,7 +1,7 @@
 /*
- *  MIT License
+ * MIT License
  *
- *  Copyright (c) 2024 Salim Amine BOU ARAM & Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -32,22 +32,39 @@ import (
 	arccmp "github.com/nabbar/golib/archive/compress"
 )
 
+// chunkSize defines the default buffer size used for internal operations.
 const chunkSize = 512
 
 var (
-	ErrInvalidSource    = errors.New("invalid source")
-	ErrClosedResource   = errors.New("closed resource")
+	// ErrInvalidSource is returned when the provided source is not an io.Reader or io.Writer.
+	ErrInvalidSource = errors.New("invalid source")
+	// ErrClosedResource is returned when attempting to write to a closed resource.
+	ErrClosedResource = errors.New("closed resource")
+	// ErrInvalidOperation is returned when an unsupported operation is requested.
 	ErrInvalidOperation = errors.New("invalid operation")
 )
 
+// Helper provides a unified interface for compression and decompression operations.
+// It implements io.ReadWriteCloser to enable transparent compression/decompression
+// in streaming scenarios.
 type Helper interface {
 	io.ReadWriteCloser
 }
 
 // New creates a new Helper instance based on the provided algorithm, operation, and source.
-// Algo is the compression algorithm to use, which can be one of the predefined algorithms in the arccmp package.
-// Operation defines the type of operation to perform with the archive helper. It can be either Compress or Decompress.
-// The source can be an io.Reader for reading or an io.Writer for writing.
+//
+// Parameters:
+//   - algo: The compression algorithm to use (from github.com/nabbar/golib/archive/compress)
+//   - ope: The operation type (Compress or Decompress)
+//   - src: The data source, must be either io.Reader or io.Writer
+//
+// Returns:
+//   - Helper: A new Helper instance for compression/decompression operations
+//   - error: ErrInvalidSource if src is neither io.Reader nor io.Writer
+//
+// The function automatically determines whether to create a reader or writer based
+// on the type of src. For io.Reader, it creates a Helper that can be read from.
+// For io.Writer, it creates a Helper that can be written to.
 func New(algo arccmp.Algorithm, ope Operation, src any) (h Helper, err error) {
 	if r, k := src.(io.Reader); k {
 		return NewReader(algo, ope, r)
@@ -59,8 +76,18 @@ func New(algo arccmp.Algorithm, ope Operation, src any) (h Helper, err error) {
 }
 
 // NewReader creates a new Helper instance for reading data from the provided io.Reader.
-// It uses the specified compression algorithm and operation type (Compress or Decompress).
-// The returned Helper can be used to read compressed or decompressed data based on the operation specified.
+//
+// Parameters:
+//   - algo: The compression algorithm to use
+//   - ope: The operation type (Compress to compress while reading, Decompress to decompress while reading)
+//   - src: The source reader to read data from
+//
+// Returns:
+//   - Helper: A new Helper instance that wraps the source reader
+//   - error: ErrInvalidOperation if the operation is not Compress or Decompress
+//
+// When operation is Compress, reading from the returned Helper will compress data from src.
+// When operation is Decompress, reading from the returned Helper will decompress data from src.
 func NewReader(algo arccmp.Algorithm, ope Operation, src io.Reader) (Helper, error) {
 	switch ope {
 	case Compress:
@@ -73,8 +100,18 @@ func NewReader(algo arccmp.Algorithm, ope Operation, src io.Reader) (Helper, err
 }
 
 // NewWriter creates a new Helper instance for writing data to the provided io.Writer.
-// It uses the specified compression algorithm and operation type (Compress or Decompress).
-// The returned Helper can be used to write compressed or decompressed data based on the operation specified.
+//
+// Parameters:
+//   - algo: The compression algorithm to use
+//   - ope: The operation type (Compress to compress while writing, Decompress to decompress while writing)
+//   - dst: The destination writer to write data to
+//
+// Returns:
+//   - Helper: A new Helper instance that wraps the destination writer
+//   - error: ErrInvalidOperation if the operation is not Compress or Decompress
+//
+// When operation is Compress, writing to the returned Helper will compress data to dst.
+// When operation is Decompress, writing to the returned Helper will decompress data to dst.
 func NewWriter(algo arccmp.Algorithm, ope Operation, dst io.Writer) (Helper, error) {
 	switch ope {
 	case Compress:

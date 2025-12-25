@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -92,8 +92,8 @@ func ensureArchiveExists(archiveType arcarc.Algorithm) string {
 	return archivePath
 }
 
-var _ = Describe("archive/extract", func() {
-	Context("ExtractAll function", func() {
+var _ = Describe("TC-EX-001: archive/extract", func() {
+	Context("TC-EX-010: ExtractAll function", func() {
 		var (
 			tempDir    string
 			extractDir string
@@ -113,7 +113,7 @@ var _ = Describe("archive/extract", func() {
 			}
 		})
 
-		It("should extract tar archive successfully", func() {
+		It("TC-EX-011: should extract tar archive successfully", func() {
 			// Ensure tar archive exists, create if necessary
 			archivePath := ensureArchiveExists(arcarc.Tar)
 
@@ -136,7 +136,7 @@ var _ = Describe("archive/extract", func() {
 			}
 		})
 
-		It("should extract zip archive successfully", func() {
+		It("TC-EX-012: should extract zip archive successfully", func() {
 			// Ensure zip archive exists, create if necessary
 			archivePath := ensureArchiveExists(arcarc.Zip)
 
@@ -159,29 +159,29 @@ var _ = Describe("archive/extract", func() {
 			}
 		})
 
-		It("should return error for nil reader", func() {
+		It("TC-EX-013: should return error for nil reader", func() {
 			err = libarc.ExtractAll(nil, "test.tar", extractDir)
 			Expect(err).To(Equal(fs.ErrInvalid))
 		})
 
-		It("should handle compressed tar archives (tar.gz)", func() {
+		It("TC-EX-014: should handle compressed tar archives (tar.gz)", func() {
 			Skip("Compressed archive extraction requires the archive to exist - tested in integration tests")
 		})
 
-		It("should create nested directories when extracting", func() {
+		It("TC-EX-015: should create nested directories when extracting", func() {
 			// This is implicitly tested by the successful extraction tests
 			// as the files are stored with nested paths
 			Skip("Already tested implicitly in extraction tests")
 		})
 	})
 
-	Context("Path security", func() {
-		It("should sanitize paths with .. traversal attempts", func() {
+	Context("TC-EX-020: Path security", func() {
+		It("TC-EX-021: should sanitize paths with .. traversal attempts", func() {
 			// This is an internal function but should be tested through ExtractAll
 			Skip("Path sanitization is tested through safe extraction - internal function")
 		})
 
-		It("should handle absolute paths in archives", func() {
+		It("TC-EX-022: should handle absolute paths in archives", func() {
 			Skip("Absolute path handling is tested through extraction - internal function")
 		})
 	})

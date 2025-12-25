@@ -1,7 +1,7 @@
 /*
- *  MIT License
+ * MIT License
  *
- *  Copyright (c) 2024 Salim Amine BOU ARAM & Nicolas JUHEL
+ * Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,8 @@ import (
 	iotnwc "github.com/nabbar/golib/ioutils/nopwritecloser"
 )
 
+// makeDeCompressReader creates a decompression reader that wraps the provided reader.
+// Data read from the returned Helper will be decompressed from the source reader.
 func makeDeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err error) {
 	rc, ok := src.(io.ReadCloser)
 
@@ -53,28 +55,38 @@ func makeDeCompressReader(algo arccmp.Algorithm, src io.Reader) (h Helper, err e
 	}
 }
 
+// deCompressReader implements Helper for decompression read operations.
+// It reads compressed data from the source and provides decompressed data through Read().
 type deCompressReader struct {
 	src io.ReadCloser
 }
 
+// Read decompresses data from the source and returns it.
 func (o *deCompressReader) Read(p []byte) (n int, err error) {
 	return o.src.Read(p)
 }
 
+// Write is not supported for decompression readers.
+// Always returns ErrInvalidSource since decompression readers are read-only.
 func (o *deCompressReader) Write(p []byte) (n int, err error) {
 	return 0, ErrInvalidSource
 }
 
+// Close closes the decompression reader and releases resources.
 func (o *deCompressReader) Close() error {
 	return o.src.Close()
 }
 
+// bufNoEOF is a buffer wrapper that prevents premature EOF signals.
+// It waits for the closed flag before returning EOF, allowing proper asynchronous writing.
 type bufNoEOF struct {
 	m sync.Mutex
 	b *bytes.Buffer
 	c *atomic.Bool
 }
 
+// Read reads from the buffer, waiting if data is not yet available.
+// It only returns EOF when the buffer is closed and empty.
 func (o *bufNoEOF) Read(p []byte) (n int, err error) {
 	if o.c.Load() && o.Len() < 1 {
 		return 0, io.EOF
@@ -93,6 +105,7 @@ func (o *bufNoEOF) Read(p []byte) (n int, err error) {
 	}
 }
 
+// Write writes data to the buffer if not closed.
 func (o *bufNoEOF) Write(p []byte) (n int, err error) {
 	if o.c.Load() {
 		return 0, errors.New("closed buffer")
@@ -101,17 +114,20 @@ func (o *bufNoEOF) Write(p []byte) (n int, err error) {
 	return o.writeBuff(p)
 }
 
+// Close marks the buffer as closed, signaling no more data will be written.
 func (o *bufNoEOF) Close() error {
 	o.c.Store(true)
 	return nil
 }
 
+// Len returns the number of bytes currently in the buffer.
 func (o *bufNoEOF) Len() int {
 	o.m.Lock()
 	defer o.m.Unlock()
 	return o.b.Len()
 }
 
+// readBuff performs a thread-safe read from the internal buffer.
 func (o *bufNoEOF) readBuff(p []byte) (n int, err error) {
 	o.m.Lock()
 	defer o.m.Unlock()
@@ -138,12 +154,15 @@ func (o *bufNoEOF) readBuff(p []byte) (n int, err error) {
 	return n, err
 }
 
+// writeBuff performs a thread-safe write to the internal buffer.
 func (o *bufNoEOF) writeBuff(p []byte) (n int, err error) {
 	o.m.Lock()
 	defer o.m.Unlock()
 	return o.b.Write(p)
 }
 
+// makeDeCompressWriter creates a decompression writer that wraps the provided writer.
+// Data written to the returned Helper will be decompressed and written to the destination writer.
 func makeDeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err error) {
 	wc, ok := src.(io.WriteCloser)
 
@@ -164,6 +183,8 @@ func makeDeCompressWriter(algo arccmp.Algorithm, src io.Writer) (h Helper, err e
 	}, nil
 }
 
+// deCompressWriter implements Helper for decompression write operations.
+// It decompresses data as it is written and forwards the decompressed data to the underlying writer.
 type deCompressWriter struct {
 	alg arccmp.Algorithm
 	wrt io.WriteCloser
@@ -173,10 +194,14 @@ type deCompressWriter struct {
 	wg  sync.WaitGroup
 }
 
+// Read is not supported for decompression writers.
+// Always returns ErrInvalidSource since decompression writers are write-only.
 func (o *deCompressWriter) Read(p []byte) (n int, err error) {
 	return 0, ErrInvalidSource
 }
 
+// Write decompresses the provided data and writes it to the underlying writer.
+// It starts a background goroutine for decompression on the first write.
 func (o *deCompressWriter) Write(p []byte) (n int, err error) {
 	if o.clo.Load() {
 		return 0, ErrClosedResource
@@ -201,6 +226,8 @@ func (o *deCompressWriter) Write(p []byte) (n int, err error) {
 	return n, err
 }
 
+// Close finalizes the decompression stream and closes the underlying writer.
+// It waits for all pending decompression operations to complete.
 func (o *deCompressWriter) Close() error {
 	o.clo.Store(true)
 	o.run.Store(false)

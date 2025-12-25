@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -38,9 +38,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("archive/tar+gzip with extract all", func() {
-	Context("Create a tar+gzip archive file and extract it with extract all", func() {
-		It("Create a tar archive must succeed", func() {
+var _ = Describe("TC-TG-001: archive/tar+gzip with extract all", func() {
+	Context("TC-TG-010: Create a tar+gzip archive file and extract it with extract all", func() {
+		It("TC-TG-011: Create a tar archive must succeed", func() {
 			var (
 				hdf *os.File
 				gzp io.WriteCloser
@@ -100,7 +100,7 @@ var _ = Describe("archive/tar+gzip with extract all", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Detect all a tar+gzip archive must succeed", func() {
+		It("TC-TG-012: Detect all a tar+gzip archive must succeed", func() {
 			var hdf *os.File
 
 			defer func() {

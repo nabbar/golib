@@ -31,6 +31,7 @@ package hookfile
 import (
 	"context"
 	"errors"
+	"time"
 
 	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 )
@@ -49,25 +50,35 @@ func (o *hkf) Write(p []byte) (n int, err error) {
 
 	if err == nil {
 		return n, err
-	}
-
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	n, err = o.w.Write(p)
-	if err == nil {
+	} else if !errors.Is(err, iotagg.ErrClosedResources) {
 		return n, err
 	}
 
-	if errors.Is(err, iotagg.ErrClosedResources) {
-		a, e := setAgg(o.o.filepath, o.o.filemode, o.o.filecreate)
-		if e != nil {
-			return n, e
-		}
+	// prevent only one run to update writer instance
+	o.m.Lock()
+	defer o.m.Unlock()
 
-		o.w = a
-		return o.w.Write(p)
+	// ok so having lock, but maybe the writer has just been update during waiting lock
+	// so need to check if the error still here
+	n, err = o.w.Write(p)
+	if err == nil {
+		return n, err
+	} else if !errors.Is(err, iotagg.ErrClosedResources) {
+		return n, err
 	}
+
+	a, e := setAgg(o.o.filepath, o.o.filemode, o.o.filecreate)
+	if e != nil {
+		return n, e
+	}
+
+	o.w = a
+	if n, err = o.w.Write(p); err != nil {
+		return n, err
+	}
+
+	// adding message on output file to inform the recovering process
+	_, _ = o.w.Write([]byte(time.Now().Format(time.RFC3339) + " recovered closed resources, maybe some implementation error\n"))
 
 	return n, err
 }

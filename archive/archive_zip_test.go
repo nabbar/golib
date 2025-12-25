@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -38,9 +38,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("archive/archive/zip", func() {
-	Context("Write/Read a zip archive file", func() {
-		It("Create a zip archive must succeed", func() {
+var _ = Describe("TC-ZP-001: archive/archive/zip", func() {
+	Context("TC-ZP-010: Write/Read a zip archive file", func() {
+		It("TC-ZP-011: Create a zip archive must succeed", func() {
 			var (
 				hdf *os.File
 				wrt arctps.Writer
@@ -93,7 +93,7 @@ var _ = Describe("archive/archive/zip", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Detect and Extract a zip archive must succeed", func() {
+		It("TC-ZP-012: Detect and Extract a zip archive must succeed", func() {
 			var (
 				hdf *os.File
 				alg arcarc.Algorithm
@@ -161,7 +161,7 @@ var _ = Describe("archive/archive/zip", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Detect and Extract a zip archive with walk must succeed", func() {
+		It("TC-ZP-013: Detect and Extract a zip archive with walk must succeed", func() {
 			var (
 				hdf *os.File
 				alg arcarc.Algorithm

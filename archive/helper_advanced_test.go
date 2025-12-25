@@ -1,7 +1,7 @@
 /*
  *  MIT License
  *
- *  Copyright (c) 2020 Nicolas JUHEL
+ *  Copyright (c) 2025 Nicolas JUHEL
  *
  *  Permission is hereby granted, free of charge, to any person obtaining a copy
  *  of this software and associated documentation files (the "Software"), to deal
@@ -49,9 +49,9 @@ func newWCBufHelper() *wcBufHelper {
 	return &wcBufHelper{Buffer: &bytes.Buffer{}}
 }
 
-var _ = Describe("archive/helper_advanced", func() {
-	Context("Helper with different source types", func() {
-		It("should create helper with Reader source", func() {
+var _ = Describe("TC-HA-001: archive/helper_advanced", func() {
+	Context("TC-HA-010: Helper with different source types", func() {
+		It("TC-HA-011: should create helper with Reader source", func() {
 			src := bytes.NewReader([]byte("test data"))
 			h, e := archlp.New(arccmp.Gzip, archlp.Compress, src)
 			Expect(e).ToNot(HaveOccurred())
@@ -59,7 +59,7 @@ var _ = Describe("archive/helper_advanced", func() {
 			defer h.Close()
 		})
 
-		It("should create helper with Writer source", func() {
+		It("TC-HA-012: should create helper with Writer source", func() {
 			var dst bytes.Buffer
 			h, e := archlp.New(arccmp.Gzip, archlp.Compress, &dst)
 			Expect(e).ToNot(HaveOccurred())
@@ -67,19 +67,19 @@ var _ = Describe("archive/helper_advanced", func() {
 			defer h.Close()
 		})
 
-		It("should return error for invalid source type", func() {
+		It("TC-HA-013: should return error for invalid source type", func() {
 			_, e := archlp.New(arccmp.Gzip, archlp.Compress, "invalid source")
 			Expect(e).To(Equal(archlp.ErrInvalidSource))
 		})
 
-		It("should return error for nil source", func() {
+		It("TC-HA-014: should return error for nil source", func() {
 			_, e := archlp.New(arccmp.Gzip, archlp.Compress, nil)
 			Expect(e).To(Equal(archlp.ErrInvalidSource))
 		})
 	})
 
-	Context("NewReader specific tests", func() {
-		It("should create compress reader", func() {
+	Context("TC-HA-020: NewReader specific tests", func() {
+		It("TC-HA-021: should create compress reader", func() {
 			src := bytes.NewReader([]byte("test data"))
 			h, e := archlp.NewReader(arccmp.Gzip, archlp.Compress, src)
 			Expect(e).ToNot(HaveOccurred())
@@ -87,7 +87,7 @@ var _ = Describe("archive/helper_advanced", func() {
 			defer h.Close()
 		})
 
-		It("should create decompress reader", func() {
+		It("TC-HA-022: should create decompress reader", func() {
 			// First create compressed data
 			buf := newWCBufHelper()
 			w, _ := arccmp.Gzip.Writer(buf)
@@ -106,15 +106,15 @@ var _ = Describe("archive/helper_advanced", func() {
 			Expect(string(result)).To(Equal("test data"))
 		})
 
-		It("should return error for invalid operation", func() {
+		It("TC-HA-023: should return error for invalid operation", func() {
 			src := bytes.NewReader([]byte("test"))
 			_, e := archlp.NewReader(arccmp.Gzip, archlp.Operation(99), src)
 			Expect(e).To(Equal(archlp.ErrInvalidOperation))
 		})
 	})
 
-	Context("NewWriter specific tests", func() {
-		It("should create compress writer", func() {
+	Context("TC-HA-030: NewWriter specific tests", func() {
+		It("TC-HA-031: should create compress writer", func() {
 			var dst bytes.Buffer
 			h, e := archlp.NewWriter(arccmp.Gzip, archlp.Compress, &dst)
 			Expect(e).ToNot(HaveOccurred())
@@ -127,7 +127,7 @@ var _ = Describe("archive/helper_advanced", func() {
 			Expect(n).To(Equal(9))
 		})
 
-		It("should create decompress writer", func() {
+		It("TC-HA-032: should create decompress writer", func() {
 			var dst bytes.Buffer
 			h, e := archlp.NewWriter(arccmp.Gzip, archlp.Decompress, &dst)
 			Expect(e).ToNot(HaveOccurred())
@@ -135,15 +135,15 @@ var _ = Describe("archive/helper_advanced", func() {
 			defer h.Close()
 		})
 
-		It("should return error for invalid operation", func() {
+		It("TC-HA-033: should return error for invalid operation", func() {
 			var dst bytes.Buffer
 			_, e := archlp.NewWriter(arccmp.Gzip, archlp.Operation(99), &dst)
 			Expect(e).To(Equal(archlp.ErrInvalidOperation))
 		})
 	})
 
-	Context("Complex data flow scenarios", func() {
-		It("should handle large data streaming", func() {
+	Context("TC-HA-040: Complex data flow scenarios", func() {
+		It("TC-HA-041: should handle large data streaming", func() {
 			// Create large test data (100KB)
 			largeData := strings.Repeat("Lorem ipsum dolor sit amet, consectetur adipiscing elit. ", 2000)
 
@@ -176,7 +176,7 @@ var _ = Describe("archive/helper_advanced", func() {
 			}
 		})
 
-		It("should handle incremental reads", func() {
+		It("TC-HA-042: should handle incremental reads", func() {
 			testData := "Hello, World! This is a test."
 
 			for _, alg := range []arccmp.Algorithm{arccmp.Gzip, arccmp.Bzip2} {
@@ -208,7 +208,7 @@ var _ = Describe("archive/helper_advanced", func() {
 			}
 		})
 
-		It("should handle incremental writes", func() {
+		It("TC-HA-043: should handle incremental writes", func() {
 			testData := "Hello, World! This is a test."
 			chunks := []string{"Hello, ", "World! ", "This is ", "a test."}
 
@@ -239,8 +239,8 @@ var _ = Describe("archive/helper_advanced", func() {
 		})
 	})
 
-	Context("Edge cases", func() {
-		It("should handle empty data compression", func() {
+	Context("TC-HA-050: Edge cases", func() {
+		It("TC-HA-051: should handle empty data compression", func() {
 			for _, alg := range []arccmp.Algorithm{arccmp.Gzip, arccmp.Bzip2, arccmp.LZ4, arccmp.XZ} {
 				src := bytes.NewReader([]byte{})
 				res := bytes.NewBuffer(make([]byte, 0))
@@ -262,7 +262,7 @@ var _ = Describe("archive/helper_advanced", func() {
 			}
 		})
 
-		It("should handle single byte data", func() {
+		It("TC-HA-052: should handle single byte data", func() {
 			for _, alg := range []arccmp.Algorithm{arccmp.Gzip, arccmp.Bzip2} {
 				src := bytes.NewReader([]byte{'A'})
 				res := bytes.NewBuffer(make([]byte, 0))
@@ -282,8 +282,8 @@ var _ = Describe("archive/helper_advanced", func() {
 		})
 	})
 
-	Context("Operation type", func() {
-		It("should have correct operation type values", func() {
+	Context("TC-HA-060: Operation type", func() {
+		It("TC-HA-061: should have correct operation type values", func() {
 			Expect(int(archlp.Compress)).To(BeNumerically(">=", 0))
 			Expect(int(archlp.Decompress)).To(BeNumerically(">=", 0))
 			Expect(archlp.Compress).ToNot(Equal(archlp.Decompress))
