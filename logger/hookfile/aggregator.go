@@ -252,6 +252,7 @@ func newAgg(p string, m os.FileMode, cre bool) (*fileAgg, error) {
 	}
 
 	i.a = a
+	i.i.Store(1)
 
 	return i, nil
 }
