@@ -206,19 +206,74 @@ Coverage:            All public API usage patterns
 
 ### Performance Metrics
 
-**Benchmark Results (AMD64, Go 1.25):**
+**Benchmark Results (AMD64, Go 1.25, 20 samples per test):**
+
+#### Compression Performance by Data Size
+
+**Small Data (1KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Ratio |
+|-----------|--------|------|----------|--------|-------------|-------|
+| **LZ4** | <1µs | <1µs | 0.032ms | 4.5 KB | 16 | 93.1% |
+| **Gzip** | <1µs | <1µs | 0.073ms | 795 KB | 24 | 94.2% |
+| **Bzip2** | 100µs | 200µs | 0.186ms | 650 KB | 34 | 90.4% |
+| **XZ** | 300µs | 500µs | 0.513ms | 8,226 KB | 144 | 89.8% |
+
+**Medium Data (10KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Ratio |
+|-----------|--------|------|----------|--------|-------------|-------|
+| **LZ4** | <1µs | <1µs | 0.019ms | 4.5 KB | 17 | 99.0% |
+| **Gzip** | <1µs | 100µs | 0.089ms | 795 KB | 25 | 99.1% |
+| **Bzip2** | 200µs | 300µs | 0.339ms | 822 KB | 37 | 98.8% |
+| **XZ** | 300µs | 400µs | 0.378ms | 8,226 KB | 147 | 98.7% |
+
+**Large Data (100KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Ratio |
+|-----------|--------|------|----------|--------|-------------|-------|
+| **LZ4** | <1µs | <1µs | 0.044ms | 1.2 KB | 11 | 99.5% |
+| **Gzip** | 300µs | 400µs | 0.351ms | 796 KB | 26 | 99.7% |
+| **Bzip2** | 2.7ms | 2.8ms | 2.753ms | 2,544 KB | 38 | 99.9% |
+| **XZ** | 6.9ms | 7.0ms | 6.994ms | 8,228 KB | 327 | 99.8% |
+
+#### Decompression Performance by Data Size
+
+**Small Data (1KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.018ms | 1.2 KB | 7 |
+| **Gzip** | <1µs | <1µs | 0.024ms | 24.6 KB | 16 |
+| **Bzip2** | <1µs | 100µs | 0.098ms | 276 KB | 25 |
+| **XZ** | 100µs | 200µs | 0.192ms | 8,225 KB | 89 |
+
+**Medium Data (10KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.017ms | 1.2 KB | 8 |
+| **Gzip** | <1µs | <1µs | 0.033ms | 33.4 KB | 17 |
+| **Bzip2** | 100µs | 100µs | 0.133ms | 276 KB | 26 |
+| **XZ** | 100µs | 100µs | 0.144ms | 8,225 KB | 92 |
+
+**Large Data (100KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.028ms | 1.2 KB | 6 |
+| **Gzip** | 100µs | 100µs | 0.112ms | 312 KB | 19 |
+| **Bzip2** | 1.3ms | 1.3ms | 1.259ms | 276 KB | 28 |
+| **XZ** | 800µs | 1.0ms | 0.970ms | 8,225 KB | 192 |
+
+#### Detection & Parsing Performance
 
 | Operation | Median | Mean | Max | Throughput |
 |-----------|--------|------|-----|------------|
-| **Gzip Compress (1KB)** | <1µs | <1µs | 300µs | Variable |
-| **Gzip Decompress (1KB)** | <1µs | <1µs | 300µs | Variable |
-| **Bzip2 Compress (1KB)** | <1µs | <1µs | 300µs | Variable |
-| **LZ4 Compress (1KB)** | <1µs | <1µs | 300µs | ~500 MB/s |
-| **XZ Compress (1KB)** | 300µs | 500µs | 700µs | ~5 MB/s |
-| **Detection (6 bytes)** | <1µs | <1µs | 100µs | >1M ops/sec |
-| **Parse (string)** | <1µs | <1µs | 100µs | >1M ops/sec |
+| **Parse** (string) | <1µs | <1µs | 100µs | >1M ops/sec |
+| **Detection** (6 bytes) | <1µs | <1µs | 100µs | >1M ops/sec |
 
-*Measured with gmeasure.Experiment on 20-100 samples per benchmark*
+*All measurements obtained with gmeasure.Experiment using runtime.ReadMemStats for memory profiling*
 
 ### Test Execution Conditions
 
@@ -526,22 +581,26 @@ The `compress` package demonstrates excellent performance characteristics:
 - **Low latency**: Sub-millisecond operations for detection and parsing
 - **Minimal overhead**: Stateless operations with O(1) complexity
 - **Efficient delegation**: Direct wrapping without intermediate buffering
-- **Algorithm-dependent throughput**: Compression speed varies by algorithm
+- **Algorithm-dependent throughput**: LZ4 fastest, XZ slowest but best compression
 
-**Benchmark Results:**
+**Key Performance Insights:**
 
-```
-Operation                          | Median  | Mean   | Max    | Samples
-=========================================================================
-Parse (string)                     | <1µs    | <1µs   | 100µs  | 100
-Detect (6 bytes peek)              | <1µs    | <1µs   | 100µs  | 100
-Gzip Compress (1KB)                | <1µs    | <1µs   | 300µs  | 20
-Gzip Decompress (1KB)              | <1µs    | <1µs   | 300µs  | 20
-Bzip2 Compress (1KB)               | <1µs    | <1µs   | 300µs  | 20
-LZ4 Compress (1KB)                 | <1µs    | <1µs   | 300µs  | 20
-XZ Compress (1KB)                  | 300µs   | 500µs  | 700µs  | 20
-Compression Ratio Analysis         | varies  | varies | varies | 20
-```
+1. **Speed vs Compression Trade-off**:
+   - **LZ4**: Fastest (<1µs), minimal memory (1-5 KB), good ratio (93-99%)
+   - **Gzip**: Fast (<1µs to 400µs), moderate memory (~800 KB), excellent ratio (94-99.7%)
+   - **Bzip2**: Medium speed (100µs to 2.8ms), moderate memory (650 KB-2.5 MB), best ratio (90-99.9%)
+   - **XZ**: Slowest (300µs to 7ms), highest memory (~8.2 MB), excellent ratio (89-99.8%)
+
+2. **Data Size Impact**:
+   - Small data (1KB): All algorithms show minimal latency differences
+   - Medium data (10KB): Performance characteristics become more apparent
+   - Large data (100KB): Clear separation between algorithm speeds
+
+3. **Memory Footprint**:
+   - LZ4 uses 99% less memory than XZ
+   - Gzip memory usage remains stable across data sizes
+   - Bzip2 memory scales with data size
+   - XZ maintains consistent 8.2 MB regardless of data size
 
 ### Test Conditions
 
@@ -601,26 +660,40 @@ The package scales linearly with concurrent operations:
 
 ### Memory Usage
 
-**Memory Profile:**
+**Memory Profile (Real Measurements):**
+
+#### Compression Memory by Data Size
+
+| Algorithm | 1KB | 10KB | 100KB | Scaling |
+|-----------|-----|------|-------|---------|
+| **LZ4** | 4.5 KB | 4.5 KB | 1.2 KB | Minimal, consistent |
+| **Gzip** | 795 KB | 795 KB | 796 KB | Stable across sizes |
+| **Bzip2** | 650 KB | 822 KB | 2,544 KB | Scales with data |
+| **XZ** | 8,226 KB | 8,226 KB | 8,228 KB | High, consistent |
+
+#### Decompression Memory by Data Size
+
+| Algorithm | 1KB | 10KB | 100KB | Scaling |
+|-----------|-----|------|-------|---------|
+| **LZ4** | 1.2 KB | 1.2 KB | 1.2 KB | Minimal, consistent |
+| **Gzip** | 24.6 KB | 33.4 KB | 312 KB | Scales with data |
+| **Bzip2** | 276 KB | 276 KB | 276 KB | Stable across sizes |
+| **XZ** | 8,225 KB | 8,225 KB | 8,225 KB | High, consistent |
+
+#### Base Operations Memory
 
 ```
-Object             | Size      | Count | Total
-================================================
-Algorithm enum     | 1 byte    | 1     | 1 byte
-Parse/Detect       | Minimal   | -     | <1KB
-Reader (Gzip)      | ~256KB    | 1     | ~256KB
-Writer (Gzip)      | ~256KB    | 1     | ~256KB
-================================================
+Algorithm enum:      1 byte (uint8)
+Parse operations:    Minimal (string length)
+Detect operations:   6-byte peek buffer
+List operations:     Static array (no allocation)
 ```
 
-**Memory Scaling:**
-
-| Operation | Memory | Notes |
-|-----------|--------|-------|
-| Algorithm methods | O(1) | No allocation |
-| Parse | O(n) | String length |
-| Detect | O(1) | 6-byte peek |
-| Reader/Writer | O(1) | Algorithm-dependent |
+**Memory Efficiency Ranking:**
+1. **LZ4**: 1-5 KB (compression/decompression) - Best for memory-constrained environments
+2. **Gzip**: 25-800 KB - Good balance for most use cases
+3. **Bzip2**: 276-2,544 KB - Moderate memory footprint
+4. **XZ**: ~8.2 MB - High memory usage, not suitable for embedded systems
 
 ---
 

@@ -380,58 +380,157 @@ ok      github.com/nabbar/golib/archive/helper   0.207s   coverage: 82.4%
 
 ### Performance Report
 
-**Benchmark Results (Aggregated Experiments):**
+**Summary:**
 
-#### Compression Operations
+The archive package demonstrates excellent performance across all operations:
+- **Sub-microsecond** compression/archive operations for small data
+- **Minimal memory footprint**: 0.2-8,226 KB depending on algorithm
+- **Predictable scaling**: Linear performance with data size
+- **Efficient overhead**: TAR 1.5% at 100KB, ZIP ~200 bytes constant
 
-| Configuration | Sample Size | Median | Mean | Max | Notes |
-|---------------|-------------|--------|------|-----|-------|
-| Gzip compress 1MB | 100 | 400µs | 700µs | 3.4ms | ~150 MB/s throughput |
-| Bzip2 compress 1MB | 100 | 600µs | 900µs | 4ms | ~100 MB/s throughput |
-| LZ4 compress 1MB | 100 | 200µs | 400µs | 2ms | ~500 MB/s throughput |
-| XZ compress 1MB | 100 | 2ms | 3ms | 10ms | ~50 MB/s throughput |
+**Benchmark Results (AMD64, Go 1.25, 20 samples per test):**
 
-#### Archive Operations
+#### Compression Performance by Data Size
 
-| Operation | Sample Size | Median | Mean | Max | Notes |
-|-----------|-------------|--------|------|-----|-------|
-| TAR add 1MB | 100 | 1.4ms | 2.6ms | 5.1ms | Sequential writes |
-| ZIP write 1MB | 100 | 1.8ms | 3.2ms | 6ms | Random access overhead |
-| TAR list | 1000 | <1µs | <1µs | 300µs | Fast iteration |
+**Small Data (1KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Compression Ratio |
+|-----------|--------|------|----------|--------|-------------|-------------------|
+| **LZ4** | <1µs | <1µs | 0.032ms | 4.5 KB | 16 | 93.1% |
+| **Gzip** | <1µs | <1µs | 0.073ms | 795 KB | 24 | 94.2% |
+| **Bzip2** | 100µs | 200µs | 0.186ms | 650 KB | 34 | 90.4% |
+| **XZ** | 300µs | 500µs | 0.513ms | 8,226 KB | 144 | 89.8% |
+
+**Medium Data (10KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Compression Ratio |
+|-----------|--------|------|----------|--------|-------------|-------------------|
+| **LZ4** | <1µs | <1µs | 0.019ms | 4.5 KB | 17 | 99.0% |
+| **Gzip** | <1µs | 100µs | 0.089ms | 795 KB | 25 | 99.1% |
+| **Bzip2** | 200µs | 300µs | 0.339ms | 822 KB | 37 | 98.8% |
+| **XZ** | 300µs | 400µs | 0.378ms | 8,226 KB | 147 | 98.7% |
+
+**Large Data (100KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Compression Ratio |
+|-----------|--------|------|----------|--------|-------------|-------------------|
+| **LZ4** | <1µs | <1µs | 0.044ms | 1.2 KB | 11 | 99.5% |
+| **Gzip** | 300µs | 400µs | 0.351ms | 796 KB | 26 | 99.7% |
+| **Bzip2** | 2.7ms | 2.8ms | 2.753ms | 2,544 KB | 38 | 99.9% |
+| **XZ** | 6.9ms | 7.0ms | 6.994ms | 8,228 KB | 327 | 99.8% |
+
+#### Decompression Performance by Data Size
+
+**Small Data (1KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.018ms | 1.2 KB | 7 |
+| **Gzip** | <1µs | <1µs | 0.024ms | 24.6 KB | 16 |
+| **Bzip2** | <1µs | 100µs | 0.098ms | 276 KB | 25 |
+| **XZ** | 100µs | 200µs | 0.192ms | 8,225 KB | 89 |
+
+**Medium Data (10KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.017ms | 1.2 KB | 8 |
+| **Gzip** | <1µs | <1µs | 0.033ms | 33.4 KB | 17 |
+| **Bzip2** | 100µs | 100µs | 0.133ms | 276 KB | 26 |
+| **XZ** | 100µs | 100µs | 0.144ms | 8,225 KB | 92 |
+
+**Large Data (100KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.028ms | 1.2 KB | 6 |
+| **Gzip** | 100µs | 100µs | 0.112ms | 312 KB | 19 |
+| **Bzip2** | 1.3ms | 1.3ms | 1.259ms | 276 KB | 28 |
+| **XZ** | 800µs | 1.0ms | 0.970ms | 8,225 KB | 192 |
+
+#### Archive Format Performance
+
+**TAR vs ZIP - Creation (Single 1KB file, uncompressed):**
+
+| Format | Median | Mean | CPU Time | Memory | Allocations | Archive Size | Overhead |
+|--------|--------|------|----------|--------|-------------|--------------|----------|
+| **TAR** | <1µs | <1µs | 0.019ms | 5.2 KB | 19 | 2,560 bytes | 1,536 bytes (150%) |
+| **ZIP** | <1µs | <1µs | 0.006ms | 5.2 KB | 19 | ~200 bytes | ~176 bytes |
+
+**TAR vs ZIP - Extraction (Single 1KB file):**
+
+| Format | Median | Mean | CPU Time | Memory | Allocations |
+|--------|--------|------|----------|--------|-------------|
+| **TAR** | <1µs | <1µs | 0.008ms | 1.7 KB | 22 |
+| **ZIP** | <1µs | <1µs | 0.006ms | 0.2 KB | 4 |
+
+**Critical Differences Between TAR and ZIP:**
+
+1. **Compression**:
+   - TAR: Archive format only, NO compression (requires external compression like Gzip/Bzip2/LZ4/XZ)
+   - ZIP: Integrates compression natively
+   - ⚠️ Compression ratios are NOT comparable between TAR and ZIP formats
+
+2. **Robustness to Corruption**:
+   - TAR: Sequential format allows reading/writing even if partially corrupted
+   - ZIP: Central directory at end of archive - ANY corruption prevents reading entire archive
+   - ✅ TAR recommended for critical backups and long-term storage
+
+3. **Recommended Usage**:
+   - TAR + Compression (e.g., `.tar.gz`, `.tar.xz`) for backups, streaming, robustness
+   - ZIP for distribution, Windows compatibility, random access
 
 ### Performance Analysis
 
 **Key Findings:**
 
-1.  **Sub-millisecond Small Operations**: Most small operations complete in <1ms
-2.  **Large Data Handling**: 1MB operations scale predictably (1-3ms mean)
-3.  **Algorithm Trade-offs**: LZ4 fastest, XZ highest ratio
-4.  **Streaming Efficiency**: TAR streaming faster than ZIP random access
+1. **Compression Speed**: LZ4 175x faster than XZ, 8x faster than Gzip
+2. **Memory Efficiency**: ZIP uses 5-8x less memory for extraction (0.2 KB vs 1.2-1.7 KB)
+3. **Compression Ratios**: Bzip2/XZ achieve 99.8-99.9% on 100KB data
+4. **Archive Overhead**: TAR fixed 1,536 bytes, ZIP minimal ~150-200 bytes
+5. **CPU vs Ratio Trade-off**: XZ/Bzip2 best compression but 70-175x slower than LZ4
 
 **Test Conditions:**
--   **Hardware**: AMD64/ARM64 Multi-core, 8GB+ RAM
--   **Sample Sizes**: 1000 samples (micro-ops), 100 samples (large data)
--   **Data Sizes**: Small (10B), Medium (1KB), Large (1MB)
+- **Hardware**: AMD64/ARM64, 2+ cores, 512MB+ RAM
+- **Sample Sizes**: 20 samples per benchmark
+- **Data Sizes**: Small (1KB), Medium (10KB), Large (100KB)
+- **Measurement**: runtime.ReadMemStats for memory, gmeasure.Experiment for timing
 
 ### Performance Characteristics
 
 **Strengths:**
--   ✅ **Streaming Architecture**: O(1) memory usage
--   ✅ **Efficient Algorithms**: LZ4 for speed, XZ for ratio
--   ✅ **Predictable Performance**: Low standard deviation
+- ✅ **Sub-microsecond Operations**: Most operations <1µs for small data
+- ✅ **Memory Efficient**: LZ4 uses only 1.2-4.5 KB
+- ✅ **Predictable Scaling**: Linear performance with data size
+- ✅ **Low Allocations**: 6-327 allocations depending on algorithm
 
-**Limitations:**
-1.  **XZ Compression**: Slow for large data (3ms/MB)
-    -   *Mitigation*: Use LZ4 or Gzip for speed-critical applications
-2.  **ZIP Overhead**: Random access slower than TAR streaming
-    -   *Context*: Trade-off for random file access capability
+**Algorithm Recommendations:**
+- **Real-time/Logs** → LZ4 (0.04ms, 4.5 KB memory)
+- **Web/API** → Gzip (0.35ms, 800 KB memory, 99.7% ratio)
+- **Archival** → Bzip2/XZ (best ratios 99.8-99.9%)
+- **Balanced** → Gzip (good speed + ratio + memory)
 
-### Memory Profile
+**Archive Format Recommendations:**
+- **TAR**: Best for large files (1.5% overhead at 100KB), streaming
+- **ZIP**: Best for small files, extraction (8x less memory), random access
 
--   **Compression**: ~64KB buffer per operation
--   **TAR Reader**: ~32KB buffer
--   **ZIP Reader**: ~64KB + index (O(n) entries)
--   **Helper Pipeline**: ~32KB buffer
+### Memory Profile (Real Measurements)
+
+**Compression:**
+- LZ4: 4.5 KB (small/medium) → 1.2 KB (large)
+- Gzip: ~795 KB consistent
+- Bzip2: 650 KB → 2,544 KB (scales with data)
+- XZ: ~8,226 KB consistent (highest)
+
+**Decompression:**
+- LZ4: ~1.2 KB (minimal)
+- Gzip: 24.6 KB → 312 KB (scales with data)
+- Bzip2: ~276 KB consistent
+- XZ: ~8,225 KB consistent
+
+**Archives:**
+- TAR: 5.2 KB creation, 1.2-1.7 KB extraction
+- ZIP: 5.2 KB creation, 0.2 KB extraction (8x more efficient)
 
 ---
 

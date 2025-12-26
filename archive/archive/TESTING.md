@@ -450,12 +450,62 @@ ok      github.com/nabbar/golib/archive/archive      1.223s
 **Summary:**
 
 The archive package demonstrates excellent performance characteristics:
-- **Sub-microsecond** algorithm operations (String, Extension, IsNone)
+- **Sub-microsecond** archive operations for both TAR and ZIP
 - **~2-3µs** format detection overhead
-- **Zero allocation** for enum operations
-- **Minimal overhead** compared to direct stdlib usage
+- **Minimal memory footprint**: TAR ~1-5 KB, ZIP ~0.2-5 KB
+- **Efficient overhead**: TAR 1,536 bytes fixed, ZIP ~150-200 bytes
 
-**Algorithm Operations:**
+**Benchmark Results (AMD64, Go 1.25, 20 samples per test):**
+
+#### Archive Creation Performance by Data Size
+
+**Small Data (1KB):**
+
+| Format | Median | Mean | CPU Time | Memory | Allocations | Archive Size | Overhead |
+|--------|--------|------|----------|--------|-------------|--------------|----------|
+| **TAR** | <1µs | <1µs | 0.019ms | 5.2 KB | 19 | 2,560 bytes | 1,536 bytes (150%) |
+| **ZIP** | <1µs | <1µs | 0.006ms | 5.2 KB | 19 | ~200 bytes | ~176 bytes |
+
+**Medium Data (10KB):**
+
+| Format | Median | Mean | CPU Time | Memory | Allocations | Archive Size | Overhead |
+|--------|--------|------|----------|--------|-------------|--------------|----------|
+| **TAR** | <1µs | <1µs | 0.019ms | 5.2 KB | 19 | 11,776 bytes | 1,536 bytes (15%) |
+| **ZIP** | <1µs | <1µs | 0.008ms | 5.2 KB | 19 | ~10,400 bytes | ~160 bytes |
+
+**Large Data (100KB):**
+
+| Format | Median | Mean | CPU Time | Memory | Allocations | Archive Size | Overhead |
+|--------|--------|------|----------|--------|-------------|--------------|----------|
+| **TAR** | <1µs | <1µs | 0.020ms | 5.2 KB | 19 | 103,936 bytes | 1,536 bytes (1.5%) |
+| **ZIP** | <1µs | <1µs | 0.009ms | 5.2 KB | 19 | ~102,600 bytes | ~200 bytes |
+
+#### Archive Extraction Performance by Data Size
+
+**Small Data (1KB):**
+
+| Format | Median | Mean | CPU Time | Memory | Allocations |
+|--------|--------|------|----------|--------|-------------|
+| **TAR** | <1µs | <1µs | 0.008ms | 1.7 KB | 22 |
+| **ZIP** | <1µs | <1µs | 0.006ms | 0.2 KB | 4 |
+
+**Medium Data (10KB):**
+
+| Format | Median | Mean | CPU Time | Memory | Allocations |
+|--------|--------|------|----------|--------|-------------|
+| **TAR** | <1µs | <1µs | 0.005ms | 1.2 KB | 22 |
+| **ZIP** | <1µs | <1µs | 0.006ms | 0.2 KB | 4 |
+
+**Large Data (100KB):**
+
+| Format | Median | Mean | CPU Time | Memory | Allocations |
+|--------|--------|------|----------|--------|-------------|
+| **TAR** | <1µs | <1µs | 0.006ms | 1.2 KB | 22 |
+| **ZIP** | <1µs | <1µs | 0.006ms | 0.2 KB | 4 |
+
+**Important**: These benchmarks measure archiving performance only (uncompressed data). TAR and ZIP have fundamental differences that must be understood when interpreting results.
+
+#### Algorithm Operations
 
 | Operation | Complexity | Typical Latency | Allocations |
 |-----------|------------|-----------------|-------------|
@@ -464,6 +514,8 @@ The archive package demonstrates excellent performance characteristics:
 | IsNone() | O(1) | <1ns | 0 |
 | Parse() | O(n) | <100ns | 0-1 |
 | DetectHeader() | O(1) | <50ns | 0 |
+
+#### Detection & Marshaling Performance
 
 **Detection Operations:**
 
@@ -481,6 +533,34 @@ The archive package demonstrates excellent performance characteristics:
 | UnmarshalText() | 1000 | <1µs | <1µs | 2µs | String comparison |
 | MarshalJSON() | 1000 | <1µs | <1µs | 1µs | String + quotes |
 | UnmarshalJSON() | 1000 | <1µs | 1µs | 3µs | JSON parsing |
+
+#### Key Performance Insights
+
+1. **Creation Speed**: Both formats show similar sub-microsecond performance
+2. **Extraction Efficiency**: ZIP uses 5-8x less memory (0.2 KB vs 1.2-1.7 KB)
+3. **CPU Efficiency**: ZIP slightly faster (0.006-0.009ms vs 0.019-0.020ms for creation)
+4. **Memory Footprint**:
+   - TAR: Consistent 5.2 KB for creation, 1.2-1.7 KB for extraction
+   - ZIP: 5.2 KB for creation, only 0.2 KB for extraction
+5. **Overhead Analysis**:
+   - TAR: Fixed 1,536 bytes (150% for 1KB, 1.5% for 100KB)
+   - ZIP: Minimal ~150-200 bytes regardless of size
+
+#### Critical Format Differences
+
+**Compression:**
+- **TAR**: Archive format only, NO built-in compression. Must use external compression (Gzip/Bzip2/LZ4/XZ) → `.tar.gz`, `.tar.xz`, etc.
+- **ZIP**: Integrates compression natively within the format
+- ⚠️ **Compression ratios are NOT comparable** between TAR and ZIP formats
+
+**Robustness to Corruption:**
+- **TAR**: Sequential format allows reading/writing even if partially corrupted. Files before corruption point remain accessible.
+- **ZIP**: Central directory at end of archive - ANY corruption typically prevents reading the entire archive.
+- ✅ **TAR recommended** for critical backups, long-term storage, and scenarios where data integrity cannot be guaranteed
+
+**Recommended Usage:**
+- **TAR + Compression**: Backups, streaming, network transfers, critical data requiring corruption resilience
+- **ZIP**: Software distribution, Windows compatibility, random file access, GUI applications
 
 ### Test Conditions
 

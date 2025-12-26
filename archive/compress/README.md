@@ -154,38 +154,93 @@ XZ:     0xFD 0x37 0x7A 0x58 0x5A 0x00
 
 ### Benchmarks
 
-Based on actual benchmark results (AMD64, Go 1.25):
+Based on actual benchmark results (AMD64, Go 1.25, 20 samples per test):
 
-| Operation | Data Size | Median | Mean | Max |
-|-----------|-----------|--------|------|-----|
-| **Gzip Compress (1KB)** | 1KB | <1µs | <1µs | 300µs |
-| **Gzip Decompress (1KB)** | 1KB | <1µs | <1µs | 300µs |
-| **Bzip2 Compress (1KB)** | 1KB | <1µs | <1µs | 300µs |
-| **LZ4 Compress (1KB)** | 1KB | <1µs | <1µs | 300µs |
-| **XZ Compress (1KB)** | 1KB | 300µs | 500µs | 700µs |
-| **Detection** | 6 bytes | <1µs | <1µs | 100µs |
-| **Parse** | String | <1µs | <1µs | 100µs |
+#### Compression Performance
 
-**Compression Ratios (1KB test data):**
+**Small Data (1KB):**
 
-```
-gzip:  94.2%
-bzip2: 90.4%
-lz4:   93.1%
-xz:    89.8%
-```
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Ratio |
+|-----------|--------|------|----------|--------|-------------|-------|
+| **LZ4** | <1µs | <1µs | 0.032ms | 4.5 KB | 16 | 93.1% |
+| **Gzip** | <1µs | <1µs | 0.073ms | 795 KB | 24 | 94.2% |
+| **Bzip2** | 100µs | 200µs | 0.186ms | 650 KB | 34 | 90.4% |
+| **XZ** | 300µs | 500µs | 0.513ms | 8,226 KB | 144 | 89.8% |
+
+**Medium Data (10KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Ratio |
+|-----------|--------|------|----------|--------|-------------|-------|
+| **LZ4** | <1µs | <1µs | 0.019ms | 4.5 KB | 17 | 99.0% |
+| **Gzip** | <1µs | 100µs | 0.089ms | 795 KB | 25 | 99.1% |
+| **Bzip2** | 200µs | 300µs | 0.339ms | 822 KB | 37 | 98.8% |
+| **XZ** | 300µs | 400µs | 0.378ms | 8,226 KB | 147 | 98.7% |
+
+**Large Data (100KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations | Ratio |
+|-----------|--------|------|----------|--------|-------------|-------|
+| **LZ4** | <1µs | <1µs | 0.044ms | 1.2 KB | 11 | 99.5% |
+| **Gzip** | 300µs | 400µs | 0.351ms | 796 KB | 26 | 99.7% |
+| **Bzip2** | 2.7ms | 2.8ms | 2.753ms | 2,544 KB | 38 | 99.9% |
+| **XZ** | 6.9ms | 7.0ms | 6.994ms | 8,228 KB | 327 | 99.8% |
+
+#### Decompression Performance
+
+**Small Data (1KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.018ms | 1.2 KB | 7 |
+| **Gzip** | <1µs | <1µs | 0.024ms | 24.6 KB | 16 |
+| **Bzip2** | <1µs | 100µs | 0.098ms | 276 KB | 25 |
+| **XZ** | 100µs | 200µs | 0.192ms | 8,225 KB | 89 |
+
+**Medium Data (10KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.017ms | 1.2 KB | 8 |
+| **Gzip** | <1µs | <1µs | 0.033ms | 33.4 KB | 17 |
+| **Bzip2** | 100µs | 100µs | 0.133ms | 276 KB | 26 |
+| **XZ** | 100µs | 100µs | 0.144ms | 8,225 KB | 92 |
+
+**Large Data (100KB):**
+
+| Algorithm | Median | Mean | CPU Time | Memory | Allocations |
+|-----------|--------|------|----------|--------|-------------|
+| **LZ4** | <1µs | <1µs | 0.028ms | 1.2 KB | 6 |
+| **Gzip** | 100µs | 100µs | 0.112ms | 312 KB | 19 |
+| **Bzip2** | 1.3ms | 1.3ms | 1.259ms | 276 KB | 28 |
+| **XZ** | 800µs | 1.0ms | 0.970ms | 8,225 KB | 192 |
+
+#### Detection & Parsing
+
+| Operation | Median | Mean | Max | Throughput |
+|-----------|--------|------|-----|------------|
+| **Parse** (string) | <1µs | <1µs | 100µs | >1M ops/sec |
+| **Detection** (6 bytes) | <1µs | <1µs | 100µs | >1M ops/sec |
 
 ### Memory Usage
 
+**Algorithm-Specific Memory Footprint:**
+
 ```
-Base overhead:        Minimal (enum operations)
+Base overhead:        1 byte (enum type)
 Detection:            6-byte peek buffer
-Reader wrapping:      Depends on algorithm
-  - Gzip: ~256KB internal buffer
-  - Bzip2: ~64KB internal buffer
-  - LZ4: ~64KB internal buffer
-  - XZ: Variable (algorithm-dependent)
-Writer wrapping:      Depends on algorithm and settings
+Parse operations:     Minimal (string length)
+
+Compression buffers:
+  - LZ4:    ~4.5 KB (fastest, lowest memory)
+  - Bzip2:  ~650 KB (1KB) to ~2.5 MB (100KB)
+  - Gzip:   ~795 KB (consistent across sizes)
+  - XZ:     ~8.2 MB (highest memory usage)
+
+Decompression buffers:
+  - LZ4:    ~1.2 KB (minimal footprint)
+  - Gzip:   ~25-300 KB (size-dependent)
+  - Bzip2:  ~276 KB (consistent)
+  - XZ:     ~8.2 MB (consistent)
 ```
 
 ### Scalability
