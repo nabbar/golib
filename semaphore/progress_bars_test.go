@@ -30,9 +30,10 @@ import (
 	"context"
 	"time"
 
-	libsem "github.com/nabbar/golib/semaphore"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	libsem "github.com/nabbar/golib/semaphore"
 )
 
 var _ = Describe("Progress Bar Creation", func() {
@@ -52,13 +53,13 @@ var _ = Describe("Progress Bar Creation", func() {
 	})
 
 	Describe("BarBytes", func() {
-		It("should create a bytes progress bar without MPB", func() {
+		It("should not create a bytes progress bar without MPB", func() {
 			sem := libsem.New(ctx, 5, false)
 			defer sem.DeferMain()
 
 			bar := sem.BarBytes("Download", "file.zip", 1024*1024, false, nil)
 			Expect(bar).ToNot(BeNil())
-			Expect(bar.Total()).To(Equal(int64(1024 * 1024)))
+			Expect(bar.Total()).To(Equal(int64(0)))
 		})
 
 		It("should create a bytes progress bar with MPB", func() {
@@ -94,13 +95,13 @@ var _ = Describe("Progress Bar Creation", func() {
 	})
 
 	Describe("BarTime", func() {
-		It("should create a time progress bar without MPB", func() {
+		It("should not create a time progress bar without MPB", func() {
 			sem := libsem.New(ctx, 5, false)
 			defer sem.DeferMain()
 
 			bar := sem.BarTime("Process", "task", 100, false, nil)
 			Expect(bar).ToNot(BeNil())
-			Expect(bar.Total()).To(Equal(int64(100)))
+			Expect(bar.Total()).To(Equal(int64(0)))
 		})
 
 		It("should create a time progress bar with MPB", func() {
@@ -119,13 +120,13 @@ var _ = Describe("Progress Bar Creation", func() {
 	})
 
 	Describe("BarNumber", func() {
-		It("should create a number progress bar without MPB", func() {
+		It("should not create a number progress bar without MPB", func() {
 			sem := libsem.New(ctx, 5, false)
 			defer sem.DeferMain()
 
 			bar := sem.BarNumber("Items", "processing", 1000, false, nil)
 			Expect(bar).ToNot(BeNil())
-			Expect(bar.Total()).To(Equal(int64(1000)))
+			Expect(bar.Total()).To(Equal(int64(0)))
 		})
 
 		It("should create a number progress bar with MPB", func() {

@@ -27,10 +27,12 @@
 package semaphore
 
 import (
-	sembar "github.com/nabbar/golib/semaphore/bar"
-	semtps "github.com/nabbar/golib/semaphore/types"
 	sdkmpb "github.com/vbauerster/mpb/v8"
 	mpbdec "github.com/vbauerster/mpb/v8/decor"
+
+	sembar "github.com/nabbar/golib/semaphore/bar"
+	semnbr "github.com/nabbar/golib/semaphore/nobar"
+	semtps "github.com/nabbar/golib/semaphore/types"
 )
 
 const done = "Done"
@@ -128,7 +130,10 @@ func (o *sem) BarNumber(name, job string, tot int64, drop bool, bar semtps.SemBa
 //
 // See: github.com/nabbar/golib/semaphore/types.Progress
 func (o *sem) BarOpts(tot int64, drop bool, opts ...sdkmpb.BarOption) semtps.SemBar {
-	return sembar.New(o, tot, drop, opts...)
+	if o.isMbp() {
+		return sembar.New(o, tot, drop, opts...)
+	}
+	return semnbr.New(o, tot, drop, opts...)
 }
 
 // GetMPB returns the underlying MPB progress container.
