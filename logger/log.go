@@ -271,10 +271,6 @@ func (o *logger) newEntry(lvl loglvl.Level, message string, err []error, fields 
 		fld = o.GetFields()
 	)
 
-	if fld != nil {
-		ent.FieldSet(fld.Clone())
-	}
-
 	// prevent overflow
 	var uif uint64
 	if frm.Line <= 0 {
@@ -285,8 +281,17 @@ func (o *logger) newEntry(lvl loglvl.Level, message string, err []error, fields 
 
 	ent.ErrorSet(err)
 	ent.DataSet(data)
-	ent.SetLogger(fct)
 	ent.SetEntryContext(time.Now(), stk, frm.Function, frm.File, uif, message)
+
+	if o.x.Err() != nil {
+		return ent
+	}
+
+	if fld != nil {
+		ent.FieldSet(fld.Clone())
+	}
+
+	ent.SetLogger(fct)
 	ent.FieldMerge(fields)
 
 	return ent

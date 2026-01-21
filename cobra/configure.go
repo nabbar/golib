@@ -37,7 +37,7 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	loglvl "github.com/nabbar/golib/logger/level"
-	"github.com/pelletier/go-toml"
+	"github.com/pelletier/go-toml/v2"
 	spfcbr "github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

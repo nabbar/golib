@@ -27,140 +27,90 @@
 package hooksyslog
 
 import (
+	"os"
+	"sync"
 	"sync/atomic"
+
+	"github.com/sirupsen/logrus"
 
 	logcfg "github.com/nabbar/golib/logger/config"
 	loglvl "github.com/nabbar/golib/logger/level"
 	logtps "github.com/nabbar/golib/logger/types"
 	libptc "github.com/nabbar/golib/network/protocol"
-	"github.com/sirupsen/logrus"
 )
 
-// HookSyslog is a logrus hook that writes log entries to syslog.
+// HookSyslog is a logrus hook that writes log entries to a syslog endpoint.
 // It extends the standard logrus.Hook interface with additional methods
-// for lifecycle management and direct syslog writing.
+// for lifecycle management.
 //
-// The hook operates asynchronously using a buffered channel (capacity: 250)
-// to prevent blocking the logging goroutine. A background goroutine (started
-// via Run) processes the buffered entries and writes them to syslog.
+// The hook operates asynchronously by delegating the actual writing to a shared,
+// buffered aggregator. This prevents blocking the main logging goroutine.
 //
 // Platform support:
-//   - Unix/Linux: Uses log/syslog with TCP, UDP, or Unix domain sockets
-//   - Windows: Uses Windows Event Log via golang.org/x/sys/windows/svc/eventlog
+//   - Unix/Linux: Supports local syslog (via Unix domain sockets) and remote syslog (TCP/UDP).
+//   - Windows: Supports remote syslog (TCP/UDP). Local syslog is not supported.
 //
 // Thread safety:
-//   - Fire() is safe for concurrent calls (buffered channel)
-//   - WriteSev() is safe for concurrent calls (buffered channel)
-//   - Done() and Close() should only be called once during shutdown
+//   - Fire() is safe for concurrent calls.
+//   - Close() should be called once during shutdown to release resources.
 //
 // Example:
 //
 //	opts := logcfg.OptionsSyslog{
-//		Network:  "unixgram",
-//		Host:     "/dev/log",
+//		Network:  "udp",
+//		Host:     "syslog.example.com:514",
 //		Tag:      "myapp",
 //		LogLevel: []string{"info", "error"},
 //	}
 //	hook, _ := New(opts, &logrus.JSONFormatter{})
-//	go hook.Run(ctx)
 //	logger.AddHook(hook)
+//	defer hook.Close()
 type HookSyslog interface {
 	logtps.Hook
-
-	// Done returns a receive-only channel that is closed when the hook's
-	// Run goroutine terminates. This allows graceful shutdown coordination.
-	//
-	// The channel is closed when:
-	//   - The context passed to Run() is cancelled
-	//   - Close() is called on the hook
-	//
-	// Use this to wait for all buffered log entries to be written before
-	// terminating the application:
-	//
-	//	cancel() // Stop the Run goroutine
-	//	hook.Close() // Close the channels
-	//	<-hook.Done() // Wait for completion
-	//
-	// Note: This channel is safe to read from multiple goroutines, but
-	// each reader will only receive the close signal once.
-	Done() <-chan struct{}
-	// WriteSev writes a log entry to the syslog buffer with the specified
-	// severity level and data.
-	//
-	// This method bypasses the logrus.Entry mechanism and directly writes
-	// to syslog. It's useful for custom logging scenarios or when you need
-	// explicit control over the severity level.
-	//
-	// Parameters:
-	//   - s: Syslog severity (Emergency, Alert, Critical, Error, Warning, Notice, Info, Debug)
-	//   - p: Log message data (will be sent as-is to syslog)
-	//
-	// Returns:
-	//   - n: Number of bytes accepted (len(p)) if successful
-	//   - err: Error if the channel is closed or buffer is full
-	//
-	// Behavior:
-	//   - Non-blocking if buffer has space (typical case)
-	//   - Blocks if buffer is full (250 entries) until space is available
-	//   - Returns error if Close() was called (channel closed)
-	//
-	// The data is queued to a buffered channel and written asynchronously
-	// by the Run() goroutine. There's no guarantee of immediate delivery.
-	//
-	// Example:
-	//
-	//	hook, _ := New(opts, nil)
-	//	go hook.Run(ctx)
-	//	_, err := hook.WriteSev(SyslogSeverityInfo, []byte("Custom log entry"))
-	//	if err != nil {
-	//		log.Printf("Failed to write: %v", err)
-	//	}
-	WriteSev(s SyslogSeverity, p []byte) (n int, err error)
 }
 
 // New creates a new HookSyslog instance with the specified configuration.
 //
-// This function initializes the hook but does NOT start the background writer
-// goroutine. You must call Run(ctx) in a separate goroutine after creating
-// the hook.
+// This function initializes the hook and establishes a connection to the syslog
+// endpoint via a shared aggregator. If an aggregator for the specified endpoint
+// already exists, it is reused, and its reference count is incremented.
+//
+// The background writer goroutine is managed automatically by the aggregator,
+// so there is no need to manually start a run loop.
 //
 // Parameters:
-//   - opt: Configuration options including network, host, tag, facility, and filters
-//   - format: Logrus formatter for log entries (nil for default text format)
+//   - opt: Configuration options including network, host, tag, facility, and filters.
+//   - format: Logrus formatter for log entries (nil for default text format).
 //
 // Configuration:
-//   - opt.Network: Protocol ("tcp", "udp", "unixgram", "unix", "" for local)
-//   - opt.Host: Syslog server address ("host:port" for TCP/UDP, "/dev/log" for Unix)
-//   - opt.Tag: Syslog tag/application name (appears in syslog output)
-//   - opt.Facility: Syslog facility ("LOCAL0"-"LOCAL7", "USER", "DAEMON", etc.)
-//   - opt.LogLevel: Filter log levels (empty = all levels)
-//   - opt.DisableStack: Remove "stack" field from output
-//   - opt.DisableTimestamp: Remove "time" field from output
-//   - opt.EnableTrace: Include "caller", "file", "line" fields
-//   - opt.EnableAccessLog: Write entry.Message instead of formatted fields
+//   - opt.Network: Protocol ("tcp", "udp", "unixgram", "unix"). Empty string implies local auto-discovery (Unix only).
+//   - opt.Host: Syslog server address ("host:port" for TCP/UDP, "/dev/log" for Unix).
+//   - opt.Tag: Syslog tag/application name (appears in syslog output). Defaults to process name.
+//   - opt.Facility: Syslog facility ("LOCAL0"-"LOCAL7", "USER", "DAEMON", etc.).
+//   - opt.LogLevel: Filter log levels (empty = all levels).
+//   - opt.DisableStack: Remove "stack" field from output.
+//   - opt.DisableTimestamp: Remove "time" field from output.
+//   - opt.EnableTrace: Include "caller", "file", "line" fields.
+//   - opt.EnableAccessLog: Write entry.Message instead of formatted fields.
 //
 // Returns:
-//   - HookSyslog: Configured hook ready to use (call Run to start)
-//   - error: Non-nil if unable to connect to syslog (validates connection)
-//
-// The function validates the syslog connection by opening and immediately
-// closing it. This ensures early detection of configuration errors.
+//   - HookSyslog: Configured hook ready to use.
+//   - error: Non-nil if unable to initialize the connection aggregator.
 //
 // Example:
 //
 //	opts := logcfg.OptionsSyslog{
-//		Network:  "unixgram",
-//		Host:     "/dev/log",
+//		Network:  "tcp",
+//		Host:     "192.168.1.50:514",
 //		Tag:      "myapp",
 //		Facility: "USER",
 //		LogLevel: []string{"info", "warning", "error"},
 //	}
 //	hook, err := New(opts, &logrus.JSONFormatter{})
 //	if err != nil {
-//		return fmt.Errorf("failed to create syslog hook: %w", err)
+//		return nil, fmt.Errorf("failed to create syslog hook: %w", err)
 //	}
-//	go hook.Run(context.Background())
-//	defer hook.Close()
+//	logger.AddHook(hook)
 func New(opt logcfg.OptionsSyslog, format logrus.Formatter) (HookSyslog, error) {
 	var (
 		LVLs = make([]logrus.Level, 0)
@@ -174,9 +124,12 @@ func New(opt logcfg.OptionsSyslog, format logrus.Formatter) (HookSyslog, error) 
 		LVLs = logrus.AllLevels
 	}
 
+	if opt.Tag == "" {
+		opt.Tag = os.Args[0]
+	}
+
 	n := &hks{
-		s: new(atomic.Value),
-		d: new(atomic.Value),
+		m: sync.Mutex{},
 		o: ohks{
 			format:           format,
 			levels:           LVLs,
@@ -188,18 +141,23 @@ func New(opt logcfg.OptionsSyslog, format logrus.Formatter) (HookSyslog, error) 
 			endpoint:         opt.Host,
 			tag:              opt.Tag,
 			fac:              MakeFacility(opt.Facility),
-			//sev : MakeSeverity(opt.Severity),
 		},
+		w: nil,
 		r: new(atomic.Bool),
+		l: new(atomic.Bool),
 	}
 
-	n.s.Store(make(chan struct{}))
-	n.d.Store(make(chan []data, 250))
-
-	if h, e := n.getSyslog(); e != nil {
+	a, l, e := setAgg(n.o.network, n.o.endpoint)
+	if e != nil {
 		return nil, e
-	} else {
-		_ = h.Close()
+	}
+
+	n.w = a
+	n.l.Store(l)
+	n.r.Store(true)
+
+	if !l {
+		n.h, _ = os.Hostname()
 	}
 
 	return n, nil

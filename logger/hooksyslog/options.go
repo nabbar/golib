@@ -64,12 +64,6 @@ func (o *hks) getEnableAccessLog() bool {
 	return o.o.enableAccessLog
 }
 
-// getSyslog creates a new platform-specific syslog writer.
-// Returns a Wrapper implementation based on the current OS.
-func (o *hks) getSyslog() (Wrapper, error) {
-	return newSyslog(o.o.network, o.o.endpoint, o.o.tag, o.o.fac)
-}
-
 // getSyslogInfo returns a human-readable description of the syslog configuration.
 // Used in error messages to identify the syslog destination.
 func (o *hks) getSyslogInfo() string {

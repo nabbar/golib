@@ -38,6 +38,7 @@ import (
 	"testing"
 	"time"
 
+	logsys "github.com/nabbar/golib/logger/hooksyslog"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 	sckcfg "github.com/nabbar/golib/socket/config"
@@ -91,6 +92,8 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	logsys.ResetOpenSyslog()
+
 	if sckSrv != nil {
 		_ = sckSrv.Close()
 		time.Sleep(50 * time.Millisecond) // Give time to clean up

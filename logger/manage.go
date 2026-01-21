@@ -114,6 +114,10 @@ func (o *logger) Clone() (Logger, error) {
 		return nil, fmt.Errorf("logger is nil")
 	}
 
+	if e := o.x.Err(); e != nil {
+		return nil, e
+	}
+
 	l := &logger{
 		m: sync.RWMutex{},
 		x: libctx.New[uint8](o.x),
@@ -123,6 +127,7 @@ func (o *logger) Clone() (Logger, error) {
 
 	l.SetLevel(o.GetLevel())
 	l.SetFields(o.GetFields())
+
 	if e := l.SetOptions(o.GetOptions()); e != nil {
 		return nil, e
 	}

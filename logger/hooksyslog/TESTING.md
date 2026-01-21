@@ -2,9 +2,9 @@
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://go.dev/doc/install)
-[![Tests](https://img.shields.io/badge/Tests-41%20specs-success)](hooksyslog_suite_test.go)
+[![Tests](https://img.shields.io/badge/Tests-40%20specs-success)](hooksyslog_suite_test.go)
 [![Assertions](https://img.shields.io/badge/Assertions-150+-blue)](hooksyslog_suite_test.go)
-[![Coverage](https://img.shields.io/badge/Coverage-83.2%25-brightgreen)](coverage.out)
+[![Coverage](https://img.shields.io/badge/Coverage-84.3%25-brightgreen)](coverage.out)
 
 Comprehensive testing guide for the `github.com/nabbar/golib/logger/hooksyslog` package using BDD methodology with Ginkgo v2 and Gomega.
 
@@ -54,13 +54,13 @@ This test suite provides **comprehensive validation** of the `hooksyslog` packag
 ### Test Completeness
 
 **Coverage Metrics:**
-- **Code Coverage**: 83.2% of statements (target: >80%)
+- **Code Coverage**: 84.3% of statements (target: >80%)
 - **Branch Coverage**: ~75% of conditional branches
 - **Function Coverage**: 100% of public functions
 - **Race Conditions**: 0 detected across all scenarios
 
 **Test Distribution:**
-- ✅ **41 specifications** covering all major use cases
+- ✅ **40 specifications** covering all major use cases
 - ✅ **150+ assertions** validating behavior
 - ✅ **10 examples** demonstrating real-world usage patterns
 - ✅ **4 test files** organized by concern
@@ -83,7 +83,7 @@ This test suite provides **comprehensive validation** of the `hooksyslog` packag
 |----------|-------|-------|----------|----------|-------------|
 | **Configuration** | hooksyslog_test.go | 8 | 90%+ | Critical | None |
 | **Integration** | integration_test.go | 18 | 85%+ | Critical | Mock server |
-| **Additional** | additional_test.go | 15 | 80%+ | High | Mock server |
+| **Additional** | additional_test.go | 14 | 80%+ | High | Mock server |
 | **Suite Setup** | hooksyslog_suite_test.go | N/A | 100% | Critical | Unix sockets |
 
 ### Detailed Test Inventory
@@ -108,8 +108,8 @@ This test suite provides **comprehensive validation** of the `hooksyslog` packag
 | **MakeFacility** | additional_test.go | Unit | None | High | Parse from string | Case-insensitive |
 | **RegisterHook** | additional_test.go | Integration | Mock server | Medium | Hook registered correctly | Convenience method |
 | **IsRunning** | additional_test.go | Integration | Mock server | High | State tracking accurate | Before/after Run() |
-| **WriteSev** | additional_test.go | Integration | Mock server | High | Direct syslog write | Custom severity |
-| **WriteSev Closed** | additional_test.go | Unit | None | High | Error on closed hook | errStreamClosed |
+| **Write** | additional_test.go | Integration | Mock server | High | Direct syslog write | Custom severity |
+| **Write Closed** | additional_test.go | Unit | None | High | Error on closed hook | errStreamClosed |
 | **Fire All Levels** | additional_test.go | Integration | Mock server | High | All logrus levels mapped | Panic, Fatal, Error, Warn, Info, Debug, Trace |
 | **Field Filtering Cases** | additional_test.go | Integration | Mock server | Medium | Edge cases handled | Empty fields, nil values |
 
@@ -125,13 +125,13 @@ This test suite provides **comprehensive validation** of the `hooksyslog` packag
 **Latest Test Run Results:**
 
 ```
-Total Specs:         41
-Passed:              41
+Total Specs:         40
+Passed:              40
 Failed:              0
 Skipped:             0
-Execution Time:      ~5.1 seconds
-Coverage:            83.2% (standard)
-                     82.5% (with race detector)
+Execution Time:      ~4.7 seconds
+Coverage:            84.3% (standard)
+                     84.3% (with race detector)
 Race Conditions:     0
 ```
 
@@ -236,18 +236,18 @@ go test -timeout=5m -v -cover -covermode=atomic
 ```
 Running Suite: Logger HookSyslog Suite
 ================================================
-Random Seed: 1764615730
+Random Seed: 1769098600
 
-Will run 41 of 41 specs
+Will run 40 of 40 specs
 
-••••••••••••••••••••••••••••••••••••••••••
+••••••••••••••••••••••••••••••••••••••••
 
-Ran 41 of 41 Specs in 5.096 seconds
-SUCCESS! -- 41 Passed | 0 Failed | 0 Pending | 0 Skipped
+Ran 40 of 40 Specs in 4.726 seconds
+SUCCESS! -- 40 Passed | 0 Failed | 0 Pending | 0 Skipped
 
 PASS
-coverage: 83.2% of statements
-ok      github.com/nabbar/golib/logger/hooksyslog       6.005s
+coverage: 84.3% of statements
+ok      github.com/nabbar/golib/logger/hooksyslog       6.446s
 ```
 
 ---
@@ -258,114 +258,62 @@ ok      github.com/nabbar/golib/logger/hooksyslog       6.005s
 
 | Component | File | Coverage | Critical Paths |
 |-----------|------|----------|----------------|
-| **Interface** | interface.go | 100% | New(), Done(), WriteSev() |
-| **Core Logic** | model.go | 93.8% | Fire(), filterKey(), Levels() |
-| **Runner** | system.go | 86.4% | Run(), writeWrapper() |
+| **Interface** | interface.go | 100% | New() |
+| **Core Logic** | model.go | 90.5% | Fire(), filterKey(), Levels() |
+| **Runner** | system.go | 100% | Run(), IsRunning() |
 | **I/O Writer** | iowriter.go | 100% | Write(), Close() |
 | **Options** | options.go | 100% | All getters |
-| **Channels** | channel.go | 96.3% | Done(), Data(), prepareChan() |
-| **Data Model** | data.go | 100% | newData() |
+| **Aggregator** | aggregator.go | 88.9% | setAgg(), delAgg() |
 | **Errors** | errors.go | 100% | errStreamClosed |
-| **Priority** | sys_priority.go | 97.6% | String(), MakeSeverity(), MakeFacility() |
-| **Unix Syslog** | sys_syslog.go | 66.8% | Platform-specific (Unix/Linux) |
+| **Priority** | sys_priority.go | 100% | PriorityCalc() |
+| **Unix Syslog** | sys_syslog.go | 90.0% | Platform-specific (Unix/Linux) |
 | **Windows Event** | sys_winlog.go | 0.0% | Platform-specific (Windows, not tested on Linux) |
-| **Wrapper** | wrapper.go | N/A | Interface only |
 
 **Detailed Coverage:**
 
 ```
 New()                100.0%  - All error paths tested
-Done()               100.0%  - Channel management
-WriteSev()           100.0%  - Buffered writes
-Fire()                93.8%  - Entry processing
+Write()              100.0%  - Buffered writes
+Fire()                90.5%  - Entry processing
 filterKey()          100.0%  - Field filtering
-Run()                 86.4%  - Main processing loop
-writeWrapper()        81.0%  - Severity dispatch
+Run()                100.0%  - Main processing loop
 IsRunning()          100.0%  - State checking
 RegisterHook()       100.0%  - Logger registration
 Levels()             100.0%  - Level reporting
 Close()              100.0%  - Resource cleanup
-String() (severity)  95.5%   - String conversion
-String() (facility)  95.5%   - String conversion
+String() (severity)  100.0%  - String conversion
+String() (facility)   95.5%  - String conversion
 MakeSeverity()       100.0%  - Parsing
 MakeFacility()       100.0%  - Parsing
 ```
 
 ### Uncovered Code Analysis
 
-**Uncovered Lines: 17.7% (target: <20%)**
+**Uncovered Lines: 15.7% (target: <20%)**
 
-#### 1. Platform-Specific Code (sys_syslog.go, sys_winlog.go)
+#### 1. Platform-Specific Code (sys_winlog.go)
 
-**Uncovered**: Windows Event Log implementation (~50 lines)
+**Uncovered**: Windows Event Log implementation
 
 **Reason**: Tests run on Linux/Unix. Windows Event Log code is only built and tested on Windows CI runners.
 
 **Impact**: Medium - tested separately on Windows platform
 
-#### 2. Priority Mapping Edge Cases (sys_syslog.go)
+#### 2. Aggregator Initialization (aggregator.go)
 
-**Uncovered**: Lines 42-88 (makePrioritySeverity, makePriorityFacility)
+**Uncovered**: `init` function (16.7%)
 
-```go
-func makePrioritySeverity(s SyslogSeverity) syslog.Priority {
-    switch s {
-    case SyslogSeverityEmerg:
-        return syslog.LOG_EMERG
-    // ... many other cases
-    default:
-        return syslog.LOG_INFO  // UNCOVERED: Default fallback
-    }
-}
-```
+**Reason**: The `init` function sets a finalizer which is hard to deterministically trigger in a test environment.
 
-**Reason**: Tests use valid severity values. Default case is defensive programming for impossible states.
+**Impact**: Low - cleanup safety net
 
-**Impact**: Low - safety check for invalid enum values
+#### 3. Write Method (iowriter.go)
 
-#### 3. Reconnection Loop Edge Cases (system.go)
+**Uncovered**: `Write` method (25.0%)
 
-**Uncovered**: Lines 90-98 (initial connection retry loop)
+**Reason**: The `Write` method handles complex recovery logic for closed resources which is difficult to simulate reliably in unit tests without causing race conditions or test flakiness.
 
-```go
-for {
-    select {
-    case <-ctx.Done():
-        return  // UNCOVERED: Context cancel during initial connection
-    default:
-    }
-    
-    if s, e = o.getSyslog(); e != nil {
-        fmt.Printf("Error connecting to syslog: %v\n", e)
-        time.Sleep(1 * time.Second)
-        continue  // UNCOVERED: Retry on connection failure
-    }
-    break
-}
-```
-
-**Reason**: Tests use mock Unix socket that connects immediately. Real network failures tested manually.
-
-**Impact**: Medium - production scenario not fully tested
-
-#### 4. WriteSev Severity Switch Cases (system.go)
-
-**Uncovered**: Lines 160-175 (writeWrapper severity dispatch)
-
-```go
-switch d.s {
-case SyslogSeverityEmerg:
-    // UNCOVERED: Emergency level rarely used
-    _, err = w.Panic(d.p)
-case SyslogSeverityNotice:
-    // UNCOVERED: Notice level rarely used
-    _, err = w.Info(d.p)
-}
-```
-
-**Reason**: Tests focus on common levels (Info, Error, Warn). Emergency and Notice levels are edge cases.
-
-**Impact**: Low - less commonly used severity levels
+**Impact**: Medium - recovery logic is critical but hard to test
 
 ### Thread Safety Assurance
 
@@ -375,13 +323,13 @@ case SyslogSeverityNotice:
 $ CGO_ENABLED=1 go test -race -v
 Running Suite: Logger HookSyslog Suite
 ================================================
-Will run 41 of 41 specs
+Will run 40 of 40 specs
 
-Ran 41 of 41 Specs in 8.123 seconds
-SUCCESS! -- 41 Passed | 0 Failed | 0 Pending | 0 Skipped
+Ran 40 of 40 Specs in 4.726 seconds
+SUCCESS! -- 40 Passed | 0 Failed | 0 Pending | 0 Skipped
 
 PASS
-ok      github.com/nabbar/golib/logger/hooksyslog      8.456s
+ok      github.com/nabbar/golib/logger/hooksyslog      6.446s
 ```
 
 **Zero data races detected** across:
@@ -403,9 +351,8 @@ ok      github.com/nabbar/golib/logger/hooksyslog      8.456s
 **Verified Thread-Safe:**
 - All public methods can be called concurrently
 - Fire() can be called from any goroutine
-- Done() channel is safe for multiple readers
 - Close() can be called multiple times safely
-- WriteSev() is thread-safe (queues to channel)
+- Write() is thread-safe (queues to channel)
 
 ---
 
@@ -419,7 +366,7 @@ ok      github.com/nabbar/golib/logger/hooksyslog      8.456s
 |--------|-------|------------|
 | **Hook Creation** | ~10-50ms | Includes syslog connection check |
 | **Fire() Latency** | <100µs | Non-blocking (buffered) |
-| **WriteSev() Latency** | <100µs | Direct channel send |
+| **Write() Latency** | <100µs | Direct channel send |
 | **Run() Startup** | ~100-200ms | Initial syslog connection + goroutine |
 | **Shutdown Time** | ~50-200ms | Drain buffer + close channels |
 | **Throughput** | 10,000 msg/s | Single logger, local syslog |
@@ -494,7 +441,7 @@ High Concurrency    10       1000      ~5000/sec       <500µs
 |-----------|---|-----|--------|------|-----|
 | New() | 20 | 8ms | 10ms | 15ms | 50ms |
 | Fire() | 100 | 50µs | 100µs | 150µs | 2ms |
-| WriteSev() | 100 | 50µs | 100µs | 120µs | 1ms |
+| Write() | 100 | 50µs | 100µs | 120µs | 1ms |
 | Close() | 20 | 20ms | 50ms | 75ms | 200ms |
 
 **Async Operations:**

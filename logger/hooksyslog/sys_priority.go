@@ -26,230 +26,33 @@
 
 package hooksyslog
 
-import "strings"
+/*
+RFC 5424 - The Syslog Protocol - 6.2.1 :
 
-// SyslogSeverity represents the severity level of a syslog message
-// according to RFC 5424. Lower numerical values indicate higher severity.
-//
-// The severity levels map to logrus levels as follows:
-//   - Emergency (0): System is unusable
-//   - Alert (1): Action must be taken immediately → logrus.PanicLevel
-//   - Critical (2): Critical conditions → logrus.FatalLevel
-//   - Error (3): Error conditions → logrus.ErrorLevel
-//   - Warning (4): Warning conditions → logrus.WarnLevel
-//   - Notice (5): Normal but significant condition
-//   - Informational (6): Informational messages → logrus.InfoLevel
-//   - Debug (7): Debug-level messages → logrus.DebugLevel
-type SyslogSeverity uint8
+	The PRI part MUST have three, four, or five characters and will be
+	bound with angle brackets as the first and last characters.  The PRI
+	part starts with a leading "<" ('less-than' character, %d60),
+	followed by a number, which is followed by a ">" ('greater-than'
+	character, %d62).  The number contained within these angle brackets
+	is known as the Priority value (PRIVAL) and represents both the
+	Facility and Severity.  The Priority value consists of one, two, or
+	three decimal integers (ABNF DIGITS) using values of %d48 (for "0")
+	through %d57 (for "9").
+	The Priority value is calculated by first multiplying the Facility
+	number by 8 and then adding the numerical value of the Severity.  For
+	example, a kernel message (Facility=0) with a Severity of Emergency
+	(Severity=0) would have a Priority value of 0.  Also, a "local use 4"
+	message (Facility=20) with a Severity of Notice (Severity=5) would
+	have a Priority value of 165.  In the PRI of a syslog message, these
+	values would be placed between the angle brackets as <0> and <165>
+	respectively.  The only time a value of "0" follows the "<" is for
+	the Priority value of "0".  Otherwise, leading "0"s MUST NOT be used.
+*/
 
-const (
-	SyslogSeverityEmerg SyslogSeverity = iota + 1
-	SyslogSeverityAlert
-	SyslogSeverityCrit
-	SyslogSeverityErr
-	SyslogSeverityWarning
-	SyslogSeverityNotice
-	SyslogSeverityInfo
-	SyslogSeverityDebug
-)
-
-// String returns the RFC 5424 name of the severity level in uppercase.
-// Returns an empty string for invalid/unknown severity values.
-//
-// Example:
-//
-//	sev := SyslogSeverityInfo
-//	fmt.Println(sev.String()) // Outputs: "INFO"
-func (s SyslogSeverity) String() string {
-	switch s {
-	case SyslogSeverityEmerg:
-		return "EMERG"
-	case SyslogSeverityAlert:
-		return "ALERT"
-	case SyslogSeverityCrit:
-		return "CRIT"
-	case SyslogSeverityErr:
-		return "ERR"
-	case SyslogSeverityWarning:
-		return "WARNING"
-	case SyslogSeverityNotice:
-		return "NOTICE"
-	case SyslogSeverityInfo:
-		return "INFO"
-	case SyslogSeverityDebug:
-		return "DEBUG"
-	}
-
-	return ""
-}
-
-// MakeSeverity converts a severity string to a SyslogSeverity value.
-// The conversion is case-insensitive. Returns 0 if the string doesn't match any known severity.
-func MakeSeverity(severity string) SyslogSeverity {
-	switch strings.ToUpper(severity) {
-	case SyslogSeverityEmerg.String():
-		return SyslogSeverityEmerg
-	case SyslogSeverityAlert.String():
-		return SyslogSeverityAlert
-	case SyslogSeverityCrit.String():
-		return SyslogSeverityCrit
-	case SyslogSeverityErr.String():
-		return SyslogSeverityErr
-	case SyslogSeverityWarning.String():
-		return SyslogSeverityWarning
-	case SyslogSeverityNotice.String():
-		return SyslogSeverityNotice
-	case SyslogSeverityInfo.String():
-		return SyslogSeverityInfo
-	case SyslogSeverityDebug.String():
-		return SyslogSeverityDebug
-	}
-
-	return 0
-}
-
-// SyslogFacility represents the facility code of a syslog message
-// according to RFC 5424. The facility indicates the type of program
-// or system component generating the message.
-//
-// Facilities are typically used for filtering and routing syslog messages:
-//   - KERN: Kernel messages
-//   - USER: User-level messages (default for applications)
-//   - MAIL: Mail system
-//   - DAEMON: System daemons
-//   - AUTH: Security/authorization messages
-//   - SYSLOG: Messages generated internally by syslogd
-//   - LPR: Line printer subsystem
-//   - NEWS: Network news subsystem
-//   - UUCP: UUCP subsystem
-//   - CRON: Clock daemon
-//   - AUTHPRIV: Security/authorization messages (private)
-//   - FTP: FTP daemon
-//   - LOCAL0-LOCAL7: Reserved for local use (application-specific)
-type SyslogFacility uint8
-
-const (
-	SyslogFacilityKern SyslogFacility = iota + 1
-	SyslogFacilityUser
-	SyslogFacilityMail
-	SyslogFacilityDaemon
-	SyslogFacilityAuth
-	SyslogFacilitySyslog
-	SyslogFacilityLpr
-	SyslogFacilityNews
-	SyslogFacilityUucp
-	SyslogFacilityCron
-	SyslogFacilityAuthPriv
-	SyslogFacilityFTP
-	SyslogFacilityLocal0
-	SyslogFacilityLocal1
-	SyslogFacilityLocal2
-	SyslogFacilityLocal3
-	SyslogFacilityLocal4
-	SyslogFacilityLocal5
-	SyslogFacilityLocal6
-	SyslogFacilityLocal7
-)
-
-// String returns the RFC 5424 name of the facility in uppercase.
-// Returns an empty string for invalid/unknown facility values.
-//
-// Example:
-//
-//	fac := SyslogFacilityUser
-//	fmt.Println(fac.String()) // Outputs: "USER"
-func (s SyslogFacility) String() string {
-	switch s {
-	case SyslogFacilityKern:
-		return "KERN"
-	case SyslogFacilityUser:
-		return "USER"
-	case SyslogFacilityMail:
-		return "MAIL"
-	case SyslogFacilityDaemon:
-		return "DAEMON"
-	case SyslogFacilityAuth:
-		return "AUTH"
-	case SyslogFacilitySyslog:
-		return "SYSLOG"
-	case SyslogFacilityLpr:
-		return "LPR"
-	case SyslogFacilityNews:
-		return "NEWS"
-	case SyslogFacilityUucp:
-		return "UUCP"
-	case SyslogFacilityCron:
-		return "CRON"
-	case SyslogFacilityAuthPriv:
-		return "AUTHPRIV"
-	case SyslogFacilityFTP:
-		return "FTP"
-	case SyslogFacilityLocal0:
-		return "LOCAL0"
-	case SyslogFacilityLocal1:
-		return "LOCAL1"
-	case SyslogFacilityLocal2:
-		return "LOCAL2"
-	case SyslogFacilityLocal3:
-		return "LOCAL3"
-	case SyslogFacilityLocal4:
-		return "LOCAL4"
-	case SyslogFacilityLocal5:
-		return "LOCAL5"
-	case SyslogFacilityLocal6:
-		return "LOCAL6"
-	case SyslogFacilityLocal7:
-		return "LOCAL7"
-	}
-
-	return ""
-}
-
-// MakeFacility converts a facility string to a SyslogFacility value.
-// The conversion is case-insensitive. Returns 0 if the string doesn't match any known facility.
-func MakeFacility(facility string) SyslogFacility {
-	switch strings.ToUpper(facility) {
-	case SyslogFacilityKern.String():
-		return SyslogFacilityKern
-	case SyslogFacilityUser.String():
-		return SyslogFacilityUser
-	case SyslogFacilityMail.String():
-		return SyslogFacilityMail
-	case SyslogFacilityDaemon.String():
-		return SyslogFacilityDaemon
-	case SyslogFacilityAuth.String():
-		return SyslogFacilityAuth
-	case SyslogFacilitySyslog.String():
-		return SyslogFacilitySyslog
-	case SyslogFacilityLpr.String():
-		return SyslogFacilityLpr
-	case SyslogFacilityNews.String():
-		return SyslogFacilityNews
-	case SyslogFacilityUucp.String():
-		return SyslogFacilityUucp
-	case SyslogFacilityCron.String():
-		return SyslogFacilityCron
-	case SyslogFacilityAuthPriv.String():
-		return SyslogFacilityAuthPriv
-	case SyslogFacilityFTP.String():
-		return SyslogFacilityFTP
-	case SyslogFacilityLocal0.String():
-		return SyslogFacilityLocal0
-	case SyslogFacilityLocal1.String():
-		return SyslogFacilityLocal1
-	case SyslogFacilityLocal2.String():
-		return SyslogFacilityLocal2
-	case SyslogFacilityLocal3.String():
-		return SyslogFacilityLocal3
-	case SyslogFacilityLocal4.String():
-		return SyslogFacilityLocal4
-	case SyslogFacilityLocal5.String():
-		return SyslogFacilityLocal5
-	case SyslogFacilityLocal6.String():
-		return SyslogFacilityLocal6
-	case SyslogFacilityLocal7.String():
-		return SyslogFacilityLocal7
-	}
-
-	return 0
+// PriorityCalc calculates the syslog Priority value (PRIVAL) as defined in RFC 5424.
+// PRIVAL = (Facility * 8) + Severity.
+// This value is placed at the beginning of a syslog message in angle brackets (e.g., <165>).
+func PriorityCalc(f Facility, s Severity) uint8 {
+	// move 3 bits same as multiplying by 8
+	return (f.Uint8() << 3) | s.Uint8()
 }

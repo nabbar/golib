@@ -27,56 +27,80 @@
 package hooksyslog
 
 import (
-	"fmt"
+	"errors"
+	"io"
+	"time"
+
+	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 )
 
-// Write implements io.Writer by writing data to syslog with INFO severity.
-// This is a convenience method that delegates to WriteSev with severity 0
-// (which defaults to INFO level in the wrapper).
+// Write sends a byte slice to the underlying aggregator. This method implements
+// the io.Writer interface for the hook.
 //
-// Parameters:
-//   - p: Data to write to syslog
+// This method contains a critical recovery mechanism. If a write fails because the
+// underlying aggregator has been closed (e.g., due to a network error that couldn't
+// be resolved by the socket's internal reconnect logic), it will attempt to
+// re-initialize the aggregator by calling `setAgg`. This makes the hook resilient
+// to prolonged connection losses.
 //
-// Returns:
-//   - n: Number of bytes queued (len(p)) if successful
-//   - err: Error if channel is closed
-//
-// Note: This method is non-blocking as long as the channel buffer has space.
+// A mutex ensures that only one goroutine attempts to re-initialize the writer at a time.
 func (o *hks) Write(p []byte) (n int, err error) {
-	return o.WriteSev(0, p)
-}
-
-func (o *hks) WriteSev(s SyslogSeverity, p []byte) (n int, err error) {
-	c := o.d.Load()
-
-	if c != nil {
-		if c.(chan []data) != closeByte {
-			// Send a slice containing a single data element
-			c.(chan []data) <- []data{newData(s, p)}
-			return len(p), nil
-		}
+	if !o.r.Load() {
+		return 0, errStreamClosed
 	}
 
-	return 0, fmt.Errorf("%v, path: %s", errStreamClosed, o.getSyslogInfo())
+	n, err = o.w.Write(p)
 
+	// If the write was successful or the error is not a "closed resources" error, return.
+	if err == nil || !errors.Is(err, iotagg.ErrClosedResources) {
+		return n, err
+	}
+
+	// If we reach here, the aggregator's writer is closed.
+	// Acquire a lock to ensure only one goroutine attempts to recover.
+	o.m.Lock()
+	defer o.m.Unlock()
+
+	// After acquiring the lock, another goroutine might have already fixed the writer.
+	// Retry the write to check if recovery is still necessary.
+	n, err = o.w.Write(p)
+	if err == nil || !errors.Is(err, iotagg.ErrClosedResources) {
+		return n, err
+	}
+
+	// Recovery is necessary. Re-initialize the aggregator.
+	var (
+		e error
+		a io.Writer
+		l bool
+	)
+
+	a, l, e = setAgg(o.o.network, o.o.endpoint)
+	if e != nil {
+		return n, e
+	}
+
+	o.w = a
+	o.l.Store(l)
+
+	// Attempt the write one last time with the new writer.
+	if n, err = o.w.Write(p); err != nil {
+		return n, err
+	}
+
+	// Log a message to the new writer to indicate that a recovery has occurred.
+	_, _ = o.w.Write([]byte(time.Now().Format(time.RFC3339) + " recovered closed resources, maybe some implementation error - info : " + o.getSyslogInfo() + "\n"))
+
+	return n, err
 }
 
-// Close terminates the hook by closing the internal channels.
-// After calling Close, no new log entries can be written.
-//
-// This method should be called during application shutdown, after
-// cancelling the context passed to Run().
-//
-// Typical shutdown sequence:
-//
-//	cancel() // Stop the Run goroutine
-//	hook.Close() // Close the channels
-//	<-hook.Done() // Wait for Run to complete
-//
-// Returns:
-//   - Always returns nil (implements io.Closer)
+// Close marks the hook as closed and decrements the reference count on the shared
+// aggregator. If this hook is the last user of the aggregator, the aggregator's
+// resources (including the network connection) will be released.
+// This method implements the io.Closer interface.
 func (o *hks) Close() error {
-	o.d.Store(closeByte)
-	o.s.Store(closeStruct)
+	if o.r.CompareAndSwap(true, false) {
+		delAgg(o.o.network, o.o.endpoint)
+	}
 	return nil
 }

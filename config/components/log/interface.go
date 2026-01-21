@@ -48,6 +48,7 @@ type CptLog interface {
 	cfgtps.Component
 
 	Log() liblog.Logger
+	LogClone() liblog.Logger
 
 	SetLevel(lvl loglvl.Level)
 	GetLevel() loglvl.Level

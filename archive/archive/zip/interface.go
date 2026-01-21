@@ -30,6 +30,7 @@ import (
 	"archive/zip"
 	"io"
 	"io/fs"
+	"os"
 
 	arctps "github.com/nabbar/golib/archive/archive/types"
 )
@@ -37,9 +38,10 @@ import (
 // readerSize is an interface that provides the Size method.
 // It is used to determine the size of a ZIP archive for random access.
 type readerSize interface {
-	// Size returns the size of the underlying data source in bytes.
-	// This is required by zip.NewReader to allocate internal structures.
 	Size() int64
+}
+type readerStat interface {
+	Stat() (os.FileInfo, error)
 }
 
 // readerAt is a composite interface that combines io.ReadCloser and io.ReaderAt.
@@ -88,13 +90,38 @@ type readerAt interface {
 //	}
 //	defer reader.Close()
 func NewReader(r io.ReadCloser) (arctps.Reader, error) {
-	if s, k := r.(readerSize); !k {
-		return nil, fs.ErrInvalid
-	} else if ra, ok := r.(readerAt); !ok {
+	var siz int64
+	if rs, ok := r.(readerSize); ok {
+		siz = rs.Size()
+	} else if ri, ok := r.(readerStat); ok {
+		i, e := ri.Stat()
+		if e == nil {
+			siz = i.Size()
+		}
+	}
+
+	if siz <= 0 {
+		if rs, ok := r.(io.Seeker); !ok {
+			return nil, fs.ErrInvalid
+		} else {
+			_, e := rs.Seek(0, io.SeekStart)
+			if e != nil {
+				return nil, e
+			}
+			n, e := rs.Seek(0, io.SeekEnd)
+			if e != nil {
+				return nil, e
+			}
+			if n <= 0 {
+				return nil, fs.ErrInvalid
+			}
+			siz = n
+		}
+	}
+
+	if ra, ok := r.(readerAt); !ok {
 		return nil, fs.ErrInvalid
 	} else if rs, o := r.(io.Seeker); !o {
-		return nil, fs.ErrInvalid
-	} else if siz := s.Size(); siz <= 0 {
 		return nil, fs.ErrInvalid
 	} else if _, e := rs.Seek(0, io.SeekStart); e != nil {
 		return nil, e

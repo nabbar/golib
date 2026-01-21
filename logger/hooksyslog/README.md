@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://go.dev/doc/install)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](../../../../LICENSE)
-[![Coverage](https://img.shields.io/badge/Coverage-83.2%25-brightgreen)](TESTING.md)
+[![Coverage](https://img.shields.io/badge/Coverage-84.3%25-brightgreen)](TESTING.md)
 
 Thread-safe logrus hook that writes log entries to syslog (Unix/Linux) or Windows Event Log with asynchronous buffered processing, automatic reconnection, and flexible field filtering.
 
@@ -64,7 +64,7 @@ The **hooksyslog** package provides a production-ready logrus hook for sending s
 - ✅ **Field Filtering**: Optional removal of stack, timestamp, and trace fields
 - ✅ **Access Log Mode**: Special mode where message is used instead of fields
 - ✅ **Level Filtering**: Configure which log levels are sent to syslog
-- ✅ **Graceful Shutdown**: Done channel for clean application termination
+- ✅ **Graceful Shutdown**: Context-based shutdown for clean application termination
 - ✅ **RFC 5424 Compliant**: Standard syslog severity and facility codes
 - ✅ **Zero External Dependencies**: Only standard library and golib packages
 
@@ -83,19 +83,19 @@ The **hooksyslog** package provides a production-ready logrus hook for sending s
 │  │ Logrus   │────────▶│              │───────▶│              │ │
 │  │ Entry    │         │              │        │              │ │
 │  │          │         │              │        │              │ │
-│  │ Fields   │         │   Buffered   │        │    Run()     │ │
+│  │ Fields   │         │   Buffered   │        │  Aggregator  │ │
 │  │ Level    │         │   Channel    │        │  Goroutine   │ │
 │  │ Message  │────────▶│  (cap: 250)  │───────▶│              │ │
 │  │          │         │              │        │              │ │
 │  └──────────┘         │              │        │              │ │
 │                       │              │        │              │ │
-│       Fire()          │    data      │        │ writeWrapper │ │
+│       Fire()          │    data      │        │    Write     │ │
 │         │             └──────────────┘        └───────┬──────┘ │
 │         │                                            │         │
 │         ▼                                            ▼         │
 │  ┌──────────────┐                           ┌────────────────┐ │
-│  │ Formatter    │                           │    Wrapper     │ │
-│  │ JSON/Text    │                           │  (Platform)    │ │
+│  │ Formatter    │                           │    Client      │ │
+│  │ JSON/Text    │                           │  (Socket)      │ │
 │  └──────────────┘                           │                │ │
 │                                             │  Unix: syslog  │ │
 │  ┌──────────────┐                           │  Win: EventLog │ │
@@ -112,9 +112,9 @@ The **hooksyslog** package provides a production-ready logrus hook for sending s
 ### Data Flow
 
 ```
-Logrus Log Statement → Fire(entry) → Format → Filter → Channel → Run() → Syslog
-                           │            │        │         │        │        │
-                           │            │        │         │        │        └─▶ TCP/UDP/Unix
+Logrus Log Statement → Fire(entry) → Format → Filter → Channel → Aggregator → Syslog
+                           │            │        │         │        │           │
+                           │            │        │         │        │           └─▶ TCP/UDP/Unix
                            │            │        │         │        │
                            │            │        │         │        └─▶ Retry on failure
                            │            │        │         │
@@ -147,7 +147,7 @@ Logrus Log Statement → Fire(entry) → Format → Filter → Channel → Run()
 
 ### Benchmarks
 
-Based on test suite results (41 specs, AMD64):
+Based on test suite results (40 specs, AMD64):
 
 | Operation | Median | Mean | Max | Notes |
 |-----------|--------|------|-----|-------|
@@ -208,7 +208,6 @@ go hook.Run(ctx)
 defer func() {
     cancel()
     hook.Close()
-    <-hook.Done()
 }()
 ```
 
@@ -357,7 +356,6 @@ func main() {
     defer func() {
         cancel()
         hook.Close()
-        <-hook.Done()
     }()
     
     // IMPORTANT: In standard mode, the message parameter is IGNORED.
@@ -390,7 +388,6 @@ go hook.Run(ctx)
 defer func() {
     cancel()
     hook.Close()
-    <-hook.Done()
 }()
 
 // Only fields are sent - message "ignored" is discarded
@@ -427,7 +424,6 @@ logger.WithFields(logrus.Fields{
 defer func() {
     cancel()
     hook.Close()
-    <-hook.Done()
 }()
 ```
 
@@ -457,7 +453,6 @@ logger.WithField("msg", "Database connection failed").Error("ignored")
 defer func() {
     cancel()
     hook.Close()
-    <-hook.Done()
 }()
 ```
 
@@ -493,7 +488,6 @@ logger.WithFields(logrus.Fields{
 defer func() {
     cancel()
     hook.Close()
-    <-hook.Done()
 }()
 ```
 
@@ -503,7 +497,7 @@ defer func() {
 
 ### Testing
 
-The package includes a comprehensive test suite with **83.2% code coverage** and **41 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
+The package includes a comprehensive test suite with **84.3% code coverage** and **40 test specifications** using BDD methodology (Ginkgo v2 + Gomega).
 
 **Key test coverage:**
 - ✅ All public APIs and lifecycle operations
@@ -532,7 +526,6 @@ logger.Info("message")
 defer func() {
     cancel()        // Signal Run() to stop
     hook.Close()    // Close channels
-    <-hook.Done()   // Wait for completion
 }()
 ```
 
@@ -610,7 +603,6 @@ os.Exit(0)  // Immediate exit loses buffered entries
 // ✅ GOOD: Wait for buffer to flush
 cancel()
 hook.Close()
-<-hook.Done()  // Wait for all logs to be written
 ```
 
 **Don't Block in Production:**
@@ -645,11 +637,14 @@ hook, _ := logsys.New(opts, &logrus.JSONFormatter{
 type HookSyslog interface {
     logrus.Hook
     
-    // Done returns a channel that closes when Run() exits
-    Done() <-chan struct{}
+    // Run starts the hook's main processing loop
+    Run(ctx context.Context)
     
-    // WriteSev writes data with specific severity directly to syslog
-    WriteSev(s SyslogSeverity, p []byte) (n int, err error)
+    // IsRunning checks if the hook is currently active
+    IsRunning() bool
+    
+    // Close terminates the hook
+    Close() error
 }
 ```
 
@@ -657,10 +652,8 @@ type HookSyslog interface {
 
 - **`Levels() []logrus.Level`**: Returns configured log levels for this hook
 - **`Fire(entry *logrus.Entry) error`**: Processes log entry (called by logrus)
-- **`Done() <-chan struct{}`**: Returns channel that closes when Run() completes
-- **`WriteSev(s, p) (int, error)`**: Write raw bytes with specific severity
 - **`Run(ctx context.Context)`**: Start background writer (must be called in goroutine)
-- **`Close() error`**: Close channels (call before waiting on Done())
+- **`Close() error`**: Close channels
 - **`IsRunning() bool`**: Check if background writer is active
 - **`RegisterHook(logger)`**: Convenience method to add hook to logger
 
@@ -773,7 +766,7 @@ The package is **production-ready** with no urgent improvements or security vuln
 
 ### Code Quality Metrics
 
-- ✅ **83.2% test coverage** (target: >80%)
+- ✅ **84.3% test coverage** (target: >80%)
 - ✅ **Zero race conditions** detected with `-race` flag
 - ✅ **Thread-safe** implementation using atomic operations and channels
 - ✅ **Panic recovery** in Run() goroutine
@@ -800,7 +793,7 @@ These are **optional improvements** and not required for production use. The cur
 
 - **[doc.go](doc.go)** - In-depth package documentation including design philosophy, architecture diagrams, syslog severity mapping, and best practices for production use. Provides detailed explanations of standard mode vs AccessLog mode behavior.
 
-- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, coverage analysis (83.2%), integration tests with mock syslog server, and guidelines for writing new tests.
+- **[TESTING.md](TESTING.md)** - Comprehensive test suite documentation covering test architecture, BDD methodology with Ginkgo v2, coverage analysis (84.3%), integration tests with mock syslog server, and guidelines for writing new tests.
 
 ### Related golib Packages
 

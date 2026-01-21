@@ -32,25 +32,28 @@ import (
 	"github.com/sirupsen/logrus"
 
 	logcfg "github.com/nabbar/golib/logger/config"
-	loghsl "github.com/nabbar/golib/logger/hooksyslog"
+	logsys "github.com/nabbar/golib/logger/hooksyslog"
 	libptc "github.com/nabbar/golib/network/protocol"
 )
 
 var _ = Describe("HookSyslog Configuration and Options", func() {
+	AfterEach(func() {
+		logsys.ResetOpenSyslog()
+	})
 	Describe("New", func() {
 		Context("with minimal valid configuration", func() {
 			It("should validate configuration structure", func() {
 				opt := logcfg.OptionsSyslog{
 					Network:  libptc.NetworkUnix.Code(),
-					Host:     "",
+					Host:     "", // will use localhost system syslog
 					LogLevel: []string{"info"},
 				}
 
 				// Note: This will fail without actual syslog connection
 				// We're testing the configuration structure
-				_, err := loghsl.New(opt, nil)
+				_, err := logsys.New(opt, nil)
 				// Error is expected without real syslog
-				Expect(err).To(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -60,10 +63,11 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					Network:  libptc.NetworkUnix.Code(),
 					LogLevel: []string{"error", "fatal"},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
+				_, err := logsys.New(opt, nil)
 				// Error expected without syslog connection
-				Expect(err).To(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -73,11 +77,13 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					Network:  libptc.NetworkUnix.Code(),
 					LogLevel: []string{"info"},
 				}
+				//no hostname => using localhost syslog system
+
 				formatter := &logrus.JSONFormatter{}
 
-				_, err := loghsl.New(opt, formatter)
+				_, err := logsys.New(opt, formatter)
 				// Error expected without syslog connection
-				Expect(err).To(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -88,9 +94,10 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					DisableStack: true,
 					LogLevel:     []string{"info"},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
-				Expect(err).To(HaveOccurred())
+				_, err := logsys.New(opt, nil)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -101,9 +108,10 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					DisableTimestamp: true,
 					LogLevel:         []string{"info"},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
-				Expect(err).To(HaveOccurred())
+				_, err := logsys.New(opt, nil)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -114,9 +122,10 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					EnableTrace: true,
 					LogLevel:    []string{"info"},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
-				Expect(err).To(HaveOccurred())
+				_, err := logsys.New(opt, nil)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -127,9 +136,10 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					EnableAccessLog: true,
 					LogLevel:        []string{"info"},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
-				Expect(err).To(HaveOccurred())
+				_, err := logsys.New(opt, nil)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -140,9 +150,10 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					Tag:      "myapp",
 					LogLevel: []string{"info"},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
-				Expect(err).To(HaveOccurred())
+				_, err := logsys.New(opt, nil)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
@@ -154,9 +165,10 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					Network:  libptc.NetworkUnix.Code(),
 					LogLevel: []string{"info"},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
-				Expect(err).To(HaveOccurred()) // Expected without connection
+				_, err := logsys.New(opt, nil)
+				Expect(err).ToNot(HaveOccurred()) // Expected without connection
 			})
 
 			It("should accept TCP network", func() {
@@ -166,7 +178,7 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					LogLevel: []string{"info"},
 				}
 
-				_, err := loghsl.New(opt, nil)
+				_, err := logsys.New(opt, nil)
 				Expect(err).To(HaveOccurred()) // Expected without connection
 			})
 
@@ -177,7 +189,7 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					LogLevel: []string{"info"},
 				}
 
-				_, err := loghsl.New(opt, nil)
+				_, err := logsys.New(opt, nil)
 				Expect(err).ToNot(HaveOccurred()) // UDP succeeds without actual connection
 			})
 		})
@@ -191,9 +203,10 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 						"warn", "info", "debug",
 					},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
-				Expect(err).To(HaveOccurred())
+				_, err := logsys.New(opt, nil)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -203,9 +216,10 @@ var _ = Describe("HookSyslog Configuration and Options", func() {
 					Network:  libptc.NetworkUnix.Code(),
 					LogLevel: []string{},
 				}
+				//no hostname => using localhost syslog system
 
-				_, err := loghsl.New(opt, nil)
-				Expect(err).To(HaveOccurred())
+				_, err := logsys.New(opt, nil)
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})

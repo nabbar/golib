@@ -105,6 +105,13 @@ func (o *mon) RegisterLoggerDefault(fct liblog.FuncLog) {
 			runner.RecoveryCaller("golib/monitor/RegisterLoggerDefault", r)
 		}
 	}()
+
+	if fct == nil {
+		fct = func() liblog.Logger {
+			return nil
+		}
+	}
+
 	o.x.Store(keyLoggerDef, fct)
 }
 
@@ -116,9 +123,10 @@ func (o *mon) getLoggerDefault() liblog.Logger {
 			runner.RecoveryCaller("golib/monitor/getLoggerDefault", r)
 		}
 	}()
+
 	if i, l := o.x.Load(keyLoggerDef); !l {
 		return nil
-	} else if v, k := i.(liblog.FuncLog); !k {
+	} else if v, k := i.(liblog.FuncLog); !k || v == nil {
 		return nil
 	} else {
 		return v()
@@ -301,7 +309,7 @@ func (o *mon) getLog() liblog.Logger {
 
 	if i, l := o.x.Load(keyLogger); !l {
 		return nil
-	} else if v, k := i.(liblog.Logger); !k {
+	} else if v, k := i.(liblog.Logger); !k || v == nil {
 		return nil
 	} else {
 		return v
