@@ -451,14 +451,17 @@ var _ = Describe("TC-BC-001: Benchmarks", func() {
 					tmpFile.Close()
 
 					f, _ := os.Open(tmpFile.Name())
+					f.Stat()
 					if f != nil {
-						reader, _ := archive.Zip.Reader(f)
-						rc, _ := reader.Get("test.txt")
-						if rc != nil {
-							_, _ = io.ReadAll(rc)
-							rc.Close()
+						reader, err := archive.Zip.Reader(f)
+						if err == nil && reader != nil {
+							rc, _ := reader.Get("test.txt")
+							if rc != nil {
+								_, _ = io.ReadAll(rc)
+								rc.Close()
+							}
+							reader.Close()
 						}
-						reader.Close()
 						f.Close()
 					}
 				})

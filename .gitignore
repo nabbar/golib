@@ -36,3 +36,8 @@ aws/minio
 /scripts
 /test-*
 
+config.yaml
+config.yml
+
+*.json
+*.toml

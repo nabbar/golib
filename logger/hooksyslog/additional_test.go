@@ -30,27 +30,31 @@ import (
 	"context"
 	"time"
 
-	logcfg "github.com/nabbar/golib/logger/config"
-	logsys "github.com/nabbar/golib/logger/hooksyslog"
-	libptc "github.com/nabbar/golib/network/protocol"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+
+	logcfg "github.com/nabbar/golib/logger/config"
+	logsys "github.com/nabbar/golib/logger/hooksyslog"
+	libptc "github.com/nabbar/golib/network/protocol"
 )
 
 var _ = Describe("HookSyslog Additional Coverage Tests", func() {
-	Describe("SyslogSeverity", func() {
+	AfterEach(func() {
+		logsys.ResetOpenSyslog()
+	})
+	Describe("Severity", func() {
 		Context("String method", func() {
 			It("should return correct string for all severities", func() {
-				tests := map[logsys.SyslogSeverity]string{
-					logsys.SyslogSeverityEmerg:   "EMERG",
-					logsys.SyslogSeverityAlert:   "ALERT",
-					logsys.SyslogSeverityCrit:    "CRIT",
-					logsys.SyslogSeverityErr:     "ERR",
-					logsys.SyslogSeverityWarning: "WARNING",
-					logsys.SyslogSeverityNotice:  "NOTICE",
-					logsys.SyslogSeverityInfo:    "INFO",
-					logsys.SyslogSeverityDebug:   "DEBUG",
+				tests := map[logsys.Severity]string{
+					logsys.SeverityEmerg:   "EMERG",
+					logsys.SeverityAlert:   "ALERT",
+					logsys.SeverityCrit:    "CRIT",
+					logsys.SeverityErr:     "ERR",
+					logsys.SeverityWarning: "WARNING",
+					logsys.SeverityNotice:  "NOTICE",
+					logsys.SeverityInfo:    "INFO",
+					logsys.SeverityDebug:   "DEBUG",
 				}
 
 				for sev, expected := range tests {
@@ -59,22 +63,22 @@ var _ = Describe("HookSyslog Additional Coverage Tests", func() {
 			})
 
 			It("should return empty string for unknown severity", func() {
-				var unknown logsys.SyslogSeverity = 99
+				var unknown logsys.Severity = 99
 				Expect(unknown.String()).To(Equal(""))
 			})
 		})
 
 		Context("MakeSeverity function", func() {
 			It("should parse all valid severity strings", func() {
-				tests := map[string]logsys.SyslogSeverity{
-					"EMERG":   logsys.SyslogSeverityEmerg,
-					"ALERT":   logsys.SyslogSeverityAlert,
-					"CRIT":    logsys.SyslogSeverityCrit,
-					"ERR":     logsys.SyslogSeverityErr,
-					"WARNING": logsys.SyslogSeverityWarning,
-					"NOTICE":  logsys.SyslogSeverityNotice,
-					"INFO":    logsys.SyslogSeverityInfo,
-					"DEBUG":   logsys.SyslogSeverityDebug,
+				tests := map[string]logsys.Severity{
+					"EMERG":   logsys.SeverityEmerg,
+					"ALERT":   logsys.SeverityAlert,
+					"CRIT":    logsys.SeverityCrit,
+					"ERR":     logsys.SeverityErr,
+					"WARNING": logsys.SeverityWarning,
+					"NOTICE":  logsys.SeverityNotice,
+					"INFO":    logsys.SeverityInfo,
+					"DEBUG":   logsys.SeverityDebug,
 				}
 
 				for str, expected := range tests {
@@ -83,41 +87,41 @@ var _ = Describe("HookSyslog Additional Coverage Tests", func() {
 			})
 
 			It("should be case-insensitive", func() {
-				Expect(logsys.MakeSeverity("info")).To(Equal(logsys.SyslogSeverityInfo))
-				Expect(logsys.MakeSeverity("Info")).To(Equal(logsys.SyslogSeverityInfo))
-				Expect(logsys.MakeSeverity("INFO")).To(Equal(logsys.SyslogSeverityInfo))
+				Expect(logsys.MakeSeverity("info")).To(Equal(logsys.SeverityInfo))
+				Expect(logsys.MakeSeverity("Info")).To(Equal(logsys.SeverityInfo))
+				Expect(logsys.MakeSeverity("INFO")).To(Equal(logsys.SeverityInfo))
 			})
 
 			It("should return 0 for unknown string", func() {
-				Expect(logsys.MakeSeverity("unknown")).To(Equal(logsys.SyslogSeverity(0)))
+				Expect(logsys.MakeSeverity("unknown")).To(Equal(logsys.Severity(0)))
 			})
 		})
 	})
 
-	Describe("SyslogFacility", func() {
+	Describe("Facility", func() {
 		Context("MakeFacility function", func() {
 			It("should parse all valid facility strings", func() {
-				tests := map[string]logsys.SyslogFacility{
-					"KERN":     logsys.SyslogFacilityKern,
-					"USER":     logsys.SyslogFacilityUser,
-					"MAIL":     logsys.SyslogFacilityMail,
-					"DAEMON":   logsys.SyslogFacilityDaemon,
-					"AUTH":     logsys.SyslogFacilityAuth,
-					"SYSLOG":   logsys.SyslogFacilitySyslog,
-					"LPR":      logsys.SyslogFacilityLpr,
-					"NEWS":     logsys.SyslogFacilityNews,
-					"UUCP":     logsys.SyslogFacilityUucp,
-					"CRON":     logsys.SyslogFacilityCron,
-					"AUTHPRIV": logsys.SyslogFacilityAuthPriv,
-					"FTP":      logsys.SyslogFacilityFTP,
-					"LOCAL0":   logsys.SyslogFacilityLocal0,
-					"LOCAL1":   logsys.SyslogFacilityLocal1,
-					"LOCAL2":   logsys.SyslogFacilityLocal2,
-					"LOCAL3":   logsys.SyslogFacilityLocal3,
-					"LOCAL4":   logsys.SyslogFacilityLocal4,
-					"LOCAL5":   logsys.SyslogFacilityLocal5,
-					"LOCAL6":   logsys.SyslogFacilityLocal6,
-					"LOCAL7":   logsys.SyslogFacilityLocal7,
+				tests := map[string]logsys.Facility{
+					"KERN":     logsys.FacilityKern,
+					"USER":     logsys.FacilityUser,
+					"MAIL":     logsys.FacilityMail,
+					"DAEMON":   logsys.FacilityDaemon,
+					"AUTH":     logsys.FacilityAuth,
+					"SYSLOG":   logsys.FacilitySyslog,
+					"LPR":      logsys.FacilityLpr,
+					"NEWS":     logsys.FacilityNews,
+					"UUCP":     logsys.FacilityUucp,
+					"CRON":     logsys.FacilityCron,
+					"AUTHPRIV": logsys.FacilityAuthPriv,
+					"FTP":      logsys.FacilityFTP,
+					"LOCAL0":   logsys.FacilityLocal0,
+					"LOCAL1":   logsys.FacilityLocal1,
+					"LOCAL2":   logsys.FacilityLocal2,
+					"LOCAL3":   logsys.FacilityLocal3,
+					"LOCAL4":   logsys.FacilityLocal4,
+					"LOCAL5":   logsys.FacilityLocal5,
+					"LOCAL6":   logsys.FacilityLocal6,
+					"LOCAL7":   logsys.FacilityLocal7,
 				}
 
 				for str, expected := range tests {
@@ -126,13 +130,13 @@ var _ = Describe("HookSyslog Additional Coverage Tests", func() {
 			})
 
 			It("should be case-insensitive", func() {
-				Expect(logsys.MakeFacility("user")).To(Equal(logsys.SyslogFacilityUser))
-				Expect(logsys.MakeFacility("User")).To(Equal(logsys.SyslogFacilityUser))
-				Expect(logsys.MakeFacility("USER")).To(Equal(logsys.SyslogFacilityUser))
+				Expect(logsys.MakeFacility("user")).To(Equal(logsys.FacilityUser))
+				Expect(logsys.MakeFacility("User")).To(Equal(logsys.FacilityUser))
+				Expect(logsys.MakeFacility("USER")).To(Equal(logsys.FacilityUser))
 			})
 
 			It("should return 0 for unknown string", func() {
-				Expect(logsys.MakeFacility("unknown")).To(Equal(logsys.SyslogFacility(0)))
+				Expect(logsys.MakeFacility("unknown")).To(Equal(logsys.Facility(0)))
 			})
 		})
 	})
@@ -208,9 +212,9 @@ var _ = Describe("HookSyslog Additional Coverage Tests", func() {
 			})
 		})
 
-		Context("WriteSev method", func() {
+		Context("Write method", func() {
 			It("should write with custom severity", func() {
-				n, err := hook.WriteSev(logsys.SyslogSeverityDebug, []byte("custom severity write"))
+				n, err := hook.Write([]byte("custom severity write"))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(len("custom severity write")))
 
@@ -226,7 +230,7 @@ var _ = Describe("HookSyslog Additional Coverage Tests", func() {
 
 				time.Sleep(100 * time.Millisecond)
 
-				_, err := hook.WriteSev(logsys.SyslogSeverityInfo, []byte("test"))
+				_, err := hook.Write([]byte("test"))
 				Expect(err).To(HaveOccurred())
 			})
 		})

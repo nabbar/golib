@@ -33,12 +33,13 @@ import (
 	"sync"
 	"time"
 
-	logcfg "github.com/nabbar/golib/logger/config"
-	loghsl "github.com/nabbar/golib/logger/hooksyslog"
-	libptc "github.com/nabbar/golib/network/protocol"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+
+	logcfg "github.com/nabbar/golib/logger/config"
+	logsys "github.com/nabbar/golib/logger/hooksyslog"
+	libptc "github.com/nabbar/golib/network/protocol"
 )
 
 var _ = Describe("HookSyslog Integration Tests", func() {
@@ -47,6 +48,7 @@ var _ = Describe("HookSyslog Integration Tests", func() {
 	})
 
 	AfterEach(func() {
+		logsys.ResetOpenSyslog()
 		clearReceivedMessages()
 	})
 
@@ -60,7 +62,7 @@ var _ = Describe("HookSyslog Integration Tests", func() {
 					LogLevel: []string{"info"},
 				}
 
-				hook, err := loghsl.New(opt, nil)
+				hook, err := logsys.New(opt, nil)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(hook).ToNot(BeNil())
 
@@ -110,7 +112,7 @@ var _ = Describe("HookSyslog Integration Tests", func() {
 					LogLevel: []string{"debug", "info", "warn", "error"},
 				}
 
-				hook, err := loghsl.New(opt, nil)
+				hook, err := logsys.New(opt, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				hookCtx, hookCancel := context.WithCancel(context.Background())
@@ -148,7 +150,7 @@ var _ = Describe("HookSyslog Integration Tests", func() {
 					LogLevel: []string{"info"},
 				}
 
-				hook, err := loghsl.New(opt, nil)
+				hook, err := logsys.New(opt, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				hookCtx, hookCancel := context.WithCancel(context.Background())
@@ -182,7 +184,7 @@ var _ = Describe("HookSyslog Integration Tests", func() {
 					LogLevel: []string{"info"},
 				}
 
-				hook, err := loghsl.New(opt, &logrus.JSONFormatter{})
+				hook, err := logsys.New(opt, &logrus.JSONFormatter{})
 				Expect(err).ToNot(HaveOccurred())
 
 				hookCtx, hookCancel := context.WithCancel(context.Background())
@@ -221,7 +223,7 @@ var _ = Describe("HookSyslog Integration Tests", func() {
 					LogLevel: []string{"info"},
 				}
 
-				hook, err := loghsl.New(opt, nil)
+				hook, err := logsys.New(opt, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				hookCtx, hookCancel := context.WithCancel(context.Background())
@@ -265,45 +267,6 @@ var _ = Describe("HookSyslog Integration Tests", func() {
 
 	Describe("Hook lifecycle", func() {
 		Context("with proper lifecycle management", func() {
-			It("should handle Done channel correctly", func() {
-				opt := logcfg.OptionsSyslog{
-					Network:  libptc.NetworkUnixGram.Code(),
-					Host:     sckAddr,
-					Tag:      "lifecycle",
-					LogLevel: []string{"info"},
-				}
-
-				hook, err := loghsl.New(opt, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				hookCtx, hookCancel := context.WithCancel(context.Background())
-				go hook.Run(hookCtx)
-
-				// Wait for hook to be ready
-				time.Sleep(100 * time.Millisecond)
-
-				// Create logger with hook
-				lgr := logrus.New()
-				lgr.SetOutput(GinkgoWriter) // Don't pollute stdout
-				lgr.AddHook(hook)
-
-				lgr.WithFields(logrus.Fields{
-					"msg": "before close",
-				}).Info("test")
-				time.Sleep(100 * time.Millisecond)
-
-				// Cancel and wait for Done
-				hookCancel()
-				hook.Close()
-
-				select {
-				case <-hook.Done():
-					Expect(true).To(BeTrue())
-				case <-time.After(2 * time.Second):
-					Fail("Hook did not complete in time")
-				}
-			})
-
 			It("should flush remaining logs on close", func() {
 				opt := logcfg.OptionsSyslog{
 					Network:  libptc.NetworkUnixGram.Code(),
@@ -312,7 +275,7 @@ var _ = Describe("HookSyslog Integration Tests", func() {
 					LogLevel: []string{"info"},
 				}
 
-				hook, err := loghsl.New(opt, nil)
+				hook, err := logsys.New(opt, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				hookCtx, hookCancel := context.WithCancel(context.Background())

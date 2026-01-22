@@ -27,81 +27,75 @@
 package hooksyslog
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
+
+	"github.com/sirupsen/logrus"
 
 	logtps "github.com/nabbar/golib/logger/types"
 	libptc "github.com/nabbar/golib/network/protocol"
-	"github.com/sirupsen/logrus"
 )
 
-// ohks holds the immutable configuration options for the hook.
-// These values are set at creation time and never modified.
+// ohks holds the immutable configuration options for a hook instance.
+// These values are set at creation time and are not modified during the hook's lifecycle.
 type ohks struct {
-	format           logrus.Formatter // Log entry formatter (nil = default)
-	levels           []logrus.Level   // Enabled log levels
-	disableStack     bool             // Filter out "stack" field
-	disableTimestamp bool             // Filter out "time" field
-	enableTrace      bool             // Keep "caller", "file", "line" fields
-	enableAccessLog  bool             // Write entry.Message instead of fields
+	format           logrus.Formatter // format specifies the logrus formatter to use for the log entry body.
+	levels           []logrus.Level   // levels defines which log levels this hook will trigger for.
+	disableStack     bool             // disableStack controls the removal of the "stack" field from log entries.
+	disableTimestamp bool             // disableTimestamp controls the removal of the "time" field from log entries.
+	enableTrace      bool             // enableTrace controls the inclusion of "caller", "file", and "line" fields.
+	enableAccessLog  bool             // enableAccessLog switches the hook to a mode where only the entry's message is logged.
 
-	network  libptc.NetworkProtocol // Syslog protocol (tcp, udp, unix, unixgram)
-	endpoint string                 // Syslog server address
+	network  libptc.NetworkProtocol // network stores the protocol for the syslog connection (e.g., tcp, udp).
+	endpoint string                 // endpoint is the network address of the syslog server.
 
-	tag string         // Syslog tag/application name
-	fac SyslogFacility // Syslog facility code
+	tag string   // tag is the application name or tag to be included in the syslog message.
+	fac Facility // fac is the syslog facility code (e.g., USER, LOCAL0).
 }
 
-// hks is the concrete implementation of HookSyslog.
-// It uses atomic values for thread-safe channel management.
+// hks is the concrete implementation of the HookSyslog interface.
+// It holds the hook's configuration and its runtime state.
 type hks struct {
-	s *atomic.Value // Stores chan struct{} for Done() signal
-	d *atomic.Value // Stores chan []data for buffered writes (capacity: 250)
-	o ohks          // Immutable configuration
-	r *atomic.Bool  // Running status flag
+	m sync.Mutex   // m provides exclusive access to the writer, primarily for recovery scenarios.
+	o ohks         // o contains the immutable configuration options for the hook.
+	w io.Writer    // w is the writer pointing to the shared, buffered connection aggregator.
+	h string       // h stores the local hostname, cached for use in syslog messages for remote endpoints.
+	r *atomic.Bool // r is an atomic flag indicating if the hook is running (i.e., not closed).
+	l *atomic.Bool // l is an atomic flag indicating if the connection is to a local syslog endpoint.
 }
 
-// Levels returns the log levels that this hook is configured to handle.
-// This is part of the logrus.Hook interface.
-//
-// Returns only the levels specified in OptionsSyslog.LogLevel, or all
-// levels if LogLevel was empty.
+// Levels returns the slice of logrus levels that this hook is configured to handle.
+// This method is part of the logrus.Hook interface.
 func (o *hks) Levels() []logrus.Level {
 	return o.getLevel()
 }
 
-// RegisterHook adds this hook to the specified logrus logger.
-// This is a convenience method equivalent to logger.AddHook(hook).
-//
-// Example:
-//
-//	hook, _ := New(opts, formatter)
-//	hook.RegisterHook(logger)
+// RegisterHook adds this hook to the provided logrus logger instance.
+// This is a convenience method equivalent to `logger.AddHook(hook)`.
 func (o *hks) RegisterHook(log *logrus.Logger) {
 	log.AddHook(o)
 }
 
-// Fire processes a log entry and queues it for writing to syslog.
-// This is part of the logrus.Hook interface and is called automatically
-// by logrus for each log statement.
+// Fire is the entry point for processing a log entry. It is called by logrus
+// for each log message that matches the configured levels.
 //
-// Behavior:
-//   - Duplicates the entry to avoid modifying the original
-//   - Applies field filtering (stack, timestamp, trace)
-//   - Formats the entry using the configured formatter
-//   - Maps logrus level to syslog severity
-//   - Queues the formatted data to the buffered channel
+// The method performs the following steps:
+//  1. Filters fields based on the hook's configuration (stack, timestamp, trace).
+//  2. Formats the log entry into a byte slice. In "access log" mode, it uses the raw message;
+//     otherwise, it uses the configured logrus formatter.
+//  3. Maps the logrus level to the corresponding RFC 5424 syslog severity.
+//  4. Constructs the full syslog message string, prepending the priority, timestamp,
+//     hostname (for remote logs), and tag.
+//  5. Writes the final message to the underlying shared aggregator.
 //
-// Access Log Mode:
-//   - If EnableAccessLog is true: writes entry.Message, ignores fields
-//   - If EnableAccessLog is false: formats fields, ignores Message
-//
-// Returns:
-//   - nil on success (data queued to channel)
-//   - error if formatting fails or channel is closed
-//
-// Note: This method returns quickly (non-blocking) as long as the
-// buffer has space. Actual syslog writing happens in Run().
+// This method is non-blocking under normal conditions, as the actual network I/O
+// is handled asynchronously by the aggregator.
 func (o *hks) Fire(entry *logrus.Entry) error {
 	ent := entry.Dup()
 	ent.Level = entry.Level
@@ -125,6 +119,7 @@ func (o *hks) Fire(entry *logrus.Entry) error {
 		e error
 	)
 
+	// In access log mode, use the raw message. Otherwise, use the formatter.
 	if o.getEnableAccessLog() {
 		if len(entry.Message) > 0 {
 			if !strings.HasSuffix(entry.Message, "\n") {
@@ -150,22 +145,56 @@ func (o *hks) Fire(entry *logrus.Entry) error {
 		}
 	}
 
+	// Map logrus level to syslog severity.
+	var sev Severity
 	switch ent.Level {
 	case logrus.PanicLevel:
-		_, e = o.WriteSev(SyslogSeverityAlert, p)
+		sev = SeverityAlert
 	case logrus.FatalLevel:
-		_, e = o.WriteSev(SyslogSeverityCrit, p)
+		sev = SeverityCrit
 	case logrus.ErrorLevel:
-		_, e = o.WriteSev(SyslogSeverityErr, p)
+		sev = SeverityErr
 	case logrus.WarnLevel:
-		_, e = o.WriteSev(SyslogSeverityWarning, p)
+		sev = SeverityWarning
 	case logrus.InfoLevel:
-		_, e = o.WriteSev(SyslogSeverityInfo, p)
+		sev = SeverityInfo
 	case logrus.DebugLevel:
-		_, e = o.WriteSev(SyslogSeverityDebug, p)
+		sev = SeverityDebug
 	default:
-		_, e = o.Write(p)
+		sev = SeverityInfo
 	}
+
+	// Construct the full RFC 5424 syslog message.
+	if o.l.Load() {
+		// Format for local syslog (e.g., using time.Stamp and no hostname).
+		p = []byte(fmt.Sprintf(
+			"<%d>%s %s[%d]: %s",
+			PriorityCalc(o.o.fac, sev),
+			time.Now().Format(time.Stamp),
+			o.o.tag,
+			os.Getpid(),
+			string(p),
+		))
+	} else {
+		// Format for remote syslog (e.g., using RFC3339 and including hostname).
+		p = []byte(fmt.Sprintf(
+			"<%d>%s %s %s[%d]: %s",
+			PriorityCalc(o.o.fac, sev),
+			time.Now().Format(time.RFC3339),
+			o.h,
+			o.o.tag,
+			os.Getpid(),
+			string(p),
+		))
+	}
+
+	if !bytes.HasSuffix(p, []byte("\n")) {
+		p = append(p, byte('\n'))
+	}
+
+	// Write the formatted message to the aggregator.
+	_, e = o.Write(p)
+
 	if e != nil {
 		return e
 	}
@@ -173,12 +202,8 @@ func (o *hks) Fire(entry *logrus.Entry) error {
 	return nil
 }
 
-// filterKey removes a specific field from logrus.Fields if present.
-// Used to implement DisableStack, DisableTimestamp, and EnableTrace options.
-//
-// Returns:
-//   - Modified fields with key removed (if present)
-//   - Unchanged fields if key not present or fields empty
+// filterKey removes a specific key from a logrus.Fields map.
+// This is a utility function used to implement the field filtering options.
 func (o *hks) filterKey(f logrus.Fields, key string) logrus.Fields {
 	if len(f) < 1 {
 		return f

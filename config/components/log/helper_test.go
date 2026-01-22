@@ -31,9 +31,10 @@ import (
 	"context"
 	"encoding/json"
 
-	. "github.com/nabbar/golib/config/components/log"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	. "github.com/nabbar/golib/config/components/log"
 
 	cfgtps "github.com/nabbar/golib/config/types"
 	loglvl "github.com/nabbar/golib/logger/level"
@@ -263,8 +264,8 @@ var _ = Describe("Helper Functions and Internal Methods", func() {
 				err := cpt.Start()
 				Expect(err).NotTo(HaveOccurred())
 
-				logger1 := cpt.Log()
-				logger2 := cpt.Log()
+				logger1 := cpt.LogClone()
+				logger2 := cpt.LogClone()
 
 				Expect(logger1).NotTo(BeNil())
 				Expect(logger2).NotTo(BeNil())

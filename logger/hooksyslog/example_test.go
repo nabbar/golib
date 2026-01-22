@@ -42,6 +42,9 @@ import (
 // Example_basic demonstrates the simplest use case: creating a hook that writes to local syslog.
 // Note: This example uses UDP which doesn't require an actual syslog daemon to be running.
 func Example_basic() {
+	// reset between examples
+	defer logsys.ResetOpenSyslog()
+
 	// Configure the hook with minimal settings
 	// In this example, we use UDP protocol which doesn't fail if no server is running
 	opts := logcfg.OptionsSyslog{
@@ -90,6 +93,9 @@ func Example_basic() {
 
 // Example_remoteUdp demonstrates sending logs to a remote syslog server via UDP.
 func Example_remoteUdp() {
+	// reset between examples
+	defer logsys.ResetOpenSyslog()
+
 	opts := logcfg.OptionsSyslog{
 		Network:  libptc.NetworkUDP.Code(),
 		Host:     "localhost:514", // Remote syslog server
@@ -133,6 +139,9 @@ func Example_remoteUdp() {
 // Example_accessLog demonstrates using access log mode for HTTP request logging.
 // In this mode, behavior is reversed: the message IS written, fields are IGNORED.
 func Example_accessLog() {
+	// reset between examples
+	defer logsys.ResetOpenSyslog()
+
 	opts := logcfg.OptionsSyslog{
 		Network:         libptc.NetworkUDP.Code(),
 		Host:            "localhost:514",
@@ -177,6 +186,9 @@ func Example_accessLog() {
 
 // Example_levelFiltering demonstrates filtering logs by level.
 func Example_levelFiltering() {
+	// reset between examples
+	defer logsys.ResetOpenSyslog()
+
 	opts := logcfg.OptionsSyslog{
 		Network:  libptc.NetworkUDP.Code(),
 		Host:     "localhost:514",
@@ -220,6 +232,9 @@ func Example_levelFiltering() {
 
 // Example_fieldFiltering demonstrates filtering specific fields from output.
 func Example_fieldFiltering() {
+	// reset between examples
+	defer logsys.ResetOpenSyslog()
+
 	// Configure to filter out stack and timestamp
 	opts := logcfg.OptionsSyslog{
 		Network:          libptc.NetworkUDP.Code(),
@@ -267,52 +282,11 @@ func Example_fieldFiltering() {
 	// Filtered log sent to syslog
 }
 
-// Example_gracefulShutdown demonstrates proper shutdown with the Done channel.
-func Example_gracefulShutdown() {
-	opts := logcfg.OptionsSyslog{
-		Network:  libptc.NetworkUDP.Code(),
-		Host:     "localhost:514",
-		Tag:      "shutdown-test",
-		LogLevel: []string{"info"},
-	}
-
-	hook, err := logsys.New(opts, nil)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go hook.Run(ctx)
-
-	time.Sleep(100 * time.Millisecond)
-
-	logger := logrus.New()
-	logger.SetOutput(os.Stderr)
-	logger.AddHook(hook)
-
-	// Send some logs
-	logger.WithField("msg", "Starting shutdown sequence").Info("ignored")
-	time.Sleep(100 * time.Millisecond)
-
-	// Signal shutdown
-	cancel()
-	hook.Close()
-
-	// Wait for completion
-	select {
-	case <-hook.Done():
-		fmt.Println("Hook shutdown complete")
-	case <-time.After(2 * time.Second):
-		fmt.Println("Timeout waiting for shutdown")
-	}
-
-	// Output:
-	// Hook shutdown complete
-}
-
 // Example_structuredLogging demonstrates structured logging with JSON formatter.
 func Example_structuredLogging() {
+	// reset between examples
+	defer logsys.ResetOpenSyslog()
+
 	opts := logcfg.OptionsSyslog{
 		Network:  libptc.NetworkUDP.Code(),
 		Host:     "localhost:514",
@@ -357,6 +331,9 @@ func Example_structuredLogging() {
 
 // Example_multipleHooks demonstrates using multiple hooks for different destinations.
 func Example_multipleHooks() {
+	// reset between examples
+	defer logsys.ResetOpenSyslog()
+
 	// Hook for errors only
 	errorOpts := logcfg.OptionsSyslog{
 		Network:  libptc.NetworkUDP.Code(),
@@ -415,6 +392,9 @@ func Example_multipleHooks() {
 
 // Example_traceEnabled demonstrates enabling trace information in logs.
 func Example_traceEnabled() {
+	// reset between examples
+	defer logsys.ResetOpenSyslog()
+
 	opts := logcfg.OptionsSyslog{
 		Network:     libptc.NetworkUDP.Code(),
 		Host:        "localhost:514",

@@ -47,6 +47,14 @@ type mod struct {
 func (o *mod) Log() liblog.Logger {
 	if i := o.getLog(); i == nil {
 		return nil
+	} else {
+		return i
+	}
+}
+
+func (o *mod) LogClone() liblog.Logger {
+	if i := o.getLog(); i == nil {
+		return nil
 	} else if l, e := i.Clone(); e != nil {
 		return nil
 	} else {

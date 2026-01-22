@@ -38,11 +38,6 @@ type bar struct {
 	s semtps.Sem // Underlying semaphore
 }
 
-// isMPB returns true if MPB progress bar is enabled.
-func (o *bar) isMPB() bool {
-	return false
-}
-
 // GetMPB returns the underlying MPB bar instance.
 // Returns nil if progress bar is disabled.
 func (o *bar) GetMPB() *mpb.Bar {

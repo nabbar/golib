@@ -27,12 +27,14 @@
 package cobra_test
 
 import (
+	"strconv"
 	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	libcbr "github.com/nabbar/golib/cobra"
 	libver "github.com/nabbar/golib/version"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Cobra Error Printing", func() {
@@ -303,7 +305,13 @@ var _ = Describe("Cobra Error Printing", func() {
 			if len(items) > 1 {
 				for i := 1; i < len(items); i++ {
 					// Previous item should be <= current (sorted order)
-					Expect(items[i-1] <= items[i]).To(BeTrue())
+					vi, e := strconv.Atoi(items[i])
+					Expect(e).ToNot(HaveOccurred())
+
+					vl, e := strconv.Atoi(items[i-1])
+					Expect(e).ToNot(HaveOccurred())
+
+					Expect(vl).To(BeNumerically("<=", vi))
 				}
 			}
 		})
