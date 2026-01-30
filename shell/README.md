@@ -49,6 +49,7 @@ This library provides production-ready shell functionality for building interact
 - **Signal Handling**: Graceful shutdown with terminal restoration on Ctrl+C and termination signals
 - **Command Namespacing**: Organize commands with prefixes (e.g., `sys:`, `user:`, `db:`)
 - **Command Walking**: Iterate and inspect registered commands
+- **Custom Exit Handling**: Register custom exit functions and commands via `ExitRegister`
 - **Zero Dependencies**: Only stdlib and well-maintained libraries (`go-prompt`, `golang.org/x/term`)
 
 ---
@@ -87,8 +88,9 @@ shell/
 ┌──────────────────────────────────────────────────────┐
 │                    Shell Interface                   │
 │  Add(), Run(), Get(), Desc(), Walk(), RunPrompt()    │
-└────────────┬─────────────┬───────────────────────────┘
-             │             │
+│                  ExitRegister()                      │
+└────────────┬────────────┬────────────────────────────┘
+             │            │
    ┌─────────▼────┐  ┌────▼──────┐
    │   command    │  │    tty    │
    │              │  │           │
@@ -273,6 +275,33 @@ func main() {
     
     // Start interactive prompt (blocks until user exits)
     sh.RunPrompt(os.Stdout, os.Stderr)
+}
+```
+
+### Custom Exit Handling
+
+Customize the exit behavior and commands:
+
+```go
+package main
+
+import (
+    "fmt"
+    "os"
+    
+    "github.com/nabbar/golib/shell"
+)
+
+func main() {
+    sh := shell.New(nil)
+    
+    // Register custom exit function and commands
+    sh.ExitRegister(func() {
+        fmt.Println("Cleaning up resources...")
+        // Perform cleanup here (e.g., close DB connections)
+    }, "bye", "logout", "quit")
+    
+    // Now "bye", "logout", or "quit" will trigger the cleanup function and exit
 }
 ```
 
@@ -530,10 +559,10 @@ go test ./tty
 
 | Package | Specs | Coverage | Status |
 |---------|-------|----------|--------|
-| `shell` | 120 | 45.5% | ✅ All pass |
-| `shell/command` | 48 | 84.9% | ✅ All pass |
+| `shell` | 120 | 48.1% | ✅ All pass |
+| `shell/command` | 93 | 81.8% | ✅ All pass |
 | `shell/tty` | 116/126 | 44.7% | ✅ 10 skipped (terminal-dependent) |
-| **Total** | **284** | **~60%** | ✅ **Zero race conditions** |
+| **Total** | **329** | **~60%** | ✅ **Zero race conditions** |
 
 **Quality Assurance**
 - ✅ Zero data races (verified with `-race`)

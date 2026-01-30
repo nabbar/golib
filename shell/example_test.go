@@ -43,7 +43,7 @@ func ExampleNew() {
 }
 
 // ExampleShell_Add demonstrates adding commands to the shell
-func Example_add() {
+func ExampleShell_Add() {
 	sh := shell.New(nil)
 
 	// Add commands without prefix
@@ -69,7 +69,7 @@ func Example_add() {
 }
 
 // ExampleShell_Get demonstrates retrieving commands
-func Example_get() {
+func ExampleShell_Get() {
 	sh := shell.New(nil)
 
 	sh.Add("", command.New("hello", "Say hello", nil))
@@ -90,7 +90,7 @@ func Example_get() {
 }
 
 // ExampleShell_Desc demonstrates getting command descriptions
-func Example_desc() {
+func ExampleShell_Desc() {
 	sh := shell.New(nil)
 
 	sh.Add("",
@@ -106,7 +106,7 @@ func Example_desc() {
 }
 
 // ExampleShell_Walk demonstrates iterating over commands
-func Example_walk() {
+func ExampleShell_Walk() {
 	sh := shell.New(nil)
 
 	sh.Add("",
@@ -127,7 +127,7 @@ func Example_walk() {
 }
 
 // ExampleShell_Run demonstrates executing commands
-func Example_run() {
+func ExampleShell_Run() {
 	sh := shell.New(nil)
 
 	sh.Add("", command.New("hello", "Say hello", func(out, err io.Writer, args []string) {

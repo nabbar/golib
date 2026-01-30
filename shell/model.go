@@ -30,6 +30,7 @@ package shell
 import (
 	"fmt"
 	"io"
+	"os"
 
 	libatm "github.com/nabbar/golib/atomic"
 	shlcmd "github.com/nabbar/golib/shell/command"
@@ -58,6 +59,10 @@ import (
 //
 //   - non-nil: Enables RunPrompt() with terminal management
 //     Used by RunPrompt() for terminal state save/restore and signal handling
+//
+//   - xf: Exit function to call before exiting the shell
+//
+//   - xn: List of command names that trigger exit
 //
 // Thread-Safety:
 // All operations on the shell struct are thread-safe through atomic operations:
@@ -90,8 +95,10 @@ import (
 //   - github.com/nabbar/golib/atomic for atomic data structures
 //   - github.com/nabbar/golib/shell/tty for terminal state management
 type shell struct {
-	c libatm.MapTyped[string, shlcmd.Command] // Thread-safe command registry (atomic map)
-	s libatm.Value[tty.TTYSaver]              // Optional TTYSaver for terminal management (atomic value)
+	c  libatm.MapTyped[string, shlcmd.Command] // Thread-safe command registry (atomic map)
+	s  libatm.Value[tty.TTYSaver]              // Optional TTYSaver for terminal management (atomic value)
+	xf libatm.Value[func()]                    // exit function
+	xn libatm.Value[[]string]                  // exit command name
 }
 
 // Run executes a registered command by name.
@@ -458,4 +465,48 @@ func (s *shell) Desc(cmd string) string {
 		return c.Describe()
 	}
 	return ""
+}
+
+// ExitRegister registers a custom exit function and/or custom exit command names.
+// It implements the Shell interface.
+//
+// This method allows customizing how the shell handles exit requests in interactive mode.
+// You can define what happens before exit (e.g., cleanup) and what commands trigger exit.
+//
+// Parameters:
+//   - f: Function to call before exiting. If nil, defaults to os.Exit(0).
+//     If the function returns, os.Exit(0) is called immediately after.
+//   - name: Variadic list of command names that trigger exit.
+//     If empty, defaults to ["exit", "quit"].
+//
+// Behavior:
+//   - The exit function is called when an exit command is entered in RunPrompt.
+//   - The exit commands are added to the auto-completion list.
+//   - Case-insensitive matching is used for exit commands.
+//
+// Thread-safety: Safe for concurrent use via atomic operations.
+//
+// Example:
+//
+//	// Custom cleanup and commands
+//	sh.ExitRegister(func() {
+//	    fmt.Println("Cleaning up...")
+//	    db.Close()
+//	}, "bye", "logout")
+func (s *shell) ExitRegister(f func(), name ...string) {
+	if f == nil {
+		f = func() {
+			os.Exit(0)
+		}
+	}
+
+	if len(name) < 1 {
+		name = []string{
+			"exit",
+			"quit",
+		}
+	}
+
+	s.xf.Store(f)
+	s.xn.Store(name)
 }

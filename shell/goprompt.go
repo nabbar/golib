@@ -179,6 +179,13 @@ func (s *shell) RunPrompt(out, err io.Writer, opt ...libshl.Option) {
 		return true // Continue iterating through all commands
 	})
 
+	for _, n := range s.xn.Load() {
+		c = append(c, libshl.Suggest{
+			Text:        n,
+			Description: "Exit shell",
+		})
+	}
+
 	// Step 5: Create executor closure
 	// This wraps our executor method for go-prompt
 	fe = func(in string) {
@@ -238,19 +245,17 @@ func (s *shell) RunPrompt(out, err io.Writer, opt ...libshl.Option) {
 // It's not designed for concurrent execution.
 func (s *shell) executor(out, err io.Writer, in string) {
 	// Trim leading/trailing whitespace
-	in = strings.TrimSpace(in)
+	if len(strings.TrimSpace(in)) < 1 {
+		return
+	}
 
-	// Handle built-in commands and special cases
-	switch {
-	case strings.EqualFold(in, "quit"), strings.EqualFold(in, "exit"):
-		// Built-in exit commands (case-insensitive)
-		_, _ = fmt.Fprintf(out, "Bye !\n")
-		// Terminal will be restored by defer in RunPrompt
-		os.Exit(0)
-		return
-	case len(in) < 1:
-		// Empty line - silent no-op
-		return
+	for _, n := range s.xn.Load() {
+		if strings.EqualFold(n, in) {
+			if f := s.xf.Load(); f != nil {
+				f()
+			}
+			os.Exit(0)
+		}
 	}
 
 	// Parse input into command and arguments

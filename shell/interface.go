@@ -438,6 +438,33 @@ type Shell interface {
 	//   - github.com/nabbar/golib/shell/tty for terminal state management details
 	//   - New() for Shell creation with TTYSaver
 	RunPrompt(out, err io.Writer, opt ...libshl.Option)
+
+	// ExitRegister registers a custom exit function and/or custom exit command names.
+	//
+	// This method allows customizing how the shell handles exit requests in interactive mode.
+	// You can define what happens before exit (e.g., cleanup) and what commands trigger exit.
+	//
+	// Parameters:
+	//   - f: Function to call before exiting. If nil, defaults to os.Exit(0).
+	//        If the function returns, os.Exit(0) is called immediately after.
+	//   - name: Variadic list of command names that trigger exit.
+	//           If empty, defaults to ["exit", "quit"].
+	//
+	// Behavior:
+	//   - The exit function is called when an exit command is entered in RunPrompt.
+	//   - The exit commands are added to the auto-completion list.
+	//   - Case-insensitive matching is used for exit commands.
+	//
+	// Thread-safety: Safe for concurrent use via atomic operations.
+	//
+	// Example:
+	//
+	//	// Custom cleanup and commands
+	//	sh.ExitRegister(func() {
+	//	    fmt.Println("Cleaning up...")
+	//	    db.Close()
+	//	}, "bye", "logout")
+	ExitRegister(f func(), name ...string)
 }
 
 // New creates a new Shell instance with the specified TTYSaver for terminal management.
@@ -462,7 +489,7 @@ type Shell interface {
 //   - Empty command registry (no commands registered yet)
 //   - Thread-safe operations via github.com/nabbar/golib/atomic.MapTyped
 //   - Optional terminal management via provided TTYSaver
-//   - All methods (Add, Get, Run, Walk, RunPrompt) available immediately
+//   - All methods (Add, Get, Run, Walk, RunPrompt, ExitRegister) available immediately
 //
 // Implementation:
 // Uses github.com/nabbar/golib/atomic.NewMapTyped for lock-free concurrent access.
@@ -528,9 +555,13 @@ type Shell interface {
 //   - RunPrompt() for interactive mode (requires non-nil TTYSaver)
 func New(ts tty.TTYSaver) Shell {
 	s := &shell{
-		c: libatm.NewMapTyped[string, shlcmd.Command](),
-		s: libatm.NewValue[tty.TTYSaver](),
+		c:  libatm.NewMapTyped[string, shlcmd.Command](),
+		s:  libatm.NewValue[tty.TTYSaver](),
+		xf: libatm.NewValue[func()](),
+		xn: libatm.NewValue[[]string](),
 	}
+
+	s.ExitRegister(nil)
 
 	if ts != nil {
 		s.s.Store(ts)

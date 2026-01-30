@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-284%20Specs-green)]()
+[![Tests](https://img.shields.io/badge/Tests-329%20Specs-green)]()
 [![Coverage](https://img.shields.io/badge/Coverage-~60%25-orange)]()
 
 Comprehensive testing documentation for the shell package, covering test execution, race detection, and quality assurance across all subpackages.
@@ -30,7 +30,7 @@ Comprehensive testing documentation for the shell package, covering test executi
 The shell package uses **Ginkgo v2** (BDD testing framework) and **Gomega** (matcher library) for comprehensive testing with expressive assertions.
 
 **Test Suite Summary**
-- Total Specs: 284
+- Total Specs: 329
 - Coverage: ~60% (average across all subpackages)
 - Race Detection: ✅ Zero data races
 - Execution Time: ~1s (without race), ~2.5s (with race)
@@ -39,13 +39,13 @@ The shell package uses **Ginkgo v2** (BDD testing framework) and **Gomega** (mat
 
 | Package | Specs | Coverage | Skipped | Status |
 |---------|-------|----------|---------|--------|
-| `shell` | 120 | 45.5% | 0 | ✅ All pass |
-| `shell/command` | 48 | 84.9% | 0 | ✅ All pass |
+| `shell` | 120 | 48.1% | 0 | ✅ All pass |
+| `shell/command` | 93 | 81.8% | 0 | ✅ All pass |
 | `shell/tty` | 116 | 44.7% | 10 | ✅ Terminal-dependent |
-| **Total** | **284** | **~60%** | **10** | ✅ **Zero races** |
+| **Total** | **329** | **~60%** | **10** | ✅ **Zero races** |
 
 **Coverage Areas**
-- Shell interface (Add, Run, Get, Desc, Walk, RunPrompt)
+- Shell interface (Add, Run, Get, Desc, Walk, RunPrompt, ExitRegister)
 - Command definition and execution
 - TTY state management and signal handling
 - Interactive prompt functionality
@@ -75,8 +75,8 @@ ginkgo -cover -race
 
 **Expected Output**
 ```bash
-ok  	github.com/nabbar/golib/shell         0.089s	coverage: 45.5%
-ok  	github.com/nabbar/golib/shell/command 0.023s	coverage: 84.9%
+ok  	github.com/nabbar/golib/shell         0.089s	coverage: 48.1%
+ok  	github.com/nabbar/golib/shell/command 0.023s	coverage: 81.8%
 ok  	github.com/nabbar/golib/shell/tty     0.322s	coverage: 44.7%
 ```
 
@@ -230,8 +230,8 @@ go test -v ./shell | grep "Report Entries"
 
 | Package | Coverage | Target | Files Tested |
 |---------|----------|--------|--------------|
-| `shell` | 45.5% | ≥45% | interface.go, model.go, goprompt.go |
-| `shell/command` | 84.9% | ≥80% | interface.go, model.go |
+| `shell` | 48.1% | ≥45% | interface.go, model.go, goprompt.go |
+| `shell/command` | 81.8% | ≥80% | interface.go, model.go |
 | `shell/tty` | 44.7% | ≥45% | interface.go, model.go |
 
 **Note**: Lower coverage in `shell` and `tty` is due to:
@@ -248,6 +248,7 @@ go test -v ./shell | grep "Report Entries"
 | Command execution (Run) | 72.7% | `walk_run_test.go` |
 | Command retrieval (Get, Desc) | 100% | `get_desc_test.go` |
 | Command walking (Walk) | 71.4% | `walk_run_test.go` |
+| Exit handling (ExitRegister) | 100% | `prompt_test.go` |
 | **Shell Interactive** | | |
 | RunPrompt() setup | 0% | Requires terminal |
 | Executor | 0% | Requires go-prompt |
@@ -371,7 +372,7 @@ Describe("Prompt Functions")
   - Writer handling
 ```
 
-**Coverage**: 45.5% (120 specs)
+**Coverage**: 48.1% (120 specs)
 
 ### `shell/command` Package Tests
 
@@ -395,7 +396,7 @@ Describe("Thread Safety")
   - Concurrent execution
 ```
 
-**Coverage**: 84.9% (48 specs)
+**Coverage**: 81.8% (93 specs)
 
 ### `shell/tty` Package Tests
 
@@ -455,7 +456,7 @@ Describe("Benchmarks")
 
 | File | Specs | Purpose |
 |------|-------|---------|
-| `command_test.go` | 48 | Complete command interface |
+| `command_test.go` | 93 | Complete command interface |
 
 ### TTY Package Tests
 

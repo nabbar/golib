@@ -476,7 +476,7 @@ func SignalHandler(state TTYSaver) {
 //
 // Example - Basic Usage:
 //
-//	saver, err := tty.New()
+//	saver, err := tty.New(nil, false)
 //	if err != nil {
 //	    return err
 //	}
@@ -487,7 +487,7 @@ func SignalHandler(state TTYSaver) {
 //
 // Example - Error Handling:
 //
-//	saver, err := tty.New()
+//	saver, err := tty.New(nil, false)
 //	if err != nil {
 //	    return err
 //	}
@@ -500,7 +500,7 @@ func SignalHandler(state TTYSaver) {
 //
 // Example - Panic Recovery:
 //
-//	saver, _ := tty.New()
+//	saver, _ := tty.New(nil, false)
 //	defer func() {
 //	    if r := recover(); r != nil {
 //	        tty.Restore(saver) // Restore terminal before re-panicking
