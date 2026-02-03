@@ -34,12 +34,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	jww "github.com/spf13/jwalterweatherman"
+
 	libctx "github.com/nabbar/golib/context"
 	logcfg "github.com/nabbar/golib/logger/config"
 	logent "github.com/nabbar/golib/logger/entry"
 	logfld "github.com/nabbar/golib/logger/fields"
 	loglvl "github.com/nabbar/golib/logger/level"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // FuncLog is a function type that returns a Logger instance.
@@ -139,7 +140,7 @@ type Logger interface {
 // The returned logger can be used to log messages at different levels.
 // The logger can also be used to set the default golang log.logger instance.
 func New(ctx context.Context) Logger {
-	l := &logger{
+	l := &lgr{
 		m: sync.RWMutex{},
 		x: libctx.New[uint8](ctx),
 		f: logfld.New(ctx),
@@ -149,4 +150,82 @@ func New(ctx context.Context) Logger {
 	l.SetLevel(loglvl.InfoLevel)
 
 	return l
+}
+
+// NewFrom creates a new Logger instance based on an existing logger or configuration.
+// It allows cloning an existing logger's state (level, fields, options) and applying new options.
+//
+// Parameters:
+//   - ctx: The context for the new logger.
+//   - opt: Optional configuration options to apply. If nil, defaults are used.
+//   - other: Variadic list of sources to copy state from.
+//
+// The other value will be used only if matching non-nil value of:
+//   - Logger: Copies level, fields, and options.
+//   - FuncLog: Executes the function and uses the returned Logger.
+//
+// The function iterates through 'other' arguments and uses the last valid Logger found as the base.
+// If a base logger is found, its level and fields are copied to the new logger.
+// If options are provided in 'opt', they are merged with the base logger's options (if any).
+//
+// Returns:
+//   - Logger: A new initialized Logger instance.
+//   - error: An error if applying options fails, otherwise nil.
+func NewFrom(ctx context.Context, opt *logcfg.Options, other ...any) (Logger, error) {
+	var (
+		e error
+		l *lgr
+	)
+
+	for _, i := range other {
+		if i == nil {
+			continue
+		}
+
+		var h Logger
+
+		if f, k := i.(FuncLog); k && f != nil {
+			h = f()
+		} else if g, c := i.(Logger); c && g != nil {
+			h = g
+		}
+
+		if h == nil {
+			continue
+		}
+
+		if g, k := h.(*lgr); k {
+			l = g
+			break
+		}
+	}
+
+	n := &lgr{
+		m: sync.RWMutex{},
+		x: libctx.New[uint8](ctx),
+		f: logfld.New(ctx),
+		c: new(atomic.Value),
+	}
+
+	n.SetLevel(loglvl.InfoLevel)
+
+	if l != nil {
+		n.SetLevel(l.GetLevel())
+		n.SetFields(l.GetFields())
+	}
+
+	if opt != nil {
+		if l != nil {
+			ptr := l.GetOptions()
+			if ptr != nil {
+				oo := *ptr
+				oo.Merge(opt)
+				*opt = oo
+			}
+		}
+
+		e = n.SetOptions(opt)
+	}
+
+	return n, e
 }

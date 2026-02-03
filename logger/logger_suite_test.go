@@ -51,7 +51,7 @@ var (
 	Running with $> ginkgo -cover .
 */
 
-func TestGolibAwsHelper(t *testing.T) {
+func TestGolibLoggerHelper(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Logger Helper Suite")
 }

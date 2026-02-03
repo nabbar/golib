@@ -57,7 +57,7 @@ import (
 //	// Capture Hugo/Cobra logs
 //	logger.SetSPF13Level(loglvl.InfoLevel, nil)
 //	// Now all jww.INFO.Println() calls will use this logger
-func (o *logger) SetSPF13Level(lvl loglvl.Level, log *jww.Notepad) {
+func (o *lgr) SetSPF13Level(lvl loglvl.Level, log *jww.Notepad) {
 	if log == nil {
 		jww.SetStdoutOutput(io.Discard)
 	} else {

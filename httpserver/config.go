@@ -34,6 +34,7 @@ import (
 	"strings"
 
 	libval "github.com/go-playground/validator/v10"
+
 	libtls "github.com/nabbar/golib/certificates"
 	libdur "github.com/nabbar/golib/duration"
 	srvtps "github.com/nabbar/golib/httpserver/types"
@@ -429,28 +430,13 @@ func (o *srv) setLogger(def liblog.FuncLog, opt logcfg.Options) error {
 		return ErrorServerValidate.Error(nil)
 	}
 
-	var (
-		f = o.l.Load()
-		l liblog.Logger
-	)
+	var l, e = liblog.NewFrom(o.c, &opt, o.l.Load(), def)
 
-	if f != nil {
-		l = f()
-	}
-
-	if l == nil {
-		if def != nil {
-			l = def()
-		} else {
-			l = liblog.New(o.c)
-		}
-	}
-
-	e := l.SetOptions(&opt)
 	l.SetFields(l.GetFields().Add("bind", o.GetBindable()))
 	o.l.Store(func() liblog.Logger {
 		return l
 	})
+
 	return e
 }
 

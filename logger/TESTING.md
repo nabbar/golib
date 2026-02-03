@@ -4,7 +4,7 @@
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://golang.org/)
 [![Tests](https://img.shields.io/badge/Tests-861%20specs-success)](logger_suite_test.go)
 [![Assertions](https://img.shields.io/badge/Assertions-1734+-blue)]()
-[![Coverage](https://img.shields.io/badge/Coverage-90.9%25-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/Coverage-84.6%25-brightgreen)]()
 
 Comprehensive testing documentation for the logger package and its subpackages.
 
@@ -59,7 +59,7 @@ This test suite provides **comprehensive validation** of the `logger` package th
 ### Test Completeness
 
 **Coverage Metrics:**
-- **Code Coverage**: 74.3% for core logger, 90.9% average across all packages (target: >75%)
+- **Code Coverage**: 73.0% for core logger, 84.6% average across all packages (target: >75%)
 - **Branch Coverage**: ~85% of conditional branches
 - **Function Coverage**: 98%+ of public functions
 - **Race Conditions**: 0 detected across all scenarios
@@ -81,6 +81,7 @@ This test suite provides **comprehensive validation** of the `logger` package th
 - Multiple output destinations (file, syslog, console)
 - Format validation (JSON/Text)
 - Entry creation and formatting
+- Logger instantiation via `New` and `NewFrom`
 
 **Concurrency** (✅ COMPLETE):
 - Thread-safe logging from multiple goroutines
@@ -105,16 +106,16 @@ This test suite provides **comprehensive validation** of the `logger` package th
 
 | Package | Files | Specs | Coverage | Priority | Test Areas |
 |---------|-------|-------|----------|----------|------------|
-| **logger** | 7 test files | 81 | 74.3% | Critical | Core logging, io.Writer, cloning, spf13 |
+| **logger** | 7 test files | 82 | 73.0% | Critical | Core logging, io.Writer, cloning, spf13 |
 | **config** | 7 test files | 125 | 85.3% | Critical | Options, validation, serialization |
 | **entry** | 3 test files | 135 | 85.8% | Critical | Entry creation, formatting, fields |
-| **fields** | 5 test files | 114 | 95.7% | Critical | Field operations, merging, cloning |
+| **fields** | 5 test files | 114 | 93.8% | Critical | Field operations, merging, cloning |
 | **gorm** | 2 test files | 34 | 100.0% | High | GORM adapter, query logging |
 | **hashicorp** | 3 test files | 89 | 96.6% | High | hclog adapter, level mapping |
-| **hookfile** | 3 test files | 25 | 82.2% | High | File output, rotation |
+| **hookfile** | 3 test files | 28 | 84.0% | High | File output, rotation |
 | **hookstderr** | 3 test files | 30 | 100.0% | High | Stderr output |
 | **hookstdout** | 3 test files | 30 | 100.0% | High | Stdout output |
-| **hooksyslog** | 3 test files | 41 | 83.2% | High | Syslog protocol |
+| **hooksyslog** | 3 test files | 40 | 84.3% | High | Syslog protocol |
 | **hookwriter** | 3 test files | 31 | 90.2% | High | Custom writer integration |
 | **level** | 2 test files | 94 | 98.0% | High | Level parsing, comparison |
 | **types** | 2 test files | 32 | N/A | Medium | Type definitions |
@@ -146,7 +147,7 @@ Passed:              861
 Failed:              0
 Skipped:             0
 Execution Time:      ~30 seconds (with -race)
-Average Coverage:    90.9%
+Average Coverage:    84.6%
 Race Conditions:     0
 ```
 
@@ -154,16 +155,16 @@ Race Conditions:     0
 
 | Package | Specs | Coverage | Time | Status |
 |---------|-------|----------|------|--------|
-| **logger** | 81 | 74.3% | ~0.55s | ✅ PASS |
+| **logger** | 82 | 73.0% | ~0.55s | ✅ PASS |
 | **config** | 125 | 85.3% | ~0.03s | ✅ PASS |
 | **entry** | 135 | 85.8% | ~0.02s | ✅ PASS |
-| **fields** | 114 | 95.7% | ~0.33s | ✅ PASS |
+| **fields** | 114 | 93.8% | ~0.33s | ✅ PASS |
 | **gorm** | 34 | 100.0% | ~0.02s | ✅ PASS |
 | **hashicorp** | 89 | 96.6% | ~0.02s | ✅ PASS |
-| **hookfile** | 25 | 82.2% | ~22.85s | ✅ PASS |
+| **hookfile** | 28 | 84.0% | ~22.85s | ✅ PASS |
 | **hookstderr** | 30 | 100.0% | ~0.02s | ✅ PASS |
 | **hookstdout** | 30 | 100.0% | ~0.01s | ✅ PASS |
-| **hooksyslog** | 41 | 83.2% | ~6.74s | ✅ PASS |
+| **hooksyslog** | 40 | 84.3% | ~6.74s | ✅ PASS |
 | **hookwriter** | 31 | 90.2% | ~0.01s | ✅ PASS |
 | **level** | 94 | 98.0% | ~0.01s | ✅ PASS |
 | **types** | 32 | N/A | ~0.04s | ✅ PASS |
@@ -171,7 +172,7 @@ Race Conditions:     0
 **Coverage Milestones:**
 - **3 packages at 100% coverage** (23% of packages)
 - **9 packages above 85%** (69% of packages)
-- **12 packages above 74%** (92% meeting minimum threshold)
+- **12 packages above 73%** (92% meeting minimum threshold)
 
 ---
 
@@ -212,7 +213,7 @@ This test suite follows **ISTQB (International Software Testing Qualifications B
 2. **Test Types** (ISTQB Advanced Level):
    - **Functional Testing**: Verify behavior meets specifications (log levels, field injection, output routing)
    - **Non-Functional Testing**: Performance (benchmarks), concurrency (thread safety, race detector)
-   - **Structural Testing**: Code coverage (90.9%), branch coverage
+   - **Structural Testing**: Code coverage (84.6%), branch coverage
    - **Change-Related Testing**: Regression testing after modifications (all 861 specs re-run)
 
 3. **Test Design Techniques**:
@@ -223,7 +224,7 @@ This test suite follows **ISTQB (International Software Testing Qualifications B
 
 4. **Test Process** (ISTQB Test Process):
    - **Test Planning**: Comprehensive test matrix across 13 packages
-   - **Test Monitoring**: Coverage metrics (90.9%), execution statistics (861 specs, 1734+ assertions)
+   - **Test Monitoring**: Coverage metrics (84.6%), execution statistics (861 specs, 1734+ assertions)
    - **Test Analysis**: Requirements-based test derivation from package design
    - **Test Design**: BDD-style test structure with Ginkgo/Gomega
    - **Test Implementation**: Reusable test patterns, helper functions
@@ -383,9 +384,9 @@ go test -cover ./...
 
 **Coverage Highlights**:
 - **Perfect (100%)**: gorm, hookstderr, hookstdout
-- **Excellent (>90%)**: hashicorp (96.6%), hookwriter (90.2%)
-- **Good (75-85%)**: config (85.3%), entry (85.1%), fields (78.4%), logger (75.0%)
-- **Areas for improvement**: hookfile (20.1%), hooksyslog (53.5%), level (65.9%)
+- **Excellent (>90%)**: hashicorp (96.6%), hookwriter (90.2%), fields (93.8%), level (98.0%)
+- **Good (75-85%)**: config (85.3%), entry (85.8%), hookfile (84.0%), hooksyslog (84.3%)
+- **Areas for improvement**: logger (73.0%)
 
 ---
 

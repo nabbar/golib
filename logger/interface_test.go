@@ -30,13 +30,14 @@ import (
 	"context"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
 	logfld "github.com/nabbar/golib/logger/fields"
 	loglvl "github.com/nabbar/golib/logger/level"
 	libsem "github.com/nabbar/golib/semaphore"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Logger", func() {
@@ -191,6 +192,28 @@ var _ = Describe("Logger", func() {
 			Expect(sem.WaitAll()).ToNot(HaveOccurred())
 			// Wait for all logs to be written to file
 			time.Sleep(300 * time.Millisecond)
+		})
+	})
+	Context("Create New Logger From existing one", func() {
+		It("Must succeed", func() {
+			log := liblog.New(GetContext())
+			defer func() {
+				Expect(log.Close()).ToNot(HaveOccurred())
+			}()
+			log.SetLevel(loglvl.DebugLevel)
+			log.SetFields(logfld.New(GetContext()).Add("test-field", "ok"))
+
+			newLog, err := liblog.NewFrom(GetContext(), nil, log)
+			Expect(err).ToNot(HaveOccurred())
+			defer func() {
+				Expect(newLog.Close()).ToNot(HaveOccurred())
+			}()
+
+			Expect(newLog.GetLevel()).To(Equal(loglvl.DebugLevel))
+
+			fld, ok := newLog.GetFields().Get("test-field")
+			Expect(ok).To(BeTrue())
+			Expect(fld).To(Equal("ok"))
 		})
 	})
 })

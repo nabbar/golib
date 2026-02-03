@@ -34,6 +34,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	libctx "github.com/nabbar/golib/context"
 	iotclo "github.com/nabbar/golib/ioutils/mapCloser"
 	logcfg "github.com/nabbar/golib/logger/config"
@@ -44,10 +46,9 @@ import (
 	logsys "github.com/nabbar/golib/logger/hooksyslog"
 	loglvl "github.com/nabbar/golib/logger/level"
 	logtps "github.com/nabbar/golib/logger/types"
-	"github.com/sirupsen/logrus"
 )
 
-func (o *logger) switchCloser(c iotclo.Closer) {
+func (o *lgr) switchCloser(c iotclo.Closer) {
 	if o == nil {
 		return
 	} else if c == nil {
@@ -68,7 +69,7 @@ func (o *logger) switchCloser(c iotclo.Closer) {
 	}
 }
 
-func (o *logger) newCloser() iotclo.Closer {
+func (o *lgr) newCloser() iotclo.Closer {
 	if o == nil || o.x == nil {
 		return nil
 	}
@@ -76,7 +77,7 @@ func (o *logger) newCloser() iotclo.Closer {
 	return iotclo.New(o.x.GetContext())
 }
 
-func (o *logger) hasCloser() bool {
+func (o *lgr) hasCloser() bool {
 	if o == nil || o.x == nil {
 		return false
 	}
@@ -109,7 +110,7 @@ func (o *logger) hasCloser() bool {
 //	}
 //	defer clone.Close()
 //	clone.SetLevel(loglvl.DebugLevel) // Does not affect original
-func (o *logger) Clone() (Logger, error) {
+func (o *lgr) Clone() (Logger, error) {
 	if o == nil {
 		return nil, fmt.Errorf("logger is nil")
 	}
@@ -118,7 +119,7 @@ func (o *logger) Clone() (Logger, error) {
 		return nil, e
 	}
 
-	l := &logger{
+	l := &lgr{
 		m: sync.RWMutex{},
 		x: libctx.New[uint8](o.x),
 		f: logfld.New(o.x),
@@ -135,11 +136,11 @@ func (o *logger) Clone() (Logger, error) {
 	return l, nil
 }
 
-func (o *logger) RegisterFuncUpdateLogger(fct func(log Logger)) {
+func (o *lgr) RegisterFuncUpdateLogger(fct func(log Logger)) {
 	o.x.Store(keyFctUpdLog, fct)
 }
 
-func (o *logger) runFuncUpdateLogger() {
+func (o *lgr) runFuncUpdateLogger() {
 	if i, l := o.x.Load(keyFctUpdLog); !l {
 		return
 	} else if f, k := i.(func(log Logger)); !k {
@@ -151,11 +152,11 @@ func (o *logger) runFuncUpdateLogger() {
 	}
 }
 
-func (o *logger) RegisterFuncUpdateLevel(fct func(log Logger)) {
+func (o *lgr) RegisterFuncUpdateLevel(fct func(log Logger)) {
 	o.x.Store(keyFctUpdLvl, fct)
 }
 
-func (o *logger) runFuncUpdateLevel() {
+func (o *lgr) runFuncUpdateLevel() {
 	if i, l := o.x.Load(keyFctUpdLvl); !l {
 		return
 	} else if f, k := i.(func(log Logger)); !k {
@@ -184,7 +185,7 @@ func (o *logger) runFuncUpdateLevel() {
 // Example:
 //
 //	logger.SetLevel(loglvl.WarnLevel) // Only Warn, Error, Fatal, Panic will be logged
-func (o *logger) SetLevel(lvl loglvl.Level) {
+func (o *lgr) SetLevel(lvl loglvl.Level) {
 	o.x.Store(keyLevel, lvl)
 	o.setLogrusLevel(o.GetLevel())
 	o.runFuncUpdateLevel()
@@ -201,7 +202,7 @@ func (o *logger) SetLevel(lvl loglvl.Level) {
 //	if currentLevel == loglvl.DebugLevel {
 //	    fmt.Println("Debug logging is enabled")
 //	}
-func (o *logger) GetLevel() loglvl.Level {
+func (o *lgr) GetLevel() loglvl.Level {
 	if o == nil {
 		return loglvl.NilLevel
 	} else if o.x == nil {
@@ -228,7 +229,7 @@ func (o *logger) GetLevel() loglvl.Level {
 //	fields.Add("service", "api")
 //	fields.Add("version", "1.0.0")
 //	logger.SetFields(fields)
-func (o *logger) SetFields(field logfld.Fields) {
+func (o *lgr) SetFields(field logfld.Fields) {
 	if o == nil {
 		return
 	}
@@ -246,9 +247,13 @@ func (o *logger) SetFields(field logfld.Fields) {
 //
 //	fields := logger.GetFields()
 //	logrusFields := fields.Logrus() // Convert to logrus.Fields format
-func (o *logger) GetFields() logfld.Fields {
+func (o *lgr) GetFields() logfld.Fields {
 	if o == nil {
 		return logfld.New(context.Background())
+	}
+
+	if o.f == nil {
+		return logfld.New(o.x)
 	}
 
 	return o.f.Clone()
@@ -280,7 +285,7 @@ func (o *logger) GetFields() logfld.Fields {
 //	        },
 //	    },
 //	})
-func (o *logger) SetOptions(opt *logcfg.Options) error {
+func (o *lgr) SetOptions(opt *logcfg.Options) error {
 	var (
 		lvl = o.GetLevel()
 		obj = logrus.New()
@@ -383,7 +388,7 @@ func (o *logger) SetOptions(opt *logcfg.Options) error {
 //	if opts.Stdout != nil && opts.Stdout.EnableTrace {
 //	    fmt.Println("Stack traces are enabled")
 //	}
-func (o *logger) GetOptions() *logcfg.Options {
+func (o *lgr) GetOptions() *logcfg.Options {
 	if o == nil {
 		return &logcfg.Options{}
 	} else if o.x == nil {

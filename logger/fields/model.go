@@ -29,8 +29,9 @@ package fields
 import (
 	"encoding/json"
 
-	libctx "github.com/nabbar/golib/context"
 	"github.com/sirupsen/logrus"
+
+	libctx "github.com/nabbar/golib/context"
 )
 
 // fldModel is the internal implementation of the Fields interface.
@@ -51,7 +52,12 @@ type fldModel struct {
 //
 //	flds.Add("key1", "value1").Add("key2", "value2")
 func (o *fldModel) Add(key string, val interface{}) Fields {
+	if o == nil {
+		return nil
+	}
+
 	o.c.Store(key, val)
+
 	return o
 }
 

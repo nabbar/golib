@@ -31,6 +31,7 @@ import (
 	"fmt"
 
 	libval "github.com/go-playground/validator/v10"
+
 	libtls "github.com/nabbar/golib/certificates"
 	libhtc "github.com/nabbar/golib/httpcli"
 	liblog "github.com/nabbar/golib/logger"
@@ -128,30 +129,37 @@ func (o *Options) SetDefaultLog(fct liblog.FuncLog) {
 }
 
 func (o *Options) New(ctx context.Context, cli libhtc.HttpClient) (Request, error) {
-	if n, e := New(ctx, o, cli); e != nil {
+	n, e := New(ctx, o, cli)
+
+	if e != nil {
 		return nil, e
-	} else {
-		if o.log != nil {
-			l := o.log()
-			n.RegisterDefaultLogger(o.log)
-			if e = l.SetOptions(&o.Health.Monitor.Logger); e != nil {
-				return nil, e
-			}
-			n.RegisterDefaultLogger(func() liblog.Logger {
-				return l
-			})
-		}
-		return n, nil
 	}
+
+	var l liblog.Logger
+	l, e = liblog.NewFrom(ctx, &o.Health.Monitor.Logger, o.log)
+
+	if e != nil {
+		_ = l.Close()
+		return nil, e
+	}
+
+	n.RegisterDefaultLogger(func() liblog.Logger {
+		return l
+	})
+
+	return n, e
 }
 
 func (o *Options) Update(ctx context.Context, req Request) (Request, error) {
 	var (
 		e error
 		n Request
+		l liblog.Logger
 	)
 
-	if n, e = req.Clone(); e != nil {
+	n, e = req.Clone()
+
+	if e != nil {
 		return nil, e
 	}
 
@@ -163,16 +171,16 @@ func (o *Options) Update(ctx context.Context, req Request) (Request, error) {
 		return nil, e
 	}
 
-	if o.log != nil {
-		l := o.log()
-		n.RegisterDefaultLogger(o.log)
-		if e = l.SetOptions(&o.Health.Monitor.Logger); e != nil {
-			return nil, e
-		}
-		n.RegisterDefaultLogger(func() liblog.Logger {
-			return l
-		})
+	l, e = liblog.NewFrom(ctx, &o.Health.Monitor.Logger, o.log)
+
+	if e != nil {
+		_ = l.Close()
+		return nil, e
 	}
+
+	n.RegisterDefaultLogger(func() liblog.Logger {
+		return l
+	})
 
 	return n, nil
 }

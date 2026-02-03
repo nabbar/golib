@@ -46,7 +46,7 @@ import (
 // Example:
 //
 //	logger.Debug("Processing request for user %s", userData, "john.doe")
-func (o *logger) Debug(message string, data interface{}, args ...interface{}) {
+func (o *lgr) Debug(message string, data interface{}, args ...interface{}) {
 	if o == nil {
 		return
 	}
@@ -65,7 +65,7 @@ func (o *logger) Debug(message string, data interface{}, args ...interface{}) {
 // Example:
 //
 //	logger.Info("Application started on port %d", nil, 8080)
-func (o *logger) Info(message string, data interface{}, args ...interface{}) {
+func (o *lgr) Info(message string, data interface{}, args ...interface{}) {
 	if o == nil {
 		return
 	}
@@ -84,7 +84,7 @@ func (o *logger) Info(message string, data interface{}, args ...interface{}) {
 // Example:
 //
 //	logger.Warning("Slow query detected: %dms", nil, queryTime)
-func (o *logger) Warning(message string, data interface{}, args ...interface{}) {
+func (o *lgr) Warning(message string, data interface{}, args ...interface{}) {
 	if o == nil {
 		return
 	}
@@ -103,7 +103,7 @@ func (o *logger) Warning(message string, data interface{}, args ...interface{}) 
 // Example:
 //
 //	logger.Error("Failed to process request", err, requestID)
-func (o *logger) Error(message string, data interface{}, args ...interface{}) {
+func (o *lgr) Error(message string, data interface{}, args ...interface{}) {
 	if o == nil {
 		return
 	}
@@ -124,7 +124,7 @@ func (o *logger) Error(message string, data interface{}, args ...interface{}) {
 // Example:
 //
 //	logger.Fatal("Cannot connect to database", nil)
-func (o *logger) Fatal(message string, data interface{}, args ...interface{}) {
+func (o *lgr) Fatal(message string, data interface{}, args ...interface{}) {
 	if o == nil {
 		return
 	}
@@ -145,7 +145,7 @@ func (o *logger) Fatal(message string, data interface{}, args ...interface{}) {
 // Example:
 //
 //	logger.Panic("Invalid state detected", stateData)
-func (o *logger) Panic(message string, data interface{}, args ...interface{}) {
+func (o *lgr) Panic(message string, data interface{}, args ...interface{}) {
 	if o == nil {
 		return
 	}
@@ -170,7 +170,7 @@ func (o *logger) Panic(message string, data interface{}, args ...interface{}) {
 //	errs := []error{err1, err2}
 //	fields := logfld.New(ctx).Add("request_id", "123")
 //	logger.LogDetails(loglvl.ErrorLevel, "Request failed", nil, errs, fields)
-func (o *logger) LogDetails(lvl loglvl.Level, message string, data interface{}, err []error, fields logfld.Fields, args ...interface{}) {
+func (o *lgr) LogDetails(lvl loglvl.Level, message string, data interface{}, err []error, fields logfld.Fields, args ...interface{}) {
 	if o == nil {
 		return
 	}
@@ -196,7 +196,7 @@ func (o *logger) LogDetails(lvl loglvl.Level, message string, data interface{}, 
 //	    return // Error was logged
 //	}
 //	// Success was logged at InfoLevel
-func (o *logger) CheckError(lvlKO, lvlOK loglvl.Level, message string, err ...error) bool {
+func (o *lgr) CheckError(lvlKO, lvlOK loglvl.Level, message string, err ...error) bool {
 	if o == nil {
 		return false
 	}
@@ -223,7 +223,7 @@ func (o *logger) CheckError(lvlKO, lvlOK loglvl.Level, message string, err ...er
 //	entry.FieldAdd("user_id", userID)
 //	entry.FieldAdd("timestamp", time.Now())
 //	entry.Log()
-func (o *logger) Entry(lvl loglvl.Level, message string, args ...interface{}) logent.Entry {
+func (o *lgr) Entry(lvl loglvl.Level, message string, args ...interface{}) logent.Entry {
 	return o.newEntry(lvl, fmt.Sprintf(message, args...), nil, nil, nil)
 }
 
@@ -253,12 +253,12 @@ func (o *logger) Entry(lvl loglvl.Level, message string, args ...interface{}) lo
 //	    "GET", "/api/users", "HTTP/1.1",
 //	    200, 1024,
 //	).Log()
-func (o *logger) Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) logent.Entry {
+func (o *lgr) Access(remoteAddr, remoteUser string, localtime time.Time, latency time.Duration, method, request, proto string, status int, size int64) logent.Entry {
 	var msg = fmt.Sprintf("%s - %s [%s] [%s] \"%s %s %s\" %d %d", remoteAddr, remoteUser, localtime.Format(time.RFC1123Z), latency.String(), method, request, proto, status, size)
 	return o.newEntryClean(msg)
 }
 
-func (o *logger) newEntry(lvl loglvl.Level, message string, err []error, fields logfld.Fields, data interface{}) logent.Entry {
+func (o *lgr) newEntry(lvl loglvl.Level, message string, err []error, fields logfld.Fields, data interface{}) logent.Entry {
 	if o == nil {
 		return logent.New(loglvl.NilLevel)
 	}
@@ -297,7 +297,7 @@ func (o *logger) newEntry(lvl loglvl.Level, message string, err []error, fields 
 	return ent
 }
 
-func (o *logger) newEntryClean(message string) logent.Entry {
+func (o *lgr) newEntryClean(message string) logent.Entry {
 	if o == nil {
 		return logent.New(loglvl.NilLevel)
 	}

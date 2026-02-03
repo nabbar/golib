@@ -195,6 +195,20 @@ Thread Safety:
   - Internal state protected by sync.RWMutex
   - Atomic operations for simple state management
 
+# Logger Instantiation
+
+The package provides two main ways to create a logger instance:
+
+ 1. New(ctx context.Context) Logger
+    Creates a fresh logger instance with default settings (InfoLevel).
+
+ 2. NewFrom(ctx context.Context, opt *config.Options, other ...any) (Logger, error)
+    Creates a new logger by cloning an existing one or using a configuration.
+    This is useful for:
+    - Inheriting fields and levels from a parent logger
+    - Applying new configuration options on top of an existing logger
+    - Lazy initialization via FuncLog
+
 # Use Cases
 
 1. Application Logging
@@ -304,6 +318,27 @@ Structured error logging with context:
 	entry.FieldAdd("duration", duration)
 	entry.ErrorAdd(true, err)
 	entry.Log()
+
+6. Inheriting Logger Context
+
+Using NewFrom to create a sub-logger with inherited fields:
+
+	// Parent logger with common fields
+	parentLog := logger.New(ctx)
+	parentLog.SetFields(fields.NewFromMap(map[string]interface{}{
+	    "app": "my-app",
+	    "env": "prod",
+	}))
+
+	// Create child logger for a specific module
+	// It inherits "app" and "env" fields
+	childLog, _ := logger.NewFrom(ctx, nil, parentLog)
+	childLog.SetFields(fields.NewFromMap(map[string]interface{}{
+	    "module": "database",
+	}))
+
+	childLog.Info("Connecting to DB", nil)
+	// Log will contain: app=my-app, env=prod, module=database
 
 # Best Practices
 

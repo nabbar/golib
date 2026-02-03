@@ -50,7 +50,7 @@ import (
 //
 //	stdLogger := logger.GetStdLogger(loglvl.InfoLevel, log.LstdFlags)
 //	stdLogger.Println("Message from standard logger")
-func (o *logger) GetStdLogger(lvl loglvl.Level, logFlags int) *log.Logger {
+func (o *lgr) GetStdLogger(lvl loglvl.Level, logFlags int) *log.Logger {
 	o.SetIOWriterLevel(lvl)
 	return log.New(o, "", logFlags)
 }
@@ -69,7 +69,7 @@ func (o *logger) GetStdLogger(lvl loglvl.Level, logFlags int) *log.Logger {
 //
 //	logger.SetStdLogger(loglvl.WarnLevel, log.LstdFlags)
 //	log.Println("Now routed through custom logger")
-func (o *logger) SetStdLogger(lvl loglvl.Level, logFlags int) {
+func (o *lgr) SetStdLogger(lvl loglvl.Level, logFlags int) {
 	o.SetIOWriterLevel(lvl)
 	log.SetOutput(o)
 	log.SetPrefix("")

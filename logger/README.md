@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://golang.org/)
-[![Coverage](https://img.shields.io/badge/Coverage-90.9%25-brightgreen)](TESTING.md)
+[![Coverage](https://img.shields.io/badge/Coverage-84.6%25-brightgreen)](TESTING.md)
 
 Production-ready structured logging system for Go applications with flexible output management, field injection, level-based filtering, and extensive integration capabilities.
 
@@ -39,6 +39,7 @@ Production-ready structured logging system for Go applications with flexible out
   - [Basic Logging](#basic-logging)
   - [Configured Logger](#configured-logger)
   - [With Persistent Fields](#with-persistent-fields)
+  - [Inheriting Logger](#inheriting-logger)
 - [Best Practices](#best-practices)
 - [API Reference](#api-reference)
   - [Logger Interface](#logger-interface)
@@ -294,6 +295,32 @@ log.Info("Request processed", map[string]interface{}{
 //  "duration_ms":45,"time":"2024-01-15T10:30:00Z"}
 ```
 
+### Inheriting Logger
+
+Use `NewFrom` to create a new logger based on an existing one, inheriting its fields and level.
+
+```go
+// Parent logger
+parentLog := logger.New(ctx)
+parentLog.SetFields(fields.NewFromMap(map[string]interface{}{
+    "app": "my-app",
+}))
+
+// Child logger inherits "app" field
+childLog, err := logger.NewFrom(ctx, nil, parentLog)
+if err != nil {
+    panic(err)
+}
+
+// Add specific fields to child
+childLog.SetFields(fields.NewFromMap(map[string]interface{}{
+    "module": "auth",
+}))
+
+childLog.Info("User login", nil)
+// Log contains: app="my-app", module="auth"
+```
+
 ---
 
 ## Performance
@@ -317,20 +344,20 @@ Latest test results (861 total specs):
 
 | Package | Specs | Coverage | Status |
 |---------|-------|----------|--------|
-| **logger** | 81 | 74.3% | ✅ PASS |
+| **logger** | 82 | 73.0% | ✅ PASS |
 | **config** | 125 | 85.3% | ✅ PASS |
 | **entry** | 135 | 85.8% | ✅ PASS |
-| **fields** | 114 | 95.7% | ✅ PASS |
+| **fields** | 114 | 93.8% | ✅ PASS |
 | **gorm** | 34 | 100.0% | ✅ PASS |
 | **hashicorp** | 89 | 96.6% | ✅ PASS |
-| **hookfile** | 25 | 82.2% | ✅ PASS |
+| **hookfile** | 28 | 84.0% | ✅ PASS |
 | **hookstderr** | 30 | 100.0% | ✅ PASS |
 | **hookstdout** | 30 | 100.0% | ✅ PASS |
-| **hooksyslog** | 41 | 83.2% | ✅ PASS |
+| **hooksyslog** | 40 | 84.3% | ✅ PASS |
 | **hookwriter** | 31 | 90.2% | ✅ PASS |
 | **level** | 94 | 98.0% | ✅ PASS |
 | **types** | 32 | N/A | ✅ PASS |
-| **TOTAL** | **861** | **90.9%** | ✅ **ALL PASS** |
+| **TOTAL** | **861** | **84.6%** | ✅ **ALL PASS** |
 
 ### Memory Profile
 
@@ -799,6 +826,10 @@ type Logger interface {
     
     // Cloning
     Clone() (Logger, error)
+    
+    // Instantiation
+    // NewFrom creates a new logger based on an existing one
+    // NewFrom(ctx context.Context, opt *config.Options, other ...any) (Logger, error)
     
     // Integrations
     GetStdLogger(lvl level.Level, flags int) *log.Logger

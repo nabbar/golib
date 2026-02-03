@@ -37,11 +37,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	libctx "github.com/nabbar/golib/context"
 	logcfg "github.com/nabbar/golib/logger/config"
 	logfld "github.com/nabbar/golib/logger/fields"
 	loglvl "github.com/nabbar/golib/logger/level"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -56,9 +57,9 @@ const (
 	keyFctUpdLvl
 )
 
-var _selfPackage = path.Base(reflect.TypeOf(logger{}).PkgPath())
+var self = path.Base(reflect.TypeOf(lgr{}).PkgPath())
 
-type logger struct {
+type lgr struct {
 	m sync.RWMutex
 	x libctx.Config[uint8] // cf const key...
 	f logfld.Fields        // fields map
@@ -85,7 +86,7 @@ func defaultFormatter() logrus.TextFormatter {
 	}
 }
 
-func (o *logger) defaultFormatter(opt *logcfg.OptionsStd) logrus.Formatter {
+func (o *lgr) defaultFormatter(opt *logcfg.OptionsStd) logrus.Formatter {
 	f := defaultFormatter()
 
 	if opt != nil && opt.DisableColor {
@@ -100,7 +101,7 @@ func (o *logger) defaultFormatter(opt *logcfg.OptionsStd) logrus.Formatter {
 	return &f
 }
 
-func (o *logger) defaultFormatterNoColor() logrus.Formatter {
+func (o *lgr) defaultFormatterNoColor() logrus.Formatter {
 	f := defaultFormatter()
 	f.ForceColors = false
 	f.EnvironmentOverrideColors = false
@@ -108,12 +109,12 @@ func (o *logger) defaultFormatterNoColor() logrus.Formatter {
 	return &f
 }
 
-func (o *logger) optionsMerge(opt *logcfg.Options) {
+func (o *lgr) optionsMerge(opt *logcfg.Options) {
 	var oo logcfg.Options
 
 	if i, l := o.x.Load(keyOptions); !l {
 		return
-	} else if v, k := i.(*logcfg.Options); !k {
+	} else if v, k := i.(*logcfg.Options); !k || v == nil {
 		return
 	} else {
 		oo = *v
@@ -123,7 +124,7 @@ func (o *logger) optionsMerge(opt *logcfg.Options) {
 	*opt = oo
 }
 
-func (o *logger) setLogrusLevel(lvl loglvl.Level) {
+func (o *lgr) setLogrusLevel(lvl loglvl.Level) {
 	if i, l := o.x.Load(keyLogrus); !l {
 		return
 	} else if v, k := i.(*logrus.Logger); !k {
@@ -134,7 +135,7 @@ func (o *logger) setLogrusLevel(lvl loglvl.Level) {
 	}
 }
 
-func (o *logger) getLogrus() *logrus.Logger {
+func (o *lgr) getLogrus() *logrus.Logger {
 	if i, l := o.x.Load(keyLogrus); !l {
 		return nil
 	} else if v, k := i.(*logrus.Logger); !k {
@@ -144,7 +145,7 @@ func (o *logger) getLogrus() *logrus.Logger {
 	}
 }
 
-func (o *logger) getStack() uint64 {
+func (o *lgr) getStack() uint64 {
 	b := make([]byte, 64)
 
 	b = b[:runtime.Stack(b, false)]
@@ -158,7 +159,7 @@ func (o *logger) getStack() uint64 {
 	return n
 }
 
-func (o *logger) getCaller() runtime.Frame {
+func (o *lgr) getCaller() runtime.Frame {
 	// Set size to targetFrameIndex+2 to ensure we have room for one more caller than we need.
 	programCounters := make([]uintptr, 10, 255)
 	n := runtime.Callers(1, programCounters)
@@ -171,7 +172,7 @@ func (o *logger) getCaller() runtime.Frame {
 			var frame runtime.Frame
 			frame, more = frames.Next()
 
-			if strings.Contains(frame.Function, _selfPackage) {
+			if strings.Contains(frame.Function, self) {
 				continue
 			}
 

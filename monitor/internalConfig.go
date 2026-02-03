@@ -203,30 +203,15 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 
 	o.x.Store(keyConfig, cnf)
 
-	var n liblog.Logger
+	var n, e = liblog.NewFrom(ctx, &cfg.Logger, o.getLoggerDefault)
 
-	if l := o.getLoggerDefault(); l == nil {
-		n = liblog.New(ctx)
-	} else {
-		n = l
-	}
-
-	if n != nil {
-		if e := n.SetOptions(&cfg.Logger); e != nil {
-			return ErrorLoggerError.Error(e)
-		}
-
-		if f := n.GetFields(); f != nil {
-			if newFields := f.Add(LogFieldProcess, LogValueProcess); newFields != nil {
-				if finalFields := newFields.Add(LogFieldName, cfg.Name); finalFields != nil {
-					n.SetFields(finalFields)
-				}
-			}
-		}
-	}
+	f := n.GetFields()
+	f = f.Add(LogFieldProcess, LogValueProcess)
+	f = f.Add(LogFieldName, cfg.Name)
+	n.SetFields(f)
 
 	o.x.Store(keyLogger, n)
-	return nil
+	return e
 }
 
 // GetConfig returns the current monitor configuration.

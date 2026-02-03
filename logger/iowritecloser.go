@@ -49,7 +49,7 @@ import (
 //
 //	logger := logger.New(ctx)
 //	defer logger.Close() // Ensures cleanup
-func (o *logger) Close() error {
+func (o *lgr) Close() error {
 	if o != nil && o.hasCloser() {
 		o.switchCloser(nil)
 	}
@@ -76,7 +76,7 @@ func (o *logger) Close() error {
 //
 //	logger.SetIOWriterLevel(loglvl.InfoLevel)
 //	io.WriteString(logger, "Message from io.Writer")
-func (o *logger) Write(p []byte) (n int, err error) {
+func (o *lgr) Write(p []byte) (n int, err error) {
 	if o == nil {
 		return
 	} else if o.x == nil {
@@ -103,7 +103,7 @@ func (o *logger) Write(p []byte) (n int, err error) {
 //
 //	logger.SetIOWriterLevel(loglvl.WarnLevel)
 //	io.WriteString(logger, "This will be logged at Warn level")
-func (o *logger) SetIOWriterLevel(lvl loglvl.Level) {
+func (o *lgr) SetIOWriterLevel(lvl loglvl.Level) {
 	if o == nil {
 		return
 	} else if o.x == nil {
@@ -124,7 +124,7 @@ func (o *logger) SetIOWriterLevel(lvl loglvl.Level) {
 //	if level == loglvl.NilLevel {
 //	    logger.SetIOWriterLevel(loglvl.InfoLevel)
 //	}
-func (o *logger) GetIOWriterLevel() loglvl.Level {
+func (o *lgr) GetIOWriterLevel() loglvl.Level {
 	if o == nil {
 		return loglvl.NilLevel
 	} else if o.x == nil {
@@ -151,7 +151,7 @@ func (o *logger) GetIOWriterLevel() loglvl.Level {
 //
 //	// Drop any messages containing sensitive data
 //	logger.SetIOWriterFilter("password", "token", "secret")
-func (o *logger) SetIOWriterFilter(pattern ...string) {
+func (o *lgr) SetIOWriterFilter(pattern ...string) {
 	if o == nil {
 		return
 	} else if o.x == nil {
@@ -177,7 +177,7 @@ func (o *logger) SetIOWriterFilter(pattern ...string) {
 //
 //	logger.SetIOWriterFilter("password")
 //	logger.AddIOWriterFilter("token", "secret") // Now filters all three
-func (o *logger) AddIOWriterFilter(pattern ...string) {
+func (o *lgr) AddIOWriterFilter(pattern ...string) {
 	if o == nil {
 		return
 	} else if o.x == nil {
@@ -201,7 +201,7 @@ func (o *logger) AddIOWriterFilter(pattern ...string) {
 	o.x.Store(keyFilter, p)
 }
 
-func (o *logger) IOWriterFilter(p []byte) []byte {
+func (o *lgr) IOWriterFilter(p []byte) []byte {
 	if o == nil {
 		return p
 	} else if o.x == nil {
