@@ -91,14 +91,16 @@ func NewS3AWS(ctx context.Context, cfg libaws.Config, httpcli *http.Client, forc
 	}
 
 	o := &s3awsModel{
-		Helper: artcli.Helper{},
-		c:      c,
-		x:      ctx,
-		regex:  releaseRegex,
-		group:  releaseGroup,
+		Helper: artcli.Helper{
+			F: nil,
+		},
+		c:     c,
+		x:     ctx,
+		regex: releaseRegex,
+		group: releaseGroup,
 	}
-	// no more needed
-	// o.Helper.F = o.ListReleases
+
+	o.F = o.ListReleases
 
 	return o, nil
 }

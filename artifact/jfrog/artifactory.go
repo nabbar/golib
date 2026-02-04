@@ -80,7 +80,7 @@ func NewArtifactory(ctx context.Context, Do func(req *http.Request) (*http.Respo
 			regex:    releaseRegex,
 		}
 		// no more needed
-		//a.Helper.F = a.ListReleases
+		a.F = a.ListReleases
 
 		return a, nil
 	}

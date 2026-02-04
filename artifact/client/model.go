@@ -26,6 +26,7 @@
 package client
 
 import (
+	"errors"
 	"sort"
 
 	hscvrs "github.com/hashicorp/go-version"
@@ -47,26 +48,28 @@ type Helper struct {
 // listReleasesOrderMajor organizes releases by major version number.
 // Returns a map where keys are major version numbers and values are collections of versions.
 // This is an internal helper method used by other organization methods.
-func (g *Helper) listReleasesOrderMajor() (releases map[int]hscvrs.Collection, err error) {
+func (g *Helper) listReleasesOrderMajor() (map[int]hscvrs.Collection, error) {
 	var (
-		vers hscvrs.Collection
+		err error
+		rel = make(map[int]hscvrs.Collection)
+		vrs hscvrs.Collection
 	)
 
-	if vers, err = g.F(); err != nil {
-		return
+	if g.F == nil {
+		return rel, errors.New("invalid functions to retrieve list of releases")
 	}
 
-	for _, v := range vers {
+	if vrs, err = g.F(); err != nil {
+		return rel, err
+	}
+
+	for _, v := range vrs {
 		s := v.Segments()
 
-		if releases == nil {
-			releases = make(map[int]hscvrs.Collection)
-		}
-
-		releases[s[0]] = append(releases[s[0]], v)
+		rel[s[0]] = append(rel[s[0]], v)
 	}
 
-	return
+	return rel, err
 }
 
 // ListReleasesOrder implements ArtHelper.ListReleasesOrder.
@@ -76,164 +79,167 @@ func (g *Helper) listReleasesOrderMajor() (releases map[int]hscvrs.Collection, e
 // Example:
 //
 //	{1: {0: [1.0.0, 1.0.1], 2: [1.2.0, 1.2.5]}, 2: {1: [2.1.3, 2.1.9]}}
-func (g *Helper) ListReleasesOrder() (releases map[int]map[int]hscvrs.Collection, err error) {
+func (g *Helper) ListReleasesOrder() (map[int]map[int]hscvrs.Collection, error) {
 	var (
-		vers map[int]hscvrs.Collection
+		err error
+		rel = make(map[int]map[int]hscvrs.Collection)
+		vrs map[int]hscvrs.Collection
 	)
 
-	if vers, err = g.listReleasesOrderMajor(); err != nil {
-		return
+	if vrs, err = g.listReleasesOrderMajor(); err != nil {
+		return rel, err
 	}
 
-	for major, list := range vers {
+	for major, list := range vrs {
 		for _, v := range list {
 			s := v.Segments()
 
-			if releases == nil {
-				releases = make(map[int]map[int]hscvrs.Collection)
+			if len(rel[major]) == 0 {
+				rel[major] = make(map[int]hscvrs.Collection)
 			}
 
-			if releases[major] == nil || len(releases[major]) == 0 {
-				releases[major] = make(map[int]hscvrs.Collection)
-			}
-
-			releases[major][s[1]] = append(releases[major][s[1]], v)
+			rel[major][s[1]] = append(rel[major][s[1]], v)
 		}
 	}
 
-	return
+	return rel, err
 }
 
 // ListReleasesMajor implements ArtHelper.ListReleasesMajor.
 // Returns all versions with the specified major version number, sorted in ascending order.
 // Returns an empty collection if the major version is not found.
-func (g *Helper) ListReleasesMajor(major int) (releases hscvrs.Collection, err error) {
+func (g *Helper) ListReleasesMajor(major int) (hscvrs.Collection, error) {
 	var (
-		vers map[int]hscvrs.Collection
+		err error
+		rel hscvrs.Collection
+		vrs map[int]hscvrs.Collection
 	)
 
-	if vers, err = g.listReleasesOrderMajor(); err != nil {
-		return
+	if vrs, err = g.listReleasesOrderMajor(); err != nil {
+		return rel, err
 	}
 
-	if _, ok := vers[major]; !ok {
-		return
-	} else if len(vers[major]) > 0 {
-		releases = vers[major]
+	if _, ok := vrs[major]; !ok {
+		return rel, err
+	} else if len(vrs[major]) > 0 {
+		rel = vrs[major]
 	}
 
-	sort.Sort(releases)
+	sort.Sort(rel)
 
-	return
+	return rel, err
 }
 
 // ListReleasesMinor implements ArtHelper.ListReleasesMinor.
 // Returns all versions matching the specified major and minor version numbers.
 // The returned collection is sorted in ascending order.
 // Returns an empty collection if the major/minor combination is not found.
-func (g *Helper) ListReleasesMinor(major, minor int) (releases hscvrs.Collection, err error) {
+func (g *Helper) ListReleasesMinor(major, minor int) (hscvrs.Collection, error) {
 	var (
-		vers map[int]map[int]hscvrs.Collection
+		ok bool
+
+		err error
+		rel hscvrs.Collection
+		vrs map[int]map[int]hscvrs.Collection
 	)
 
-	if vers, err = g.ListReleasesOrder(); err != nil {
-		return
+	if vrs, err = g.ListReleasesOrder(); err != nil {
+		return rel, err
+	} else if _, ok = vrs[major]; !ok {
+		return rel, err
+	} else if _, ok = vrs[major][minor]; !ok {
+		return rel, err
+	} else if len(vrs[major][minor]) > 0 {
+		rel = vrs[major][minor]
 	}
 
-	if _, ok := vers[major]; !ok {
-		return
-	}
+	sort.Sort(rel)
 
-	if _, ok := vers[major][minor]; !ok {
-		return
-	} else if len(vers[major][minor]) > 0 {
-		releases = vers[major][minor]
-	}
-
-	sort.Sort(releases)
-
-	return
+	return rel, err
 }
 
 // GetLatest implements ArtHelper.GetLatest.
 // Returns the highest version across all major and minor versions.
 // Determines the latest by finding the highest major version, then the highest minor
 // within that major, and finally the highest patch version.
-func (g *Helper) GetLatest() (release *hscvrs.Version, err error) {
+func (g *Helper) GetLatest() (*hscvrs.Version, error) {
 	var (
-		vers  map[int]map[int]hscvrs.Collection
-		major int
-		minor int
+		err error
+		rel *hscvrs.Version
+		vrs map[int]map[int]hscvrs.Collection
+		maj int // major
+		mnr int // minor
 	)
 
-	if vers, err = g.ListReleasesOrder(); err != nil {
-		return
+	if vrs, err = g.ListReleasesOrder(); err != nil {
+		return rel, err
 	}
 
-	for i := range vers {
-		if major < i {
-			major = i
+	for i := range vrs {
+		if maj < i {
+			maj = i
 		}
 	}
 
-	for i := range vers[major] {
-		if minor < i {
-			minor = i
+	for i := range vrs[maj] {
+		if mnr < i {
+			mnr = i
 		}
 	}
 
-	return g.GetLatestMinor(major, minor)
+	return g.GetLatestMinor(maj, mnr)
 }
 
 // GetLatestMajor implements ArtHelper.GetLatestMajor.
 // Returns the highest version within the specified major version number.
 // First finds the highest minor version for the given major, then returns the
 // highest patch version within that major.minor combination.
-func (g *Helper) GetLatestMajor(major int) (release *hscvrs.Version, err error) {
+func (g *Helper) GetLatestMajor(major int) (*hscvrs.Version, error) {
 	var (
-		vers  map[int]map[int]hscvrs.Collection
-		minor int
+		err error
+		rel *hscvrs.Version
+		vrs map[int]map[int]hscvrs.Collection
+		mnr int // minor
 	)
 
-	if vers, err = g.ListReleasesOrder(); err != nil {
-		return
+	if vrs, err = g.ListReleasesOrder(); err != nil {
+		return rel, err
+	} else if _, ok := vrs[major]; !ok {
+		return rel, err
 	}
 
-	if _, ok := vers[major]; !ok {
-		return
-	}
-
-	for i := range vers[major] {
-		if minor < i {
-			minor = i
+	for i := range vrs[major] {
+		if mnr < i {
+			mnr = i
 		}
 	}
 
-	return g.GetLatestMinor(major, minor)
+	return g.GetLatestMinor(major, mnr)
 }
 
 // GetLatestMinor implements ArtHelper.GetLatestMinor.
 // Returns the highest version (by patch number) within the specified major.minor version.
 // Iterates through all versions in the collection and returns the highest one.
-func (g *Helper) GetLatestMinor(major, minor int) (release *hscvrs.Version, err error) {
+func (g *Helper) GetLatestMinor(major, minor int) (*hscvrs.Version, error) {
 	var (
-		vers hscvrs.Collection
+		err error
+		rel *hscvrs.Version
+		vrs hscvrs.Collection
 	)
 
-	if vers, err = g.ListReleasesMinor(major, minor); err != nil {
-		return
+	if vrs, err = g.ListReleasesMinor(major, minor); err != nil {
+		return rel, err
 	}
 
-	for i := 0; i < len(vers); i++ {
-		if vers[i] == nil {
-			continue
-		}
-
-		if release == nil || release.LessThan(vers[i]) {
-			release = vers[i]
-			continue
+	for i := 0; i < len(vrs); i++ {
+		if vrs[i] == nil {
+			// continue
+		} else if rel == nil {
+			rel = vrs[i]
+		} else if rel.LessThan(vrs[i]) {
+			rel = vrs[i]
 		}
 	}
 
-	return
+	return rel, err
 }

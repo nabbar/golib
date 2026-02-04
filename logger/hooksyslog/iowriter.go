@@ -45,10 +45,6 @@ import (
 //
 // A mutex ensures that only one goroutine attempts to re-initialize the writer at a time.
 func (o *hks) Write(p []byte) (n int, err error) {
-	if !o.r.Load() {
-		return 0, errStreamClosed
-	}
-
 	n, err = o.w.Write(p)
 
 	// If the write was successful or the error is not a "closed resources" error, return.

@@ -38,10 +38,12 @@ func (cli *client) Find(regex string) ([]string, error) {
 	for {
 		if lst, tok, cnt, err := cli.List(token); err != nil {
 			return result, cli.GetError(err)
-		} else if cnt > 0 {
+		} else if cnt = min(int64(len(lst)), cnt); cnt > 0 {
 			token = tok
 			for _, o := range lst {
-				if ok, _ := regexp.MatchString(regex, *o.Key); ok {
+				if o.Key == nil || len(*o.Key) < 1 {
+					continue
+				} else if ok, _ := regexp.MatchString(regex, *o.Key); ok {
 					result = append(result, *o.Key)
 				}
 			}

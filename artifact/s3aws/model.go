@@ -63,6 +63,7 @@ func (s *s3awsModel) ListReleases() (releases hscvrs.Collection, err error) {
 	}
 
 	r = regexp.MustCompile(s.regex)
+	releases = make(hscvrs.Collection, 0)
 
 	for _, o := range l {
 		grp := r.FindStringSubmatch(o)

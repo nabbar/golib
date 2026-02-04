@@ -224,14 +224,14 @@ var _ = Describe("HookSyslog Additional Coverage Tests", func() {
 				Expect(messages).ToNot(BeEmpty())
 			})
 
-			It("should return error when closed", func() {
-				hook.Close()
+			It("should not return error when closed (keep sending msg if possible)", func() {
+				_ = hook.Close()
 				cancel()
 
 				time.Sleep(100 * time.Millisecond)
 
 				_, err := hook.Write([]byte("test"))
-				Expect(err).To(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
