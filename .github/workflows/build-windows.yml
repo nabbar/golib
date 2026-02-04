@@ -40,7 +40,7 @@ jobs:
 
       - name: Add ming-w32 (x86 + win64)
         continue-on-error: false
-        run: sudo apt-get install gcc-multilib gcc-mingw-w64
+        run: sudo apt-get update && sudo apt-get install gcc-multilib gcc-mingw-w64
 
       - name: Test Build Windows/amd64 with CGO
         continue-on-error: false
