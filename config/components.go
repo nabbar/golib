@@ -149,17 +149,25 @@ func (o *model) ComponentStart() error {
 		} else if cpt := o.ComponentGet(key); cpt == nil {
 			continue
 		} else {
-			o.logEntry(loglvl.InfoLevel, fmt.Sprintf("starting component '%s'", key)).Log()
+			ent := o.logEntry(loglvl.InfoLevel, "starting component")
+			ent.FieldAdd("component", key)
+			ent.Log()
 
 			e := cpt.Start()
 			o.componentUpdate(key, cpt)
 
 			if e != nil {
-				o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' starting return an error", key)).ErrorAdd(true, e).Log()
+				ent = o.logEntry(loglvl.ErrorLevel, "component return a starting error")
+				ent.ErrorAdd(true, e)
+				ent.FieldAdd("component", key)
+				ent.Log()
 				err.Add(e)
 			} else if !cpt.IsStarted() {
 				e = fmt.Errorf("component '%s' has been call to start, but is not started", key)
-				o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' is not started", key)).ErrorAdd(true, e).Log()
+				ent = o.logEntry(loglvl.ErrorLevel, "component is not started")
+				ent.ErrorAdd(true, e)
+				ent.FieldAdd("component", key)
+				ent.Log()
 				err.Add(e)
 			}
 		}
@@ -202,18 +210,26 @@ func (o *model) ComponentReload() error {
 		} else if cpt := o.ComponentGet(key); cpt == nil {
 			continue
 		} else {
-			o.logEntry(loglvl.InfoLevel, fmt.Sprintf("reloading component '%s'", key)).Log()
+			ent := o.logEntry(loglvl.InfoLevel, "reloading component")
+			ent.FieldAdd("component", key)
+			ent.Log()
 
 			e := cpt.Reload()
 			o.componentUpdate(key, cpt)
 
 			if e != nil {
-				o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' reloading return an error", key)).ErrorAdd(true, e).Log()
+				ent = o.logEntry(loglvl.ErrorLevel, "reloading component return an error")
+				ent.FieldAdd("component", key)
+				ent.ErrorAdd(true, e)
+				ent.Log()
 				err.Add(e)
 			} else if !cpt.IsStarted() {
 				e = fmt.Errorf("component '%s' has been call to reload, but is not started", key)
-				o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' is not started after a reload", key)).ErrorAdd(true, e).Log()
-				err.Add(fmt.Errorf("component '%s' has been call to reload, but is not started", key))
+				ent = o.logEntry(loglvl.ErrorLevel, "reloading component has been call, but component is not started")
+				ent.FieldAdd("component", key)
+				ent.ErrorAdd(true, e)
+				ent.Log()
+				err.Add(e)
 			}
 		}
 	}
@@ -381,7 +397,10 @@ func (o *model) RegisterFlag(Command *spfcbr.Command) error {
 		if cpt := o.ComponentGet(k); cpt == nil {
 			continue
 		} else if e := cpt.RegisterFlag(Command); e != nil {
-			o.logEntry(loglvl.ErrorLevel, fmt.Sprintf("component '%s' register flag error", k)).ErrorAdd(true, e).Log()
+			ent := o.logEntry(loglvl.ErrorLevel, "component register flag return an error")
+			ent.FieldAdd("component", k)
+			ent.ErrorAdd(true, e)
+			ent.Log()
 			err.Add(e)
 		} else {
 			o.ComponentSet(k, cpt)

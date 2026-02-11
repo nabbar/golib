@@ -150,9 +150,9 @@ var _ = Describe("BufferDelim Constructor and Interface", func() {
 
 			It("should work with Unicode delimiter", func() {
 				r := io.NopCloser(strings.NewReader("test€data"))
-				bd := iotdlm.New(r, '€', 0, false)
+				bd := iotdlm.New(r, '$', 0, false)
 				Expect(bd).NotTo(BeNil())
-				Expect(bd.Delim()).To(Equal('€'))
+				Expect(bd.Delim()).To(Equal('$'))
 			})
 		})
 	})

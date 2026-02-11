@@ -517,7 +517,7 @@ func (o *Config) getWorkingPath() (string, os.FileInfo, error) {
 			n := h.Name()
 			if e = h.Close(); e != nil {
 				return o.WorkingPath, nil, e
-			} else if e = os.Remove(n); e != nil {
+			} else if e = os.Remove(n); e != nil { // #nosec nolint
 				return o.WorkingPath, nil, e
 			}
 		}

@@ -174,10 +174,10 @@ func (o *dlm) ReadBytes() ([]byte, error) {
 
 	var (
 		err error
-		idx int                // index
-		mkr = o.getDelimByte() // marker
-		res []byte             // result
-		szm = o.s.Int()        // size max
+		idx int         // index
+		mkr = o.r       // marker
+		res []byte      // result
+		szm = o.s.Int() // size max
 	)
 
 	for {
@@ -198,7 +198,7 @@ func (o *dlm) ReadBytes() ([]byte, error) {
 
 					if o.d {
 						if err = o.discard(mkr); err == nil {
-							res[len(res)-1] = byte(o.r)
+							res[len(res)-1] = o.r
 							return res, nil
 						}
 						return res, err
@@ -231,7 +231,7 @@ func (o *dlm) ReadBytes() ([]byte, error) {
 
 				if o.d {
 					if err = o.discard(mkr); err == nil {
-						res[len(res)-1] = byte(o.r)
+						res[len(res)-1] = o.r
 						return res, nil
 					}
 					return res, err

@@ -57,7 +57,7 @@ type smtpConfig struct {
 	Host       string
 	Port       int
 	User       string
-	Pass       string
+	Pass       string // #nosec nolint
 	Net        libptc.NetworkProtocol
 	TLS        smtptp.TLSMode
 	SkipVerify bool

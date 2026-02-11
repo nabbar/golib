@@ -27,8 +27,10 @@
 package delim
 
 import (
+	"encoding/binary"
 	"io"
 	"math"
+	"unicode/utf8"
 
 	libsiz "github.com/nabbar/golib/size"
 )
@@ -100,6 +102,12 @@ type BufferDelim interface {
 // The returned BufferDelim must be closed when done to properly release resources
 // and close the underlying reader.
 //
+// Supported delimiters include all ASCII characters (0-127) and extended ASCII (128-255):
+//   - '\n' (newline), '\r' (carriage return), '\t' (tab)
+//   - ',', '|', ';', ':', ' ' (common separators)
+//   - '\x00' (null byte for C-style strings)
+//   - Any single-byte character in range 0-255
+//
 // Example:
 //
 //	// Using default buffer size
@@ -122,9 +130,16 @@ func New(r io.ReadCloser, delim rune, sizeBuffer libsiz.Size, discardOverflow bo
 		sizeBuffer = libsiz.ParseUint64(i)
 	}
 
+	if int32(delim) < 0 {
+		return nil
+	}
+
+	v := make([]byte, utf8.UTFMax)
+	binary.BigEndian.PutUint32(v, uint32(delim))
+
 	return &dlm{
 		i: r,
-		r: delim,
+		r: v[len(v)-1],
 		b: make([]byte, 0, sizeBuffer.Int()*2),
 		s: sizeBuffer,
 		d: discardOverflow,

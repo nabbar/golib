@@ -170,7 +170,7 @@ func (s *staticHandler) sendWebhook(event secEvt, cfg SecurityConfig) {
 		buf = bytes.NewBuffer(cnt)
 	}
 
-	if req, err = http.NewRequest("POST", cfg.WebhookURL, buf); err != nil {
+	if req, err = http.NewRequest(http.MethodPost, cfg.WebhookURL, buf); err != nil { // #nosec nolint
 		ent := s.getLogger().Entry(loglvl.ErrorLevel, "failed to create webhook request")
 		ent.FieldAdd("url", cfg.WebhookURL)
 		ent.ErrorAdd(true, err)
@@ -189,7 +189,7 @@ func (s *staticHandler) sendWebhook(event secEvt, cfg SecurityConfig) {
 		req.Header.Set(key, value)
 	}
 
-	if rsp, err = cli.Do(req); err != nil {
+	if rsp, err = cli.Do(req); err != nil { // #nosec nolint
 		ent := s.getLogger().Entry(loglvl.ErrorLevel, "webhook request failed")
 		ent.FieldAdd("url", cfg.WebhookURL)
 		ent.ErrorAdd(true, err)
@@ -434,7 +434,7 @@ func (s *staticHandler) sendBatchWebhook(events []secEvt, cfg SecurityConfig) {
 		buf = bytes.NewBuffer(cnt)
 	}
 
-	if req, err = http.NewRequest("POST", cfg.WebhookURL, buf); err != nil {
+	if req, err = http.NewRequest(http.MethodPost, cfg.WebhookURL, buf); err != nil { // #nosec nolint
 		ent := s.getLogger().Entry(loglvl.ErrorLevel, "failed to create request to send events to webhook")
 		ent.FieldAdd("url", cfg.WebhookURL)
 		ent.FieldAdd("eventCount", len(events))
@@ -449,7 +449,7 @@ func (s *staticHandler) sendBatchWebhook(events []secEvt, cfg SecurityConfig) {
 		req.Header.Set(key, value)
 	}
 
-	if rsp, err = cli.Do(req); err != nil {
+	if rsp, err = cli.Do(req); err != nil { // #nosec nolint
 		ent := s.getLogger().Entry(loglvl.ErrorLevel, "batch webhook request failed")
 		ent.FieldAdd("url", cfg.WebhookURL)
 		ent.FieldAdd("eventCount", len(events))

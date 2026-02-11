@@ -57,7 +57,7 @@ type Config struct {
 	Login string `mapstructure:"login" json:"login" yaml:"login" toml:"login"`
 
 	// Password defined the password to use in the login command.
-	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"`
+	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"` // #nosec nolint
 
 	// ConnTimeout define a timeout duration for each connection (this is a global connection : connection, store contents, read content, ...).
 	ConnTimeout time.Duration `mapstructure:"conn_timeout" json:"conn_timeout" yaml:"conn_timeout" toml:"conn_timeout"`

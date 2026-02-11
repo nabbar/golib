@@ -94,7 +94,7 @@ func (o *psh) fileRemove() error {
 		_ = o.md5Reset()
 		_ = o.shaPartReset()
 
-		if er := os.Remove(n); er != nil && e != nil {
+		if er := os.Remove(n); er != nil && e != nil { // #nosec nolint
 			return e
 		} else if er != nil {
 			return er

@@ -114,7 +114,7 @@ func (o *pool) collectMetricLatency(ctx context.Context, m libmet.Metric) {
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
 		if e := m.Observe([]string{name}, val.CollectLatency().Seconds()); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -150,7 +150,7 @@ func (o *pool) collectMetricUptime(ctx context.Context, m libmet.Metric) {
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
 		if e := m.SetGaugeValue([]string{name}, val.CollectUpTime().Seconds()); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -186,7 +186,7 @@ func (o *pool) collectMetricDowntime(ctx context.Context, m libmet.Metric) {
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
 		if e := m.SetGaugeValue([]string{name}, val.CollectDownTime().Seconds()); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -222,7 +222,7 @@ func (o *pool) collectMetricRiseTime(ctx context.Context, m libmet.Metric) {
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
 		if e := m.SetGaugeValue([]string{name}, val.CollectRiseTime().Seconds()); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -258,7 +258,7 @@ func (o *pool) collectMetricFallTime(ctx context.Context, m libmet.Metric) {
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
 		if e := m.SetGaugeValue([]string{name}, val.CollectFallTime().Seconds()); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -298,7 +298,7 @@ func (o *pool) collectMetricStatus(ctx context.Context, m libmet.Metric) {
 		)
 
 		if e := m.SetGaugeValue([]string{name}, s.Float()); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -344,7 +344,7 @@ func (o *pool) collectMetricRising(ctx context.Context, m libmet.Metric) {
 		}
 
 		if e := m.SetGaugeValue([]string{name}, s); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -391,7 +391,7 @@ func (o *pool) collectMetricFalling(ctx context.Context, m libmet.Metric) {
 		}
 
 		if e := m.SetGaugeValue([]string{name}, s); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -461,7 +461,7 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 		}
 
 		if e := m.SetGaugeValue([]string{name}, cur); e != nil {
-			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+			ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 			ent.FieldAdd("monitor", name)
 			ent.FieldAdd("metric", val.Name())
 			ent.ErrorAdd(true, e)
@@ -486,7 +486,7 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 	}
 
 	if e := m.SetGaugeValue([]string{monitorMeans}, mns); e != nil {
-		ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+		ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 		ent.FieldAdd("monitor", monitorMeans)
 		ent.FieldAdd("metric", metricSLis)
 		ent.ErrorAdd(true, e)
@@ -494,7 +494,7 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 	}
 
 	if e := m.SetGaugeValue([]string{monitorMin}, vMin); e != nil {
-		ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+		ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 		ent.FieldAdd("monitor", monitorMin)
 		ent.FieldAdd("metric", metricSLis)
 		ent.ErrorAdd(true, e)
@@ -502,7 +502,7 @@ func (o *pool) collectMetricSLis(ctx context.Context, m libmet.Metric) {
 	}
 
 	if e := m.SetGaugeValue([]string{monitorMax}, vMax); e != nil {
-		ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics", nil)
+		ent := log.Entry(loglvl.ErrorLevel, "failed to collect metrics")
 		ent.FieldAdd("monitor", monitorMax)
 		ent.FieldAdd("metric", metricSLis)
 		ent.ErrorAdd(true, e)

@@ -48,7 +48,7 @@ import (
 type dlm struct {
 	m sync.Mutex
 	i io.ReadCloser // input io.ReadCloser
-	r rune          // delimiter rune character
+	r byte          // delimiter rune character
 	b []byte        // buffer
 	s libsiz.Size   // size of buffer
 	d bool          // if max size is reached, discard overflow or return error
@@ -57,24 +57,5 @@ type dlm struct {
 // Delim returns the delimiter rune configured for this BufferDelim instance.
 // This value is set during construction via New() and remains constant for the lifetime of the instance.
 func (o *dlm) Delim() rune {
-	return o.r
-}
-
-// getDelimByte converts the delimiter rune to a byte for scanning.
-//
-// IMPORTANT LIMITATION: This method assumes the delimiter fits within a single byte (0-255).
-// For multi-byte Unicode delimiters (runes > 255), only the least significant byte is used,
-// which will NOT produce the expected behavior. This is a known limitation of using
-// scanning which only accepts byte delimiters.
-//
-// Supported delimiters include all ASCII characters (0-127) and extended ASCII (128-255):
-//   - '\n' (newline), '\r' (carriage return), '\t' (tab)
-//   - ',', '|', ';', ':', ' ' (common separators)
-//   - '\x00' (null byte for C-style strings)
-//   - Any single-byte character in range 0-255
-//
-// For multi-byte Unicode delimiters, consider using alternative approaches or
-// contribute a scanner-based implementation.
-func (o *dlm) getDelimByte() byte {
-	return byte(o.r)
+	return rune(o.r)
 }

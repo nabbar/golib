@@ -1,8 +1,8 @@
 module github.com/nabbar/golib
 
-go 1.25
+go 1.26
 
-toolchain go1.25.6
+toolchain go1.26.0
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8

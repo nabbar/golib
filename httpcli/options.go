@@ -62,8 +62,8 @@ type OptionTLS struct {
 type OptionProxy struct {
 	Enable   bool     `json:"enable" yaml:"enable" toml:"enable" mapstructure:"enable"`         // Enable proxy
 	Endpoint *url.URL `json:"endpoint" yaml:"endpoint" toml:"endpoint" mapstructure:"endpoint"` // Proxy server URL
-	Username string   `json:"username" yaml:"username" toml:"username" mapstructure:"username"` // Proxy authentication username
-	Password string   `json:"password" yaml:"password" toml:"password" mapstructure:"password"` // Proxy authentication password
+	Username string   `json:"username" yaml:"username" toml:"username" mapstructure:"username"` // #nosec nolint - Proxy authentication username
+	Password string   `json:"password" yaml:"password" toml:"password" mapstructure:"password"` // #nosec nolint - Proxy authentication password
 }
 
 // Options defines the complete HTTP client configuration.

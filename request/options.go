@@ -41,7 +41,7 @@ import (
 type OptionsCredentials struct {
 	Enable   bool   `json:"enable" yaml:"enable" toml:"enable" mapstructure:"enable"`
 	Username string `json:"username" yaml:"username" toml:"username" mapstructure:"username"`
-	Password string `json:"password" yaml:"password" toml:"password" mapstructure:"password"`
+	Password string `json:"password" yaml:"password" toml:"password" mapstructure:"password"` // #nosec nolint
 }
 
 type OptionsToken struct {

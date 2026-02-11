@@ -315,7 +315,7 @@ func New(in io.Reader, sig bool) (TTYSaver, error) {
 	}
 
 	if f, k := in.(checkFd); k {
-		fd = int(f.Fd())
+		fd = int(f.Fd()) // #nosec nolint
 
 		if term.IsTerminal(fd) {
 			state, err = term.GetState(fd)

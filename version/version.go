@@ -260,19 +260,19 @@ func (v versionModel) GetLicenseLegal(addMoreLicence ...license) string {
 	buff := bytes.NewBufferString(v.licenceType.GetLicense())
 
 	for _, l := range addMoreLicence {
-		//nolint #nosec
+		// #nosec nolint
 		/* #nosec */
 		_, _ = buff.WriteString("\n\n")
-		//nolint #nosec
+		// #nosec nolint
 		/* #nosec */
 		_, _ = buff.WriteString(strings.Repeat("*", 80))
-		//nolint #nosec
+		// #nosec nolint
 		/* #nosec */
 		_, _ = buff.WriteString(strings.Repeat("*", 80))
-		//nolint #nosec
+		// #nosec nolint
 		/* #nosec */
 		_, _ = buff.WriteString("\n\n")
-		//nolint #nosec
+		// #nosec nolint
 		/* #nosec */
 		_, _ = buff.WriteString(l.GetLicense())
 	}
@@ -283,19 +283,19 @@ func (v versionModel) GetLicenseLegal(addMoreLicence ...license) string {
 func (v versionModel) GetLicenseFull(addMoreLicence ...license) string {
 	buff := bytes.NewBufferString(v.GetLicenseBoiler(addMoreLicence...))
 
-	//nolint #nosec
+	// #nosec nolint
 	/* #nosec */
 	_, _ = buff.WriteString("\n\n")
-	//nolint #nosec
+	// #nosec nolint
 	/* #nosec */
 	_, _ = buff.WriteString(strings.Repeat("*", 80))
-	//nolint #nosec
+	// #nosec nolint
 	/* #nosec */
 	_, _ = buff.WriteString(strings.Repeat("*", 80))
-	//nolint #nosec
+	// #nosec nolint
 	/* #nosec */
 	_, _ = buff.WriteString("\n\n")
-	//nolint #nosec
+	// #nosec nolint
 	/* #nosec */
 	_, _ = buff.WriteString(v.GetLicenseLegal(addMoreLicence...))
 
@@ -311,10 +311,10 @@ func (v versionModel) GetLicenseBoiler(addMoreLicence ...license) string {
 	buff := bytes.NewBufferString(v.licenceType.GetBoilerPlate(v.versionPackage, v.versionDescription, year, v.versionAuthor))
 
 	for _, l := range addMoreLicence {
-		//nolint #nosec
+		// #nosec nolint
 		/* #nosec */
 		_, _ = buff.WriteString("\n\n")
-		//nolint #nosec
+		// #nosec nolint
 		/* #nosec */
 		_, _ = buff.WriteString(l.GetBoilerPlate(v.versionPackage, v.versionDescription, year, v.versionAuthor))
 	}

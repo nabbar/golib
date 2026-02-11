@@ -66,7 +66,7 @@ type ConfigUser struct {
 	Username string `mapstructure:"username" json:"username" yaml:"username" toml:"username"`
 
 	//Password define the password used for connection.
-	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"`
+	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"` // #nosec nolint
 
 	//Account define the account associated to this NKey.
 	Account string `mapstructure:"account" json:"account" yaml:"account" toml:"account"`
@@ -277,7 +277,7 @@ type ConfigSrv struct {
 	Username string `mapstructure:"username" json:"username" yaml:"username" toml:"username"`
 
 	//Password define the password used for server connection (like flag --auth in NATS v2 documentation).
-	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"`
+	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"` // #nosec nolint
 
 	//Token define the token used for server connection (like flag --auth in NATS v2 documentation).
 	Token string `mapstructure:"token" json:"token" yaml:"token" toml:"token"`
@@ -340,7 +340,7 @@ type ConfigCluster struct {
 	Username string `mapstructure:"username" json:"username" yaml:"username" toml:"username"`
 
 	//Password define the password used for cluster connection.
-	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"`
+	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"` // #nosec nolint
 
 	//AuthTimeout define the timeout for authentication process.
 	AuthTimeout time.Duration `mapstructure:"auth_timeout" json:"auth_timeout" yaml:"auth_timeout" toml:"auth_timeout"`
@@ -393,7 +393,7 @@ type ConfigGateway struct {
 	Username string `mapstructure:"username" json:"username" yaml:"username" toml:"username"`
 
 	//Password define the password used for gateways connection.
-	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"`
+	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"` // #nosec nolint
 
 	//AuthTimeout define the timeout for authentication process.
 	AuthTimeout time.Duration `mapstructure:"auth_timeout" json:"auth_timeout" yaml:"auth_timeout" toml:"auth_timeout"`
@@ -432,7 +432,7 @@ type ConfigLeaf struct {
 	Username string `mapstructure:"username" json:"username" yaml:"username" toml:"username"`
 
 	//Password define the password used for leaf connection.
-	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"`
+	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"` // #nosec nolint
 
 	//AuthTimeout define the timeout for authentication process.
 	AuthTimeout time.Duration `mapstructure:"auth_timeout" json:"auth_timeout" yaml:"auth_timeout" toml:"auth_timeout"`
@@ -536,7 +536,7 @@ type ConfigWebsocket struct {
 	Username string `mapstructure:"username" json:"username" yaml:"username" toml:"username"`
 
 	//Password define the password used.
-	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"`
+	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"` // #nosec nolint
 
 	//Token define the token used.
 	Token string `mapstructure:"token" json:"token" yaml:"token" toml:"token"`
@@ -587,7 +587,7 @@ type ConfigMQTT struct {
 	Username string `mapstructure:"username" json:"username" yaml:"username" toml:"username"`
 
 	//Password define the password used.
-	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"`
+	Password string `mapstructure:"password" json:"password" yaml:"password" toml:"password"` // #nosec nolint
 
 	//Token define the token used.
 	Token string `mapstructure:"token" json:"token" yaml:"token" toml:"token"`

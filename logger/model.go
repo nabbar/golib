@@ -152,7 +152,7 @@ func (o *lgr) getStack() uint64 {
 	b = bytes.TrimPrefix(b, []byte("goroutine "))
 	b = b[:bytes.IndexByte(b, ' ')]
 
-	//nolint #nosec
+	// #nosec nolint
 	/* #nosec */
 	n, _ := strconv.ParseUint(string(b), 10, 64)
 

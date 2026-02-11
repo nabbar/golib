@@ -27,7 +27,7 @@ package multipart
 
 import (
 	/* #nosec */
-	//nolint #nosec
+	// #nosec nolint
 	"crypto/md5"
 	"encoding/base64"
 	"errors"
@@ -118,7 +118,7 @@ func (m *mpu) AddPart(r io.Reader) (n int64, e error) {
 		hss string
 
 		/* #nosec */
-		//nolint #nosec
+		// #nosec nolint
 		hsh = md5.New()
 	)
 

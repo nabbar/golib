@@ -123,7 +123,7 @@ type Client struct {
 	User string
 
 	// Password sets the password to be used when connecting to a server.
-	Password string
+	Password string // #nosec nolint
 
 	// Token sets the token to be used when connecting to a server.
 	Token string
