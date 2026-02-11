@@ -188,10 +188,5 @@ func New(ctx context.Context) Closer {
 	c.c.Store(false)
 	c.i.Store(0)
 
-	go func() {
-		<-c.x.Done()
-		_ = c.Close()
-	}()
-
 	return c
 }

@@ -29,7 +29,6 @@
 package hookfile_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"time"
@@ -216,26 +215,6 @@ var _ = Describe("HookFile", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(hook.IsRunning()).To(BeFalse(), "Hook should not be running after close")
-		})
-
-		It("should handle Run method with context", func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-			defer cancel()
-
-			done := make(chan bool)
-			go func() {
-				hook.Run(ctx)
-				done <- true
-			}()
-
-			select {
-			case <-done:
-				// Run completed successfully
-			case <-time.After(500 * time.Millisecond):
-				Fail("Run should have completed when context was canceled")
-			}
-
-			Expect(hook.IsRunning()).To(BeFalse(), "Hook should not be running after Run completes")
 		})
 
 		It("should handle Write method", func() {

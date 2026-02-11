@@ -47,6 +47,5 @@ func (o *hks) IsRunning() bool {
 //
 // The method will automatically clean up resources when the context is done.
 func (o *hks) Run(ctx context.Context) {
-	<-ctx.Done()
-	o.r.Store(false)
+	o.r.Store(true)
 }

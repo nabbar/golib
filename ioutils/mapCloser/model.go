@@ -67,18 +67,6 @@ func (o *closer) idx() uint64 {
 	return o.i.Load()
 }
 
-// idxInc increments the counter and returns the new value.
-// Used by Add() to generate unique keys for each closer.
-//
-// Note: This counter is monotonically increasing and may overflow after 2^64 operations.
-// However, overflow is extremely unlikely in practice (would require billions of operations per second for years).
-//
-// Performance: O(1) atomic add + O(1) atomic load.
-func (o *closer) idxInc() uint64 {
-	o.i.Add(1)
-	return o.idx()
-}
-
 // Add implements the Closer interface.
 // See interface documentation for detailed behavior.
 func (o *closer) Add(clo ...io.Closer) {
@@ -95,7 +83,7 @@ func (o *closer) Add(clo ...io.Closer) {
 	// Store each closer with a unique incrementing key
 	// Note: nil closers are accepted but will be filtered during Get() and Close()
 	for _, c := range clo {
-		o.x.Store(o.idxInc(), c)
+		o.x.Store(o.i.Add(1), c)
 	}
 }
 

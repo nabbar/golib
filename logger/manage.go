@@ -74,7 +74,7 @@ func (o *lgr) newCloser() iotclo.Closer {
 		return nil
 	}
 
-	return iotclo.New(o.x.GetContext())
+	return iotclo.New(context.Background())
 }
 
 func (o *lgr) hasCloser() bool {
