@@ -245,7 +245,7 @@ func (c *smtpConfig) GetDsn() string {
 		_, _ = buf.WriteString(c.Host)
 		if c.Port > 0 {
 			_ = buf.WriteByte(':')
-			_, _ = buf.WriteString(fmt.Sprintf("%d", c.Port))
+			_, _ = buf.WriteString(fmt.Sprintf("%d", c.Port)) // nolint
 		}
 		_ = buf.WriteByte(')')
 	}

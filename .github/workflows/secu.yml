@@ -37,13 +37,14 @@ jobs:
           go mod download all
           go mod tidy
           go mod vendor
-
-      - name: Check goSecu
-        continue-on-error: false
-        env:
-          GOOS: linux
-          GOARCH: amd64
-          CGO_ENABLED: 1
-        uses: securego/gosec@master
-        with:
-          args: -sort ./...
+          CGO_ENABLED=0 go install -tags 'netgo osusergo' -ldflags "-w -s -extldflags '-static'" github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -sort ./...
+#      - name: Check goSecu
+#        continue-on-error: false
+#        env:
+#          GOOS: linux
+#          GOARCH: amd64
+#          CGO_ENABLED: 1
+#        uses: securego/gosec@master
+#        with:
+#          args: -sort ./...
