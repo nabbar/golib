@@ -203,7 +203,10 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 
 	o.x.Store(keyConfig, cnf)
 
-	var n, e = liblog.NewFrom(ctx, &cfg.Logger, o.getLoggerDefault)
+	var (
+		def  liblog.FuncLog = o.getLoggerDefault
+		n, e                = liblog.NewFrom(ctx, &cfg.Logger, def)
+	)
 
 	f := n.GetFields()
 	f = f.Add(LogFieldProcess, LogValueProcess)

@@ -100,7 +100,7 @@ func (o *sts) IsHealthy(name ...string) bool {
 // Returns true only if status is OK (no warnings or errors).
 // If component names are provided, only those components are checked.
 func (o *sts) IsStrictlyHealthy(name ...string) bool {
-	s, _ := o.getStatus(name...)
+	s, _ := o.getStrictStatus(name...)
 	return s == monsts.OK
 }
 
@@ -201,6 +201,40 @@ func (o *sts) getStatus(keys ...string) (monsts.Status, string) {
 			}
 		default:
 			// nothing
+		}
+
+		return true
+	})
+
+	return stt, msg
+}
+
+// getStrictStatus computes the overall status by walking through all monitored components.
+// It does not applies control modes (Ignore, Should, AnyOf, Quorum) defined in configuration.
+//
+// Parameters:
+//   - keys: optional component names to check; if empty, checks all components
+//
+// Returns the computed status and an associated message from the worst component.
+func (o *sts) getStrictStatus(keys ...string) (monsts.Status, string) {
+	stt := monsts.OK
+	msg := ""
+	ign := make([]string, 0)
+
+	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		if len(keys) > 0 && !slices.Contains(keys, name) {
+			return true
+		} else if len(ign) > 0 && slices.Contains(ign, name) {
+			return true
+		}
+
+		v := val.Status()
+
+		// if global status if better than any must
+		// so global status must having value status
+		if v < stt {
+			stt = v
+			msg = val.Message()
 		}
 
 		return true
