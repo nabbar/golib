@@ -252,10 +252,13 @@ var _ = Describe("[TC-TLS] HTTPServer/TLS", func() {
 
 			for i := 0; i < 5; i++ {
 				resp, e := client.Get(fmt.Sprintf("https://127.0.0.1:%d", port))
-				if e == nil {
-					Expect(resp.StatusCode).To(Equal(http.StatusOK))
-					resp.Body.Close()
-				}
+				Expect(e).ToNot(HaveOccurred())
+				Expect(resp).ToNot(BeNil())
+
+				code := resp.StatusCode
+				_ = resp.Body.Close()
+
+				Expect(code).To(Equal(http.StatusOK))
 			}
 
 			err = srv.Stop(ctx)

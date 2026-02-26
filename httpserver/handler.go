@@ -78,7 +78,7 @@ func (o *srv) HandlerGetValidKey() string {
 		return srvtps.BadHandlerName
 	} else if i, l = o.c.Load(cfgHandlerKey); !l {
 		return srvtps.BadHandlerName
-	} else if v, k := i.(string); !k {
+	} else if v, k := i.(string); !k || len(v) < 1 {
 		return srvtps.BadHandlerName
 	} else {
 		return v

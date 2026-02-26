@@ -87,11 +87,12 @@ func (o *srv) setServer(ctx context.Context) error {
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	stdlog.SetIOWriterFilter("connection reset by peer")
+	if cfg := o.GetConfig(); cfg != nil && len(cfg.LogFilter) > 0 {
+		stdlog.SetIOWriterFilter(cfg.LogFilter...)
+	}
 
 	if ssl != nil && ssl.LenCertificatePair() > 0 {
 		s.TLSConfig = ssl.TlsConfig("")
-		stdlog.AddIOWriterFilter("TLS handshake error")
 	}
 
 	if e := o.cfgGetServer().initServer(s); e != nil {

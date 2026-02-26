@@ -31,6 +31,7 @@ import (
 	"net/http/httptest"
 
 	. "github.com/nabbar/golib/httpserver"
+	srvtps "github.com/nabbar/golib/httpserver/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -217,6 +218,53 @@ var _ = Describe("[TC-HD] Handler Management", func() {
 
 			srv.Handler(nilMapHandler)
 			// Should not panic with nil map
+		})
+	})
+
+	Describe("HandlerGetValidKey", func() {
+		var srv Server
+
+		BeforeEach(func() {
+			cfg := Config{
+				Name:   "test-server",
+				Listen: "127.0.0.1:8080",
+				Expose: "http://localhost:8080",
+			}
+			cfg.RegisterHandlerFunc(defaultHandler)
+			var err error
+			srv, err = New(cfg, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		Context("when no handler is stored", func() {
+			It("should return BadHandlerName", func() {
+				Expect(srv.HandlerGetValidKey()).To(Equal(srvtps.BadHandlerName))
+			})
+		})
+
+		Context("when a valid handler is stored", func() {
+			It("should return the stored handler key", func() {
+				testKey := "my-valid-handler"
+				srv.Handler(func() map[string]http.Handler {
+					return map[string]http.Handler{
+						testKey: http.NotFoundHandler(),
+					}
+				})
+				srv.HandlerStoreFct(testKey)
+				Expect(srv.HandlerGetValidKey()).To(Equal(testKey))
+			})
+		})
+
+		Context("when cfgHandler is valid but cfgHandlerKey is not loaded", func() {
+			It("should return BadHandlerName", func() {
+				srv.Handler(func() map[string]http.Handler {
+					return map[string]http.Handler{
+						"valid": http.NotFoundHandler(),
+					}
+				})
+				// Don't call HandlerStoreFct to keep the key empty
+				Expect(srv.HandlerGetValidKey()).To(Equal(srvtps.BadHandlerName))
+			})
 		})
 	})
 })

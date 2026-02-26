@@ -27,7 +27,11 @@
 package httpserver_test
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
+	"time"
 
 	. "github.com/nabbar/golib/httpserver"
 	. "github.com/onsi/ginkgo/v2"
@@ -277,6 +281,76 @@ var _ = Describe("[TC-SV] Server Info", func() {
 
 			// After merge, srv1 should have server2's config
 			Expect(srv1.GetName()).To(Equal("server2"))
+		})
+	})
+
+	Describe("Server Error Handling", func() {
+		var (
+			srv Server
+			ctx context.Context
+			prt int
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+			prt = GetFreePort()
+			cfg := Config{
+				Name:   "error-handling-test",
+				Listen: fmt.Sprintf("127.0.0.1:%d", prt),
+				Expose: fmt.Sprintf("http://localhost:%d", prt),
+			}
+			cfg.RegisterHandlerFunc(defaultHandler)
+			var err error
+			srv, err = New(cfg, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			_ = srv.Stop(ctx)
+		})
+
+		It("should report no error when server starts and stops successfully", func() {
+			Expect(srv.IsError()).To(BeFalse())
+			Expect(srv.GetError()).To(BeNil())
+
+			err := srv.Start(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			time.Sleep(100 * time.Millisecond)
+
+			Expect(srv.IsError()).To(BeFalse())
+			Expect(srv.GetError()).To(BeNil())
+
+			err = srv.Stop(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			time.Sleep(100 * time.Millisecond)
+
+			Expect(srv.IsError()).To(BeTrue())
+
+			err = srv.GetError()
+			Expect(err).ToNot(BeNil())
+			Expect(err.Error()).To(ContainSubstring("server start but not listen"))
+		})
+
+		It("should report an error when server fails to start due to port in use", func() {
+			// Start a listener on the port before trying to start our server
+			lis, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", prt))
+			Expect(err).ToNot(HaveOccurred())
+			defer func() {
+				_ = lis.Close()
+			}()
+
+			cx1, cn1 := context.WithTimeout(ctx, time.Second*3)
+			defer cn1()
+
+			// Attempt to start our server, which should fail
+			err = srv.Start(cx1)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("server is not running"))
+
+			// IsError and GetError should reflect this failure
+			Expect(srv.IsError()).To(BeTrue())
+			Expect(srv.GetError()).To(HaveOccurred())
+			Expect(srv.GetError().Error()).To(ContainSubstring("server start but not listen"))
 		})
 	})
 })

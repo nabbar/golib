@@ -27,6 +27,7 @@
 package httpserver
 
 import (
+	"context"
 	"net/http"
 
 	libatm "github.com/nabbar/golib/atomic"
@@ -74,6 +75,26 @@ type Server interface {
 	// The function should return a map of handler keys to http.Handler instances.
 	Handler(h srvtps.FuncHandler)
 
+	// HandlerHas checks if a handler is registered for the specified key.
+	// Returns true if the handler exists, false otherwise.
+	HandlerHas(key string) bool
+
+	// HandlerGet retrieves the handler registered for the specified key.
+	// Returns BadHandler if no handler is found for the key.
+	HandlerGet(key string) http.Handler
+
+	// HandlerGetValidKey returns the currently active handler key.
+	// Returns BadHandlerName if no valid handler is configured.
+	HandlerGetValidKey() string
+
+	// HandlerStoreFct stores a handler function reference for the specified key.
+	// This is used internally to cache the handler function.
+	HandlerStoreFct(key string)
+
+	// HandlerLoadFct loads and executes the stored handler function.
+	// Returns BadHandler if no valid handler function is stored.
+	HandlerLoadFct() http.Handler
+
 	// Merge combines configuration from another server instance into this one.
 	// This is useful for updating configuration dynamically without recreating the server.
 	Merge(s Server, def liblog.FuncLog) error
@@ -92,6 +113,18 @@ type Server interface {
 
 	// MonitorName returns the unique monitoring identifier for this server instance.
 	MonitorName() string
+
+	// HealthCheck performs a health check on the server.
+	// Verifies the server is running, checks for errors, and attempts a TCP connection to the bind address.
+	// Returns nil if healthy, or an error describing the health issue.
+	HealthCheck(ctx context.Context) error
+
+	// IsError returns true if the server encountered any errors during operation.
+	IsError() bool
+
+	// GetError returns the last error that occurred during server operation.
+	// Returns nil if no errors occurred.
+	GetError() error
 }
 
 // New creates and initializes a new HTTP server instance from the provided configuration.

@@ -34,6 +34,8 @@ import (
 	"strings"
 
 	libval "github.com/go-playground/validator/v10"
+	tlscas "github.com/nabbar/golib/certificates/ca"
+	tlscrt "github.com/nabbar/golib/certificates/certs"
 
 	libtls "github.com/nabbar/golib/certificates"
 	libdur "github.com/nabbar/golib/duration"
@@ -189,6 +191,11 @@ type Config struct {
 	// shutting down should disable them.
 	DisableKeepAlive bool `mapstructure:"disable_keep_alive" json:"disable_keep_alive" yaml:"disable_keep_alive" toml:"disable_keep_alive"`
 
+	// LogFilter specifies a list of strings to filter log output.
+	// Log entries containing any of these strings will be suppressed.
+	// This is useful for reducing log verbosity by ignoring specific messages.
+	LogFilter []string `mapstructure:"log-filter" json:"log-filter" yaml:"log-filter" toml:"log-filter"`
+
 	// Logger is used to define the logger options.
 	Logger logcfg.Options `mapstructure:"logger" json:"logger" yaml:"logger" toml:"logger"`
 }
@@ -196,6 +203,25 @@ type Config struct {
 // Clone creates a deep copy of the Config structure.
 // All fields are copied, including function pointers.
 func (c *Config) Clone() Config {
+	var (
+		rootCA   []tlscas.Cert
+		clientCA []tlscas.Cert
+		certs    []tlscrt.Certif
+	)
+
+	if len(c.TLS.RootCA) > 0 {
+		rootCA = make([]tlscas.Cert, len(c.TLS.RootCA))
+		copy(rootCA, c.TLS.RootCA)
+	}
+	if len(c.TLS.ClientCA) > 0 {
+		clientCA = make([]tlscas.Cert, len(c.TLS.ClientCA))
+		copy(clientCA, c.TLS.ClientCA)
+	}
+	if len(c.TLS.Certs) > 0 {
+		certs = make([]tlscrt.Certif, len(c.TLS.Certs))
+		copy(certs, c.TLS.Certs)
+	}
+
 	return Config{
 		Disabled:                     c.Disabled,
 		getTLSDefault:                c.getTLSDefault,
@@ -220,9 +246,9 @@ func (c *Config) Clone() Config {
 		TLS: libtls.Config{
 			CurveList:            c.TLS.CurveList,
 			CipherList:           c.TLS.CipherList,
-			RootCA:               c.TLS.RootCA,
-			ClientCA:             c.TLS.ClientCA,
-			Certs:                c.TLS.Certs,
+			RootCA:               rootCA,
+			ClientCA:             clientCA,
+			Certs:                certs,
 			VersionMin:           c.TLS.VersionMin,
 			VersionMax:           c.TLS.VersionMax,
 			AuthClient:           c.TLS.AuthClient,
@@ -441,7 +467,9 @@ func (o *srv) setLogger(def liblog.FuncLog, opt logcfg.Options) error {
 }
 
 func (o *srv) logger() liblog.Logger {
-	if o == nil || o.l == nil {
+	if o == nil {
+		return liblog.New(context.Background())
+	} else if o.l == nil {
 		return liblog.New(o.c)
 	}
 
