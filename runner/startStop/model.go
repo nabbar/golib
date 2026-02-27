@@ -201,7 +201,11 @@ func (o *run) Start(ctx context.Context) error {
 	o.e.Clear()
 
 	// Create a new cancellable context for this start instance
-	cx := o.newCancel(ctx)
+	cx := o.newCancel()
+
+	if e := ctx.Err(); e != nil {
+		return e
+	}
 
 	// Launch the start function asynchronously
 	// Errors will be captured and stored in the error pool
@@ -302,19 +306,22 @@ func (o *run) cancel() {
 // It also cancels any previously stored context to ensure clean state transitions.
 // This ensures that old instances are properly cleaned up before starting new ones.
 // Returns the new context that will be passed to the start function.
-func (o *run) newCancel(ctx context.Context) context.Context {
+func (o *run) newCancel() context.Context {
 	if o == nil || o.n == nil {
 		// Fallback for invalid state - return a context that expires immediately
-		var n context.CancelFunc
+		var (
+			x context.Context
+			n context.CancelFunc
+		)
 
-		ctx, n = context.WithCancel(context.Background())
+		x, n = context.WithCancel(context.Background())
 		n()
 
-		return ctx
+		return x
 	}
 
 	// Create a new cancellable context from the provided context
-	x, n := context.WithCancel(ctx)
+	x, n := context.WithCancel(context.Background())
 
 	// Store the new cancel function and retrieve the old one
 	oldCancel := o.n.Swap(n)
