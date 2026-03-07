@@ -241,8 +241,8 @@ var _ = Describe("Hexadecimal Encoding and Decoding", func() {
 				[]byte("Special chars: !@#$%^&*()"),
 				[]byte("UTF-8: こんにちは世界"),
 				[]byte("Emoji: 🔒🔐🔑"),
-				[]byte{0x00, 0xFF, 0x7F, 0x80}, // Binary data
-				make([]byte, 1000),             // Large zeroed data
+				{0x00, 0xFF, 0x7F, 0x80}, // Binary data
+				make([]byte, 1000),       // Large zeroed data
 			}
 
 			for _, original := range testCases {
