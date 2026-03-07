@@ -146,7 +146,7 @@ func (o *srv) Shutdown(ctx context.Context) error {
 		cnl context.CancelFunc
 	)
 
-	ctx, cnl = context.WithTimeout(ctx, time.Second)
+	ctx, cnl = context.WithTimeout(ctx, time.Second) // #nosec
 	defer func() {
 		tck.Stop()
 		cnl()

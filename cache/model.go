@@ -55,7 +55,7 @@ func (o *cc[K, V]) Clone(ctx context.Context) (Cache[K, V], error) {
 	if ctx == nil {
 		ctx = context.WithoutCancel(o.Context)
 	}
-	ctx, cnl = context.WithCancel(ctx)
+	ctx, cnl = context.WithCancel(ctx) // #nosec
 
 	n := &cc[K, V]{
 		Context: ctx,

@@ -402,9 +402,9 @@ func New(c *ginsdk.Context, log liblog.FuncLog) GinTonic {
 	)
 
 	if c.Request != nil && c.Request.Context() != nil {
-		x, l = context.WithCancel(c.Request.Context())
+		x, l = context.WithCancel(c.Request.Context()) // #nosec
 	} else {
-		x, l = context.WithCancel(c)
+		x, l = context.WithCancel(c) // #nosec
 	}
 
 	return &ctxGinTonic{

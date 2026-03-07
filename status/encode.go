@@ -38,7 +38,6 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 	monpol "github.com/nabbar/golib/monitor/pool"
 	monsts "github.com/nabbar/golib/monitor/status"
-	montps "github.com/nabbar/golib/monitor/types"
 )
 
 const (
@@ -84,7 +83,7 @@ type encodeModel struct {
 	DateBuild time.Time     // Build date/time
 	Status    monsts.Status // Overall health status (OK, Warn, KO)
 	Message   string        // Status message from worst component
-	Component montps.Pool   // Pool of monitored components (nil if short mode)
+	Component encComponent  // Slice of monitored components (nil if short mode)
 	code      int           // HTTP status code to return
 }
 
@@ -187,7 +186,7 @@ func (o *encodeModel) Bytes() []byte {
 // This method is thread-safe.
 //
 // Returns an Encode instance ready for rendering.
-func (o *sts) getEncodeModel() Encode {
+func (o *sts) getEncodeModel(isMap bool) Encode {
 	o.m.RLock()
 	defer o.m.RUnlock()
 
@@ -216,27 +215,38 @@ func (o *sts) getEncodeModel() Encode {
 		dateBuild = o.fd()
 	}
 
-	return &encodeModel{
+	enc := &encodeModel{
 		Name:      name,
 		Release:   release,
 		Hash:      hash,
 		DateBuild: dateBuild,
 		Status:    s,
 		Message:   m,
-		Component: o._getPool(),
 		code:      o.cfgGetReturnCode(s),
 	}
+
+	if isMap {
+		enc.Component = &modControl{
+			ctr: o.cfgGetMandatory(),
+			cpt: o._getPool(),
+			fct: o.getStatus,
+		}
+	} else {
+		enc.Component = o._getPool()
+	}
+
+	return enc
 }
 
 // getMarshal creates an Encode instance after validating prerequisites.
 // It checks that application information has been set via SetInfo or SetVersion.
 //
 // Returns an Encode instance or an error if application info is missing.
-func (o *sts) getMarshal() (Encode, liberr.Error) {
+func (o *sts) getMarshal(isMap bool) (Encode, liberr.Error) {
 	if !o.checkFunc() {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("missing status info for API"))
 	}
-	return o.getEncodeModel(), nil
+	return o.getEncodeModel(isMap), nil
 }
 
 // MarshalText implements encoding.TextMarshaler for the status instance.
@@ -244,7 +254,7 @@ func (o *sts) getMarshal() (Encode, liberr.Error) {
 //
 // Returns the status as text bytes or an error if application info is missing.
 func (o *sts) MarshalText() (text []byte, err error) {
-	if enc, e := o.getMarshal(); e != nil {
+	if enc, e := o.getMarshal(false); e != nil {
 		return nil, e
 	} else {
 		return enc.Bytes(), nil
@@ -256,7 +266,7 @@ func (o *sts) MarshalText() (text []byte, err error) {
 //
 // Returns the status as JSON bytes or an error if application info is missing.
 func (o *sts) MarshalJSON() ([]byte, error) {
-	if enc, e := o.getMarshal(); e != nil {
+	if enc, e := o.getMarshal(false); e != nil {
 		return nil, e
 	} else {
 		return json.Marshal(enc)

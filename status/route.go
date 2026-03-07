@@ -36,21 +36,29 @@ import (
 )
 
 const (
-	// headVerbose is the HTTP header name for controlling verbosity.
+	// HeadVerbose is the HTTP header name for controlling verbosity.
 	// Value should be "true" or "false". If "false", full component details are included.
-	headVerbose = "X-Verbose"
+	HeadVerbose = "X-Verbose"
 
-	// headFormat is the HTTP header name for content negotiation (Accept header).
+	// HeadFormat is the HTTP header name for content negotiation (Accept header).
 	// Supports "application/json" and "text/plain".
-	headFormat = "Accept"
+	HeadFormat = "Accept"
 
-	// keyVerbose is the query parameter name for controlling verbosity.
+	// HeadMapMode is the HTTP header name for output mode map or not.
+	// Value should be "true" or "false". If "false", full component details are included.
+	HeadMapMode = "X-MapMode"
+
+	// QueryVerbose is the query parameter name for controlling verbosity.
 	// Value should be "true" or "1" for short output (no component details).
-	keyVerbose = "short"
+	QueryVerbose = "short"
 
-	// keyFormat is the query parameter name for output format.
+	// QueryFormat is the query parameter name for output format.
 	// Value should be "text" for plain text or "json" for JSON output.
-	keyFormat = "format"
+	QueryFormat = "format"
+
+	// QueryMapMode is the query parameter name for output mode map or not.
+	// Value should be "true" or "1" for short output (no component details).
+	QueryMapMode = "map"
 )
 
 // Expose handles the status endpoint request from a generic context.
@@ -66,33 +74,35 @@ func (o *sts) Expose(ctx context.Context) {
 }
 
 // MiddleWare is the Gin middleware handler that processes status requests.
-// It supports multiple ways to control the response format:
+// It determines the response format and content based on headers and query parameters.
 //
-// Verbosity control (short vs full output):
-//   - Query parameter "short=true" or "short=1": returns only overall status
-//   - Header "X-Verbose: false": returns only overall status
-//   - Default: returns full status with all component details
+// Verbosity (short vs full output):
+//   - Header "X-Verbose: true" forces full output (disables short mode).
+//   - Query parameter "short=true" or "short=1" enables short mode (only overall status).
+//   - Default: full status with all component details.
 //
-// Format control (JSON vs plain text):
-//   - Query parameter "format=text": returns plain text output
-//   - Header "Accept: text/plain": returns plain text output
-//   - Header "Accept: application/json": returns JSON output (default)
+// Map Mode (structured map vs list):
+//   - Header "X-MapMode: true" enables map mode.
+//   - Query parameter "map=true" or "map=1" enables map mode.
+//   - Default: list mode.
 //
-// Response headers:
-//   - X-Verbose: "True" or "False" indicating the verbosity level used
-//   - Connection: "Close" to prevent keep-alive
+// Format (JSON vs plain text):
+//   - Query parameter "format=text" forces plain text.
+//   - Header "Accept: text/plain" forces plain text.
+//   - Default: JSON output.
 //
-// HTTP status codes are determined by the configured return codes (see SetConfig).
-// Default codes: 200 (OK), 207 (Warn), 500 (KO).
+// The response will include "X-Verbose" and "X-MapMode" headers indicating the effective mode.
+// It also sets "Connection: Close".
 func (o *sts) MiddleWare(c *ginsdk.Context) {
 	var (
 		err liberr.Error
 		enc Encode
-		shr = o.isShort(c.Request.URL.Query().Get(keyVerbose), c.Request.Header.Get(headVerbose))
-		txt = o.isText(c.Request.URL.Query().Get(keyFormat), strings.Join(c.Request.Header.Values(headFormat), ","))
+		shr = o.isParamInvBool(c.Request.URL.Query().Get(QueryVerbose), c.Request.Header.Get(HeadVerbose))
+		txt = o.isText(c.Request.URL.Query().Get(QueryFormat), strings.Join(c.Request.Header.Values(HeadFormat), ","))
+		mpm = o.isParamBool(c.Request.URL.Query().Get(QueryMapMode), c.Request.Header.Get(HeadMapMode))
 	)
 
-	if enc, err = o.getMarshal(); err != nil {
+	if enc, err = o.getMarshal(mpm); err != nil {
 		ret := o.getErrorReturn()
 		err.Return(ret)
 		ret.GinTonicErrorAbort(c, 0) // 0 = internal server error
@@ -100,9 +110,15 @@ func (o *sts) MiddleWare(c *ginsdk.Context) {
 	}
 
 	if shr { // if short if true0, so Verbose if false
-		c.Header("X-Verbose", "False")
+		c.Header(HeadVerbose, "False")
 	} else {
-		c.Header("X-Verbose", "True")
+		c.Header(HeadVerbose, "True")
+	}
+
+	if mpm { // if short if true0, so Verbose if false
+		c.Header(HeadMapMode, "True")
+	} else {
+		c.Header(HeadMapMode, "False")
 	}
 
 	c.Header("Connection", "Close")
@@ -149,36 +165,58 @@ func (o *sts) isText(query, header string) bool {
 	return txt
 }
 
-// isShort determines if the response should be in short format (no component details).
-// It checks both query parameters and X-Verbose headers.
+// isParamBool checks if a boolean parameter is enabled based on header and query values.
+// It returns true if either the header or the query parameter evaluates to true.
 //
 // Priority:
-//  1. Query parameter "short=true" or "short=1" enables short mode
-//  2. Header "X-Verbose: false" enables short mode (inverted logic)
+//  1. If header is present and "true", returns true.
+//  2. If query is present and "true", returns true.
+//  3. Otherwise, returns false.
 //
 // Parameters:
-//   - query: value of the "short" query parameter
-//   - header: value of the "X-Verbose" header
-//
-// Returns true if short format should be used (verbose=false).
-func (o *sts) isShort(query, header string) bool {
-	var shr = false
+//   - query: value of the query parameter.
+//   - header: value of the header.
+func (o *sts) isParamBool(query, header string) bool {
+	if len(header) > 0 {
+		if b, e := strconv.ParseBool(header); e == nil && b {
+			return true
+		}
+	}
 
 	if len(query) > 0 {
-		if strings.EqualFold(query, "true") {
-			shr = true
-		} else if strings.EqualFold(query, "1") {
-			shr = true
+		if b, e := strconv.ParseBool(query); e == nil && b {
+			return true
 		}
 	}
 
+	return false
+}
+
+// isParamInvBool checks if a boolean parameter is enabled with inverted logic for the header.
+// It is used when the header implies the opposite of the query parameter (e.g. Verbose vs Short).
+//
+// Logic:
+//  1. If header is present and "true", returns false (inverted).
+//  2. If query is present and "true", returns true.
+//  3. Otherwise, returns false.
+//
+// Parameters:
+//   - query: value of the query parameter.
+//   - header: value of the header.
+func (o *sts) isParamInvBool(query, header string) bool {
 	if len(header) > 0 {
 		if b, e := strconv.ParseBool(header); e == nil {
-			shr = !b
+			return !b
 		}
 	}
 
-	return shr
+	if len(query) > 0 {
+		if b, e := strconv.ParseBool(query); e == nil && b {
+			return true
+		}
+	}
+
+	return false
 }
 
 // getErrorReturn retrieves the configured error return formatter.

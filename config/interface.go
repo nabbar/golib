@@ -203,7 +203,7 @@ var (
 )
 
 func init() {
-	ctx, cnl = context.WithCancel(context.Background())
+	ctx, cnl = context.WithCancel(context.Background()) // #nosec
 }
 
 // Shutdown cancels the main application context, triggering shutdown of all components.

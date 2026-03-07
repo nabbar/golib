@@ -174,7 +174,7 @@ var _ = Describe("Status/Route", func() {
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(testMonitorStabilizeDelay)
 
-				req := httptest.NewRequest("GET", "/status?short=true", nil)
+				req := httptest.NewRequest("GET", "/status?"+libsts.QueryVerbose+"=true", nil)
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
@@ -216,7 +216,7 @@ var _ = Describe("Status/Route", func() {
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(testMonitorStabilizeDelay)
 
-				req := httptest.NewRequest("GET", "/status?short=1", nil)
+				req := httptest.NewRequest("GET", "/status?"+libsts.QueryVerbose+"=1", nil)
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
@@ -246,7 +246,7 @@ var _ = Describe("Status/Route", func() {
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(testMonitorStabilizeDelay)
 
-				req := httptest.NewRequest("GET", "/status?short=false", nil)
+				req := httptest.NewRequest("GET", "/status?"+libsts.QueryVerbose+"=false", nil)
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
@@ -315,7 +315,7 @@ var _ = Describe("Status/Route", func() {
 
 				router.ServeHTTP(w, req)
 
-				Expect(w.Header().Get("X-Verbose")).To(Equal("True"))
+				Expect(w.Header().Get(libsts.HeadVerbose)).To(Equal("True"))
 			})
 		})
 
@@ -342,7 +342,7 @@ var _ = Describe("Status/Route", func() {
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(testMonitorStabilizeDelay)
 
-				req := httptest.NewRequest("GET", "/status?format=text", nil)
+				req := httptest.NewRequest("GET", "/status?"+libsts.QueryFormat+"=text", nil)
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
@@ -376,7 +376,7 @@ var _ = Describe("Status/Route", func() {
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(testMonitorStabilizeDelay)
 
-				req := httptest.NewRequest("GET", "/status?format=json", nil)
+				req := httptest.NewRequest("GET", "/status?"+libsts.QueryFormat+"=json", nil)
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
@@ -409,7 +409,7 @@ var _ = Describe("Status/Route", func() {
 				time.Sleep(testMonitorStabilizeDelay)
 
 				req := httptest.NewRequest("GET", "/status", nil)
-				req.Header.Set("Accept", "text/plain")
+				req.Header.Set(libsts.HeadFormat, "text/plain")
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
@@ -440,7 +440,7 @@ var _ = Describe("Status/Route", func() {
 				time.Sleep(testMonitorStabilizeDelay)
 
 				req := httptest.NewRequest("GET", "/status", nil)
-				req.Header.Set("Accept", "application/json")
+				req.Header.Set(libsts.HeadFormat, "application/json")
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
@@ -471,7 +471,7 @@ var _ = Describe("Status/Route", func() {
 				time.Sleep(testMonitorStabilizeDelay)
 
 				req := httptest.NewRequest("GET", "/status", nil)
-				req.Header.Set("Accept", "text/html, application/json, text/plain")
+				req.Header.Set(libsts.HeadFormat, "text/html, application/json, text/plain")
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
@@ -504,14 +504,14 @@ var _ = Describe("Status/Route", func() {
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(testMonitorStabilizeDelay)
 
-				req := httptest.NewRequest("GET", "/status?short=true&format=text", nil)
+				req := httptest.NewRequest("GET", "/status?"+libsts.QueryVerbose+"=true&format=text", nil)
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
 
 				Expect(w.Code).To(Equal(http.StatusOK))
 				Expect(w.Header().Get("Content-Type")).To(ContainSubstring("text/plain"))
-				Expect(w.Header().Get("X-Verbose")).To(Equal("False"))
+				Expect(w.Header().Get(libsts.HeadVerbose)).To(Equal("False"))
 			})
 
 			It("should prioritize query params over headers", func() {
@@ -536,14 +536,73 @@ var _ = Describe("Status/Route", func() {
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(testMonitorStabilizeDelay)
 
-				req := httptest.NewRequest("GET", "/status?format=text", nil)
-				req.Header.Set("Accept", "application/json")
+				req := httptest.NewRequest("GET", "/status?"+libsts.QueryFormat+"=text", nil)
+				req.Header.Set(libsts.HeadFormat, "application/json")
 				w := httptest.NewRecorder()
 
 				router.ServeHTTP(w, req)
 
 				// Query param should take precedence // priority to header, and after query string
 				Expect(w.Header().Get("Content-Type")).To(ContainSubstring("application/json"))
+			})
+		})
+
+		Context("with map query parameter", func() {
+			It("should return map format with map=true", func() {
+				status := libsts.New(globalCtx)
+				status.SetInfo("route-test", "v1.0.0", "abc123")
+
+				pool := newPool()
+				status.RegisterPool(func() montps.Pool { return pool })
+
+				// Setup router
+				router := ginsdk.New()
+				router.GET("/status", func(c *ginsdk.Context) {
+					status.MiddleWare(c)
+				})
+				status.SetConfig(newStatusConfig(newListMandatory(map[stsctr.Mode][]string{
+					stsctr.Must: {
+						"test-service",
+					},
+				})...))
+				m := newHealthyMonitor("test-service")
+				err := pool.MonitorAdd(m)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(testMonitorStabilizeDelay)
+
+				req := httptest.NewRequest("GET", "/status?"+libsts.QueryMapMode+"=true", nil)
+				w := httptest.NewRecorder()
+
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				Expect(w.Header().Get(libsts.HeadMapMode)).To(Equal("True"))
+
+				var result map[string]interface{}
+				err = json.Unmarshal(w.Body.Bytes(), &result)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Short format should not include component details
+				val, ok := result["Component"]
+				Expect(ok).To(BeTrue())
+				Expect(val).ToNot(BeNil())
+
+				itm, ok := val.([]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(itm).To(HaveLen(1))
+
+				sub, ok := itm[0].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(sub).To(HaveKeyWithValue("mode", "Must"))
+				Expect(sub).To(HaveKeyWithValue("status", "OK"))
+
+				cpt, ok := sub["components"]
+				Expect(ok).To(BeTrue())
+				Expect(cpt).ToNot(BeNil())
+
+				lst, ok := cpt.(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(lst).To(HaveKey("test-service"))
 			})
 		})
 	})

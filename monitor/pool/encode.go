@@ -39,7 +39,7 @@ import (
 func (o *pool) MarshalText() (text []byte, err error) {
 	var buf = bytes.NewBuffer(make([]byte, 0))
 
-	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+	o.MonitorWalk(func(_ string, val montps.Monitor) bool {
 		if p, e := val.MarshalText(); e != nil {
 			err = e
 			return false

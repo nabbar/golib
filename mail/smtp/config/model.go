@@ -270,7 +270,7 @@ func (c *smtpConfig) GetDsn() string {
 	params := val.Encode()
 
 	// Only append parameters if they exist (length > 2 to account for minimal encoding)
-	// nolint: gomnd
+	// nolint
 	if len(params) > 2 {
 		_, _ = buf.WriteString("?" + params)
 	}

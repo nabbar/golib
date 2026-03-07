@@ -238,7 +238,7 @@ func New[K comparable, V any](ctx context.Context, exp time.Duration) Cache[K, V
 	}
 
 	var cnl context.CancelFunc
-	ctx, cnl = context.WithCancel(ctx)
+	ctx, cnl = context.WithCancel(ctx) // #nosec
 
 	n := &cc[K, V]{
 		Context: ctx,

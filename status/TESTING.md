@@ -1,9 +1,9 @@
 # Testing Guide
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-306%20Specs-green)]()
-[![Coverage](https://img.shields.io/badge/Coverage-85.6%25-brightgreen)]()
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://golang.org/)
+[![Tests](https://img.shields.io/badge/Tests-307%20Specs-green)]()
+[![Coverage](https://img.shields.io/badge/Coverage-84.82%25-brightgreen)]()
 
 Comprehensive testing documentation for the status package, covering test execution, race detection, benchmarks, and quality assurance.
 
@@ -30,8 +30,8 @@ Comprehensive testing documentation for the status package, covering test execut
 The status package uses **Ginkgo v2** (BDD testing framework) and **Gomega** (matcher library) for comprehensive testing with expressive assertions.
 
 **Test Suite Summary**
-- Total Specs: 306 across 4 packages
-- Overall Coverage: 85.6%
+- Total Specs: 307 across 4 packages
+- Overall Coverage: 84.82%
 - Race Detection: ✅ Zero data races
 - Execution Time: ~11s (without race), ~22s (with race)
 
@@ -39,10 +39,10 @@ The status package uses **Ginkgo v2** (BDD testing framework) and **Gomega** (ma
 
 | Package | Specs | Coverage | Duration | Focus |
 |---------|-------|----------|----------|-------|
-| `status` | 120 | 85.6% | 10.7s | Main status logic, HTTP routes |
-| `control` | 102 | 95.0% | 0.01s | Mode validation, encoding |
-| `mandatory` | 55 | 76.1% | 0.1s | Component group management |
-| `listmandatory` | 29 | 75.4% | 0.5s | Multiple group handling |
+| `status` | 121 | 82.20% | 10.7s | Main status logic, HTTP routes |
+| `control` | 102 | 95.00% | 0.01s | Mode validation, encoding |
+| `mandatory` | 55 | 76.10% | 0.1s | Component group management |
+| `listmandatory` | 29 | 86.00% | 0.5s | Multiple group handling |
 
 **Coverage Areas**
 - Status computation with control modes
@@ -209,7 +209,7 @@ go tool trace trace.out
 
 ## Test Coverage
 
-**Target**: ≥80% statement coverage (currently 85.6%)
+**Target**: ≥80% statement coverage (currently 84.82%)
 
 ### Coverage By Package
 
@@ -220,10 +220,10 @@ go test -cover ./...
 
 **Output**:
 ```
-github.com/nabbar/golib/status                coverage: 85.6% of statements
-github.com/nabbar/golib/status/control        coverage: 95.0% of statements
-github.com/nabbar/golib/status/listmandatory  coverage: 75.4% of statements
-github.com/nabbar/golib/status/mandatory      coverage: 76.1% of statements
+github.com/nabbar/golib/status                coverage: 82.20% of statements
+github.com/nabbar/golib/status/control        coverage: 95.00% of statements
+github.com/nabbar/golib/status/listmandatory  coverage: 86.00% of statements
+github.com/nabbar/golib/status/mandatory      coverage: 76.10% of statements
 ```
 
 ### Coverage By File
@@ -817,5 +817,5 @@ In accordance with Article 50.4 of the EU AI Act, AI assistance has been used fo
 
 ---
 
-**Version**: Go 1.18+ on Linux, macOS, Windows  
+**Version**: Go 1.25+ on Linux, macOS, Windows  
 **Maintained By**: Status Package Contributors

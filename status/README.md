@@ -1,7 +1,7 @@
 # Status Package
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://golang.org/)
 
 Comprehensive health check and status monitoring system for HTTP APIs with flexible control modes, caching, and multi-format output support.
 
@@ -51,6 +51,7 @@ This package provides production-ready health check and status monitoring for Go
 - **Caching**: 3-second default cache with atomic operations for high-frequency checks
 - **Multi-Format Output**: JSON (default) and plain text via query parameters or headers
 - **Verbosity Control**: Short (status only) or full (with component details) responses
+- **Map Mode**: Structured map output for components instead of list
 - **Thread-Safe**: Atomic operations and mutex protection for concurrent access
 - **Configurable HTTP Codes**: Customize return codes for OK (200), Warn (207), KO (500) states
 - **Version Tracking**: Include application name, version, and build information
@@ -95,16 +96,16 @@ status/
 ### Component Overview
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                  Status Package                      │
+┌─────────────────────────────────────────────────────┐
+│                  Status Package                     │
 │  HTTP Endpoint + Component Health Aggregation       │
 └──────────────┬────────────┬──────────────┬──────────┘
                │            │              │
       ┌────────▼───┐  ┌────▼─────┐  ┌────▼────────┐
       │  control   │  │mandatory │  │listmandatory│
       │            │  │          │  │             │
-      │ Validation │  │  Group   │  │ Collection  │
-      │   Modes    │  │ Manager  │  │  Manager    │
+      │ Validation │  │  Group   │  │  Group      │
+      │   Modes    │  │ Manager  │  │ Collection  │
       └────────────┘  └──────────┘  └─────────────┘
                │            │              │
                └────────────┴──────────────┘
@@ -655,6 +656,7 @@ r.GET("/health", func(c *gin.Context) {
 |-----------|--------|-------------|
 | `short` | `true`, `1` | Return only overall status (no component details) |
 | `format` | `text`, `json` | Output format (default: JSON) |
+| `map` | `true`, `1` | Output components as a map instead of a list |
 
 ### HTTP Headers
 
@@ -662,6 +664,7 @@ r.GET("/health", func(c *gin.Context) {
 |--------|--------|-------------|
 | `X-Verbose` | `false` | Return short output (same as `short=true`) |
 | `Accept` | `text/plain`, `application/json` | Content negotiation |
+| `X-MapMode` | `true` | Output components as a map instead of a list |
 
 ### Response Formats
 
@@ -748,6 +751,9 @@ curl -H "Accept: text/plain" http://localhost:8080/status
 
 # Short via header
 curl -H "X-Verbose: false" http://localhost:8080/status
+
+# Map mode via header
+curl -H "X-MapMode: true" http://localhost:8080/status
 ```
 
 **Go Client**
@@ -982,7 +988,7 @@ go func() {
 
 ## Testing
 
-**Test Suite**: 306 specs across 4 packages with 85.6% overall coverage
+**Test Suite**: 307 specs across 4 packages with 84.82% overall coverage
 
 ```bash
 # Run all tests
@@ -1001,10 +1007,10 @@ go test -bench=. -benchmem ./mandatory/
 ### Test Results
 
 ```
-status/                120 specs    85.6% coverage   10.7s
-status/control/        102 specs    95.0% coverage   0.01s
-status/listmandatory/   29 specs    75.4% coverage   0.5s
-status/mandatory/       55 specs    76.1% coverage   0.1s
+status/                121 specs    82.20% coverage   10.7s
+status/control/        102 specs    95.00% coverage   0.01s
+status/listmandatory/   29 specs    86.00% coverage   0.5s
+status/mandatory/       55 specs    76.10% coverage   0.1s
 ```
 
 ### Quality Assurance
@@ -1107,5 +1113,5 @@ MIT License - See [LICENSE](../../LICENSE) file for details.
 
 ---
 
-**Version**: Go 1.18+ on Linux, macOS, Windows  
+**Version**: Go 1.25+ on Linux, macOS, Windows  
 **Maintained By**: Status Package Contributors
