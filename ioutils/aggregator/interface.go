@@ -202,6 +202,7 @@ func New(ctx context.Context, cfg Config) (Aggregator, error) {
 	}
 
 	a := &agg{
+		m:  libatm.NewValue[context.Context](),
 		x:  libatm.NewValue[context.Context](),
 		n:  libatm.NewValue[context.CancelFunc](),
 		r:  libatm.NewValue[librun.StartStop](),
@@ -223,7 +224,8 @@ func New(ctx context.Context, cfg Config) (Aggregator, error) {
 	}
 
 	// Store initial context (but don't open channel yet - done in run())
-	a.ctxNew(ctx)
+	a.m.Store(ctx)
+	a.ctxNew()
 	a.op.Store(false)
 
 	// Initialize runner to prevent race conditions on Start

@@ -108,18 +108,14 @@ func (o *agg) Value(key any) any {
 // cancel function for later use. If there was a previous context, its cancel
 // function is called first to prevent resource leaks. If the provided context
 // is nil or already cancelled, context.Background() is used as the parent.
-func (o *agg) ctxNew(ctx context.Context) {
+func (o *agg) ctxNew() {
 	defer func() {
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/ctxnew", r)
 		}
 	}()
 
-	if ctx == nil || ctx.Err() != nil {
-		ctx = context.Background()
-	}
-
-	x, n := context.WithCancel(ctx)
+	x, n := context.WithCancel(o.m.Load())
 	o.x.Store(x)
 
 	old := o.n.Swap(n)
@@ -148,6 +144,7 @@ func (o *agg) ctxClose() {
 	old := o.n.Swap(func() {})
 	if old != nil {
 		old()
+		return
 	}
 
 	// Create a new cancelled context for future Done() calls

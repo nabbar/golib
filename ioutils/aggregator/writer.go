@@ -27,7 +27,6 @@ package aggregator
 
 import (
 	"context"
-	"time"
 
 	"github.com/nabbar/golib/runner"
 )
@@ -56,17 +55,7 @@ func (o *agg) Close() error {
 		}
 	}()
 
-	var e error
-
-	if o.IsRunning() {
-		x, n := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		defer n()
-		e = o.Stop(x)
-	}
-
-	o.cleanup()
-
-	return e
+	return o.Stop(context.Background())
 }
 
 // closeRun is the internal close function called by the runner.

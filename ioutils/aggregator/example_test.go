@@ -256,6 +256,7 @@ func ExampleAggregator_Restart() {
 
 	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
+	defer agg.Close()
 
 	// Write some data
 	agg.Write([]byte("before restart"))
@@ -268,8 +269,6 @@ func ExampleAggregator_Restart() {
 	// Write after restart
 	agg.Write([]byte("after restart"))
 	time.Sleep(50 * time.Millisecond)
-
-	agg.Close()
 
 	mu.Lock()
 	fmt.Printf("Total writes: %d\n", writeCount)

@@ -58,6 +58,7 @@ import (
 //   - ch: Buffered channel for write operations
 //   - op: Atomic boolean indicating if channel is open
 type agg struct {
+	m libatm.Value[context.Context]    // main context control
 	x libatm.Value[context.Context]    // context control
 	n libatm.Value[context.CancelFunc] // running control
 	r libatm.Value[librun.StartStop]   // runner instance
@@ -84,10 +85,6 @@ type agg struct {
 	sd *atomic.Int64 // size of message in buffered channel
 	sw *atomic.Int64 // size of waiting write to buffered channel
 }
-
-type ctxKey string
-
-const ckStartSignal ctxKey = "startSignal"
 
 // SetLoggerError sets a custom error logging function for the aggregator.
 //
@@ -199,28 +196,7 @@ func (o *agg) run(ctx context.Context) error {
 		fctWrt  func(p []byte) error
 		fctSyn  func()
 		fctAsyn func(sem libsem.Semaphore)
-
-		sig chan error
 	)
-
-	if v := ctx.Value(ckStartSignal); v != nil {
-		if s, ok := v.(chan error); ok {
-			sig = s
-		}
-	}
-
-	// signal is a helper to notify Start of success (nil) or failure
-	// It ensures the channel is sent to and closed exactly once.
-	signal := func(err error) {
-		if sig != nil {
-			select {
-			case sig <- err:
-			default:
-			}
-			close(sig)
-			sig = nil
-		}
-	}
 
 	defer func() {
 		// Cleanup: release semaphore, close aggregator, stop timers
@@ -236,22 +212,13 @@ func (o *agg) run(ctx context.Context) error {
 
 	// Check if function write is set
 	if o.fw == nil {
-		signal(ErrInvalidInstance)
 		return ErrInvalidInstance
 	}
 
 	// Check if already running - prevent multi-start
 	if o.op.Load() {
-		signal(ErrStillRunning)
 		return ErrStillRunning
 	}
-
-	// Initialize context and open channel (which sets op to true)
-	o.ctxNew(ctx)
-	o.chanOpen()
-	o.cntReset() // Reset counters on start to ensure clean state
-
-	signal(nil)
 
 	fctWrt = func(p []byte) error {
 		if len(p) < 1 {
@@ -262,16 +229,26 @@ func (o *agg) run(ctx context.Context) error {
 		}
 	}
 
+	// Initialize context and open channel (which sets op to true)
+	o.ctxNew()
+	o.chanOpen()
+	o.cntReset() // Reset counters on start to ensure clean state
+
 	fctAsyn = o.callASyn()
 	fctSyn = o.callSyn()
 
-	sem = libsem.New(context.Background(), o.am, false)
+	sem = libsem.New(o, o.am, false)
 	o.logInfo("starting aggregator")
 
-	for o.Err() == nil {
+	for o.Err() == nil && ctx.Err() == nil {
 		select {
 		case <-o.Done():
+			_ = o.Stop(context.Background())
 			return o.Err()
+
+		case <-ctx.Done():
+			_ = o.Stop(context.Background())
+			return ctx.Err()
 
 		case <-tckAsc.C:
 			fctAsyn(sem)
@@ -292,7 +269,11 @@ func (o *agg) run(ctx context.Context) error {
 		}
 	}
 
-	return o.Err()
+	if e := o.Err(); e != nil {
+		return e
+	}
+
+	return ctx.Err()
 }
 
 // callASyn returns a function that invokes the async callback if configured.

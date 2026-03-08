@@ -247,6 +247,9 @@ func (o *run) getFctStart(ctx context.Context) {
 		o.cancel()
 	}()
 
+	// Mark the start time
+	o.t.Store(time.Now())
+
 	// Get the start function; use a placeholder that returns an error if not set
 	var fct = o.f
 	if fct == nil {
@@ -254,9 +257,6 @@ func (o *run) getFctStart(ctx context.Context) {
 			return fmt.Errorf("invalid start function")
 		}
 	}
-
-	// Mark the start time
-	o.t.Store(time.Now())
 
 	// Execute the actual start function
 	o.e.Add(fct(ctx))

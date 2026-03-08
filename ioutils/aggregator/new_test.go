@@ -27,6 +27,7 @@ package aggregator_test
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	iotagg "github.com/nabbar/golib/ioutils/aggregator"
@@ -42,13 +43,14 @@ var _ = Describe("TC-NW-001: Aggregator Creation", func() {
 	)
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithCancel(testCtx)
+		ctx, cancel = context.WithTimeout(testCtx, time.Minute)
 	})
 
 	AfterEach(func() {
 		if cancel != nil {
 			cancel()
 		}
+		runtime.GC()
 	})
 
 	Describe("TC-NW-002: New()", func() {

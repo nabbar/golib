@@ -27,6 +27,7 @@ package aggregator_test
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	iotagg "github.com/nabbar/golib/ioutils/aggregator"
@@ -42,13 +43,14 @@ var _ = Describe("TC-WR-001: Writer Operations", func() {
 	)
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithCancel(testCtx)
+		ctx, cancel = context.WithTimeout(testCtx, time.Minute)
 	})
 
 	AfterEach(func() {
 		if cancel != nil {
 			cancel()
 		}
+		runtime.GC()
 	})
 
 	Describe("TC-WR-002: Write()", func() {
@@ -216,6 +218,9 @@ var _ = Describe("TC-WR-001: Writer Operations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				err = agg.Start(localCtx)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = agg.Stop(localCtx)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Cancel context

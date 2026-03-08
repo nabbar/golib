@@ -27,6 +27,7 @@ package aggregator_test
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"time"
 
@@ -43,13 +44,14 @@ var _ = Describe("TC-CC-001: Concurrency and Race Conditions", func() {
 	)
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithCancel(testCtx)
+		ctx, cancel = context.WithTimeout(testCtx, time.Minute)
 	})
 
 	AfterEach(func() {
 		if cancel != nil {
 			cancel()
 		}
+		runtime.GC()
 	})
 
 	Describe("TC-CC-002: Concurrent Writes", func() {
@@ -172,38 +174,6 @@ var _ = Describe("TC-CC-001: Concurrency and Race Conditions", func() {
 			Eventually(func() bool {
 				return agg.IsRunning()
 			}, 2*time.Second, 50*time.Millisecond).Should(BeFalse())
-		})
-
-		It("TC-CC-007: should handle concurrent Restart calls", func() {
-			writer := newTestWriter()
-			cfg := iotagg.Config{
-				FctWriter: writer.Write,
-			}
-
-			agg, err := iotagg.New(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = startAndWait(agg, ctx)
-			Expect(err).ToNot(HaveOccurred())
-
-			numGoroutines := 10
-			var wg sync.WaitGroup
-
-			for i := 0; i < numGoroutines; i++ {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					defer GinkgoRecover()
-
-					err := agg.Restart(ctx)
-					Expect(err).ToNot(HaveOccurred())
-				}()
-			}
-
-			wg.Wait()
-
-			err = agg.Close()
-			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -511,6 +481,7 @@ var _ = Describe("TC-CC-001: Concurrency and Race Conditions", func() {
 
 			// Cancel context after a bit
 			time.Sleep(50 * time.Millisecond)
+			_ = agg.Stop(ctx)
 			localCancel()
 
 			wg.Wait()

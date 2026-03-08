@@ -43,6 +43,7 @@ package aggregator_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	liblog "github.com/nabbar/golib/logger"
 	logcfg "github.com/nabbar/golib/logger/config"
@@ -65,7 +66,7 @@ func TestAggregator(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	testCtx, testCancel = context.WithCancel(context.Background())
+	testCtx, testCancel = context.WithTimeout(context.Background(), 5*time.Minute)
 	globalLog = liblog.New(context.Background())
 	Expect(globalLog.SetOptions(&logcfg.Options{
 		Stdout: &logcfg.OptionsStd{

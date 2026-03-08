@@ -26,6 +26,10 @@
 package aggregator_test
 
 import (
+	"context"
+	"runtime"
+	"time"
+
 	iotagg "github.com/nabbar/golib/ioutils/aggregator"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,14 +38,25 @@ import (
 
 var _ = Describe("Internal Improvement", func() {
 	var (
-		cfg = iotagg.Config{
+		ctx    context.Context
+		cancel context.CancelFunc
+		cfg    = iotagg.Config{
 			FctWriter: func(p []byte) (int, error) { return len(p), nil },
 		}
 	)
+	BeforeEach(func() {
+		ctx, cancel = context.WithTimeout(testCtx, time.Minute)
+	})
+
+	AfterEach(func() {
+		cancel()
+		time.Sleep(50 * time.Millisecond)
+		runtime.GC()
+	})
 
 	Describe("TC-IN-001: Context methods with nil internal context", func() {
 		It("TC-IN-002: should handle nil internal context gracefully for Deadline", func() {
-			agg, err := iotagg.InternalCtx(testCtx, nil, cfg)
+			agg, err := iotagg.InternalCtx(ctx, nil, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -55,7 +70,7 @@ var _ = Describe("Internal Improvement", func() {
 		})
 
 		It("TC-IN-003: should handle nil internal context gracefully for Done", func() {
-			agg, err := iotagg.InternalCtx(testCtx, nil, cfg)
+			agg, err := iotagg.InternalCtx(ctx, nil, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -70,7 +85,7 @@ var _ = Describe("Internal Improvement", func() {
 		})
 
 		It("TC-IN-004: should handle nil internal context gracefully for Err", func() {
-			agg, err := iotagg.InternalCtx(testCtx, nil, cfg)
+			agg, err := iotagg.InternalCtx(ctx, nil, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -83,7 +98,7 @@ var _ = Describe("Internal Improvement", func() {
 		})
 
 		It("TC-IN-005: should handle nil internal context gracefully for Value", func() {
-			agg, err := iotagg.InternalCtx(testCtx, nil, cfg)
+			agg, err := iotagg.InternalCtx(ctx, nil, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -98,7 +113,7 @@ var _ = Describe("Internal Improvement", func() {
 
 	Describe("TC-IN-006: IsRunning state synchronization", func() {
 		It("TC-IN-007: should detect and fix inconsistent state: Runner Running but Op False", func() {
-			agg, err := iotagg.New(testCtx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -107,7 +122,7 @@ var _ = Describe("Internal Improvement", func() {
 			}()
 
 			// Start naturally first to get a valid runner
-			Expect(agg.Start(testCtx)).To(Succeed())
+			Expect(agg.Start(ctx)).To(Succeed())
 
 			// Simulate inconsistent state: Runner is running (from Start), but we set Op to false
 			iotagg.InternalOp(agg, false)
@@ -119,11 +134,11 @@ var _ = Describe("Internal Improvement", func() {
 			// We can't easily verify runner is stopped without access to it,
 			// but IsRunning returning false suggests it handled it.
 			// Let's verify by checking if we can Start again without error
-			Expect(agg.Start(testCtx)).To(Succeed())
+			Expect(agg.Start(ctx)).To(Succeed())
 		})
 
 		It("TC-IN-008: should detect and fix inconsistent state: Runner Stopped but Op True", func() {
-			agg, err := iotagg.New(testCtx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 
@@ -132,10 +147,10 @@ var _ = Describe("Internal Improvement", func() {
 			}()
 
 			// Start naturally
-			Expect(agg.Start(testCtx)).To(Succeed())
+			Expect(agg.Start(ctx)).To(Succeed())
 
 			// Stop naturally
-			Expect(agg.Stop(testCtx)).To(Succeed())
+			Expect(agg.Stop(ctx)).To(Succeed())
 
 			// Simulate inconsistent state: Runner is stopped, but we set Op to true
 			iotagg.InternalOp(agg, true)
@@ -148,7 +163,7 @@ var _ = Describe("Internal Improvement", func() {
 		})
 
 		It("TC-IN-009: should handle nil runner with Op True", func() {
-			agg, err := iotagg.New(testCtx, cfg)
+			agg, err := iotagg.New(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(agg).ToNot(BeNil())
 

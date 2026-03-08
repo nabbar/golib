@@ -27,6 +27,7 @@ package aggregator
 
 import (
 	"context"
+	"runtime"
 	"time"
 
 	"github.com/nabbar/golib/runner"
@@ -73,32 +74,34 @@ func (o *agg) Start(ctx context.Context) error {
 		}
 	}()
 
-	r := o.getRunner()
-	if r == nil {
-		r = o.newRunner()
+	old := o.getRunner()
+	if old != nil && old.IsRunning() {
+		_ = old.Stop(context.Background())
 	}
 
-	s := make(chan error, 1)
-	e := r.Start(context.WithValue(ctx, ckStartSignal, s))
+	r := o.newRunner()
+	e := r.Start(ctx)
 
 	if e != nil {
 		return e
 	}
 
-	select {
-	case err := <-s:
-		if err != nil {
-			return err
+	time.Sleep(time.Second)
+
+	for i := 0; i < 100; i++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
 		}
-		o.setRunner(r)
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(time.Second):
-		if r.IsRunning() && o.op.Load() {
-			o.setRunner(r)
-		} else {
-			return ErrTimeout
+
+		if r.Uptime() > time.Second {
+			if o.op.Load() {
+				o.setRunner(r)
+				time.Sleep(5 * time.Millisecond)
+				return nil
+			}
 		}
+
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	return nil
@@ -140,12 +143,45 @@ func (o *agg) Stop(ctx context.Context) error {
 
 	r := o.getRunner()
 	if r == nil {
+		if o.op.Load() {
+			o.cleanup()
+		}
 		return nil
 	}
 
 	e := r.Stop(ctx)
+	if e != nil {
+		return e
+	}
+
+	time.Sleep(time.Second)
+
+	for i := 0; i < 10; i++ {
+		if ctx.Err() != nil {
+			o.setRunner(r)
+			time.Sleep(5 * time.Millisecond)
+			return ctx.Err()
+		}
+
+		if r.Uptime() == time.Duration(0) {
+			if !o.op.Load() {
+				o.setRunner(r)
+				time.Sleep(5 * time.Millisecond)
+				return nil
+			}
+		}
+
+		time.Sleep(time.Second)
+	}
+
 	o.setRunner(r)
-	return e
+
+	if o.op.Load() {
+		o.cleanup()
+	}
+
+	time.Sleep(5 * time.Millisecond)
+	return nil
 }
 
 // Restart stops and then starts the aggregator.
@@ -179,6 +215,17 @@ func (o *agg) Restart(ctx context.Context) error {
 	if e := o.Stop(ctx); e != nil {
 		return e
 	}
+
+	// prevent misassign of pointer into var
+	runtime.GC()
+
+	if o.IsRunning() {
+		return ErrStillRunning
+	}
+
+	// prevent misassign of pointer into var
+	runtime.GC()
+
 	return o.Start(ctx)
 }
 
@@ -229,11 +276,13 @@ func (o *agg) IsRunning() bool {
 		if o.op.Load() {
 			// Both runner and channel agree: running
 			return true
-		} else {
+		} else if r.Uptime() > time.Minute {
 			// Runner says running but channel is closed: stop runner
 			x, n := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer n()
 			_ = r.Stop(x)
+			return false
+		} else {
 			return false
 		}
 	} else {

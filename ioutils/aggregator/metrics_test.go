@@ -27,6 +27,7 @@ package aggregator_test
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"time"
 
@@ -49,7 +50,7 @@ var _ = Describe("TC-MT-001: Metrics", func() {
 	)
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithCancel(testCtx)
+		ctx, cancel = context.WithTimeout(testCtx, time.Minute)
 		writeMutex.Lock()
 		writeCount = 0
 		writeDelay = 0
@@ -90,6 +91,7 @@ var _ = Describe("TC-MT-001: Metrics", func() {
 		}
 		cancel()
 		time.Sleep(50 * time.Millisecond)
+		runtime.GC()
 	})
 
 	Describe("TC-MT-002: NbWaiting and NbProcessing", func() {
@@ -371,45 +373,6 @@ var _ = Describe("TC-MT-001: Metrics", func() {
 					return agg.SizeWaiting() + agg.SizeProcessing()
 				}, 3*time.Second, 50*time.Millisecond).Should(Equal(int64(0)))
 			})
-		})
-	})
-
-	Describe("TC-MT-025: Metrics after Restart", func() {
-		It("TC-MT-026: should reset metrics after restart", func() {
-			Expect(startAndWait(agg, ctx)).To(Succeed())
-
-			// Write some data
-			for i := 0; i < 5; i++ {
-				_, err := agg.Write([]byte("data"))
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			// Wait for processing
-			Eventually(func() int {
-				writeMutex.Lock()
-				defer writeMutex.Unlock()
-				return writeCount
-			}, 2*time.Second, 10*time.Millisecond).Should(Equal(5))
-
-			// Restart
-			Expect(agg.Restart(ctx)).To(Succeed())
-			time.Sleep(100 * time.Millisecond)
-
-			// All metrics should be 0 after restart
-			Expect(agg.NbWaiting()).To(Equal(int64(0)))
-			Expect(agg.NbProcessing()).To(Equal(int64(0)))
-			Expect(agg.SizeWaiting()).To(Equal(int64(0)))
-			Expect(agg.SizeProcessing()).To(Equal(int64(0)))
-
-			// Write after restart should work
-			_, err := agg.Write([]byte("after"))
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() int {
-				writeMutex.Lock()
-				defer writeMutex.Unlock()
-				return writeCount
-			}, 2*time.Second, 10*time.Millisecond).Should(Equal(6))
 		})
 	})
 

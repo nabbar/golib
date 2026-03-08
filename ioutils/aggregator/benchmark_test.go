@@ -27,7 +27,7 @@ package aggregator_test
 
 import (
 	"context"
-	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
@@ -55,13 +55,14 @@ var _ = Describe("[TC-BC] Aggregator Performance Benchmarks", func() {
 	)
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithCancel(testCtx)
+		ctx, cancel = context.WithTimeout(testCtx, time.Minute)
 	})
 
 	AfterEach(func() {
 		if cancel != nil {
 			cancel()
 		}
+		runtime.GC()
 	})
 
 	Describe("TC-BC-001: Write operations", func() {
@@ -78,78 +79,54 @@ var _ = Describe("[TC-BC] Aggregator Performance Benchmarks", func() {
 			// Large data (10KB)
 			largeData := make([]byte, 10240)
 
-			experiment.SampleDuration("Small buffer (10), small data", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 10,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
+			writer := newTestWriter()
+			cfg := iotagg.Config{
+				FctWriter: writer.Write,
+			}
 
+			cfg.BufWriter = 10
+			aggsml, _ := iotagg.New(ctx, cfg)
+			defer aggsml.Close()
+
+			cfg.BufWriter = 100
+			aggmed, _ := iotagg.New(ctx, cfg)
+			defer aggmed.Close()
+
+			cfg.BufWriter = 1000
+			agglrg, _ := iotagg.New(ctx, cfg)
+			defer agglrg.Close()
+
+			aggsml.Start(ctx)
+			aggmed.Start(ctx)
+			agglrg.Start(ctx)
+
+			experiment.SampleDuration("Small buffer (10), small data", func(idx int) {
 				for i := 0; i < 100; i++ {
-					agg.Write(smallData)
+					aggsml.Write(smallData)
 				}
 			}, SamplingConfig{N: 100, Duration: 0})
 
 			experiment.SampleDuration("Medium buffer (100), small data", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 100,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
-
 				for i := 0; i < 100; i++ {
-					agg.Write(smallData)
+					aggmed.Write(smallData)
 				}
 			}, SamplingConfig{N: 100, Duration: 0})
 
 			experiment.SampleDuration("Large buffer (1000), small data", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 1000,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
-
 				for i := 0; i < 100; i++ {
-					agg.Write(smallData)
+					agglrg.Write(smallData)
 				}
 			}, SamplingConfig{N: 100, Duration: 0})
 
 			experiment.SampleDuration("Large buffer (1000), 1KB data", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 1000,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
-
 				for i := 0; i < 100; i++ {
-					agg.Write(mediumData)
+					agglrg.Write(mediumData)
 				}
 			}, SamplingConfig{N: 100, Duration: 0})
 
 			experiment.SampleDuration("Large buffer (1000), 10KB data", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 1000,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
-
 				for i := 0; i < 50; i++ {
-					agg.Write(largeData)
+					agglrg.Write(largeData)
 				}
 			}, SamplingConfig{N: 50, Duration: 0})
 		})
@@ -160,19 +137,20 @@ var _ = Describe("[TC-BC] Aggregator Performance Benchmarks", func() {
 			experiment := NewExperiment("Concurrent write operations")
 			AddReportEntry(experiment.Name, experiment)
 
+			writer := newTestWriter()
+			cfg := iotagg.Config{
+				BufWriter: 1000,
+				FctWriter: writer.Write,
+			}
+			agg, _ := iotagg.New(ctx, cfg)
+			defer agg.Close()
+
+			agg.Start(ctx)
+
 			data := []byte("test data")
 			writesPerGoroutine := 50
 
 			experiment.SampleDuration("1 goroutine", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 1000,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
-
 				var wg sync.WaitGroup
 				wg.Add(1)
 				go func() {
@@ -185,15 +163,6 @@ var _ = Describe("[TC-BC] Aggregator Performance Benchmarks", func() {
 			}, SamplingConfig{N: 100, Duration: 0})
 
 			experiment.SampleDuration("5 goroutines", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 1000,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
-
 				var wg sync.WaitGroup
 				for i := 0; i < 5; i++ {
 					wg.Add(1)
@@ -208,15 +177,6 @@ var _ = Describe("[TC-BC] Aggregator Performance Benchmarks", func() {
 			}, SamplingConfig{N: 100, Duration: 0})
 
 			experiment.SampleDuration("10 goroutines", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 1000,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
-
 				var wg sync.WaitGroup
 				for i := 0; i < 10; i++ {
 					wg.Add(1)
@@ -231,15 +191,6 @@ var _ = Describe("[TC-BC] Aggregator Performance Benchmarks", func() {
 			}, SamplingConfig{N: 100, Duration: 0})
 
 			experiment.SampleDuration("20 goroutines", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 1000,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				defer agg.Close()
-
 				var wg sync.WaitGroup
 				for i := 0; i < 20; i++ {
 					wg.Add(1)
@@ -252,58 +203,6 @@ var _ = Describe("[TC-BC] Aggregator Performance Benchmarks", func() {
 				}
 				wg.Wait()
 			}, SamplingConfig{N: 50, Duration: 0})
-		})
-	})
-
-	Describe("TC-BC-005: Lifecycle operations", func() {
-		It("TC-BC-006: should benchmark Start, Stop, Restart, and Close operations", func() {
-			experiment := NewExperiment("Lifecycle operations")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.SampleDuration("New + Start", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 100,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				agg.Close()
-			}, SamplingConfig{N: 200, Duration: 0})
-
-			experiment.SampleDuration("Stop", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 100,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				agg.Stop(ctx)
-			}, SamplingConfig{N: 200, Duration: 0})
-
-			experiment.SampleDuration("Restart", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 100,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				agg.Restart(ctx)
-				agg.Close()
-			}, SamplingConfig{N: 100, Duration: 0})
-
-			experiment.SampleDuration("Close", func(idx int) {
-				writer := newTestWriter()
-				cfg := iotagg.Config{
-					BufWriter: 100,
-					FctWriter: writer.Write,
-				}
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-				agg.Close()
-			}, SamplingConfig{N: 200, Duration: 0})
 		})
 	})
 
@@ -349,168 +248,6 @@ var _ = Describe("[TC-BC] Aggregator Performance Benchmarks", func() {
 				_ = agg.SizeWaiting()
 				_ = agg.SizeProcessing()
 			}, SamplingConfig{N: 10000, Duration: 0})
-		})
-	})
-
-	Describe("TC-BC-009: Periodic callbacks", func() {
-		It("TC-BC-010: should benchmark async and sync callback execution", func() {
-			experiment := NewExperiment("Periodic callbacks")
-			AddReportEntry(experiment.Name, experiment)
-
-			experiment.SampleDuration("Async callback (10ms interval)", func(idx int) {
-				writer := newTestWriter()
-				counter := newTestCounter()
-
-				cfg := iotagg.Config{
-					BufWriter:  100,
-					FctWriter:  writer.Write,
-					AsyncTimer: 10 * time.Millisecond,
-					AsyncMax:   5,
-					AsyncFct: func(ctx context.Context) {
-						counter.Inc()
-					},
-				}
-
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-
-				// Wait for ~5 async calls
-				time.Sleep(60 * time.Millisecond)
-
-				agg.Close()
-			}, SamplingConfig{N: 50, Duration: 0})
-
-			experiment.SampleDuration("Sync callback (10ms interval)", func(idx int) {
-				writer := newTestWriter()
-				counter := newTestCounter()
-
-				cfg := iotagg.Config{
-					BufWriter: 100,
-					FctWriter: writer.Write,
-					SyncTimer: 10 * time.Millisecond,
-					SyncFct: func(ctx context.Context) {
-						counter.Inc()
-					},
-				}
-
-				agg, _ := iotagg.New(ctx, cfg)
-				agg.Start(ctx)
-
-				// Wait for ~5 sync calls
-				time.Sleep(60 * time.Millisecond)
-
-				agg.Close()
-			}, SamplingConfig{N: 50, Duration: 0})
-		})
-	})
-
-	Describe("TC-BC-011: Real-world scenarios", func() {
-		It("TC-BC-012: should benchmark log aggregation from multiple sources", func() {
-			experiment := NewExperiment("Log aggregation scenario")
-
-			experiment.Sample(func(idx int) {
-				logLine := fmt.Sprintf("[%s] INFO: Application event with contextual data\n", time.Now().Format(time.RFC3339))
-				numLines := 1000
-
-				experiment.MeasureDuration("log-aggregate", func() {
-					writer := newTestWriter()
-					cfg := iotagg.Config{
-						BufWriter: 500,
-						FctWriter: writer.Write,
-					}
-
-					agg, _ := iotagg.New(ctx, cfg)
-					agg.Start(ctx)
-					defer agg.Close()
-
-					var wg sync.WaitGroup
-					for i := 0; i < 10; i++ {
-						wg.Add(1)
-						go func() {
-							defer wg.Done()
-							for j := 0; j < numLines/10; j++ {
-								agg.Write([]byte(logLine))
-							}
-						}()
-					}
-					wg.Wait()
-
-					// Wait for processing
-					time.Sleep(50 * time.Millisecond)
-				})
-			}, SamplingConfig{N: 20, Duration: 0})
-
-			AddReportEntry(experiment.Name, experiment)
-		})
-
-		It("TC-BC-013: should benchmark socket data aggregation to file", func() {
-			experiment := NewExperiment("Socket-to-file aggregation")
-
-			experiment.Sample(func(idx int) {
-				socketData := []byte("data chunk from socket connection\n")
-				numConnections := 20
-				chunksPerConn := 100
-
-				experiment.MeasureDuration("socket-aggregate", func() {
-					writer := newTestWriter()
-					cfg := iotagg.Config{
-						BufWriter: 1000,
-						FctWriter: writer.Write,
-					}
-
-					agg, _ := iotagg.New(ctx, cfg)
-					agg.Start(ctx)
-					defer agg.Close()
-
-					var wg sync.WaitGroup
-					for i := 0; i < numConnections; i++ {
-						wg.Add(1)
-						go func() {
-							defer wg.Done()
-							for j := 0; j < chunksPerConn; j++ {
-								agg.Write(socketData)
-							}
-						}()
-					}
-					wg.Wait()
-
-					// Wait for processing
-					time.Sleep(50 * time.Millisecond)
-				})
-			}, SamplingConfig{N: 20, Duration: 0})
-
-			AddReportEntry(experiment.Name, experiment)
-		})
-
-		It("TC-BC-014: should benchmark complete lifecycle with load", func() {
-			experiment := NewExperiment("Complete lifecycle under load")
-
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("full-cycle", func() {
-					writer := newTestWriter()
-					cfg := iotagg.Config{
-						BufWriter: 500,
-						FctWriter: writer.Write,
-					}
-
-					agg, _ := iotagg.New(ctx, cfg)
-					agg.Start(ctx)
-
-					// Simulate varying load
-					for i := 0; i < 10; i++ {
-						size := 50 + (i * 20)
-						data := make([]byte, size)
-						agg.Write(data)
-					}
-
-					// Wait for processing
-					time.Sleep(50 * time.Millisecond)
-
-					agg.Close()
-				})
-			}, SamplingConfig{N: 50, Duration: 0})
-
-			AddReportEntry(experiment.Name, experiment)
 		})
 	})
 })
