@@ -48,10 +48,6 @@ func (o *mod) Request() libreq.Request {
 	return o.getRequest()
 }
 
-func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
-	o.setPool(fct)
-}
-
 func (o *mod) getRequest() libreq.Request {
 	if i := o.r.Load(); i == nil {
 		return nil

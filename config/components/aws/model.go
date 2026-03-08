@@ -90,16 +90,6 @@ func (o *mod) getPool() montps.Pool {
 	}
 }
 
-func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
-	if fct == nil {
-		fct = func() montps.Pool {
-			return nil
-		}
-	}
-
-	o.p.Store(fct)
-}
-
 func (o *mod) getClient() libhtc.HttpClient {
 	if i := o.c.Load(); i == nil {
 		return libhtc.GetClient()

@@ -42,6 +42,40 @@ const (
 	defaultNameMonitor = "AWS Client"
 )
 
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
+	if fct == nil {
+		fct = func() montps.Pool {
+			return nil
+		}
+	}
+
+	o.p.Store(fct)
+}
+
+func (o *mod) GetMonitorNames() []string {
+	if o.getPool() == nil {
+		return nil
+	}
+
+	var key = o._getKey()
+
+	if len(key) < 1 {
+		return nil
+	}
+
+	return []string{key}
+}
+
+func (o *mod) HealthCheck(ctx context.Context) error {
+	if cli := o.GetAws(); cli == nil {
+		return fmt.Errorf("component not started")
+	} else if req := o.getRequest(); req == nil {
+		return cli.Config().Check(ctx)
+	} else {
+		return req.HealthCheck(ctx)
+	}
+}
+
 func (o *mod) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Config) error {
 	var (
 		e   error
@@ -158,14 +192,4 @@ func (o *mod) _setMonitor(mon montps.Monitor) error {
 	}
 
 	return pol.MonitorSet(mon)
-}
-
-func (o *mod) HealthCheck(ctx context.Context) error {
-	if cli := o.GetAws(); cli == nil {
-		return fmt.Errorf("component not started")
-	} else if req := o.getRequest(); req == nil {
-		return cli.Config().Check(ctx)
-	} else {
-		return req.HealthCheck(ctx)
-	}
 }

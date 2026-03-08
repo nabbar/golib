@@ -210,6 +210,6 @@ func newStatusConfig(m ...stsmdt.Mandatory) libsts.Config {
 			monsts.Warn: http.StatusAccepted,
 			monsts.KO:   http.StatusServiceUnavailable,
 		},
-		MandatoryComponent: libsts.ParseList(m...),
+		Component: libsts.ParseList(m...),
 	}
 }

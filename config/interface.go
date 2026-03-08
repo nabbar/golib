@@ -37,6 +37,7 @@ import (
 	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
 	liblog "github.com/nabbar/golib/logger"
+	montps "github.com/nabbar/golib/monitor/types"
 	shlcmd "github.com/nabbar/golib/shell/command"
 	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
@@ -186,9 +187,17 @@ type Config interface {
 	// ComponentKeys, ComponentStart, ComponentStop, ComponentReload.
 	cfgtps.ComponentList
 
-	// ComponentMonitor provides monitoring integration.
-	// Allows components to register health checks and metrics.
-	cfgtps.ComponentMonitor
+	// RegisterMonitorPool registers a monitor pool provider function.
+	// The component can use this to register health checks, metrics, and status endpoints.
+	// This method is called during the component's initialization (Init).
+	//
+	// The monitor pool typically provides:
+	//   - Health check registration.
+	//   - Metrics collection.
+	//   - Status reporting.
+	//
+	// Components should store this function and call it when they are ready to register monitors.
+	RegisterMonitorPool(p montps.FuncPool)
 
 	// GetShellCommand returns interactive shell commands for runtime management.
 	// Commands include: list (show components), start (start components),

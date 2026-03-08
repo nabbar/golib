@@ -58,6 +58,10 @@ type fakeComponent struct {
 	onRelAfter    cfgtps.FuncCptEvent
 }
 
+func (f *fakeComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (f *fakeComponent) Type() string { return "fake" }
 func (f *fakeComponent) Init(key string, _ context.Context, _ cfgtps.FuncCptGet, _ libvpr.FuncViper, _ libver.Version, _ liblog.FuncLog) {
 	f.key = key

@@ -253,6 +253,10 @@ var _ = Describe("Interface Functions", func() {
 // wrongComponent is a mock component type used for testing type safety
 type wrongComponent struct{}
 
+func (w *wrongComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (w *wrongComponent) Type() string { return "wrong" }
 func (w *wrongComponent) Init(string, context.Context, cfgtps.FuncCptGet, libvpr.FuncViper, libver.Version, liblog.FuncLog) {
 }

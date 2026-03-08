@@ -27,15 +27,45 @@
 package status_test
 
 import (
+	"context"
 	"net/http"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
+	cfgtypes "github.com/nabbar/golib/config/types"
+	liblog "github.com/nabbar/golib/logger"
 	monsts "github.com/nabbar/golib/monitor/status"
+	montps "github.com/nabbar/golib/monitor/types"
 	libsts "github.com/nabbar/golib/status"
 	stsctr "github.com/nabbar/golib/status/control"
+	libver "github.com/nabbar/golib/version"
+	libvpr "github.com/nabbar/golib/viper"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	spfcbr "github.com/spf13/cobra"
 )
+
+// mockComponent is a mock implementation of cfgtypes.Component for testing.
+type mockComponent struct {
+	monitorNames []string
+}
+
+func (m *mockComponent) Type() string { return "mock" }
+func (m *mockComponent) Init(key string, ctx context.Context, get cfgtypes.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
+}
+func (m *mockComponent) DefaultConfig(indent string) []byte                     { return nil }
+func (m *mockComponent) Dependencies() []string                                 { return nil }
+func (m *mockComponent) SetDependencies(d []string) error                       { return nil }
+func (m *mockComponent) RegisterFlag(Command *spfcbr.Command) error             { return nil }
+func (m *mockComponent) RegisterFuncStart(before, after cfgtypes.FuncCptEvent)  {}
+func (m *mockComponent) RegisterFuncReload(before, after cfgtypes.FuncCptEvent) {}
+func (m *mockComponent) IsStarted() bool                                        { return true }
+func (m *mockComponent) IsRunning() bool                                        { return true }
+func (m *mockComponent) Start() error                                           { return nil }
+func (m *mockComponent) Reload() error                                          { return nil }
+func (m *mockComponent) Stop()                                                  {}
+func (m *mockComponent) RegisterMonitorPool(p montps.FuncPool)                  {}
+func (m *mockComponent) GetMonitorNames() []string {
+	return m.monitorNames
+}
 
 var _ = Describe("Status/Config", func() {
 	var (
@@ -51,7 +81,8 @@ var _ = Describe("Status/Config", func() {
 		It("should validate empty config", func() {
 			cfg := libsts.Config{}
 			err := cfg.Validate()
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid config"))
 		})
 
 		It("should validate config with return codes", func() {
@@ -66,9 +97,28 @@ var _ = Describe("Status/Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should validate config with mandatory components", func() {
+		It("should not validate config with mandatory components", func() {
 			cfg := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
+					{
+						Mode: stsctr.Must,
+						Keys: []string{"database", "cache"},
+					},
+				},
+			}
+			err := cfg.Validate()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("invalid config"))
+		})
+
+		It("should validate config with mandatory components and return code", func() {
+			cfg := libsts.Config{
+				ReturnCode: map[monsts.Status]int{
+					monsts.OK:   200,
+					monsts.Warn: 207,
+					monsts.KO:   500,
+				},
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Must,
 						Keys: []string{"database", "cache"},
@@ -119,7 +169,7 @@ var _ = Describe("Status/Config", func() {
 		Context("with mandatory components", func() {
 			It("should configure Must mode", func() {
 				cfg := libsts.Config{
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Must,
 							Keys: []string{"critical-service"},
@@ -132,7 +182,7 @@ var _ = Describe("Status/Config", func() {
 
 			It("should configure Should mode", func() {
 				cfg := libsts.Config{
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Should,
 							Keys: []string{"optional-service"},
@@ -145,7 +195,7 @@ var _ = Describe("Status/Config", func() {
 
 			It("should configure AnyOf mode", func() {
 				cfg := libsts.Config{
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.AnyOf,
 							Keys: []string{"db-primary", "db-secondary", "db-tertiary"},
@@ -158,7 +208,7 @@ var _ = Describe("Status/Config", func() {
 
 			It("should configure Quorum mode", func() {
 				cfg := libsts.Config{
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Quorum,
 							Keys: []string{"node-1", "node-2", "node-3", "node-4", "node-5"},
@@ -171,7 +221,7 @@ var _ = Describe("Status/Config", func() {
 
 			It("should configure Ignore mode", func() {
 				cfg := libsts.Config{
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Ignore,
 							Keys: []string{"non-critical"},
@@ -184,7 +234,7 @@ var _ = Describe("Status/Config", func() {
 
 			It("should handle multiple mandatory groups", func() {
 				cfg := libsts.Config{
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Must,
 							Keys: []string{"database"},
@@ -202,6 +252,39 @@ var _ = Describe("Status/Config", func() {
 				status.SetConfig(cfg)
 				Expect(true).To(BeTrue())
 			})
+
+			It("should load mandatory components from config keys", func() {
+				// Arrange
+				mockComp := &mockComponent{
+					monitorNames: []string{"monitor1", "monitor2"},
+				}
+
+				status.RegisterGetConfigCpt(func(key string) cfgtypes.ComponentMonitor {
+					if key == "my-component" {
+						return mockComp
+					}
+					return nil
+				})
+
+				cfg := libsts.Config{
+					Component: []libsts.Mandatory{
+						{
+							Mode:       stsctr.Must,
+							ConfigKeys: []string{"my-component"},
+						},
+					},
+				}
+
+				// Act
+				status.SetConfig(cfg)
+
+				cnf := status.GetConfig()
+				Expect(cnf.Component).To(HaveLen(1))
+				Expect(cnf.Component[0].Mode).To(Equal(stsctr.Must))
+				Expect(cnf.Component[0].Keys).To(HaveLen(2))
+				Expect(cnf.Component[0].Keys[0]).To(Equal("monitor1"))
+				Expect(cnf.Component[0].Keys[1]).To(Equal("monitor2"))
+			})
 		})
 
 		Context("with complete configuration", func() {
@@ -212,7 +295,7 @@ var _ = Describe("Status/Config", func() {
 						monsts.Warn: http.StatusMultiStatus,
 						monsts.KO:   http.StatusServiceUnavailable,
 					},
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Must,
 							Keys: []string{"database", "api"},
@@ -254,7 +337,7 @@ var _ = Describe("Status/Config", func() {
 
 		It("should replace previous configuration", func() {
 			cfg1 := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Must,
 						Keys: []string{"old-service"},
@@ -264,7 +347,7 @@ var _ = Describe("Status/Config", func() {
 			status.SetConfig(cfg1)
 
 			cfg2 := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Should,
 						Keys: []string{"new-service"},

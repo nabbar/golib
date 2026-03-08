@@ -24,13 +24,19 @@
  *
  */
 
-package ldap
+package status
 
 import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
-func (o *mod) RegisterMonitorPool(_ montps.FuncPool) {
+// RegisterMonitorPool registers a function that provides access to a monitor pool.
+// This allows the status component to dynamically retrieve and check the status of monitors in the pool.
+// If the provided function is nil or returns nil, the registration is skipped.
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
+	if fct != nil && fct() != nil {
+		o.s.RegisterPool(fct)
+	}
 }
 
 func (o *mod) GetMonitorNames() []string {

@@ -377,6 +377,10 @@ var _ = Describe("Interface Functions", func() {
 // mockComponent is a mock implementation for testing wrong component types
 type mockComponent struct{}
 
+func (m *mockComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (m *mockComponent) Type() string { return "mock" }
 func (m *mockComponent) Init(string, context.Context, cfgtps.FuncCptGet, libvpr.FuncViper, libver.Version, liblog.FuncLog) {
 }

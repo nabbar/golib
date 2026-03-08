@@ -30,5 +30,9 @@ import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
-func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
+func (o *mod) RegisterMonitorPool(_ montps.FuncPool) {
+}
+
+func (o *mod) GetMonitorNames() []string {
+	return nil
 }

@@ -301,6 +301,10 @@ type testComponent struct {
 	onRelAfter    cfgtps.FuncCptEvent
 }
 
+func (t *testComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (t *testComponent) Type() string { return "test" }
 
 func (t *testComponent) Init(key string, _ context.Context, _ cfgtps.FuncCptGet, _ libvpr.FuncViper, _ libver.Version, _ liblog.FuncLog) {

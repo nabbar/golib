@@ -34,6 +34,34 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
+func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
+	o.setPool(fct)
+}
+
+func (o *mod) GetMonitorNames() []string {
+	var (
+		key = o._getKey()
+		vrs = o._getVersion()
+		ctx = o._getContext()
+	)
+
+	if o.getPool() == nil {
+		return nil
+	} else if len(key) < 1 {
+		return nil
+	} else if !o.IsStarted() {
+		return nil
+	} else if ctx == nil {
+		ctx = context.Background()
+	}
+
+	if m, e := o._newMonitor(ctx, vrs); e != nil {
+		return nil
+	} else {
+		return []string{m.Name()}
+	}
+}
+
 func (o *mod) _registerMonitor(cfg *libreq.Options) error {
 	var (
 		e   error

@@ -195,7 +195,7 @@ func (o *mod) _runCli() error {
 
 	o.s.Store(s)
 
-	return o._registerMonitor(prt)
+	return o.regMonitor(prt)
 }
 
 func (o *mod) _run() error {

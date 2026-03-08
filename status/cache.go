@@ -33,24 +33,24 @@ import (
 	monsts "github.com/nabbar/golib/monitor/status"
 )
 
-// timeCache is the default cache duration for status computation.
-// Status is recomputed only if the cached value is older than this duration.
+// timeCache is the default cache duration for the computed health status.
+// The status is recomputed only if the cached value is older than this duration.
+// This prevents excessive load from frequent health checks.
 const timeCache = 3 * time.Second
 
-// ch is the internal cache structure for storing computed status.
-// It uses atomic operations for thread-safe access without locks.
+// ch is the internal cache structure for storing the computed health status.
+// It uses atomic operations for thread-safe access, avoiding locks for high-performance
+// reads, which is crucial for endpoints that may be hit frequently.
 type ch struct {
-	m *atomic.Int32        // Maximum cache duration in seconds
-	t *atomic.Value        // Last computation time (time.Time)
-	c *atomic.Int64        // Cached status value (as int64)
-	f func() monsts.Status // Function to compute fresh status
+	m *atomic.Int32        // Maximum cache duration in seconds.
+	t *atomic.Value        // Timestamp of the last computation (time.Time).
+	c *atomic.Int64        // Cached status value, stored as an int64 representation of monsts.Status.
+	f func() monsts.Status // The function to call to compute a fresh status when the cache is stale.
 }
 
 // Max returns the maximum cache duration.
-// If a custom duration is set (via configuration), it's used.
-// Otherwise, returns the default timeCache (3 seconds).
-//
-// Returns the cache duration as time.Duration.
+// It returns a custom duration if one is set via configuration, otherwise it
+// falls back to the default `timeCache` duration (3 seconds).
 func (o *ch) Max() time.Duration {
 	if m := o.m.Load(); m > 0 {
 		return time.Duration(m) * time.Second
@@ -60,9 +60,7 @@ func (o *ch) Max() time.Duration {
 }
 
 // Time returns the timestamp of the last status computation.
-// Returns zero time if no computation has been performed yet.
-//
-// Returns the last computation time as time.Time.
+// It returns a zero time if no computation has been performed yet.
 func (o *ch) Time() time.Time {
 	if t := o.t.Load(); t != nil {
 		return t.(time.Time)
@@ -71,17 +69,16 @@ func (o *ch) Time() time.Time {
 	}
 }
 
-// IsCache returns the cached status if still valid, or computes a fresh status.
+// IsCache retrieves the health status, using a cached result if it is still valid.
 // The cache is considered valid if:
-//   - A previous computation exists (Time() is not zero)
-//   - The time since last computation is less than Max() duration
+//   - A previous computation has occurred (Time() is not zero).
+//   - The time elapsed since the last computation is less than the Max() duration.
 //
-// If the cache is invalid or doesn't exist, it calls the registered function
-// to compute a fresh status and updates the cache.
+// If the cache is stale or non-existent, this method triggers a fresh computation
+// by calling the registered function `f`, updates the cache with the new result
+// and timestamp, and then returns the new status.
 //
-// This method is thread-safe and uses atomic operations.
-//
-// Returns the current status (cached or freshly computed).
+// This method is thread-safe and optimized for high-concurrency scenarios.
 func (o *ch) IsCache() monsts.Status {
 	if t := o.Time(); !t.IsZero() && time.Since(t) < o.Max() {
 		r := o.c.Load()

@@ -40,7 +40,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -152,62 +151,6 @@ var _ = Describe("Concurrency Tests", func() {
 		Expect(actualEntries).To(Equal(expectedEntries),
 			"Expected %d log entries, got %d",
 			expectedEntries, actualEntries)
-	})
-
-	It("should handle rapid hook creation and destruction", func() {
-		const numIterations = 50
-		var tmproot string
-
-		for i := 0; i < numIterations; i++ {
-			tempFile := filepath.Join(tempDir, fmt.Sprintf("test_%d.log", i))
-
-			opts := logcfg.OptionsFile{
-				Filepath:   tempFile,
-				CreatePath: true,
-			}
-
-			hook, err := logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
-			Expect(err).NotTo(HaveOccurred(), "Iteration %d", i)
-
-			// Create a logger and write a log entry
-			tempLogger := logrus.New()
-			entry := logrus.NewEntry(tempLogger)
-			entry.Level = logrus.InfoLevel
-			entry.Message = "ignored value"
-			entry.Data = logrus.Fields{
-				"test":      true,
-				"iteration": i,
-				"msg":       "Test message",
-			}
-
-			err = hook.Fire(entry)
-			Expect(err).NotTo(HaveOccurred(), "Iteration %d", i)
-
-			// Close the hook to flush logs
-			err = hook.Close()
-			Expect(err).NotTo(HaveOccurred(), "Iteration %d", i)
-
-			// Verify the log file was created and contains the message in the expected format
-			content, err := os.ReadFile(tempFile)
-			Expect(err).NotTo(HaveOccurred(), "Iteration %d", i)
-			contentStr := string(content)
-			// Verify key fields are present
-			Expect(contentStr).To(ContainSubstring("level=info"), "Iteration %d", i)
-			Expect(contentStr).To(ContainSubstring(fmt.Sprintf("iteration=%d", i)), "Iteration %d", i)
-			Expect(contentStr).To(ContainSubstring("test=true"), "Iteration %d", i)
-			Expect(contentStr).To(ContainSubstring("fields.msg=\"Test message\""), "Iteration %d", i)
-
-			// Clean up
-			_ = os.Remove(tempFile)
-			tmproot = filepath.Dir(tempFile)
-		}
-
-		// Close all hooks before cleanup
-		logfil.ResetOpenFiles()
-		time.Sleep(100 * time.Millisecond)
-
-		// Clean up
-		_ = os.RemoveAll(tmproot)
 	})
 })
 

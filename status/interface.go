@@ -18,62 +18,23 @@
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * OUT of OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
  *
  */
 
-// Package status provides a comprehensive health check and status monitoring system for HTTP APIs.
-//
-// This package integrates with the Gin web framework to expose status endpoints that report
-// the health of an application and its components. It supports multiple output formats (JSON/text),
-// verbosity levels (short/full), and configurable health check strategies.
-//
-// Key features:
-//   - HTTP endpoint exposure via Gin middleware
-//   - Multiple output formats (JSON and plain text)
-//   - Configurable verbosity (short status or detailed component information)
-//   - Component health monitoring with flexible control modes
-//   - Cached status computation to reduce overhead
-//   - Application version and build information tracking
-//
-// The package works in conjunction with:
-//   - github.com/nabbar/golib/monitor for component monitoring
-//   - github.com/nabbar/golib/errors for error handling
-//   - github.com/nabbar/golib/version for version information
-//   - github.com/gin-gonic/gin for HTTP routing
-//
-// Basic usage:
-//
-//	import (
-//	    "github.com/nabbar/golib/status"
-//	    "github.com/nabbar/golib/context"
-//	)
-//
-//	// Create a new status instance
-//	sts := status.New(ctx)
-//
-//	// Set application information
-//	sts.SetInfo("MyApp", "v1.0.0", "abc123")
-//
-//	// Register monitor pool
-//	sts.RegisterPool(func() montps.Pool {
-//	    return myMonitorPool
-//	})
-//
-//	// Expose as Gin middleware
-//	router.GET("/status", func(c *gin.Context) {
-//	    sts.MiddleWare(c)
-//	})
 package status
 
 import (
 	"context"
+	"encoding"
+	"encoding/json"
 	"sync"
 	"sync/atomic"
 
 	ginsdk "github.com/gin-gonic/gin"
+	cfgtps "github.com/nabbar/golib/config/types"
 	libctx "github.com/nabbar/golib/context"
 	liberr "github.com/nabbar/golib/errors"
 	monsts "github.com/nabbar/golib/monitor/status"
@@ -81,116 +42,89 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
-// Route defines the HTTP routing interface for exposing status endpoints.
-// It provides methods to integrate status checks into Gin web applications.
+// FuncGetCfgCpt defines a function type for retrieving a component by its key.
+// This is used for dynamically loading monitor names from component configurations.
+type FuncGetCfgCpt func(key string) cfgtps.ComponentMonitor
+
+// Route defines the HTTP routing interface for exposing the status endpoint.
 type Route interface {
-	// Expose handles the status endpoint request from a generic context.
-	// If the context is a Gin context, it delegates to MiddleWare.
-	// This method is typically used as a Gin route handler.
+	// Expose provides a generic handler for status requests that can be used
+	// with any framework that uses `context.Context`.
 	Expose(ctx context.Context)
 
-	// MiddleWare is the Gin middleware handler function that processes status requests.
-	// It supports query parameters and headers for controlling output format:
-	//   - Query param "short" or header "X-Verbose": controls verbosity (true = short output)
-	//   - Query param "format" or header "Accept": controls output format (text/plain or application/json)
-	//
-	// The response includes application info, overall status, and optionally component details.
+	// MiddleWare is a Gin middleware that processes status requests, handling
+	// content negotiation for format and verbosity.
 	MiddleWare(c *ginsdk.Context)
 
-	// SetErrorReturn registers a custom error return model factory for formatting errors.
-	// The function should return a new instance of liberr.ReturnGin for each call.
-	// If not set, a default return model is used.
-	// See github.com/nabbar/golib/errors for ReturnGin interface details.
+	// SetErrorReturn registers a custom factory function for creating error
+	// formatters, allowing for customized error responses.
 	SetErrorReturn(f func() liberr.ReturnGin)
 }
 
-// Info defines the interface for setting application version and build information.
-// This information is included in status endpoint responses.
+// Info defines the interface for setting the application's version and build information.
 type Info interface {
 	// SetInfo manually sets the application name, release version, and build hash.
-	// These values are displayed in status responses to identify the running application.
-	//
-	// Parameters:
-	//   - name: application or service name
-	//   - release: version string (e.g., "v1.2.3")
-	//   - hash: build commit hash or identifier
 	SetInfo(name, release, hash string)
 
-	// SetVersion sets application information from a Version object.
-	// This is the preferred method when using github.com/nabbar/golib/version.
-	// It automatically extracts name, release, build hash, and build time.
+	// SetVersion sets the application information from a `version.Version` object,
+	// which is the recommended approach.
 	SetVersion(vers libver.Version)
 }
 
-// Pool defines the interface for managing monitor components.
-// It extends montps.PoolStatus with pool registration capabilities.
-// See github.com/nabbar/golib/monitor/types for PoolStatus interface details.
+// Pool defines the interface for managing the monitor components that contribute
+// to the overall health status.
 type Pool interface {
 	montps.PoolStatus
 
-	// RegisterPool registers a function that returns the monitor pool.
-	// The pool contains all monitored components whose health contributes to overall status.
-	// The function is called each time the status is computed, allowing dynamic pool updates.
-	//
-	// See github.com/nabbar/golib/monitor/types for FuncPool and Pool details.
+	// RegisterPool registers a function that provides the monitor pool. This
+	// dependency injection allows the pool to be managed externally.
 	RegisterPool(fct montps.FuncPool)
 }
 
-// Status is the main interface combining all status functionality.
-// It provides a complete solution for application health monitoring and status reporting.
+// Status is the main interface that combines all health status functionality.
+// It provides a complete solution for application health monitoring and reporting.
 type Status interface {
+	encoding.TextMarshaler
+	json.Marshaler
+
 	Route
 	Info
 	Pool
 
-	// SetConfig applies configuration for status computation and HTTP response codes.
-	// The configuration controls:
-	//   - HTTP status codes returned for each health state (OK, Warn, KO)
-	//   - Mandatory component definitions and control modes
-	//
-	// See Config type for configuration details.
+	// RegisterGetConfigCpt registers a function to retrieve component configurations
+	// by key, enabling dynamic resolution of monitor names.
+	RegisterGetConfigCpt(fct FuncGetCfgCpt)
+
+	// SetConfig applies a configuration for status computation and HTTP response codes.
 	SetConfig(cfg Config)
 
-	// IsHealthy checks if the overall status or specific components are healthy.
-	// Returns true if status is OK or Warn (>= Warn threshold).
-	//
-	// Parameters:
-	//   - name: optional component names to check; if empty, checks overall status
-	//
-	// This is useful for basic health checks that tolerate warnings.
+	// GetConfig returns the current configuration used for status computation.
+	GetConfig() Config
+
+	// IsHealthy checks if the overall system or specific components are healthy
+	// (i.e., their status is `OK` or `WARN`).
 	IsHealthy(name ...string) bool
 
-	// IsStrictlyHealthy checks if the overall status or specific components are strictly healthy.
-	// Returns true only if status is OK (no warnings or errors).
-	//
-	// Parameters:
-	//   - name: optional component names to check; if empty, checks overall status
-	//
-	// This is useful for strict health checks that require perfect health.
+	// IsStrictlyHealthy checks if the overall system or specific components are
+	// strictly healthy (i.e., their status is `OK`).
 	IsStrictlyHealthy(name ...string) bool
 
-	// IsCacheHealthy checks if the cached overall status is healthy (>= Warn).
-	// Uses cached status value if within cache duration, otherwise recomputes.
-	// This method is more efficient than IsHealthy for frequent checks.
+	// IsCacheHealthy checks if the cached overall status is healthy (`OK` or `WARN`).
+	// This is a high-performance check suitable for frequent calls.
 	IsCacheHealthy() bool
 
-	// IsCacheStrictlyHealthy checks if the cached overall status is strictly healthy (== OK).
-	// Uses cached status value if within cache duration, otherwise recomputes.
-	// This method is more efficient than IsStrictlyHealthy for frequent checks.
+	// IsCacheStrictlyHealthy checks if the cached overall status is strictly `OK`.
+	// This is a high-performance check suitable for frequent calls.
 	IsCacheStrictlyHealthy() bool
 }
 
-// New creates a new Status instance with the given context function.
-// The context function is used to obtain the current context for operations.
+// New creates a new `Status` instance.
 //
-// Parameters:
-//   - ctx: function that returns the current context, typically from github.com/nabbar/golib/context
-//
-// Returns a Status instance that must be configured before use:
-//   - Call SetInfo or SetVersion to set application information
-//   - Call RegisterPool to connect a monitor pool
-//   - Optionally call SetConfig to customize behavior
-//   - Optionally call SetErrorReturn to customize error formatting
+// The returned instance must be configured before use:
+//   - Call `SetInfo` or `SetVersion` to set application information.
+//   - Call `RegisterPool` to connect a monitor pool.
+//   - Optionally, call `SetConfig` to customize behavior and `SetErrorReturn` to
+//     customize error formatting.
 func New(ctx context.Context) Status {
 	s := &sts{
 		m: sync.RWMutex{},

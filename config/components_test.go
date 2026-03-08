@@ -268,6 +268,10 @@ type simpleComponent struct {
 	onRelAfter    cfgtps.FuncCptEvent
 }
 
+func (s *simpleComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (s *simpleComponent) Type() string {
 	if s.typ == "" {
 		return "simple"

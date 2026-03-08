@@ -146,6 +146,10 @@ var _ = Describe("Interface Functions", func() {
 
 type wrongComponent struct{}
 
+func (w *wrongComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (w *wrongComponent) Type() string { return "wrong" }
 func (w *wrongComponent) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
 }

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2020 Nicolas JUHEL
+ * Copyright (c) 2022 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,34 +29,45 @@ package status
 import (
 	"fmt"
 
+	libcfg "github.com/nabbar/golib/config"
 	liberr "github.com/nabbar/golib/errors"
 )
 
 const (
-	// ErrorParamEmpty occurs when required parameters are missing. For example,
-	// this can happen when attempting to marshal a status response without having
-	// first set the application info (name, release, hash).
-	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgStatus
-
-	// ErrorValidatorError occurs when the configuration validation fails. This
-	// error is returned by `Config.Validate()` when the provided configuration
-	// does not meet the required constraints (e.g., missing fields).
+	// ErrorParamEmpty indicates that a required parameter is empty.
+	ErrorParamEmpty liberr.CodeError = iota + libcfg.MinErrorComponentStatus
+	// ErrorParamInvalid indicates that a parameter is invalid.
+	ErrorParamInvalid
+	// ErrorComponentNotInitialized indicates that the component has not been initialized.
+	ErrorComponentNotInitialized
+	// ErrorConfigInvalid indicates that the configuration is invalid.
+	ErrorConfigInvalid
+	// ErrorValidatorError indicates an error during configuration validation.
 	ErrorValidatorError
 )
 
+// init registers the error codes and messages with the global error manager.
+// It panics if there is a collision with existing error codes.
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision with package golib/status"))
+		panic(fmt.Errorf("error code collision with package golib/config/components/head"))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
+// getMessage returns the error message corresponding to the given error code.
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:
-		return "given parameters are empty"
-	case ErrorValidatorError:
+		return "at least one given parameters is empty"
+	case ErrorParamInvalid:
+		return "at least one given parameters is invalid"
+	case ErrorComponentNotInitialized:
+		return "this component seems to not be correctly initialized"
+	case ErrorConfigInvalid:
 		return "invalid config"
+	case ErrorValidatorError:
+		return "cannot validate config"
 	}
 
 	return liberr.NullMessage

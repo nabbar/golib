@@ -43,7 +43,21 @@ func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 	o.x.Store(keyFctMonitorPool, fct)
 }
 
-func (o *mod) _getMonitorPool() montps.Pool {
+func (o *mod) GetMonitorNames() []string {
+	if o.getMonitorPool() == nil {
+		return nil
+	}
+
+	var key = o.getKey()
+
+	if len(key) < 1 {
+		return nil
+	}
+
+	return []string{key}
+}
+
+func (o *mod) getMonitorPool() montps.Pool {
 	if i, l := o.x.Load(keyFctMonitorPool); !l || i == nil {
 		return nil
 	} else if f, k := i.(montps.FuncPool); !k || f == nil {
@@ -53,7 +67,7 @@ func (o *mod) _getMonitorPool() montps.Pool {
 	}
 }
 
-func (o *mod) _registerMonitor(cfg *montps.Config) error {
+func (o *mod) regMonitor(cfg *montps.Config) error {
 	var (
 		e   error
 		key = o.getKey()
@@ -61,7 +75,7 @@ func (o *mod) _registerMonitor(cfg *montps.Config) error {
 		vrs = o.getVersion()
 	)
 
-	if o._getMonitorPool() == nil {
+	if o.getMonitorPool() == nil {
 		return nil
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
@@ -71,8 +85,8 @@ func (o *mod) _registerMonitor(cfg *montps.Config) error {
 		return ErrorComponentStart.Error(nil)
 	}
 
-	if mon = o._getMonitor(key); mon == nil {
-		if mon, e = o._newMonitor(o.x, vrs); e != nil {
+	if mon = o.getMonitor(key); mon == nil {
+		if mon, e = o.newMonitor(o.x, vrs); e != nil {
 			return e
 		} else if mon == nil {
 			return nil
@@ -91,14 +105,14 @@ func (o *mod) _registerMonitor(cfg *montps.Config) error {
 
 	if e = mon.Restart(o.x.GetContext()); e != nil {
 		return e
-	} else if e = o._setMonitor(mon); e != nil {
+	} else if e = o.setMonitor(mon); e != nil {
 		return e
 	}
 
 	return nil
 }
 
-func (o *mod) _newMonitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
+func (o *mod) newMonitor(ctx context.Context, vrs libver.Version) (montps.Monitor, error) {
 	if s := o.s.Load(); s != nil {
 		return s.Monitor(ctx, vrs)
 	}
@@ -106,10 +120,10 @@ func (o *mod) _newMonitor(ctx context.Context, vrs libver.Version) (montps.Monit
 	return nil, ErrorComponentNotInitialized.Error(nil)
 }
 
-func (o *mod) _getMonitor(key string) montps.Monitor {
+func (o *mod) getMonitor(key string) montps.Monitor {
 	var (
 		mon montps.Monitor
-		pol = o._getMonitorPool()
+		pol = o.getMonitorPool()
 	)
 
 	if pol == nil {
@@ -120,8 +134,8 @@ func (o *mod) _getMonitor(key string) montps.Monitor {
 	return mon
 }
 
-func (o *mod) _setMonitor(mon montps.Monitor) error {
-	var pol = o._getMonitorPool()
+func (o *mod) setMonitor(mon montps.Monitor) error {
+	var pol = o.getMonitorPool()
 
 	if pol == nil {
 		return nil

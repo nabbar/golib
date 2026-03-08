@@ -37,7 +37,21 @@ func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 	o.x.Store(keyFctMonitorPool, fct)
 }
 
-func (o *mod) _getMonitorPool() montps.Pool {
+func (o *mod) GetMonitorNames() []string {
+	if o.getMonitorPool() == nil {
+		return nil
+	}
+
+	var key = o._getKey()
+
+	if len(key) < 1 {
+		return nil
+	}
+
+	return []string{key}
+}
+
+func (o *mod) getMonitorPool() montps.Pool {
 	if i, l := o.x.Load(keyFctMonitorPool); !l {
 		return nil
 	} else if i == nil {
@@ -59,7 +73,7 @@ func (o *mod) _registerMonitor(cfg *libdbs.Config) error {
 		vrs = o._getVersion()
 	)
 
-	if o._getMonitorPool() == nil {
+	if o.getMonitorPool() == nil {
 		return nil
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
@@ -108,7 +122,7 @@ func (o *mod) _newMonitor(vrs libver.Version) (libmon.Monitor, error) {
 func (o *mod) _getMonitor(key string) libmon.Monitor {
 	var (
 		mon libmon.Monitor
-		pol = o._getMonitorPool()
+		pol = o.getMonitorPool()
 	)
 
 	if pol == nil {
@@ -125,7 +139,7 @@ func (o *mod) _getMonitor(key string) libmon.Monitor {
 }
 
 func (o *mod) _setMonitor(mon libmon.Monitor) error {
-	var pol = o._getMonitorPool()
+	var pol = o.getMonitorPool()
 
 	if pol == nil {
 		return nil

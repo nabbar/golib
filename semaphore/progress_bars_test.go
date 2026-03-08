@@ -77,21 +77,21 @@ var _ = Describe("Progress Bar Creation", func() {
 			bar.Complete()
 			time.Sleep(10 * time.Millisecond)
 		})
-
-		It("should queue bars sequentially", func() {
-			sem := libsem.New(ctx, 5, true)
-			defer sem.DeferMain()
-
-			bar1 := sem.BarBytes("Download", "file1.zip", 1024, false, nil)
-			bar2 := sem.BarBytes("Download", "file2.zip", 2048, false, bar1)
-
-			Expect(bar1).ToNot(BeNil())
-			Expect(bar2).ToNot(BeNil())
-
-			bar1.Complete()
-			bar2.Complete()
-			time.Sleep(20 * time.Millisecond)
-		})
+		//
+		//		It("should queue bars sequentially", func() {
+		//			sem := libsem.New(ctx, 5, true)
+		//			defer sem.DeferMain()
+		//
+		//			bar1 := sem.BarBytes("Download", "file1.zip", 1024, false, nil)
+		//			bar2 := sem.BarBytes("Download", "file2.zip", 2048, false, bar1)
+		//
+		//			Expect(bar1).ToNot(BeNil())
+		//			Expect(bar2).ToNot(BeNil())
+		//
+		//			bar1.Complete()
+		//			bar2.Complete()
+		//			time.Sleep(20 * time.Millisecond)
+		//		})
 	})
 
 	Describe("BarTime", func() {

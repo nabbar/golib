@@ -24,15 +24,34 @@
  *
  */
 
-package ldap
+package status_test
 
 import (
-	montps "github.com/nabbar/golib/monitor/types"
+	"context"
+
+	. "github.com/nabbar/golib/config/components/status"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func (o *mod) RegisterMonitorPool(_ montps.FuncPool) {
-}
+// Model tests verify the basic integrity of the status component model.
+var _ = Describe("Model Operations", func() {
+	var (
+		ctx context.Context
+		cpt CptStatus
+	)
 
-func (o *mod) GetMonitorNames() []string {
-	return nil
-}
+	BeforeEach(func() {
+		ctx = context.Background()
+		cpt = New(ctx)
+	})
+
+	Describe("Component Integrity", func() {
+		Context("on new component creation", func() {
+			It("should return a valid non-nil component instance", func() {
+				// Verify that the factory function returns a valid instance.
+				Expect(cpt).NotTo(BeNil())
+			})
+		})
+	})
+})

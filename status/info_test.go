@@ -327,9 +327,9 @@ var _ = Describe("Status/Info", func() {
 			err = json.Unmarshal(data, &result)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(result["Name"]).To(Equal("format-test"))
-			Expect(result["Release"]).To(Equal("v1.0.0"))
-			Expect(result["Hash"]).To(Equal("abc123"))
+			Expect(result["name"]).To(Equal("format-test"))
+			Expect(result["release"]).To(Equal("v1.0.0"))
+			Expect(result["hash"]).To(Equal("abc123"))
 		})
 
 		It("should include info in text output", func() {

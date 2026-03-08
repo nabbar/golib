@@ -38,58 +38,59 @@ import (
 )
 
 const (
-	// keyConfigReturnCode is the internal key for storing HTTP return codes in context config.
+	// keyConfigReturnCode is the internal key for storing HTTP return codes in the context config.
 	keyConfigReturnCode = "cfgReturnCode"
 
-	// keyConfigMandatory is the internal key for storing mandatory component list in context config.
+	// keyConfigMandatory is the internal key for storing the mandatory component list in the context config.
 	keyConfigMandatory = "cfgMandatory"
 )
 
 // Mandatory defines a group of components with a specific control mode.
-// It allows grouping multiple components and defining how their health affects overall status.
+// It allows grouping multiple components and defining how their collective health
+// affects the overall application status.
 //
-// See github.com/nabbar/golib/status/control for Mode details.
+// See github.com/nabbar/golib/status/control for details on control modes.
 type Mandatory struct {
-	// Mode defines how this group of components affects overall status.
+	// Mode defines how this group of components affects the overall status.
 	// Possible values: Ignore, Should, AnyOf, Quorum.
-	Mode stsctr.Mode
+	Mode stsctr.Mode `mapstructure:"mode" json:"mode" yaml:"mode" toml:"mode" validate:"required"`
 
-	// Keys is the list of component names in this group.
-	// Component names must match those registered in the monitor pool.
-	Keys []string
+	// Keys is a list of monitor names belonging to this group.
+	// These names must match the monitors registered in the monitor pool.
+	Keys []string `mapstructure:"keys" json:"keys" yaml:"keys" toml:"keys"`
+
+	// ConfigKeys is used to specify the keys of config components. The monitor
+	// names from these components will be dynamically added to this mandatory group.
+	ConfigKeys []string `mapstructure:"configKeys" json:"configKeys" yaml:"configKeys" toml:"configKeys"`
 }
 
 // ParseMandatory converts a mandatory.Mandatory interface to a Mandatory struct.
 // This is a utility function for converting between the interface and struct representations.
 //
 // Parameters:
-//   - m: the mandatory interface to convert
+//   - m: The mandatory.Mandatory interface to convert.
 //
 // Returns a Mandatory struct with the mode and keys from the interface.
 // Returns an empty Mandatory struct if m is nil.
-//
-// See github.com/nabbar/golib/status/mandatory for the Mandatory interface.
 func ParseMandatory(m stsmdt.Mandatory) Mandatory {
 	if m == nil {
 		return Mandatory{}
 	}
 
 	return Mandatory{
-		Mode: m.GetMode(),
-		Keys: m.KeyList(),
+		Mode:       m.GetMode(),
+		Keys:       m.KeyList(),
+		ConfigKeys: nil,
 	}
 }
 
 // ParseList converts a slice of mandatory.Mandatory interfaces to Mandatory structs.
-// This is a utility function for bulk conversion between interface and struct representations.
+// This is a utility function for bulk conversion.
 //
 // Parameters:
-//   - m: variadic list of mandatory interfaces to convert
+//   - m: A variadic list of mandatory.Mandatory interfaces to convert.
 //
-// Returns a slice of Mandatory structs. Nil entries are skipped.
-// This function is useful when loading configuration or marshaling/unmarshaling.
-//
-// See github.com/nabbar/golib/status/mandatory for the Mandatory interface.
+// Returns a slice of Mandatory structs. Nil entries in the input are skipped.
 func ParseList(m ...stsmdt.Mandatory) []Mandatory {
 	r := make([]Mandatory, 0, len(m))
 	for _, i := range m {
@@ -103,25 +104,21 @@ func ParseList(m ...stsmdt.Mandatory) []Mandatory {
 // Config defines the configuration for status computation and HTTP responses.
 // It controls HTTP status codes and component health evaluation strategies.
 type Config struct {
-	// ReturnCode maps health status to HTTP status codes.
-	// Keys: monsts.OK, monsts.Warn, monsts.KO
+	// ReturnCode maps health status (OK, Warn, KO) to HTTP status codes.
 	// Default values if not set:
-	//   - monsts.OK: 200 (http.StatusOK)
+	//   - monsts.OK:   200 (http.StatusOK)
 	//   - monsts.Warn: 207 (http.StatusMultiStatus)
-	//   - monsts.KO: 500 (http.StatusInternalServerError)
-	ReturnCode map[monsts.Status]int
+	//   - monsts.KO:   500 (http.StatusInternalServerError)
+	ReturnCode map[monsts.Status]int `mapstructure:"return-code" json:"return-code" yaml:"return-code" toml:"return-code" validate:"required"`
 
-	// MandatoryComponent defines groups of components with control modes.
-	// Each group specifies how its components' health affects overall status.
-	// See Mandatory type and github.com/nabbar/golib/status/control for details.
-	MandatoryComponent []Mandatory
+	// Component defines groups of components with specific control modes.
+	// Each group specifies how its components' health affects the overall status.
+	Component []Mandatory `mapstructure:"component" json:"component" yaml:"component" toml:"component" validate:""`
 }
 
-// Validate checks if the configuration is valid.
-// It uses the validator package to validate struct fields.
+// Validate checks if the configuration is valid using struct field tags.
 //
-// Returns an error if validation fails, nil otherwise.
-// The error will contain details about which fields failed validation.
+// Returns an error if validation fails, otherwise nil.
 func (o Config) Validate() error {
 	var e = ErrorValidatorError.Error(nil)
 
@@ -131,7 +128,7 @@ func (o Config) Validate() error {
 		}
 
 		for _, er := range err.(libval.ValidationErrors) {
-			//nolint #goerr113
+			//nolint
 			e.Add(fmt.Errorf("config field '%s' is not validated by constraint '%s'", er.Namespace(), er.ActualTag()))
 		}
 	}
@@ -143,16 +140,57 @@ func (o Config) Validate() error {
 	return e
 }
 
+// RegisterGetConfigCpt registers a function that retrieves a component by its key.
+// This function is used to resolve monitor names from component configurations.
+func (o *sts) RegisterGetConfigCpt(fct FuncGetCfgCpt) {
+	o.m.Lock()
+	defer o.m.Unlock()
+	o.n = fct
+}
+
+func (o *sts) GetConfig() Config {
+	var (
+		cfg = Config{
+			ReturnCode: make(map[monsts.Status]int, 0),
+			Component:  make([]Mandatory, 0),
+		}
+	)
+
+	cfg.ReturnCode[monsts.KO] = http.StatusInternalServerError
+	cfg.ReturnCode[monsts.Warn] = http.StatusMultiStatus
+	cfg.ReturnCode[monsts.OK] = http.StatusOK
+
+	if i, l := o.x.Load(keyConfigReturnCode); !l || i == nil {
+		//
+	} else if r, k := i.(map[monsts.Status]int); !k || len(r) < 1 {
+		//
+	} else {
+		cfg.ReturnCode = r
+	}
+
+	if i, l := o.x.Load(keyConfigMandatory); !l || i == nil {
+		//
+	} else if r, k := i.(stslmd.ListMandatory); !k || r == nil || r.Len() < 1 {
+		//
+	} else {
+		r.Walk(func(m stsmdt.Mandatory) bool {
+			cfg.Component = append(cfg.Component, Mandatory{
+				Mode: m.GetMode(),
+				Keys: m.KeyList(),
+			})
+			return true
+		})
+	}
+
+	return cfg
+}
+
 // SetConfig applies the given configuration to the status instance.
-// It sets HTTP return codes and mandatory component definitions.
+// It configures HTTP return codes and mandatory component groups.
+// If ReturnCode is empty, default values are used.
 //
-// If ReturnCode is empty, default values are used:
-//   - OK: 200, Warn: 207, KO: 500
-//
-// The configuration is stored in thread-safe context storage.
-//
-// Parameters:
-//   - cfg: the configuration to apply
+// This method processes both static 'Keys' and dynamic 'ConfigKeys' to build
+// the list of mandatory monitors.
 func (o *sts) SetConfig(cfg Config) {
 	if len(cfg.ReturnCode) < 1 {
 		var def = make(map[monsts.Status]int, 0)
@@ -167,11 +205,18 @@ func (o *sts) SetConfig(cfg Config) {
 
 	var lst = stslmd.New()
 
-	if len(cfg.MandatoryComponent) > 0 {
-		for _, i := range cfg.MandatoryComponent {
+	if len(cfg.Component) > 0 {
+		for _, i := range cfg.Component {
 			var m = stsmdt.New()
 			m.SetMode(i.Mode)
 			m.KeyAdd(i.Keys...)
+			if len(i.ConfigKeys) > 0 && o.n != nil {
+				for _, k := range i.ConfigKeys {
+					if c := o.n(k); c != nil {
+						m.KeyAdd(c.GetMonitorNames()...)
+					}
+				}
+			}
 			lst.Add(m)
 		}
 	}
@@ -180,12 +225,7 @@ func (o *sts) SetConfig(cfg Config) {
 }
 
 // cfgGetReturnCode retrieves the HTTP status code for a given health status.
-// Returns http.StatusInternalServerError (500) if not configured or on error.
-//
-// Parameters:
-//   - s: the health status to get the HTTP code for
-//
-// Returns the configured HTTP status code.
+// It returns http.StatusInternalServerError (500) if the status is not configured.
 func (o *sts) cfgGetReturnCode(s monsts.Status) int {
 	if i, l := o.x.Load(keyConfigReturnCode); !l {
 		return http.StatusInternalServerError
@@ -199,10 +239,7 @@ func (o *sts) cfgGetReturnCode(s monsts.Status) int {
 }
 
 // cfgGetMandatory retrieves the list of mandatory component configurations.
-// Returns nil if not configured or on error.
-//
-// Returns the ListMandatory containing all component groups and their control modes.
-// See github.com/nabbar/golib/status/listmandatory for ListMandatory details.
+// It returns nil if no mandatory components are configured.
 func (o *sts) cfgGetMandatory() stslmd.ListMandatory {
 	if i, l := o.x.Load(keyConfigMandatory); !l {
 		return nil
@@ -214,13 +251,7 @@ func (o *sts) cfgGetMandatory() stslmd.ListMandatory {
 }
 
 // cfgGetMode retrieves the control mode for a specific component.
-// Returns stsctr.Ignore if the component is not in any mandatory group.
-//
-// Parameters:
-//   - key: the component name to get the mode for
-//
-// Returns the control mode (Ignore, Should, AnyOf, or Quorum).
-// See github.com/nabbar/golib/status/control for Mode details.
+// It returns stsctr.Ignore if the component is not in any mandatory group.
 func (o *sts) cfgGetMode(key string) stsctr.Mode {
 	if l := o.cfgGetMandatory(); l == nil {
 		return stsctr.Ignore
@@ -230,12 +261,7 @@ func (o *sts) cfgGetMode(key string) stsctr.Mode {
 }
 
 // cfgGetOne retrieves all component names in the same group as the given component.
-// This is used for AnyOf and Quorum modes to find all related components.
-//
-// Parameters:
-//   - key: the component name to find the group for
-//
-// Returns a slice of component names in the same group, or empty slice if not found.
+// This is used for 'AnyOf' and 'Quorum' modes to find all related components.
 func (o *sts) cfgGetOne(key string) []string {
 	if l := o.cfgGetMandatory(); l == nil {
 		return make([]string, 0)

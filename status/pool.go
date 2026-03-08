@@ -8,7 +8,7 @@
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
+ * furnished to do so, to subject to the following conditions:
  *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
@@ -32,11 +32,9 @@ import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
-// _getPool retrieves the current monitor pool by calling the registered function.
-// Returns nil if no pool function is registered or if the function returns nil.
-// This is an internal helper method.
-//
-// Returns the monitor pool or nil.
+// _getPool retrieves the current monitor pool by calling the registered provider function.
+// This internal helper method centralizes access to the dynamically provided pool.
+// It returns nil if no pool provider is registered or if the provider returns nil.
 func (o *sts) _getPool() montps.Pool {
 	o.m.RLock()
 	defer o.m.RUnlock()
@@ -50,14 +48,10 @@ func (o *sts) _getPool() montps.Pool {
 	}
 }
 
-// MonitorAdd adds a new monitor to the pool.
+// MonitorAdd adds a new monitor to the registered pool.
 // The monitor's name must be unique within the pool.
 //
-// Parameters:
-//   - mon: the monitor to add
-//
-// Returns an error if the pool is not defined or if the monitor cannot be added.
-// See github.com/nabbar/golib/monitor/types for Monitor interface details.
+// Returns an error if the pool is not defined or if adding the monitor fails.
 func (o *sts) MonitorAdd(mon montps.Monitor) error {
 	if p := o._getPool(); p == nil {
 		return fmt.Errorf("monitor pool not defined")
@@ -66,13 +60,10 @@ func (o *sts) MonitorAdd(mon montps.Monitor) error {
 	}
 }
 
-// MonitorGet retrieves a monitor by name from the pool.
+// MonitorGet retrieves a monitor by its name from the registered pool.
 //
-// Parameters:
-//   - name: the name of the monitor to retrieve
-//
-// Returns the monitor if found, nil otherwise or if pool is not defined.
-// See github.com/nabbar/golib/monitor/types for Monitor interface details.
+// Returns the monitor if found, otherwise nil. It also returns nil if the pool
+// is not defined.
 func (o *sts) MonitorGet(name string) montps.Monitor {
 	if p := o._getPool(); p == nil {
 		return nil
@@ -81,14 +72,10 @@ func (o *sts) MonitorGet(name string) montps.Monitor {
 	}
 }
 
-// MonitorSet updates or adds a monitor in the pool.
-// If a monitor with the same name exists, it's replaced; otherwise, it's added.
+// MonitorSet updates an existing monitor or adds a new one to the pool.
+// If a monitor with the same name already exists, it is replaced.
 //
-// Parameters:
-//   - mon: the monitor to set
-//
-// Returns an error if the pool is not defined or if the monitor cannot be set.
-// See github.com/nabbar/golib/monitor/types for Monitor interface details.
+// Returns an error if the pool is not defined or if setting the monitor fails.
 func (o *sts) MonitorSet(mon montps.Monitor) error {
 	if p := o._getPool(); p == nil {
 		return fmt.Errorf("monitor pool not defined")
@@ -97,11 +84,9 @@ func (o *sts) MonitorSet(mon montps.Monitor) error {
 	}
 }
 
-// MonitorDel removes a monitor from the pool by name.
-// Does nothing if the pool is not defined or if the monitor doesn't exist.
-//
-// Parameters:
-//   - name: the name of the monitor to remove
+// MonitorDel removes a monitor from the pool by its name.
+// This operation is silent and does nothing if the pool is not defined or if
+// the monitor does not exist.
 func (o *sts) MonitorDel(name string) {
 	if p := o._getPool(); p == nil {
 		return
@@ -110,7 +95,7 @@ func (o *sts) MonitorDel(name string) {
 	}
 }
 
-// MonitorList returns the names of all monitors in the pool.
+// MonitorList returns the names of all monitors currently in the pool.
 //
 // Returns a slice of monitor names, or nil if the pool is not defined.
 func (o *sts) MonitorList() []string {
@@ -121,32 +106,28 @@ func (o *sts) MonitorList() []string {
 	}
 }
 
-// MonitorWalk iterates over monitors in the pool, calling the provided function for each.
-// The iteration stops if the function returns false.
+// MonitorWalk iterates over monitors in the pool, calling the provided function for each one.
+// The iteration can be filtered by providing a list of valid names.
+// The iteration stops if the callback function returns false.
 //
 // Parameters:
-//   - fct: function called for each monitor; return false to stop iteration
-//   - validName: optional list of monitor names to filter; if empty, all monitors are visited
-//
-// Does nothing if the pool is not defined.
-// See github.com/nabbar/golib/monitor/types for Monitor interface details.
+//   - fct: The function to call for each monitor. Return false to stop the iteration.
+//   - validName: An optional list of monitor names to include in the iteration.
+//     If empty, all monitors are visited.
 func (o *sts) MonitorWalk(fct func(name string, val montps.Monitor) bool, validName ...string) {
 	if p := o._getPool(); p != nil {
 		p.MonitorWalk(fct, validName...)
 	}
 }
 
-// RegisterPool registers a function that returns the monitor pool.
-// The function is called each time monitors need to be accessed,
-// allowing the pool to be dynamically updated.
+// RegisterPool registers a function that provides the monitor pool.
+// This dependency injection pattern allows the status package to access a monitor
+// pool that can be managed and updated externally. The provider function is called
+// each time monitors need to be accessed.
 //
 // This method must be called before using any monitor-related methods.
 //
-// Parameters:
-//   - fct: function that returns the current monitor pool
-//
 // This method is thread-safe.
-// See github.com/nabbar/golib/monitor/types for FuncPool and Pool details.
 func (o *sts) RegisterPool(fct montps.FuncPool) {
 	o.m.Lock()
 	defer o.m.Unlock()

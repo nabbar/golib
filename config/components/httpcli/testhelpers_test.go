@@ -100,6 +100,10 @@ func (m *sharedMockViper) GetStringMapStringSlice(key string) map[string][]strin
 // sharedWrongComponent for testing type safety
 type sharedWrongComponent struct{}
 
+func (w *sharedWrongComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (w *sharedWrongComponent) Type() string { return "wrong" }
 func (w *sharedWrongComponent) Init(string, context.Context, cfgtps.FuncCptGet, libvpr.FuncViper, libver.Version, liblog.FuncLog) {
 }

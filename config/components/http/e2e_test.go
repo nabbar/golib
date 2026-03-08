@@ -198,6 +198,10 @@ type mockTLSComponent struct {
 	tlsCfg *mockTLSConfig
 }
 
+func (m *mockTLSComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (m *mockTLSComponent) Type() string { return cpttls.ComponentType }
 func (m *mockTLSComponent) Init(string, context.Context, cfgtps.FuncCptGet, libvpr.FuncViper, libver.Version, liblog.FuncLog) {
 }

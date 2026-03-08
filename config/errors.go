@@ -108,8 +108,11 @@ const (
 	// MinErrorComponentSmtp is the starting error code for SMTP component errors.
 	MinErrorComponentSmtp = MinErrorComponentRequest + 10
 
+	// MinErrorComponentStatus is the starting error code for status component errors.
+	MinErrorComponentStatus = MinErrorComponentSmtp + 10
+
 	// MinErrorComponentTls is the starting error code for TLS component errors.
-	MinErrorComponentTls = MinErrorComponentSmtp + 10
+	MinErrorComponentTls = MinErrorComponentStatus + 10
 )
 
 func init() {

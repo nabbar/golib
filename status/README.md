@@ -54,6 +54,7 @@ This package provides production-ready health check and status monitoring for Go
 - **Map Mode**: Structured map output for components instead of list
 - **Thread-Safe**: Atomic operations and mutex protection for concurrent access
 - **Configurable HTTP Codes**: Customize return codes for OK (200), Warn (207), KO (500) states
+- **Dynamic Component Loading**: Load mandatory components from configuration keys
 - **Version Tracking**: Include application name, version, and build information
 - **Gin Integration**: Drop-in middleware for Gin web framework
 
@@ -554,8 +555,9 @@ type Config struct {
 }
 
 type Mandatory struct {
-    Mode control.Mode  // Validation mode
-    Keys []string      // Component names
+    Mode       control.Mode  // Validation mode
+    Keys       []string      // Component names
+    ConfigKeys []string      // Config component keys (dynamic loading)
 }
 ```
 
@@ -581,6 +583,24 @@ cfg := status.Config{
         {Mode: control.Should, Keys: []string{"cache"}},
     },
 }
+```
+
+**Dynamic Component Loading**
+```go
+// Load monitor names from component configuration
+cfg := status.Config{
+    MandatoryComponent: []status.Mandatory{
+        {
+            Mode: control.Must,
+            ConfigKeys: []string{"database-component"}, // Resolves to monitor names
+        },
+    },
+}
+
+// Register resolver function
+sts.RegisterGetConfigCpt(func(key string) Component {
+    return myConfig.ComponentGet(key)
+})
 ```
 
 **Kubernetes Health Probes**

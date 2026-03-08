@@ -58,7 +58,7 @@ var _ = Describe("Status/Encode", func() {
 				monsts.Warn: 200,
 				monsts.KO:   503,
 			},
-			MandatoryComponent: make([]libsts.Mandatory, 0),
+			Component: make([]libsts.Mandatory, 0),
 		}
 		status.SetConfig(cfg)
 

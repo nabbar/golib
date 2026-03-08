@@ -441,7 +441,7 @@ var _ = Describe("Status/Concurrent", func() {
 			status.RegisterPool(func() montps.Pool { return pool })
 
 			cfg := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Must,
 						Keys: []string{"critical-1", "critical-2"},

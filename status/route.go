@@ -36,37 +36,35 @@ import (
 )
 
 const (
-	// HeadVerbose is the HTTP header name for controlling verbosity.
-	// Value should be "true" or "false". If "false", full component details are included.
+	// HeadVerbose is the HTTP header for controlling response verbosity.
+	// A value of "false" enables short mode (equivalent to `short=true` query param).
 	HeadVerbose = "X-Verbose"
 
-	// HeadFormat is the HTTP header name for content negotiation (Accept header).
-	// Supports "application/json" and "text/plain".
+	// HeadFormat is the standard "Accept" HTTP header used for content negotiation.
+	// It supports "application/json" and "text/plain".
 	HeadFormat = "Accept"
 
-	// HeadMapMode is the HTTP header name for output mode map or not.
-	// Value should be "true" or "false". If "false", full component details are included.
+	// HeadMapMode is the HTTP header for enabling map mode for component output.
+	// A value of "true" enables map mode.
 	HeadMapMode = "X-MapMode"
 
-	// QueryVerbose is the query parameter name for controlling verbosity.
-	// Value should be "true" or "1" for short output (no component details).
+	// QueryVerbose is the query parameter for enabling short output mode.
+	// A value of "true" or "1" will omit component details from the response.
 	QueryVerbose = "short"
 
-	// QueryFormat is the query parameter name for output format.
-	// Value should be "text" for plain text or "json" for JSON output.
+	// QueryFormat is the query parameter for selecting the output format.
+	// Supported values are "text" or "json".
 	QueryFormat = "format"
 
-	// QueryMapMode is the query parameter name for output mode map or not.
-	// Value should be "true" or "1" for short output (no component details).
+	// QueryMapMode is the query parameter for enabling map mode for component output.
+	// A value of "true" or "1" will format the component list as a map.
 	QueryMapMode = "map"
 )
 
-// Expose handles the status endpoint request from a generic context.
-// If the context is a Gin context (*ginsdk.Context), it delegates to MiddleWare.
-// This method allows using the status handler with generic context.Context.
-//
-// This is useful when integrating with frameworks that use context.Context
-// instead of directly passing *gin.Context.
+// Expose handles a status request from a generic `context.Context`.
+// If the context is a Gin context (`*ginsdk.Context`), it delegates to `MiddleWare`.
+// This method provides a generic entry point for frameworks that do not directly
+// expose the underlying `*gin.Context`.
 func (o *sts) Expose(ctx context.Context) {
 	if c, ok := ctx.(*ginsdk.Context); ok {
 		o.MiddleWare(c)
@@ -74,25 +72,15 @@ func (o *sts) Expose(ctx context.Context) {
 }
 
 // MiddleWare is the Gin middleware handler that processes status requests.
-// It determines the response format and content based on headers and query parameters.
+// It determines the response format and content based on a combination of HTTP
+// headers and query parameters.
 //
-// Verbosity (short vs full output):
-//   - Header "X-Verbose: true" forces full output (disables short mode).
-//   - Query parameter "short=true" or "short=1" enables short mode (only overall status).
-//   - Default: full status with all component details.
+// The handler orchestrates the following:
+//  1. Parses request parameters to determine verbosity, format, and map mode.
+//  2. Retrieves the appropriate encoder.
+//  3. Renders the response using the selected format and verbosity.
 //
-// Map Mode (structured map vs list):
-//   - Header "X-MapMode: true" enables map mode.
-//   - Query parameter "map=true" or "map=1" enables map mode.
-//   - Default: list mode.
-//
-// Format (JSON vs plain text):
-//   - Query parameter "format=text" forces plain text.
-//   - Header "Accept: text/plain" forces plain text.
-//   - Default: JSON output.
-//
-// The response will include "X-Verbose" and "X-MapMode" headers indicating the effective mode.
-// It also sets "Connection: Close".
+// It sets the "Connection: Close" header to ensure the connection is not kept alive.
 func (o *sts) MiddleWare(c *ginsdk.Context) {
 	var (
 		err liberr.Error
@@ -105,17 +93,17 @@ func (o *sts) MiddleWare(c *ginsdk.Context) {
 	if enc, err = o.getMarshal(mpm); err != nil {
 		ret := o.getErrorReturn()
 		err.Return(ret)
-		ret.GinTonicErrorAbort(c, 0) // 0 = internal server error
+		ret.GinTonicErrorAbort(c, 0) // 0 defaults to internal server error
 		return
 	}
 
-	if shr { // if short if true0, so Verbose if false
+	if shr {
 		c.Header(HeadVerbose, "False")
 	} else {
 		c.Header(HeadVerbose, "True")
 	}
 
-	if mpm { // if short if true0, so Verbose if false
+	if mpm {
 		c.Header(HeadMapMode, "True")
 	} else {
 		c.Header(HeadMapMode, "False")
@@ -125,19 +113,15 @@ func (o *sts) MiddleWare(c *ginsdk.Context) {
 	enc.GinRender(c, txt, shr)
 }
 
-// isText determines if the response should be in plain text format.
-// It checks both query parameters and Accept headers.
+// isText determines if the response should be in plain text format by checking
+// query parameters and `Accept` headers.
 //
-// Priority:
-//  1. Query parameter "format=text" forces text output
-//  2. Accept header "application/json" forces JSON output
-//  3. Accept header "text/plain" forces text output
+// The precedence is as follows:
+//  1. `format=text` query parameter forces text output.
+//  2. `Accept: application/json` header forces JSON output.
+//  3. `Accept: text/plain` header requests text output.
 //
-// Parameters:
-//   - query: value of the "format" query parameter
-//   - header: value of the "Accept" header (may contain multiple MIME types)
-//
-// Returns true if text format should be used, false for JSON.
+// Returns `true` if text format should be used, otherwise `false` for JSON.
 func (o *sts) isText(query, header string) bool {
 	var txt = false
 
@@ -165,17 +149,8 @@ func (o *sts) isText(query, header string) bool {
 	return txt
 }
 
-// isParamBool checks if a boolean parameter is enabled based on header and query values.
-// It returns true if either the header or the query parameter evaluates to true.
-//
-// Priority:
-//  1. If header is present and "true", returns true.
-//  2. If query is present and "true", returns true.
-//  3. Otherwise, returns false.
-//
-// Parameters:
-//   - query: value of the query parameter.
-//   - header: value of the header.
+// isParamBool checks if a boolean parameter is enabled based on its query and
+// header values. It returns `true` if either the query or header value is "true".
 func (o *sts) isParamBool(query, header string) bool {
 	if len(header) > 0 {
 		if b, e := strconv.ParseBool(header); e == nil && b {
@@ -192,17 +167,14 @@ func (o *sts) isParamBool(query, header string) bool {
 	return false
 }
 
-// isParamInvBool checks if a boolean parameter is enabled with inverted logic for the header.
-// It is used when the header implies the opposite of the query parameter (e.g. Verbose vs Short).
+// isParamInvBool checks if a boolean parameter is enabled, but with inverted logic
+// for the header value. This is used for cases like `X-Verbose` vs. `short`, where
+// `X-Verbose: false` is equivalent to `short=true`.
 //
-// Logic:
-//  1. If header is present and "true", returns false (inverted).
-//  2. If query is present and "true", returns true.
-//  3. Otherwise, returns false.
-//
-// Parameters:
-//   - query: value of the query parameter.
-//   - header: value of the header.
+// The logic is:
+//  1. If the header is "true", returns `false`.
+//  2. If the query is "true", returns `true`.
+//  3. Otherwise, returns `false`.
 func (o *sts) isParamInvBool(query, header string) bool {
 	if len(header) > 0 {
 		if b, e := strconv.ParseBool(header); e == nil {
@@ -220,11 +192,9 @@ func (o *sts) isParamInvBool(query, header string) bool {
 }
 
 // getErrorReturn retrieves the configured error return formatter.
-// If no custom formatter is set via SetErrorReturn, returns a default formatter.
+// If no custom formatter is registered via `SetErrorReturn`, it returns a default
+// formatter from the `golib/errors` package.
 // This method is thread-safe.
-//
-// Returns a ReturnGin instance for formatting error responses.
-// See github.com/nabbar/golib/errors for ReturnGin interface details.
 func (o *sts) getErrorReturn() liberr.ReturnGin {
 	o.m.RLock()
 	defer o.m.RUnlock()
@@ -238,14 +208,9 @@ func (o *sts) getErrorReturn() liberr.ReturnGin {
 	}
 }
 
-// SetErrorReturn registers a custom error return model factory.
-// The provided function should return a new ReturnGin instance for each call.
-// This allows customizing how errors are formatted in HTTP responses.
-//
-// Parameters:
-//   - f: factory function that creates a new ReturnGin instance
-//
-// If not set, a default return model from github.com/nabbar/golib/errors is used.
+// SetErrorReturn registers a factory function for creating custom error formatters.
+// The provided function should return a new `liberr.ReturnGin` instance on each call.
+// This allows for customizing how errors are formatted in HTTP responses.
 // This method is thread-safe.
 func (o *sts) SetErrorReturn(f func() liberr.ReturnGin) {
 	o.m.Lock()

@@ -53,7 +53,7 @@ var _ = Describe("Status/ControlModes", func() {
 			status.RegisterPool(func() montps.Pool { return pool })
 
 			cfg := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Must,
 						Keys: []string{"critical-db"},
@@ -122,7 +122,7 @@ var _ = Describe("Status/ControlModes", func() {
 			status.RegisterPool(func() montps.Pool { return pool })
 
 			cfg := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Should,
 						Keys: []string{"optional-cache"},
@@ -178,7 +178,7 @@ var _ = Describe("Status/ControlModes", func() {
 			status.RegisterPool(func() montps.Pool { return pool })
 
 			cfg := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.AnyOf,
 						Keys: []string{"db-primary", "db-secondary", "db-tertiary"},
@@ -262,7 +262,7 @@ var _ = Describe("Status/ControlModes", func() {
 			status.RegisterPool(func() montps.Pool { return pool })
 
 			cfg := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Quorum,
 						Keys: []string{"node-1", "node-2", "node-3", "node-4", "node-5"},
@@ -325,7 +325,7 @@ var _ = Describe("Status/ControlModes", func() {
 		Context("when exactly half (2/4) are healthy", func() {
 			BeforeEach(func() {
 				cfg := libsts.Config{
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Quorum,
 							Keys: []string{"node-1", "node-2", "node-3", "node-4"},
@@ -368,7 +368,7 @@ var _ = Describe("Status/ControlModes", func() {
 			status.RegisterPool(func() montps.Pool { return pool })
 
 			cfg := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Ignore,
 						Keys: []string{"ignored-service"},
@@ -403,7 +403,7 @@ var _ = Describe("Status/ControlModes", func() {
 			status.RegisterPool(func() montps.Pool { return pool })
 
 			cfg := libsts.Config{
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Mode: stsctr.Must,
 						Keys: []string{"critical-db"},

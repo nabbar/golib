@@ -269,7 +269,7 @@ var _ = Describe("Status", func() {
 				ReturnCode: map[monsts.Status]int{
 					monsts.OK: 200,
 				},
-				MandatoryComponent: []libsts.Mandatory{
+				Component: []libsts.Mandatory{
 					{
 						Keys: []string{"test-monitor"},
 					},

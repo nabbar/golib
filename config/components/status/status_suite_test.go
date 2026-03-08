@@ -24,15 +24,41 @@
  *
  */
 
-package ldap
+package status_test
 
 import (
-	montps "github.com/nabbar/golib/monitor/types"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func (o *mod) RegisterMonitorPool(_ montps.FuncPool) {
-}
-
-func (o *mod) GetMonitorNames() []string {
-	return nil
+// TestStatus runs the Ginkgo test suite for the Status component package.
+// This suite tests the status component's lifecycle, configuration management,
+// and integration with the overall config and status systems.
+//
+// Test coverage includes:
+//   - Component lifecycle (Init, Start, Reload, Stop).
+//   - Configuration management and validation from Viper.
+//   - Default configuration handling.
+//   - Error conditions and edge cases.
+//   - Concurrent access scenarios.
+//   - Integration with the main config manager.
+//
+// The tests use standalone implementations without external dependencies
+// to ensure they are fast and reliable.
+//
+// Run tests with:
+//
+//	go test -v
+//	go test -v -cover
+//	CGO_ENABLED=1 go test -v -race
+//
+// For a detailed coverage report:
+//
+//	go test -v -coverprofile=coverage.out
+//	go tool cover -html=coverage.out
+func TestStatus(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Status Component Suite")
 }

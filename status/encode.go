@@ -41,65 +41,61 @@ import (
 )
 
 const (
-	// encTextSepStatus is the separator between status and message in text output.
-	// Format: "OK: MyApp (v1.0.0) | message"
+	// encTextSepStatus defines the separator used between the status and the
+	// rest of the message in plain text output.
+	// Example: "OK: MyApp..."
 	encTextSepStatus = ": "
 
-	// encTextSepPart is the separator between parts in text output.
-	// Used to separate application info from messages.
+	// encTextSepPart defines the separator used between different parts of the
+	// main status line in plain text output.
+	// Example: "MyApp (v1.0.0) | All systems operational"
 	encTextSepPart = " | "
 )
 
-// Encode defines the interface for status response encoding.
-// It supports both JSON and plain text output formats.
+// Encode defines the interface for status response encoding. It provides methods
+// for rendering the status in different formats (JSON, plain text) and for
+// integration with the Gin framework.
 type Encode interface {
-	// String returns the status as a formatted string.
-	// Format: "STATUS: Name (Release Hash Date) | Message\nComponent details..."
+	// String returns the status as a formatted string, suitable for logging or
+	// plain text responses.
 	String() string
 
-	// Bytes returns the status as a byte slice (same as String).
+	// Bytes returns the status as a byte slice, equivalent to `[]byte(String())`.
 	Bytes() []byte
 
-	// GinRender renders the status response to a Gin context.
-	// It sets the appropriate content type and HTTP status code.
-	//
-	// Parameters:
-	//   - c: the Gin context to render to
-	//   - isText: if true, renders as text/plain; if false, renders as JSON
-	//   - isShort: if true, omits component details
+	// GinRender renders the status response to a Gin context. It handles content
+	// negotiation (JSON vs. text) and verbosity (full vs. short).
 	GinRender(c *ginsdk.Context, isText bool, isShort bool)
 
-	// GinCode returns the HTTP status code for this response.
-	// The code is determined by the health status and configuration.
+	// GinCode returns the appropriate HTTP status code for the response, based on
+	// the overall health status and configuration.
 	GinCode() int
 }
 
-// encodeModel is the internal implementation of the Encode interface.
-// It contains all information needed to render a status response.
+// encodeModel is the internal implementation of the Encode interface. It serves
+// as a data transfer object holding all the information required to render a
+// status response.
 type encodeModel struct {
-	Name      string        // Application name
-	Release   string        // Release version (e.g., "v1.2.3")
-	Hash      string        // Build hash or commit ID
-	DateBuild time.Time     // Build date/time
-	Status    monsts.Status // Overall health status (OK, Warn, KO)
-	Message   string        // Status message from worst component
-	Component encComponent  // Slice of monitored components (nil if short mode)
-	code      int           // HTTP status code to return
+	Name      string        `json:"name"`
+	Release   string        `json:"release"`
+	Hash      string        `json:"hash"`
+	DateBuild time.Time     `json:"date_build"`
+	Status    monsts.Status `json:"status"`
+	Message   string        `json:"message"`
+	Component encComponent  `json:"component,omitempty"` // The list of monitored components.
+	code      int           // The HTTP status code to be returned.
 }
 
 // GinCode returns the HTTP status code for this response.
-// The code is set based on the health status and configuration.
 func (o *encodeModel) GinCode() int {
 	return o.code
 }
 
-// GinRender renders the status response to the Gin context.
-// It handles both JSON and plain text output formats.
+// GinRender renders the status response to the Gin context. It sets the appropriate
+// content type and HTTP status code.
 //
-// Parameters:
-//   - c: the Gin context to render to
-//   - isText: if true, renders as text/plain; if false, renders as JSON
-//   - isShort: if true, clears the Component pool (no component details)
+// If `isShort` is true, the component details are omitted from the response.
+// If `isText` is true, the response is rendered as plain text; otherwise, as JSON.
 func (o *encodeModel) GinRender(c *ginsdk.Context, isText bool, isShort bool) {
 	if isShort {
 		o.Component = monpol.New(c)
@@ -115,10 +111,8 @@ func (o *encodeModel) GinRender(c *ginsdk.Context, isText bool, isShort bool) {
 	}
 }
 
-// stringName formats the application name with version information.
-// Format: "Name (Release Hash Date)" or just "Name" if no version info.
-//
-// Returns the formatted name string.
+// stringName formats the application name with its version information.
+// Example: "MyApp (v1.2.3 abc123 2023-10-27T10:00:00Z)"
 func (o *encodeModel) stringName() string {
 	var inf []string
 
@@ -141,10 +135,8 @@ func (o *encodeModel) stringName() string {
 	}
 }
 
-// stringPart formats the main status line without the status prefix.
-// Format: "Name (Release Hash Date) | Message"
-//
-// Returns the formatted string.
+// stringPart formats the main status line, excluding the status prefix.
+// Example: "MyApp (v1.2.3) | All systems operational"
 func (o *encodeModel) stringPart() string {
 	item := make([]string, 0)
 	item = append(item, o.stringName())
@@ -157,9 +149,7 @@ func (o *encodeModel) stringPart() string {
 }
 
 // String returns the complete status as a formatted string.
-// Format: "STATUS: Name (Release Hash Date) | Message\nComponent details..."
-//
-// Returns the formatted status string.
+// Example: "OK: MyApp (v1.2.3) | All systems operational\n  database: OK\n"
 func (o *encodeModel) String() string {
 	var buf = bytes.NewBuffer(make([]byte, 0))
 
@@ -175,17 +165,14 @@ func (o *encodeModel) String() string {
 	return buf.String()
 }
 
-// Bytes returns the status as a byte slice.
-// It's equivalent to []byte(String()).
+// Bytes returns the status as a byte slice, equivalent to `[]byte(String())`.
 func (o *encodeModel) Bytes() []byte {
 	return []byte(o.String())
 }
 
-// getEncodeModel creates an Encode instance with current status information.
-// It computes the overall status and gathers all necessary data.
-// This method is thread-safe.
-//
-// Returns an Encode instance ready for rendering.
+// getEncodeModel creates an `Encode` instance populated with the current status
+// information. It computes the overall status and gathers all necessary data for
+// rendering. This method is thread-safe.
 func (o *sts) getEncodeModel(isMap bool) Encode {
 	o.m.RLock()
 	defer o.m.RUnlock()
@@ -201,7 +188,6 @@ func (o *sts) getEncodeModel(isMap bool) Encode {
 
 	s, m = o.getStatus()
 
-	// Safely call functions with nil checks to prevent panics
 	if o.fn != nil {
 		name = o.fn()
 	}
@@ -238,10 +224,10 @@ func (o *sts) getEncodeModel(isMap bool) Encode {
 	return enc
 }
 
-// getMarshal creates an Encode instance after validating prerequisites.
-// It checks that application information has been set via SetInfo or SetVersion.
+// getMarshal creates an `Encode` instance after validating that all prerequisite
+// information (application name, release, etc.) has been set.
 //
-// Returns an Encode instance or an error if application info is missing.
+// Returns an `Encode` instance or an error if the application info is missing.
 func (o *sts) getMarshal(isMap bool) (Encode, liberr.Error) {
 	if !o.checkFunc() {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("missing status info for API"))
@@ -249,10 +235,8 @@ func (o *sts) getMarshal(isMap bool) (Encode, liberr.Error) {
 	return o.getEncodeModel(isMap), nil
 }
 
-// MarshalText implements encoding.TextMarshaler for the status instance.
-// It allows the status to be marshaled as plain text.
-//
-// Returns the status as text bytes or an error if application info is missing.
+// MarshalText implements the `encoding.TextMarshaler` interface for the status instance,
+// allowing it to be marshaled as plain text.
 func (o *sts) MarshalText() (text []byte, err error) {
 	if enc, e := o.getMarshal(false); e != nil {
 		return nil, e
@@ -261,10 +245,8 @@ func (o *sts) MarshalText() (text []byte, err error) {
 	}
 }
 
-// MarshalJSON implements json.Marshaler for the status instance.
-// It allows the status to be marshaled as JSON.
-//
-// Returns the status as JSON bytes or an error if application info is missing.
+// MarshalJSON implements the `json.Marshaler` interface for the status instance,
+// allowing it to be marshaled as JSON.
 func (o *sts) MarshalJSON() ([]byte, error) {
 	if enc, e := o.getMarshal(false); e != nil {
 		return nil, e

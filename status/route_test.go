@@ -85,7 +85,7 @@ var _ = Describe("Status/Route", func() {
 				var result map[string]interface{}
 				err = json.Unmarshal(w.Body.Bytes(), &result)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(result["Name"]).To(Equal("route-test"))
+				Expect(result["name"]).To(Equal("route-test"))
 			})
 
 			It("should include X-Verbose header", func() {
@@ -583,7 +583,7 @@ var _ = Describe("Status/Route", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Short format should not include component details
-				val, ok := result["Component"]
+				val, ok := result["component"]
 				Expect(ok).To(BeTrue())
 				Expect(val).ToNot(BeNil())
 
@@ -704,7 +704,7 @@ var _ = Describe("Status/Route", func() {
 						monsts.Warn: http.StatusMultiStatus,
 						monsts.KO:   http.StatusServiceUnavailable,
 					},
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Must,
 							Keys: []string{"healthy-service", "unhealthy-service"},
@@ -744,7 +744,7 @@ var _ = Describe("Status/Route", func() {
 						monsts.Warn: http.StatusMultiStatus,
 						monsts.KO:   http.StatusServiceUnavailable,
 					},
-					MandatoryComponent: []libsts.Mandatory{
+					Component: []libsts.Mandatory{
 						{
 							Mode: stsctr.Must,
 							Keys: []string{"unhealthy-service"},

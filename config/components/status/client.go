@@ -24,22 +24,15 @@
  *
  */
 
-package smtp
+package status
 
 import (
-	"crypto/tls"
-
-	libtls "github.com/nabbar/golib/certificates"
-	cpttls "github.com/nabbar/golib/config/components/tls"
 	cfgtps "github.com/nabbar/golib/config/types"
-	lbsmtp "github.com/nabbar/golib/mail/smtp"
-	smtpcf "github.com/nabbar/golib/mail/smtp/config"
-	moncfg "github.com/nabbar/golib/monitor/types"
-	libver "github.com/nabbar/golib/version"
 	libvpr "github.com/nabbar/golib/viper"
-	spfvbr "github.com/spf13/viper"
 )
 
+// getKey retrieves the component key from the internal store.
+// It returns an empty string if the key is not found or invalid.
 func (o *mod) getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
@@ -52,6 +45,8 @@ func (o *mod) getKey() string {
 	}
 }
 
+// getFctVpr retrieves the Viper factory function from the internal store.
+// It returns nil if the function is not found or invalid.
 func (o *mod) getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
@@ -64,6 +59,8 @@ func (o *mod) getFctVpr() libvpr.FuncViper {
 	}
 }
 
+// getViper retrieves the Viper instance using the stored factory function.
+// It returns nil if the factory function is missing or returns nil.
 func (o *mod) getViper() libvpr.Viper {
 	if f := o.getFctVpr(); f == nil {
 		return nil
@@ -74,57 +71,9 @@ func (o *mod) getViper() libvpr.Viper {
 	}
 }
 
-func (o *mod) getSPFViper() *spfvbr.Viper {
-	if f := o.getViper(); f == nil {
-		return nil
-	} else if v := f.Viper(); v == nil {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *mod) getFctCpt() cfgtps.FuncCptGet {
-	if i, l := o.x.Load(keyFctGetCpt); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if f, k := i.(cfgtps.FuncCptGet); !k {
-		return nil
-	} else {
-		return f
-	}
-}
-
-func (o *mod) getVersion() libver.Version {
-	if i, l := o.x.Load(keyCptVersion); !l {
-		return nil
-	} else if i == nil {
-		return nil
-	} else if v, k := i.(libver.Version); !k {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *mod) getTLS() libtls.TLSConfig {
-	if t := o.t.Load(); len(t) < 1 {
-		return nil
-	} else if i := cpttls.Load(o.getFctCpt(), t); i != nil {
-		return i.GetTLS()
-	}
-	return nil
-}
-
-func (o *mod) getTLSConfig(cfg libtls.Config) *tls.Config {
-	if t := o.getTLS(); t == nil {
-		return cfg.NewFrom(nil).TlsConfig("")
-	} else {
-		return cfg.NewFrom(t).TlsConfig("")
-	}
-}
-
+// getFct determines and returns the appropriate Before and After event callbacks.
+// If the component is already started, it returns the Reload callbacks.
+// Otherwise, it returns the Start callbacks.
 func (o *mod) getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
 		return o.getFctEvt(keyFctRelBef), o.getFctEvt(keyFctRelAft)
@@ -133,6 +82,8 @@ func (o *mod) getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	}
 }
 
+// getFctEvt retrieves a specific event callback function by its key.
+// It returns nil if the callback is not found or invalid.
 func (o *mod) getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
@@ -145,7 +96,9 @@ func (o *mod) getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *mod) runFct(fct func(cpt cfgtps.Component) error) error {
+// runFctEvt executes a given event callback function with the component instance.
+// It returns nil if the function is nil, otherwise it returns the function's error result.
+func (o *mod) runFctEvt(fct func(cpt cfgtps.Component) error) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -153,44 +106,38 @@ func (o *mod) runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *mod) runCli() error {
-	var (
-		err error
-		prt = ErrorComponentReload
-		obj lbsmtp.SMTP
-		cfg smtpcf.Config
-		mon *moncfg.Config
-	)
-
-	if !o.IsStarted() {
-		prt = ErrorComponentStart
-	}
-
-	if cfg, mon, err = o._getConfig(); err != nil {
-		return prt.Error(err)
-	} else if obj, err = lbsmtp.New(cfg, o.getTLSConfig(cfg.GetTls())); err != nil {
-		return prt.Error(err)
-	} else {
-		if s := o.s.Load(); s != nil {
-			s.Close()
-		}
-
-		o.s.Store(obj)
-	}
-
-	return o.regMonitor(mon)
-}
-
+// run executes the component's main lifecycle logic (Start or Reload).
+// It follows the sequence:
+// 1. Determine appropriate callbacks (Start vs Reload).
+// 2. Execute the 'Before' callback.
+// 3. Execute the core logic (runCli).
+// 4. Execute the 'After' callback.
+// It returns the first error encountered in the sequence.
 func (o *mod) run() error {
 	fb, fa := o.getFct()
 
-	if err := o.runFct(fb); err != nil {
+	if err := o.runFctEvt(fb); err != nil {
 		return err
 	} else if err = o.runCli(); err != nil {
 		return err
-	} else if err = o.runFct(fa); err != nil {
+	} else if err = o.runFctEvt(fa); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// runCli performs the core configuration loading and application.
+// It retrieves the configuration, validates it, marks the component as running,
+// and applies the configuration to the underlying status object.
+func (o *mod) runCli() error {
+	if cfg, err := o._getConfig(); err != nil {
+		return ErrorParamInvalid.Error(err)
+	} else if cfg == nil {
+		return ErrorParamInvalid.Error()
+	} else {
+		o.r.Store(true)
+		o.s.SetConfig(*cfg)
+		return nil
+	}
 }

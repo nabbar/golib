@@ -32,3 +32,7 @@ import (
 
 func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 }
+
+func (o *mod) GetMonitorNames() []string {
+	return nil
+}

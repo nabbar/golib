@@ -32,17 +32,18 @@ import (
 	libver "github.com/nabbar/golib/version"
 )
 
-// SetInfo manually sets the application information displayed in status responses.
-// This method stores the provided values as functions that return constant values.
-// The build date is set to zero time when using this method.
+// SetInfo manually sets the application information to be displayed in status responses.
+// This method is a convenient way to provide static version details.
+// When using this method, the build date is set to a zero time.
 //
-// Use this method when not using the github.com/nabbar/golib/version package.
-// For version package integration, use SetVersion instead.
+// Use this method for simple cases where version information is static and known at
+// startup. For more advanced or dynamic versioning, prefer using SetVersion with an
+// object from the `github.com/nabbar/golib/version` package.
 //
 // Parameters:
-//   - name: application or service name (e.g., "MyAPI")
-//   - release: version string (e.g., "v1.2.3", "1.0.0-beta")
-//   - hash: build hash or commit identifier (e.g., "abc123def456")
+//   - name: The application or service name (e.g., "MyAPI").
+//   - release: The version string (e.g., "v1.2.3", "1.0.0-beta").
+//   - hash: The build hash or commit identifier (e.g., "abc123def456").
 //
 // This method is thread-safe.
 func (o *sts) SetInfo(name, release, hash string) {
@@ -66,19 +67,17 @@ func (o *sts) SetInfo(name, release, hash string) {
 	}
 }
 
-// SetVersion sets application information from a Version object.
-// This is the preferred method when using github.com/nabbar/golib/version.
-// It automatically extracts name, release, build hash, and build time.
+// SetVersion sets the application information from a `version.Version` object.
+// This is the recommended method for integrating with the `github.com/nabbar/golib/version`
+// package, as it allows for dynamic updates to version information.
 //
-// The Version object provides dynamic access to version information,
-// which is useful if version data can change during runtime.
+// This method links the status system to the version object, automatically extracting
+// the application name, release, build hash, and build time.
 //
 // Parameters:
-//   - v: the Version object from github.com/nabbar/golib/version
+//   - v: The `version.Version` object.
 //
 // This method is thread-safe.
-//
-// See github.com/nabbar/golib/version for Version interface details.
 func (o *sts) SetVersion(v libver.Version) {
 	o.m.Lock()
 	defer o.m.Unlock()

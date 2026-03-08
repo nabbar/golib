@@ -384,6 +384,10 @@ var _ = Describe("Concurrent Access", func() {
 // mockComponent is a mock implementation for testing wrong type scenarios
 type mockComponent struct{}
 
+func (m *mockComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (m *mockComponent) Type() string { return "mock" }
 func (m *mockComponent) Init(string, context.Context, cfgtps.FuncCptGet, libvpr.FuncViper, libver.Version, liblog.FuncLog) {
 }

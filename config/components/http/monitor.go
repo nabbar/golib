@@ -28,6 +28,7 @@ package http
 
 import (
 	liberr "github.com/nabbar/golib/errors"
+	"github.com/nabbar/golib/httpserver"
 	montps "github.com/nabbar/golib/monitor/types"
 	libver "github.com/nabbar/golib/version"
 )
@@ -48,7 +49,26 @@ func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 	o.x.Store(keyFctMonitorPool, fct)
 }
 
-func (o *mod) _getMonitorPool() montps.Pool {
+func (o *mod) GetMonitorNames() []string {
+	if o.getMonitorPool() == nil {
+		return nil
+	}
+
+	var res = make([]string, 0)
+
+	if p := o.GetPool(); p == nil || p.Len() == 0 {
+		return nil
+	} else {
+		p.Walk(func(_ string, srv httpserver.Server) bool {
+			res = append(res, srv.MonitorName())
+			return true
+		})
+	}
+
+	return res
+}
+
+func (o *mod) getMonitorPool() montps.Pool {
 	if i, l := o.x.Load(keyFctMonitorPool); !l || i == nil {
 		return nil
 	} else if f := i.(montps.FuncPool); f == nil {
@@ -58,7 +78,7 @@ func (o *mod) _getMonitorPool() montps.Pool {
 	}
 }
 
-func (o *mod) _registerMonitor(err liberr.CodeError) error {
+func (o *mod) regMonitor(err liberr.CodeError) error {
 	var (
 		e   error
 		key = o._getKey()
@@ -67,7 +87,7 @@ func (o *mod) _registerMonitor(err liberr.CodeError) error {
 		ctx = o.x
 	)
 
-	if o._getMonitorPool() == nil {
+	if o.getMonitorPool() == nil {
 		return nil
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
@@ -75,14 +95,14 @@ func (o *mod) _registerMonitor(err liberr.CodeError) error {
 		return ErrorComponentStart.Error(nil)
 	}
 
-	if mon, e = o._newMonitor(vrs); e != nil {
+	if mon, e = o.newMonitor(vrs); e != nil {
 		return err.Error(e)
 	} else if mon == nil {
 		return nil
 	}
 
 	for _, m := range mon {
-		if old := o._getMonitor(m.Name()); old != nil {
+		if old := o.getMonitor(m.Name()); old != nil {
 			old.InfoUpd(m.InfoGet())
 			if e = old.SetConfig(ctx, m.GetConfig()); e == nil {
 				m = old
@@ -91,7 +111,7 @@ func (o *mod) _registerMonitor(err liberr.CodeError) error {
 
 		if e = m.Restart(ctx); e != nil {
 			return err.Error(e)
-		} else if e = o._setMonitor(m); e != nil {
+		} else if e = o.setMonitor(m); e != nil {
 			return err.Error(e)
 		}
 	}
@@ -99,7 +119,7 @@ func (o *mod) _registerMonitor(err liberr.CodeError) error {
 	return nil
 }
 
-func (o *mod) _newMonitor(vrs libver.Version) ([]montps.Monitor, error) {
+func (o *mod) newMonitor(vrs libver.Version) ([]montps.Monitor, error) {
 	if p := o.GetPool(); p == nil || p.Len() == 0 {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if c, e := p.Monitor(vrs); e != nil {
@@ -114,10 +134,10 @@ func (o *mod) _newMonitor(vrs libver.Version) ([]montps.Monitor, error) {
 	}
 }
 
-func (o *mod) _getMonitor(key string) montps.Monitor {
+func (o *mod) getMonitor(key string) montps.Monitor {
 	var (
 		mon montps.Monitor
-		pol = o._getMonitorPool()
+		pol = o.getMonitorPool()
 	)
 
 	if pol == nil {
@@ -133,8 +153,8 @@ func (o *mod) _getMonitor(key string) montps.Monitor {
 	return mon
 }
 
-func (o *mod) _setMonitor(mon montps.Monitor) error {
-	var pol = o._getMonitorPool()
+func (o *mod) setMonitor(mon montps.Monitor) error {
+	var pol = o.getMonitorPool()
 
 	if pol == nil {
 		return nil

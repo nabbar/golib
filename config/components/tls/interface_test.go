@@ -352,6 +352,10 @@ J6P4R8C2M3N0Q1L5T9Y8F3E6D7S1V4K2U0C8X9H5J3N6G1P0R7Q8M2Y4E5L1S0W3
 // wrongComponent is a test helper that implements Component but not CptTlS
 type wrongComponent struct{}
 
+func (w *wrongComponent) GetMonitorNames() []string {
+	return nil
+}
+
 func (w *wrongComponent) Type() string { return "wrong" }
 func (w *wrongComponent) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr libvpr.FuncViper, vrs libver.Version, log liblog.FuncLog) {
 }
