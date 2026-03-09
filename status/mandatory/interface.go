@@ -24,59 +24,54 @@
  *
  */
 
-// Package mandatory provides management of mandatory components with validation modes.
+// Package mandatory provides a thread-safe mechanism for managing groups of
+// components that share a common validation mode.
 //
-// This package allows defining groups of component keys with associated control modes
-// that determine how strictly those components must be validated in a status monitoring
-// system.
+// This package is a fundamental building block for the status monitoring system.
+// It allows you to define a logical set of components (e.g., "all critical databases",
+// "all optional caches") and associate them with a single control mode (e.g., "Must",
+// "Should"). This abstraction simplifies the configuration and evaluation of
+// complex health check policies.
 //
 // # Key Features
 //
-//   - Thread-safe operations using atomic.Value
-//   - Dynamic key management (add, delete, check, list)
-//   - Control mode assignment per mandatory group
-//   - Zero allocations for read operations
+//   - Thread-Safe: All operations are safe for concurrent use, leveraging `atomic.Value`
+//     for high-performance, lock-free reads. This is critical for health check endpoints
+//     that may be polled frequently.
+//   - Dynamic Management: Component keys can be added or removed from a group at runtime,
+//     allowing the system to adapt to changes in the application's topology.
+//   - Control Mode Association: Each group is tightly coupled with a `control.Mode`,
+//     ensuring that all components in the group are evaluated consistently.
 //
 // # Usage Example
 //
 //	import (
+//	    "fmt"
 //	    "github.com/nabbar/golib/status/control"
 //	    "github.com/nabbar/golib/status/mandatory"
 //	)
 //
-//	// Create a mandatory group
-//	m := mandatory.New()
+//	func main() {
+//	    // Create a new mandatory group for critical database components.
+//	    dbGroup := mandatory.New()
 //
-//	// Set validation mode
-//	m.SetMode(control.Must)
+//	    // Set the validation mode to 'Must', meaning all components in this
+//	    // group must be healthy for the group to be considered healthy.
+//	    dbGroup.SetMode(control.Must)
 //
-//	// Add component keys
-//	m.KeyAdd("database", "cache", "queue")
+//	    // Add the keys of the components that belong to this group.
+//	    // These keys correspond to the names of the monitors registered in the pool.
+//	    dbGroup.KeyAdd("primary-db", "read-replica-db")
 //
-//	// Check if a key is mandatory
-//	if m.KeyHas("database") {
-//	    fmt.Println("Database is mandatory")
+//	    // Check if a specific component is part of this mandatory group.
+//	    if dbGroup.KeyHas("primary-db") {
+//	        fmt.Println("The primary database is a mandatory component.")
+//	    }
+//
+//	    // Retrieve the list of all keys in the group.
+//	    keys := dbGroup.KeyList()
+//	    fmt.Printf("Mandatory database components: %v\n", keys)
 //	}
-//
-//	// List all mandatory keys
-//	keys := m.KeyList()
-//	fmt.Println("Mandatory components:", keys)
-//
-// # Thread Safety
-//
-// All operations are thread-safe and can be called concurrently from multiple
-// goroutines without external synchronization.
-//
-// # Integration
-//
-// This package is designed to work with:
-//   - github.com/nabbar/golib/status/control: For validation modes
-//   - github.com/nabbar/golib/status/listmandatory: For managing multiple mandatory groups
-//   - github.com/nabbar/golib/status: For overall status management
-//
-// See also:
-//   - github.com/nabbar/golib/status/control for control modes
-//   - github.com/nabbar/golib/status/listmandatory for list management
 package mandatory
 
 import (
@@ -85,106 +80,74 @@ import (
 	stsctr "github.com/nabbar/golib/status/control"
 )
 
-// Mandatory defines the interface for managing mandatory component groups.
+// Mandatory defines the interface for managing a group of components that share
+// a common validation mode. This allows for the logical grouping of related
+// components (e.g., a cluster of services) to apply a single health check policy.
 //
-// A Mandatory instance represents a group of component keys with an associated
-// validation mode. It provides thread-safe operations for managing keys and
-// the validation mode.
-//
-// All methods are safe for concurrent use.
+// Implementations of this interface must be thread-safe to support concurrent
+// health checks and configuration updates.
 type Mandatory interface {
-	// SetMode sets the validation mode for this mandatory group.
+	// SetMode assigns a validation mode to this group. The mode dictates how the
+	// health of the components within this group will be evaluated. For example,
+	// `control.Must` would require all components to be healthy, while `control.AnyOf`
+	// would require only one.
 	//
-	// The mode determines how strictly the components in this group must be
-	// validated. Common modes include Must (all must be healthy), Should
-	// (warnings only), AnyOf (at least one), and Quorum (majority).
-	//
-	// This operation is thread-safe.
-	//
-	// Example:
-	//
-	//	m.SetMode(control.Must)
+	// Parameters:
+	//   - m: The `control.Mode` to apply to this group.
 	SetMode(m stsctr.Mode)
 
-	// GetMode returns the current validation mode for this mandatory group.
+	// GetMode retrieves the currently assigned validation mode for this group.
+	// This allows the status calculation logic to know how to treat the components
+	// in this group. If no mode has been explicitly set, it should return a default
+	// (typically `control.Ignore`).
 	//
-	// If no mode has been set, it returns control.Ignore (the zero value).
-	//
-	// This operation is thread-safe and lock-free.
-	//
-	// Example:
-	//
-	//	mode := m.GetMode()
-	//	if mode == control.Must {
-	//	    // Enforce strict validation
-	//	}
+	// Returns:
+	//   The current `control.Mode`.
 	GetMode() stsctr.Mode
 
-	// KeyHas checks if a specific key exists in this mandatory group.
+	// KeyHas checks if a specific component key (by its unique name) is a member
+	// of this group. The check is case-sensitive. This is useful for determining
+	// if a component should be evaluated under this group's policy.
 	//
-	// The check is case-sensitive and performs an exact match.
+	// Parameters:
+	//   - key: The component name to check.
 	//
-	// This operation is thread-safe and lock-free.
-	//
-	// Example:
-	//
-	//	if m.KeyHas("database") {
-	//	    fmt.Println("Database is mandatory")
-	//	}
+	// Returns:
+	//   `true` if the key exists in the group, `false` otherwise.
 	KeyHas(key string) bool
 
-	// KeyAdd adds one or more keys to this mandatory group.
+	// KeyAdd adds one or more component keys to this group. If a key already
+	// exists, it is ignored, ensuring uniqueness within the group. This allows
+	// for idempotent additions.
 	//
-	// Duplicate keys are automatically ignored. The order of keys is preserved
-	// based on first insertion.
-	//
-	// This operation is thread-safe.
-	//
-	// Example:
-	//
-	//	m.KeyAdd("database", "cache")
-	//	m.KeyAdd("queue") // Add more keys later
+	// Parameters:
+	//   - keys: A variadic list of component names to add.
 	KeyAdd(keys ...string)
 
-	// KeyDel removes one or more keys from this mandatory group.
+	// KeyDel removes one or more component keys from this group. If a key does
+	// not exist in the group, the operation is a no-op for that key. This allows
+	// for safe removal without checking for existence first.
 	//
-	// Keys that don't exist are silently ignored. The operation is idempotent.
-	//
-	// This operation is thread-safe.
-	//
-	// Example:
-	//
-	//	m.KeyDel("cache") // Remove a single key
-	//	m.KeyDel("database", "queue") // Remove multiple keys
+	// Parameters:
+	//   - keys: A variadic list of component names to remove.
 	KeyDel(keys ...string)
 
-	// KeyList returns a copy of all keys in this mandatory group.
+	// KeyList returns a slice containing all the component keys currently in this
+	// group. The returned slice is a defensive copy, so modifications to it will
+	// not affect the internal state of the group. This ensures thread safety for
+	// the caller.
 	//
-	// The returned slice is a copy and can be safely modified without affecting
-	// the internal state. The order reflects insertion order.
-	//
-	// This operation is thread-safe and lock-free.
-	//
-	// Example:
-	//
-	//	keys := m.KeyList()
-	//	fmt.Println("Mandatory components:", keys)
+	// Returns:
+	//   A `[]string` containing all component keys.
 	KeyList() []string
 }
 
-// New creates a new Mandatory instance.
+// New creates and returns a new, thread-safe instance of the `Mandatory` interface.
+// The new instance is initialized with a default mode of `control.Ignore` and an
+// empty list of keys.
 //
-// The instance is initialized with:
-//   - Mode: control.Ignore (no validation required)
-//   - Keys: empty list
-//
-// All operations on the returned instance are thread-safe.
-//
-// Example:
-//
-//	m := mandatory.New()
-//	m.SetMode(control.Must)
-//	m.KeyAdd("database", "cache")
+// Returns:
+//   A new `Mandatory` instance ready for use.
 func New() Mandatory {
 	m := new(atomic.Value)
 	m.Store(stsctr.Ignore)

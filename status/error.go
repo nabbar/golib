@@ -35,15 +35,19 @@ import (
 const (
 	// ErrorParamEmpty occurs when required parameters are missing. For example,
 	// this can happen when attempting to marshal a status response without having
-	// first set the application info (name, release, hash).
+	// first set the application info (name, release, hash) via `SetInfo` or `SetVersion`.
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgStatus
 
 	// ErrorValidatorError occurs when the configuration validation fails. This
 	// error is returned by `Config.Validate()` when the provided configuration
-	// does not meet the required constraints (e.g., missing fields).
+	// does not meet the required constraints defined by the struct tags (e.g., a
+	// required field is missing).
 	ErrorValidatorError
 )
 
+// init registers the error codes and their corresponding messages with the `golib/errors`
+// package. This allows for centralized error management and consistent error messages.
+// It will panic on startup if there is an error code collision to prevent ambiguity.
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
 		panic(fmt.Errorf("error code collision with package golib/status"))
@@ -51,6 +55,9 @@ func init() {
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
 
+// getMessage returns the human-readable message for a given error code. This function
+// is used by the `golib/errors` package to resolve an error code to its string
+// representation.
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:

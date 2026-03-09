@@ -37,7 +37,7 @@ import (
 
 // encComponent defines an interface for objects that can be marshaled into
 // both text and JSON formats. This is used to handle different component
-// encoding strategies.
+// encoding strategies (e.g., list vs. map).
 type encComponent interface {
 	MarshalText() (text []byte, err error)
 	MarshalJSON() ([]byte, error)
@@ -45,6 +45,7 @@ type encComponent interface {
 
 // encMod represents a single control mode group for encoding purposes. It contains
 // the mode, the overall status of the group, and a map of the components within it.
+// This structure is used when "map mode" is enabled.
 type encMod struct {
 	Mode stsctr.Mode                     `json:"mode"`
 	Sts  monsts.Status                   `json:"status"`
@@ -62,6 +63,12 @@ type modControl struct {
 
 // MarshalText implements the `encoding.TextMarshaler` interface. It generates a
 // plain text representation of the component groups, their modes, and their statuses.
+//
+// Format:
+//
+//	STATUS - Mode:
+//	    Component1: Status - Message
+//	    Component2: Status - Message
 func (o modControl) MarshalText() (text []byte, err error) {
 	var buf = bytes.NewBuffer(make([]byte, 0))
 
@@ -98,6 +105,9 @@ func (o modControl) MarshalJSON() ([]byte, error) {
 // control groups for encoding. It walks through the mandatory list, groups
 // components by their control mode, and then adds any remaining (ignored)
 // components into a final "Ignore" group.
+//
+// This function ensures that every monitored component appears exactly once in
+// the output, grouped by its effective validation mode.
 func (o modControl) getEncControl() []encMod {
 	var (
 		res = make([]encMod, 0)

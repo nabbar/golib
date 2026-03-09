@@ -24,53 +24,12 @@
  *
  */
 
-// Package control provides control modes for mandatory component validation.
+// Package control provides the validation modes that govern how component health
+// affects the overall application status. These modes are used to define flexible
+// and robust health check policies.
 //
-// This package defines different validation modes that can be applied to
-// mandatory components in a status monitoring system. These modes determine
-// how strictly components must be validated.
-//
-// # Available Modes
-//
-// The package defines five control modes:
-//
-//   - Ignore: No validation required (default)
-//   - Should: Component should be present but is not mandatory
-//   - Must: Component must be present and healthy
-//   - AnyOf: At least one of the components must be healthy
-//   - Quorum: A majority of components must be healthy
-//
-// # Usage Example
-//
-//	import "github.com/nabbar/golib/status/control"
-//
-//	// Parse a mode from string
-//	mode := control.Parse("must")
-//	fmt.Println(mode.String()) // Output: Must
-//
-//	// Use in configuration
-//	if mode == control.Must {
-//	    // Enforce strict validation
-//	}
-//
-// # Serialization
-//
-// The Mode type supports multiple serialization formats:
-//   - JSON: Marshals to/from string representation
-//   - YAML: Marshals to/from string representation
-//   - TOML: Marshals to/from string representation
-//   - Text: Marshals to/from string representation
-//   - CBOR: Marshals to/from string representation
-//
-// All parsing is case-insensitive for convenience.
-//
-// # Integration
-//
-// This package is designed to work with:
-//   - github.com/nabbar/golib/status/mandatory: For managing mandatory components
-//   - github.com/nabbar/golib/status: For overall status management
-//
-// See also: github.com/nabbar/golib/status/mandatory for usage with mandatory components.
+// The package defines a set of standard control modes (Ignore, Should, Must,
+// AnyOf, Quorum) and provides utilities for parsing and serializing them.
 package control
 
 import (
@@ -78,57 +37,49 @@ import (
 	"strings"
 )
 
-// Mode represents a control mode for mandatory component validation.
-//
-// Mode determines how strictly components must be validated in a status
-// monitoring system. It is implemented as a uint8 for efficient storage
-// and comparison.
-//
-// The zero value (Ignore) means no validation is required.
+// Mode represents a control mode for mandatory component validation. It determines
+// the strictness of the health check for a component or a group of components.
+// It is implemented as a `uint8` for efficiency.
 type Mode uint8
 
 const (
-	// Ignore indicates no validation is required for the component.
-	// This is the default mode and allows components to be absent or unhealthy
-	// without affecting the overall status.
+	// Ignore indicates that no validation is required for the component.
+	// This is the default mode (zero value). Components in this mode are
+	// monitored, but their status (even if KO) does not affect the overall
+	// application status.
 	Ignore Mode = iota
 
-	// Should indicates the component should be present but is not mandatory.
-	// If the component is absent or unhealthy, it may generate a warning
-	// but will not cause a failure.
+	// Should indicates that the component is important but not critical. If the
+	// component is unhealthy (KO or WARN), it will generate a warning but will
+	// not cause a critical failure (KO) of the overall application. This is
+	// useful for optional features or degraded modes.
 	Should
 
-	// Must indicates the component must be present and healthy.
-	// If the component is absent or unhealthy, the overall status will fail.
+	// Must indicates that the component is critical and must be healthy. If the
+	// component is unhealthy (KO), the overall application status will be marked
+	// as failed (KO). If it is WARN, the overall status will be WARN.
 	Must
 
-	// AnyOf indicates at least one of the components in the group must be healthy.
-	// This mode is useful for redundant components where any one can satisfy
-	// the requirement.
+	// AnyOf is used for redundant groups of components (e.g., a cluster of
+	// read-only databases). It requires at least one component in the group to
+	// be healthy (OK or WARN). If all components are KO, the group is KO.
 	AnyOf
 
-	// Quorum indicates a majority of components in the group must be healthy.
-	// This mode is useful for distributed systems where a quorum is required
-	// for proper operation.
+	// Quorum is used for distributed systems requiring consensus. It requires a
+	// majority (>50%) of the components in the group to be healthy (OK or WARN).
+	// If 50% or fewer are healthy, the group is considered KO.
 	Quorum
 )
 
-// Parse converts a string to a Mode.
+// Parse converts a string to a `Mode`. The parsing is case-insensitive.
+// If the string does not match any known mode, `Ignore` is returned as the default.
 //
-// The parsing is case-insensitive and supports the following values:
+// Supported values:
+//   - "ignore" -> Ignore
 //   - "should" -> Should
-//   - "must" -> Must
-//   - "anyof" -> AnyOf
+//   - "must"   -> Must
+//   - "anyof"  -> AnyOf
 //   - "quorum" -> Quorum
-//   - any other value -> Ignore
-//
-// Example:
-//
-//	mode := control.Parse("MUST")
-//	fmt.Println(mode) // Output: Must
-//
-//	mode = control.Parse("invalid")
-//	fmt.Println(mode) // Output: (empty string for Ignore)
 func Parse(s string) Mode {
 	switch {
 	case strings.EqualFold(Should.Code(), s):
@@ -144,39 +95,22 @@ func Parse(s string) Mode {
 	return Ignore
 }
 
-// ParseBytes converts a byte slice to a Mode.
-//
-// This is a convenience wrapper around Parse that converts the byte slice
-// to a string before parsing. The parsing is case-insensitive.
-//
-// Example:
-//
-//	mode := control.ParseBytes([]byte("must"))
-//	fmt.Println(mode) // Output: Must
+// ParseBytes is a convenience wrapper for `Parse` that accepts a byte slice.
+// It converts the byte slice to a string and calls `Parse`.
 func ParseBytes(p []byte) Mode {
 	return Parse(string(p))
 }
 
-// ParseUint64 converts a uint64 to a Mode.
+// ParseUint64 converts a `uint64` to a `Mode`. This is useful when reading mode
+// values from numeric configurations or databases. If the value is out of the
+// valid range for `Mode`, `Ignore` is returned.
 //
-// This function is useful when reading Mode values from numeric configuration
-// or database fields. Values are mapped as follows:
+// Mapping:
 //   - 0 -> Ignore
 //   - 1 -> Should
 //   - 2 -> Must
 //   - 3 -> AnyOf
 //   - 4 -> Quorum
-//   - any other value -> Ignore
-//
-// Values larger than math.MaxUint8 are clamped to MaxUint8 before conversion.
-//
-// Example:
-//
-//	mode := control.ParseUint64(2)
-//	fmt.Println(mode) // Output: Must
-//
-//	mode = control.ParseUint64(999)
-//	fmt.Println(mode) // Output: (empty string for Ignore)
 func ParseUint64(p uint64) Mode {
 	var m Mode
 	if p > uint64(math.MaxUint8) {
@@ -186,39 +120,23 @@ func ParseUint64(p uint64) Mode {
 	}
 
 	switch m {
-	case Should:
-		return Should
-	case Must:
-		return Must
-	case AnyOf:
-		return AnyOf
-	case Quorum:
-		return Quorum
+	case Should, Must, AnyOf, Quorum:
+		return m
 	default:
 		return Ignore
 	}
 }
 
-// ParseInt64 converts an int64 to a Mode.
+// ParseInt64 converts an `int64` to a `Mode`. Negative values are treated as 0
+// (`Ignore`). This is useful for signed numeric configurations.
 //
-// This function is useful when reading Mode values from signed numeric
-// configuration or database fields. Negative values are treated as 0 (Ignore).
-//
-// Values are mapped as follows:
-//   - 0 or negative -> Ignore
+// Mapping:
+//   - < 0 -> Ignore
+//   - 0 -> Ignore
 //   - 1 -> Should
 //   - 2 -> Must
 //   - 3 -> AnyOf
 //   - 4 -> Quorum
-//   - any other value -> Ignore
-//
-// Example:
-//
-//	mode := control.ParseInt64(2)
-//	fmt.Println(mode) // Output: Must
-//
-//	mode = control.ParseInt64(-1)
-//	fmt.Println(mode) // Output: (empty string for Ignore)
 func ParseInt64(p int64) Mode {
 	if p < 0 {
 		return ParseUint64(0)

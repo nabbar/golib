@@ -33,21 +33,14 @@ import (
 	libmap "github.com/go-viper/mapstructure/v2"
 )
 
-// String returns the string representation of the Mode.
+// String returns the PascalCase string representation of the `Mode`.
+// The `Ignore` mode returns an empty string, which is its defined string value.
 //
-// The string representation uses PascalCase for readability:
-//   - Should -> "Should"
-//   - Must -> "Must"
-//   - AnyOf -> "AnyOf"
-//   - Quorum -> "Quorum"
-//   - Ignore -> "" (empty string)
-//
-// This method is used by the fmt package when printing Mode values.
+// This method implements the `fmt.Stringer` interface, allowing `Mode` values
+// to be printed directly and clearly in logs and other outputs.
 //
 // Example:
-//
-//	mode := control.Must
-//	fmt.Println(mode.String()) // Output: Must
+//   fmt.Println(control.Must) // Output: Must
 func (c Mode) String() string {
 	switch c {
 	case Should:
@@ -63,61 +56,49 @@ func (c Mode) String() string {
 	return ""
 }
 
-// Code returns the lowercase code representation of the Mode.
-//
-// This is a convenience method that returns the lowercase version of String().
-// It's useful for case-insensitive comparisons and configuration files.
-//
-// Returns:
-//   - Should -> "should"
-//   - Must -> "must"
-//   - AnyOf -> "anyof"
-//   - Quorum -> "quorum"
-//   - Ignore -> "" (empty string)
+// Code returns the lowercase string representation of the `Mode`.
+// This is primarily used for case-insensitive comparisons and for storing the
+// mode in configuration files in a consistent format.
 //
 // Example:
-//
-//	mode := control.Must
-//	fmt.Println(mode.Code()) // Output: must
+//   fmt.Println(control.Must.Code()) // Output: must
 func (c Mode) Code() string {
 	return strings.ToLower(c.String())
 }
 
-// ViperDecoderHook returns a mapstructure decode hook for Viper configuration.
+// ViperDecoderHook returns a `mapstructure.DecodeHookFunc` that can be used with
+// Viper to automatically decode string values from configuration files (e.g., YAML,
+// JSON, TOML) into `Mode` types during the unmarshaling process.
 //
-// This hook allows Mode values to be automatically decoded from configuration
-// files (YAML, JSON, TOML, etc.) when using Viper. The hook converts string
-// values to Mode types during configuration unmarshaling.
+// This hook is essential for a seamless configuration experience, as it allows
+// developers to use human-readable strings (like "must" or "Should") in their
+// config files, which are then automatically converted to the correct `Mode` type.
+// The decoding is case-insensitive.
 //
-// The decoding is case-insensitive and supports all Mode string representations.
-//
-// Usage with Viper:
+// Example usage with Viper:
 //
 //	import (
-//	    "github.com/spf13/viper"
-//	    "github.com/nabbar/golib/status/control"
+//		"github.com/spf13/viper"
+//		"github.com/mitchellh/mapstructure"
+//		"github.com/nabbar/golib/status/control"
 //	)
 //
-//	v := viper.New()
-//	v.SetConfigType("yaml")
-//
-//	// Register the decode hook
-//	decoderConfig := &mapstructure.DecoderConfig{
-//	    DecodeHook: control.ViperDecoderHook(),
-//	    Result:     &config,
+//	type MyConfig struct {
+//	    ValidationMode control.Mode `mapstructure:"validation_mode"`
 //	}
 //
-// Configuration file example (YAML):
+//	v := viper.New()
+//	// ... load config from file or other source ...
 //
-//	mandatory:
-//	  mode: must
-//	  keys:
-//	    - database
-//	    - cache
+//	var cfg MyConfig
+//	// The hook is passed to Viper's Unmarshal function.
+//	err := v.Unmarshal(&cfg, viper.DecodeHook(control.ViperDecoderHook()))
 //
-// The "must" string will be automatically decoded to control.Must.
+// In a YAML file:
 //
-// See also: github.com/spf13/viper for Viper configuration management.
+//	validation_mode: "Must"
+//
+// The string "Must" will be correctly decoded into `control.Must`.
 func ViperDecoderHook() libmap.DecodeHookFuncType {
 	return func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
 		var (
@@ -126,19 +107,20 @@ func ViperDecoderHook() libmap.DecodeHookFuncType {
 			k bool
 		)
 
-		// Check if the target type matches the expected one
+		// This hook is only interested in converting strings to the control.Mode type.
+		// If the target type is not control.Mode, we pass the data through unchanged.
 		if to != reflect.TypeOf(z) {
 			return data, nil
 		}
 
-		// Check if the data type matches the expected one
+		// The source data must be a string to be parsed.
 		if from.Kind() != reflect.String {
 			return data, nil
 		} else if t, k = data.(string); !k {
 			return data, nil
 		}
 
-		// Format/decode/parse the data and return the new value
+		// Parse the string data into a Mode type.
 		if e := z.unmarshall([]byte(t)); e != nil {
 			return nil, e
 		} else {

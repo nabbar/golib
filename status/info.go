@@ -33,15 +33,14 @@ import (
 )
 
 // SetInfo manually sets the application information to be displayed in status responses.
-// This method is a convenient way to provide static version details.
-// When using this method, the build date is set to a zero time.
+// This method is a convenient way to provide static version details when the full
+// `version` package integration is not needed or available.
 //
-// Use this method for simple cases where version information is static and known at
-// startup. For more advanced or dynamic versioning, prefer using SetVersion with an
-// object from the `github.com/nabbar/golib/version` package.
+// When using this method, the build date is automatically set to a zero time value,
+// as it is not provided in the arguments.
 //
 // Parameters:
-//   - name: The application or service name (e.g., "MyAPI").
+//   - name: The name of the application or service (e.g., "MyAPI").
 //   - release: The version string (e.g., "v1.2.3", "1.0.0-beta").
 //   - hash: The build hash or commit identifier (e.g., "abc123def456").
 //
@@ -69,13 +68,15 @@ func (o *sts) SetInfo(name, release, hash string) {
 
 // SetVersion sets the application information from a `version.Version` object.
 // This is the recommended method for integrating with the `github.com/nabbar/golib/version`
-// package, as it allows for dynamic updates to version information.
+// package, as it allows for dynamic updates to version information and includes
+// the build timestamp.
 //
 // This method links the status system to the version object, automatically extracting
-// the application name, release, build hash, and build time.
+// the application name, release, build hash, and build time whenever the status
+// is queried.
 //
 // Parameters:
-//   - v: The `version.Version` object.
+//   - v: The `version.Version` object containing the application's metadata.
 //
 // This method is thread-safe.
 func (o *sts) SetVersion(v libver.Version) {

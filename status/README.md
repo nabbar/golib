@@ -97,12 +97,12 @@ status/
 ### Component Overview
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                  Status Package                     │
-│  HTTP Endpoint + Component Health Aggregation       │
-└──────────────┬────────────┬──────────────┬──────────┘
+┌──────────────────────────────────────────────────────┐
+│                  Status Package                      │
+│  HTTP Endpoint + Component Health Aggregation        │
+└──────────────┬────────────┬──────────────┬───────────┘
                │            │              │
-      ┌────────▼───┐  ┌────▼─────┐  ┌────▼────────┐
+      ┌────────▼───┐  ┌─────▼────┐  ┌──────▼──────┐
       │  control   │  │mandatory │  │listmandatory│
       │            │  │          │  │             │
       │ Validation │  │  Group   │  │  Group      │
@@ -124,25 +124,64 @@ status/
 | **`mandatory`** | Component group with mode | ✅ | N/A |
 | **`listmandatory`** | Multiple group management | ✅ | N/A |
 
-### Data Flow
+### Data Flow & Logic
+
+The following diagram illustrates how the status package processes a request,
+computes the health status, and returns the response.
 
 ```
-[HTTP Request]
-      ↓
-[MiddleWare] → Parse query params/headers
-      ↓
-[getStatus] → Walk monitor pool
-      ↓
-[Control Mode Logic]
-  ├─ Ignore: Skip component
-  ├─ Should: Warn only (no failure)
-  ├─ Must: Must be healthy
-  ├─ AnyOf: At least one healthy
-  └─ Quorum: Majority (>50%) healthy
-      ↓
-[Encode] → JSON or Text format
-      ↓
-[HTTP Response] → With status code
+[HTTP Request] (GET /status)
+      │
+      ▼
+[MiddleWare] (route.go)
+      │
+      ├─> Parse Query Params & Headers (short, format, map)
+      │   Determines verbosity and output format.
+      │
+      ▼
+[Status Computation] (model.go)
+      │
+      ├─> Check Cache (cache.go)
+      │     │
+      │     ├─> Valid? ───> Return Cached Status (Fast Path)
+      │     │               (Atomic read, < 10ns)
+      │     │
+      │     └─> Invalid? ─┐ (Slow Path)
+      │                   │
+      │           [Walk Monitor Pool] (pool.go)
+      │           Iterate over all registered monitors.
+      │                   │
+      │                   ▼
+      │           [Apply Control Modes] (control/mandatory)
+      │           Evaluate health based on configured rules.
+      │                   │
+      │             ┌─────┴─────┐
+      │             │           │
+      │        [Must/Should] [AnyOf/Quorum]
+      │             │           │
+      │             ▼           ▼
+      │        Check Indiv.   Check Group
+      │        Component      Logic (Thresholds)
+      │             │           │
+      │             └─────┬─────┘
+      │                   │
+      │                   ▼
+      │           [Aggregate Status]
+      │           Determine Global Status (OK / WARN / KO)
+      │                   │
+      │                   ▼
+      └─<── Update Cache ─┘
+            (Atomic write)
+      │
+      ▼
+[Response Encoding] (encode.go)
+      │
+      ├─> Format: JSON / Text
+      ├─> Verbosity: Full (details) / Short (status only)
+      ├─> Structure: List / Map
+      │
+      ▼
+[HTTP Response] (Status Code + Body)
 ```
 
 ---
@@ -292,7 +331,7 @@ func setupStatus() status.Status {
             monsts.Warn: http.StatusMultiStatus,  // 207
             monsts.KO:   http.StatusServiceUnavailable, // 503
         },
-        MandatoryComponent: []status.Mandatory{
+        Component: []status.Mandatory{
             {
                 Mode: control.Must,
                 Keys: []string{"database", "cache"},
@@ -551,7 +590,7 @@ type Config struct {
     ReturnCode map[monsts.Status]int
     
     // Component groups with validation modes
-    MandatoryComponent []Mandatory
+    Component []Mandatory
 }
 
 type Mandatory struct {
@@ -578,7 +617,7 @@ cfg := status.Config{
         monsts.Warn: 200,  // Treat warnings as OK
         monsts.KO:   503,  // Service Unavailable
     },
-    MandatoryComponent: []status.Mandatory{
+    Component: []status.Mandatory{
         {Mode: control.Must, Keys: []string{"database"}},
         {Mode: control.Should, Keys: []string{"cache"}},
     },
@@ -589,7 +628,7 @@ cfg := status.Config{
 ```go
 // Load monitor names from component configuration
 cfg := status.Config{
-    MandatoryComponent: []status.Mandatory{
+    Component: []status.Mandatory{
         {
             Mode: control.Must,
             ConfigKeys: []string{"database-component"}, // Resolves to monitor names
@@ -612,7 +651,7 @@ livenessCfg := status.Config{
         monsts.Warn: 500,  // Treat warnings as failure
         monsts.KO:   500,
     },
-    MandatoryComponent: []status.Mandatory{
+    Component: []status.Mandatory{
         {Mode: control.Must, Keys: []string{"core"}},
     },
 }
@@ -630,7 +669,7 @@ readinessCfg := status.Config{
 **Distributed System**
 ```go
 cfg := status.Config{
-    MandatoryComponent: []status.Mandatory{
+    Component: []status.Mandatory{
         // Core database: must be healthy
         {Mode: control.Must, Keys: []string{"postgres"}},
         
@@ -807,7 +846,7 @@ json.NewDecoder(resp.Body).Decode(&status)
 
 ```go
 cfg := status.Config{
-    MandatoryComponent: []status.Mandatory{
+    Component: []status.Mandatory{
         // Critical: Must be healthy for service to function
         {Mode: control.Must, Keys: []string{
             "database",

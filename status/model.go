@@ -125,6 +125,8 @@ func (o *sts) getStatus(keys ...string) (monsts.Status, string) {
 	ign := make([]string, 0)
 
 	o.MonitorWalk(func(name string, val montps.Monitor) bool {
+		// Filter logic: if specific keys are requested, skip others.
+		// Also skip components that have already been processed (e.g., as part of a group).
 		if len(keys) > 0 && !slices.Contains(keys, name) {
 			return true
 		} else if len(ign) > 0 && slices.Contains(ign, name) {
@@ -136,33 +138,42 @@ func (o *sts) getStatus(keys ...string) (monsts.Status, string) {
 
 		switch c {
 		case stsctr.Ignore:
+			// Component is explicitly ignored, so we skip it.
 			return true
 		case stsctr.Should:
-			// A 'Should' component cannot set the global status to KO.
-			// If it fails, it can only downgrade the status to WARN.
+			// 'Should' mode: The component is desirable but not critical.
+			// If it's KO or WARN, the global status becomes WARN (unless it's already KO).
+			// It cannot cause a global KO.
 			if v < monsts.Warn && stt > monsts.Warn {
 				stt = monsts.Warn
 				msg = val.Message()
 			}
 		case stsctr.Must:
-			// If a 'Must' component's status is worse than the current global
-			// status, the global status is downgraded.
+			// 'Must' mode: The component is critical.
+			// The global status adopts the status of this component if it's worse
+			// than the current global status.
+			// OK -> OK, WARN -> WARN, KO -> KO.
 			if v < stt {
 				stt = v
 				msg = val.Message()
 			}
 		case stsctr.AnyOf, stsctr.Quorum:
+			// Group modes: These require evaluating a set of components together.
+			// First, we identify all members of the group.
 			lst := o.cfgGetOne(name)
 			sta := map[monsts.Status]uint8{monsts.KO: 0, monsts.Warn: 0, monsts.OK: 0}
 			res := make([]string, 0)
 
+			// Iterate through the pool to find all members of this group.
 			o.MonitorWalk(func(nme string, val montps.Monitor) bool {
 				if !slices.Contains(lst, nme) {
 					return true
 				}
 
+				// Mark as ignored for the outer loop so we don't process them again individually.
 				ign = append(ign, nme)
 
+				// Tally the status.
 				sta[val.Status()]++
 				if s := val.Message(); len(s) > 0 {
 					res = append(res, val.Message())
@@ -175,25 +186,27 @@ func (o *sts) getStatus(keys ...string) (monsts.Status, string) {
 
 			switch c {
 			case stsctr.AnyOf:
+				// 'AnyOf' mode: At least one component must be healthy.
 				if sta[monsts.OK] > 0 {
-					// At least one is OK, so the group is considered OK.
+					// At least one is OK, so the group is OK. Global status is unaffected.
 				} else if sta[monsts.Warn] > 0 && stt > monsts.Warn {
-					// No component is OK, but at least one is WARN.
+					// No OK, but at least one WARN. Global status becomes WARN (if not already KO).
 					stt = monsts.Warn
 				} else {
-					// All components are KO.
+					// All components are KO. Global status becomes KO.
 					stt = monsts.KO
 				}
 			case stsctr.Quorum:
-				// A quorum requires more than 50% of components to be healthy (OK or WARN).
+				// 'Quorum' mode: More than 50% of components must be healthy.
+				// Calculate the threshold (half of the total count).
 				ct := (sta[monsts.OK] + sta[monsts.Warn] + sta[monsts.KO]) / 2
 				if i := sta[monsts.OK]; i > ct {
-					// Quorum of OK is met.
+					// Majority are OK. Global status unaffected.
 				} else if i += sta[monsts.Warn]; i > ct && stt > monsts.Warn {
-					// Quorum of OK+WARN is met.
+					// Majority are OK or WARN. Global status becomes WARN (if not already KO).
 					stt = monsts.Warn
 				} else {
-					// Quorum is not met.
+					// Majority are KO. Global status becomes KO.
 					stt = monsts.KO
 				}
 			default:
@@ -228,8 +241,9 @@ func (o *sts) getStrictStatus(keys ...string) (monsts.Status, string) {
 
 		v := val.Status()
 
-		// if global status if better than any must
-		// so global status must having value status
+		// Strict check: simply take the worst status encountered.
+		// If any component is WARN, global becomes WARN.
+		// If any component is KO, global becomes KO.
 		if v < stt {
 			stt = v
 			msg = val.Message()

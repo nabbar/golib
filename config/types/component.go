@@ -142,7 +142,30 @@ type ComponentMonitor interface {
 	// Components should store this function and call it when they are ready to register monitors.
 	RegisterMonitorPool(p montps.FuncPool)
 
-	// GetMonitorNames returns the names of the monitors registered by the component.
+	// GetMonitorNames returns a slice of strings containing the unique names of all
+	// monitors that have been registered by this component.
+	//
+	// This function is crucial for systems that need to dynamically discover and
+	// interact with the health checks or metrics associated with a component. For example,
+	// a status reporting system might use this method to fetch the names of all
+	// relevant monitors and then query their individual statuses.
+	//
+	// A component can register multiple monitors, each with a unique name. This method
+	// should return all of them. If a component does not register any monitors, it
+	// should return an empty or nil slice.
+	//
+	// Example Usage:
+	//
+	//	// A status package could use this to dynamically build a list of mandatory checks.
+	//	component := config.ComponentGet("my-database-component")
+	//	if componentWithMonitors, ok := component.(types.ComponentMonitor); ok {
+	//	    monitorNames := componentWithMonitors.GetMonitorNames()
+	//	    // monitorNames might be: []string{"db_connection_pool", "db_query_latency"}
+	//	    status.AddMandatoryChecks(monitorNames...)
+	//	}
+	//
+	// Returns:
+	//   A slice of strings, where each string is the name of a monitor.
 	GetMonitorNames() []string
 }
 

@@ -98,15 +98,19 @@ func (o *encodeModel) GinCode() int {
 // If `isText` is true, the response is rendered as plain text; otherwise, as JSON.
 func (o *encodeModel) GinRender(c *ginsdk.Context, isText bool, isShort bool) {
 	if isShort {
+		// In short mode, we don't want to show any component details.
+		// Setting Component to nil achieves this for JSON (`omitempty`) and text.
 		o.Component = monpol.New(c)
 	}
 
 	if isText {
+		// Render as plain text.
 		c.Render(o.code, ginrdr.Data{
 			ContentType: ginsdk.MIMEPlain,
 			Data:        o.Bytes(),
 		})
 	} else {
+		// Render as JSON.
 		c.JSON(o.code, *o)
 	}
 }

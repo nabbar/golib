@@ -2,8 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-307%20Specs-green)]()
-[![Coverage](https://img.shields.io/badge/Coverage-84.82%25-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-309%20Specs-green)]()
+[![Coverage](https://img.shields.io/badge/Coverage-82.4%25-brightgreen)]()
 
 Comprehensive testing documentation for the status package, covering test execution, race detection, benchmarks, and quality assurance.
 
@@ -30,19 +30,19 @@ Comprehensive testing documentation for the status package, covering test execut
 The status package uses **Ginkgo v2** (BDD testing framework) and **Gomega** (matcher library) for comprehensive testing with expressive assertions.
 
 **Test Suite Summary**
-- Total Specs: 307 across 4 packages
-- Overall Coverage: 84.82%
+- Total Specs: 309 across 4 packages
+- Overall Coverage: 82.4% (aggregate)
 - Race Detection: ✅ Zero data races
-- Execution Time: ~11s (without race), ~22s (with race)
+- Execution Time: ~12s (without race), ~25s (with race)
 
 **Package Breakdown**
 
 | Package | Specs | Coverage | Duration | Focus |
 |---------|-------|----------|----------|-------|
-| `status` | 121 | 82.20% | 10.7s | Main status logic, HTTP routes |
-| `control` | 102 | 95.00% | 0.01s | Mode validation, encoding |
-| `mandatory` | 55 | 76.10% | 0.1s | Component group management |
-| `listmandatory` | 29 | 86.00% | 0.5s | Multiple group handling |
+| `status` | 123 | 81.7% | 10.7s | Main status logic, HTTP routes |
+| `control` | 102 | 94.7% | 0.01s | Mode validation, encoding |
+| `mandatory` | 55 | 76.6% | 0.6s | Component group management |
+| `listmandatory` | 29 | 86.0% | 1.5s | Multiple group handling |
 
 **Coverage Areas**
 - Status computation with control modes
@@ -200,16 +200,16 @@ go tool trace trace.out
 
 | Test Type | Duration | Notes |
 |-----------|----------|-------|
-| Full Suite | ~11s | Without race |
-| With `-race` | ~22s | 2x slower (normal) |
+| Full Suite | ~12s | Without race |
+| With `-race` | ~25s | 2x slower (normal) |
 | Control Tests | <0.1s | Very fast |
-| Status Tests | ~10s | Monitor stabilization delays |
+| Status Tests | ~11s | Monitor stabilization delays |
 
 ---
 
 ## Test Coverage
 
-**Target**: ≥80% statement coverage (currently 84.82%)
+**Target**: ≥80% statement coverage (currently 82.4% aggregate)
 
 ### Coverage By Package
 
@@ -318,7 +318,7 @@ for i in {1..10}; do CGO_ENABLED=1 go test -race ./... || break; done
 CGO_ENABLED=1 go test -race -timeout=30s ./...
 ```
 
-**Result**: Zero data races across all test runs
+**Result**: Zero data races detected across all test runs
 
 ### Concurrent Test Examples
 
