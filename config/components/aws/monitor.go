@@ -57,13 +57,17 @@ func (o *mod) GetMonitorNames() []string {
 		return nil
 	}
 
-	var key = o._getKey()
-
-	if len(key) < 1 {
-		return nil
+	if i, l := o.x.Load(keyMonNames); l && i != nil {
+		if v, k := i.([]string); k && len(v) > 0 {
+			return v
+		}
 	}
 
-	return []string{key}
+	if key := o.getKey(); len(key) > 0 {
+		return []string{key}
+	}
+
+	return nil
 }
 
 func (o *mod) HealthCheck(ctx context.Context) error {
@@ -76,14 +80,50 @@ func (o *mod) HealthCheck(ctx context.Context) error {
 	}
 }
 
-func (o *mod) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Config) error {
+func (o *mod) getPool() montps.Pool {
+	if i := o.p.Load(); i == nil {
+		return nil
+	} else if v, k := i.(montps.FuncPool); !k {
+		return nil
+	} else if p := v(); p == nil {
+		return nil
+	} else {
+		return p
+	}
+}
+
+func (o *mod) getRequest() libreq.Request {
+	if i := o.r.Load(); i == nil {
+		return nil
+	} else if v, k := i.(libreq.Request); !k {
+		return nil
+	} else {
+		return v
+	}
+}
+
+func (o *mod) setRequest(req libreq.Request) {
+	if req != nil {
+		o.r.Store(req)
+	}
+}
+
+func (o *mod) getEndpoint(opt *libreq.OptionsHealth, aws libaws.Config) string {
+	if req := o.getRequest(); req != nil && len(opt.Endpoint) > 0 {
+		return opt.Endpoint
+	} else {
+		return aws.GetEndpoint().Host
+	}
+}
+
+func (o *mod) regMonitor(opt *libreq.OptionsHealth, aws libaws.Config) error {
 	var (
 		e   error
-		key = o._getKey()
+		key = o.getKey()
 		inf moninf.Info
 		mon montps.Monitor
 		res = make(map[string]interface{}, 0)
-		vrs = o._getVersion()
+		vrs = o.getVersion()
 	)
 
 	if o.getPool() == nil {
@@ -104,22 +144,22 @@ func (o *mod) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Config) err
 		res["date"] = vrs.GetDate()
 		res["endpoint"] = aws.GetEndpoint().Host
 		res["region"] = aws.GetRegion()
-		res["health"] = o._getEndpoint(opt, aws)
+		res["health"] = o.getEndpoint(opt, aws)
 	}
 
 	if inf, e = moninf.New(defaultNameMonitor); e != nil {
 		return e
 	} else if vrs != nil {
 		inf.RegisterName(func() (string, error) {
-			return fmt.Sprintf("%s %s", defaultNameMonitor, o._getKey()), nil
+			return fmt.Sprintf("%s %s", defaultNameMonitor, o.getKey()), nil
 		})
 		inf.RegisterInfo(func() (map[string]interface{}, error) {
 			return res, nil
 		})
 	}
 
-	if mon = o._getMonitor(key, inf); mon == nil {
-		if mon, e = o._newMonitor(inf); e != nil {
+	if mon = o.getMonitor(key, inf); mon == nil {
+		if mon, e = o.newMonitor(inf); e != nil {
 			return e
 		} else if mon == nil {
 			return nil
@@ -138,22 +178,14 @@ func (o *mod) _registerMonitor(opt *libreq.OptionsHealth, aws libaws.Config) err
 
 	if e = mon.Restart(o.x.GetContext()); e != nil {
 		return e
-	} else if e = o._setMonitor(mon); e != nil {
+	} else if e = o.setMonitor(mon); e != nil {
 		return e
 	}
 
 	return nil
 }
 
-func (o *mod) _getEndpoint(opt *libreq.OptionsHealth, aws libaws.Config) string {
-	if req := o.getRequest(); req != nil && len(opt.Endpoint) > 0 {
-		return opt.Endpoint
-	} else {
-		return aws.GetEndpoint().Host
-	}
-}
-
-func (o *mod) _newMonitor(inf montps.Info) (montps.Monitor, error) {
+func (o *mod) newMonitor(inf montps.Info) (montps.Monitor, error) {
 	if c, e := libmon.New(o.x, inf); e != nil {
 		return nil, e
 	} else if c != nil {
@@ -164,7 +196,7 @@ func (o *mod) _newMonitor(inf montps.Info) (montps.Monitor, error) {
 	}
 }
 
-func (o *mod) _getMonitor(key string, inf montps.Info) montps.Monitor {
+func (o *mod) getMonitor(key string, inf montps.Info) montps.Monitor {
 	var (
 		mon libmon.Monitor
 		pol = o.getPool()
@@ -184,12 +216,14 @@ func (o *mod) _getMonitor(key string, inf montps.Info) montps.Monitor {
 	return mon
 }
 
-func (o *mod) _setMonitor(mon montps.Monitor) error {
+func (o *mod) setMonitor(mon montps.Monitor) error {
 	var pol = o.getPool()
 
 	if pol == nil {
 		return nil
 	}
+
+	o.x.Store(keyMonNames, []string{mon.Name()})
 
 	return pol.MonitorSet(mon)
 }

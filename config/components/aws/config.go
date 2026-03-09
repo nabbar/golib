@@ -81,11 +81,11 @@ func (c *_configFlag) updStandard(cfg *cfgstd.Model) {
 
 func (o *mod) RegisterFlag(Command *spfcbr.Command) error {
 	var (
-		key = o._getKey()
+		key = o.getKey()
 		vpr *spfvpr.Viper
 	)
 
-	if vpr = o._getSPFViper(); vpr == nil {
+	if vpr = o.getSPFViper(); vpr == nil {
 		return ErrorComponentNotInitialized.Error(nil)
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
@@ -122,9 +122,9 @@ func (o *mod) _getConfig() (libaws.Config, *libreq.OptionsHealth, error) {
 		err error
 	)
 
-	if vpr = o._getViper(); vpr == nil {
+	if vpr = o.getViper(); vpr == nil {
 		return nil, nil, ErrorComponentNotInitialized.Error(nil)
-	} else if key = o._getKey(); len(key) < 1 {
+	} else if key = o.getKey(); len(key) < 1 {
 		return nil, nil, ErrorComponentNotInitialized.Error(nil)
 	} else if !vpr.Viper().IsSet(key) {
 		return nil, nil, ErrorParamInvalid.Error(fmt.Errorf("missing config key '%s'", key))
@@ -214,9 +214,9 @@ func (o *mod) _getFlagUpdate() *_configFlag {
 		key string
 	)
 
-	if vpr = o._getSPFViper(); vpr == nil {
+	if vpr = o.getSPFViper(); vpr == nil {
 		return nil
-	} else if key = o._getKey(); len(key) < 1 {
+	} else if key = o.getKey(); len(key) < 1 {
 		return nil
 	}
 

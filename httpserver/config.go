@@ -57,6 +57,7 @@ const (
 	cfgTLS           = "cfgTLS"
 	cfgTLSMandatory  = "cfgTLSMandatory"
 	cfgServerOptions = "cfgServerOptions"
+	cfgMonitorName   = "cfgMonitorName"
 )
 
 // Config defines the complete HTTP server configuration including network settings,

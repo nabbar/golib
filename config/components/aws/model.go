@@ -32,8 +32,6 @@ import (
 	libaws "github.com/nabbar/golib/aws"
 	libctx "github.com/nabbar/golib/context"
 	libhtc "github.com/nabbar/golib/httpcli"
-	montps "github.com/nabbar/golib/monitor/types"
-	libreq "github.com/nabbar/golib/request"
 )
 
 type mod struct {
@@ -78,18 +76,6 @@ func (o *mod) SetAws(cli libaws.AWS) {
 	}
 }
 
-func (o *mod) getPool() montps.Pool {
-	if i := o.p.Load(); i == nil {
-		return nil
-	} else if v, k := i.(montps.FuncPool); !k {
-		return nil
-	} else if p := v(); p == nil {
-		return nil
-	} else {
-		return p
-	}
-}
-
 func (o *mod) getClient() libhtc.HttpClient {
 	if i := o.c.Load(); i == nil {
 		return libhtc.GetClient()
@@ -97,21 +83,5 @@ func (o *mod) getClient() libhtc.HttpClient {
 		return libhtc.GetClient()
 	} else {
 		return v
-	}
-}
-
-func (o *mod) getRequest() libreq.Request {
-	if i := o.r.Load(); i == nil {
-		return nil
-	} else if v, k := i.(libreq.Request); !k {
-		return nil
-	} else {
-		return v
-	}
-}
-
-func (o *mod) setRequest(req libreq.Request) {
-	if req != nil {
-		o.r.Store(req)
 	}
 }

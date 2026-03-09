@@ -145,7 +145,7 @@ func (o *mod) _runCli() error {
 	o.d.Store(dbo)
 	o.r.Store(true)
 
-	if e := o._registerMonitor(cfg); e != nil {
+	if e := o.regMonitor(cfg); e != nil {
 		return prt.Error(e)
 	}
 

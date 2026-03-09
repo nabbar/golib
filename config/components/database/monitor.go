@@ -38,20 +38,24 @@ func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 }
 
 func (o *mod) GetMonitorNames() []string {
-	if o.getMonitorPool() == nil {
+	if o.getMonPool() == nil {
 		return nil
 	}
 
-	var key = o._getKey()
-
-	if len(key) < 1 {
-		return nil
+	if i, l := o.x.Load(keyMonNames); l && i != nil {
+		if v, k := i.([]string); k && len(v) > 0 {
+			return v
+		}
 	}
 
-	return []string{key}
+	if key := o._getKey(); len(key) > 0 {
+		return []string{key}
+	}
+
+	return nil
 }
 
-func (o *mod) getMonitorPool() montps.Pool {
+func (o *mod) getMonPool() montps.Pool {
 	if i, l := o.x.Load(keyFctMonitorPool); !l {
 		return nil
 	} else if i == nil {
@@ -65,7 +69,7 @@ func (o *mod) getMonitorPool() montps.Pool {
 	}
 }
 
-func (o *mod) _registerMonitor(cfg *libdbs.Config) error {
+func (o *mod) regMonitor(cfg *libdbs.Config) error {
 	var (
 		e   error
 		key = o._getKey()
@@ -73,7 +77,7 @@ func (o *mod) _registerMonitor(cfg *libdbs.Config) error {
 		vrs = o._getVersion()
 	)
 
-	if o.getMonitorPool() == nil {
+	if o.getMonPool() == nil {
 		return nil
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
@@ -83,8 +87,8 @@ func (o *mod) _registerMonitor(cfg *libdbs.Config) error {
 		return ErrorComponentStart.Error(nil)
 	}
 
-	if mon = o._getMonitor(key); mon == nil {
-		if mon, e = o._newMonitor(vrs); e != nil {
+	if mon = o.getMonitor(key); mon == nil {
+		if mon, e = o.newMonitor(vrs); e != nil {
 			return e
 		} else if mon == nil {
 			return nil
@@ -101,14 +105,14 @@ func (o *mod) _registerMonitor(cfg *libdbs.Config) error {
 
 	if e = mon.Restart(o.x.GetContext()); e != nil {
 		return e
-	} else if e = o._setMonitor(mon); e != nil {
+	} else if e = o.setMonitor(mon); e != nil {
 		return e
 	}
 
 	return nil
 }
 
-func (o *mod) _newMonitor(vrs libver.Version) (libmon.Monitor, error) {
+func (o *mod) newMonitor(vrs libver.Version) (libmon.Monitor, error) {
 	if d := o.GetDatabase(); d == nil {
 		return nil, ErrorComponentNotInitialized.Error(nil)
 	} else if c, e := d.Monitor(vrs); e != nil {
@@ -119,10 +123,10 @@ func (o *mod) _newMonitor(vrs libver.Version) (libmon.Monitor, error) {
 	}
 }
 
-func (o *mod) _getMonitor(key string) libmon.Monitor {
+func (o *mod) getMonitor(key string) libmon.Monitor {
 	var (
 		mon libmon.Monitor
-		pol = o.getMonitorPool()
+		pol = o.getMonPool()
 	)
 
 	if pol == nil {
@@ -138,12 +142,14 @@ func (o *mod) _getMonitor(key string) libmon.Monitor {
 	return mon
 }
 
-func (o *mod) _setMonitor(mon libmon.Monitor) error {
-	var pol = o.getMonitorPool()
+func (o *mod) setMonitor(mon libmon.Monitor) error {
+	var pol = o.getMonPool()
 
 	if pol == nil {
 		return nil
 	}
+
+	o.x.Store(keyMonNames, []string{mon.Name()})
 
 	return pol.MonitorSet(mon)
 }

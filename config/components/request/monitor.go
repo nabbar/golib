@@ -47,7 +47,15 @@ func (o *mod) GetMonitorNames() []string {
 
 	if o.getPool() == nil {
 		return nil
-	} else if len(key) < 1 {
+	}
+
+	if i, l := o.x.Load(keyMonNames); l && i != nil {
+		if v, k := i.([]string); k && len(v) > 0 {
+			return v
+		}
+	}
+
+	if len(key) < 1 {
 		return nil
 	} else if !o.IsStarted() {
 		return nil
@@ -138,6 +146,8 @@ func (o *mod) _setMonitor(mon montps.Monitor) error {
 	if pol == nil {
 		return nil
 	}
+
+	o.x.Store(keyMonNames, []string{mon.Name()})
 
 	return pol.MonitorSet(mon)
 }

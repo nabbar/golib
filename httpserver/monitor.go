@@ -88,6 +88,12 @@ func (o *srv) HealthCheck(ctx context.Context) error {
 // MonitorName returns the unique monitoring identifier for this server instance.
 // The identifier includes the server's bind address for uniqueness.
 func (o *srv) MonitorName() string {
+	if i, l := o.c.Load(cfgMonitorName); l && i != nil {
+		if v, k := i.(string); k {
+			return v
+		}
+	}
+
 	return fmt.Sprintf("%s [%s]", DefaultNameMonitor, o.GetBindable())
 }
 
@@ -137,6 +143,8 @@ func (o *srv) Monitor(vrs libver.Version) (montps.Monitor, error) {
 	if e = mon.Start(o.c.GetContext()); e != nil {
 		return nil, e
 	}
+
+	o.c.Store(cfgMonitorName, mon.Name())
 
 	return mon, nil
 }

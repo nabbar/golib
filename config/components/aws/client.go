@@ -35,7 +35,7 @@ import (
 	spfvbr "github.com/spf13/viper"
 )
 
-func (o *mod) _getKey() string {
+func (o *mod) getKey() string {
 	if i, l := o.x.Load(keyCptKey); !l {
 		return ""
 	} else if i == nil {
@@ -47,7 +47,7 @@ func (o *mod) _getKey() string {
 	}
 }
 
-func (o *mod) _getFctVpr() libvpr.FuncViper {
+func (o *mod) getFctVpr() libvpr.FuncViper {
 	if i, l := o.x.Load(keyFctViper); !l {
 		return nil
 	} else if i == nil {
@@ -59,8 +59,8 @@ func (o *mod) _getFctVpr() libvpr.FuncViper {
 	}
 }
 
-func (o *mod) _getViper() libvpr.Viper {
-	if f := o._getFctVpr(); f == nil {
+func (o *mod) getViper() libvpr.Viper {
+	if f := o.getFctVpr(); f == nil {
 		return nil
 	} else if v := f(); v == nil {
 		return nil
@@ -69,8 +69,8 @@ func (o *mod) _getViper() libvpr.Viper {
 	}
 }
 
-func (o *mod) _getSPFViper() *spfvbr.Viper {
-	if f := o._getViper(); f == nil {
+func (o *mod) getSPFViper() *spfvbr.Viper {
+	if f := o.getViper(); f == nil {
 		return nil
 	} else if v := f.Viper(); v == nil {
 		return nil
@@ -79,7 +79,7 @@ func (o *mod) _getSPFViper() *spfvbr.Viper {
 	}
 }
 
-func (o *mod) _getVersion() libver.Version {
+func (o *mod) getVersion() libver.Version {
 	if i, l := o.x.Load(keyCptVersion); !l {
 		return nil
 	} else if i == nil {
@@ -91,15 +91,15 @@ func (o *mod) _getVersion() libver.Version {
 	}
 }
 
-func (o *mod) _getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
+func (o *mod) getFct() (cfgtps.FuncCptEvent, cfgtps.FuncCptEvent) {
 	if o.IsStarted() {
-		return o._getFctEvt(keyFctRelBef), o._getFctEvt(keyFctRelAft)
+		return o.getFctEvt(keyFctRelBef), o.getFctEvt(keyFctRelAft)
 	} else {
-		return o._getFctEvt(keyFctStaBef), o._getFctEvt(keyFctStaAft)
+		return o.getFctEvt(keyFctStaBef), o.getFctEvt(keyFctStaAft)
 	}
 }
 
-func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
+func (o *mod) getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	if i, l := o.x.Load(key); !l {
 		return nil
 	} else if i == nil {
@@ -111,7 +111,7 @@ func (o *mod) _getFctEvt(key uint8) cfgtps.FuncCptEvent {
 	}
 }
 
-func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
+func (o *mod) runFctEvt(fct cfgtps.FuncCptEvent) error {
 	if fct != nil {
 		return fct(o)
 	}
@@ -119,7 +119,7 @@ func (o *mod) _runFct(fct func(cpt cfgtps.Component) error) error {
 	return nil
 }
 
-func (o *mod) _runCli() error {
+func (o *mod) runCli() error {
 	var (
 		err error
 		cli libaws.AWS
@@ -164,7 +164,7 @@ func (o *mod) _runCli() error {
 	}
 
 	if mon != nil {
-		if err = o._registerMonitor(mon, cfg); err != nil {
+		if err = o.regMonitor(mon, cfg); err != nil {
 			return prt.Error(err)
 		}
 	}
@@ -174,14 +174,14 @@ func (o *mod) _runCli() error {
 	return nil
 }
 
-func (o *mod) _run() error {
-	fb, fa := o._getFct()
+func (o *mod) run() error {
+	fb, fa := o.getFct()
 
-	if err := o._runFct(fb); err != nil {
+	if err := o.runFctEvt(fb); err != nil {
 		return err
-	} else if err = o._runCli(); err != nil {
+	} else if err = o.runCli(); err != nil {
 		return err
-	} else if err = o._runFct(fa); err != nil {
+	} else if err = o.runFctEvt(fa); err != nil {
 		return err
 	}
 

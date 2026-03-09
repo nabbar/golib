@@ -49,6 +49,7 @@ const (
 	keyFctRelBef
 	keyFctRelAft
 	keyFctMonitorPool
+	keyMonNames
 )
 
 func (o *mod) Type() string {
@@ -87,11 +88,11 @@ func (o *mod) IsRunning() bool {
 
 func (o *mod) Start() error {
 	o.s.Store(true)
-	return o._run()
+	return o.run()
 }
 
 func (o *mod) Reload() error {
-	return o._run()
+	return o.run()
 }
 
 func (o *mod) Stop() {

@@ -49,6 +49,7 @@ const (
 	keyFctRelBef
 	keyFctRelAft
 	keyFctMonitorPool
+	keyMonNames
 )
 
 func (o *mod) Type() string {

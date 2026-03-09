@@ -53,6 +53,7 @@ const (
 	keyFctRelBef                  // Before-reload callback
 	keyFctRelAft                  // After-reload callback
 	keyFctMonitorPool             // Monitor pool function
+	keyMonNames
 )
 
 // Type returns the component type identifier.

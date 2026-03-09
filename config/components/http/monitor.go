@@ -50,8 +50,14 @@ func (o *mod) RegisterMonitorPool(fct montps.FuncPool) {
 }
 
 func (o *mod) GetMonitorNames() []string {
-	if o.getMonitorPool() == nil {
+	if o.getMonPool() == nil {
 		return nil
+	}
+
+	if i, l := o.x.Load(keyMonNames); l && i != nil {
+		if v, k := i.([]string); k && len(v) > 0 {
+			return v
+		}
 	}
 
 	var res = make([]string, 0)
@@ -68,7 +74,7 @@ func (o *mod) GetMonitorNames() []string {
 	return res
 }
 
-func (o *mod) getMonitorPool() montps.Pool {
+func (o *mod) getMonPool() montps.Pool {
 	if i, l := o.x.Load(keyFctMonitorPool); !l || i == nil {
 		return nil
 	} else if f := i.(montps.FuncPool); f == nil {
@@ -87,7 +93,7 @@ func (o *mod) regMonitor(err liberr.CodeError) error {
 		ctx = o.x
 	)
 
-	if o.getMonitorPool() == nil {
+	if o.getMonPool() == nil {
 		return nil
 	} else if len(key) < 1 {
 		return ErrorComponentNotInitialized.Error(nil)
@@ -101,6 +107,7 @@ func (o *mod) regMonitor(err liberr.CodeError) error {
 		return nil
 	}
 
+	var names = make([]string, 0)
 	for _, m := range mon {
 		if old := o.getMonitor(m.Name()); old != nil {
 			old.InfoUpd(m.InfoGet())
@@ -109,12 +116,16 @@ func (o *mod) regMonitor(err liberr.CodeError) error {
 			}
 		}
 
+		names = append(names, m.Name())
+
 		if e = m.Restart(ctx); e != nil {
 			return err.Error(e)
 		} else if e = o.setMonitor(m); e != nil {
 			return err.Error(e)
 		}
 	}
+
+	o.x.Store(keyMonNames, names)
 
 	return nil
 }
@@ -137,7 +148,7 @@ func (o *mod) newMonitor(vrs libver.Version) ([]montps.Monitor, error) {
 func (o *mod) getMonitor(key string) montps.Monitor {
 	var (
 		mon montps.Monitor
-		pol = o.getMonitorPool()
+		pol = o.getMonPool()
 	)
 
 	if pol == nil {
@@ -154,7 +165,7 @@ func (o *mod) getMonitor(key string) montps.Monitor {
 }
 
 func (o *mod) setMonitor(mon montps.Monitor) error {
-	var pol = o.getMonitorPool()
+	var pol = o.getMonPool()
 
 	if pol == nil {
 		return nil
