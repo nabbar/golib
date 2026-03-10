@@ -80,6 +80,8 @@ func (o *mod) Init(key string, ctx context.Context, get cfgtps.FuncCptGet, vpr l
 		}
 		return nil
 	})
+
+	o.s.SetVersion(vrs)
 }
 
 // RegisterFuncStart registers the 'Before' and 'After' callbacks for the Start event.
