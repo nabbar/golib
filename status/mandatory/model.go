@@ -30,42 +30,112 @@ import (
 	"slices"
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	stsctr "github.com/nabbar/golib/status/control"
 )
 
 // model is the internal, thread-safe implementation of the `Mandatory` interface.
-// It uses `atomic.Value` to store both the control mode and the list of keys.
-// This design choice provides high-performance, lock-free reads, which is ideal
-// for scenarios where health checks are frequent, while still ensuring safety
-// for writes.
+// It uses atomic operations for all its fields to ensure high-performance,
+// lock-free reads and safe concurrent writes.
 type model struct {
-	// Mode stores the `control.Mode` value. Using `atomic.Value` allows for
-	// thread-safe reads and writes without traditional mutexes.
-	Mode *atomic.Value
+	// Mode stores the `control.Mode` as a `uint32` to allow for atomic operations.
+	Mode *atomic.Uint32
+
+	// Name stores the human-readable identifier for the group. It is wrapped in
+	// a generic atomic value (`libatm.Value`) to ensure thread-safe access.
+	Name libatm.Value[string]
+
+	// Info stores descriptive metadata for the group (e.g., description, links)
+	// in a thread-safe map.
+	Info libatm.MapTyped[string, interface{}]
 
 	// Keys stores the `[]string` slice of component keys. `atomic.Value` is used
-	// here as well to ensure that the slice is always accessed and updated atomically.
+	// to ensure that the slice is always accessed and updated atomically.
 	Keys *atomic.Value
 }
 
-// SetMode atomically updates the validation mode for this group. The new mode is
-// stored in the `atomic.Value`, replacing the old one.
+// SetMode atomically updates the validation mode for this group.
 func (o *model) SetMode(m stsctr.Mode) {
-	o.Mode.Store(m)
+	o.Mode.Store(m.Uint32())
 }
 
 // GetMode atomically retrieves the current validation mode. It performs a lock-free
-// read from the `atomic.Value`. If the stored value is nil or not of the expected
-// type, it safely returns the default `control.Ignore` mode.
+// read.
 func (o *model) GetMode() stsctr.Mode {
-	m := o.Mode.Load()
+	return stsctr.ParseUint32(o.Mode.Load())
+}
 
-	if m != nil {
-		// Type assertion is safe here because we control what's stored.
-		return m.(stsctr.Mode)
+// SetName atomically updates the name of the mandatory group.
+// The input string is sanitized by `GetNameOrDefault` to guarantee a valid,
+// non-empty identifier.
+func (o *model) SetName(s string) {
+	o.Name.Store(GetNameOrDefault(s))
+}
+
+// GetName atomically retrieves the current name of the mandatory group.
+func (o *model) GetName() string {
+	return o.Name.Load()
+}
+
+// SetInfo populates the group's metadata with a map of key-value pairs.
+// This method iterates through the provided map and stores each entry in the
+// thread-safe `Info` map, replacing any existing entries with the same keys.
+// Nil values or empty keys are ignored.
+func (o *model) SetInfo(info map[string]interface{}) {
+	for key, val := range info {
+		if len(key) < 1 {
+			continue
+		}
+		if val == nil {
+			continue
+		}
+		o.Info.Store(key, val)
+	}
+}
+
+// AddInfo adds or updates a single piece of metadata for the group.
+// This is a thread-safe operation that stores the key-value pair in the `Info` map.
+// Nil values or empty keys are ignored.
+func (o *model) AddInfo(key string, value interface{}) {
+	if o == nil || o.Info == nil {
+		return
 	}
 
-	return stsctr.Ignore
+	if len(key) < 1 {
+		return
+	}
+
+	if value == nil {
+		return
+	}
+
+	o.Info.Store(key, value)
+}
+
+// GetInfo retrieves all metadata associated with the group.
+// It iterates through the thread-safe `Info` map and returns a standard
+// `map[string]interface{}` containing all the entries.
+func (o *model) GetInfo() map[string]interface{} {
+	if o == nil || o.Info == nil {
+		return make(map[string]interface{})
+	}
+
+	var res = make(map[string]interface{})
+
+	o.Info.Range(func(key string, value interface{}) bool {
+		if len(key) < 1 {
+			return true
+		}
+
+		if value == nil {
+			return true
+		}
+
+		res[key] = value
+		return true
+	})
+
+	return res
 }
 
 // KeyHas atomically checks if a given key exists in the group. This is a
@@ -113,7 +183,7 @@ func (o *model) KeyAdd(keys ...string) {
 		}
 	}
 
-	o.Keys.Store(l)
+	o.Keys.Store(slices.Clone(l))
 }
 
 // KeyDel atomically removes one or more keys from the group. Similar to `KeyAdd`,

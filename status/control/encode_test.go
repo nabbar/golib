@@ -30,11 +30,11 @@ import (
 	"encoding/json"
 
 	"github.com/fxamacker/cbor/v2"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/nabbar/golib/status/control"
 	"gopkg.in/yaml.v3"
 
-	"github.com/nabbar/golib/status/control"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Mode/Encoding", func() {
@@ -67,7 +67,7 @@ var _ = Describe("Mode/Encoding", func() {
 			It("should marshal Ignore to JSON", func() {
 				data, err := json.Marshal(control.Ignore)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(string(data)).To(Equal(`""`))
+				Expect(string(data)).To(Equal(`"Ignore"`))
 			})
 		})
 
@@ -241,7 +241,7 @@ var _ = Describe("Mode/Encoding", func() {
 			It("should marshal Ignore to empty text", func() {
 				data, err := control.Ignore.MarshalText()
 				Expect(err).ToNot(HaveOccurred())
-				Expect(string(data)).To(Equal(""))
+				Expect(string(data)).To(Equal("Ignore"))
 			})
 		})
 

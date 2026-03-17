@@ -30,18 +30,18 @@ import (
 	"testing"
 
 	stsctr "github.com/nabbar/golib/status/control"
-	"github.com/nabbar/golib/status/mandatory"
+	stsmdt "github.com/nabbar/golib/status/mandatory"
 )
 
 func BenchmarkNew(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = mandatory.New()
+		_ = stsmdt.New()
 	}
 }
 
 func BenchmarkSetMode(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -50,7 +50,7 @@ func BenchmarkSetMode(b *testing.B) {
 }
 
 func BenchmarkGetMode(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 	m.SetMode(stsctr.Should)
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -60,7 +60,7 @@ func BenchmarkGetMode(b *testing.B) {
 }
 
 func BenchmarkKeyAdd(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -69,7 +69,7 @@ func BenchmarkKeyAdd(b *testing.B) {
 }
 
 func BenchmarkKeyAddMultiple(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 	keys := []string{"key1", "key2", "key3", "key4", "key5"}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -79,7 +79,7 @@ func BenchmarkKeyAddMultiple(b *testing.B) {
 }
 
 func BenchmarkKeyHas(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 	m.KeyAdd("key1", "key2", "key3")
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -92,7 +92,7 @@ func BenchmarkKeyDel(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		b.StopTimer()
-		m := mandatory.New()
+		m := stsmdt.New()
 		m.KeyAdd("key1", "key2", "key3")
 		b.StartTimer()
 		m.KeyDel("key2")
@@ -100,7 +100,7 @@ func BenchmarkKeyDel(b *testing.B) {
 }
 
 func BenchmarkKeyList(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 	m.KeyAdd("key1", "key2", "key3", "key4", "key5")
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -110,7 +110,7 @@ func BenchmarkKeyList(b *testing.B) {
 }
 
 func BenchmarkKeyListLarge(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 	for i := 0; i < 1000; i++ {
 		m.KeyAdd(string(rune(i)))
 	}
@@ -122,7 +122,7 @@ func BenchmarkKeyListLarge(b *testing.B) {
 }
 
 func BenchmarkConcurrentReads(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 	m.KeyAdd("key1", "key2", "key3")
 	m.SetMode(stsctr.Should)
 
@@ -138,7 +138,7 @@ func BenchmarkConcurrentReads(b *testing.B) {
 }
 
 func BenchmarkConcurrentWrites(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -151,7 +151,7 @@ func BenchmarkConcurrentWrites(b *testing.B) {
 }
 
 func BenchmarkMixedOperations(b *testing.B) {
-	m := mandatory.New()
+	m := stsmdt.New()
 
 	b.ReportAllocs()
 	b.ResetTimer()

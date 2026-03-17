@@ -21,7 +21,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package status
@@ -87,10 +86,13 @@ type Route interface {
 
 // Info defines the interface for setting the application's version and build information.
 // This information is included in the status response to help identify the exact
-// version of the running service.
+// version of the running service. While this information can also be provided via
+// the `Config.Info` map, these methods offer a direct, programmatic way to set
+// core version details.
 type Info interface {
 	// SetInfo manually sets the application name, release version, and build hash.
-	// This is a straightforward way to provide static version information.
+	// This is a straightforward way to provide static version information. These
+	// values will be merged with the `Info` map from the configuration.
 	//
 	// Parameters:
 	//   - name: The name of the application (e.g., "my-api").
@@ -147,7 +149,8 @@ type Status interface {
 
 	// SetConfig applies a configuration for status computation and HTTP response codes.
 	// This is the primary method for defining your health check policies, including
-	// which components are critical and how their failures should be handled.
+	// which components are critical, how their failures should be handled, and what
+	// global metadata (description, links) should be exposed.
 	//
 	// Parameters:
 	//   - cfg: The `Config` object containing the desired settings.
@@ -163,7 +166,8 @@ type Status interface {
 
 	// IsHealthy performs a live (non-cached) health check to determine if the
 	// overall system or a specific set of components are "healthy," meaning their
-	// status is either `OK` or `WARN`. This is a "tolerant" check.
+	// status is either `OK` or `WARN`. This is a "tolerant" check, suitable for
+	// readiness probes where a degraded service is still considered available.
 	//
 	// Parameters:
 	//   - name: An optional list of component names to check. If empty, checks all components.
@@ -174,7 +178,8 @@ type Status interface {
 
 	// IsStrictlyHealthy performs a live (non-cached) health check to determine if
 	// the overall system or specific components are "strictly healthy," meaning
-	// their status is `OK`. This is a "strict" check.
+	// their status is `OK`. This is a "strict" check, suitable for liveness
+	// probes where any deviation from a perfect state should be flagged.
 	//
 	// Parameters:
 	//   - name: An optional list of component names to check. If empty, checks all components.
@@ -185,7 +190,7 @@ type Status interface {
 
 	// IsCacheHealthy performs a "tolerant" health check using the cached status.
 	// It returns `true` if the cached status is `OK` or `WARN`. This is a
-	// high-performance check suitable for frequent calls (e.g., in a middleware).
+	// high-performance check (<10ns) suitable for frequent calls (e.g., in a middleware).
 	//
 	// Returns:
 	//   `true` if the cached status is `OK` or `WARN`, `false` otherwise.

@@ -52,7 +52,9 @@ type fldModel struct {
 //
 //	flds.Add("key1", "value1").Add("key2", "value2")
 func (o *fldModel) Add(key string, val interface{}) Fields {
-	if o == nil {
+	if o == nil || o.c == nil {
+		return nil
+	} else if o.c.Err() != nil {
 		return nil
 	}
 

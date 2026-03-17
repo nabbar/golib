@@ -35,19 +35,12 @@ import (
 	stsmdt "github.com/nabbar/golib/status/mandatory"
 )
 
-// encComponent defines an interface for objects that can be marshaled into
-// both text and JSON formats. This is used to handle different component
-// encoding strategies (e.g., list vs. map).
-type encComponent interface {
-	MarshalText() (text []byte, err error)
-	MarshalJSON() ([]byte, error)
-}
-
 // encMod represents a single control mode group for encoding purposes. It contains
 // the mode, the overall status of the group, and a map of the components within it.
 // This structure is used when "map mode" is enabled.
 type encMod struct {
 	Mode stsctr.Mode                     `json:"mode"`
+	Name string                          `json:"name"`
 	Sts  monsts.Status                   `json:"status"`
 	Cpt  map[string]montps.MonitorStatus `json:"components"`
 }
@@ -57,7 +50,7 @@ type encMod struct {
 // list, the monitor pool, and a function to compute group status.
 type modControl struct {
 	ctr stslmd.ListMandatory
-	cpt montps.Pool
+	cpt map[string]montps.MonitorStatus
 	fct func(name ...string) (monsts.Status, string)
 }
 
@@ -76,7 +69,7 @@ func (o modControl) MarshalText() (text []byte, err error) {
 		if p, e := i.Mode.MarshalText(); e != nil {
 			return nil, e
 		} else {
-			buf.WriteString(i.Sts.String() + " - ")
+			buf.WriteString(i.Sts.String() + " - " + i.Name + " - ")
 			buf.Write(p)
 			buf.WriteRune(':')
 			buf.WriteRune('\n')
@@ -112,19 +105,19 @@ func (o modControl) getEncControl() []encMod {
 	var (
 		res = make([]encMod, 0)
 		fnd = make([]string, 0)
-		ign = make([]string, 0)
 	)
 
 	// Group components based on the mandatory configuration.
-	o.ctr.Walk(func(m stsmdt.Mandatory) bool {
+	o.ctr.Walk(func(_ string, m stsmdt.Mandatory) bool {
 		var ctr = encMod{
 			Mode: m.GetMode(),
+			Name: m.GetName(),
 			Cpt:  make(map[string]montps.MonitorStatus),
 		}
 
 		for _, c := range m.KeyList() {
 			fnd = append(fnd, c)
-			if cpt := o.cpt.MonitorGet(c); cpt == nil {
+			if cpt, k := o.cpt[c]; !k || cpt == nil {
 				continue
 			} else {
 				ctr.Cpt[c] = cpt
@@ -140,36 +133,32 @@ func (o modControl) getEncControl() []encMod {
 	})
 
 	// Find any components that were not part of a mandatory group.
-	o.cpt.MonitorWalk(func(name string, val montps.Monitor) bool {
+	var ctr = encMod{
+		Mode: stsctr.Ignore,
+		Name: "not-defined",
+		Sts:  monsts.OK,
+		Cpt:  make(map[string]montps.MonitorStatus),
+	}
+
+	for name, val := range o.cpt {
+		ok := false
+
 		for _, v := range fnd {
 			if v == name {
-				return true
-			}
-		}
-		ign = append(ign, name)
-		return true
-	})
-
-	// Add the remaining components to an "Ignore" group.
-	if len(ign) > 0 {
-		var ctr = encMod{
-			Mode: stsctr.Ignore,
-			Sts:  monsts.OK,
-			Cpt:  make(map[string]montps.MonitorStatus),
-		}
-
-		for _, c := range ign {
-			fnd = append(fnd, c)
-			if cpt := o.cpt.MonitorGet(c); cpt == nil {
-				continue
-			} else {
-				ctr.Cpt[c] = cpt
+				ok = true
+				break
 			}
 		}
 
-		if len(ctr.Cpt) > 0 {
-			res = append(res, ctr)
+		if ok {
+			continue
 		}
+
+		ctr.Cpt[name] = val
+	}
+
+	if len(ctr.Cpt) > 0 {
+		res = append(res, ctr)
 	}
 
 	return res

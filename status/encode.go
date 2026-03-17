@@ -21,7 +21,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- *
  */
 
 package status
@@ -38,6 +37,8 @@ import (
 	liberr "github.com/nabbar/golib/errors"
 	monpol "github.com/nabbar/golib/monitor/pool"
 	monsts "github.com/nabbar/golib/monitor/status"
+	montps "github.com/nabbar/golib/monitor/types"
+	stsmdt "github.com/nabbar/golib/status/mandatory"
 )
 
 const (
@@ -76,14 +77,25 @@ type Encode interface {
 // as a data transfer object holding all the information required to render a
 // status response.
 type encodeModel struct {
-	Name      string        `json:"name"`
-	Release   string        `json:"release"`
-	Hash      string        `json:"hash"`
-	DateBuild time.Time     `json:"date_build"`
-	Status    monsts.Status `json:"status"`
-	Message   string        `json:"message"`
-	Component encComponent  `json:"component,omitempty"` // The list of monitored components.
-	code      int           // The HTTP status code to be returned.
+	// Name is the name of the application.
+	Name string `json:"name"`
+
+	// Info contains global descriptive metadata about the service, such as
+	// description, links, version, and build information.
+	Info map[string]interface{} `json:"info"`
+
+	// Status is the overall health status of the application (OK, Warn, KO).
+	Status monsts.Status `json:"status"`
+
+	// Message provides a summary of the overall health status.
+	Message string `json:"message"`
+
+	// Component contains the detailed status of individual monitored components.
+	// It is omitted in short mode.
+	Component encComponent `json:"component,omitempty"`
+
+	// code is the HTTP status code to be returned.
+	code int
 }
 
 // GinCode returns the HTTP status code for this response.
@@ -115,21 +127,15 @@ func (o *encodeModel) GinRender(c *ginsdk.Context, isText bool, isShort bool) {
 	}
 }
 
-// stringName formats the application name with its version information.
-// Example: "MyApp (v1.2.3 abc123 2023-10-27T10:00:00Z)"
+// stringName formats the application name with its version information for text output.
+// Example: "MyApp (release: v1.2.3 hash: abc123)"
 func (o *encodeModel) stringName() string {
 	var inf []string
 
-	if len(o.Release) > 0 {
-		inf = append(inf, o.Release)
-	}
-
-	if len(o.Hash) > 0 {
-		inf = append(inf, o.Hash)
-	}
-
-	if !o.DateBuild.IsZero() {
-		inf = append(inf, o.DateBuild.Format(time.RFC3339))
+	if len(o.Info) > 0 {
+		for k, v := range o.Info {
+			inf = append(inf, fmt.Sprintf("%s: %v", k, v))
+		}
 	}
 
 	if len(inf) > 0 {
@@ -139,7 +145,7 @@ func (o *encodeModel) stringName() string {
 	}
 }
 
-// stringPart formats the main status line, excluding the status prefix.
+// stringPart formats the main status line for text output, excluding the status prefix.
 // Example: "MyApp (v1.2.3) | All systems operational"
 func (o *encodeModel) stringPart() string {
 	item := make([]string, 0)
@@ -152,7 +158,7 @@ func (o *encodeModel) stringPart() string {
 	return strings.Join(item, encTextSepPart)
 }
 
-// String returns the complete status as a formatted string.
+// String returns the complete status as a formatted string for text output.
 // Example: "OK: MyApp (v1.2.3) | All systems operational\n  database: OK\n"
 func (o *encodeModel) String() string {
 	var buf = bytes.NewBuffer(make([]byte, 0))
@@ -175,19 +181,17 @@ func (o *encodeModel) Bytes() []byte {
 }
 
 // getEncodeModel creates an `Encode` instance populated with the current status
-// information. It computes the overall status and gathers all necessary data for
-// rendering. This method is thread-safe.
-func (o *sts) getEncodeModel(isMap bool) Encode {
+// information. It computes the overall status, gathers all necessary data for
+// rendering, and applies any specified filters. This method is thread-safe.
+func (o *sts) getEncodeModel(isMap bool, filter []string) Encode {
 	o.m.RLock()
 	defer o.m.RUnlock()
 
 	var (
-		m         string
-		s         monsts.Status
-		name      string
-		release   string
-		hash      string
-		dateBuild time.Time
+		m    string
+		s    monsts.Status
+		name string
+		info = o.cfgGetInfo()
 	)
 
 	s, m = o.getStatus()
@@ -195,54 +199,100 @@ func (o *sts) getEncodeModel(isMap bool) Encode {
 	if o.fn != nil {
 		name = o.fn()
 	}
-	if o.fr != nil {
-		release = o.fr()
+
+	// Populate Info map with version details if not already present.
+	if _, k := info["release"]; !k && o.fr != nil {
+		info["release"] = o.fr()
 	}
-	if o.fh != nil {
-		hash = o.fh()
+
+	if _, k := info["hash"]; !k && o.fh != nil {
+		info["hash"] = o.fh()
 	}
-	if o.fd != nil {
-		dateBuild = o.fd()
+
+	if _, k := info["date"]; !k && o.fd != nil {
+		if ts := o.fd(); !ts.IsZero() {
+			info["date"] = ts.Format(time.RFC3339)
+		}
+	}
+
+	if _, k := info["epoc"]; !k && o.fd != nil {
+		if ts := o.fd(); !ts.IsZero() {
+			info["epoc"] = fmt.Sprintf("%d", ts.Unix())
+		}
 	}
 
 	enc := &encodeModel{
 		Name:      name,
-		Release:   release,
-		Hash:      hash,
-		DateBuild: dateBuild,
+		Info:      info,
 		Status:    s,
 		Message:   m,
+		Component: nil,
 		code:      o.cfgGetReturnCode(s),
 	}
 
+	lst := o.cfgGetMandatory()
+	var pol = make(map[string]montps.MonitorStatus, 0)
+
+	if p := o.getPool(); p != nil {
+		p.MonitorWalk(func(name string, val montps.Monitor) bool {
+			pol[name] = val
+			return true
+		})
+	}
+
+	// Apply filters if provided.
+	if len(filter) > 0 {
+		// First, try to filter by mandatory group name.
+		if l := o.cfgFilterMandatory(filter); l != nil && l.Len() > 0 {
+			filter = make([]string, 0)
+			l.Walk(func(_ string, m stsmdt.Mandatory) bool {
+				filter = append(filter, m.KeyList()...)
+				return true
+			})
+			lst = l
+		} else {
+			// If no groups match, fall back to filtering individual monitor names.
+			// In this case, map mode is disabled as there's no group context.
+			isMap = false
+		}
+
+		// Apply the resulting filter to the monitor pool.
+		if p := o.filterPool(filter); len(p) > 0 {
+			pol = p
+		}
+	}
+
+	// Select the appropriate component encoder (map or list).
 	if isMap {
 		enc.Component = &modControl{
-			ctr: o.cfgGetMandatory(),
-			cpt: o._getPool(),
+			ctr: lst,
+			cpt: pol,
 			fct: o.getStatus,
 		}
 	} else {
-		enc.Component = o._getPool()
+		enc.Component = &modPool{
+			cpt: pol,
+		}
 	}
 
 	return enc
 }
 
 // getMarshal creates an `Encode` instance after validating that all prerequisite
-// information (application name, release, etc.) has been set.
+// information (application name) has been set.
 //
 // Returns an `Encode` instance or an error if the application info is missing.
-func (o *sts) getMarshal(isMap bool) (Encode, liberr.Error) {
+func (o *sts) getMarshal(isMap bool, filter []string) (Encode, liberr.Error) {
 	if !o.checkFunc() {
 		return nil, ErrorParamEmpty.Error(fmt.Errorf("missing status info for API"))
 	}
-	return o.getEncodeModel(isMap), nil
+	return o.getEncodeModel(isMap, filter), nil
 }
 
 // MarshalText implements the `encoding.TextMarshaler` interface for the status instance,
 // allowing it to be marshaled as plain text.
 func (o *sts) MarshalText() (text []byte, err error) {
-	if enc, e := o.getMarshal(false); e != nil {
+	if enc, e := o.getMarshal(false, nil); e != nil {
 		return nil, e
 	} else {
 		return enc.Bytes(), nil
@@ -252,7 +302,7 @@ func (o *sts) MarshalText() (text []byte, err error) {
 // MarshalJSON implements the `json.Marshaler` interface for the status instance,
 // allowing it to be marshaled as JSON.
 func (o *sts) MarshalJSON() ([]byte, error) {
-	if enc, e := o.getMarshal(false); e != nil {
+	if enc, e := o.getMarshal(false, nil); e != nil {
 		return nil, e
 	} else {
 		return json.Marshal(enc)

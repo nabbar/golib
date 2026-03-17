@@ -62,12 +62,12 @@ var _ = Describe("Mode", func() {
 		})
 
 		It("should return empty string for Ignore", func() {
-			Expect(control.Ignore.String()).To(Equal(""))
+			Expect(control.Ignore.String()).To(Equal("Ignore"))
 		})
 
 		It("should return empty string for unknown mode", func() {
 			unknown := control.Mode(99)
-			Expect(unknown.String()).To(Equal(""))
+			Expect(unknown.String()).To(Equal("Ignore"))
 		})
 	})
 
@@ -89,7 +89,36 @@ var _ = Describe("Mode", func() {
 		})
 
 		It("should return empty string for Ignore", func() {
-			Expect(control.Ignore.Code()).To(Equal(""))
+			Expect(control.Ignore.Code()).To(Equal("ignore"))
+		})
+	})
+
+	Describe("Type Casting", func() {
+		It("should cast correctly to Uint8", func() {
+			Expect(control.Should.Uint8()).To(Equal(uint8(1)))
+			Expect(control.Must.Uint8()).To(Equal(uint8(2)))
+		})
+		It("should cast correctly to Uint16", func() {
+			Expect(control.Should.Uint16()).To(Equal(uint16(1)))
+		})
+		It("should cast correctly to Uint32", func() {
+			Expect(control.Should.Uint32()).To(Equal(uint32(1)))
+		})
+		It("should cast correctly to Uint64", func() {
+			Expect(control.Should.Uint64()).To(Equal(uint64(1)))
+		})
+
+		It("should cast correctly to Int8", func() {
+			Expect(control.Should.Int8()).To(Equal(int8(1))) // Based on implementation
+		})
+		It("should cast correctly to Int16", func() {
+			Expect(control.Should.Int16()).To(Equal(int16(1))) // Based on implementation
+		})
+		It("should cast correctly to Int32", func() {
+			Expect(control.Should.Int32()).To(Equal(int32(1))) // Based on implementation
+		})
+		It("should cast correctly to Int64", func() {
+			Expect(control.Should.Int64()).To(Equal(int64(1)))
 		})
 	})
 
@@ -226,6 +255,60 @@ var _ = Describe("Mode", func() {
 
 		It("should parse negative large value to Ignore", func() {
 			Expect(control.ParseInt64(-100)).To(Equal(control.Ignore))
+		})
+	})
+
+	Describe("ParseUint32", func() {
+		It("should parse 1 to Should", func() {
+			Expect(control.ParseUint32(1)).To(Equal(control.Should))
+		})
+		It("should parse invalid value to Ignore", func() {
+			Expect(control.ParseUint32(99)).To(Equal(control.Ignore))
+		})
+	})
+
+	Describe("ParseUint16", func() {
+		It("should parse 1 to Should", func() {
+			Expect(control.ParseUint16(1)).To(Equal(control.Should))
+		})
+		It("should parse invalid value to Ignore", func() {
+			Expect(control.ParseUint16(99)).To(Equal(control.Ignore))
+		})
+	})
+
+	Describe("ParseUint8", func() {
+		It("should parse 1 to Should", func() {
+			Expect(control.ParseUint8(1)).To(Equal(control.Should))
+		})
+		It("should parse invalid value to Ignore", func() {
+			Expect(control.ParseUint8(99)).To(Equal(control.Ignore))
+		})
+	})
+
+	Describe("ParseInt32", func() {
+		It("should parse 1 to Should", func() {
+			Expect(control.ParseInt32(1)).To(Equal(control.Should))
+		})
+		It("should parse negative value to Ignore", func() {
+			Expect(control.ParseInt32(-1)).To(Equal(control.Ignore))
+		})
+	})
+
+	Describe("ParseInt16", func() {
+		It("should parse 1 to Should", func() {
+			Expect(control.ParseInt16(1)).To(Equal(control.Should))
+		})
+		It("should parse negative value to Ignore", func() {
+			Expect(control.ParseInt16(-1)).To(Equal(control.Ignore))
+		})
+	})
+
+	Describe("ParseInt8", func() {
+		It("should parse 1 to Should", func() {
+			Expect(control.ParseInt8(1)).To(Equal(control.Should))
+		})
+		It("should parse negative value to Ignore", func() {
+			Expect(control.ParseInt8(-1)).To(Equal(control.Ignore))
 		})
 	})
 })

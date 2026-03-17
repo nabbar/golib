@@ -28,6 +28,7 @@ package status
 
 import (
 	"context"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -48,6 +49,10 @@ const (
 	// A value of "true" enables map mode.
 	HeadMapMode = "X-MapMode"
 
+	// HeadFilter is the HTTP header for filtering the status response.
+	// It accepts a comma-separated list of patterns (e.g., "db-*", "cache").
+	HeadFilter = "X-Filter"
+
 	// QueryVerbose is the query parameter for enabling short output mode.
 	// A value of "true" or "1" will omit component details from the response.
 	QueryVerbose = "short"
@@ -59,7 +64,13 @@ const (
 	// QueryMapMode is the query parameter for enabling map mode for component output.
 	// A value of "true" or "1" will format the component list as a map.
 	QueryMapMode = "map"
+
+	// QueryFilter is the query parameter for filtering the status response.
+	// It accepts a comma-separated list of patterns (e.g., "?filter=db-*,cache").
+	QueryFilter = "filter"
 )
+
+var rgx = regexp.MustCompile(`[^a-z0-9\-_*?,]+`)
 
 // Expose handles a status request from a generic `context.Context`.
 // If the context is a Gin context (`*ginsdk.Context`), it delegates to `MiddleWare`.
@@ -88,9 +99,10 @@ func (o *sts) MiddleWare(c *ginsdk.Context) {
 		shr = o.isParamInvBool(c.Request.URL.Query().Get(QueryVerbose), c.Request.Header.Get(HeadVerbose))
 		txt = o.isText(c.Request.URL.Query().Get(QueryFormat), strings.Join(c.Request.Header.Values(HeadFormat), ","))
 		mpm = o.isParamBool(c.Request.URL.Query().Get(QueryMapMode), c.Request.Header.Get(HeadMapMode))
+		flt = o.getParamFilter(c.Request.URL.Query().Get(QueryFilter), c.Request.Header.Get(HeadFilter))
 	)
 
-	if enc, err = o.getMarshal(mpm); err != nil {
+	if enc, err = o.getMarshal(mpm, flt); err != nil {
 		ret := o.getErrorReturn()
 		err.Return(ret)
 		ret.GinTonicErrorAbort(c, 0) // 0 defaults to internal server error
@@ -189,6 +201,57 @@ func (o *sts) isParamInvBool(query, header string) bool {
 	}
 
 	return false
+}
+
+// getParamFilter parses the filter parameter from query strings and headers.
+// It cleans the input by removing invalid characters and splitting the comma-separated
+// values into a slice of strings.
+//
+// The precedence is:
+//  1. Header value (if present).
+//  2. Query parameter (if header is absent).
+//
+// Returns:
+//
+//	A slice of filter patterns, or nil if no filter is provided.
+func (o *sts) getParamFilter(query, header string) []string {
+	fct := func(s string) []string {
+		r := make([]string, 0)
+
+		s = strings.TrimSpace(s)
+		s = strings.ToLower(s)
+		s = rgx.ReplaceAllString(s, "")
+
+		for _, m := range strings.Split(s, ",") {
+			if len(m) > 0 {
+				r = append(r, m)
+			}
+		}
+
+		if len(r) > 0 {
+			return r
+		}
+
+		return nil
+	}
+
+	if len(header) > 0 {
+		res := fct(header)
+
+		if len(res) > 0 {
+			return res
+		}
+	}
+
+	if len(query) > 0 {
+		res := fct(query)
+
+		if len(res) > 0 {
+			return res
+		}
+	}
+
+	return nil
 }
 
 // getErrorReturn retrieves the configured error return formatter.

@@ -28,14 +28,15 @@ package status
 
 import (
 	"fmt"
+	"path"
 
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
-// _getPool retrieves the current monitor pool by calling the registered provider function.
+// getPool retrieves the current monitor pool by calling the registered provider function.
 // This internal helper method centralizes access to the dynamically provided pool.
 // It returns nil if no pool provider is registered or if the provider returns nil.
-func (o *sts) _getPool() montps.Pool {
+func (o *sts) getPool() montps.Pool {
 	o.m.RLock()
 	defer o.m.RUnlock()
 
@@ -48,12 +49,50 @@ func (o *sts) _getPool() montps.Pool {
 	}
 }
 
+// filterPool filters the monitors in the pool based on a list of patterns.
+// It uses `path.Match` to support shell-style wildcards (e.g., "db-*", "cache-?").
+//
+// Parameters:
+//   - filter: A slice of patterns to match against monitor names.
+//
+// Returns:
+//
+//	A map of monitor names to monitor statuses for all matching monitors.
+//	Returns nil if the pool is not defined, the filter is empty, or no matches are found.
+func (o *sts) filterPool(filter []string) map[string]montps.MonitorStatus {
+	p := o.getPool()
+	if p == nil {
+		return nil
+	}
+
+	if len(filter) < 1 {
+		return nil
+	}
+
+	var res = make(map[string]montps.MonitorStatus, 0)
+
+	p.MonitorWalk(func(k string, v montps.Monitor) bool {
+		for _, f := range filter {
+			if m, e := path.Match(f, k); e == nil && m {
+				res[k] = v
+			}
+		}
+		return true
+	})
+
+	if len(res) < 1 {
+		return nil
+	}
+
+	return res
+}
+
 // MonitorAdd adds a new monitor to the registered pool.
 // The monitor's name must be unique within the pool.
 //
 // Returns an error if the pool is not defined or if adding the monitor fails.
 func (o *sts) MonitorAdd(mon montps.Monitor) error {
-	if p := o._getPool(); p == nil {
+	if p := o.getPool(); p == nil {
 		return fmt.Errorf("monitor pool not defined")
 	} else {
 		return p.MonitorAdd(mon)
@@ -65,7 +104,7 @@ func (o *sts) MonitorAdd(mon montps.Monitor) error {
 // Returns the monitor if found, otherwise nil. It also returns nil if the pool
 // is not defined.
 func (o *sts) MonitorGet(name string) montps.Monitor {
-	if p := o._getPool(); p == nil {
+	if p := o.getPool(); p == nil {
 		return nil
 	} else {
 		return p.MonitorGet(name)
@@ -77,7 +116,7 @@ func (o *sts) MonitorGet(name string) montps.Monitor {
 //
 // Returns an error if the pool is not defined or if setting the monitor fails.
 func (o *sts) MonitorSet(mon montps.Monitor) error {
-	if p := o._getPool(); p == nil {
+	if p := o.getPool(); p == nil {
 		return fmt.Errorf("monitor pool not defined")
 	} else {
 		return p.MonitorSet(mon)
@@ -88,7 +127,7 @@ func (o *sts) MonitorSet(mon montps.Monitor) error {
 // This operation is silent and does nothing if the pool is not defined or if
 // the monitor does not exist.
 func (o *sts) MonitorDel(name string) {
-	if p := o._getPool(); p == nil {
+	if p := o.getPool(); p == nil {
 		return
 	} else {
 		p.MonitorDel(name)
@@ -99,7 +138,7 @@ func (o *sts) MonitorDel(name string) {
 //
 // Returns a slice of monitor names, or nil if the pool is not defined.
 func (o *sts) MonitorList() []string {
-	if p := o._getPool(); p == nil {
+	if p := o.getPool(); p == nil {
 		return nil
 	} else {
 		return p.MonitorList()
@@ -115,7 +154,7 @@ func (o *sts) MonitorList() []string {
 //   - validName: An optional list of monitor names to include in the iteration.
 //     If empty, all monitors are visited.
 func (o *sts) MonitorWalk(fct func(name string, val montps.Monitor) bool, validName ...string) {
-	if p := o._getPool(); p != nil {
+	if p := o.getPool(); p != nil {
 		p.MonitorWalk(fct, validName...)
 	}
 }

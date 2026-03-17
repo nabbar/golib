@@ -127,6 +127,24 @@ func ParseUint64(p uint64) Mode {
 	}
 }
 
+// ParseUint32 converts a `uint32` to a `Mode`.
+// It is a convenience wrapper around `ParseUint64`.
+func ParseUint32(p uint32) Mode {
+	return ParseUint64(uint64(p))
+}
+
+// ParseUint16 converts a `uint16` to a `Mode`.
+// It is a convenience wrapper around `ParseUint64`.
+func ParseUint16(p uint16) Mode {
+	return ParseUint64(uint64(p))
+}
+
+// ParseUint8 converts a `uint8` to a `Mode`.
+// It is a convenience wrapper around `ParseUint64`.
+func ParseUint8(p uint8) Mode {
+	return ParseUint64(uint64(p))
+}
+
 // ParseInt64 converts an `int64` to a `Mode`. Negative values are treated as 0
 // (`Ignore`). This is useful for signed numeric configurations.
 //
@@ -143,4 +161,22 @@ func ParseInt64(p int64) Mode {
 	} else {
 		return ParseUint64(uint64(p))
 	}
+}
+
+// ParseInt32 converts an `int32` to a `Mode`.
+// It is a convenience wrapper around `ParseInt64`.
+func ParseInt32(p int32) Mode {
+	return ParseInt64(int64(p))
+}
+
+// ParseInt16 converts an `int16` to a `Mode`.
+// It is a convenience wrapper around `ParseInt64`.
+func ParseInt16(p int16) Mode {
+	return ParseInt64(int64(p))
+}
+
+// ParseInt8 converts an `int8` to a `Mode`.
+// It is a convenience wrapper around `ParseInt64`.
+func ParseInt8(p int8) Mode {
+	return ParseInt64(int64(p))
 }

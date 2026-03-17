@@ -165,4 +165,46 @@ var _ = Describe("Status/Pool", func() {
 			Expect(list).ToNot(ContainElement("delete-monitor"))
 		})
 	})
+
+	Context("when pool is not registered", func() {
+		BeforeEach(func() {
+			status = libsts.New(globalCtx) // New instance without a registered pool
+		})
+
+		It("MonitorAdd should return an error", func() {
+			m := newHealthyMonitor("new-monitor")
+			err := status.MonitorAdd(m)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("MonitorGet should return nil", func() {
+			mon := status.MonitorGet("any-monitor")
+			Expect(mon).To(BeNil())
+		})
+
+		It("MonitorSet should return an error", func() {
+			m := newHealthyMonitor("update-monitor")
+			err := status.MonitorSet(m)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("MonitorDel should not panic", func() {
+			Expect(func() {
+				status.MonitorDel("any-monitor")
+			}).ToNot(Panic())
+		})
+
+		It("MonitorList should return nil", func() {
+			list := status.MonitorList()
+			Expect(list).To(BeNil())
+		})
+
+		It("MonitorWalk should not panic", func() {
+			Expect(func() {
+				status.MonitorWalk(func(name string, val montps.Monitor) bool {
+					return true
+				})
+			}).ToNot(Panic())
+		})
+	})
 })

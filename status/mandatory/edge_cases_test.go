@@ -27,30 +27,42 @@
 package mandatory_test
 
 import (
+	"reflect"
 	"sync/atomic"
+	"unsafe"
 
+	libatm "github.com/nabbar/golib/atomic"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	stsctr "github.com/nabbar/golib/status/control"
-	"github.com/nabbar/golib/status/mandatory"
+	stsmdt "github.com/nabbar/golib/status/mandatory"
 )
 
 var _ = Describe("Mandatory/EdgeCases", func() {
 	Describe("GetMode edge cases", func() {
 		It("should return Ignore when Mode is nil", func() {
-			m := mandatory.New()
-			// Force nil by creating a new atomic.Value without storing
-			_ = new(atomic.Value)
+			m := stsmdt.New()
 
-			// Use reflection to access internal field (for testing only)
-			// In real scenario, this is handled by New()
-			// Testing that GetMode handles nil gracefully
+			// Use reflection to corrupt internal field to test nil safety
+			v := reflect.ValueOf(m).Elem()
+			f := v.FieldByName("Mode")
+			f = reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem()
+
+			// Set to new atomic.Uint32 (Load returns 0/nil equivalent logic if it were Value, but Uint32 starts at 0)
+			// Actually model uses *atomic.Uint32.
+			// SetMode stores into it.
+			// GetMode loads from it.
+			// If we set the pointer to nil? GetMode would panic.
+			// If we set the pointer to a fresh atomic.Uint32, Load returns 0.
+			// stsctr.ParseUint32(0) -> Ignore?
+
+			f.Set(reflect.ValueOf(new(atomic.Uint32)))
 			Expect(m.GetMode()).To(Equal(stsctr.Ignore))
 		})
 
 		It("should handle rapid mode changes", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 
 			for i := 0; i < 1000; i++ {
 				m.SetMode(stsctr.Should)
@@ -64,15 +76,32 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 	})
 
+	Describe("Info Edge Cases", func() {
+		It("should handle nil Info map gracefully", func() {
+			m := stsmdt.New()
+
+			// Use reflection to set the internal Info field to a new (effectively nil) map
+			v := reflect.ValueOf(m).Elem()
+			f := v.FieldByName("Info")
+			f = reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem()
+			f.Set(reflect.ValueOf(libatm.NewMapTyped[string, interface{}]()))
+
+			// Verify methods handle nil gracefully
+			Expect(m.GetInfo()).To(BeEmpty())
+			Expect(func() { m.AddInfo("key", "value") }).ToNot(Panic())
+			Expect(m.GetInfo()).To(HaveKeyWithValue("key", "value"))
+		})
+	})
+
 	Describe("KeyHas edge cases", func() {
 		It("should handle checking empty string key", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyAdd("")
 			Expect(m.KeyHas("")).To(BeTrue())
 		})
 
 		It("should handle special characters in keys", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			specialKeys := []string{
 				"key-with-dash",
 				"key_with_underscore",
@@ -95,7 +124,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle unicode keys", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			unicodeKeys := []string{
 				"clé",
 				"键",
@@ -116,7 +145,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle very long keys", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			longKey := string(make([]byte, 10000))
 			for i := range longKey {
 				longKey = longKey[:i] + "a"
@@ -129,13 +158,13 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 
 	Describe("KeyAdd edge cases", func() {
 		It("should handle adding no keys", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyAdd()
 			Expect(m.KeyList()).To(BeEmpty())
 		})
 
 		It("should handle adding many keys at once", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			keys := make([]string, 1000)
 			for i := range keys {
 				keys[i] = string(rune('a' + i%26))
@@ -146,7 +175,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should preserve order of first occurrence", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyAdd("key1")
 			m.KeyAdd("key2")
 			m.KeyAdd("key3")
@@ -161,7 +190,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle concurrent additions of same key", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			done := make(chan bool)
 
 			for i := 0; i < 10; i++ {
@@ -189,14 +218,14 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 
 	Describe("KeyDel edge cases", func() {
 		It("should handle deleting no keys", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyAdd("key1", "key2")
 			m.KeyDel()
 			Expect(m.KeyList()).To(HaveLen(2))
 		})
 
 		It("should handle deleting from empty list multiple times", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyDel("key1")
 			m.KeyDel("key2")
 			m.KeyDel("key3")
@@ -204,7 +233,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle deleting all keys in one call", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			keys := []string{"key1", "key2", "key3", "key4", "key5"}
 			m.KeyAdd(keys...)
 			m.KeyDel(keys...)
@@ -212,7 +241,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle deleting with duplicates in delete list", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyAdd("key1", "key2", "key3")
 			m.KeyDel("key1", "key1", "key1")
 			Expect(m.KeyList()).To(HaveLen(2))
@@ -220,7 +249,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle deleting subset", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyAdd("key1", "key2", "key3", "key4", "key5")
 			m.KeyDel("key2", "key4")
 
@@ -234,7 +263,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 
 	Describe("KeyList edge cases", func() {
 		It("should return independent copies", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyAdd("key1", "key2")
 
 			list1 := m.KeyList()
@@ -250,7 +279,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle rapid list retrievals", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			m.KeyAdd("key1", "key2", "key3")
 
 			for i := 0; i < 1000; i++ {
@@ -262,7 +291,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 
 	Describe("Complex scenarios", func() {
 		It("should handle interleaved operations", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 
 			m.KeyAdd("key1")
 			Expect(m.KeyHas("key1")).To(BeTrue())
@@ -281,7 +310,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should maintain consistency under stress", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 			done := make(chan bool)
 
 			// Writer 1: Add keys
@@ -331,7 +360,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle mode and keys independently", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 
 			// Set mode without keys
 			m.SetMode(stsctr.Should)
@@ -357,7 +386,7 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 
 	Describe("Memory and performance", func() {
 		It("should handle large number of keys", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 
 			// Add 10000 unique keys
 			for i := 0; i < 10000; i++ {
@@ -368,13 +397,44 @@ var _ = Describe("Mandatory/EdgeCases", func() {
 		})
 
 		It("should handle rapid add/delete cycles", func() {
-			m := mandatory.New()
+			m := stsmdt.New()
 
 			for i := 0; i < 1000; i++ {
 				m.KeyAdd("key1", "key2", "key3")
 				m.KeyDel("key1", "key2", "key3")
 			}
 
+			Expect(m.KeyList()).To(BeEmpty())
+		})
+	})
+
+	Describe("Internal State Corruption (Coverage)", func() {
+		It("should handle uninitialized Keys (nil atomic load)", func() {
+			m := stsmdt.New()
+
+			// Reflection hack to corrupt the internal Keys field
+			// We want to set m.Keys = new(atomic.Value)
+
+			v := reflect.ValueOf(m).Elem() // *model -> model
+			f := v.FieldByName("Keys")
+
+			// Make the field accessible/settable
+			f = reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem()
+
+			// Set to clean atomic.Value (Load returns nil)
+			f.Set(reflect.ValueOf(new(atomic.Value)))
+
+			// Verify methods handle nil gracefully
+			Expect(m.KeyHas("foo")).To(BeFalse())
+			Expect(m.KeyList()).To(BeEmpty())
+
+			// KeyAdd should re-initialize
+			m.KeyAdd("bar")
+			Expect(m.KeyHas("bar")).To(BeTrue())
+
+			// Reset to nil for KeyDel
+			f.Set(reflect.ValueOf(new(atomic.Value)))
+			m.KeyDel("bar") // Should safe return
 			Expect(m.KeyList()).To(BeEmpty())
 		})
 	})

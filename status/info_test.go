@@ -328,8 +328,10 @@ var _ = Describe("Status/Info", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(result["name"]).To(Equal("format-test"))
-			Expect(result["release"]).To(Equal("v1.0.0"))
-			Expect(result["hash"]).To(Equal("abc123"))
+			Expect(result["info"]).To(HaveKey("release"))
+			Expect(result["info"]).To(HaveKeyWithValue("release", "v1.0.0"))
+			Expect(result["info"]).To(HaveKey("hash"))
+			Expect(result["info"]).To(HaveKeyWithValue("hash", "abc123"))
 		})
 
 		It("should include info in text output", func() {

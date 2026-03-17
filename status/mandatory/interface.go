@@ -24,59 +24,16 @@
  *
  */
 
-// Package mandatory provides a thread-safe mechanism for managing groups of
-// components that share a common validation mode.
+// Package mandatory defines the interface and implementation for managing
+// groups of components with shared validation policies.
 //
-// This package is a fundamental building block for the status monitoring system.
-// It allows you to define a logical set of components (e.g., "all critical databases",
-// "all optional caches") and associate them with a single control mode (e.g., "Must",
-// "Should"). This abstraction simplifies the configuration and evaluation of
-// complex health check policies.
-//
-// # Key Features
-//
-//   - Thread-Safe: All operations are safe for concurrent use, leveraging `atomic.Value`
-//     for high-performance, lock-free reads. This is critical for health check endpoints
-//     that may be polled frequently.
-//   - Dynamic Management: Component keys can be added or removed from a group at runtime,
-//     allowing the system to adapt to changes in the application's topology.
-//   - Control Mode Association: Each group is tightly coupled with a `control.Mode`,
-//     ensuring that all components in the group are evaluated consistently.
-//
-// # Usage Example
-//
-//	import (
-//	    "fmt"
-//	    "github.com/nabbar/golib/status/control"
-//	    "github.com/nabbar/golib/status/mandatory"
-//	)
-//
-//	func main() {
-//	    // Create a new mandatory group for critical database components.
-//	    dbGroup := mandatory.New()
-//
-//	    // Set the validation mode to 'Must', meaning all components in this
-//	    // group must be healthy for the group to be considered healthy.
-//	    dbGroup.SetMode(control.Must)
-//
-//	    // Add the keys of the components that belong to this group.
-//	    // These keys correspond to the names of the monitors registered in the pool.
-//	    dbGroup.KeyAdd("primary-db", "read-replica-db")
-//
-//	    // Check if a specific component is part of this mandatory group.
-//	    if dbGroup.KeyHas("primary-db") {
-//	        fmt.Println("The primary database is a mandatory component.")
-//	    }
-//
-//	    // Retrieve the list of all keys in the group.
-//	    keys := dbGroup.KeyList()
-//	    fmt.Printf("Mandatory database components: %v\n", keys)
-//	}
+// See doc.go for comprehensive documentation, architecture details, and usage examples.
 package mandatory
 
 import (
 	"sync/atomic"
 
+	libatm "github.com/nabbar/golib/atomic"
 	stsctr "github.com/nabbar/golib/status/control"
 )
 
@@ -104,6 +61,51 @@ type Mandatory interface {
 	// Returns:
 	//   The current `control.Mode`.
 	GetMode() stsctr.Mode
+
+	// SetName assigns a human-readable identifier to the mandatory group.
+	// This name is primarily used for logging, debugging, and distinguishing
+	// between different groups (e.g., "primary-db-cluster" vs "cache-layer").
+	//
+	// The input name will be sanitized by the implementation to ensure it
+	// consists only of safe characters (alphanumeric, hyphens, underscores).
+	//
+	// Parameters:
+	//   - s: The desired name for the group.
+	SetName(s string)
+
+	// GetName retrieves the current human-readable identifier for this group.
+	// If a name has not been explicitly set, the implementation may return a
+	// default generated name to ensure every group has a unique identifier.
+	//
+	// Returns:
+	//   The sanitized name of the mandatory group.
+	GetName() string
+
+	// SetInfo populates the group's metadata with a map of key-value pairs.
+	// This is used to store descriptive information such as a human-readable
+	// description or links to relevant documentation (e.g., runbooks).
+	// This method replaces any existing info with the provided map.
+	//
+	// Parameters:
+	//   - info: A map of metadata to associate with the group.
+	SetInfo(info map[string]interface{})
+
+	// AddInfo adds or updates a specific piece of metadata for the group.
+	// This allows for incremental updates to the group's information without
+	// needing to replace the entire map.
+	//
+	// Parameters:
+	//   - key: The key for the metadata entry (e.g., "description").
+	//   - value: The value associated with the key.
+	AddInfo(key string, value interface{})
+
+	// GetInfo retrieves all metadata associated with the group.
+	// This information is typically exposed in the status response to provide
+	// context to operators.
+	//
+	// Returns:
+	//   A map containing all metadata entries.
+	GetInfo() map[string]interface{}
 
 	// KeyHas checks if a specific component key (by its unique name) is a member
 	// of this group. The check is case-sensitive. This is useful for determining
@@ -147,16 +149,17 @@ type Mandatory interface {
 // empty list of keys.
 //
 // Returns:
-//   A new `Mandatory` instance ready for use.
+//
+//	A new `Mandatory` instance ready for use.
 func New() Mandatory {
-	m := new(atomic.Value)
-	m.Store(stsctr.Ignore)
 
 	k := new(atomic.Value)
 	k.Store(make([]string, 0))
 
 	return &model{
-		Mode: m,
+		Mode: new(atomic.Uint32),
+		Name: libatm.NewValue[string](),
+		Info: libatm.NewMapTyped[string, interface{}](),
 		Keys: k,
 	}
 }

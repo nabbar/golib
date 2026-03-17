@@ -18,9 +18,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * OUT of OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
  *
  */
 
@@ -29,6 +28,7 @@ package status
 import (
 	"fmt"
 	"net/http"
+	"path"
 
 	libval "github.com/go-playground/validator/v10"
 	monsts "github.com/nabbar/golib/monitor/status"
@@ -42,14 +42,18 @@ const (
 	// mapping in the thread-safe context configuration.
 	keyConfigReturnCode = "cfgReturnCode"
 
+	// keyConfigInfo is the internal key used to store the global service information
+	// (description, links) in the thread-safe context configuration.
+	keyConfigInfo = "cfgInfo"
+
 	// keyConfigMandatory is the internal key used to store the list of mandatory
 	// component groups in the thread-safe context configuration.
 	keyConfigMandatory = "cfgMandatory"
 )
 
-// Mandatory defines a group of components that share a specific control mode.
-// It allows grouping multiple components (e.g., "all databases") and defining
-// how their collective health affects the overall application status.
+// Mandatory defines a group of components that share a specific control mode and
+// descriptive information. It allows grouping multiple components (e.g., "all databases")
+// and defining how their collective health affects the overall application status.
 //
 // This structure is typically used when loading configuration from a file (JSON, YAML, etc.).
 //
@@ -64,6 +68,16 @@ type Mandatory struct {
 	//   - Quorum: A majority of components in the group must be healthy.
 	Mode stsctr.Mode `mapstructure:"mode" json:"mode" yaml:"mode" toml:"mode" validate:"required"`
 
+	// Name is a unique identifier for the mandatory group. It is used for filtering
+	// and logging purposes.
+	Name string `mapstructure:"name" json:"name" yaml:"name" toml:"name"`
+
+	// Info contains descriptive metadata about the group, such as a human-readable
+	// description or links to runbooks and dashboards. This information is exposed
+	// in the status response to provide context to operators.
+	// Example: {"description": "Primary database cluster", "runbook": "https://.../fix-db"}
+	Info map[string]interface{} `mapstructure:"info" json:"info" yaml:"info" toml:"info"`
+
 	// Keys is a list of static monitor names belonging to this group.
 	// These names must match the names of the monitors registered in the monitor pool.
 	// This field is used when the component names are known at configuration time.
@@ -74,7 +88,7 @@ type Mandatory struct {
 	// will look up the component configuration using these keys (via the function
 	// registered with `RegisterGetConfigCpt`) and add the associated monitor names
 	// to this mandatory group.
-	ConfigKeys []string `mapstructure:"configKeys" json:"configKeys" yaml:"configKeys" toml:"configKeys"`
+	ConfigKeys []string `mapstructure:"configKeys,omitempty" json:"configKeys,omitempty" yaml:"configKeys,omitempty" toml:"configKeys,omitempty"`
 }
 
 // ParseMandatory converts a `mandatory.Mandatory` interface (from the internal logic)
@@ -87,8 +101,9 @@ type Mandatory struct {
 //   - m: The `mandatory.Mandatory` interface to convert.
 //
 // Returns:
-//   A `Mandatory` struct populated with the mode and keys from the interface.
-//   Returns an empty struct if the input is nil.
+//
+//	A `Mandatory` struct populated with the mode and keys from the interface.
+//	Returns an empty struct if the input is nil.
 func ParseMandatory(m stsmdt.Mandatory) Mandatory {
 	if m == nil {
 		return Mandatory{}
@@ -96,7 +111,9 @@ func ParseMandatory(m stsmdt.Mandatory) Mandatory {
 
 	return Mandatory{
 		Mode:       m.GetMode(),
+		Name:       m.GetName(),
 		Keys:       m.KeyList(),
+		Info:       m.GetInfo(),
 		ConfigKeys: nil, // ConfigKeys are resolved to Keys during runtime, so we don't export them back.
 	}
 }
@@ -111,7 +128,8 @@ func ParseMandatory(m stsmdt.Mandatory) Mandatory {
 //   - m: A variadic list of `mandatory.Mandatory` interfaces.
 //
 // Returns:
-//   A slice of `Mandatory` structs. Nil entries in the input are skipped.
+//
+//	A slice of `Mandatory` structs. Nil entries in the input are skipped.
 func ParseList(m ...stsmdt.Mandatory) []Mandatory {
 	r := make([]Mandatory, 0, len(m))
 	for _, i := range m {
@@ -134,6 +152,12 @@ type Config struct {
 	//   - monsts.KO:   500 (http.StatusInternalServerError)
 	ReturnCode map[monsts.Status]int `mapstructure:"return-code" json:"return-code" yaml:"return-code" toml:"return-code" validate:"required"`
 
+	// Info contains global descriptive metadata about the service, such as a
+	// human-readable description or links to documentation and dashboards.
+	// This information is exposed at the root of the status response.
+	// Example: {"description": "Main Order API", "documentation": "https://.../docs"}
+	Info map[string]interface{} `mapstructure:"info" json:"info" yaml:"info" toml:"info"`
+
 	// Component defines the list of mandatory component groups. Each group specifies
 	// a set of components and the control mode that applies to them.
 	Component []Mandatory `mapstructure:"component" json:"component" yaml:"component" toml:"component" validate:""`
@@ -143,8 +167,9 @@ type Config struct {
 // It ensures that all required fields are present and meet the defined constraints.
 //
 // Returns:
-//   An error if validation fails, containing details about which fields failed
-//   and why. Returns nil if the configuration is valid.
+//
+//	An error if validation fails, containing details about which fields failed
+//	and why. Returns nil if the configuration is valid.
 func (o Config) Validate() error {
 	var e = ErrorValidatorError.Error(nil)
 
@@ -188,8 +213,9 @@ func (o *sts) RegisterGetConfigCpt(fct FuncGetCfgCpt) {
 // This is useful for inspecting the active configuration at runtime.
 //
 // Returns:
-//   The current `Config` object. If no configuration has been set, it returns
-//   a default configuration with standard HTTP codes and an empty component list.
+//
+//	The current `Config` object. If no configuration has been set, it returns
+//	a default configuration with standard HTTP codes and an empty component list.
 func (o *sts) GetConfig() Config {
 	var (
 		cfg = Config{
@@ -212,6 +238,14 @@ func (o *sts) GetConfig() Config {
 		cfg.ReturnCode = r
 	}
 
+	if i, l := o.x.Load(keyConfigInfo); !l || i == nil {
+		cfg.Info = make(map[string]interface{})
+	} else if v, k := i.(map[string]interface{}); !k || len(v) < 1 {
+		cfg.Info = make(map[string]interface{})
+	} else {
+		cfg.Info = v
+	}
+
 	// Try to load mandatory components from internal storage
 	if i, l := o.x.Load(keyConfigMandatory); !l || i == nil {
 		// Not found or nil, keep empty list
@@ -219,10 +253,13 @@ func (o *sts) GetConfig() Config {
 		// Invalid type or empty, keep empty list
 	} else {
 		// Reconstruct the slice of Mandatory structs from the internal list
-		r.Walk(func(m stsmdt.Mandatory) bool {
+		r.Walk(func(_ string, m stsmdt.Mandatory) bool {
 			cfg.Component = append(cfg.Component, Mandatory{
-				Mode: m.GetMode(),
-				Keys: m.KeyList(),
+				Mode:       m.GetMode(),
+				Name:       m.GetName(),
+				Info:       m.GetInfo(),
+				Keys:       m.KeyList(),
+				ConfigKeys: nil,
 			})
 			return true
 		})
@@ -235,11 +272,11 @@ func (o *sts) GetConfig() Config {
 // It updates the HTTP return codes and the list of mandatory component groups.
 //
 // This method handles the logic for:
-//   1. Setting default HTTP return codes if none are provided.
-//   2. Creating a new internal list of mandatory groups.
-//   3. Resolving dynamic `ConfigKeys` into monitor names using the registered
-//      resolver function (if available).
-//   4. Storing the configuration in the thread-safe context storage.
+//  1. Setting default HTTP return codes if none are provided.
+//  2. Creating a new internal list of mandatory groups.
+//  3. Resolving dynamic `ConfigKeys` into monitor names using the registered
+//     resolver function (if available).
+//  4. Storing the configuration in the thread-safe context storage.
 //
 // Parameters:
 //   - cfg: The configuration to apply.
@@ -256,6 +293,10 @@ func (o *sts) SetConfig(cfg Config) {
 		o.x.Store(keyConfigReturnCode, cfg.ReturnCode)
 	}
 
+	if len(cfg.Info) > 0 {
+		o.x.Store(keyConfigInfo, cfg.Info)
+	}
+
 	// Create a new list for mandatory groups
 	var lst = stslmd.New()
 
@@ -263,10 +304,12 @@ func (o *sts) SetConfig(cfg Config) {
 		for _, i := range cfg.Component {
 			var m = stsmdt.New()
 			m.SetMode(i.Mode)
-			
+			m.SetName(stsmdt.GetNameOrDefault(i.Name))
+			m.SetInfo(i.Info)
+
 			// Add static keys
 			m.KeyAdd(i.Keys...)
-			
+
 			// Resolve and add dynamic keys from ConfigKeys
 			if len(i.ConfigKeys) > 0 && o.n != nil {
 				for _, k := range i.ConfigKeys {
@@ -296,7 +339,8 @@ func (o *sts) SetConfig(cfg Config) {
 //   - s: The health status to look up.
 //
 // Returns:
-//   The corresponding HTTP status code.
+//
+//	The corresponding HTTP status code.
 func (o *sts) cfgGetReturnCode(s monsts.Status) int {
 	if i, l := o.x.Load(keyConfigReturnCode); !l {
 		return http.StatusInternalServerError
@@ -309,13 +353,30 @@ func (o *sts) cfgGetReturnCode(s monsts.Status) int {
 	}
 }
 
+// cfgGetInfo retrieves the global service information (description, links) from
+// the thread-safe configuration storage.
+//
+// Returns:
+//
+//	A map containing the global service metadata. Returns an empty map if not configured.
+func (o *sts) cfgGetInfo() map[string]interface{} {
+	if i, l := o.x.Load(keyConfigInfo); !l {
+		return map[string]interface{}{}
+	} else if v, k := i.(map[string]interface{}); !k {
+		return map[string]interface{}{}
+	} else {
+		return v
+	}
+}
+
 // cfgGetMandatory retrieves the internal list of mandatory component groups.
 //
 // It accesses the thread-safe configuration storage.
 //
 // Returns:
-//   The `stslmd.ListMandatory` interface containing the groups, or nil if
-//   not configured.
+//
+//	The `stslmd.ListMandatory` interface containing the groups, or nil if
+//	not configured.
 func (o *sts) cfgGetMandatory() stslmd.ListMandatory {
 	if i, l := o.x.Load(keyConfigMandatory); !l {
 		return nil
@@ -324,6 +385,48 @@ func (o *sts) cfgGetMandatory() stslmd.ListMandatory {
 	} else {
 		return v
 	}
+}
+
+// cfgFilterMandatory filters the list of mandatory groups based on a list of patterns.
+// It uses `path.Match` to support shell-style wildcards against the *name* of each
+// mandatory group.
+//
+// Parameters:
+//   - filter: A slice of patterns to match against mandatory group names.
+//
+// Returns:
+//
+//	A new `stslmd.ListMandatory` containing only the groups that match at least
+//	one of the filter patterns. Returns nil if no groups match or if the initial
+//	list is empty.
+func (o *sts) cfgFilterMandatory(filter []string) stslmd.ListMandatory {
+	var (
+		lst = o.cfgGetMandatory()
+		tmp = make([]stsmdt.Mandatory, 0)
+	)
+
+	if lst == nil || lst.Len() < 1 {
+		return nil
+	}
+
+	if len(filter) < 1 {
+		return nil
+	}
+
+	lst.Walk(func(k string, m stsmdt.Mandatory) bool {
+		for _, f := range filter {
+			if v, e := path.Match(f, k); e == nil && v {
+				tmp = append(tmp, m)
+			}
+		}
+		return true
+	})
+
+	if len(tmp) < 1 {
+		return nil
+	}
+
+	return stslmd.New(tmp...)
 }
 
 // cfgGetMode retrieves the control mode for a specific component key.
@@ -335,7 +438,8 @@ func (o *sts) cfgGetMandatory() stslmd.ListMandatory {
 //   - key: The component name to look up.
 //
 // Returns:
-//   The `stsctr.Mode` associated with the component.
+//
+//	The `stsctr.Mode` associated with the component.
 func (o *sts) cfgGetMode(key string) stsctr.Mode {
 	if l := o.cfgGetMandatory(); l == nil {
 		return stsctr.Ignore
@@ -354,15 +458,16 @@ func (o *sts) cfgGetMode(key string) stsctr.Mode {
 //   - key: The component name to find the group for.
 //
 // Returns:
-//   A slice of strings containing all keys in the matching group. Returns an
-//   empty slice if the key is not found or no groups are configured.
+//
+//	A slice of strings containing all keys in the matching group. Returns an
+//	empty slice if the key is not found or no groups are configured.
 func (o *sts) cfgGetOne(key string) []string {
 	if l := o.cfgGetMandatory(); l == nil {
 		return make([]string, 0)
 	} else {
 		var r []string
 		// Walk through the list to find the group containing the key
-		l.Walk(func(m stsmdt.Mandatory) bool {
+		l.Walk(func(_ string, m stsmdt.Mandatory) bool {
 			if m.KeyHas(key) {
 				r = m.KeyList()
 				return false // Stop searching once found

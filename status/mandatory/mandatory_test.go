@@ -31,14 +31,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	stsctr "github.com/nabbar/golib/status/control"
-	"github.com/nabbar/golib/status/mandatory"
+	stsmdt "github.com/nabbar/golib/status/mandatory"
 )
 
 var _ = Describe("Mandatory", func() {
-	var m mandatory.Mandatory
+	var m stsmdt.Mandatory
 
 	BeforeEach(func() {
-		m = mandatory.New()
+		m = stsmdt.New()
 	})
 
 	Describe("New", func() {
@@ -52,6 +52,14 @@ var _ = Describe("Mandatory", func() {
 
 		It("should initialize with empty keys", func() {
 			Expect(m.KeyList()).To(BeEmpty())
+		})
+
+		It("should initialize with empty name", func() {
+			Expect(m.GetName()).To(BeEmpty())
+		})
+
+		It("should initialize with empty info", func() {
+			Expect(m.GetInfo()).To(BeEmpty())
 		})
 	})
 
@@ -91,6 +99,101 @@ var _ = Describe("Mandatory", func() {
 
 			m.SetMode(stsctr.AnyOf)
 			Expect(m.GetMode()).To(Equal(stsctr.AnyOf))
+		})
+	})
+
+	Describe("SetName/GetName", func() {
+		It("should set and get a valid name", func() {
+			name := "my-valid-group-1"
+			m.SetName(name)
+			Expect(m.GetName()).To(Equal(name))
+		})
+
+		It("should sanitize invalid characters and uppercase", func() {
+			m.SetName("My Group #1")
+			// "My Group #1" -> toLower: "my group #1" -> filter: "mygroup1"
+			Expect(m.GetName()).To(Equal("mygroup1"))
+		})
+
+		It("should set a default name if input is empty", func() {
+			m.SetName("")
+			Expect(m.GetName()).To(MatchRegexp(`^mandatory-\d+$`))
+		})
+
+		It("should set a default name if input becomes empty after sanitization", func() {
+			m.SetName("!!!")
+			Expect(m.GetName()).To(MatchRegexp(`^mandatory-\d+$`))
+		})
+
+		It("should overwrite existing name", func() {
+			m.SetName("first-name")
+			Expect(m.GetName()).To(Equal("first-name"))
+
+			m.SetName("second-name")
+			Expect(m.GetName()).To(Equal("second-name"))
+		})
+	})
+
+	Describe("Info Metadata", func() {
+		It("should set and get info map", func() {
+			info := map[string]interface{}{
+				"description": "test description",
+				"version":     1,
+			}
+			m.SetInfo(info)
+			Expect(m.GetInfo()).To(Equal(info))
+		})
+
+		It("should add single info entry", func() {
+			m.AddInfo("author", "tester")
+			info := m.GetInfo()
+			Expect(info).To(HaveKeyWithValue("author", "tester"))
+		})
+
+		It("should overwrite existing info with SetInfo", func() {
+			m.SetInfo(map[string]interface{}{"key1": "value1"})
+			m.SetInfo(map[string]interface{}{"key2": "value2"})
+			info := m.GetInfo()
+			Expect(info).To(HaveKey("key1")) // SetInfo merges/adds, it doesn't clear the map in current implementation?
+			// Checking implementation logic: SetInfo iterates and stores. It doesn't clear previous.
+			// Let's verify this assumption with a test.
+			Expect(info).To(HaveKey("key2"))
+		})
+
+		It("should overwrite existing key with AddInfo", func() {
+			m.AddInfo("key", "value1")
+			m.AddInfo("key", "value2")
+			Expect(m.GetInfo()).To(HaveKeyWithValue("key", "value2"))
+		})
+
+		It("should ignore empty keys in SetInfo", func() {
+			m.SetInfo(map[string]interface{}{"": "value"})
+			Expect(m.GetInfo()).To(BeEmpty())
+		})
+
+		It("should ignore nil values in SetInfo", func() {
+			m.SetInfo(map[string]interface{}{"key": nil})
+			Expect(m.GetInfo()).To(BeEmpty())
+		})
+
+		It("should ignore empty key in AddInfo", func() {
+			m.AddInfo("", "value")
+			Expect(m.GetInfo()).To(BeEmpty())
+		})
+
+		It("should ignore nil value in AddInfo", func() {
+			m.AddInfo("key", nil)
+			Expect(m.GetInfo()).To(BeEmpty())
+		})
+
+		It("should handle mixed types in info", func() {
+			m.AddInfo("string", "val")
+			m.AddInfo("int", 123)
+			m.AddInfo("bool", true)
+			info := m.GetInfo()
+			Expect(info["string"]).To(Equal("val"))
+			Expect(info["int"]).To(Equal(123))
+			Expect(info["bool"]).To(BeTrue())
 		})
 	})
 
@@ -158,7 +261,7 @@ var _ = Describe("Mandatory", func() {
 		})
 
 		It("should return false for empty keys list", func() {
-			m2 := mandatory.New()
+			m2 := stsmdt.New()
 			Expect(m2.KeyHas("key1")).To(BeFalse())
 		})
 
@@ -197,7 +300,7 @@ var _ = Describe("Mandatory", func() {
 		})
 
 		It("should handle deleting from empty list", func() {
-			m2 := mandatory.New()
+			m2 := stsmdt.New()
 			m2.KeyDel("key1")
 			Expect(m2.KeyList()).To(BeEmpty())
 		})
@@ -312,6 +415,7 @@ var _ = Describe("Mandatory", func() {
 					_ = m.KeyList()
 					_ = m.KeyHas("key1")
 					_ = m.GetMode()
+					_ = m.GetInfo()
 				}
 				done <- true
 			}()
@@ -321,6 +425,7 @@ var _ = Describe("Mandatory", func() {
 				for i := 0; i < 100; i++ {
 					m.KeyAdd("key4")
 					m.SetMode(stsctr.Should)
+					m.AddInfo("status", "running")
 				}
 				done <- true
 			}()

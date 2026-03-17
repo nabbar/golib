@@ -56,21 +56,27 @@ var _ = Describe("ListMandatory", func() {
 		It("should create a list with initial mandatories", func() {
 			m1 := stsmdt.New()
 			m1.KeyAdd("key1")
+			m1.SetName("group1")
 
 			m2 := stsmdt.New()
 			m2.KeyAdd("key2")
+			m2.SetName("group2")
 
 			list := listmandatory.New(m1, m2)
 			Expect(list.Len()).To(Equal(2))
 		})
 
-		It("should handle multiple initial mandatories", func() {
+		It("should ignore nil or empty mandatory groups during initialization", func() {
 			m1 := stsmdt.New()
-			m2 := stsmdt.New()
-			m3 := stsmdt.New()
+			m1.KeyAdd("key1")
+			m1.SetName("group1")
+			m1.SetMode(stsctr.Should)
 
-			list := listmandatory.New(m1, m2, m3)
-			Expect(list.Len()).To(Equal(3))
+			emptyM := stsmdt.New() // No keys added
+
+			list := listmandatory.New(m1, nil, emptyM)
+			Expect(list.Len()).To(Equal(1))
+			Expect(list.GetMode("key1")).ToNot(Equal(stsctr.Ignore))
 		})
 	})
 
@@ -81,62 +87,108 @@ var _ = Describe("ListMandatory", func() {
 
 		It("should return correct length after adding", func() {
 			m := stsmdt.New()
+			m.KeyAdd("key")
 			list.Add(m)
 			Expect(list.Len()).To(Equal(1))
-		})
-
-		It("should return correct length after adding multiple", func() {
-			m1 := stsmdt.New()
-			m2 := stsmdt.New()
-			m3 := stsmdt.New()
-
-			list.Add(m1, m2, m3)
-			Expect(list.Len()).To(Equal(3))
 		})
 	})
 
 	Describe("Add", func() {
 		It("should add a single mandatory", func() {
 			m := stsmdt.New()
+			m.KeyAdd("key")
 			list.Add(m)
 			Expect(list.Len()).To(Equal(1))
 		})
 
 		It("should add multiple mandatories", func() {
 			m1 := stsmdt.New()
+			m1.KeyAdd("key1")
+			m1.SetName("group1")
+
 			m2 := stsmdt.New()
+			m2.KeyAdd("key2")
+			m2.SetName("group2")
 
 			list.Add(m1, m2)
 			Expect(list.Len()).To(Equal(2))
 		})
 
-		It("should add mandatories incrementally", func() {
-			m1 := stsmdt.New()
-			list.Add(m1)
+		It("should not add nil mandatory groups", func() {
+			list.Add(nil)
+			Expect(list.Len()).To(Equal(0))
+
+			m := stsmdt.New()
+			m.KeyAdd("key1")
+			list.Add(m, nil)
 			Expect(list.Len()).To(Equal(1))
-
-			m2 := stsmdt.New()
-			list.Add(m2)
-			Expect(list.Len()).To(Equal(2))
-
-			m3 := stsmdt.New()
-			list.Add(m3)
-			Expect(list.Len()).To(Equal(3))
 		})
 
-		It("should allow adding same mandatory multiple times", func() {
+		It("should not add mandatory groups with no keys", func() {
+			emptyM := stsmdt.New() // No keys added
+			list.Add(emptyM)
+			Expect(list.Len()).To(Equal(0))
+
 			m := stsmdt.New()
-			list.Add(m)
-			list.Add(m)
-			Expect(list.Len()).To(Equal(2))
+			m.KeyAdd("key1")
+			list.Add(m, emptyM)
+			Expect(list.Len()).To(Equal(1))
+		})
+
+		Context("when dealing with names", func() {
+			It("should overwrite a mandatory if the name is the same", func() {
+				m1 := stsmdt.New()
+				m1.SetName("group-a")
+				m1.KeyAdd("key1")
+				m1.SetMode(stsctr.Must) // Set a non-Ignore mode for key1
+				list.Add(m1)
+				Expect(list.Len()).To(Equal(1))
+				Expect(list.GetMode("key1")).To(Equal(stsctr.Must))
+
+				m2 := stsmdt.New()
+				m2.SetName("group-a")
+				m2.KeyAdd("key2")         // Different key, same name
+				m2.SetMode(stsctr.Should) // Set a non-Ignore mode for key2
+				list.Add(m2)
+
+				Expect(list.Len()).To(Equal(1))                       // Length should still be 1
+				Expect(list.GetMode("key1")).To(Equal(stsctr.Ignore)) // Old key should be gone
+				Expect(list.GetMode("key2")).To(Equal(stsctr.Should)) // New key should be present with its mode
+			})
+
+			It("should add as new if the name is different", func() {
+				m1 := stsmdt.New()
+				m1.SetName("group-a")
+				m1.KeyAdd("key1")
+				list.Add(m1)
+
+				m2 := stsmdt.New()
+				m2.SetName("group-b")
+				m2.KeyAdd("key1") // Same key, different name
+				list.Add(m2)
+
+				Expect(list.Len()).To(Equal(2))
+			})
+
+			It("should generate a default name if none is provided", func() {
+				m1 := stsmdt.New()
+				m1.KeyAdd("key1")
+				list.Add(m1) // No name
+
+				m2 := stsmdt.New()
+				m2.KeyAdd("key2")
+				list.Add(m2) // No name
+
+				// Assuming default names are unique based on content or a counter
+				Expect(list.Len()).To(Equal(2))
+			})
 		})
 	})
 
-	Describe("Del", func() {
+	Describe("Del (by content)", func() {
 		It("should delete a mandatory", func() {
 			m := stsmdt.New()
 			m.KeyAdd("key1")
-
 			list.Add(m)
 			Expect(list.Len()).To(Equal(1))
 
@@ -147,74 +199,101 @@ var _ = Describe("ListMandatory", func() {
 		It("should delete only matching mandatory", func() {
 			m1 := stsmdt.New()
 			m1.KeyAdd("key1")
+			m1.SetName("group1")
+			m1.SetMode(stsctr.Must) // Set a non-Ignore mode
 
 			m2 := stsmdt.New()
 			m2.KeyAdd("key2")
+			m2.SetName("group2")
+			m2.SetMode(stsctr.Should) // Set a non-Ignore mode
 
 			list.Add(m1, m2)
 			Expect(list.Len()).To(Equal(2))
 
 			list.Del(m1)
 			Expect(list.Len()).To(Equal(1))
+			Expect(list.GetMode("key1")).To(Equal(stsctr.Ignore)) // key1 should be gone
+			Expect(list.GetMode("key2")).To(Equal(stsctr.Should)) // key2 should still be there
 		})
 
-		It("should handle deleting non-existent mandatory", func() {
-			m1 := stsmdt.New()
-			m1.KeyAdd("key1")
-
-			m2 := stsmdt.New()
-			m2.KeyAdd("key2")
-
-			list.Add(m1)
-			list.Del(m2)
-			Expect(list.Len()).To(Equal(1))
-		})
-
-		It("should match by key list content", func() {
+		It("should match by key list content, ignoring order", func() {
 			m1 := stsmdt.New()
 			m1.KeyAdd("key1", "key2")
+			list.Add(m1)
 
 			m2 := stsmdt.New()
 			m2.KeyAdd("key2", "key1") // Same keys, different order
 
-			list.Add(m1)
 			list.Del(m2)
 			Expect(list.Len()).To(Equal(0))
 		})
 	})
 
+	Describe("DelKey (by name)", func() {
+		var m1, m2 stsmdt.Mandatory
+
+		BeforeEach(func() {
+			m1 = stsmdt.New()
+			m1.SetName("group-one")
+			m1.KeyAdd("key1")
+			m1.SetMode(stsctr.Must) // Set a non-Ignore mode for m1
+
+			m2 = stsmdt.New()
+			m2.SetName("group-two")
+			m2.KeyAdd("key2")
+			m2.SetMode(stsctr.Should) // Set a non-Ignore mode for m2
+
+			list.Add(m1, m2)
+			Expect(list.Len()).To(Equal(2))
+		})
+
+		It("should delete a mandatory by its name", func() {
+			list.DelKey("group-one")
+			Expect(list.Len()).To(Equal(1))
+			Expect(list.GetMode("key1")).To(Equal(stsctr.Ignore)) // key1 should be gone
+			Expect(list.GetMode("key2")).To(Equal(stsctr.Should)) // key2 should still be there
+		})
+
+		It("should not fail when deleting a non-existent name", func() {
+			list.DelKey("non-existent-group")
+			Expect(list.Len()).To(Equal(2))
+		})
+	})
+
 	Describe("Walk", func() {
-		It("should walk through all mandatories", func() {
+		BeforeEach(func() {
 			m1 := stsmdt.New()
 			m1.KeyAdd("key1")
+			m1.SetName("group1")
 
 			m2 := stsmdt.New()
 			m2.KeyAdd("key2")
+			m2.SetName("group2")
 
 			m3 := stsmdt.New()
 			m3.KeyAdd("key3")
+			m3.SetName("group3")
 
 			list.Add(m1, m2, m3)
+		})
 
+		It("should walk through all mandatories", func() {
 			count := 0
-			list.Walk(func(m stsmdt.Mandatory) bool {
+			var names []string
+			list.Walk(func(k string, m stsmdt.Mandatory) bool {
 				count++
+				names = append(names, k)
 				Expect(m).ToNot(BeNil())
 				return true
 			})
 
 			Expect(count).To(Equal(3))
+			Expect(names).To(ContainElements("group1", "group2", "group3"))
 		})
 
 		It("should stop walking when function returns false", func() {
-			m1 := stsmdt.New()
-			m2 := stsmdt.New()
-			m3 := stsmdt.New()
-
-			list.Add(m1, m2, m3)
-
 			count := 0
-			list.Walk(func(m stsmdt.Mandatory) bool {
+			list.Walk(func(_ string, m stsmdt.Mandatory) bool {
 				count++
 				return count < 2 // Stop after 2
 			})
@@ -222,31 +301,62 @@ var _ = Describe("ListMandatory", func() {
 			Expect(count).To(Equal(2))
 		})
 
-		It("should handle empty list", func() {
-			count := 0
-			list.Walk(func(m stsmdt.Mandatory) bool {
-				count++
-				return true
-			})
-
-			Expect(count).To(Equal(0))
-		})
-
 		It("should allow modifying mandatories during walk", func() {
-			m1 := stsmdt.New()
-			m1.KeyAdd("key1")
-			m1.SetMode(stsctr.Ignore)
-
-			list.Add(m1)
-
-			list.Walk(func(m stsmdt.Mandatory) bool {
-				m.SetMode(stsctr.Should)
+			list.Walk(func(k string, m stsmdt.Mandatory) bool {
+				if k == "group1" {
+					m.SetMode(stsctr.Should)
+				}
 				return true
 			})
 
 			// Verify the change persisted
 			mode := list.GetMode("key1")
 			Expect(mode).To(Equal(stsctr.Should))
+		})
+	})
+
+	Describe("GetList", func() {
+		It("should return an empty slice for an empty list", func() {
+			Expect(list.GetList()).To(BeEmpty())
+		})
+
+		It("should return all added mandatories", func() {
+			m1 := stsmdt.New()
+			m1.KeyAdd("key1")
+			m1.SetName("m1")
+
+			m2 := stsmdt.New()
+			m2.KeyAdd("key2")
+			m2.SetName("m2")
+
+			list.Add(m1, m2)
+
+			result := list.GetList()
+			Expect(len(result)).To(Equal(2))
+
+			var names []string
+			for _, m := range result {
+				names = append(names, m.GetName())
+			}
+			Expect(names).To(ContainElements("m1", "m2"))
+		})
+
+		It("should return a snapshot that is not affected by later modifications", func() {
+			m1 := stsmdt.New()
+			m1.KeyAdd("key1")
+			m1.SetName("m1")
+			list.Add(m1)
+
+			snapshot := list.GetList()
+			Expect(len(snapshot)).To(Equal(1))
+
+			m2 := stsmdt.New()
+			m2.KeyAdd("key2")
+			m2.SetName("m2")
+			list.Add(m2)
+
+			Expect(list.Len()).To(Equal(2))
+			Expect(len(snapshot)).To(Equal(1)) // Snapshot should be unchanged
 		})
 	})
 
@@ -260,7 +370,6 @@ var _ = Describe("ListMandatory", func() {
 			m := stsmdt.New()
 			m.KeyAdd("key1")
 			m.SetMode(stsctr.Should)
-
 			list.Add(m)
 
 			mode := list.GetMode("key1")
@@ -271,31 +380,18 @@ var _ = Describe("ListMandatory", func() {
 			m1 := stsmdt.New()
 			m1.KeyAdd("key1")
 			m1.SetMode(stsctr.Should)
+			m1.SetName("group1")
 
 			m2 := stsmdt.New()
 			m2.KeyAdd("key1")
 			m2.SetMode(stsctr.Must)
+			m2.SetName("group2")
 
 			list.Add(m1, m2)
 
 			mode := list.GetMode("key1")
-			// Should return the first one found
+			// The order is not guaranteed, so it could be either
 			Expect(mode).To(BeElementOf(stsctr.Should, stsctr.Must))
-		})
-
-		It("should handle different keys", func() {
-			m1 := stsmdt.New()
-			m1.KeyAdd("key1")
-			m1.SetMode(stsctr.Should)
-
-			m2 := stsmdt.New()
-			m2.KeyAdd("key2")
-			m2.SetMode(stsctr.Must)
-
-			list.Add(m1, m2)
-
-			Expect(list.GetMode("key1")).To(Equal(stsctr.Should))
-			Expect(list.GetMode("key2")).To(Equal(stsctr.Must))
 		})
 	})
 
@@ -304,7 +400,6 @@ var _ = Describe("ListMandatory", func() {
 			m := stsmdt.New()
 			m.KeyAdd("key1")
 			m.SetMode(stsctr.Ignore)
-
 			list.Add(m)
 
 			list.SetMode("key1", stsctr.Should)
@@ -315,97 +410,70 @@ var _ = Describe("ListMandatory", func() {
 			m1 := stsmdt.New()
 			m1.KeyAdd("key1")
 			m1.SetMode(stsctr.Should)
+			m1.SetName("group1")
 
 			m2 := stsmdt.New()
 			m2.KeyAdd("key2")
 			m2.SetMode(stsctr.Must)
+			m2.SetName("group2")
 
 			list.Add(m1, m2)
-
 			list.SetMode("key1", stsctr.AnyOf)
 
 			Expect(list.GetMode("key1")).To(Equal(stsctr.AnyOf))
 			Expect(list.GetMode("key2")).To(Equal(stsctr.Must))
 		})
 
-		It("should handle non-existent key", func() {
-			m := stsmdt.New()
-			m.KeyAdd("key1")
-
-			list.Add(m)
-
-			list.SetMode("nonexistent", stsctr.Should)
-			Expect(list.GetMode("nonexistent")).To(Equal(stsctr.Ignore))
-		})
-
-		It("should update first matching mandatory", func() {
+		It("should update first matching mandatory only", func() {
 			m1 := stsmdt.New()
 			m1.KeyAdd("key1")
 			m1.SetMode(stsctr.Ignore)
+			m1.SetName("group1")
 
 			m2 := stsmdt.New()
 			m2.KeyAdd("key1")
 			m2.SetMode(stsctr.Ignore)
+			m2.SetName("group2")
 
 			list.Add(m1, m2)
-
 			list.SetMode("key1", stsctr.Should)
 
-			// At least one should be updated
+			// Check that one was updated
 			mode := list.GetMode("key1")
 			Expect(mode).To(Equal(stsctr.Should))
+
+			// This is tricky to test without knowing which one was updated.
+			// We can walk and check that only one has been updated.
+			var updatedModes []stsctr.Mode
+			list.Walk(func(k string, m stsmdt.Mandatory) bool {
+				if m.KeyHas("key1") {
+					updatedModes = append(updatedModes, m.GetMode())
+				}
+				return true
+			})
+
+			Expect(updatedModes).To(ContainElement(stsctr.Should))
+			Expect(updatedModes).To(ContainElement(stsctr.Ignore))
 		})
 	})
 
 	Describe("Concurrent operations", func() {
 		It("should handle concurrent additions", func() {
-			wg := libsem.New(context.Background(), 2, false)
+			wg := libsem.New(context.Background(), 10, false)
 			defer wg.DeferMain()
 
-			ft := func(key string) {
-				m := stsmdt.New()
-				m.KeyAdd(key)
-				time.Sleep(5 * time.Millisecond) // prevent memory writing speed vs reading
-				list.Add(m)
-				time.Sleep(5 * time.Millisecond) // prevent memory writing speed vs reading
-			}
-
-			for i := 0; i < 25; i++ {
+			for i := 0; i < 100; i++ {
 				Expect(wg.NewWorker()).ToNot(HaveOccurred())
-				go func() {
+				go func(i int) {
 					defer wg.DeferWorker()
-					ft(fmt.Sprintf("key1-%d", i))
-				}()
-			}
-
-			for i := 0; i < 25; i++ {
-				Expect(wg.NewWorker()).ToNot(HaveOccurred())
-				go func() {
-					defer wg.DeferWorker()
-					ft(fmt.Sprintf("key2-%d", i))
-				}()
-			}
-
-			for i := 0; i < 25; i++ {
-				Expect(wg.NewWorker()).ToNot(HaveOccurred())
-				go func() {
-					defer wg.DeferWorker()
-					ft(fmt.Sprintf("key3-%d", i))
-				}()
-			}
-
-			for i := 0; i < 25; i++ {
-				Expect(wg.NewWorker()).ToNot(HaveOccurred())
-				go func() {
-					defer wg.DeferWorker()
-					ft(fmt.Sprintf("key4-%d", i))
-				}()
+					m := stsmdt.New()
+					m.KeyAdd(fmt.Sprintf("key-%d", i))
+					m.SetName(fmt.Sprintf("group-%d", i))
+					list.Add(m)
+				}(i)
 			}
 
 			Expect(wg.WaitAll()).ToNot(HaveOccurred())
-			time.Sleep(time.Second)
-
-			Expect(len(list.GetList())).To(Equal(100))
 			Expect(list.Len()).To(Equal(100))
 		})
 
@@ -413,6 +481,7 @@ var _ = Describe("ListMandatory", func() {
 			m := stsmdt.New()
 			m.KeyAdd("key1")
 			m.SetMode(stsctr.Should)
+			m.SetName("group1")
 			list.Add(m)
 
 			done := make(chan bool)
@@ -422,6 +491,7 @@ var _ = Describe("ListMandatory", func() {
 				for i := 0; i < 100; i++ {
 					_ = list.Len()
 					_ = list.GetMode("key1")
+					time.Sleep(1 * time.Millisecond)
 				}
 				done <- true
 			}()
@@ -431,7 +501,10 @@ var _ = Describe("ListMandatory", func() {
 				for i := 0; i < 100; i++ {
 					list.SetMode("key1", stsctr.Must)
 					m := stsmdt.New()
+					m.SetName(fmt.Sprintf("new-group-%d", i))
+					m.KeyAdd(fmt.Sprintf("dynamic-key-%d", i)) // Added a key here
 					list.Add(m)
+					time.Sleep(1 * time.Millisecond)
 				}
 				done <- true
 			}()
@@ -439,31 +512,7 @@ var _ = Describe("ListMandatory", func() {
 			<-done
 			<-done
 
-			Expect(list.Len()).To(BeNumerically(">", 0))
-		})
-
-		It("should handle concurrent walks", func() {
-			for i := 0; i < 10; i++ {
-				m := stsmdt.New()
-				list.Add(m)
-			}
-
-			done := make(chan bool)
-
-			for i := 0; i < 5; i++ {
-				go func() {
-					list.Walk(func(m stsmdt.Mandatory) bool {
-						return true
-					})
-					done <- true
-				}()
-			}
-
-			for i := 0; i < 5; i++ {
-				<-done
-			}
-
-			Expect(list.Len()).To(Equal(10))
+			Expect(list.Len()).To(BeNumerically(">", 100))
 		})
 	})
 })

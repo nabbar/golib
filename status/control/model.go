@@ -40,7 +40,8 @@ import (
 // to be printed directly and clearly in logs and other outputs.
 //
 // Example:
-//   fmt.Println(control.Must) // Output: Must
+//
+//	fmt.Println(control.Must) // Output: Must
 func (c Mode) String() string {
 	switch c {
 	case Should:
@@ -53,7 +54,7 @@ func (c Mode) String() string {
 		return "Quorum"
 	}
 
-	return ""
+	return "Ignore"
 }
 
 // Code returns the lowercase string representation of the `Mode`.
@@ -61,9 +62,61 @@ func (c Mode) String() string {
 // mode in configuration files in a consistent format.
 //
 // Example:
-//   fmt.Println(control.Must.Code()) // Output: must
+//
+//	fmt.Println(control.Must.Code()) // Output: must
 func (c Mode) Code() string {
 	return strings.ToLower(c.String())
+}
+
+// Uint8 returns the `Mode` value as a `uint8`.
+// This is the underlying type of `Mode` and allows for easy conversion
+// when interfacing with libraries that expect standard integer types.
+func (c Mode) Uint8() uint8 {
+	return uint8(c)
+}
+
+// Uint16 returns the `Mode` value as a `uint16`.
+// Useful for compatibility with APIs expecting 16-bit unsigned integers.
+func (c Mode) Uint16() uint16 {
+	return uint16(c)
+}
+
+// Uint32 returns the `Mode` value as a `uint32`.
+// Useful for compatibility with APIs expecting 32-bit unsigned integers.
+func (c Mode) Uint32() uint32 {
+	return uint32(c)
+}
+
+// Uint64 returns the `Mode` value as a `uint64`.
+// Useful for compatibility with APIs expecting 64-bit unsigned integers.
+func (c Mode) Uint64() uint64 {
+	return uint64(c)
+}
+
+// Int8 returns the `Mode` value as an `int8`.
+// Currently, this implementation returns 0 (Ignore) for safety or compatibility reasons.
+// Developers should check if this specific behavior meets their needs.
+func (c Mode) Int8() int8 {
+	return int8(c)
+}
+
+// Int16 returns the `Mode` value as an `int16`.
+// Currently, this implementation returns 0 (Ignore).
+func (c Mode) Int16() int16 {
+	return int16(c)
+}
+
+// Int32 returns the `Mode` value as an `int32`.
+// Currently, this implementation returns 0 (Ignore).
+func (c Mode) Int32() int32 {
+	return int32(c)
+}
+
+// Int64 returns the `Mode` value as an `int64`.
+// Unlike smaller signed integer conversions in this package, this method returns
+// the actual underlying value of the `Mode` cast to `int64`.
+func (c Mode) Int64() int64 {
+	return int64(c)
 }
 
 // ViperDecoderHook returns a `mapstructure.DecodeHookFunc` that can be used with

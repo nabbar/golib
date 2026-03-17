@@ -62,7 +62,7 @@
 //	fmt.Println(mode) // Output: Must
 //
 //	// Walk through all groups
-//	list.Walk(func(m mandatory.Mandatory) bool {
+//	list.Walk(func(k string, m mandatory.Mandatory) bool {
 //	    fmt.Println("Keys:", m.KeyList())
 //	    return true // continue walking
 //	})
@@ -85,8 +85,6 @@
 package listmandatory
 
 import (
-	"sync/atomic"
-
 	libatm "github.com/nabbar/golib/atomic"
 	stsctr "github.com/nabbar/golib/status/control"
 	stsmdt "github.com/nabbar/golib/status/mandatory"
@@ -121,17 +119,20 @@ type ListMandatory interface {
 	//
 	// Example:
 	//
-	//	list.Walk(func(m mandatory.Mandatory) bool {
+	//	list.Walk(func(k string, m mandatory.Mandatory) bool {
+	//	    fmt.Println("Group Name:", k)
 	//	    fmt.Println("Mode:", m.GetMode())
 	//	    fmt.Println("Keys:", m.KeyList())
 	//	    return true // continue to next group
 	//	})
-	Walk(fct func(m stsmdt.Mandatory) bool)
+	Walk(fct func(k string, m stsmdt.Mandatory) bool)
 
 	// Add adds one or more mandatory groups to the list.
 	//
-	// Each group is assigned a unique internal ID. Groups can be added
-	// multiple times (they are treated as separate entries).
+	// Each group is stored using its name as the unique identifier. If a group
+	// with the same name already exists in the list, it will be overwritten by
+	// the new one. If the provided group does not have a name, a default name
+	// will be generated and assigned to it.
 	//
 	// This operation is thread-safe.
 	//
@@ -140,14 +141,16 @@ type ListMandatory interface {
 	//	dbGroup := mandatory.New()
 	//	dbGroup.SetMode(control.Must)
 	//	dbGroup.KeyAdd("database")
+	//	dbGroup.SetName("core-db")
 	//
 	//	list.Add(dbGroup)
 	Add(m ...stsmdt.Mandatory)
 
-	// Del removes a mandatory group from the list.
+	// Del removes a mandatory group from the list based on content matching.
 	//
-	// The group is identified by comparing its key list (sorted). If multiple
-	// groups have the same keys, only the first match is removed.
+	// The removal is performed by comparing the sorted key list of the provided
+	// group with the groups in the list. Any group found to have an identical
+	// set of keys will be removed.
 	//
 	// This operation is thread-safe.
 	//
@@ -155,6 +158,18 @@ type ListMandatory interface {
 	//
 	//	list.Del(dbGroup)
 	Del(m stsmdt.Mandatory)
+
+	// DelKey removes a mandatory group from the list by its unique name.
+	//
+	// This allows for precise removal of a group using the name under which
+	// it was stored. This is the preferred method for removal if the name is known.
+	//
+	// This operation is thread-safe.
+	//
+	// Example:
+	//
+	//  list.DelKey("core-db")
+	DelKey(s string)
 
 	// GetMode returns the validation mode for a specific component key.
 	//
@@ -223,11 +238,9 @@ type ListMandatory interface {
 //	list := listmandatory.New(dbGroup, cacheGroup)
 func New(m ...stsmdt.Mandatory) ListMandatory {
 	var o = &model{
-		l: libatm.NewMapTyped[uint32, stsmdt.Mandatory](),
-		k: new(atomic.Uint32),
+		l: libatm.NewMapTyped[string, stsmdt.Mandatory](),
 	}
 
-	o.k.Store(0)
 	o.Add(m...)
 
 	return o

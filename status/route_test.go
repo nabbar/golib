@@ -545,6 +545,38 @@ var _ = Describe("Status/Route", func() {
 				// Query param should take precedence // priority to header, and after query string
 				Expect(w.Header().Get("Content-Type")).To(ContainSubstring("application/json"))
 			})
+
+			It("should handle map=true and format=text", func() {
+				status := libsts.New(globalCtx)
+				status.SetInfo("route-test", "v1.0.0", "abc123")
+
+				pool := newPool()
+				status.RegisterPool(func() montps.Pool { return pool })
+
+				router := ginsdk.New()
+				router.GET("/status", func(c *ginsdk.Context) {
+					status.MiddleWare(c)
+				})
+				status.SetConfig(newStatusConfig(newListMandatory(map[stsctr.Mode][]string{
+					stsctr.Must: {"test-service"},
+				})...))
+				m := newHealthyMonitor("test-service")
+				err := pool.MonitorAdd(m)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(testMonitorStabilizeDelay)
+
+				req := httptest.NewRequest("GET", "/status?map=true&format=text", nil)
+				w := httptest.NewRecorder()
+
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				Expect(w.Header().Get("Content-Type")).To(ContainSubstring("text/plain"))
+				body := w.Body.String()
+				Expect(body).To(ContainSubstring("OK - "))
+				Expect(body).To(ContainSubstring(" - Must:"))
+				Expect(body).To(ContainSubstring("OK: test-service"))
+			})
 		})
 
 		Context("with map query parameter", func() {
@@ -605,6 +637,141 @@ var _ = Describe("Status/Route", func() {
 				Expect(lst).To(HaveKey("test-service"))
 			})
 		})
+
+		Context("with filter query parameter", func() {
+			var (
+				status libsts.Status
+				pool   montps.Pool
+				router *ginsdk.Engine
+			)
+
+			BeforeEach(func() {
+				status = libsts.New(globalCtx)
+				status.SetInfo("route-test", "v1.0.0", "abc123")
+
+				pool = newPool()
+				status.RegisterPool(func() montps.Pool { return pool })
+
+				router = ginsdk.New()
+				router.GET("/status", func(c *ginsdk.Context) {
+					status.MiddleWare(c)
+				})
+
+				cfg := libsts.Config{
+					Component: []libsts.Mandatory{
+						{
+							Name: "group-a",
+							Mode: stsctr.Must,
+							Keys: []string{"service-a"},
+						},
+						{
+							Name: "group-b",
+							Mode: stsctr.Should,
+							Keys: []string{"service-b"},
+						},
+					},
+				}
+				status.SetConfig(cfg)
+
+				err := pool.MonitorAdd(newHealthyMonitor("service-a"))
+				Expect(err).ToNot(HaveOccurred())
+				err = pool.MonitorAdd(newHealthyMonitor("service-b"))
+				Expect(err).ToNot(HaveOccurred())
+				err = pool.MonitorAdd(newHealthyMonitor("other-service"))
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(testMonitorStabilizeDelay)
+			})
+
+			It("should filter by a single monitor name", func() {
+				req := httptest.NewRequest("GET", "/status?filter=service-a", nil)
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				var result map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &result)
+				Expect(err).ToNot(HaveOccurred())
+
+				cpt, ok := result["component"].(map[string]interface{})
+				Expect(ok).To(BeTrue(), "component should be a map")
+				Expect(cpt).To(HaveLen(1))
+				Expect(cpt).To(HaveKey("service-a"))
+			})
+
+			It("should filter by wildcard", func() {
+				req := httptest.NewRequest("GET", "/status?filter=service-*", nil)
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				var result map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &result)
+				Expect(err).ToNot(HaveOccurred())
+
+				cpt, ok := result["component"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(cpt).To(HaveLen(2))
+				Expect(cpt).To(HaveKey("service-a"))
+				Expect(cpt).To(HaveKey("service-b"))
+			})
+
+			It("should filter by mandatory group name", func() {
+				req := httptest.NewRequest("GET", "/status?filter=group-a&map=true", nil)
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				var result map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &result)
+				Expect(err).ToNot(HaveOccurred())
+
+				cpt, ok := result["component"].([]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(cpt).To(HaveLen(1))
+
+				group, ok := cpt[0].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(group).To(HaveKeyWithValue("name", "group-a"))
+
+				components, ok := group["components"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(components).To(HaveLen(1))
+				Expect(components).To(HaveKey("service-a"))
+			})
+
+			It("should filter using X-Filter header", func() {
+				req := httptest.NewRequest("GET", "/status", nil)
+				req.Header.Set("X-Filter", "other-service")
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+				var result map[string]interface{}
+				err := json.Unmarshal(w.Body.Bytes(), &result)
+				Expect(err).ToNot(HaveOccurred())
+
+				cpt, ok := result["component"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(cpt).To(HaveLen(1))
+				Expect(cpt).To(HaveKey("other-service"))
+			})
+		})
+
+		Context("with error conditions", func() {
+			It("should handle missing app info", func() {
+				status := libsts.New(globalCtx) // No SetInfo
+				router := ginsdk.New()
+				router.GET("/status", func(c *ginsdk.Context) {
+					status.MiddleWare(c)
+				})
+
+				req := httptest.NewRequest("GET", "/status", nil)
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusInternalServerError))
+			})
+		})
 	})
 
 	Describe("Expose", func() {
@@ -642,28 +809,8 @@ var _ = Describe("Status/Route", func() {
 	})
 
 	Describe("SetErrorReturn", func() {
-		It("should allow custom error return", func() {
-			status := libsts.New(globalCtx)
-			status.SetInfo("route-test", "v1.0.0", "abc123")
-
-			pool := newPool()
-			status.RegisterPool(func() montps.Pool { return pool })
-
-			// Setup router
-			router := ginsdk.New()
-			router.GET("/status", func(c *ginsdk.Context) {
-				status.MiddleWare(c)
-			})
-			status.SetConfig(newStatusConfig(newListMandatory(map[stsctr.Mode][]string{
-				stsctr.Must: {
-					"test-service",
-				},
-			})...))
-			m := newHealthyMonitor("test-service")
-			err := pool.MonitorAdd(m)
-			Expect(err).ToNot(HaveOccurred())
-			time.Sleep(testMonitorStabilizeDelay)
-
+		It("should use custom error handler on failure", func() {
+			status := libsts.New(globalCtx) // No SetInfo to trigger an error
 			customCalled := false
 
 			status.SetErrorReturn(func() liberr.ReturnGin {
@@ -671,16 +818,17 @@ var _ = Describe("Status/Route", func() {
 				return liberr.NewDefaultReturn()
 			})
 
-			// This should not trigger error return since info is set
+			router := ginsdk.New()
+			router.GET("/status", func(c *ginsdk.Context) {
+				status.MiddleWare(c)
+			})
+
 			req := httptest.NewRequest("GET", "/status", nil)
 			w := httptest.NewRecorder()
-
 			router.ServeHTTP(w, req)
 
-			// Should succeed without calling custom error handler
-			Expect(w.Code).To(Equal(http.StatusOK))
-			// if Status OK, so no error, so cannot be called, so value is false
-			Expect(customCalled).To(BeFalse())
+			Expect(w.Code).To(Equal(http.StatusInternalServerError))
+			Expect(customCalled).To(BeTrue())
 		})
 	})
 
