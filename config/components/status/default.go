@@ -38,6 +38,9 @@ var _defaultConfig = []byte(`{
     "Warn": 207,
     "KO": 500
   },
+  "info": {
+    "doc": "http://example.com"
+  },
   "component": [
     {
       "mode": "Must",
@@ -45,7 +48,7 @@ var _defaultConfig = []byte(`{
         "component1",
         "component2"
       ],
-	  "configKeys": []
+      "configKeys": []
     }
   ]
 }`)

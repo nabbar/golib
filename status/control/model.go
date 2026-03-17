@@ -27,6 +27,7 @@
 package control
 
 import (
+	"math"
 	"reflect"
 	"strings"
 
@@ -97,7 +98,11 @@ func (c Mode) Uint64() uint64 {
 // Currently, this implementation returns 0 (Ignore) for safety or compatibility reasons.
 // Developers should check if this specific behavior meets their needs.
 func (c Mode) Int8() int8 {
-	return int8(c)
+	if i := c.Uint8(); i > 0 && i < math.MaxInt8 {
+		return int8(i)
+	}
+
+	return 0
 }
 
 // Int16 returns the `Mode` value as an `int16`.
