@@ -110,7 +110,8 @@ func (o *sts) IsCacheStrictlyHealthy() bool {
 //   - name: An optional list of component names to check. If empty, checks all components.
 //
 // Returns:
-//   `true` if the aggregated status is `OK` or `WARN`, `false` otherwise.
+//
+//	`true` if the aggregated status is `OK` or `WARN`, `false` otherwise.
 func (o *sts) IsHealthy(name ...string) bool {
 	s, _ := o.getStatus(name...)
 	return s >= monsts.Warn
@@ -126,7 +127,8 @@ func (o *sts) IsHealthy(name ...string) bool {
 //   - name: An optional list of component names to check. If empty, checks all components.
 //
 // Returns:
-//   `true` only if the aggregated status is `OK`, `false` otherwise.
+//
+//	`true` only if the aggregated status is `OK`, `false` otherwise.
 func (o *sts) IsStrictlyHealthy(name ...string) bool {
 	s, _ := o.getStrictStatus(name...)
 	return s == monsts.OK
@@ -148,7 +150,8 @@ func (o *sts) IsStrictlyHealthy(name ...string) bool {
 //     If empty, all configured components are considered.
 //
 // Returns:
-//   The computed `monsts.Status` and a message from the component that caused the degradation.
+//
+//	The computed `monsts.Status` and a message from the component that caused the degradation.
 func (o *sts) getStatus(keys ...string) (monsts.Status, string) {
 	stt := monsts.OK
 	msg := ""
@@ -262,7 +265,8 @@ func (o *sts) getStatus(keys ...string) (monsts.Status, string) {
 //     If empty, all configured components are considered.
 //
 // Returns:
-//   The "worst" `monsts.Status` found among the checked components and its corresponding message.
+//
+//	The "worst" `monsts.Status` found among the checked components and its corresponding message.
 func (o *sts) getStrictStatus(keys ...string) (monsts.Status, string) {
 	stt := monsts.OK
 	msg := ""

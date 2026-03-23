@@ -53,33 +53,33 @@
 // The following diagram illustrates how the `Mandatory` package interacts with the
 // broader status monitoring workflow:
 //
-//	+------------------+         +--------------------+
-//	|   Configuration  |         |   Status Monitor   |
-//	| (Static/Dynamic) |         |     (Poller)       |
-//	+--------+---------+         +---------+----------+
-//	         |                             |
-//	         v                             v
-//	+--------+-----------------------------+----------+
-//	|                  Mandatory                      |
-//	|                                                 |
-//	|  +------------+          +-------------------+  |
-//	|  |  Key Set   | <------- | Is Key Mandatory? |  |
-//	|  | {A, B, C}  |          |     (KeyHas)      |  |
-//	|  +------------+          +-------------------+  |
-//	|        ^                                        |
-//	|        | Add/Del                                |
-//	|        v                                        |
-//	|  +------------+          +-------------------+  |
-//	|  | Validation | -------> |   Get Strategy    |  |
-//	|  |    Mode    |          |     (GetMode)     |  |
-//	|  +------------+          +-------------------+  |
-//	|                                                 |
-//	+-------------------------------------------------+
+//		+------------------+         +--------------------+
+//		|   Configuration  |         |   Status Monitor   |
+//		| (Static/Dynamic) |         |     (Poller)       |
+//		+--------+---------+         +---------+----------+
+//		         |                             |
+//		         v                             v
+//		+--------+-----------------------------+----------+
+//		|                  Mandatory                      |
+//		|                                                 |
+//		|  +------------+          +-------------------+  |
+//		|  |  Key Set   | <------- | Is Key Mandatory? |  |
+//		|  | {A, B, C}  |          |     (KeyHas)      |  |
+//		|  +------------+          +-------------------+  |
+//		|        ^                                        |
+//		|        | Add/Del                                |
+//		|        v                                        |
+//		|  +------------+          +-------------------+  |
+//		|  | Validation | -------> |   Get Strategy    |  |
+//		|  |    Mode    |          |     (GetMode)     |  |
+//		|  +------------+          +-------------------+  |
+//		|                                                 |
+//		+-------------------------------------------------+
 //
-//  1. **Configuration Phase**: The application defines groups (e.g., "Critical Services")
-//     and populates them with component keys using `KeyAdd`. The validation strategy
-//     is set using `SetMode` (e.g., `control.Must`), and descriptive metadata is
-//     added via `SetInfo` or `AddInfo`.
+//	 1. **Configuration Phase**: The application defines groups (e.g., "Critical Services")
+//	    and populates them with component keys using `KeyAdd`. The validation strategy
+//	    is set using `SetMode` (e.g., `control.Must`), and descriptive metadata is
+//	    added via `SetInfo` or `AddInfo`.
 //
 // 2. **Monitoring Phase**: When the status system evaluates the overall health:
 //   - It iterates over registered components.

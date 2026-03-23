@@ -51,8 +51,9 @@ func (c *Mode) unmarshall(val []byte) error {
 // (e.g., "Must", "Should").
 //
 // Example:
-//   data, _ := json.Marshal(control.Must)
-//   // data is []byte(`"Must"`)
+//
+//	data, _ := json.Marshal(control.Must)
+//	// data is []byte(`"Must"`)
 func (c Mode) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c.String())
 }
@@ -63,9 +64,10 @@ func (c Mode) MarshalJSON() ([]byte, error) {
 // it defaults to `Ignore`.
 //
 // Example:
-//   var m control.Mode
-//   json.Unmarshal([]byte(`"must"`), &m)
-//   // m is control.Must
+//
+//	var m control.Mode
+//	json.Unmarshal([]byte(`"must"`), &m)
+//	// m is control.Must
 func (c *Mode) UnmarshalJSON(bytes []byte) error {
 	var s string
 	if err := json.Unmarshal(bytes, &s); err != nil {

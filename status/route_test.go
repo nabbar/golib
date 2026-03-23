@@ -636,6 +636,69 @@ var _ = Describe("Status/Route", func() {
 				Expect(ok).To(BeTrue())
 				Expect(lst).To(HaveKey("test-service"))
 			})
+
+			It("should include mandatory group info in map mode", func() {
+				status := libsts.New(globalCtx)
+				status.SetInfo("route-test", "v1.0.0", "abc123")
+
+				pool := newPool()
+				status.RegisterPool(func() montps.Pool { return pool })
+
+				router := ginsdk.New()
+				router.GET("/status", func(c *ginsdk.Context) {
+					status.MiddleWare(c)
+				})
+
+				// Configure mandatory group with Info
+				cfg := libsts.Config{
+					Component: []libsts.Mandatory{
+						{
+							Name: "info-group",
+							Mode: stsctr.Must,
+							Keys: []string{"test-service"},
+							Info: map[string]interface{}{
+								"description": "Critical Service Group",
+								"link":        "https://example.com/docs",
+							},
+						},
+					},
+				}
+				status.SetConfig(cfg)
+
+				m := newHealthyMonitor("test-service")
+				err := pool.MonitorAdd(m)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(testMonitorStabilizeDelay)
+
+				req := httptest.NewRequest("GET", "/status?map=true", nil)
+				w := httptest.NewRecorder()
+
+				router.ServeHTTP(w, req)
+
+				Expect(w.Code).To(Equal(http.StatusOK))
+
+				var result map[string]interface{}
+				err = json.Unmarshal(w.Body.Bytes(), &result)
+				Expect(err).ToNot(HaveOccurred())
+
+				val, ok := result["component"]
+				Expect(ok).To(BeTrue())
+				itm, ok := val.([]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(itm).To(HaveLen(1))
+
+				sub, ok := itm[0].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+
+				// Verify the info field exists and contains correct data
+				infoField, ok := sub["info"]
+				Expect(ok).To(BeTrue(), "info field should exist in map mode output")
+
+				infoMap, ok := infoField.(map[string]interface{})
+				Expect(ok).To(BeTrue(), "info field should be a map")
+				Expect(infoMap).To(HaveKeyWithValue("description", "Critical Service Group"))
+				Expect(infoMap).To(HaveKeyWithValue("link", "https://example.com/docs"))
+			})
 		})
 
 		Context("with filter query parameter", func() {
@@ -663,11 +726,19 @@ var _ = Describe("Status/Route", func() {
 							Name: "group-a",
 							Mode: stsctr.Must,
 							Keys: []string{"service-a"},
+							Info: map[string]interface{}{
+								"description": "Critical Service Group A",
+								"link":        "https://example.com/docs/a",
+							},
 						},
 						{
 							Name: "group-b",
 							Mode: stsctr.Should,
 							Keys: []string{"service-b"},
+							Info: map[string]interface{}{
+								"description": "Critical Service Group B",
+								"link":        "https://example.com/docs/b",
+							},
 						},
 					},
 				}
@@ -732,6 +803,15 @@ var _ = Describe("Status/Route", func() {
 				group, ok := cpt[0].(map[string]interface{})
 				Expect(ok).To(BeTrue())
 				Expect(group).To(HaveKeyWithValue("name", "group-a"))
+
+				// Verify the info field exists and contains correct data
+				infoField, ok := group["info"]
+				Expect(ok).To(BeTrue(), "info field should exist in map mode output")
+
+				infoMap, ok := infoField.(map[string]interface{})
+				Expect(ok).To(BeTrue(), "info field should be a map")
+				Expect(infoMap).To(HaveKeyWithValue("description", "Critical Service Group A"))
+				Expect(infoMap).To(HaveKeyWithValue("link", "https://example.com/docs/a"))
 
 				components, ok := group["components"].(map[string]interface{})
 				Expect(ok).To(BeTrue())

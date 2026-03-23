@@ -41,6 +41,7 @@ import (
 type encMod struct {
 	Mode stsctr.Mode                     `json:"mode"`
 	Name string                          `json:"name"`
+	Info map[string]interface{}          `json:"info"`
 	Sts  monsts.Status                   `json:"status"`
 	Cpt  map[string]montps.MonitorStatus `json:"components"`
 }
@@ -112,6 +113,7 @@ func (o modControl) getEncControl() []encMod {
 		var ctr = encMod{
 			Mode: m.GetMode(),
 			Name: m.GetName(),
+			Info: m.GetInfo(),
 			Cpt:  make(map[string]montps.MonitorStatus),
 		}
 
@@ -136,6 +138,7 @@ func (o modControl) getEncControl() []encMod {
 	var ctr = encMod{
 		Mode: stsctr.Ignore,
 		Name: "not-defined",
+		Info: make(map[string]interface{}),
 		Sts:  monsts.OK,
 		Cpt:  make(map[string]montps.MonitorStatus),
 	}

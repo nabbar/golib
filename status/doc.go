@@ -353,9 +353,9 @@ encountered, following this hierarchy: `KO` > `WARN` > `OK`.
  2. **Iteration**: The system iterates through all registered monitors.
  3. **Mode Application**: For each component, its control mode is determined.
     - If a component is part of a `Must` group and its status is `KO`, the global status
-      immediately becomes `KO`.
+    immediately becomes `KO`.
     - If a component is part of a `Must` or `Should` group and its status is `WARN`, the
-      global status is elevated to `WARN` (if it was previously `OK`).
+    global status is elevated to `WARN` (if it was previously `OK`).
     - `AnyOf` and `Quorum` groups are evaluated based on their specific rules.
  4. **Finalization**: The final aggregated status is cached and returned.
 

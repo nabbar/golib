@@ -83,6 +83,10 @@ func (o *sts) SetVersion(v libver.Version) {
 	o.m.Lock()
 	defer o.m.Unlock()
 
+	if v == nil {
+		return
+	}
+
 	o.fn = v.GetPackage
 	o.fr = v.GetRelease
 	o.fh = v.GetBuild

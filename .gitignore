@@ -20,6 +20,10 @@
 coverage*.out
 coverage*.txt
 coverage*.log
+res_*.log
+res_*.svg
+res_*.out
+res_*.txt
 
 # Dependency directories (remove the comment below to include it)
 vendor/

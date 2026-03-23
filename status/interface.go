@@ -209,8 +209,8 @@ type Status interface {
 //
 // The returned instance is thread-safe but requires further configuration before it
 // can be used effectively. At a minimum, you must:
-//   1. Call `SetInfo` or `SetVersion` to provide application identity.
-//   2. Call `RegisterPool` to link a monitor pool for health checks.
+//  1. Call `SetInfo` or `SetVersion` to provide application identity.
+//  2. Call `RegisterPool` to link a monitor pool for health checks.
 //
 // You can also optionally call `SetConfig` to define custom health policies and
 // `SetErrorReturn` to customize error formatting.
@@ -219,7 +219,8 @@ type Status interface {
 //   - ctx: The root `context.Context` for the application.
 //
 // Returns:
-//   A new `Status` instance.
+//
+//	A new `Status` instance.
 func New(ctx context.Context) Status {
 	s := &sts{
 		m: sync.RWMutex{},
