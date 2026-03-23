@@ -48,11 +48,11 @@ func newMonitor(x context.Context, nf montps.Info) montps.Monitor {
 	return m
 }
 
-func newInfo(d moninf.FuncInfo) montps.Info {
+func newInfo(d montps.FuncInfoData) montps.Info {
 	return newInfoWithName(key, d)
 }
 
-func newInfoWithName(name string, d moninf.FuncInfo) montps.Info {
+func newInfoWithName(name string, d montps.FuncInfoData) montps.Info {
 	i, e := moninf.New(name)
 	Expect(e).ToNot(HaveOccurred())
 

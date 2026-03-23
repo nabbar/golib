@@ -26,143 +26,238 @@
 
 package info
 
-import "sync"
+import (
+	libatm "github.com/nabbar/golib/atomic"
+	montps "github.com/nabbar/golib/monitor/types"
+)
 
 const (
-	keyDefName = "__keyDefaultName__"
-	keyName    = "__keyName__"
+	// keyName is the key used to store the cached name in the atomic map.
+	keyName = "__keyName__"
+	// fctName is the key used to store the registered name function.
+	fctName = "__funcName__"
+	// fctInfo is the key used to store the registered info function.
+	fctInfo = "__funcInfo__"
 )
 
 // inf is the internal implementation of the Info interface.
-// It uses sync.RWMutex for thread-safe operations and sync.Map for efficient concurrent access.
+// It uses a thread-safe atomic map to store its state, including the default name,
+// registered functions, and any manually set data.
 type inf struct {
-	m sync.RWMutex // protects fi, ri, fn, rn fields
-	v sync.Map     // stores name and info data
-
-	fi FuncInfo // registered function to retrieve info data
-	ri bool     // indicates if info function is registered and needs to be called
-
-	fn FuncName // registered function to retrieve name
-	rn bool     // indicates if name function is registered and needs to be called
+	// n holds the default name provided at creation.
+	n string
+	// v is a thread-safe map that stores all dynamic data, including the
+	// cached name, registered functions, and info key-value pairs.
+	v libatm.Map[string]
 }
 
-// RegisterName registers a function that returns a dynamic name.
-// This clears any cached name and sets the function to be called on next Name() access.
-// The function is thread-safe and can be called concurrently.
-func (o *inf) RegisterName(fct FuncName) {
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	o.v.Delete(keyName)
-	o.fn = fct
-	o.rn = true
+// SetName manually sets or overrides the cached name.
+// If an empty string is provided, the cached name is deleted, causing Name()
+// to fall back to the default name.
+func (o *inf) SetName(s string) {
+	if o == nil {
+		return
+	} else if len(s) < 1 {
+		o.v.Delete(keyName)
+	} else {
+		o.v.Store(keyName, s)
+	}
 }
 
-// RegisterInfo registers a function that returns dynamic info data.
-// This clears any cached info data (except internal keys) and sets the function to be called on next Info() access.
-// The function is thread-safe and can be called concurrently.
-func (o *inf) RegisterInfo(fct FuncInfo) {
-	o.m.Lock()
-	defer o.m.Unlock()
+// SetData replaces all existing info data with the provided map.
+// Internal keys for functions and name are preserved.
+// If a nil or empty map is provided, all existing info data is cleared.
+func (o *inf) SetData(m map[string]interface{}) {
+	if o == nil {
+		return
+	}
 
-	o.v.Range(func(key, value any) bool {
-		if s, k := key.(string); !k {
-			o.v.Delete(key)
+	// Collect all non-internal keys to be deleted.
+	var i = make([]string, 0)
+	o.v.Range(func(key string, _ interface{}) bool {
+		if len(key) < 1 {
 			return true
-		} else if s == keyName {
-			return true
-		} else if s == keyDefName {
-			return true
-		} else {
-			o.v.Delete(key)
+		} else if key == keyName || key == fctName || key == fctInfo {
 			return true
 		}
+
+		i = append(i, key)
+		return true
 	})
 
-	o.fi = fct
-	o.ri = true
-}
-
-// isName checks if a name function is registered and needs to be called.
-func (o *inf) isName() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.rn && o.fn != nil
-}
-
-// isInfo checks if an info function is registered and needs to be called.
-func (o *inf) isInfo() bool {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	return o.ri && o.fi != nil
-}
-
-// callName invokes the registered name function and caches the result.
-// If the function returns an error, the default name is returned instead.
-func (o *inf) callName() (string, error) {
-	o.m.RLock()
-	defer o.m.RUnlock()
-
-	if v, e := o.fn(); e != nil {
-		return o.defaultName(), e
-	} else {
-		o.v.Store(keyName, v)
-		return v, nil
+	// Delete the collected keys.
+	for _, v := range i {
+		o.v.Delete(v)
 	}
-}
 
-// callInfo invokes the registered info function and caches the results.
-// If the function returns an error, nil is returned.
-func (o *inf) callInfo() (map[string]interface{}, error) {
-	o.m.RLock()
-	defer o.m.RUnlock()
+	if len(m) < 1 {
+		return
+	}
 
-	if i, e := o.fi(); e != nil {
-		return nil, e
-	} else {
-		for k, v := range i {
+	// Store the new data.
+	for k, v := range m {
+		if len(k) > 0 && v != nil {
 			o.v.Store(k, v)
 		}
-		return i, nil
 	}
 }
 
-// getName retrieves the name by calling the registered function if available,
-// or returns the default name. After a successful call, the function is marked
-// as complete (rn = false) to use the cached value on subsequent calls.
+// AddData adds a single key-value pair to the info data.
+// If the key already exists, its value is updated.
+// If the provided value is nil, the key is deleted.
+func (o *inf) AddData(s string, i interface{}) {
+	if o == nil {
+		return
+	} else if len(s) < 1 {
+		return
+	} else if i == nil {
+		o.v.Delete(s)
+	} else {
+		o.v.Store(s, i)
+	}
+}
+
+// DelData removes a single key-value pair from the info data by its key.
+func (o *inf) DelData(s string) {
+	if o == nil {
+		return
+	} else if len(s) < 1 {
+		return
+	}
+
+	o.v.Delete(s)
+}
+
+// RegisterName registers a function that dynamically provides the component name.
+// Calling this method will cause the next call to Name() to invoke this function.
+// The implementation does not cache the result; the function is called on every
+// invocation of Name().
+// Providing a nil function unregisters any existing function.
+func (o *inf) RegisterName(fct montps.FuncInfoName) {
+	if o == nil {
+		return
+	} else if fct == nil {
+		o.v.Delete(fctName)
+	} else {
+		o.v.Store(fctName, fct)
+	}
+}
+
+// RegisterInfo registers a function that dynamically provides the info data map.
+// Calling this method will cause the next call to Info() to invoke this function.
+// The implementation does not cache the result; the function is called on every
+// invocation of Info().
+// Providing a nil function unregisters any existing function.
+func (o *inf) RegisterInfo(fct montps.FuncInfoData) {
+	if o == nil {
+		return
+	} else if fct == nil {
+		o.v.Delete(fctInfo)
+	} else {
+		o.v.Store(fctInfo, fct)
+	}
+}
+
+// callNameFct retrieves and executes the registered name function.
+// It returns an error if the instance is nil, the function is not registered,
+// or the stored value is of the wrong type.
+func (o *inf) callNameFct() (string, error) {
+	if o == nil {
+		return "", montps.ErrorInvalidInstance.Error()
+	} else if i, l := o.v.Load(fctName); !l || i == nil {
+		return "", montps.ErrorParamEmpty.Error()
+	} else if v, k := i.(montps.FuncInfoName); !k || v == nil {
+		return "", montps.ErrorParamEmpty.Error()
+	} else {
+		return v()
+	}
+}
+
+// callInfoFct retrieves and executes the registered info function.
+// It returns an error if the instance is nil, the function is not registered,
+// or the stored value is of the wrong type.
+func (o *inf) callInfoFct() (map[string]interface{}, error) {
+	if o == nil {
+		return nil, montps.ErrorInvalidInstance.Error()
+	} else if i, l := o.v.Load(fctInfo); !l || i == nil {
+		return nil, montps.ErrorParamEmpty.Error()
+	} else if v, k := i.(montps.FuncInfoData); !k || v == nil {
+		return nil, montps.ErrorParamEmpty.Error()
+	} else {
+		return v()
+	}
+}
+
+// getName is the internal logic for retrieving the name.
+// It prioritizes the registered function, then a manually set name,
+// and finally falls back to the default name.
 func (o *inf) getName() string {
-	if !o.isName() {
-		return o.defaultName()
+	if o == nil {
+		return ""
 	}
 
-	i, e := o.callName()
-
-	if e == nil {
-		o.m.Lock()
-		defer o.m.Unlock()
-		o.rn = false
+	// Try to get name from registered function.
+	if n, e := o.callNameFct(); e == nil && len(n) > 0 {
+		return n
 	}
 
-	return i
+	// Fallback to manually set/cached name.
+	if i, l := o.v.Load(keyName); l && i != nil {
+		if v, k := i.(string); k {
+			return v
+		}
+	}
+
+	// Fallback to default name.
+	return o.n
 }
 
-// getInfo retrieves the info data by calling the registered function if available.
-// After a successful call, the function is marked as complete (ri = false)
-// to use the cached values on subsequent calls.
-func (o *inf) getInfo() map[string]interface{} {
-	if !o.isInfo() {
+// getInfoStore retrieves all non-internal key-value pairs from the atomic map.
+// It returns a standard map of the current data.
+func (o *inf) getInfoStore() map[string]interface{} {
+	if o == nil {
 		return nil
 	}
 
-	i, e := o.callInfo()
+	var result = make(map[string]interface{})
 
-	if e == nil {
-		o.m.Lock()
-		defer o.m.Unlock()
-		o.ri = false
+	o.v.Range(func(key string, value any) bool {
+		if len(key) < 1 {
+			return true
+		} else if key == keyName || key == fctName || key == fctInfo {
+			return true
+		}
+
+		result[key] = value
+		return true
+	})
+
+	return result
+}
+
+// getInfo is the internal logic for retrieving the info data.
+// It merges data from the store with data from the registered function.
+func (o *inf) getInfo() map[string]interface{} {
+	if o == nil {
+		return nil
 	}
 
-	return i
+	// Start with any manually set data.
+	var res = o.getInfoStore()
+	if len(res) < 1 {
+		res = make(map[string]interface{})
+	}
+
+	// Try to get additional data from registered function.
+	f, e := o.callInfoFct()
+	if e != nil || len(f) < 1 {
+		return res
+	}
+
+	// Merge function data into the result.
+	for k, v := range f {
+		res[k] = v
+	}
+
+	return res
 }

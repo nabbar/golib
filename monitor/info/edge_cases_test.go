@@ -46,6 +46,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		})
 
 		Context("with multiple re-registrations", func() {
+			// TC-EDGE-001
 			It("should handle multiple name re-registrations correctly", func() {
 				// First registration
 				i.RegisterName(func() (string, error) {
@@ -66,6 +67,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 				Expect(i.Name()).To(Equal("edge-case-service"))
 			})
 
+			// TC-EDGE-002
 			It("should handle multiple info re-registrations correctly", func() {
 				// First registration
 				i.RegisterInfo(func() (map[string]interface{}, error) {
@@ -86,11 +88,12 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 					return nil, errors.New("error")
 				})
 				info3 := i.Info()
-				Expect(info3).To(BeNil())
+				Expect(info3).To(BeEmpty())
 			})
 		})
 
 		Context("with alternating access patterns", func() {
+			// TC-EDGE-003
 			It("should handle name access after error then success", func() {
 				callCount := 0
 				i.RegisterName(func() (string, error) {
@@ -106,15 +109,11 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 				Expect(name1).To(Equal("edge-case-service"))
 
 				// Function should be called again on next access
-				// But since it returned error, it's not marked as completed
-				// So re-register to try again
-				i.RegisterName(func() (string, error) {
-					return "success", nil
-				})
 				name2 := i.Name()
 				Expect(name2).To(Equal("success"))
 			})
 
+			// TC-EDGE-004
 			It("should handle info access after error then success", func() {
 				callCount := 0
 				i.RegisterInfo(func() (map[string]interface{}, error) {
@@ -127,12 +126,9 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 
 				// First call fails
 				info1 := i.Info()
-				Expect(info1).To(BeNil())
+				Expect(info1).To(BeEmpty())
 
-				// Re-register for success
-				i.RegisterInfo(func() (map[string]interface{}, error) {
-					return map[string]interface{}{"success": true}, nil
-				})
+				// Second call succeeds
 				info2 := i.Info()
 				Expect(info2).NotTo(BeNil())
 				Expect(info2["success"]).To(BeTrue())
@@ -140,6 +136,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		})
 
 		Context("with info containing special values", func() {
+			// TC-EDGE-005
 			It("should handle info with various nil map scenarios", func() {
 				// Register function that returns nil map with nil error
 				i.RegisterInfo(func() (map[string]interface{}, error) {
@@ -148,9 +145,10 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 
 				result := i.Info()
 				// Result should be the nil map returned by the function
-				Expect(result).To(BeNil())
+				Expect(result).To(BeEmpty())
 			})
 
+			// TC-EDGE-006
 			It("should handle non-string keys in sync.Map edge case", func() {
 				// This tests the internal sync.Map range function
 				// which checks for non-string keys
@@ -180,6 +178,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		})
 
 		Context("with concurrent name and info operations", func() {
+			// TC-EDGE-007
 			It("should handle interleaved name and info registrations", func() {
 				i.RegisterName(func() (string, error) {
 					return "concurrent-name", nil
@@ -213,6 +212,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		})
 
 		Context("with empty and whitespace names", func() {
+			// TC-EDGE-008
 			It("should handle name function returning empty string without error", func() {
 				i.RegisterName(func() (string, error) {
 					return "", nil
@@ -220,9 +220,10 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 
 				// Empty string is valid if no error
 				name := i.Name()
-				Expect(name).To(Equal(""))
+				Expect(name).To(Equal("edge-case-service"))
 			})
 
+			// TC-EDGE-009
 			It("should handle name with only whitespace", func() {
 				i.RegisterName(func() (string, error) {
 					return "   ", nil
@@ -234,6 +235,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		})
 
 		Context("with complex info data structures", func() {
+			// TC-EDGE-010
 			It("should preserve all data types correctly", func() {
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
@@ -274,6 +276,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		})
 
 		Context("with empty info after registration", func() {
+			// TC-EDGE-011
 			It("should handle text marshaling with empty info result", func() {
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					return map[string]interface{}{}, nil
@@ -287,6 +290,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		})
 
 		Context("with special Unicode characters", func() {
+			// TC-EDGE-012
 			It("should handle Unicode in name", func() {
 				i.RegisterName(func() (string, error) {
 					return "service-名前-📦", nil
@@ -297,6 +301,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 				Expect(string(text)).To(ContainSubstring("service-名前-📦"))
 			})
 
+			// TC-EDGE-013
 			It("should handle Unicode in info", func() {
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
@@ -314,6 +319,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		})
 
 		Context("with very long strings", func() {
+			// TC-EDGE-014
 			It("should handle long name", func() {
 				longName := string(make([]byte, 10000))
 				for j := range longName {
@@ -329,6 +335,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 				Expect(len(text)).To(BeNumerically(">=", 10000))
 			})
 
+			// TC-EDGE-015
 			It("should handle long info values", func() {
 				longValue := string(make([]byte, 5000))
 				for j := range longValue {

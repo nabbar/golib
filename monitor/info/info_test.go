@@ -36,15 +36,21 @@ import (
 	"github.com/nabbar/golib/monitor/info"
 )
 
+// This suite tests the core functionality of the Info component,
+// including its constructor, the Name() and Info() methods, and basic
+// registration behavior.
 var _ = Describe("Info Constructor and Interface", func() {
+	// Tests for the New() constructor function.
 	Describe("New constructor", func() {
 		Context("with valid default name", func() {
+			// TC-CORE-001
 			It("should create a new Info instance successfully", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(i).NotTo(BeNil())
 			})
 
+			// TC-CORE-002
 			It("should return the default name", func() {
 				i, err := info.New("default-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -53,6 +59,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 		})
 
 		Context("with empty default name", func() {
+			// TC-CORE-003
 			It("should return an error", func() {
 				i, err := info.New("")
 				Expect(err).To(HaveOccurred())
@@ -62,6 +69,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 		})
 	})
 
+	// Tests for the Name() method behavior.
 	Describe("Name method", func() {
 		var i info.Info
 
@@ -72,12 +80,14 @@ var _ = Describe("Info Constructor and Interface", func() {
 		})
 
 		Context("without registered name function", func() {
+			// TC-CORE-004
 			It("should return the default name", func() {
 				Expect(i.Name()).To(Equal("test-service"))
 			})
 		})
 
 		Context("with registered name function", func() {
+			// TC-CORE-005
 			It("should return the name from the function", func() {
 				i.RegisterName(func() (string, error) {
 					return "dynamic-service", nil
@@ -85,6 +95,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 				Expect(i.Name()).To(Equal("dynamic-service"))
 			})
 
+			// TC-CORE-006
 			It("should return default name if function returns error", func() {
 				i.RegisterName(func() (string, error) {
 					return "", errors.New("name error")
@@ -92,7 +103,10 @@ var _ = Describe("Info Constructor and Interface", func() {
 				Expect(i.Name()).To(Equal("test-service"))
 			})
 
-			It("should cache the name after successful call", func() {
+			// TC-CORE-007
+			// This test verifies that the implementation does NOT cache the name,
+			// calling the registered function on each invocation.
+			It("should NOT cache the name after successful call", func() {
 				callCount := 0
 				i.RegisterName(func() (string, error) {
 					callCount++
@@ -103,12 +117,13 @@ var _ = Describe("Info Constructor and Interface", func() {
 				Expect(i.Name()).To(Equal("cached-service"))
 				Expect(callCount).To(Equal(1))
 
-				// Second call should use cached value
+				// Second call should also invoke the function (no caching)
 				Expect(i.Name()).To(Equal("cached-service"))
-				Expect(callCount).To(Equal(1))
+				Expect(callCount).To(Equal(2))
 			})
 
-			It("should allow re-registration and clear cache", func() {
+			// TC-CORE-008
+			It("should allow re-registration", func() {
 				i.RegisterName(func() (string, error) {
 					return "first-service", nil
 				})
@@ -123,6 +138,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 		})
 	})
 
+	// Tests for the Info() method behavior.
 	Describe("Info method", func() {
 		var i info.Info
 
@@ -133,13 +149,15 @@ var _ = Describe("Info Constructor and Interface", func() {
 		})
 
 		Context("without registered info function", func() {
-			It("should return nil", func() {
+			// TC-CORE-009
+			It("should return empty map", func() {
 				result := i.Info()
-				Expect(result).To(BeNil())
+				Expect(result).To(BeEmpty())
 			})
 		})
 
 		Context("with registered info function", func() {
+			// TC-CORE-010
 			It("should return the info from the function", func() {
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
@@ -156,15 +174,19 @@ var _ = Describe("Info Constructor and Interface", func() {
 				Expect(result["status"]).To(Equal("running"))
 			})
 
-			It("should return nil if function returns error", func() {
+			// TC-CORE-011
+			It("should return empty map if function returns error", func() {
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					return nil, errors.New("info error")
 				})
 				result := i.Info()
-				Expect(result).To(BeNil())
+				Expect(result).To(BeEmpty())
 			})
 
-			It("should cache the info after successful call", func() {
+			// TC-CORE-012
+			// This test verifies that the implementation does NOT cache the info data,
+			// calling the registered function on each invocation.
+			It("should NOT cache the info after successful call", func() {
 				callCount := 0
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					callCount++
@@ -178,13 +200,14 @@ var _ = Describe("Info Constructor and Interface", func() {
 				Expect(result1).NotTo(BeNil())
 				Expect(callCount).To(Equal(1))
 
-				// Second call should use cached value
+				// Second call should also invoke the function (no caching)
 				result2 := i.Info()
 				Expect(result2).NotTo(BeNil())
-				Expect(callCount).To(Equal(1))
+				Expect(callCount).To(Equal(2))
 			})
 
-			It("should allow re-registration and clear cache", func() {
+			// TC-CORE-013
+			It("should allow re-registration", func() {
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"version": "1.0.0"}, nil
 				})
@@ -199,6 +222,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 				Expect(result2["version"]).To(Equal("2.0.0"))
 			})
 
+			// TC-CORE-014
 			It("should handle empty map from function", func() {
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					return map[string]interface{}{}, nil
@@ -208,6 +232,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 				Expect(result).To(BeEmpty())
 			})
 
+			// TC-CORE-015
 			It("should handle various data types in info", func() {
 				i.RegisterInfo(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
@@ -232,7 +257,9 @@ var _ = Describe("Info Constructor and Interface", func() {
 		})
 	})
 
+	// This test ensures the Info object adheres to the expected interface contract.
 	Describe("Interface compliance", func() {
+		// TC-CORE-016
 		It("should implement montps.Info interface", func() {
 			i, err := info.New("test-service")
 			Expect(err).NotTo(HaveOccurred())
@@ -241,11 +268,13 @@ var _ = Describe("Info Constructor and Interface", func() {
 			Expect(i.Name()).To(Equal("test-service"))
 
 			// Verify it has Info() method
-			Expect(i.Info()).To(BeNil())
+			Expect(i.Info()).To(BeEmpty())
 		})
 	})
 })
 
+// This suite tests the thread-safety of the Info component when its methods
+// are called concurrently from multiple goroutines.
 var _ = Describe("Info Concurrent Access", func() {
 	var i info.Info
 
@@ -255,6 +284,7 @@ var _ = Describe("Info Concurrent Access", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	// TC-CONC-001
 	It("should handle concurrent RegisterName calls safely", func() {
 		var wg sync.WaitGroup
 		iterations := 100
@@ -274,6 +304,7 @@ var _ = Describe("Info Concurrent Access", func() {
 		Expect(i.Name()).NotTo(BeEmpty())
 	})
 
+	// TC-CONC-002
 	It("should handle concurrent RegisterInfo calls safely", func() {
 		var wg sync.WaitGroup
 		iterations := 100
@@ -294,6 +325,7 @@ var _ = Describe("Info Concurrent Access", func() {
 		Expect(result).NotTo(BeNil())
 	})
 
+	// TC-CONC-003
 	It("should handle concurrent Name calls safely", func() {
 		i.RegisterName(func() (string, error) {
 			return "concurrent-service", nil
@@ -319,6 +351,7 @@ var _ = Describe("Info Concurrent Access", func() {
 		}
 	})
 
+	// TC-CONC-004
 	It("should handle concurrent Info calls safely", func() {
 		i.RegisterInfo(func() (map[string]interface{}, error) {
 			return map[string]interface{}{"concurrent": true}, nil
@@ -339,6 +372,7 @@ var _ = Describe("Info Concurrent Access", func() {
 		wg.Wait()
 	})
 
+	// TC-CONC-005
 	It("should handle mixed concurrent operations safely", func() {
 		var wg sync.WaitGroup
 		iterations := 50

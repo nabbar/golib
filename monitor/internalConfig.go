@@ -158,6 +158,15 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 		o.x.Store(keyName, cfg.Name)
 	}
 
+	if len(cfg.Info) > 0 {
+		if i := o.i.Load(); i != nil {
+			if v, k := i.(montps.InfoSet); k {
+				v.SetData(cfg.Info)
+				o.i.Store(v)
+			}
+		}
+	}
+
 	cnf := &runCfg{
 		checkTimeout:  cfg.CheckTimeout.Time(),
 		intervalCheck: cfg.IntervalCheck.Time(),

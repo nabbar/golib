@@ -62,7 +62,7 @@ func newInfo(name string) montps.Info {
 }
 
 // newInfoWithData creates a new info instance with custom data
-func newInfoWithData(name string, data moninf.FuncInfo) montps.Info {
+func newInfoWithData(name string, data montps.FuncInfoData) montps.Info {
 	i, e := moninf.New(name)
 	Expect(e).ToNot(HaveOccurred())
 

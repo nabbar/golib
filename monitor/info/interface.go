@@ -28,56 +28,39 @@ package info
 
 import (
 	"fmt"
-	"sync"
 
+	libatm "github.com/nabbar/golib/atomic"
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
-// FuncName is a function type that returns a dynamic name and an optional error.
-// The function is called once and the result is cached unless an error occurs.
-type FuncName func() (string, error)
-
-// FuncInfo is a function type that returns dynamic info data and an optional error.
-// The function is called once and the results are cached unless an error occurs.
-type FuncInfo func() (map[string]interface{}, error)
-
+// Info defines the contract for a component that exposes identification
+// and status information. It combines read access (via montps.Info)
+// and write/update capabilities (via montps.InfoSet).
+// Implementations must be thread-safe.
 type Info interface {
-	montps.Info
-
-	// RegisterName registers a function that returns a default name.
-	// The function must return a string and an error.
-	// If the function returns an error, the default name is not registered.
-	//
-	RegisterName(fct FuncName)
-	// RegisterInfo registers a function that returns a default info.
-	// The function must return a map of string to interface{} and an error.
-	// If the function returns an error, the default info is not registered.
-	RegisterInfo(fct FuncInfo)
+	montps.InfoSet
 }
 
-// New creates a new Info instance with the given default name.
-// The default name is used when no dynamic name function is registered or when it fails.
-// Returns an error if the default name is empty.
+// New initializes and returns a new Info instance with the specified default name.
+// The default name serves as a fallback if no dynamic name function is registered
+// or if the registered function returns an empty string or error.
 //
-// Example:
+// It returns an error if the provided defaultName is empty.
 //
-//	info, err := info.New("my-service")
+// Example usage:
+//
+//	inf, err := info.New("my-service")
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
-//	fmt.Println(info.Name()) // Output: my-service
+//	fmt.Println(inf.Name()) // Output: my-service
 func New(defaultName string) (Info, error) {
-	i := &inf{
-		m:  sync.RWMutex{},
-		fi: nil,
-		fn: nil,
-		v:  sync.Map{},
-	}
-
 	if len(defaultName) < 1 {
 		return nil, fmt.Errorf("default name cannot be empty")
 	}
 
-	i.v.Store(keyDefName, defaultName)
-	return i, nil
+	return &inf{
+		n: defaultName,
+		v: libatm.NewMapAny[string](),
+	}, nil
 }

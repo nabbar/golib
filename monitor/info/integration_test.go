@@ -41,6 +41,7 @@ import (
 var _ = Describe("Info Integration and Real-World Usage", func() {
 	Describe("Standard interface compatibility", func() {
 		Context("with encoding.TextMarshaler", func() {
+			// TC-INT-001
 			It("should be usable in contexts requiring TextMarshaler", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -55,6 +56,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 		})
 
 		Context("with json.Marshaler", func() {
+			// TC-INT-002
 			It("should be usable in contexts requiring json.Marshaler", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -67,6 +69,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				}(i)
 			})
 
+			// TC-INT-003
 			It("should work with json.Marshal directly", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -87,6 +90,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				Expect(result["Name"]).To(Equal("test-service"))
 			})
 
+			// TC-INT-004
 			It("should work in complex JSON structures", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -110,6 +114,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 
 	Describe("Real-world usage patterns", func() {
 		Context("with service discovery pattern", func() {
+			// TC-INT-005
 			It("should provide service metadata for discovery", func() {
 				i, err := info.New("api-gateway")
 				Expect(err).NotTo(HaveOccurred())
@@ -133,6 +138,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 		})
 
 		Context("with dynamic runtime information", func() {
+			// TC-INT-006
 			It("should capture runtime metrics", func() {
 				i, err := info.New("runtime-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -154,6 +160,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				Expect(result).To(HaveKey("alloc_bytes"))
 			})
 
+			// TC-INT-007
 			It("should capture environment information", func() {
 				i, err := info.New("env-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -175,6 +182,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 		})
 
 		Context("with health check integration", func() {
+			// TC-INT-008
 			It("should provide health status information", func() {
 				i, err := info.New("health-monitor")
 				Expect(err).NotTo(HaveOccurred())
@@ -201,6 +209,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 		})
 
 		Context("with configuration management", func() {
+			// TC-INT-009
 			It("should expose configuration metadata", func() {
 				i, err := info.New("config-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -223,6 +232,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 
 	Describe("Error handling patterns", func() {
 		Context("with transient errors", func() {
+			// TC-INT-010
 			It("should handle function errors gracefully", func() {
 				i, err := info.New("error-test")
 				Expect(err).NotTo(HaveOccurred())
@@ -238,7 +248,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 
 				// First call fails
 				result1 := i.Info()
-				Expect(result1).To(BeNil())
+				Expect(result1).To(BeEmpty())
 
 				// Need to re-register for retry
 				i.RegisterInfo(func() (map[string]interface{}, error) {
@@ -251,6 +261,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 		})
 
 		Context("with partial data availability", func() {
+			// TC-INT-011
 			It("should handle partial info gracefully", func() {
 				i, err := info.New("partial-service")
 				Expect(err).NotTo(HaveOccurred())
@@ -272,7 +283,8 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 
 	Describe("Performance characteristics", func() {
 		Context("with caching behavior", func() {
-			It("should demonstrate caching efficiency", func() {
+			// TC-INT-012
+			It("should NOT cache values (cache disabled)", func() {
 				i, err := info.New("cache-test")
 				Expect(err).NotTo(HaveOccurred())
 
@@ -285,13 +297,15 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				// First call executes function
 				name1 := i.Name()
 				Expect(callCount).To(Equal(1))
+				Expect(name1).To(Equal("name-1"))
 
-				// Subsequent calls use cache
+				// Subsequent calls ALSO execute function
 				name2 := i.Name()
-				Expect(callCount).To(Equal(1))
-				Expect(name1).To(Equal(name2))
+				Expect(callCount).To(Equal(2))
+				Expect(name2).To(Equal("name-2"))
 			})
 
+			// TC-INT-013
 			It("should invalidate cache on re-registration", func() {
 				i, err := info.New("invalidate-test")
 				Expect(err).NotTo(HaveOccurred())

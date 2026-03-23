@@ -56,3 +56,30 @@ type Info interface {
 	InfoName
 	InfoData
 }
+
+// FuncInfoName is a function type that returns a dynamic name and an optional error.
+// The function is called once and the result is cached unless an error occurs.
+type FuncInfoName func() (string, error)
+
+// FuncInfoData is a function type that returns dynamic info data and an optional error.
+// The function is called once and the results are cached unless an error occurs.
+type FuncInfoData func() (map[string]interface{}, error)
+
+type InfoSet interface {
+	Info
+
+	SetName(string)
+	SetData(map[string]interface{})
+	AddData(string, interface{})
+	DelData(string)
+
+	// RegisterName registers a function that returns a default name.
+	// The function must return a string and an error.
+	// If the function returns an error, the default name is not registered.
+	//
+	RegisterName(FuncInfoName)
+	// RegisterInfo registers a function that returns a default info.
+	// The function must return a map of string to interface{} and an error.
+	// If the function returns an error, the default info is not registered.
+	RegisterInfo(FuncInfoData)
+}

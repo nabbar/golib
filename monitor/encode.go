@@ -30,7 +30,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	monsts "github.com/nabbar/golib/monitor/status"
 	moninf "github.com/nabbar/golib/monitor/types"
@@ -52,15 +51,22 @@ type Encode interface {
 
 // encMod holds the data needed for encoding monitor state.
 type encMod struct {
-	Status monsts.Status // Current health status
-	Name   string        // Monitor name
-	Info   moninf.Info   // Metadata information
+	Status monsts.Status `json:"status"` // Current health status
+	Name   string        `json:"name"`   // Monitor name
+	Info   moninf.Info   `json:"info"`   // Metadata information
 
-	Latency  string // Formatted latency duration
-	Uptime   string // Formatted uptime duration
-	Downtime string // Formatted downtime duration
+	Latency    string `json:"latency"`       // Formatted latency duration
+	LatencyInt uint64 `json:"latency_ms"`    // Numerical latency duration in milliseconds
+	Uptime     string `json:"uptime"`        // Formatted uptime duration
+	UpNum      uint64 `json:"uptime_epoc"`   // Numerical uptime duration in seconds
+	Downtime   string `json:"downtime"`      // Formatted downtime duration
+	DownNum    uint64 `json:"downtime_epoc"` // Numerical downtime duration in seconds
+	Risetime   string `json:"risetime"`      // Formatted rising duration
+	RiseNum    uint64 `json:"risetime_epoc"` // Numerical rising duration in seconds
+	Falltime   string `json:"falltime"`      // Formatted falling duration
+	FallNum    uint64 `json:"falltime_epoc"` // Numerical falling duration in seconds
 
-	Message string // Error message if any
+	Message string `json:"message"` // Error message if any
 }
 
 // Bytes returns the byte representation of the encoded monitor state.
@@ -117,14 +123,23 @@ func (o *mon) getEncMod() Encode {
 		}
 	}()
 
+	l := o.getLastCheck()
+
 	return &encMod{
-		Status:   o.Status(),
-		Name:     o.Name(),
-		Info:     o.InfoGet(),
-		Latency:  o.Latency().Truncate(time.Millisecond).String(),
-		Uptime:   o.Uptime().Truncate(time.Second).String(),
-		Downtime: o.Downtime().Truncate(time.Second).String(),
-		Message:  o.Message(),
+		Status:     o.Status(),
+		Name:       o.Name(),
+		Info:       o.InfoGet(),
+		Latency:    l.LatencyString(),
+		LatencyInt: l.latencyMS(),
+		Uptime:     l.upTimeString(),
+		UpNum:      l.upTimeEpoc(),
+		Downtime:   l.downTimeString(),
+		DownNum:    l.downTimeEpoc(),
+		Risetime:   l.riseTimeString(),
+		RiseNum:    l.riseTimeEpoc(),
+		Falltime:   l.fallTimeString(),
+		FallNum:    l.fallTimeEpoc(),
+		Message:    o.Message(),
 	}
 }
 

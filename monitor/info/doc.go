@@ -24,129 +24,140 @@
  *
  */
 
-// Package info provides a thread-safe, caching implementation for monitor information.
+// Package info provides a flexible and thread-safe way to manage and expose
+// identifying information for a component or service.
 //
-// The package offers a flexible way to manage monitor metadata with support for
-// dynamic name and info retrieval through registered functions. It implements
-// both encoding.TextMarshaler and json.Marshaler interfaces for easy serialization.
+// It allows for static data to be set manually and dynamic data to be provided
+// via registered functions that are executed on-demand. This package is designed
+// for scenarios like service discovery, health checks, and exposing runtime
+// metadata where information needs to be retrieved dynamically.
 //
 // # Key Features
 //
-//   - Thread-safe concurrent access using sync.RWMutex and sync.Map
-//   - Lazy evaluation and caching of dynamic data
-//   - Support for custom name and info retrieval functions
-//   - Built-in text and JSON marshaling
-//   - Efficient cache invalidation on re-registration
+//   - Thread-safe operations using a lock-free atomic map.
+//   - Dynamic name and info retrieval via registered functions.
+//   - Manual override and modification of info data.
+//   - Built-in text and JSON marshaling for easy serialization.
 //
-// # Basic Usage
+// # Architecture & Dataflow
 //
-// Creating a simple info instance:
+// The Info component follows a layered approach to data retrieval. When a method
+// like Name() or Info() is called, it checks for different sources of data in a
+// specific order of priority.
 //
-//	info, err := info.New("my-service")
+// ## Data Retrieval Flow
+//
+// The data retrieval logic can be visualized as follows:
+//
+//	+------------------+
+//	|   Call Name()    |
+//	+------------------+
+//	         |
+//	         v
+//	+------------------+      YES      +----------------------+
+//	| Has Registered   |------------->|  Execute Function &  |
+//	| Name Function?   |              |    Return Result     |
+//	+------------------+              +----------------------+
+//	         | NO
+//	         v
+//	+------------------+      YES      +----------------------+
+//	| Has Manually Set |------------->|   Return Set Name    |
+//	|      Name?       |              |                      |
+//	+------------------+              +----------------------+
+//	         | NO
+//	         v
+//	+------------------+
+//	| Return Default   |
+//	|      Name        |
+//	+------------------+
+//
+// The Info() method follows a similar pattern but merges data from the
+// registered function with any manually set data.
+//
+// # Quick Start
+//
+// Here is a simple example of how to create and use an Info instance.
+//
+//	// 1. Create a new Info instance with a default name.
+//	inf, err := info.New("my-awesome-service")
 //	if err != nil {
-//	    log.Fatal(err)
+//	    log.Fatalf("Failed to create info instance: %v", err)
 //	}
-//	fmt.Println(info.Name()) // Output: my-service
 //
-// # Dynamic Name
-//
-// Register a function to provide dynamic names:
-//
-//	info.RegisterName(func() (string, error) {
-//	    hostname, err := os.Hostname()
-//	    if err != nil {
-//	        return "", err
-//	    }
-//	    return fmt.Sprintf("service-%s", hostname), nil
-//	})
-//	name := info.Name() // Returns "service-<hostname>"
-//
-// # Dynamic Info
-//
-// Register a function to provide dynamic metadata:
-//
-//	info.RegisterInfo(func() (map[string]interface{}, error) {
-//	    var m runtime.MemStats
-//	    runtime.ReadMemStats(&m)
+//	// 2. Register a function to provide dynamic runtime information.
+//	inf.RegisterInfo(func() (map[string]interface{}, error) {
 //	    return map[string]interface{}{
-//	        "version":    "1.0.0",
+//	        "version":    "1.2.3",
+//	        "go_version": runtime.Version(),
 //	        "goroutines": runtime.NumGoroutine(),
-//	        "alloc_mb":   m.Alloc / 1024 / 1024,
 //	    }, nil
 //	})
-//	data := info.Info() // Returns current runtime info
 //
-// # Serialization
+//	// 3. Manually add a static piece of information.
+//	inf.AddData("region", "us-east-1")
 //
-// The Info type implements standard Go marshaling interfaces:
-//
-//	// Text marshaling
-//	text, err := info.MarshalText()
+//	// 4. Marshal the Info object to JSON for an API response.
+//	jsonData, err := json.Marshal(inf)
 //	if err != nil {
-//	    log.Fatal(err)
+//	    log.Fatalf("Failed to marshal info to JSON: %v", err)
 //	}
-//	fmt.Println(string(text)) // Output: my-service (version: 1.0.0, ...)
 //
-//	// JSON marshaling
-//	jsonData, err := json.Marshal(info)
-//	if err != nil {
-//	    log.Fatal(err)
-//	}
-//	fmt.Println(string(jsonData)) // Output: {"Name":"my-service","Info":{...}}
+//	// The output will be a JSON object containing the name and merged info data.
+//	fmt.Println(string(jsonData))
+//	// Output: {"Name":"my-awesome-service","Info":{"go_version":"go1.19.5","goroutines":1,"region":"us-east-1","version":"1.2.3"}}
 //
-// # Caching Behavior
+// # Usage Patterns
 //
-// Functions are called only once and results are cached:
+// ## Dynamic vs. Static Data
 //
-//	callCount := 0
-//	info.RegisterName(func() (string, error) {
-//	    callCount++
-//	    return fmt.Sprintf("name-%d", callCount), nil
+// You can combine dynamic and static data sources. The Info() method merges
+// them, with the dynamic function's data taking precedence in case of key collisions.
+//
+//	// Set a static version.
+//	inf.SetData(map[string]interface{}{"version": "1.0.0-static"})
+//
+//	// Register a dynamic function that also provides a version.
+//	inf.RegisterInfo(func() (map[string]interface{}, error) {
+//	    return map[string]interface{}{"version": "2.0.0-dynamic"}, nil
 //	})
-//	name1 := info.Name() // callCount = 1, returns "name-1"
-//	name2 := info.Name() // callCount = 1, returns "name-1" (cached)
 //
-// Re-registration invalidates the cache:
+//	// The dynamic version will overwrite the static one.
+//	data := inf.Info()
+//	fmt.Println(data["version"]) // Output: 2.0.0-dynamic
 //
-//	info.RegisterName(func() (string, error) {
-//	    return "new-name", nil
-//	})
-//	name3 := info.Name() // Cache cleared, returns "new-name"
+// ## Unregistering Functions
 //
-// # Error Handling
+// To stop a dynamic function from being called, simply register `nil`.
 //
-// If a registered function returns an error, the default name or nil is returned:
+//	// Unregister the info function.
+//	inf.RegisterInfo(nil)
 //
-//	info.RegisterName(func() (string, error) {
-//	    return "", errors.New("failed to get name")
-//	})
-//	name := info.Name() // Returns default name (not the error value)
+//	// Now, Info() will only return manually set data.
+//	data = inf.Info()
+//	fmt.Println(data["version"]) // Output: 1.0.0-static
 //
 // # Thread Safety
 //
-// All methods are thread-safe and can be called concurrently:
+// All methods on the Info type are designed to be safe for concurrent use
+// from multiple goroutines. The internal state is managed by a `libatm.Map`,
+// which is a wrapper around Go's native `sync.Map`.
 //
 //	var wg sync.WaitGroup
 //	for i := 0; i < 100; i++ {
 //	    wg.Add(1)
 //	    go func() {
 //	        defer wg.Done()
-//	        _ = info.Name()
-//	        _ = info.Info()
+//	        _ = inf.Name()
+//	        _ = inf.Info()
 //	    }()
 //	}
-//	wg.Wait()
+//	wg.Wait() // This will complete without race conditions.
 //
-// # Performance
+// # Important Note on Caching
 //
-// The implementation is optimized for read-heavy workloads:
-//   - Cached name reads: ~4 ns/op with 0 allocations
-//   - Cached info reads: ~140 ns/op with 2 allocations
-//   - Name registration: ~37 ns/op with 0 allocations
-//   - Info registration: ~32 ns/op with 0 allocations
-//
-// # Integration
-//
-// The package integrates seamlessly with the golib monitor system.
-// See github.com/nabbar/golib/monitor for complete monitor functionality.
+// The current implementation does **not** cache the results of registered functions.
+// The registered `FuncInfoName` and `FuncInfoData` functions are executed
+// **every time** `Name()` or `Info()` is called, respectively. This ensures that
+// the returned information is always up-to-date. If the data retrieval process
+// is expensive, the registered function should implement its own caching mechanism.
 package info

@@ -36,6 +36,8 @@ import (
 const (
 	// ErrorParamEmpty indicates an empty or nil parameter was provided.
 	ErrorParamEmpty liberr.CodeError = iota + liberr.MinPkgMonitorCfg
+	//
+	ErrorInvalidInstance
 	// ErrorValidatorError indicates configuration validation failed.
 	ErrorValidatorError
 )
@@ -51,6 +53,8 @@ func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:
 		return "given parameters is empty"
+	case ErrorInvalidInstance:
+		return "instance is invalid"
 	case ErrorValidatorError:
 		return "invalid config"
 	}

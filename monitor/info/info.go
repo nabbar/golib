@@ -26,56 +26,31 @@
 
 package info
 
-// defaultName retrieves the default name from the internal storage.
-// Returns an empty string if the default name is not set or is not a string.
-func (o *inf) defaultName() string {
-	if i, l := o.v.Load(keyDefName); !l {
-		return ""
-	} else if v, k := i.(string); !k {
-		return ""
-	} else {
-		return v
-	}
-}
-
-// Name returns the name of the monitor info.
-// If a name function is registered, it calls the function on first access and caches the result.
-// If no function is registered or the cached value exists, it returns the cached or default name.
-// This method is thread-safe and can be called concurrently.
+// Name returns the current name of the monitor info component.
+// If a dynamic name function has been registered via RegisterName, it is invoked
+// to retrieve the name. Otherwise, it falls back to any manually set name (via SetName)
+// or the default name provided at creation.
+//
+// This method is thread-safe and safe to call concurrently.
 func (o *inf) Name() string {
-	if i, l := o.v.Load(keyName); !l {
-		return o.getName()
-	} else if v, k := i.(string); !k {
-		return o.getName()
-	} else {
-		return v
+	if o == nil {
+		return ""
 	}
+
+	return o.getName()
 }
 
-// Info returns a map of string to interface{} containing information about the monitor.
-// If an info function is registered, it calls the function on first access and caches the results.
-// If cached values exist, they are returned. Internal keys (keyDefName, keyName) are filtered out.
-// This method is thread-safe and can be called concurrently.
-// Returns nil if no info is available.
+// Info returns the current information data as a map of key-value pairs.
+// It combines any manually set data (via SetData/AddData) with the result of
+// the registered info function (if any). The registered function is invoked
+// on every call to Info.
+//
+// This method is thread-safe and safe to call concurrently.
+// It returns an empty map if no information is available.
 func (o *inf) Info() map[string]interface{} {
-	var res = make(map[string]interface{}, 0)
-
-	o.v.Range(func(key, value any) bool {
-		if v, k := key.(string); !k {
-			return true
-		} else if v == keyDefName {
-			return true
-		} else if v == keyName {
-			return true
-		} else {
-			res[v] = value
-			return true
-		}
-	})
-
-	if len(res) < 1 {
-		return o.getInfo()
+	if o == nil {
+		return nil
 	}
 
-	return res
+	return o.getInfo()
 }

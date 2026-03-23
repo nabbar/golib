@@ -28,6 +28,7 @@ package info_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/nabbar/golib/monitor/info"
@@ -41,7 +42,7 @@ func BenchmarkNew(b *testing.B) {
 	}
 }
 
-// BenchmarkName measures the performance of Name() method
+// BenchmarkName measures the performance of Name() method returning default name
 func BenchmarkName(b *testing.B) {
 	i, _ := info.New("benchmark-service")
 	b.ResetTimer()
@@ -52,7 +53,7 @@ func BenchmarkName(b *testing.B) {
 	}
 }
 
-// BenchmarkNameWithFunction measures Name() with registered function
+// BenchmarkNameWithFunction measures Name() with registered function (dynamic execution)
 func BenchmarkNameWithFunction(b *testing.B) {
 	i, _ := info.New("benchmark-service")
 	i.RegisterName(func() (string, error) {
@@ -67,25 +68,18 @@ func BenchmarkNameWithFunction(b *testing.B) {
 	}
 }
 
-// BenchmarkNameCached measures cached Name() performance
-func BenchmarkNameCached(b *testing.B) {
+// BenchmarkSetName measures the performance of manually setting the name
+func BenchmarkSetName(b *testing.B) {
 	i, _ := info.New("benchmark-service")
-	i.RegisterName(func() (string, error) {
-		return "cached-name", nil
-	})
-
-	// Prime the cache
-	_ = i.Name()
-
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for n := 0; n < b.N; n++ {
-		_ = i.Name()
+		i.SetName("manual-name")
 	}
 }
 
-// BenchmarkInfo measures the performance of Info() method
+// BenchmarkInfo measures the performance of Info() method returning empty map
 func BenchmarkInfo(b *testing.B) {
 	i, _ := info.New("benchmark-service")
 
@@ -97,7 +91,7 @@ func BenchmarkInfo(b *testing.B) {
 	}
 }
 
-// BenchmarkInfoWithFunction measures Info() with registered function
+// BenchmarkInfoWithFunction measures Info() with registered function (dynamic execution)
 func BenchmarkInfoWithFunction(b *testing.B) {
 	i, _ := info.New("benchmark-service")
 	i.RegisterInfo(func() (map[string]interface{}, error) {
@@ -116,24 +110,48 @@ func BenchmarkInfoWithFunction(b *testing.B) {
 	}
 }
 
-// BenchmarkInfoCached measures cached Info() performance
-func BenchmarkInfoCached(b *testing.B) {
+// BenchmarkSetData measures performance of SetData with a small map
+func BenchmarkSetData(b *testing.B) {
 	i, _ := info.New("benchmark-service")
-	i.RegisterInfo(func() (map[string]interface{}, error) {
-		return map[string]interface{}{
-			"version": "1.0.0",
-			"status":  "running",
-		}, nil
-	})
-
-	// Prime the cache
-	_ = i.Info()
+	data := map[string]interface{}{
+		"key1": "value1",
+		"key2": 42,
+	}
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for n := 0; n < b.N; n++ {
-		_ = i.Info()
+		i.SetData(data)
+	}
+}
+
+// BenchmarkAddData measures performance of adding a single key
+func BenchmarkAddData(b *testing.B) {
+	i, _ := info.New("benchmark-service")
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		i.AddData("newKey", n)
+	}
+}
+
+// BenchmarkDelData measures performance of deleting a single key
+func BenchmarkDelData(b *testing.B) {
+	i, _ := info.New("benchmark-service")
+	// Pre-populate to ensure something is deleted (mostly) or just measure overhead
+	i.AddData("key", "val")
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for n := 0; n < b.N; n++ {
+		// We alternate add and del to actually measure deletion work?
+		// If we only delete, subsequent deletes are no-ops.
+		// Measuring no-op delete is valid too.
+		i.DelData("key")
 	}
 }
 
@@ -143,7 +161,7 @@ func BenchmarkInfoLargeData(b *testing.B) {
 
 	largeData := make(map[string]interface{})
 	for j := 0; j < 100; j++ {
-		largeData[string(rune('a'+j%26))+string(rune('0'+j%10))] = j
+		largeData[fmt.Sprintf("key-%d", j)] = j
 	}
 
 	i.RegisterInfo(func() (map[string]interface{}, error) {
@@ -196,9 +214,6 @@ func BenchmarkMarshalText(b *testing.B) {
 		}, nil
 	})
 
-	// Prime the cache
-	_ = i.Info()
-
 	b.ResetTimer()
 	b.ReportAllocs()
 
@@ -216,9 +231,6 @@ func BenchmarkMarshalJSON(b *testing.B) {
 			"status":  "running",
 		}, nil
 	})
-
-	// Prime the cache
-	_ = i.Info()
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -238,9 +250,6 @@ func BenchmarkJSONMarshal(b *testing.B) {
 		}, nil
 	})
 
-	// Prime the cache
-	_ = i.Info()
-
 	b.ResetTimer()
 	b.ReportAllocs()
 
@@ -255,9 +264,6 @@ func BenchmarkConcurrentNameReads(b *testing.B) {
 	i.RegisterName(func() (string, error) {
 		return "concurrent-name", nil
 	})
-
-	// Prime the cache
-	_ = i.Name()
 
 	b.ResetTimer()
 	b.ReportAllocs()
@@ -279,9 +285,6 @@ func BenchmarkConcurrentInfoReads(b *testing.B) {
 		}, nil
 	})
 
-	// Prime the cache
-	_ = i.Info()
-
 	b.ResetTimer()
 	b.ReportAllocs()
 
@@ -301,10 +304,6 @@ func BenchmarkConcurrentMixedOperations(b *testing.B) {
 	i.RegisterInfo(func() (map[string]interface{}, error) {
 		return map[string]interface{}{"key": "value"}, nil
 	})
-
-	// Prime the cache
-	_ = i.Name()
-	_ = i.Info()
 
 	b.ResetTimer()
 	b.ReportAllocs()

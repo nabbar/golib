@@ -141,7 +141,7 @@ func Example_caching() {
 
 	// Output:
 	// First call: name-1 (callCount: 1)
-	// Second call: name-1 (callCount: 1)
+	// Second call: name-2 (callCount: 2)
 }
 
 // Example_errorHandling demonstrates error handling.

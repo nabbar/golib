@@ -32,6 +32,7 @@ import (
 	"time"
 
 	libatm "github.com/nabbar/golib/atomic"
+	libdur "github.com/nabbar/golib/duration"
 	errpol "github.com/nabbar/golib/errors/pool"
 	monsts "github.com/nabbar/golib/monitor/status"
 )
@@ -152,6 +153,46 @@ func (o *lastRun) IsFall() bool {
 // Returns nil if the last check was successful. This is thread-safe.
 func (o *lastRun) Error() error {
 	return o.err.Last()
+}
+
+func (o *lastRun) LatencyString() string {
+	return libdur.Duration(o.latency.Load()).TruncateMilliseconds().String()
+}
+
+func (o *lastRun) latencyMS() uint64 {
+	return libdur.Duration(o.latency.Load()).TruncateMilliseconds().Uint64()
+}
+
+func (o *lastRun) fallTimeString() string {
+	return libdur.Duration(o.fallTime.Load()).TruncateSeconds().String()
+}
+
+func (o *lastRun) fallTimeEpoc() uint64 {
+	return libdur.Duration(o.fallTime.Load()).TruncateSeconds().Uint64()
+}
+
+func (o *lastRun) riseTimeString() string {
+	return libdur.Duration(o.riseTime.Load()).TruncateSeconds().String()
+}
+
+func (o *lastRun) riseTimeEpoc() uint64 {
+	return libdur.Duration(o.riseTime.Load()).TruncateSeconds().Uint64()
+}
+
+func (o *lastRun) upTimeString() string {
+	return libdur.Duration(o.uptime.Load()).TruncateSeconds().String()
+}
+
+func (o *lastRun) upTimeEpoc() uint64 {
+	return libdur.Duration(o.uptime.Load()).TruncateSeconds().Uint64()
+}
+
+func (o *lastRun) downTimeString() string {
+	return libdur.Duration(o.downtime.Load()).TruncateSeconds().String()
+}
+
+func (o *lastRun) downTimeEpoc() uint64 {
+	return libdur.Duration(o.downtime.Load()).TruncateSeconds().Uint64()
 }
 
 // setStatus updates the status based on the health check result.

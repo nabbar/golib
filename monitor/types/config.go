@@ -39,14 +39,18 @@ import (
 
 var _defaultConfig = []byte(`{
   "name": "",
-  "check-timeout": "",
-  "interval-check": "",
-  "interval-fall": "",
-  "interval-rise": "",
-  "fall-count-ko": "",
-  "fall-count-warn": "",
-  "rise-count-ko": "",
-  "rise-count-warn": "",
+  "info": {
+    "doc": "https://example.com/documentation",
+    "oneKey": "oneData"
+  },
+  "check-timeout": "3s",
+  "interval-check": "5s",
+  "interval-fall": "10s",
+  "interval-rise": "10s",
+  "fall-count-ko": 3,
+  "fall-count-warn": 2,
+  "rise-count-ko": 3,
+  "rise-count-warn": 2,
   "logger": ` + string(logcfg.DefaultConfig(cfgtps.JSONIndent+cfgtps.JSONIndent)) + `
 }`)
 
@@ -71,6 +75,10 @@ func DefaultConfig(indent string) []byte {
 type Config struct {
 	// Name define the name of the monitor
 	Name string `json:"name" yaml:"name" toml:"name" mapstructure:"name"`
+
+	// Info provides a map of static information that can be supplemented with internal
+	// monitor metadata, depending on the specific implementation of the monitor.
+	Info map[string]interface{} `json:"info" yaml:"info" toml:"info" mapstructure:"info"`
 
 	// CheckTimeout define the timeout use for healthcheck. Default is 5 second.
 	CheckTimeout libdur.Duration `json:"check-timeout" yaml:"check-timeout" toml:"check-timeout" mapstructure:"check-timeout"`

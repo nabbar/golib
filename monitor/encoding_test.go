@@ -176,7 +176,7 @@ var _ = Describe("Monitor Encoding", func() {
 			var result map[string]interface{}
 			Expect(json.Unmarshal(jsonData, &result)).ToNot(HaveOccurred())
 
-			Expect(result).To(HaveKey("Status"))
+			Expect(result).To(HaveKey("status"))
 		})
 
 		It("should include name in JSON output", func() {
@@ -191,8 +191,8 @@ var _ = Describe("Monitor Encoding", func() {
 			var result map[string]interface{}
 			Expect(json.Unmarshal(jsonData, &result)).ToNot(HaveOccurred())
 
-			Expect(result).To(HaveKey("Name"))
-			Expect(result["Name"]).To(Equal("encoding-test"))
+			Expect(result).To(HaveKey("name"))
+			Expect(result["name"]).To(Equal("encoding-test"))
 		})
 
 		It("should include timing metrics in JSON output", func() {
@@ -211,9 +211,9 @@ var _ = Describe("Monitor Encoding", func() {
 			var result map[string]interface{}
 			Expect(json.Unmarshal(jsonData, &result)).ToNot(HaveOccurred())
 
-			Expect(result).To(HaveKey("Latency"))
-			Expect(result).To(HaveKey("Uptime"))
-			Expect(result).To(HaveKey("Downtime"))
+			Expect(result).To(HaveKey("latency"))
+			Expect(result).To(HaveKey("uptime"))
+			Expect(result).To(HaveKey("downtime"))
 		})
 
 		It("should include message when present", func() {
@@ -231,8 +231,8 @@ var _ = Describe("Monitor Encoding", func() {
 			var result map[string]interface{}
 			Expect(json.Unmarshal(jsonData, &result)).ToNot(HaveOccurred())
 
-			Expect(result).To(HaveKey("Message"))
-			message, ok := result["Message"].(string)
+			Expect(result).To(HaveKey("message"))
+			message, ok := result["message"].(string)
 			Expect(ok).To(BeTrue())
 			Expect(message).To(ContainSubstring("mock test error"))
 		})

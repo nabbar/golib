@@ -33,22 +33,26 @@ import (
 	"strings"
 )
 
+// Encode defines the interface for an encoding model that can be
+// represented as a string or a byte slice.
 type Encode interface {
-	// String returns the string representation of the encoding model.
-	// It concatenates all the key-value pairs of the Info map, separated by commas.
-	// The key is separated from the value by a colon.
+	// String returns a single-line string representation of the info data.
+	// It typically formats as "Name (key1: val1, key2: val2)".
 	String() string
-	// Bytes returns the byte representation of the encoding model.
-	// It is a JSON marshalled version of the encoding model.
-	//
+	// Bytes returns the byte slice representation of the info data,
+	// which is equivalent to the result of String().
 	Bytes() []byte
 }
 
+// encMod is the internal struct used for encoding the Info object.
+// It holds the name and info data for marshaling.
 type encMod struct {
 	Name string
 	Info map[string]interface{}
 }
 
+// String implements the Encode interface, providing a compact, single-line
+// representation of the info data.
 func (e *encMod) String() string {
 	if i := e.stringInfo(); len(i) > 0 {
 		return e.stringClean(fmt.Sprintf("%s (%s)", e.Name, i))
@@ -57,10 +61,14 @@ func (e *encMod) String() string {
 	}
 }
 
+// Bytes implements the Encode interface. It returns the same single-line
+// representation as String(), but as a byte slice.
 func (e *encMod) Bytes() []byte {
 	return []byte(e.String())
 }
 
+// stringInfo concatenates all key-value pairs from the Info map into a
+// single comma-separated string.
 func (e *encMod) stringInfo() string {
 	var buf = bytes.NewBuffer(make([]byte, 0))
 	for n, i := range e.Info {
@@ -69,12 +77,16 @@ func (e *encMod) stringInfo() string {
 	return strings.Trim(strings.TrimSpace(buf.String()), ",")
 }
 
+// stringClean removes newline and carriage return characters from a string,
+// ensuring the output is a single line.
 func (e *encMod) stringClean(str string) string {
 	str = strings.Replace(str, "\n", " ", -1) // nolint
 	str = strings.Replace(str, "\r", "", -1)  // nolint
 	return str
 }
 
+// getEncodeModel creates and returns an encoding model (encMod) populated
+// with the current name and info data from the Info object.
 func (o *inf) getEncodeModel() Encode {
 	return &encMod{
 		Name: o.Name(),
@@ -82,16 +94,16 @@ func (o *inf) getEncodeModel() Encode {
 	}
 }
 
-// MarshalText returns the text representation of the encoding model.
-// The returned text is a concatenation of the name and info fields, separated by a space.
-// If the info field is empty, only the name is returned.
-// The returned error is always nil.
+// MarshalText implements the encoding.TextMarshaler interface.
+// It provides a compact, human-readable, single-line text representation
+// of the Info object.
 func (o *inf) MarshalText() (text []byte, err error) {
 	return o.getEncodeModel().Bytes(), nil
 }
 
-// MarshalJSON returns the JSON representation of the encoding model.
-// The returned error is always nil.
+// MarshalJSON implements the json.Marshaler interface.
+// It provides a structured JSON representation of the Info object,
+// including its name and info data.
 func (o *inf) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.getEncodeModel())
 }
