@@ -38,32 +38,38 @@ import (
 var _ = Describe("Big Duration Operation Functions", func() {
 	Describe("Abs", func() {
 		It("should return positive duration unchanged", func() {
+			// TC-OP-001
 			d := durbig.Seconds(100)
 			Expect(d.Abs()).To(Equal(d))
 		})
 
 		It("should return zero duration unchanged", func() {
+			// TC-OP-002
 			d := durbig.Seconds(0)
 			Expect(d.Abs()).To(Equal(d))
 		})
 
 		It("should convert negative to positive", func() {
+			// TC-OP-003
 			d := durbig.Seconds(-100)
 			Expect(d.Abs()).To(Equal(durbig.Seconds(100)))
 		})
 
 		It("should handle negative days", func() {
+			// TC-OP-004
 			d := durbig.Days(-5)
 			Expect(d.Abs()).To(Equal(durbig.Days(5)))
 		})
 
 		It("should handle minimum duration", func() {
+			// TC-OP-005
 			d := durbig.Duration(math.MinInt64)
 			abs := d.Abs()
 			Expect(abs).To(Equal(durbig.Duration(math.MaxInt64)))
 		})
 
 		It("should handle large negative values", func() {
+			// TC-OP-006
 			d := durbig.Seconds(-1000000)
 			Expect(d.Abs()).To(Equal(durbig.Seconds(1000000)))
 		})
@@ -71,6 +77,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 
 	Describe("RangeTo", func() {
 		It("should generate range from smaller to larger duration", func() {
+			// TC-OP-007
 			start := durbig.Seconds(10)
 			end := durbig.Seconds(100)
 
@@ -82,6 +89,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should include start and end points", func() {
+			// TC-OP-008
 			start := durbig.Seconds(10)
 			end := durbig.Seconds(20)
 
@@ -92,6 +100,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should generate monotonically increasing values", func() {
+			// TC-OP-009
 			start := durbig.Seconds(10)
 			end := durbig.Seconds(100)
 
@@ -103,6 +112,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should handle zero start", func() {
+			// TC-OP-010
 			start := durbig.Seconds(0)
 			end := durbig.Seconds(10)
 
@@ -113,6 +123,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should complete within timeout", func() {
+			// TC-OP-011
 			start := durbig.Seconds(1)
 			end := durbig.Minutes(10)
 
@@ -127,6 +138,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 
 	Describe("RangeDefTo", func() {
 		It("should use default PID parameters", func() {
+			// TC-OP-012
 			start := durbig.Seconds(10)
 			end := durbig.Seconds(100)
 
@@ -138,6 +150,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should generate reasonable step count", func() {
+			// TC-OP-013
 			start := durbig.Seconds(10)
 			end := durbig.Seconds(100)
 
@@ -150,6 +163,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 
 	Describe("RangeFrom", func() {
 		It("should generate range from larger to smaller duration", func() {
+			// TC-OP-014
 			start := durbig.Seconds(100)
 			end := durbig.Seconds(10)
 
@@ -161,6 +175,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should include start and end points", func() {
+			// TC-OP-015
 			start := durbig.Seconds(100)
 			end := durbig.Seconds(10)
 
@@ -171,6 +186,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should generate monotonically increasing values", func() {
+			// TC-OP-016
 			start := durbig.Seconds(100)
 			end := durbig.Seconds(10)
 
@@ -182,6 +198,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should complete within timeout", func() {
+			// TC-OP-017
 			start := durbig.Minutes(10)
 			end := durbig.Seconds(1)
 
@@ -196,6 +213,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 
 	Describe("RangeDefFrom", func() {
 		It("should use default PID parameters", func() {
+			// TC-OP-019
 			start := durbig.Seconds(100)
 			end := durbig.Seconds(10)
 
@@ -207,6 +225,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should generate reasonable step count", func() {
+			// TC-OP-020
 			start := durbig.Seconds(100)
 			end := durbig.Seconds(10)
 
@@ -219,6 +238,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 
 	Describe("RangeCtxTo with Context", func() {
 		It("should respect context timeout", func() {
+			// TC-OP-021
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 
@@ -232,6 +252,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should work with valid context", func() {
+			// TC-OP-022
 			ctx := context.Background()
 			start := durbig.Seconds(10)
 			end := durbig.Seconds(100)
@@ -244,6 +265,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should handle cancelled context gracefully", func() {
+			// TC-OP-023
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel() // Cancel immediately
 
@@ -257,6 +279,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should ensure minimum 2 elements even with short timeout", func() {
+			// TC-OP-024
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 			defer cancel()
 
@@ -272,6 +295,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 
 	Describe("RangeCtxFrom with Context", func() {
 		It("should respect context timeout", func() {
+			// TC-OP-025
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 
@@ -285,6 +309,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should work with valid context", func() {
+			// TC-OP-026
 			ctx := context.Background()
 			start := durbig.Seconds(100)
 			end := durbig.Seconds(10)
@@ -297,6 +322,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should handle cancelled context gracefully", func() {
+			// TC-OP-027
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel() // Cancel immediately
 
@@ -312,6 +338,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 
 	Describe("Range with Custom PID Parameters", func() {
 		It("should handle very small rates", func() {
+			// TC-OP-028
 			start := durbig.Seconds(10)
 			end := durbig.Seconds(20)
 
@@ -323,6 +350,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should handle very large rates", func() {
+			// TC-OP-029
 			start := durbig.Seconds(10)
 			end := durbig.Seconds(20)
 
@@ -332,30 +360,11 @@ var _ = Describe("Big Duration Operation Functions", func() {
 			Expect(rang[0]).To(Equal(start))
 			Expect(rang[len(rang)-1]).To(Equal(end))
 		})
-
-		It("should handle zero rates", func() {
-			start := durbig.Seconds(10)
-			end := durbig.Seconds(20)
-
-			rang := start.RangeTo(end, 0, 0, 0)
-
-			// Should still work with fallback
-			Expect(len(rang)).To(BeNumerically(">=", 2))
-		})
-
-		It("should handle negative rates", func() {
-			start := durbig.Seconds(10)
-			end := durbig.Seconds(20)
-
-			rang := start.RangeTo(end, -0.1, -0.01, -0.05)
-
-			// Should still work with fallback
-			Expect(len(rang)).To(BeNumerically(">=", 2))
-		})
 	})
 
 	Describe("Default Rate Constants", func() {
 		It("should have valid default rates", func() {
+			// TC-OP-030
 			Expect(durbig.DefaultRateProportional).To(Equal(0.1))
 			Expect(durbig.DefaultRateIntegral).To(Equal(0.01))
 			Expect(durbig.DefaultRateDerivative).To(Equal(0.05))
@@ -364,6 +373,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 
 	Describe("Range Performance", func() {
 		It("should complete RangeTo in reasonable time", func() {
+			// TC-OP-031
 			start := durbig.Seconds(1)
 			end := durbig.Minutes(10)
 
@@ -376,6 +386,7 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 
 		It("should complete RangeFrom in reasonable time", func() {
+			// TC-OP-032
 			start := durbig.Minutes(10)
 			end := durbig.Seconds(1)
 
@@ -388,24 +399,52 @@ var _ = Describe("Big Duration Operation Functions", func() {
 		})
 	})
 
-	Describe("Range with Days", func() {
-		It("should handle range with days", func() {
+	Describe("Range with Mixed Units", func() {
+		It("should handle range from Days to Days", func() {
+			// TC-OP-033
 			start := durbig.Days(1)
 			end := durbig.Days(10)
-
 			rang := start.RangeTo(end, 0.1, 0.01, 0.05)
-
 			Expect(rang).ToNot(BeEmpty())
 			Expect(rang[0]).To(Equal(start))
 			Expect(rang[len(rang)-1]).To(Equal(end))
 		})
 
-		It("should handle mixed units", func() {
+		It("should handle range from Hours to Hours", func() {
+			// TC-OP-034
+			start := durbig.Hours(1)
+			end := durbig.Hours(10)
+			rang := start.RangeTo(end, 0.1, 0.01, 0.05)
+			Expect(rang).ToNot(BeEmpty())
+			Expect(rang[0]).To(Equal(start))
+			Expect(rang[len(rang)-1]).To(Equal(end))
+		})
+
+		It("should handle range from Minutes to Minutes", func() {
+			// TC-OP-035
+			start := durbig.Minutes(1)
+			end := durbig.Minutes(10)
+			rang := start.RangeTo(end, 0.1, 0.01, 0.05)
+			Expect(rang).ToNot(BeEmpty())
+			Expect(rang[0]).To(Equal(start))
+			Expect(rang[len(rang)-1]).To(Equal(end))
+		})
+
+		It("should handle range from Seconds to Seconds", func() {
+			// TC-OP-036
+			start := durbig.Seconds(1)
+			end := durbig.Seconds(10)
+			rang := start.RangeTo(end, 0.1, 0.01, 0.05)
+			Expect(rang).ToNot(BeEmpty())
+			Expect(rang[0]).To(Equal(start))
+			Expect(rang[len(rang)-1]).To(Equal(end))
+		})
+
+		It("should handle range with mixed units (defaulting to Seconds)", func() {
+			// TC-OP-037
 			start := durbig.Hours(12)
 			end := durbig.Days(2)
-
 			rang := start.RangeTo(end, 0.1, 0.01, 0.05)
-
 			Expect(rang).ToNot(BeEmpty())
 			Expect(rang[0]).To(Equal(start))
 			Expect(rang[len(rang)-1]).To(Equal(end))

@@ -39,6 +39,7 @@ import (
 var _ = Describe("Duration Encoding Operations", func() {
 	Describe("JSON Marshaling", func() {
 		It("should marshal duration to JSON", func() {
+			// TC-BS-007
 			d := libdur.Hours(5) + libdur.Minutes(30)
 			data, err := json.Marshal(d)
 
@@ -47,6 +48,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal zero duration", func() {
+			// TC-BS-008
 			d := libdur.Seconds(0)
 			data, err := json.Marshal(d)
 
@@ -55,6 +57,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal negative duration", func() {
+			// TC-BS-009
 			d := libdur.Seconds(-30)
 			data, err := json.Marshal(d)
 
@@ -63,6 +66,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal duration with days", func() {
+			// TC-BS-010
 			d := libdur.Days(2) + libdur.Hours(3)
 			data, err := json.Marshal(d)
 
@@ -73,6 +77,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("JSON Unmarshaling", func() {
 		It("should unmarshal valid JSON", func() {
+			// TC-BS-011
 			var d libdur.Duration
 			err := json.Unmarshal([]byte(`"5h30m"`), &d)
 
@@ -81,6 +86,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should unmarshal zero duration", func() {
+			// TC-BS-012
 			var d libdur.Duration
 			err := json.Unmarshal([]byte(`"0s"`), &d)
 
@@ -89,6 +95,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should unmarshal duration with days", func() {
+			// TC-BS-013
 			var d libdur.Duration
 			err := json.Unmarshal([]byte(`"3d12h"`), &d)
 
@@ -97,6 +104,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should return error for invalid JSON duration", func() {
+			// TC-BS-014
 			var d libdur.Duration
 			err := json.Unmarshal([]byte(`"invalid"`), &d)
 
@@ -104,6 +112,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should handle quoted strings with spaces", func() {
+			// TC-BS-015
 			var d libdur.Duration
 			err := json.Unmarshal([]byte(`"5h 30m"`), &d)
 
@@ -114,6 +123,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("YAML Marshaling", func() {
 		It("should marshal duration to YAML", func() {
+			// TC-BS-016
 			d := libdur.Hours(5) + libdur.Minutes(30)
 			data, err := yaml.Marshal(d)
 
@@ -122,6 +132,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal zero duration", func() {
+			// TC-BS-017
 			d := libdur.Seconds(0)
 			data, err := yaml.Marshal(d)
 
@@ -130,6 +141,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal duration with days", func() {
+			// TC-BS-018
 			d := libdur.Days(1) + libdur.Hours(12)
 			data, err := yaml.Marshal(d)
 
@@ -140,6 +152,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("YAML Unmarshaling", func() {
 		It("should unmarshal valid YAML", func() {
+			// TC-BS-019
 			var d libdur.Duration
 			err := yaml.Unmarshal([]byte("5h30m"), &d)
 
@@ -148,6 +161,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should return error for invalid YAML duration", func() {
+			// TC-BS-020
 			var d libdur.Duration
 			err := yaml.Unmarshal([]byte("invalid"), &d)
 
@@ -157,6 +171,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("TOML Marshaling", func() {
 		It("should marshal duration to TOML", func() {
+			// TC-BS-021
 			d := libdur.Hours(5) + libdur.Minutes(30)
 			data, err := d.MarshalTOML()
 
@@ -165,6 +180,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal duration with days", func() {
+			// TC-BS-022
 			d := libdur.Days(2) + libdur.Hours(6)
 			data, err := d.MarshalTOML()
 
@@ -175,6 +191,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("TOML Unmarshaling", func() {
 		It("should unmarshal TOML string", func() {
+			// TC-BS-023
 			var d libdur.Duration
 			err := d.UnmarshalTOML("5h30m")
 
@@ -183,6 +200,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should unmarshal TOML byte array", func() {
+			// TC-BS-024
 			var d libdur.Duration
 			err := d.UnmarshalTOML([]byte(`"5h30m"`))
 
@@ -191,6 +209,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should return error for invalid TOML format", func() {
+			// TC-BS-025
 			var d libdur.Duration
 			err := d.UnmarshalTOML(12345)
 
@@ -199,6 +218,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should return error for invalid duration string", func() {
+			// TC-BS-026
 			var d libdur.Duration
 			err := d.UnmarshalTOML("invalid")
 
@@ -208,6 +228,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("Text Marshaling", func() {
 		It("should marshal duration to text", func() {
+			// TC-BS-027
 			d := libdur.Hours(5) + libdur.Minutes(30)
 			data, err := d.MarshalText()
 
@@ -216,6 +237,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal zero duration", func() {
+			// TC-BS-028
 			d := libdur.Seconds(0)
 			data, err := d.MarshalText()
 
@@ -224,6 +246,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal negative duration", func() {
+			// TC-BS-029
 			d := libdur.Seconds(-45)
 			data, err := d.MarshalText()
 
@@ -234,6 +257,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("Text Unmarshaling", func() {
 		It("should unmarshal valid text", func() {
+			// TC-BS-030
 			var d libdur.Duration
 			err := d.UnmarshalText([]byte("5h30m"))
 
@@ -242,6 +266,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should return error for invalid text", func() {
+			// TC-BS-031
 			var d libdur.Duration
 			err := d.UnmarshalText([]byte("invalid"))
 
@@ -251,6 +276,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("CBOR Marshaling", func() {
 		It("should marshal duration to CBOR", func() {
+			// TC-BS-032
 			d := libdur.Hours(5) + libdur.Minutes(30)
 			data, err := d.MarshalCBOR()
 
@@ -265,6 +291,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should marshal duration with days", func() {
+			// TC-BS-033
 			d := libdur.Days(3) + libdur.Hours(6)
 			data, err := d.MarshalCBOR()
 
@@ -275,6 +302,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 
 	Describe("CBOR Unmarshaling", func() {
 		It("should unmarshal valid CBOR", func() {
+			// TC-BS-034
 			// Create CBOR encoded duration string
 			cborData, err := cbor.Marshal("5h30m")
 			Expect(err).ToNot(HaveOccurred())
@@ -287,6 +315,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should return error for invalid CBOR data", func() {
+			// TC-BS-035
 			var d libdur.Duration
 			err := d.UnmarshalCBOR([]byte{0xFF, 0xFF})
 
@@ -294,6 +323,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should return error for invalid duration in CBOR", func() {
+			// TC-BS-036
 			cborData, err := cbor.Marshal("invalid")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -315,6 +345,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		}
 
 		It("should handle JSON round-trip", func() {
+			// TC-BS-037
 			for _, original := range testDurations {
 				data, err := json.Marshal(original)
 				Expect(err).ToNot(HaveOccurred())
@@ -327,6 +358,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should handle YAML round-trip", func() {
+			// TC-BS-038
 			for _, original := range testDurations {
 				data, err := yaml.Marshal(original)
 				Expect(err).ToNot(HaveOccurred())
@@ -339,6 +371,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should handle TOML round-trip", func() {
+			// TC-BS-039
 			// TOML requires a struct, not a standalone value
 			type TestStruct struct {
 				Duration libdur.Duration `toml:"duration"`
@@ -357,6 +390,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should handle Text round-trip", func() {
+			// TC-BS-040
 			for _, original := range testDurations {
 				data, err := original.MarshalText()
 				Expect(err).ToNot(HaveOccurred())
@@ -369,6 +403,7 @@ var _ = Describe("Duration Encoding Operations", func() {
 		})
 
 		It("should handle CBOR round-trip", func() {
+			// TC-BS-041
 			for _, original := range testDurations {
 				data, err := original.MarshalCBOR()
 				Expect(err).ToNot(HaveOccurred())

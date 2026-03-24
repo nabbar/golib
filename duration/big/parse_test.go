@@ -153,6 +153,21 @@ var _ = Describe("Big Duration Parsing Operations", func() {
 			expected := int64(1*24*3600 + 2*3600 + 3*60 + 4)
 			Expect(d.Int64()).To(Equal(expected))
 		})
+
+		It("should return error for missing unit", func() {
+			_, err := durbig.Parse("10")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return error for unknown unit", func() {
+			_, err := durbig.Parse("10y")
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return error for invalid number", func() {
+			_, err := durbig.Parse("1.1.1h")
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Describe("ParseByte", func() {

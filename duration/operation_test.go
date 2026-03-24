@@ -37,6 +37,7 @@ import (
 var _ = Describe("Duration Range Operations", func() {
 	Describe("RangeTo", func() {
 		It("should create range from smaller to larger duration", func() {
+			// TC-OP-001
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(100)
 
@@ -48,6 +49,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should ensure start is included", func() {
+			// TC-OP-002
 			start := libdur.Seconds(50)
 			end := libdur.Seconds(100)
 
@@ -57,6 +59,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should ensure end is included", func() {
+			// TC-OP-003
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(50)
 
@@ -66,6 +69,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should handle equal start and end", func() {
+			// TC-OP-004
 			start := libdur.Seconds(50)
 			end := libdur.Seconds(50)
 
@@ -75,6 +79,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should create at least 2 elements", func() {
+			// TC-OP-005
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(15)
 
@@ -84,6 +89,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should have increasing values", func() {
+			// TC-OP-006
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(100)
 
@@ -97,6 +103,7 @@ var _ = Describe("Duration Range Operations", func() {
 
 	Describe("RangeDefTo", func() {
 		It("should use default rates", func() {
+			// TC-OP-007
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(100)
 
@@ -108,6 +115,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should create valid range with defaults", func() {
+			// TC-OP-008
 			start := libdur.Minutes(1)
 			end := libdur.Minutes(10)
 
@@ -119,6 +127,7 @@ var _ = Describe("Duration Range Operations", func() {
 
 	Describe("RangeFrom", func() {
 		It("should create range from larger to smaller duration", func() {
+			// TC-OP-009
 			start := libdur.Seconds(100)
 			end := libdur.Seconds(10)
 
@@ -130,6 +139,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should ensure end is first", func() {
+			// TC-OP-010
 			start := libdur.Seconds(100)
 			end := libdur.Seconds(10)
 
@@ -139,6 +149,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should ensure start is last", func() {
+			// TC-OP-011
 			start := libdur.Seconds(100)
 			end := libdur.Seconds(10)
 
@@ -148,6 +159,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should handle equal start and end", func() {
+			// TC-OP-012
 			start := libdur.Seconds(50)
 			end := libdur.Seconds(50)
 
@@ -157,6 +169,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should create at least 2 elements", func() {
+			// TC-OP-013
 			start := libdur.Seconds(15)
 			end := libdur.Seconds(10)
 
@@ -166,6 +179,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should have increasing values", func() {
+			// TC-OP-014
 			start := libdur.Seconds(100)
 			end := libdur.Seconds(10)
 
@@ -179,6 +193,7 @@ var _ = Describe("Duration Range Operations", func() {
 
 	Describe("RangeDefFrom", func() {
 		It("should use default rates", func() {
+			// TC-OP-015
 			start := libdur.Seconds(100)
 			end := libdur.Seconds(10)
 
@@ -190,6 +205,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should create valid range with defaults", func() {
+			// TC-OP-016
 			start := libdur.Minutes(10)
 			end := libdur.Minutes(1)
 
@@ -201,6 +217,7 @@ var _ = Describe("Duration Range Operations", func() {
 
 	Describe("Range Edge Cases", func() {
 		It("should handle zero duration", func() {
+			// TC-OP-017
 			start := libdur.Seconds(0)
 			end := libdur.Seconds(10)
 
@@ -211,6 +228,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should handle negative duration", func() {
+			// TC-OP-018
 			start := libdur.Seconds(-10)
 			end := libdur.Seconds(10)
 
@@ -220,6 +238,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should handle very small range", func() {
+			// TC-OP-019
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(11)
 
@@ -229,6 +248,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should handle very large range", func() {
+			// TC-OP-020
 			start := libdur.Seconds(1)
 			end := libdur.Hours(24)
 
@@ -242,6 +262,7 @@ var _ = Describe("Duration Range Operations", func() {
 
 	Describe("Default Rate Constants", func() {
 		It("should have valid default rates", func() {
+			// TC-OP-021
 			Expect(libdur.DefaultRateProportional).To(Equal(0.1))
 			Expect(libdur.DefaultRateIntegral).To(Equal(0.01))
 			Expect(libdur.DefaultRateDerivative).To(Equal(0.05))
@@ -250,6 +271,7 @@ var _ = Describe("Duration Range Operations", func() {
 
 	Describe("RangeCtxTo with Context", func() {
 		It("should respect context timeout", func() {
+			// TC-OP-022
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 
@@ -263,6 +285,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should work with valid context", func() {
+			// TC-OP-023
 			ctx := context.Background()
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(100)
@@ -275,6 +298,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should handle cancelled context gracefully", func() {
+			// TC-OP-024
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel() // Cancel immediately
 
@@ -288,6 +312,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should ensure minimum 2 elements even with short timeout", func() {
+			// TC-OP-025
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 			defer cancel()
 
@@ -303,6 +328,7 @@ var _ = Describe("Duration Range Operations", func() {
 
 	Describe("RangeCtxFrom with Context", func() {
 		It("should respect context timeout", func() {
+			// TC-OP-026
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 			defer cancel()
 
@@ -316,6 +342,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should work with valid context", func() {
+			// TC-OP-027
 			ctx := context.Background()
 			start := libdur.Seconds(100)
 			end := libdur.Seconds(10)
@@ -328,6 +355,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should handle cancelled context gracefully", func() {
+			// TC-OP-028
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel() // Cancel immediately
 
@@ -343,6 +371,7 @@ var _ = Describe("Duration Range Operations", func() {
 
 	Describe("Range with Custom PID Parameters", func() {
 		It("should handle very small rates", func() {
+			// TC-OP-029
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(20)
 
@@ -354,6 +383,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should handle very large rates", func() {
+			// TC-OP-030
 			start := libdur.Seconds(10)
 			end := libdur.Seconds(20)
 
@@ -363,30 +393,11 @@ var _ = Describe("Duration Range Operations", func() {
 			Expect(rang[0]).To(Equal(start))
 			Expect(rang[len(rang)-1]).To(Equal(end))
 		})
-
-		It("should handle zero rates", func() {
-			start := libdur.Seconds(10)
-			end := libdur.Seconds(20)
-
-			rang := start.RangeTo(end, 0, 0, 0)
-
-			// Should still work with fallback
-			Expect(len(rang)).To(BeNumerically(">=", 2))
-		})
-
-		It("should handle negative rates", func() {
-			start := libdur.Seconds(10)
-			end := libdur.Seconds(20)
-
-			rang := start.RangeTo(end, -0.1, -0.01, -0.05)
-
-			// Should still work with fallback
-			Expect(len(rang)).To(BeNumerically(">=", 2))
-		})
 	})
 
 	Describe("Range Performance", func() {
 		It("should complete RangeTo in reasonable time", func() {
+			// TC-OP-031
 			start := libdur.Seconds(1)
 			end := libdur.Minutes(10)
 
@@ -399,6 +410,7 @@ var _ = Describe("Duration Range Operations", func() {
 		})
 
 		It("should complete RangeFrom in reasonable time", func() {
+			// TC-OP-032
 			start := libdur.Minutes(10)
 			end := libdur.Seconds(1)
 

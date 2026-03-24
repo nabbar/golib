@@ -1,77 +1,55 @@
 # Duration Package
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.21-blue)](https://golang.org/)
-[![GoDoc](https://img.shields.io/badge/godoc-reference-blue)](https://pkg.go.dev/github.com/nabbar/golib/duration)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.20-blue)](https://go.dev/doc/install)
+[![Coverage](https://img.shields.io/badge/Coverage-87.2%25-brightgreen)](TESTING.md)
 
-**Extended duration handling with days support, multiple encoding formats, and big integer durations for very large time intervals.**
-
-> **AI Disclaimer (EU AI Act Article 50.4):** AI assistance was used solely for testing, documentation, and bug resolution under human supervision.
+The `duration` package provides an enhanced `time.Duration` type for Go, extending the standard library's capabilities by introducing native support for "days" (`d`) as a time unit in both parsing and formatting. It offers robust serialization for multiple data formats (JSON, YAML, TOML, CBOR, Text), seamless integration with configuration tools like Viper, and advanced utilities such as PID-controlled duration range generation and precise truncation. For extreme time scales requiring durations up to billions of years, the `big` sub-package provides a second-precision alternative based on `int64` representing seconds.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
 - [Architecture](#architecture)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Duration Package](#duration-package)
-- [Big Duration Package](#big-duration-package)
-- [Encoding Support](#encoding-support)
-- [Viper Integration](#viper-integration)
 - [Performance](#performance)
+- [Subpackages](#subpackages)
+    - [big](#big)
 - [Use Cases](#use-cases)
+- [Quick Start](#quick-start)
 - [Best Practices](#best-practices)
-- [Testing](#testing)
+- [API Reference](#api-reference)
 - [Contributing](#contributing)
-- [Future Enhancements](#future-enhancements)
-- [Related Documentation](#related-documentation)
-- [License](#license)
+- [Resources](#resources)
 
 ---
 
 ## Overview
 
-The **duration** package provides two complementary duration types:
-
-1. **Standard Duration** - Extended `time.Duration` with days support
-2. **Big Duration** - Large durations beyond `time.Duration` limits (>290 years)
+While Go's standard `time.Duration` is highly efficient, it lacks native support for the "days" unit in string representations and doesn't provide built-in serialization for many common formats. This package bridges that gap by providing a `Duration` type that is a direct alias of `time.Duration`, ensuring full compatibility while adding high-level features for modern application development.
 
 ### Design Philosophy
 
-- **Extended Syntax**: Support for days notation (`d`) in duration strings
-- **Type Safety**: Compile-time safety with type wrappers
-- **Interoperability**: JSON, YAML, TOML, CBOR, and text encoding
-- **Flexibility**: Convert between duration types seamlessly
-- **Range Generation**: PID controller-based smooth transitions
+1.  **Seamless Compatibility**: By using a type alias for `time.Duration`, this package ensures that its `Duration` type can be cast back and forth with zero overhead and used directly with standard library functions via the `.Time()` method.
+2.  **Human-Centric Design**: We prioritize human-readable configuration. Allowing "7d" instead of "168h" makes system configurations significantly easier to maintain and understand.
+3.  **Extensible Serialization**: Support for various encoding formats is baked-in, making the type a first-class citizen for APIs and configuration files.
+4.  **Scalar Scaling**: The package architecture recognizes the trade-off between precision and range. While the main package offers nanosecond precision (±290 years), the `big` sub-package offers second-level precision (±292 billion years) using a seconds-based `int64`.
 
----
+### Key Features
 
-## Key Features
+- ✅ **Extended Time Units**: Full support for the `d` (days) unit in `Parse` and `String` methods.
+- ✅ **Multi-Format Serialization**: Native support for JSON, YAML, TOML, CBOR, and Text encoding.
+- ✅ **Adaptive Range Generation**: Generate sequences of durations between two points using a Proportional-Integral-Derivative (PID) controller.
+- ✅ **Viper & Mapstructure Integration**: Includes a `ViperDecoderHook` for effortless loading of durations from configuration files.
+- ✅ **Precise Truncation**: Specialized methods to truncate durations to the nearest Day, Hour, Minute, Second, Millisecond, or Microsecond.
+- ✅ **Complementary `big` Package**: Handles durations up to ~292 billion years by using seconds as the base unit.
 
-### Standard Duration
+### Key Benefits
 
-| Feature | Description |
-|---------|-------------|
-| **Extended Parsing** | Parse durations with days (`5d23h15m13s`) |
-| **Multiple Formats** | JSON, YAML, TOML, CBOR, text encoding |
-| **Viper Integration** | Automatic configuration decoding |
-| **Arithmetic** | Add, subtract, multiply, divide durations |
-| **Truncation** | Truncate to days, hours, minutes, etc. |
-| **Range Generation** | PID controller-based ranges |
-| **Thread-Safe** | Safe for concurrent use |
-
-### Big Duration
-
-| Feature | Description |
-|---------|-------------|
-| **Large Durations** | Support durations >290 years (time.Duration limit) |
-| **int64 Seconds** | Based on seconds (not nanoseconds) |
-| **Max Duration** | ~106 trillion days (~292 billion years) |
-| **Same API** | Compatible API with standard duration |
-| **Type Conversion** | Convert to/from time.Duration, int64, float64 |
+- ✅ **Enhanced Readability**: Express complex durations like "2d4h30m" directly in code and configuration.
+- ✅ **Configuration Consistency**: Standardize duration handling across JSON, YAML, and TOML without manual parsing logic.
+- ✅ **Safe Large Durations**: Use the `big` sub-package to safely handle long-term durations that would overflow a standard 64-bit nanosecond counter.
+- ✅ **Advanced Timing Control**: Leverage PID theory for smooth backoff and interval adjustments.
 
 ---
 
@@ -80,702 +58,311 @@ The **duration** package provides two complementary duration types:
 ### Package Structure
 
 ```
-duration/
-├── interface.go         # Standard duration (time.Duration wrapper)
-├── parse.go            # Parsing logic with days support
-├── format.go           # String formatting
-├── encode.go           # JSON/YAML/TOML/CBOR encoding
-├── operation.go        # Arithmetic operations
-├── truncate.go         # Truncation helpers
-├── model.go            # Core implementation
-│
-└── big/                # Big duration sub-package
-    ├── interface.go    # Large duration (int64 seconds)
-    ├── parse.go        # Parsing for big durations
-    ├── format.go       # Formatting for big durations
-    ├── encode.go       # Encoding for big durations
-    ├── operation.go    # Arithmetic for big durations
-    ├── truncate.go     # Truncation for big durations
-    └── model.go        # Big duration implementation
+duration/                    # Root package (Nanosecond precision)
+├── big/                     # Sub-package (Second precision for large ranges)
+│   ├── doc.go               # big documentation
+│   ├── model.go             # big.Duration type (int64 seconds)
+│   ├── interface.go         # big constructors and parsing
+│   ├── parse.go             # big string parsing logic
+│   ├── format.go            # big string formatting
+│   ├── encode.go            # big serialization (JSON, YAML, TOML, CBOR, Text)
+│   ├── operation.go         # big arithmetic and PID range generation
+│   ├── truncate.go          # big rounding and truncation logic
+│   └── ...                  # big tests and examples
+├── doc.go                   # Main package documentation
+├── model.go                 # Core Duration alias and unit check methods
+├── interface.go             # Main constructors and Parse functions
+├── parse.go                 # Internal parsing logic for extended units
+├── format.go                # Internal formatting logic (String(), Days(), etc.)
+├── encode.go                # Multi-format serialization implementation
+├── truncate.go              # Unit-specific truncation (TruncateDays(), etc.)
+├── operation.go             # PID-controlled range generation implementation
+└── ...                      # Unit tests, integration tests, and examples
 ```
 
-### Type System
+### Package Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                 Duration Types                       │
-│                                                      │
-│  ┌────────────────────┐      ┌────────────────────┐│
-│  │  duration.Duration │      │   big.Duration     ││
-│  │                    │      │                    ││
-│  │  Based on:         │      │  Based on:         ││
-│  │  time.Duration     │      │  int64 (seconds)   ││
-│  │  (int64 nanos)     │      │                    ││
-│  │                    │      │                    ││
-│  │  Range:            │      │  Range:            ││
-│  │  ±290 years        │      │  ±292B years       ││
-│  │                    │      │                    ││
-│  │  Precision:        │      │  Precision:        ││
-│  │  1 nanosecond      │      │  1 second          ││
-│  └────────────────────┘      └────────────────────┘│
-│           │                            │            │
-│           └────────────┬───────────────┘            │
-│                        ▼                             │
-│  ┌──────────────────────────────────────────────┐  │
-│  │         Common Features                      │  │
-│  │  - Days notation (5d23h15m)                 │  │
-│  │  - Multiple encodings (JSON, YAML, etc.)    │  │
-│  │  - Arithmetic operations                    │  │
-│  │  - Truncation & rounding                    │  │
-│  │  - PID-based range generation               │  │
-│  │  - Viper integration                        │  │
-│  └──────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+The package architecture centers on extending the `int64` nanosecond representation used by `time.Duration`, while providing a parallel `int64` seconds-based representation in the `big` sub-package.
 
-Conversion Flow:
-  string ←→ Duration ←→ time.Duration ←→ big.Duration
-         ←→ JSON/YAML/TOML/CBOR ←→
+```mermaid
+graph TD
+    subgraph "Core Components"
+        MD[duration.Duration <br/> int64 nanoseconds]
+        BD[big.Duration <br/> int64 seconds]
+    end
+
+    subgraph "Standard Library Interop"
+        TD[time.Duration]
+        MD <-->|Alias - Zero Cost| TD
+        BD -- ".Time() / ParseDuration()" --> TD
+    end
+
+    subgraph "Capabilities"
+        Ser[Serialization <br/> JSON, YAML, TOML, CBOR, Text]
+        Parse[Extended Parsing <br/> 'd' unit support]
+        Ops[Advanced Ops <br/> PID Ranges, Truncation]
+        Viper[Config Integration <br/> ViperDecoderHook]
+    end
+
+    MD --- Ser
+    MD --- Parse
+    MD --- Ops
+    MD --- Viper
+
+    BD --- Ser
+    BD --- Parse
+    BD --- Ops
+    BD --- Viper
 ```
+
+### Dataflow
+
+The dataflow illustrates how input strings or values are transformed into duration objects and subsequently utilized or exported.
+
+```mermaid
+sequenceDiagram
+    participant Input as String / Bytes / Numeric / JSON / YAML
+    participant Factory as Factory / Unmarshaler (Parse, Days, Unmarshal*)
+    participant Dur as Duration Object (Nanos vs Seconds)
+    participant Logic as Logic (Truncate, Range, Checks)
+    participant Output as Export (String, time.Duration, Marshaled Data)
+
+    Input->>Factory: Ingest raw data
+    Factory->>Dur: Create typed object
+    Dur->>Logic: Apply operations
+    Logic->>Dur: Updated state
+    Dur->>Output: Export to desired format
+```
+
+### Data Representation
+
+| Feature           | `duration.Duration`      | `big.Duration`                       |
+|:------------------|:-------------------------|:-------------------------------------|
+| **Precision**     | 1 Nanosecond             | 1 Second                             |
+| **Max Range**     | ~290 Years               | ~292 Billion Years                   |
+| **Memory Size**   | 8 Bytes (int64)          | 8 Bytes (int64)                      |
+| **Parsing Units** | `ns, us, ms, s, m, h, d` | `s, m, h, d`                         |
+| **Compatibility** | Direct (Alias)           | Via Conversion (with overflow check) |
 
 ---
 
-## Installation
+## Performance
 
-```bash
-# Standard duration
-go get github.com/nabbar/golib/duration
+The package is optimized for minimal overhead. Core arithmetic is as fast as standard `int64` operations, and parsing/formatting are optimized to reduce allocations.
 
-# Big duration
-go get github.com/nabbar/golib/duration/big
+### Benchmarks
+
+| Operation        | Benchmark Name                       | Iterations | Time/Op      | Memory  | Allocations |
+|:-----------------|:-------------------------------------|:-----------|:-------------|:--------|:------------|
+| **Formatting**   | `BenchmarkDuration_String`           | > 4.6M     | 288.8 ns/op  | 16 B/op | 2 allocs/op |
+| **Parsing**      | `BenchmarkParse`                     | > 5.5M     | 205.1 ns/op  | 0 B/op  | 0 allocs/op |
+| **Unit Factory** | `BenchmarkDuration_Days`             | > 1000M    | 0.3868 ns/op | 0 B/op  | 0 allocs/op |
+| **Unit Factory** | `BenchmarkDuration_Hours`            | > 1000M    | 0.3710 ns/op | 0 B/op  | 0 allocs/op |
+| **Unit Factory** | `BenchmarkDuration_Minutes`          | > 1000M    | 0.3709 ns/op | 0 B/op  | 0 allocs/op |
+| **Unit Factory** | `BenchmarkDuration_Seconds`          | > 1000M    | 0.3564 ns/op | 0 B/op  | 0 allocs/op |
+| **Truncation**   | `BenchmarkDuration_Truncate/Days`    | > 1000M    | 0.3417 ns/op | 0 B/op  | 0 allocs/op |
+| **Truncation**   | `BenchmarkDuration_Truncate/Hours`   | > 1000M    | 0.3996 ns/op | 0 B/op  | 0 allocs/op |
+| **Truncation**   | `BenchmarkDuration_Truncate/Minutes` | > 1000M    | 0.3845 ns/op | 0 B/op  | 0 allocs/op |
+| **Truncation**   | `BenchmarkDuration_Truncate/Seconds` | > 1000M    | 0.3750 ns/op | 0 B/op  | 0 allocs/op |
+
+*Results from an Intel(R) Core(TM) i7-4700HQ CPU @ 2.40GHz.*
+
+---
+
+## Subpackages
+
+### big
+
+The `big` sub-package handles durations on an astronomical scale. By defining the base unit as one second instead of one nanosecond, it extends the representable time range from 290 years to over 292 billion years.
+
+**Key Features**:
+- **API Parity**: Methods like `Parse`, `String`, and `Unmarshal` behave consistently with the main package.
+- **Serialization**: Full support for JSON, YAML, TOML, CBOR, Text.
+- **Advanced Logic**: Includes PID-controlled range generation tailored for large-scale intervals.
+- **Truncation**: Methods to round to the nearest second, minute, hour, or day.
+
+**Documentation**: [big/README.md](big/README.md).
+
+---
+
+## Use Cases
+
+### 1. Adaptive Backoff Strategies
+
+Using the PID controller to generate a smooth progression of retry intervals.
+
+```go
+import (
+	"fmt"
+	
+	"github.com/nabbar/golib/duration"
+)
+
+start := duration.Seconds(1)
+target := duration.Minutes(10)
+
+// Generate sequence using Proportional, Integral, Derivative rates
+intervals := start.RangeTo(target, 0.1, 0.01, 0.05)
+
+for _, wait := range intervals {
+    fmt.Printf("Backoff: %s\n", wait)
+    // time.Sleep(wait.Time())
+}
+```
+
+### 2. Human-Readable Retention Policies
+
+Easily define long-term storage retention in configuration files using "days".
+
+```go
+import (
+    "github.com/nabbar/golib/duration"
+    "github.com/nabbar/golib/duration/big"
+)
+
+type RetentionPolicy struct {
+    HotStorage  duration.Duration `json:"hot_storage"`  // e.g., "7d"
+    ColdStorage big.Duration      `json:"cold_storage"` // e.g., "3650d"
+}
+```
+
+### 3. Precise Log Truncation
+
+Aligning event timestamps or durations to the nearest unit for grouping.
+
+```go
+import (
+	"fmt"
+	
+	"github.com/nabbar/golib/duration"
+)
+
+d, _ := duration.Parse("1h23m45s")
+fmt.Println(d.TruncateHours())   // "1h0m0s"
+fmt.Println(d.TruncateMinutes()) // "1h23m0s"
 ```
 
 ---
 
 ## Quick Start
 
-### Standard Duration
+### Installation
+
+```bash
+go get github.com/nabbar/golib/duration
+```
+
+### Basic Implementation
 
 ```go
 package main
 
 import (
     "fmt"
+	
     "github.com/nabbar/golib/duration"
 )
 
 func main() {
-    // Parse duration with days
-    d, _ := duration.Parse("5d23h15m13s")
-    fmt.Println(d.String())  // Output: 5d23h15m13s
+    // 1. Parsing extended units
+    d, _ := duration.Parse("2d12h")
+    fmt.Println(d.String()) // "2d12h0m0s"
+
+    // 2. Unit helper constructors
+    d2 := duration.Days(1) + duration.Hours(6)
     
-    // Create durations
-    timeout := duration.Days(2) + duration.Hours(3)
-    fmt.Println(timeout.String())  // Output: 2d3h
-    
-    // Convert to time.Duration
-    std := timeout.Time()
-    fmt.Println(std)  // Output: 51h0m0s
-    
-    // Truncate
-    days := timeout.TruncateDays()
-    fmt.Println(days.String())  // Output: 2d
-}
-```
-
-### Big Duration
-
-```go
-package main
-
-import (
-    "fmt"
-    durbig "github.com/nabbar/golib/duration/big"
-)
-
-func main() {
-    // Very large duration (beyond time.Duration limits)
-    d := durbig.Days(1000000)  // 1 million days
-    fmt.Println(d.String())  // Output: 1000000d
-    
-    // Parse large duration
-    large, _ := durbig.Parse("365000d")  // ~1000 years
-    fmt.Println(large.String())
-    
-    // Arithmetic
-    result := large + durbig.Days(100)
-    fmt.Println(result.String())
-}
-```
-
----
-
-## Duration Package
-
-### Supported Units
-
-```go
-const (
-    Nanosecond  Duration = 1
-    Microsecond          = 1000 * Nanosecond
-    Millisecond          = 1000 * Microsecond
-    Second               = 1000 * Millisecond
-    Minute               = 60 * Second
-    Hour                 = 60 * Minute
-    Day                  = 24 * Hour  // Extension!
-)
-```
-
-### Parsing
-
-```go
-// Parse various formats
-d1, _ := duration.Parse("5h30m")         // 5h30m0s
-d2, _ := duration.Parse("2d12h")         // 2d12h0m0s
-d3, _ := duration.Parse("1.5h")          // 1h30m0s
-d4, _ := duration.Parse("-3h")           // -3h0m0s
-
-// Parse from bytes
-d5, _ := duration.ParseByte([]byte("7d"))
-
-// Convert from time.Duration
-td := 5 * time.Hour
-d6 := duration.ParseDuration(td)
-```
-
-### Constructor Functions
-
-```go
-d1 := duration.Nanoseconds(1000)    // 1µs
-d2 := duration.Microseconds(1000)   // 1ms
-d3 := duration.Milliseconds(1000)   // 1s
-d4 := duration.Seconds(60)          // 1m
-d5 := duration.Minutes(60)          // 1h
-d6 := duration.Hours(24)            // 1d
-d7 := duration.Days(7)              // 7d (1 week)
-
-// Combine
-timeout := duration.Days(1) + duration.Hours(2) + duration.Minutes(30)
-```
-
-### Formatting
-
-```go
-d := duration.Days(5) + duration.Hours(23) + duration.Minutes(15)
-
-// String representation
-fmt.Println(d.String())           // Output: 5d23h15m0s
-
-// Convert to time.Duration
-std := d.Time()
-
-// Convert to nanoseconds (int64)
-nanos := d.Nanoseconds()
-```
-
-### Truncation & Rounding
-
-```go
-d := duration.Parse("5d23h45m30s")
-
-// Truncate
-days := d.TruncateDays()        // 5d
-hours := d.TruncateHours()      // 5d23h
-minutes := d.TruncateMinutes()  // 5d23h45m
-
-// Round
-rounded := d.Round(duration.Hour)  // 6d (rounds to nearest hour)
-```
-
-### Arithmetic Operations
-
-```go
-d1 := duration.Hours(5)
-d2 := duration.Hours(3)
-
-sum := d1 + d2              // 8h
-diff := d1 - d2             // 2h
-product := d1 * 2           // 10h
-quotient := d1 / 2          // 2h30m
-
-// Comparison
-if d1 > d2 {
-    fmt.Println("d1 is longer")
-}
-```
-
-### Range Generation
-
-Generate smooth transitions between durations using PID controller:
-
-```go
-start := duration.Seconds(10)
-end := duration.Minutes(5)
-
-// With custom PID rates
-rateP := 0.1
-rateI := 0.01
-rateD := 0.001
-ranges := start.RangeTo(end, rateP, rateI, rateD)
-
-// With default rates
-rangesDef := start.RangeDefTo(end)
-
-for _, d := range rangesDef {
-    fmt.Println(d.String())
-}
-```
-
----
-
-## Big Duration Package
-
-### Constants
-
-```go
-const (
-    Second Duration = 1              // 1 second
-    Minute          = 60 * Second    // 60 seconds
-    Hour            = 60 * Minute    // 3600 seconds
-    Day             = 24 * Hour      // 86400 seconds
-)
-
-// Maximum: ~106,751,991,167,300 days (~292 billion years)
-```
-
-### Why Use Big Duration?
-
-**time.Duration Limitations:**
-- Based on int64 nanoseconds
-- Maximum: ~290 years
-- Overflows for long-term scheduling
-
-**big.Duration Solutions:**
-- Based on int64 seconds
-- Maximum: ~292 billion years
-- Perfect for astronomical calculations
-- No nanosecond precision needed
-
-### Creating Big Durations
-
-```go
-import durbig "github.com/nabbar/golib/duration/big"
-
-// Constructors
-d1 := durbig.Seconds(86400)         // 1 day
-d2 := durbig.Minutes(1440)          // 1 day
-d3 := durbig.Hours(24)              // 1 day
-d4 := durbig.Days(365)              // 1 year
-
-// From float64 (seconds)
-d5 := durbig.ParseFloat64(3600.5)   // 1h0m0.5s
-
-// From time.Duration
-td := 24 * time.Hour
-d6 := durbig.ParseDuration(td)      // 1 day
-
-// Very large
-millennium := durbig.Days(365250)   // ~1000 years
-```
-
-### Type Conversions
-
-```go
-d := durbig.Days(7)
-
-// To int64 (seconds)
-seconds := d.Int64()  // 604800
-
-// To uint64 (seconds, 0 if negative)
-useconds := d.Uint64()  // 604800
-
-// To float64 (seconds)
-fseconds := d.Float64()  // 604800.0
-
-// To time.Duration (if within range)
-td, err := d.Duration()
-if err != nil {
-    // Duration too large for time.Duration
-}
-
-// To string
-str := d.String()  // "7d"
-```
-
-### Parsing
-
-```go
-// Parse string
-d1, _ := durbig.Parse("365d")        // 1 year
-d2, _ := durbig.Parse("1000000d")    // 1 million days
-d3, _ := durbig.Parse("5h30m")       // 5h30m
-d4, _ := durbig.Parse("2.5h")        // 2h30m (fractional)
-
-// Parse bytes
-d5, _ := durbig.ParseByte([]byte("10d"))
-```
-
-### Operations
-
-```go
-d1 := durbig.Days(100)
-d2 := durbig.Days(50)
-
-// Arithmetic
-sum := d1 + d2          // 150d
-diff := d1 - d2         // 50d
-product := d1 * 3       // 300d
-quotient := d1 / 2      // 50d
-
-// Comparison
-if d1 > d2 {
-    fmt.Println("d1 is longer")
-}
-
-// Absolute value
-abs := durbig.Days(-5).Abs()  // 5d
-
-// Truncation
-t := durbig.Parse("7d12h30m")
-days := t.TruncateDays()      // 7d
-hours := t.TruncateHours()    // 7d12h
-```
-
----
-
-## Encoding Support
-
-Both duration types support multiple encoding formats:
-
-### JSON
-
-```go
-type Config struct {
-    Timeout duration.Duration `json:"timeout"`
-    MaxAge  durbig.Duration   `json:"max_age"`
-}
-
-cfg := Config{
-    Timeout: duration.Days(1),
-    MaxAge:  durbig.Days(365),
-}
-
-// Marshal
-data, _ := json.Marshal(cfg)
-// {"timeout":"1d","max_age":"365d"}
-
-// Unmarshal
-var cfg2 Config
-json.Unmarshal(data, &cfg2)
-```
-
-### YAML
-
-```go
-import "gopkg.in/yaml.v3"
-
-type Config struct {
-    Timeout duration.Duration `yaml:"timeout"`
-}
-
-// Marshal
-data, _ := yaml.Marshal(Config{Timeout: duration.Hours(24)})
-// timeout: 1d
-
-// Unmarshal
-var cfg Config
-yaml.Unmarshal(data, &cfg)
-```
-
-### TOML
-
-```go
-import "github.com/pelletier/go-toml/v2"
-
-type Config struct {
-    Timeout duration.Duration `toml:"timeout"`
-}
-
-// Works with toml.Marshal/Unmarshal
-```
-
-### CBOR
-
-```go
-import "github.com/fxamacker/cbor/v2"
-
-type Config struct {
-    Timeout duration.Duration `cbor:"timeout"`
-}
-
-// Works with cbor.Marshal/Unmarshal
-```
-
-### Text Encoding
-
-```go
-d := duration.Days(5)
-
-// Marshal
-text, _ := d.MarshalText()
-// []byte("5d")
-
-// Unmarshal
-var d2 duration.Duration
-d2.UnmarshalText([]byte("5d"))
-```
-
----
-
-## Viper Integration
-
-Both packages provide decoder hooks for Viper configuration:
-
-```go
-import (
-    "github.com/spf13/viper"
-    "github.com/nabbar/golib/duration"
-    durbig "github.com/nabbar/golib/duration/big"
-)
-
-type Config struct {
-    Timeout  duration.Duration
-    MaxAge   durbig.Duration
-}
-
-func loadConfig() Config {
-    v := viper.New()
-    v.SetConfigFile("config.yaml")
-    v.ReadInConfig()
-    
-    var cfg Config
-    v.Unmarshal(&cfg, viper.DecodeHook(
-        duration.ViperDecoderHook(),
-        // Add other hooks as needed
-    ))
-    
-    return cfg
-}
-```
-
-**config.yaml:**
-```yaml
-timeout: 2d3h
-max_age: 365d
-```
-
----
-
-## Performance
-
-### Memory Characteristics
-
-**Standard Duration:**
-- **Size**: 8 bytes (int64)
-- **Range**: ±290 years
-- **Precision**: 1 nanosecond
-
-**Big Duration:**
-- **Size**: 8 bytes (int64)
-- **Range**: ±292 billion years
-- **Precision**: 1 second
-
-### Benchmarks
-
-| Operation | Standard | Big | Notes |
-|-----------|----------|-----|-------|
-| Parse | ~500ns | ~500ns | Similar performance |
-| String | ~200ns | ~200ns | Same formatting logic |
-| JSON Marshal | ~300ns | ~300ns | Encoding overhead |
-| JSON Unmarshal | ~800ns | ~800ns | Parsing + validation |
-| Arithmetic | ~5ns | ~5ns | Native int64 operations |
-| Conversion | ~10ns | ~10ns | Type casting |
-
-*Benchmarks on AMD64, Go 1.21*
-
-### When to Use Which
-
-**Use Standard Duration when:**
-- Durations < 290 years
-- Need nanosecond precision
-- Working with standard library (time.Duration)
-- Short-term timers, timeouts, delays
-
-**Use Big Duration when:**
-- Durations > 290 years
-- Astronomical calculations
-- Long-term scheduling (centuries, millennia)
-- Second precision is sufficient
-
----
-
-## Use Cases
-
-### Standard Duration
-
-**HTTP Timeouts**
-```go
-type ServerConfig struct {
-    ReadTimeout  duration.Duration `json:"read_timeout"`
-    WriteTimeout duration.Duration `json:"write_timeout"`
-    IdleTimeout  duration.Duration `json:"idle_timeout"`
-}
-
-cfg := ServerConfig{
-    ReadTimeout:  duration.Seconds(10),
-    WriteTimeout: duration.Seconds(10),
-    IdleTimeout:  duration.Minutes(2),
-}
-
-server := &http.Server{
-    ReadTimeout:  cfg.ReadTimeout.Time(),
-    WriteTimeout: cfg.WriteTimeout.Time(),
-    IdleTimeout:  cfg.IdleTimeout.Time(),
-}
-```
-
-**Cache Expiration**
-```go
-type CacheConfig struct {
-    TTL duration.Duration `yaml:"ttl"`
-}
-
-cfg := CacheConfig{
-    TTL: duration.Hours(24),
-}
-
-cache.Set(key, value, cfg.TTL.Time())
-```
-
-**Retry Backoff**
-```go
-backoff := duration.Seconds(1)
-maxBackoff := duration.Minutes(5)
-
-for i := 0; i < maxRetries; i++ {
-    if err := doSomething(); err == nil {
-        break
+    // 3. Conditional checks
+    if d2.IsDays() {
+        fmt.Println("Duration is at least 1 day")
     }
-    
-    time.Sleep(backoff.Time())
-    backoff = backoff * 2
-    if backoff > maxBackoff {
-        backoff = maxBackoff
-    }
+
+    // 4. Stdlib conversion
+    stdDur := d2.Time() // Returns time.Duration
 }
-```
-
-### Big Duration
-
-**Astronomy**
-```go
-// Earth's orbital period
-earthYear := durbig.Days(365.25)
-
-// Solar system age (4.6 billion years)
-solarSystemAge := durbig.Days(365.25 * 4_600_000_000)
-
-fmt.Println(solarSystemAge.String())
-```
-
-**Geological Time**
-```go
-// Age of dinosaur extinction (66 million years ago)
-extinction := durbig.Days(365.25 * 66_000_000)
-
-// Jurassic period duration (56 million years)
-jurassic := durbig.Days(365.25 * 56_000_000)
-```
-
-**Long-Term Scheduling**
-```go
-// Archive retention (1000 years)
-retention := durbig.Days(365 * 1000)
-
-// Next solar eclipse in 500 years
-nextEclipse := durbig.Days(365 * 500)
 ```
 
 ---
 
 ## Best Practices
 
-### 1. Choose the Right Type
+### ✅ DO
+- **Use `duration.Duration` for config structs**: Enables automatic parsing of "d" units and multi-format serialization.
+- **Use `big.Duration` for astronomical spans**: Prevents silent overflow when dealing with centuries or millennia.
+- **Check Parsing Errors**: Extended units add complexity; always validate return errors from `Parse`.
+- **Use `.Time()` for Interop**: Explicitly convert when passing to `time.Sleep` or `context.WithTimeout`.
 
-```go
-// ✅ Good: Use standard duration for typical cases
-timeout := duration.Seconds(30)
-
-// ✅ Good: Use big duration for very large durations
-archiveAge := durbig.Days(10000)
-
-// ❌ Bad: Using big duration unnecessarily
-delay := durbig.Seconds(5)  // Overkill, use standard
-```
-
-### 2. Use Constructor Functions
-
-```go
-// ✅ Good: Type-safe constructors
-timeout := duration.Minutes(5)
-
-// ❌ Bad: Manual conversion
-timeout := duration.Duration(5 * 60 * time.Second)
-```
-
-### 3. Handle Parse Errors
-
-```go
-// ✅ Good: Check errors
-d, err := duration.Parse(userInput)
-if err != nil {
-    log.Printf("Invalid duration: %v", err)
-    d = duration.Minutes(5)  // Fallback
-}
-
-// ❌ Bad: Ignoring errors
-d, _ := duration.Parse(userInput)
-```
-
-### 4. Use Days Notation
-
-```go
-// ✅ Good: Readable
-retention := duration.Days(90)
-
-// ❌ Less readable
-retention := duration.Hours(24 * 90)
-```
-
-### 5. Truncate When Needed
-
-```go
-// ✅ Good: Truncate for cleaner output
-d := duration.Parse("2d3h15m30s")
-fmt.Println(d.TruncateDays().String())  // "2d"
-
-// Context-dependent: Keep precision if needed
-precise := d.String()  // "2d3h15m30s"
-```
+### ❌ DON'T
+- **Don't ignore the ±290y limit**: Standard durations (nanoseconds) will overflow. Switch to `big` package for long-term values.
+- **Don't mix types in arithmetic**: While `duration.Duration` is an alias of `time.Duration`, explicit conversion is often safer for clarity: `d1 + duration.ParseDuration(stdDur)`.
 
 ---
 
-## Testing
+## API Reference
 
-Comprehensive testing documentation is available in [TESTING.md](TESTING.md).
+### Global Factory Functions (Main)
 
-**Quick Test:**
-```bash
-cd duration
-go test -v -cover
+| Function           | Signature                      | Description                                                         |
+|:-------------------|:-------------------------------|:--------------------------------------------------------------------|
+| `Parse`            | `(s string) (Duration, error)` | Parses a duration string with support for `ns, us, ms, s, m, h, d`. |
+| `ParseByte`        | `(p []byte) (Duration, error)` | Parses a byte array representing a duration.                        |
+| `ParseDuration`    | `(d time.Duration) Duration`   | Converts a standard `time.Duration` into a `duration.Duration`.     |
+| `ParseFloat64`     | `(f float64) Duration`         | Converts a float64 (seconds) into a `Duration`.                     |
+| `ParseUint32`      | `(i uint32) Duration`          | Converts a uint32 (nanoseconds) into a `Duration`.                  |
+| `Nanoseconds`      | `(i int64) Duration`           | Returns a Duration representing `i` nanoseconds.                    |
+| `Microseconds`     | `(i int64) Duration`           | Returns a Duration representing `i` microseconds.                   |
+| `Milliseconds`     | `(i int64) Duration`           | Returns a Duration representing `i` milliseconds.                   |
+| `Seconds`          | `(i int64) Duration`           | Returns a Duration representing `i` seconds.                        |
+| `Minutes`          | `(i int64) Duration`           | Returns a Duration representing `i` minutes.                        |
+| `Hours`            | `(i int64) Duration`           | Returns a Duration representing `i` hours.                          |
+| `Days`             | `(i int64) Duration`           | Returns a Duration representing `i` days (24h increments).          |
+| `ViperDecoderHook` | `() libmap.DecodeHookFuncType` | Returns a decode hook for `go-viper/mapstructure`.                  |
 
-cd big
-go test -v -cover
-```
+### Instance Methods (Main)
 
-**Test Metrics:**
-- Standard duration: 93.5% coverage, 150+ specs
-- Big duration: 91% coverage, 250+ specs
-- Ginkgo v2 + Gomega framework
+| Method                   | Result                 | Description                                                   |
+|:-------------------------|:-----------------------|:--------------------------------------------------------------|
+| `String()`               | `string`               | Returns a human-readable string (e.g., "1d2h3m4s").           |
+| `Time()`                 | `time.Duration`        | Returns the underlying standard `time.Duration`.              |
+| `Duration()`             | `time.Duration`        | Alias for `Time()`.                                           |
+| `Days()`                 | `int64`                | Returns total number of full days.                            |
+| `Hours()`                | `int64`                | Returns total number of full hours.                           |
+| `Minutes()`              | `int64`                | Returns total number of full minutes.                         |
+| `Seconds()`              | `int64`                | Returns total number of full seconds.                         |
+| `Milliseconds()`         | `int64`                | Returns total number of full milliseconds.                    |
+| `Microseconds()`         | `int64`                | Returns total number of full microseconds.                    |
+| `Nanoseconds()`          | `int64`                | Returns total number of full nanoseconds.                     |
+| `Float64()`              | `float64`              | Returns the raw nanosecond value as float64.                  |
+| `Int64()`                | `int64`                | Returns the raw nanosecond value as int64.                    |
+| `Uint64()`               | `uint64`               | Returns the absolute raw nanosecond value as uint64.          |
+| `IsDays()`               | `bool`                 | True if duration >= 24 hours.                                 |
+| `IsHours()`              | `bool`                 | True if duration >= 1 hour.                                   |
+| `IsMinutes()`            | `bool`                 | True if duration >= 1 minute.                                 |
+| `IsSeconds()`            | `bool`                 | True if duration >= 1 second.                                 |
+| `IsMilliseconds()`       | `bool`                 | True if duration >= 1 millisecond.                            |
+| `IsMicroseconds()`       | `bool`                 | True if duration >= 1 microsecond.                            |
+| `IsNanoseconds()`        | `bool`                 | True if duration >= 1 nanosecond (non-zero).                  |
+| `TruncateDays()`         | `Duration`             | Rounds down toward zero to the nearest day.                   |
+| `TruncateHours()`        | `Duration`             | Rounds down toward zero to the nearest hour.                  |
+| `TruncateMinutes()`      | `Duration`             | Rounds down toward zero to the nearest minute.                |
+| `TruncateSeconds()`      | `Duration`             | Rounds down toward zero to the nearest second.                |
+| `TruncateMilliseconds()` | `Duration`             | Rounds down toward zero to the nearest millisecond.           |
+| `TruncateMicroseconds()` | `Duration`             | Rounds down toward zero to the nearest microsecond.           |
+| `RangeCtxTo()`           | `[]Duration`           | Generates PID-controlled sequence with context.               |
+| `RangeTo()`              | `[]Duration`           | Generates PID-controlled sequence.                            |
+| `RangeDefTo()`           | `[]Duration`           | Generates PID-controlled sequence with default rates.         |
+| `RangeCtxFrom()`         | `[]Duration`           | Generates reverse PID-controlled sequence with context.       |
+| `RangeFrom()`            | `[]Duration`           | Generates reverse PID-controlled sequence.                    |
+| `RangeDefFrom()`         | `[]Duration`           | Generates reverse PID-controlled sequence with default rates. |
+| `MarshalJSON()`          | `([]byte, error)`      | Standard JSON marshaler.                                      |
+| `UnmarshalJSON()`        | `error`                | Standard JSON unmarshaler.                                    |
+| `MarshalYAML()`          | `(interface{}, error)` | Standard YAML (v3) marshaler.                                 |
+| `UnmarshalYAML()`        | `error`                | Standard YAML (v3) unmarshaler.                               |
+| `MarshalTOML()`          | `([]byte, error)`      | Standard TOML marshaler.                                      |
+| `UnmarshalTOML()`        | `error`                | Standard TOML unmarshaler.                                    |
+| `MarshalText()`          | `([]byte, error)`      | Standard Text marshaler.                                      |
+| `UnmarshalText()`        | `error`                | Standard Text unmarshaler.                                    |
+| `MarshalCBOR()`          | `([]byte, error)`      | Standard CBOR marshaler.                                      |
+| `UnmarshalCBOR()`        | `error`                | Standard CBOR unmarshaler.                                    |
 
 ---
 
@@ -783,79 +370,60 @@ go test -v -cover
 
 Contributions are welcome! Please follow these guidelines:
 
-**Code Contributions**
-- Do not use AI to generate package implementation code
-- AI may assist with tests, documentation, and bug fixing
-- All contributions must pass existing tests
-- Maintain or improve test coverage
-- Follow existing code style
+1. **Code Quality**
+    - Follow Go best practices and idioms.
+    - Maintain or improve code coverage (Target: >85%, currently **88.2%**).
+    - Pass all tests including race detector.
+    - Use `gofmt`, `golangci-lint` and `gosec`.
 
-**Documentation**
-- Update README.md for new features
-- Add examples for common use cases
-- Keep TESTING.md synchronized
-- Document all public APIs with GoDoc
+2. **AI Usage Policy**
+    - ❌ **AI must NEVER be used** to generate package code or core functionality.
+    - ✅ **AI assistance is limited to**:
+        - Testing (writing and improving tests).
+        - Debugging (troubleshooting and bug resolution).
+        - Documentation (comments, README, TESTING.md).
+    - All AI-assisted work must be reviewed and validated by humans.
 
-**Testing**
-- Write tests for all new features
-- Test edge cases (overflow, underflow, invalid input)
-- Verify encoding/decoding works correctly
-- Include benchmarks for performance-critical code
+3. **Testing**
+    - Add tests for new features.
+    - Use Ginkgo v2 / Gomega for test framework.
+    - Ensure zero race conditions.
+    - Maintain coverage above 80%.
 
-**Pull Requests**
-- Provide clear description of changes
-- Reference related issues
-- Include test results
-- Update documentation
+4. **Documentation**
+    - Update GoDoc comments for public APIs.
+    - Add examples for new features.
+    - Update README.md and TESTING.md if needed.
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for detailed guidelines.
-
----
-
-## Future Enhancements
-
-Potential improvements for future versions:
-
-**Standard Duration**
-- More time units (weeks, months, years)
-- Duration arithmetic helpers (min, max, clamp)
-- Duration formatting templates
-- Localization support for parsing/formatting
-
-**Big Duration**
-- Decimal precision (sub-second support)
-- Overflow detection and handling
-- More conversion helpers (to/from various types)
-- Performance optimizations for very large values
-
-**Both Packages**
-- Interactive duration calculator
-- Visual duration comparison tools
-- More encoding formats (MessagePack, etc.)
-- Duration validation helpers
-
-Suggestions and contributions are welcome via GitHub issues.
+5. **Pull Request Process**
+    - Fork the repository.
+    - Create a feature branch.
+    - Write clear commit messages.
+    - Ensure all tests pass.
+    - Update documentation.
+    - Submit PR with description of changes.
 
 ---
 
-## Related Documentation
+## Resources
 
-### Go Standard Library
-- **[time](https://pkg.go.dev/time)** - Standard time package
-- **[time.Duration](https://pkg.go.dev/time#Duration)** - Standard duration type
+### Package Documentation
+- **[TESTING.md](TESTING.md)** - Coverage and benchmark details.
 
-### Encoding Libraries
-- **[encoding/json](https://pkg.go.dev/encoding/json)** - JSON encoding
-- **[gopkg.in/yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3)** - YAML encoding
-- **[github.com/pelletier/go-toml](https://github.com/pelletier/go-toml)** - TOML encoding
-- **[github.com/fxamacker/cbor](https://github.com/fxamacker/cbor)** - CBOR encoding
+### Subpackage Documentation
+- **[big/README.md](big/README.md)** - Astronomical duration documentation.
 
-### Configuration
-- **[Viper](https://github.com/spf13/viper)** - Configuration management
+### Related golib Packages
+- **[github.com/nabbar/golib/pidcontroller](https://github.com/nabbar/golib/tree/main/pidcontroller)** - The core engine for range generation.
 
-### Related Golib Packages
-- **[config](../config/README.md)** - Configuration management
-- **[logger](../logger/README.md)** - Logging (used in examples)
+### External References
+- **[Go time Package](https://pkg.go.dev/time)** - Base implementation details.
+
+---
+
+## AI Transparency
+
+In compliance with EU AI Act Article 50.4: AI assistance was used for testing, documentation, and bug resolution under human supervision. All core functionality is human-designed and validated.
 
 ---
 
@@ -863,18 +431,4 @@ Suggestions and contributions are welcome via GitHub issues.
 
 MIT License - See [LICENSE](../../LICENSE) file for details.
 
-Copyright (c) 2022 Nicolas JUHEL
-
----
-
-## Resources
-
-- **Issues**: [GitHub Issues](https://github.com/nabbar/golib/issues)
-- **Documentation**: [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/duration)
-- **Testing Guide**: [TESTING.md](TESTING.md)
-- **Contributing**: [CONTRIBUTING.md](../../CONTRIBUTING.md)
-- **Source Code**: [GitHub Repository](https://github.com/nabbar/golib)
-
----
-
-*This package is part of the [golib](https://github.com/nabbar/golib) project.*
+Copyright (c) 2020-2026 Nicolas JUHEL

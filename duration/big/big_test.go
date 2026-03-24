@@ -28,6 +28,7 @@ package big_test
 
 import (
 	"encoding/json"
+	"fmt"
 
 	durbig "github.com/nabbar/golib/duration/big"
 	"github.com/pelletier/go-toml"
@@ -53,16 +54,19 @@ func yamlDuration() []byte {
 }
 
 func tomlDuration() []byte {
-	return []byte(`value = "5d23h15m13s"
-`)
+	return []byte(fmt.Sprintf("value = %q\n", "5d23h15m13s"))
 }
 
 var _ = Describe("duration/big", func() {
 	Context("decoding value from json, yaml, toml", func() {
 		var (
 			err error
-			obj = StructExample{}
+			obj StructExample
 		)
+
+		BeforeEach(func() {
+			obj = StructExample{}
+		})
 
 		It("success when json decoding", func() {
 			err = json.Unmarshal(jsonDuration(), &obj)
@@ -76,7 +80,13 @@ var _ = Describe("duration/big", func() {
 			Expect(obj.Value).To(Equal(valueExample.Value))
 		})
 
-		It("success when toml decoding", func() {
+		It("success when pelletier/go-toml decoding", func() {
+			err = toml.Unmarshal(tomlDuration(), &obj)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(obj.Value).To(Equal(valueExample.Value))
+		})
+
+		It("success when BurntSushi/toml decoding", func() {
 			err = toml.Unmarshal(tomlDuration(), &obj)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(obj.Value).To(Equal(valueExample.Value))
@@ -108,7 +118,7 @@ var _ = Describe("duration/big", func() {
 			Expect(str).To(Equal(exp))
 		})
 
-		It("success when toml encoding", func() {
+		It("success when pelletier/go-toml encoding", func() {
 			res, err = toml.Marshal(&valueExample)
 			str = string(res)
 			exp = string(tomlDuration())

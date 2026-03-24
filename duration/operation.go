@@ -32,67 +32,30 @@ import (
 	libpid "github.com/nabbar/golib/pidcontroller"
 )
 
-var (
-	DefaultRateProportional float64 = 0.1
-	DefaultRateIntegral     float64 = 0.01
-	DefaultRateDerivative   float64 = 0.05
-)
+// DefaultRateProportional is the default proportional rate for the PID controller used in range generation.
+var DefaultRateProportional float64 = 0.1
 
-// RangeCtxTo generates a list of durations from d to dur, spaced according to the given PID controller parameters.
+// DefaultRateIntegral is the default integral rate for the PID controller used in range generation.
+var DefaultRateIntegral float64 = 0.01
+
+// DefaultRateDerivative is the default derivative rate for the PID controller used in range generation.
+var DefaultRateDerivative float64 = 0.05
+
+// RangeCtxTo generates a slice of durations from the receiver 'd' to the 'dur' parameter.
+// The spacing between durations is determined by a PID controller, allowing for non-linear intervals.
+// This is useful for scenarios like exponential backoff or other adaptive timing strategies.
 //
-// The first element of the list is the start duration (d), and the last element is the end duration (dur).
-// If the list has less than 3 elements, the start and end durations are added to the list.
+// The context 'ctx' can be used to cancel the generation process.
+// The 'rateP', 'rateI', and 'rateD' parameters configure the Proportional, Integral, and Derivative
+// components of the PID controller, respectively.
 //
-// If the first element of the list is greater than the start duration, the start duration is added to the beginning of the list.
-//
-// If the last element of the list is less than the end duration, the end duration is added to the end of the list.
-//
-// The PID controller parameters are:
-// - rateP: the proportional rate
-// - rateI: the integral rate
-// - rateD: the derivative rate
-//
-// The context is used to cancel the range generation if the context is canceled before the range is fully generated.
+// The resulting slice is guaranteed to start with 'd' and end with 'dur'.
 func (d Duration) RangeCtxTo(ctx context.Context, dur Duration, rateP, rateI, rateD float64) []Duration {
-	var (
-		p = libpid.New(rateP, rateI, rateD)
-		r = make([]Duration, 0)
-	)
-
-	for _, v := range p.RangeCtx(ctx, d.Float64(), dur.Float64()) {
-		r = append(r, ParseFloat64(v).TruncateSeconds())
-	}
-
-	if len(r) < 3 {
-		r = append(make([]Duration, 0), d, dur)
-	}
-
-	if r[0] > d {
-		r = append(append(make([]Duration, 0), d), r...)
-	}
-
-	if r[len(r)-1] < dur {
-		r = append(r, dur)
-	}
-
-	return r
+	return rangeCtx(ctx, d, dur, rateP, rateI, rateD)
 }
 
-// RangeTo generates a list of durations from d to dur, spaced according to the given PID controller parameters.
-//
-// The first element of the list is the start duration (d), and the last element is the end duration (dur).
-// If the list has less than 3 elements, the start and end durations are added to the list.
-//
-// If the first element of the list is greater than the start duration, the start duration is added to the beginning of the list.
-//
-// If the last element of the list is less than the end duration, the end duration is added to the end of the list.
-//
-// The PID controller parameters are:
-// - rateP: the proportional rate
-// - rateI: the integral rate
-// - rateD: the derivative rate
-//
-// If the context is canceled before the range is fully generated, the function will return an empty list.
+// RangeTo is a convenience wrapper for RangeCtxTo that uses a background context with a 5-second timeout.
+// It generates a slice of durations from the receiver 'd' to 'dur' using the specified PID controller rates.
 func (d Duration) RangeTo(dur Duration, rateP, rateI, rateD float64) []Duration {
 	ctx, cnl := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cnl()
@@ -100,75 +63,26 @@ func (d Duration) RangeTo(dur Duration, rateP, rateI, rateD float64) []Duration 
 	return d.RangeCtxTo(ctx, dur, rateP, rateI, rateD)
 }
 
-// RangeDefTo generates a list of durations from d to dur, spaced according to the default PID controller parameters.
-//
-// The first element of the list is the start duration (d), and the last element is the end duration (dur).
-// If the list has less than 3 elements, the start and end durations are added to the list.
-//
-// If the first element of the list is greater than the start duration, the start duration is added to the beginning of the list.
-//
-// If the last element of the list is less than the end duration, the end duration is added to the end of the list.
+// RangeDefTo is a convenience wrapper for RangeTo that uses the default PID controller rates
+// (DefaultRateProportional, DefaultRateIntegral, DefaultRateDerivative).
+// It generates a slice of durations from the receiver 'd' to 'dur'.
 func (d Duration) RangeDefTo(dur Duration) []Duration {
 	return d.RangeTo(dur, DefaultRateProportional, DefaultRateIntegral, DefaultRateDerivative)
 }
 
-// RangeCtxFrom generates a list of durations from dur to d, spaced according to the given PID controller parameters.
+// RangeCtxFrom generates a slice of durations from 'dur' up to the receiver 'd'.
+// It is the reverse of RangeCtxTo, using the same PID-controlled spacing logic.
 //
-// The first element of the list is the end duration (dur), and the last element is the start duration (d).
-// If the list has less than 3 elements, the start and end durations are added to the list.
+// The context 'ctx' can be used to cancel the generation process.
+// The 'rateP', 'rateI', and 'rateD' parameters configure the PID controller.
 //
-// If the first element of the list is greater than the end duration, the end duration is added to the beginning of the list.
-//
-// If the last element of the list is less than the start duration, the start duration is added to the end of the list.
-//
-// The PID controller parameters are:
-// - rateP: the proportional rate
-// - rateI: the integral rate
-// - rateD: the derivative rate
-//
-// The context is used to cancel the range generation if the context is canceled before the range is fully generated.
-// If the context is canceled before the range is fully generated, the function will return an empty list.
+// The resulting slice is guaranteed to start with 'dur' and end with 'd'.
 func (d Duration) RangeCtxFrom(ctx context.Context, dur Duration, rateP, rateI, rateD float64) []Duration {
-	var (
-		p = libpid.New(rateP, rateI, rateD)
-		r = make([]Duration, 0)
-	)
-
-	for _, v := range p.RangeCtx(ctx, dur.Float64(), d.Float64()) {
-		r = append(r, ParseFloat64(v).TruncateSeconds())
-	}
-
-	if len(r) < 3 {
-		r = append(make([]Duration, 0), d, dur)
-	}
-
-	if r[0] > dur {
-		r = append(append(make([]Duration, 0), dur), r...)
-	}
-
-	if r[len(r)-1] < d {
-		r = append(r, d)
-	}
-
-	return r
+	return rangeCtx(ctx, dur, d, rateP, rateI, rateD)
 }
 
-// RangeFrom generates a list of durations from dur to d, spaced according to the given PID controller parameters.
-//
-// The first element of the list is the end duration (dur), and the last element is the start duration (d).
-// If the list has less than 3 elements, the start and end durations are added to the list.
-//
-// If the first element of the list is greater than the end duration, the end duration is added to the beginning of the list.
-//
-// If the last element of the list is less than the start duration, the start duration is added to the end of the list.
-//
-// The PID controller parameters are:
-// - rateP: the proportional rate
-// - rateI: the integral rate
-// - rateD: the derivative rate
-//
-// The context is used to cancel the range generation if the context is canceled before the range is fully generated.
-// If the context is canceled before the range is fully generated, the function will return an empty list.
+// RangeFrom is a convenience wrapper for RangeCtxFrom that uses a background context with a 5-second timeout.
+// It generates a slice of durations from 'dur' to the receiver 'd' using the specified PID controller rates.
 func (d Duration) RangeFrom(dur Duration, rateP, rateI, rateD float64) []Duration {
 	ctx, cnl := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cnl()
@@ -176,14 +90,82 @@ func (d Duration) RangeFrom(dur Duration, rateP, rateI, rateD float64) []Duratio
 	return d.RangeCtxFrom(ctx, dur, rateP, rateI, rateD)
 }
 
-// RangeDefFrom generates a list of durations from dur to d, spaced according to the default PID controller parameters.
-//
-// The first element of the list is the end duration (dur), and the last element is the start duration (d).
-// If the list has less than 3 elements, the start and end durations are added to the list.
-//
-// If the first element of the list is greater than the end duration, the end duration is added to the beginning of the list.
-//
-// If the last element of the list is less than the start duration, the start duration is added to the end of the list.
+// RangeDefFrom is a convenience wrapper for RangeFrom that uses the default PID controller rates.
+// It generates a slice of durations from 'dur' to the receiver 'd'.
 func (d Duration) RangeDefFrom(dur Duration) []Duration {
 	return d.RangeFrom(dur, DefaultRateProportional, DefaultRateIntegral, DefaultRateDerivative)
+}
+
+// rangeCtx is the internal implementation for generating a PID-controlled range of durations.
+// It automatically selects the most appropriate time unit (from nanoseconds to days) based on the
+// magnitude of the 'from' and 'to' durations to ensure reasonable precision.
+func rangeCtx(ctx context.Context, from, to Duration, rateP, rateI, rateD float64) []Duration {
+	var (
+		p = libpid.New(rateP, rateI, rateD)
+		r = make([]Duration, 0)
+		u func(int64) Duration
+		f float64
+		t float64
+	)
+
+	// Select the largest common unit for precision.
+	switch {
+	case from.IsDays() && to.IsDays():
+		u = Days
+		f = libpid.Int64ToFloat64(from.Days())
+		t = libpid.Int64ToFloat64(to.Days())
+	case from.IsHours() && to.IsHours():
+		u = Hours
+		f = libpid.Int64ToFloat64(from.Hours())
+		t = libpid.Int64ToFloat64(to.Hours())
+	case from.IsMinutes() && to.IsMinutes():
+		u = Minutes
+		f = libpid.Int64ToFloat64(from.Minutes())
+		t = libpid.Int64ToFloat64(to.Minutes())
+	case from.IsSeconds() && to.IsSeconds():
+		u = Seconds
+		f = libpid.Int64ToFloat64(from.Seconds())
+		t = libpid.Int64ToFloat64(to.Seconds())
+	case from.IsMilliseconds() && to.IsMilliseconds():
+		u = Milliseconds
+		f = libpid.Int64ToFloat64(from.Milliseconds())
+		t = libpid.Int64ToFloat64(to.Milliseconds())
+	case from.IsMicroseconds() && to.IsMicroseconds():
+		u = Microseconds
+		f = libpid.Int64ToFloat64(from.Microseconds())
+		t = libpid.Int64ToFloat64(to.Microseconds())
+	default: // Default to nanoseconds for highest precision if units are mixed or small.
+		u = Nanoseconds
+		f = libpid.Int64ToFloat64(from.Nanoseconds())
+		t = libpid.Int64ToFloat64(to.Nanoseconds())
+	}
+
+	// Generate the range using the PID controller.
+	for _, v := range p.RangeCtx(ctx, f, t) {
+		r = append(r, u(libpid.Float64ToInt64(v)))
+	}
+
+	// Ensure the generated range is strictly within the [from, to] bounds.
+	for len(r) > 0 && r[0] < from {
+		r = r[1:]
+	}
+
+	if len(r) > 0 && r[0] > from {
+		r = append([]Duration{from}, r...)
+	}
+
+	for len(r) > 0 && r[len(r)-1] > to {
+		r = r[:len(r)-1]
+	}
+
+	if len(r) > 0 && r[len(r)-1] < to {
+		r = append(r, to)
+	}
+
+	// Ensure at least the start and end points are in the slice.
+	if len(r) < 2 {
+		return []Duration{from, to}
+	}
+
+	return r
 }

@@ -43,10 +43,12 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should create valid decoder hook", func() {
+			// TC-MD-001
 			Expect(hook).ToNot(BeNil())
 		})
 
 		It("should decode string to Duration", func() {
+			// TC-MD-002
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := "5h30m"
@@ -62,6 +64,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should decode duration with days", func() {
+			// TC-MD-003
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := "2d12h"
@@ -75,6 +78,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should pass through non-string types", func() {
+			// TC-MD-004
 			fromType := reflect.TypeOf(0)
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := 12345
@@ -86,6 +90,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should pass through when target is not Duration", func() {
+			// TC-MD-005
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(time.Duration(0))
 			data := "5h30m"
@@ -97,6 +102,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should pass through when data is not string type", func() {
+			// TC-MD-006
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := 12345 // Not a string
@@ -108,6 +114,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should return error for invalid duration string", func() {
+			// TC-MD-007
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := "invalid"
@@ -118,6 +125,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should handle zero duration", func() {
+			// TC-MD-008
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := "0s"
@@ -131,6 +139,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should handle negative duration", func() {
+			// TC-MD-009
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := "-5h"
@@ -144,6 +153,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should handle complex duration strings", func() {
+			// TC-MD-010
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := "5d23h15m13s"
@@ -158,6 +168,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should handle duration strings with spaces", func() {
+			// TC-MD-011
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := " 5h 30m "
@@ -171,6 +182,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should handle duration strings with quotes", func() {
+			// TC-MD-012
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(libdur.Duration(0))
 			data := `"5h30m"`
@@ -184,6 +196,7 @@ var _ = Describe("Duration Model Operations", func() {
 		})
 
 		It("should handle all supported units", func() {
+			// TC-MD-013
 			units := map[string]time.Duration{
 				"100ns": 100 * time.Nanosecond,
 				"100us": 100 * time.Microsecond,

@@ -36,6 +36,66 @@ const (
 	maxDuration Duration = 1<<63 - 1
 )
 
+// IsDays checks if the duration is at least one day.
+//
+// It returns true if the duration represents 24 hours or more,
+// false otherwise.
+//
+// Example:
+//
+//	d := Days(1)
+//	if d.IsDays() {
+//	    fmt.Println("At least one day")
+//	}
+func (d Duration) IsDays() bool {
+	return d >= Days(1)
+}
+
+// IsHours checks if the duration is at least one hour.
+//
+// It returns true if the duration represents 60 minutes or more,
+// false otherwise.
+//
+// Example:
+//
+//	d := Hours(1)
+//	if d.IsHours() {
+//	    fmt.Println("At least one hour")
+//	}
+func (d Duration) IsHours() bool {
+	return d >= Hours(1)
+}
+
+// IsMinutes checks if the duration is at least one minute.
+//
+// It returns true if the duration represents 60 seconds or more,
+// false otherwise.
+//
+// Example:
+//
+//	d := Minutes(1)
+//	if d.IsMinutes() {
+//	    fmt.Println("At least one minute")
+//	}
+func (d Duration) IsMinutes() bool {
+	return d >= Minutes(1)
+}
+
+// IsSeconds checks if the duration is at least one second.
+//
+// It returns true if the duration represents 1 second or more,
+// false otherwise.
+//
+// Example:
+//
+//	d := Seconds(1)
+//	if d.IsSeconds() {
+//	    fmt.Println("At least one second")
+//	}
+func (d Duration) IsSeconds() bool {
+	return d >= Seconds(1)
+}
+
 // ViperDecoderHook is a libmap.DecodeHookFuncType that is used to decode strings into Duration values.
 // It takes a reflect.Type, a reflect.Type, and an interface{} as parameters, and returns an interface{} and an error.
 // If the data type is not a string, it returns the data as is and a nil error.

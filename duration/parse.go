@@ -32,7 +32,13 @@ import (
 	"time"
 )
 
+// errLeadingInt is a private error used to signal an issue with parsing a leading integer from a string.
+// It is not exposed to the user but helps in internal error handling.
 var errLeadingInt = errors.New("time: bad [0-9]*") // never printed
+
+// unitMap maps the string representation of time units to their corresponding duration in nanoseconds (as uint64).
+// It supports standard units like "ns", "us", "ms", "s", "m", "h", and the custom "d" for days.
+// It also includes Unicode symbols for microseconds.
 var unitMap = map[string]uint64{
 	"ns": uint64(time.Nanosecond),
 	"us": uint64(time.Microsecond),
@@ -45,6 +51,8 @@ var unitMap = map[string]uint64{
 	"d":  uint64(24 * time.Hour),
 }
 
+// parseString is an internal helper that cleans and parses a duration string.
+// It removes quotes and spaces before passing the string to the main parsing logic.
 func parseString(s string) (Duration, error) {
 	s = strings.Replace(s, "\"", "", -1) // nolint
 	s = strings.Replace(s, "'", "", -1)  // nolint
@@ -54,6 +62,8 @@ func parseString(s string) (Duration, error) {
 	return parseDuration(s)
 }
 
+// parseString is a method on the Duration pointer that allows a Duration object to be updated by parsing a string.
+// It's primarily used for unmarshalling tasks where the duration object already exists.
 func (d *Duration) parseString(s string) error {
 	if v, e := parseString(s); e != nil {
 		return e
@@ -63,6 +73,8 @@ func (d *Duration) parseString(s string) error {
 	}
 }
 
+// unmarshall is a helper method for unmarshalling a duration from a byte slice.
+// It wraps the ParseByte function to update the value of the Duration pointer.
 func (d *Duration) unmarshall(val []byte) error {
 	if tmp, err := ParseByte(val); err != nil {
 		return err
@@ -72,19 +84,18 @@ func (d *Duration) unmarshall(val []byte) error {
 	}
 }
 
-// parseDuration parses a duration string.
-// code from time.ParseDuration
-// A duration string is a possibly signed sequence of
-// decimal numbers, each with optional fraction and a unit suffix,
-// such as "300ms", "-1.5h" or "2h45m".
-// Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h", "d".
+// parseDuration is the core parsing logic, adapted from the standard library's time.ParseDuration.
+// It parses a duration string, which is a sequence of decimal numbers with optional fractions and unit suffixes.
+// It supports "d" for days in addition to standard units ("ns", "us", "ms", "s", "m", "h").
+// The string can be signed (e.g., "-1.5h").
 func parseDuration(s string) (Duration, error) {
+	// The overall structure is a signed sequence of segments, like:
 	// [-+]?([0-9]*(\.[0-9]*)?[a-z]+)+
 	orig := s
 	var d uint64
 	neg := false
 
-	// Consume [-+]?
+	// Consume optional sign prefix.
 	if s != "" {
 		c := s[0]
 
@@ -94,7 +105,7 @@ func parseDuration(s string) (Duration, error) {
 		}
 	}
 
-	// Special case: if all that is left is "0", this is zero.
+	// Special case: "0" is a zero duration.
 	if s == "0" {
 		return 0, nil
 	}
@@ -105,27 +116,27 @@ func parseDuration(s string) (Duration, error) {
 
 	for s != "" {
 		var (
-			v, f  uint64      // integers before, after decimal point
-			scale float64 = 1 // value = v + f/scale
+			v, f  uint64      // integers before and after the decimal point
+			scale float64 = 1 // scale factor for the fractional part
 		)
 
 		var err error
 
-		// The next character must be [0-9.]
+		// The next character must be a digit or a period.
 		if !(s[0] == '.' || '0' <= s[0] && s[0] <= '9') { // nolint
 			return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 		}
 
-		// Consume [0-9]*
+		// Consume the integer part of the number.
 		pl := len(s)
 		v, s, err = leadingInt(s)
 		if err != nil {
 			return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 		}
 
-		pre := pl != len(s) // whether we consumed anything before a period
+		pre := pl != len(s) // check if we consumed any digits
 
-		// Consume (\.[0-9]*)?
+		// Consume the fractional part of the number.
 		post := false
 		if s != "" && s[0] == '.' {
 			s = s[1:]
@@ -135,15 +146,14 @@ func parseDuration(s string) (Duration, error) {
 		}
 
 		if !pre && !post {
-			// no digits (e.g. ".s" or "-.s")
+			// No digits were found (e.g., ".s" or "-.s").
 			return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 		}
 
-		// Consume unit.
+		// Consume the unit suffix.
 		i := 0
 		for ; i < len(s); i++ {
 			c := s[i]
-
 			if c == '.' || '0' <= c && c <= '9' {
 				break
 			}
@@ -161,28 +171,25 @@ func parseDuration(s string) (Duration, error) {
 			return 0, fmt.Errorf("time: unknown unit '%s' in duration '%s'", u, orig)
 		}
 
+		// Check for overflow when scaling the integer part by the unit.
 		if v > 1<<63/unit {
-			// overflow
-			return 0, fmt.Errorf("time: invalid duration '%s'", orig)
+			return 0, fmt.Errorf("time: invalid duration '%s' (overflow)", orig)
 		}
 
 		v *= unit
 
+		// Add the fractional part, scaled appropriately.
 		if f > 0 {
-			// float64 is needed to be nanosecond accurate for fractions of hours.
-			// v >= 0 && (f*unit/scale) <= 3.6e+12 (ns/h, h is the largest unit)
 			v += uint64(float64(f) * (float64(unit) / scale))
-
 			if v > 1<<63 {
-				// overflow
-				return 0, fmt.Errorf("time: invalid duration '%s'", orig)
+				return 0, fmt.Errorf("time: invalid duration '%s' (overflow)", orig)
 			}
 		}
 
 		d += v
 
 		if d > 1<<63 {
-			return 0, fmt.Errorf("time: invalid duration '%s'", orig)
+			return 0, fmt.Errorf("time: invalid duration '%s' (overflow)", orig)
 		}
 	}
 
@@ -191,13 +198,14 @@ func parseDuration(s string) (Duration, error) {
 	}
 
 	if d > 1<<63-1 {
-		return 0, fmt.Errorf("time: invalid duration '%s'", orig)
+		return 0, fmt.Errorf("time: invalid duration '%s' (overflow)", orig)
 	}
 
 	return Duration(d), nil
 }
 
-// leadingInt consumes the leading [0-9]* from s.
+// leadingInt consumes a leading integer from a byte slice or string.
+// It returns the parsed integer, the remaining part of the string, and an error on overflow.
 func leadingInt[bytes []byte | string](s bytes) (x uint64, rem bytes, err error) {
 	i := 0
 	for ; i < len(s); i++ {
@@ -207,15 +215,15 @@ func leadingInt[bytes []byte | string](s bytes) (x uint64, rem bytes, err error)
 			break
 		}
 
+		// Check for overflow before multiplication.
 		if x > 1<<63/10 {
-			// overflow
 			return 0, rem, errLeadingInt
 		}
 
 		x = x*10 + uint64(c) - '0'
 
+		// Check for overflow after addition.
 		if x > 1<<63 {
-			// overflow
 			return 0, rem, errLeadingInt
 		}
 	}
@@ -223,9 +231,9 @@ func leadingInt[bytes []byte | string](s bytes) (x uint64, rem bytes, err error)
 	return x, s[i:], nil
 }
 
-// leadingFraction consumes the leading [0-9]* from s.
-// It is used only for fractions, so does not return an error on overflow,
-// it just stops accumulating precision.
+// leadingFraction consumes a leading fractional part of a number from a string.
+// It returns the parsed fraction as an integer, its scale, and the remainder of the string.
+// It doesn't return an error on overflow but simply stops accumulating precision to avoid panics.
 func leadingFraction(s string) (x uint64, scale float64, rem string) {
 	i := 0
 	scale = 1
@@ -242,14 +250,15 @@ func leadingFraction(s string) (x uint64, scale float64, rem string) {
 			continue
 		}
 
+		// Check for potential overflow before multiplication.
 		if x > (1<<63-1)/10 {
-			// It's possible for overflow to give a positive number, so take care.
 			overflow = true
 			continue
 		}
 
 		y := x*10 + uint64(c) - '0'
 
+		// Check for overflow after addition.
 		if y > 1<<63 {
 			overflow = true
 			continue

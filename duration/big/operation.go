@@ -33,9 +33,9 @@ import (
 )
 
 var (
-	DefaultRateProportional float64 = 0.1
-	DefaultRateIntegral     float64 = 0.01
-	DefaultRateDerivative   float64 = 0.05
+	DefaultRateProportional = 0.1
+	DefaultRateIntegral     = 0.01
+	DefaultRateDerivative   = 0.05
 )
 
 // Abs returns the absolute value of the duration.
@@ -72,28 +72,7 @@ func (d Duration) Abs() Duration {
 // To prevent this long time, the context is used to cancel the calculation before ending.
 // If the context is canceled before the range is fully generated, the function will return an empty list.
 func (d Duration) RangeCtxTo(ctx context.Context, dur Duration, rateP, rateI, rateD float64) []Duration {
-	var (
-		p = libpid.New(rateP, rateI, rateD)
-		r = make([]Duration, 0)
-	)
-
-	for _, v := range p.RangeCtx(ctx, d.Float64(), dur.Float64()) {
-		r = append(r, ParseFloat64(v))
-	}
-
-	if len(r) < 3 {
-		r = append(make([]Duration, 0), d, dur)
-	}
-
-	if r[0] > d {
-		r = append(append(make([]Duration, 0), d), r...)
-	}
-
-	if r[len(r)-1] < dur {
-		r = append(r, dur)
-	}
-
-	return r
+	return rangeCtx(ctx, d, dur, rateP, rateI, rateD)
 }
 
 // RangeTo generates a list of durations from d to dur, spaced according to the given PID controller parameters.
@@ -157,28 +136,7 @@ func (d Duration) RangeDefTo(dur Duration) []Duration {
 // To prevent this long time, the context is used to cancel the calculation before ending.
 // If the context is canceled before the range is fully generated, the function will return an empty list.
 func (d Duration) RangeCtxFrom(ctx context.Context, dur Duration, rateP, rateI, rateD float64) []Duration {
-	var (
-		p = libpid.New(rateP, rateI, rateD)
-		r = make([]Duration, 0)
-	)
-
-	for _, v := range p.RangeCtx(ctx, dur.Float64(), d.Float64()) {
-		r = append(r, ParseFloat64(v))
-	}
-
-	if len(r) < 3 {
-		r = append(make([]Duration, 0), d, dur)
-	}
-
-	if r[0] > dur {
-		r = append(append(make([]Duration, 0), dur), r...)
-	}
-
-	if r[len(r)-1] < d {
-		r = append(r, d)
-	}
-
-	return r
+	return rangeCtx(ctx, dur, d, rateP, rateI, rateD)
 }
 
 // RangeFrom generates a list of durations from dur to d, spaced according to the given PID controller parameters.
@@ -222,4 +180,111 @@ func (d Duration) RangeFrom(dur Duration, rateP, rateI, rateD float64) []Duratio
 // - rateD: the derivative rate
 func (d Duration) RangeDefFrom(dur Duration) []Duration {
 	return d.RangeFrom(dur, DefaultRateProportional, DefaultRateIntegral, DefaultRateDerivative)
+}
+
+func rangeCtx(ctx context.Context, from, to Duration, rateP, rateI, rateD float64) []Duration {
+	var (
+		p        = libpid.New(rateP, rateI, rateD)
+		r        = make([]Duration, 0)
+		f        float64
+		t        float64
+		unitFunc func(int64) Duration
+	)
+
+	// Determine the smallest unit of change to use for the range
+	// We want to avoid using too small a unit if the range is large,
+	// but we need enough precision.
+	// However, the original logic seems to try to match the "type" of duration.
+	// Since Duration is just an int64 of seconds, we should probably stick to seconds
+	// or the largest common unit.
+	// But let's keep the logic close to what it was, but fixed for potential bugs.
+
+	switch {
+	case from.IsDays() && to.IsDays():
+		unitFunc = Days
+		f = libpid.Int64ToFloat64(from.Days())
+		t = libpid.Int64ToFloat64(to.Days())
+	case from.IsHours() && to.IsHours():
+		unitFunc = Hours
+		f = libpid.Int64ToFloat64(from.Hours())
+		t = libpid.Int64ToFloat64(to.Hours())
+	case from.IsMinutes() && to.IsMinutes():
+		unitFunc = Minutes
+		f = libpid.Int64ToFloat64(from.Minutes())
+		t = libpid.Int64ToFloat64(to.Minutes())
+	default:
+		unitFunc = Seconds
+		f = libpid.Int64ToFloat64(from.Seconds())
+		t = libpid.Int64ToFloat64(to.Seconds())
+	}
+
+	// Generate range using PID controller
+	for _, v := range p.RangeCtx(ctx, f, t) {
+		r = append(r, unitFunc(libpid.Float64ToInt64(v)))
+	}
+
+	// Post-processing to ensure start and end points are correct and list is valid
+	if len(r) == 0 {
+		return []Duration{from, to}
+	}
+
+	// Ensure sorted order for filtering if from < to
+	// But RangeCtx might return values that overshoot/undershoot due to PID nature.
+	// We need to just ensure boundaries are respected roughly or strictly?
+	// The original code was doing some slicing.
+
+	// Let's assume the PID controller returns a path from f to t.
+
+	// Clean up start
+	if len(r) > 0 {
+		if from < to {
+			// Ascending
+			for len(r) > 0 && r[0] < from {
+				r = r[1:]
+			}
+			if len(r) > 0 && r[0] > from {
+				r = append([]Duration{from}, r...)
+			} else if len(r) == 0 {
+				r = []Duration{from}
+			} //  else r[0] == from, do nothing
+
+			// Clean up end
+			for len(r) > 0 && r[len(r)-1] > to {
+				r = r[:len(r)-1]
+			}
+			if len(r) > 0 && r[len(r)-1] < to {
+				r = append(r, to)
+			} else if len(r) == 0 {
+				r = append(r, to)
+			}
+
+		} else {
+			// Descending (from > to)
+			for len(r) > 0 && r[0] > from {
+				r = r[1:]
+			}
+			if len(r) > 0 && r[0] < from {
+				r = append([]Duration{from}, r...)
+			} else if len(r) == 0 {
+				r = []Duration{from}
+			}
+
+			// Clean up end
+			for len(r) > 0 && r[len(r)-1] < to {
+				r = r[:len(r)-1]
+			}
+			if len(r) > 0 && r[len(r)-1] > to {
+				r = append(r, to)
+			} else if len(r) == 0 {
+				r = append(r, to)
+			}
+		}
+	}
+
+	// Ensure at least start and end if list is too short
+	if len(r) < 2 {
+		return []Duration{from, to}
+	}
+
+	return r
 }

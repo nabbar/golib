@@ -26,6 +26,7 @@ package big_test
 
 import (
 	"reflect"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,6 +35,56 @@ import (
 )
 
 var _ = Describe("Big Duration Model Operations", func() {
+	Describe("Is Functions", func() {
+		It("should return true for IsDays when duration is >= 1 day", func() {
+			// TC-MD-015
+			Expect(durbig.Days(1).IsDays()).To(BeTrue())
+			Expect(durbig.Days(2).IsDays()).To(BeTrue())
+		})
+
+		It("should return false for IsDays when duration is < 1 day", func() {
+			// TC-MD-016
+			Expect(durbig.Hours(23).IsDays()).To(BeFalse())
+			Expect(durbig.Minutes(1439).IsDays()).To(BeFalse())
+		})
+
+		It("should return true for IsHours when duration is >= 1 hour", func() {
+			// TC-MD-017
+			Expect(durbig.Hours(1).IsHours()).To(BeTrue())
+			Expect(durbig.Hours(2).IsHours()).To(BeTrue())
+		})
+
+		It("should return false for IsHours when duration is < 1 hour", func() {
+			// TC-MD-018
+			Expect(durbig.Minutes(59).IsHours()).To(BeFalse())
+			Expect(durbig.Seconds(3599).IsHours()).To(BeFalse())
+		})
+
+		It("should return true for IsMinutes when duration is >= 1 minute", func() {
+			// TC-MD-019
+			Expect(durbig.Minutes(1).IsMinutes()).To(BeTrue())
+			Expect(durbig.Minutes(2).IsMinutes()).To(BeTrue())
+		})
+
+		It("should return false for IsMinutes when duration is < 1 minute", func() {
+			// TC-MD-020
+			Expect(durbig.Seconds(59).IsMinutes()).To(BeFalse())
+		})
+
+		It("should return true for IsSeconds when duration is >= 1 second", func() {
+			// TC-MD-021
+			Expect(durbig.Seconds(1).IsSeconds()).To(BeTrue())
+			Expect(durbig.Seconds(2).IsSeconds()).To(BeTrue())
+		})
+
+		It("should return false for IsSeconds when duration is < 1 second", func() {
+			// TC-MD-022
+			// Duration is an integer of seconds, so this can only happen for 0 or negative
+			Expect(durbig.Duration(0).IsSeconds()).To(BeFalse())
+			Expect(durbig.Duration(-1).IsSeconds()).To(BeFalse())
+		})
+	})
+
 	Describe("ViperDecoderHook", func() {
 		var hook func(reflect.Type, reflect.Type, interface{}) (interface{}, error)
 
@@ -42,10 +93,12 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should create valid decoder hook", func() {
+			// TC-MD-001
 			Expect(hook).ToNot(BeNil())
 		})
 
 		It("should decode string to Duration", func() {
+			// TC-MD-002
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := "5h30m"
@@ -61,6 +114,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should decode duration with days", func() {
+			// TC-MD-003
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := "2d12h"
@@ -75,6 +129,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should pass through non-string types", func() {
+			// TC-MD-004
 			fromType := reflect.TypeOf(0)
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := 12345
@@ -86,6 +141,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should pass through when target is not Duration", func() {
+			// TC-MD-005
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(0)
 			data := "5h30m"
@@ -97,6 +153,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should pass through when data is not string type", func() {
+			// TC-MD-006
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := 12345 // Not a string
@@ -108,6 +165,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should return error for invalid duration string", func() {
+			// TC-MD-007
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := "invalid"
@@ -118,6 +176,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle zero duration", func() {
+			// TC-MD-008
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := "0s"
@@ -131,6 +190,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle negative duration", func() {
+			// TC-MD-009
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := "-5h"
@@ -144,6 +204,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle complex duration strings", func() {
+			// TC-MD-010
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := "5d23h15m13s"
@@ -158,6 +219,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle duration strings with spaces", func() {
+			// TC-MD-011
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := " 5h 30m "
@@ -171,6 +233,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle duration strings with quotes", func() {
+			// TC-MD-012
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := `"5h30m"`
@@ -184,6 +247,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle all supported units", func() {
+			// TC-MD-013
 			units := map[string]durbig.Duration{
 				"10s": durbig.Seconds(10),
 				"5m":  durbig.Minutes(5),
@@ -206,6 +270,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle empty string as error", func() {
+			// TC-MD-014
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := ""
@@ -216,6 +281,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle very large durations", func() {
+			// TC-MD-023
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := "10000d"
@@ -229,6 +295,7 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 
 		It("should handle fractional duration strings", func() {
+			// TC-MD-024
 			fromType := reflect.TypeOf("")
 			toType := reflect.TypeOf(durbig.Duration(0))
 			data := "1.5h"
@@ -242,3 +309,47 @@ var _ = Describe("Big Duration Model Operations", func() {
 		})
 	})
 })
+
+func BenchmarkViperDecoderHook(b *testing.B) {
+	// TC-BM-001
+	hook := durbig.ViperDecoderHook()
+	fromType := reflect.TypeOf("")
+	toType := reflect.TypeOf(durbig.Duration(0))
+	data := "5d23h15m13s"
+
+	for i := 0; i < b.N; i++ {
+		_, _ = hook(fromType, toType, data)
+	}
+}
+
+func BenchmarkIsDays(b *testing.B) {
+	// TC-BM-002
+	d := durbig.Days(5)
+	for i := 0; i < b.N; i++ {
+		_ = d.IsDays()
+	}
+}
+
+func BenchmarkIsHours(b *testing.B) {
+	// TC-BM-003
+	d := durbig.Hours(5)
+	for i := 0; i < b.N; i++ {
+		_ = d.IsHours()
+	}
+}
+
+func BenchmarkIsMinutes(b *testing.B) {
+	// TC-BM-004
+	d := durbig.Minutes(5)
+	for i := 0; i < b.N; i++ {
+		_ = d.IsMinutes()
+	}
+}
+
+func BenchmarkIsSeconds(b *testing.B) {
+	// TC-BM-005
+	d := durbig.Seconds(5)
+	for i := 0; i < b.N; i++ {
+		_ = d.IsSeconds()
+	}
+}

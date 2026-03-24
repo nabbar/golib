@@ -95,6 +95,30 @@ func ParseByte(p []byte) (Duration, error) {
 	return parseString(string(p))
 }
 
+// Nanoseconds returns a Duration representing i nanoseconds.
+//
+// The returned Duration is a new Duration and does not modify the
+// underlying time.Duration.
+func Nanoseconds(i int64) Duration {
+	return Duration(i)
+}
+
+// Microseconds returns a Duration representing i microseconds.
+//
+// The returned Duration is a new Duration and does not modify the
+// underlying time.Duration.
+func Microseconds(i int64) Duration {
+	return Duration(i * int64(time.Microsecond))
+}
+
+// Milliseconds returns a Duration representing i milliseconds.
+//
+// The returned Duration is a new Duration and does not modify the
+// underlying time.Duration.
+func Milliseconds(i int64) Duration {
+	return Duration(i * int64(time.Millisecond))
+}
+
 // Seconds returns a Duration representing i seconds.
 //
 // The returned Duration is a new Duration and does not modify the
@@ -102,7 +126,7 @@ func ParseByte(p []byte) (Duration, error) {
 //
 // The function panics if i is larger than math.MaxInt64 or smaller than -math.MaxInt64.
 func Seconds(i int64) Duration {
-	return Duration(time.Duration(i) * time.Second)
+	return Duration(i * int64(time.Second))
 }
 
 // Minutes returns a Duration representing i minutes.
@@ -112,7 +136,7 @@ func Seconds(i int64) Duration {
 //
 // The function panics if i is larger than math.MaxInt64 or smaller than -math.MaxInt64.
 func Minutes(i int64) Duration {
-	return Duration(time.Duration(i) * time.Minute)
+	return Duration(i * int64(time.Minute))
 }
 
 // Hours returns a Duration representing i hours.
@@ -122,7 +146,7 @@ func Minutes(i int64) Duration {
 //
 // The function panics if i is larger than math.MaxInt64 or smaller than -math.MaxInt64.
 func Hours(i int64) Duration {
-	return Duration(time.Duration(i) * time.Hour)
+	return Duration(i * int64(time.Hour))
 }
 
 // Days returns a Duration representing i days.
@@ -134,7 +158,7 @@ func Hours(i int64) Duration {
 //
 // The duration is calculated by multiplying i by 24 hours (1 day).
 func Days(i int64) Duration {
-	return Duration(time.Duration(i) * time.Hour * 24)
+	return Duration(i * int64(time.Hour) * 24)
 }
 
 // ParseDuration returns a Duration representing d time.Duration.
@@ -179,6 +203,9 @@ func ParseFloat64(f float64) Duration {
 	}
 }
 
+// ParseUint32 returns a Duration representing i nanoseconds.
+// Since Duration is an int64 representing nanoseconds, a uint32 value
+// will always fit within the Duration type without overflow.
 func ParseUint32(i uint32) Duration {
 	if uint64(i) > uint64(math.MaxInt64) {
 		return Duration(math.MaxInt64)

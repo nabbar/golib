@@ -61,22 +61,29 @@ var _ = Describe("Duration Encoding/Decoding", func() {
 	Context("decoding value from json, yaml, toml", func() {
 		var (
 			err error
-			obj = StructExample{}
+			obj StructExample
 		)
 
+		BeforeEach(func() {
+			obj = StructExample{}
+		})
+
 		It("success when json decoding", func() {
+			// TC-BS-001
 			err = json.Unmarshal(jsonDuration(), &obj)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(obj.Value).To(Equal(valueExample.Value))
 		})
 
 		It("success when yaml decoding", func() {
+			// TC-BS-002
 			err = yaml.Unmarshal(yamlDuration(), &obj)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(obj.Value).To(Equal(valueExample.Value))
 		})
 
 		It("success when toml decoding", func() {
+			// TC-BS-003
 			err = toml.Unmarshal(tomlDuration(), &obj)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(obj.Value).To(Equal(valueExample.Value))
@@ -91,6 +98,7 @@ var _ = Describe("Duration Encoding/Decoding", func() {
 		)
 
 		It("success when json encoding", func() {
+			// TC-BS-004
 			res, err = json.Marshal(&valueExample)
 			str = string(res)
 			exp = string(jsonDuration())
@@ -100,6 +108,7 @@ var _ = Describe("Duration Encoding/Decoding", func() {
 		})
 
 		It("success when yaml encoding", func() {
+			// TC-BS-005
 			res, err = yaml.Marshal(&valueExample)
 			str = string(res)
 			exp = string(yamlDuration())
@@ -109,6 +118,7 @@ var _ = Describe("Duration Encoding/Decoding", func() {
 		})
 
 		It("success when toml encoding", func() {
+			// TC-BS-006
 			res, err = toml.Marshal(&valueExample)
 			str = string(res)
 			exp = string(tomlDuration())

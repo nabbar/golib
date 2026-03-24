@@ -39,11 +39,11 @@ import (
 	Running with $> ginkgo -cover .
 */
 
-// TestGolibEncodingHexHelper tests the Golib Hex Encoding Helper function.
-func TestGolibDurationHelper(t *testing.T) {
-	time.Sleep(500 * time.Millisecond)   // Adding delay for better testing synchronization
-	RegisterFailHandler(Fail)            // Registering fail handler for better test failure reporting
-	RunSpecs(t, "Duration Helper Suite") // Running the test suite for Encoding Hex Helper
+// TestGolibDuration tests the Golib Duration package.
+func TestGolibDuration(t *testing.T) {
+	time.Sleep(500 * time.Millisecond) // Adding delay for better testing synchronization
+	RegisterFailHandler(Fail)          // Registering fail handler for better test failure reporting
+	RunSpecs(t, "Duration Suite")      // Running the test suite for Encoding Hex Helper
 }
 
 var _ = BeforeSuite(func() {

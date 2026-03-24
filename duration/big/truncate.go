@@ -25,52 +25,50 @@
 
 package big
 
-// Round returns the result of rounding d toward zero to a multiple of unit.
-// If unit <= 0, Round returns d unchanged.
+// Round returns the result of rounding d to the nearest multiple of m.
+// The rounding behavior for halfway values is to round away from zero.
+// If the result exceeds the maximum (or minimum)
+// value that can be stored in a Duration, Round returns the maximum (or minimum) duration.
+// If m <= 0, Round returns d unchanged.
 //
-// If the remainder of d divided by unit is less than half of unit, Round returns d.
-// Otherwise, if d is negative, Round returns d - (d % unit) + unit.
-// Otherwise, Round returns d + (unit - d % unit).
+// Example:
 //
-// If the result of the rounding overflows, Round returns either minDuration or maxDuration.
+//	d := Seconds(10)
+//	r := d.Round(Seconds(3))
+//	fmt.Println(r) // Output: 9s
 func (d Duration) Round(unit Duration) Duration {
 	if unit <= 0 {
 		return d
 	}
 
 	r := d % unit
-
 	if d < 0 {
 		r = -r
-
 		if lessThanHalf(r, unit) {
 			return d + r
 		}
-
 		if d1 := d - unit + r; d1 < d {
 			return d1
 		}
-
 		return minDuration // overflow
 	}
-
 	if lessThanHalf(r, unit) {
 		return d - r
 	}
-
 	if d1 := d + unit - r; d1 > d {
 		return d1
 	}
-
 	return maxDuration // overflow
 }
 
 // Truncate returns the result of rounding d toward zero to a multiple of unit.
 // If unit <= 0, Truncate returns d unchanged.
-// Otherwise, it returns the duration d rounded to the nearest multiple of unit.
-// The rounding mode is to round half even up (i.e. if d is halfway between two multiples of unit,
-// it rounds up to the next multiple of unit).
-// For example, TruncateMinutes(ParseDuration("1.5m")) returns ParseDuration("2m").
+//
+// Example:
+//
+//	d := Seconds(10)
+//	t := d.Truncate(Seconds(3))
+//	fmt.Println(t) // Output: 9s
 func (d Duration) Truncate(unit Duration) Duration {
 	if unit <= 0 {
 		return d
@@ -79,35 +77,41 @@ func (d Duration) Truncate(unit Duration) Duration {
 }
 
 // TruncateMinutes returns the result of rounding d toward zero to a multiple of a minute.
-// If d is an exact multiple of a minute, it returns d unchanged.
-// Otherwise, it returns the duration d rounded to the nearest multiple of a minute.
-// The rounding mode is to round half even up (i.e. if d is halfway between two multiples of a minute,
-// it rounds up to the next multiple of a minute).
-// For example, TruncateMinutes(ParseDuration("1.5m")) returns ParseDuration("2m").
+// It is a shorthand for d.Truncate(Minute).
+//
+// Example:
+//
+//	d := Seconds(90)
+//	t := d.TruncateMinutes()
+//	fmt.Println(t) // Output: 1m
 func (d Duration) TruncateMinutes() Duration {
 	return d.Truncate(Minute)
 }
 
 // TruncateHours returns the result of rounding d toward zero to a multiple of an hour.
-// If d is an exact multiple of an hour, it returns d unchanged.
-// Otherwise, it returns the duration d rounded to the nearest multiple of an hour.
-// The rounding mode is to round half even up (i.e. if d is halfway between two multiples of an hour,
-// it rounds up to the next multiple of an hour).
-// For example, TruncateHours(ParseDuration("1.5h")) returns ParseDuration("2h").
+// It is a shorthand for d.Truncate(Hour).
+//
+// Example:
+//
+//	d := Minutes(90)
+//	t := d.TruncateHours()
+//	fmt.Println(t) // Output: 1h
 func (d Duration) TruncateHours() Duration {
 	return d.Truncate(Hour)
 }
 
 // TruncateDays returns the result of rounding d toward zero to a multiple of a day.
-// If d is an exact multiple of a day, it returns d unchanged.
-// Otherwise, it returns the duration d rounded to the nearest multiple of a day.
-// The rounding mode is to round half even up (i.e. if d is halfway between two multiples of a day,
-// it rounds up to the next multiple of a day).
-// For example, TruncateDays(ParseDuration("1.5d")) returns ParseDuration("2d").
+// It is a shorthand for d.Truncate(Day).
+//
+// Example:
+//
+//	d := Hours(30)
+//	t := d.TruncateDays()
+//	fmt.Println(t) // Output: 1d
 func (d Duration) TruncateDays() Duration {
 	return d.Truncate(Day)
 }
 
 func lessThanHalf(x, y Duration) bool {
-	return x.Uint64() < (y.Uint64() / 2) // same as x+x < y
+	return x.Uint64() < (y.Uint64() / 2) // same as x+x < y, but prevent potential overflow
 }

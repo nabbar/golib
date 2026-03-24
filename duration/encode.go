@@ -40,7 +40,7 @@ import (
 //
 // Example:
 //
-// d := duration.MustParse("1h2m3s")
+// d, _ := duration.Parse("1h2m3s")
 // b, err := d.MarshalJSON()
 //
 //	if err != nil {
@@ -78,7 +78,7 @@ func (d *Duration) UnmarshalJSON(bytes []byte) error {
 //
 // Example:
 //
-// d := duration.MustParse("1h2m3s")
+// d, _ := duration.Parse("1h2m3s")
 // y, err := d.MarshalYAML()
 //
 //	if err != nil {
@@ -110,10 +110,17 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 	return d.unmarshall([]byte(value.Value))
 }
 
+// MarshalTOML returns the TOML encoding of the duration.
+// It returns the JSON encoding of the string representation of the duration.
 func (d Duration) MarshalTOML() ([]byte, error) {
 	return json.Marshal(d.String())
 }
 
+// UnmarshalTOML parses the TOML-encoded duration and stores the result in
+// the receiver.
+//
+// The TOML encoding is expected to be a string representation of the
+// duration.
 func (d *Duration) UnmarshalTOML(i interface{}) error {
 	if b, k := i.([]byte); k {
 		return d.unmarshall(b)
@@ -132,7 +139,7 @@ func (d *Duration) UnmarshalTOML(i interface{}) error {
 //
 // Example:
 //
-// d := duration.MustParse("1h2m3s")
+// d, _ := duration.Parse("1h2m3s")
 // b, err := d.MarshalText()
 //
 //	if err != nil {
@@ -169,7 +176,7 @@ func (d *Duration) UnmarshalText(bytes []byte) error {
 //
 // Example:
 //
-// d := duration.MustParse("1h2m3s")
+// d, _ := duration.Parse("1h2m3s")
 // b, err := d.MarshalCBOR()
 //
 //	if err != nil {

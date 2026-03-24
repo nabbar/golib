@@ -31,10 +31,6 @@ jobs:
           sudo chmod ug+rw $(dirname ${GOPATH}/src/github.com/${GITHUB_REPOSITORY})
           sudo ln -svf $(pwd) ${GOPATH}/src/github.com/${GITHUB_REPOSITORY}
 
-#      - name: Check out tools into the Go module directory
-#        continue-on-error: false
-#        run: go install github.com/onsi/ginkgo/v2/ginkgo@latest
-
       - name: Update vendor or dependancies
         continue-on-error: false
         run: |
@@ -49,12 +45,7 @@ jobs:
         env:
           GOOS: linux
           GOARCH: amd64
-          CGO_ENABLED: 1
-          GINKGO_RACE_DETECTION: true
           GINKGO_NO_COLOR: TRUE
         run: |
           go version
           ./coverage-report.sh
-#          go test -race -timeout=30m -cover -covermode=atomic ./... --ginkgo.succinct --ginkgo.github-output --ginkgo.timeout=30m
-#          ginkgo version
-#          ginkgo --timeout=15m --keep-going --race --cover --covermode=atomic --github-output --succinct -r

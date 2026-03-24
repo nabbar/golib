@@ -31,6 +31,49 @@ import (
 	libmap "github.com/go-viper/mapstructure/v2"
 )
 
+// IsDays checks if the duration is greater than or equal to one day.
+// It returns true if the duration is at least 24 hours.
+func (d Duration) IsDays() bool {
+	return d >= Days(1)
+}
+
+// IsHours checks if the duration is greater than or equal to one hour.
+// It returns true if the duration is at least 60 minutes.
+func (d Duration) IsHours() bool {
+	return d >= Hours(1)
+}
+
+// IsMinutes checks if the duration is greater than or equal to one minute.
+// It returns true if the duration is at least 60 seconds.
+func (d Duration) IsMinutes() bool {
+	return d >= Minutes(1)
+}
+
+// IsSeconds checks if the duration is greater than or equal to one second.
+// It returns true if the duration is at least 1000 milliseconds.
+func (d Duration) IsSeconds() bool {
+	return d >= Seconds(1)
+}
+
+// IsMilliseconds checks if the duration is greater than or equal to one millisecond.
+// It returns true if the duration is at least 1000 microseconds.
+func (d Duration) IsMilliseconds() bool {
+	return d >= Milliseconds(1)
+}
+
+// IsMicroseconds checks if the duration is greater than or equal to one microsecond.
+// It returns true if the duration is at least 1000 nanoseconds.
+func (d Duration) IsMicroseconds() bool {
+	return d >= Microseconds(1)
+}
+
+// IsNanoseconds checks if the duration is greater than or equal to one nanosecond.
+// This is effectively checking if the duration is non-zero (assuming positive duration),
+// as 1ns is the smallest unit.
+func (d Duration) IsNanoseconds() bool {
+	return d >= Nanoseconds(1)
+}
+
 // ViperDecoderHook is a libmap.DecodeHookFuncType that is used to decode strings into libdur.Duration values.
 // It takes a reflect.Type, a reflect.Type, and an interface{} as parameters, and returns an interface{} and an error.
 // If the data type is not a string, it returns the data as is and a nil error.

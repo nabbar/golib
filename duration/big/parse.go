@@ -26,12 +26,11 @@
 package big
 
 import (
-	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
-var errLeadingInt = errors.New("time: bad [0-9]*") // never printed
 var unitMap = map[string]uint64{
 	"s": uint64(Second),
 	"m": uint64(Minute),
@@ -39,6 +38,8 @@ var unitMap = map[string]uint64{
 	"d": uint64(Day),
 }
 
+// parseString parses a string representation of a duration.
+// It removes quotes and spaces before parsing.
 func parseString(s string) (Duration, error) {
 	s = strings.Replace(s, "\"", "", -1) // nolint
 	s = strings.Replace(s, "'", "", -1)  // nolint
@@ -162,18 +163,27 @@ func parseDuration(s string) (Duration, error) {
 			return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 		}
 
-		v *= unit
+		// v *= unit
 
 		if f > 0 {
 			// float64 is needed to be nanosecond accurate for fractions of hours.
 			// v >= 0 && (f*unit/scale) <= 3.6e+12 (ns/h, h is the largest unit)
-			v += uint64(float64(f) * (float64(unit) / scale))
+			// v += uint64(float64(f) * (float64(unit) / scale))
 
-			if v > 1<<63 {
+			// Using float64 for calculation to avoid overflow issues with intermediate values
+			// and to handle fractions correctly
+			val := (float64(v) * float64(unit)) + (float64(f) * (float64(unit) / scale))
+
+			if val > float64(1<<63) {
 				// overflow
 				return 0, fmt.Errorf("time: invalid duration '%s'", orig)
 			}
+			v = uint64(val)
+
+		} else {
+			v *= unit
 		}
+
 		d += v
 
 		if d > 1<<63 {
@@ -192,24 +202,25 @@ func parseDuration(s string) (Duration, error) {
 }
 
 // leadingInt consumes the leading [0-9]* from s.
-func leadingInt[bytes []byte | string](s bytes) (x uint64, rem bytes, err error) {
+func leadingInt(s string) (x uint64, rem string, err error) {
 	i := 0
 	for ; i < len(s); i++ {
 		c := s[i]
 		if c < '0' || c > '9' {
 			break
 		}
-		if x > 1<<63/10 {
-			// overflow
-			return 0, rem, errLeadingInt
-		}
-		x = x*10 + uint64(c) - '0'
-		if x > 1<<63 {
-			// overflow
-			return 0, rem, errLeadingInt
-		}
 	}
-	return x, s[i:], nil
+	if i == 0 {
+		return 0, s, nil
+	}
+
+	// Parse the integer string
+	val, err := strconv.ParseUint(s[:i], 10, 64)
+	if err != nil {
+		return 0, s, err
+	}
+
+	return val, s[i:], nil
 }
 
 // leadingFraction consumes the leading [0-9]* from s.

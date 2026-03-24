@@ -29,6 +29,8 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	libpid "github.com/nabbar/golib/pidcontroller"
 )
 
 // Time returns a time.Duration representation of the duration.
@@ -82,12 +84,52 @@ func (d Duration) String() string {
 // the maximum value of int64 is returned.
 func (d Duration) Days() int64 {
 	t := math.Floor(d.Time().Hours() / 24)
+	return libpid.Float64ToInt64(t)
+}
 
-	if t > math.MaxInt64 {
-		return math.MaxInt64
-	}
+// Hours returns the number of hours in the duration.
+// It calculates the total hours from the underlying time.Duration,
+// rounds down to the nearest integer, and converts it to int64.
+// This provides the total duration expressed in full hours.
+func (d Duration) Hours() int64 {
+	t := math.Floor(d.Time().Hours())
+	return libpid.Float64ToInt64(t)
+}
 
-	return int64(t)
+// Minutes returns the number of minutes in the duration.
+// It calculates the total minutes from the underlying time.Duration,
+// rounds down to the nearest integer, and converts it to int64.
+// This provides the total duration expressed in full minutes.
+func (d Duration) Minutes() int64 {
+	t := math.Floor(d.Time().Minutes())
+	return libpid.Float64ToInt64(t)
+}
+
+// Seconds returns the number of seconds in the duration.
+// It calculates the total seconds from the underlying time.Duration,
+// rounds down to the nearest integer, and converts it to int64.
+// This provides the total duration expressed in full seconds.
+func (d Duration) Seconds() int64 {
+	t := math.Floor(d.Time().Seconds())
+	return libpid.Float64ToInt64(t)
+}
+
+// Milliseconds returns the duration as an integer millisecond count.
+// It delegates to the underlying time.Duration.Milliseconds() method.
+func (d Duration) Milliseconds() int64 {
+	return d.Time().Milliseconds()
+}
+
+// Microseconds returns the duration as an integer microsecond count.
+// It delegates to the underlying time.Duration.Microseconds() method.
+func (d Duration) Microseconds() int64 {
+	return d.Time().Microseconds()
+}
+
+// Nanoseconds returns the duration as an integer nanosecond count.
+// It delegates to the underlying time.Duration.Nanoseconds() method.
+func (d Duration) Nanoseconds() int64 {
+	return d.Time().Nanoseconds()
 }
 
 // Float64 returns the underlying int64 value of the duration as a float64.
@@ -103,4 +145,27 @@ func (d Duration) Days() int64 {
 // fmt.Println(f) // Output: 5400.0
 func (d Duration) Float64() float64 {
 	return float64(d)
+}
+
+// Uint64 returns the duration as an unsigned 64-bit integer.
+// If the duration is negative, it returns the absolute value cast to uint64.
+// Otherwise, it returns the duration cast to uint64.
+func (d Duration) Uint64() uint64 {
+	if t := d.Time(); t < 0 {
+		return uint64(-t)
+	} else {
+		return uint64(t)
+	}
+}
+
+// Int64 returns the duration as a signed 64-bit integer.
+// It simply casts the underlying Duration (which is int64) to int64.
+func (d Duration) Int64() int64 {
+	return int64(d)
+}
+
+// Duration returns the time.Duration value.
+// It is equivalent to d.Time().
+func (d Duration) Duration() time.Duration {
+	return d.Time()
 }
