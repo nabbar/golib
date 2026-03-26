@@ -24,140 +24,110 @@
  *
  */
 
-// Package info provides a flexible and thread-safe way to manage and expose
-// identifying information for a component or service.
-//
-// It allows for static data to be set manually and dynamic data to be provided
-// via registered functions that are executed on-demand. This package is designed
-// for scenarios like service discovery, health checks, and exposing runtime
-// metadata where information needs to be retrieved dynamically.
-//
-// # Key Features
-//
-//   - Thread-safe operations using a lock-free atomic map.
-//   - Dynamic name and info retrieval via registered functions.
-//   - Manual override and modification of info data.
-//   - Built-in text and JSON marshaling for easy serialization.
-//
-// # Architecture & Dataflow
-//
-// The Info component follows a layered approach to data retrieval. When a method
-// like Name() or Info() is called, it checks for different sources of data in a
-// specific order of priority.
-//
-// ## Data Retrieval Flow
-//
-// The data retrieval logic can be visualized as follows:
-//
-//	+------------------+
-//	|   Call Name()    |
-//	+------------------+
-//	         |
-//	         v
-//	+------------------+      YES      +----------------------+
-//	| Has Registered   |------------->|  Execute Function &  |
-//	| Name Function?   |              |    Return Result     |
-//	+------------------+              +----------------------+
-//	         | NO
-//	         v
-//	+------------------+      YES      +----------------------+
-//	| Has Manually Set |------------->|   Return Set Name    |
-//	|      Name?       |              |                      |
-//	+------------------+              +----------------------+
-//	         | NO
-//	         v
-//	+------------------+
-//	| Return Default   |
-//	|      Name        |
-//	+------------------+
-//
-// The Info() method follows a similar pattern but merges data from the
-// registered function with any manually set data.
-//
-// # Quick Start
-//
-// Here is a simple example of how to create and use an Info instance.
-//
-//	// 1. Create a new Info instance with a default name.
-//	inf, err := info.New("my-awesome-service")
-//	if err != nil {
-//	    log.Fatalf("Failed to create info instance: %v", err)
-//	}
-//
-//	// 2. Register a function to provide dynamic runtime information.
-//	inf.RegisterData(func() (map[string]interface{}, error) {
-//	    return map[string]interface{}{
-//	        "version":    "1.2.3",
-//	        "go_version": runtime.Version(),
-//	        "goroutines": runtime.NumGoroutine(),
-//	    }, nil
-//	})
-//
-//	// 3. Manually add a static piece of information.
-//	inf.AddData("region", "us-east-1")
-//
-//	// 4. Marshal the Info object to JSON for an API response.
-//	jsonData, err := json.Marshal(inf)
-//	if err != nil {
-//	    log.Fatalf("Failed to marshal info to JSON: %v", err)
-//	}
-//
-//	// The output will be a JSON object containing the name and merged info data.
-//	fmt.Println(string(jsonData))
-//	// Output: {"name":"my-awesome-service","data":{"go_version":"go1.19.5","goroutines":1,"region":"us-east-1","version":"1.2.3"}}
-//
-// # Usage Patterns
-//
-// ## Dynamic vs. Static Data
-//
-// You can combine dynamic and static data sources. The Info() method merges
-// them, with the dynamic function's data taking precedence in case of key collisions.
-//
-//	// Set a static version.
-//	inf.SetData(map[string]interface{}{"version": "1.0.0-static"})
-//
-//	// Register a dynamic function that also provides a version.
-//	inf.RegisterData(func() (map[string]interface{}, error) {
-//	    return map[string]interface{}{"version": "2.0.0-dynamic"}, nil
-//	})
-//
-//	// The dynamic version will overwrite the static one.
-//	data := inf.Data()
-//	fmt.Println(data["version"]) // Output: 2.0.0-dynamic
-//
-// ## Unregistering Functions
-//
-// To stop a dynamic function from being called, simply register `nil`.
-//
-//	// Unregister the info function.
-//	inf.RegisterData(nil)
-//
-//	// Now, Data() will only return manually set data.
-//	data = inf.Data()
-//	fmt.Println(data["version"]) // Output: 1.0.0-static
-//
-// # Thread Safety
-//
-// All methods on the Info type are designed to be safe for concurrent use
-// from multiple goroutines. The internal state is managed by a `libatm.Map`,
-// which is a wrapper around Go's native `sync.Map`.
-//
-//	var wg sync.WaitGroup
-//	for i := 0; i < 100; i++ {
-//	    wg.Add(1)
-//	    go func() {
-//	        defer wg.Done()
-//	        _ = inf.Name()
-//	        _ = inf.Data()
-//	    }()
-//	}
-//	wg.Wait() // This will complete without race conditions.
-//
-// # Important Note on Caching
-//
-// The current implementation does **not** cache the results of registered functions.
-// The registered `FuncInfoName` and `FuncInfoData` functions are executed
-// **every time** `Name()` or `Data()` is called, respectively. This ensures that
-// the returned information is always up-to-date. If the data retrieval process
-// is expensive, the registered function should implement its own caching mechanism.
+/*
+Package info provides a robust and thread-safe metadata management system for monitored components.
+It acts as a dynamic repository for identifying information (Name) and descriptive key-value pairs (Data)
+about a service, application, or internal component.
+
+# Core Philosophy
+
+The 'info' package is designed to bridge the gap between static configuration and dynamic runtime state.
+It allows a component to have a permanent identity (Default Name) while also supporting manual overrides
+and real-time data injection through provider functions.
+
+# Architecture & Internal Logic
+
+The internal state is managed by an 'inf' structure which utilizes a high-performance atomic map (libatm.Map)
+to ensure non-blocking, concurrent access from multiple health check routines or API endpoints.
+
+## Naming Resolution Hierarchy
+
+When the Name() method is invoked, the package follows a strict priority-based resolution logic:
+
+ 1. Dynamic Provider: If a function is registered via RegisterName(), it is executed. If it returns
+    a non-empty string, this result is used.
+ 2. Manual Override: If no dynamic result is available, the package checks for a name set manually
+    via SetName().
+ 3. Default Fallback: If neither of the above exists, the default name provided at initialization
+    (via New()) is returned.
+
+Naming Dataflow Diagram:
+
+	[ Call Name() ]
+	      |
+	      +--> [ Check Dynamic Provider (RegisterName) ] --(exists & non-empty)--> [ RETURN RESULT ]
+	      |
+	      +--> [ Check Manual Override (SetName) ] --------(exists)--------------> [ RETURN RESULT ]
+	      |
+	      +--> [ Default Name (New) ] -------------------------------------------> [ RETURN RESULT ]
+
+## Metadata (Data) Resolution Logic
+
+The Data() method aggregates information from two distinct layers:
+
+ 1. Static Store: Key-value pairs explicitly added via AddData() or SetData().
+ 2. Dynamic Provider: A map returned by the function registered via RegisterData().
+
+The resolution logic merges these layers into a single map. In the event of a key collision,
+the data from the Dynamic Provider takes precedence, ensuring that real-time runtime values
+always override stale static configuration.
+
+Metadata Dataflow Diagram:
+
+	[ Call Data() ]
+	      |
+	      +--[ Retrieve all static keys from Atomic Map ]
+	      |
+	      +--[ Execute Dynamic Provider (RegisterData) ]
+	      |
+	      +--[ Merge Logic: Dynamic values OVERWRITE static values ]
+	      |
+	      +--> [ RETURN MERGED MAP ]
+
+# Key Features
+
+  - Thread-Safe: Atomic operations ensure consistency without the overhead of heavy mutexes.
+  - Zero-Caching Policy: Provider functions are executed on every call, ensuring that data like
+    CPU usage, memory stats, or current version is always fresh.
+  - LIFO-like Cleanliness: SetData() replaces only user-defined metadata, preserving internal
+    naming logic and registered functions.
+  - Standard Interfaces: Implements encoding.TextMarshaler and json.Marshaler for seamless
+    integration with logging frameworks and REST APIs.
+
+# Usage Examples
+
+## Initializing and Adding Static Data
+
+	inf, _ := info.New("my-database-service")
+	inf.AddData("environment", "production")
+	inf.AddData("cluster", "eu-west-1")
+
+## Registering Dynamic Metadata
+
+This is useful for exposing real-time metrics alongside the component's identity.
+
+	inf.RegisterData(func() (map[string]interface{}, error) {
+	    return map[string]interface{}{
+	        "goroutines": runtime.NumGoroutine(),
+	        "uptime":     time.Since(startTime).String(),
+	    }, nil
+	})
+
+## Manual Name Override
+
+	inf.SetName("temporary-maintenance-mode")
+	// Name() now returns "temporary-maintenance-mode" instead of "my-database-service".
+
+# Thread Safety & Performance
+
+The internal implementation uses a lock-free approach where possible, relying on atomic stores
+and loads. This ensures that even under heavy load (e.g., thousands of status requests per second),
+the impact on the monitored component's performance is negligible.
+
+# Integration with Monitor
+
+This package is a core dependency of the 'monitor' package. In a typical monitoring setup,
+the 'Info' instance is passed to the monitor, which then uses it to enrich health check
+reports and Prometheus metrics with the component's identity and metadata.
+*/
 package info

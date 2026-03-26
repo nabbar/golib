@@ -33,32 +33,44 @@ import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
-// Info defines the contract for a component that exposes identification
-// and status information. It combines read access (via montps.Info)
-// and write/update capabilities (via montps.InfoSet).
-// Implementations must be thread-safe.
+// Info is an interface that describes the behavior of a metadata container for monitored components.
+// It extends the montps.InfoSet interface, which already incorporates read-only access (montps.Info)
+// and write/update methods (montps.InfoSet).
+// This structure is typically used to store identifying information (like a name) and dynamic
+// status data (key-value pairs) about a monitored service.
+// Implementations of this interface MUST ensure thread-safe operations as they are often accessed from
+// concurrent health check routines and status reporting endpoints.
 type Info interface {
 	montps.InfoSet
 }
 
-// New initializes and returns a new Info instance with the specified default name.
-// The default name serves as a fallback if no dynamic name function is registered
-// or if the registered function returns an empty string or error.
+// New initializes and returns a new instance of the Info interface, configured with a mandatory default name.
+// This default name serves as a permanent fallback identifier for the monitored component.
 //
-// It returns an error if the provided defaultName is empty.
+// Arguments:
+//   - defaultName: A string used as the initial name and fallback for the component. It cannot be empty.
+//
+// Returns:
+//   - Info: A pointer to a thread-safe implementation of the Info interface.
+//   - error: Returns an error if the defaultName provided is empty, indicating an invalid initialization attempt.
 //
 // Example usage:
 //
-//	inf, err := info.New("my-service")
+//	// Create a new Info instance for a database service.
+//	inf, err := info.New("database-primary")
 //	if err != nil {
-//	    log.Fatal(err)
+//	    log.Fatalf("Failed to initialize monitor info: %v", err)
 //	}
-//	fmt.Println(inf.Name()) // Output: my-service
+//
+//	// The default name is immediately available.
+//	fmt.Println(inf.Name()) // Output: database-primary
 func New(defaultName string) (Info, error) {
 	if len(defaultName) < 1 {
 		return nil, fmt.Errorf("default name cannot be empty")
 	}
 
+	// Returns a new 'inf' struct, which is the private implementation of the Info interface.
+	// It uses an atomic map to store dynamic data, ensuring thread-safety.
 	return &inf{
 		n: defaultName,
 		v: libatm.NewMapAny[string](),

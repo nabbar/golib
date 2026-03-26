@@ -25,174 +25,147 @@
  */
 
 /*
-Package monitor provides a robust health check monitoring system with automatic status transitions,
-configurable thresholds, and comprehensive metrics tracking.
+Package monitor provides a high-performance, thread-safe health monitoring framework for Go applications.
+It is designed to track the operational status of internal and external components (databases, APIs,
+microservices) using a robust state machine that handles health transitions with built-in hysteresis
+to prevent status flapping.
 
-# Overview
+# Core Philosophy: Performance & Resilience
 
-The monitor package implements a sophisticated health monitoring system that periodically executes
-health checks and tracks the state of monitored components. It features:
+The monitor is architected for zero-contention status reporting and reliable periodic execution.
+It separates configuration management from the performance-critical status reporting path.
 
-  - Automatic status transitions with configurable thresholds (OK ↔ Warn ↔ KO)
-  - Adaptive check intervals based on status (normal, rising, falling)
-  - Comprehensive metrics (uptime, downtime, latency, rise/fall times)
-  - Thread-safe concurrent operations
-  - Prometheus metrics integration
-  - Flexible configuration with validation
-  - Middleware chain for extensibility
+Key design principles:
+  - Atomic Status Reporting: Reads (Status, Latency, Uptime) use lock-free atomic primitives.
+  - Dampened Transitions: Configurable Fall/Rise thresholds prevent noise during transient failures.
+  - Dynamic Polling: Intervals automatically adjust based on the current health state (Rise/Fall/Stable).
+  - Middleware Pipeline: Extensible execution chain for logging, metrics, and tracing.
 
-# Status Transitions
+# Internal Architecture & Data Flow
 
-The monitor uses a three-state model with hysteresis to prevent flapping:
+The monitor operates as a background orchestrator managed by an atomic ticker runner.
 
-  - KO: Component is not healthy
-  - Warn: Component is degraded but functional
-  - OK: Component is fully healthy
+Internal Dataflow Diagram:
 
-Transitions between states require multiple consecutive successes or failures:
+	[ Ticker Loop ] <-------------------------------------------+
+	      |                                                     |
+	      v                                                     |
+	[ Interval Resolver ] --(IntervalCheck/Fall/Rise)-----------+
+	      |
+	      v
+	[ Middleware Chain ]
+	      |-- (mdlStatus) --+--> [ Start Timer ]
+	      |                 |
+	      |-- (User Fct) ---+--> [ Health Check Execution ]
+	      |                 |
+	      |-- (mdlStatus) --+--> [ Stop Timer & Capture Latency ]
+	      |                 |
+	      |                 +--> [ State Machine Transition Logic ]
+	      |                 |
+	      |                 +--> [ Atomic Update of Metrics Container ]
+	      v
+	[ Metrics Dispatch ] --(RegisterCollectMetrics)--> [ Prometheus / Loggers ]
 
-	KO --[riseCountKO successes]--> Warn --[riseCountWarn successes]--> OK
-	OK --[fallCountWarn failures]--> Warn --[fallCountKO failures]--> KO
+# State Machine & Hysteresis
 
-# Basic Usage
+The monitor implements a 3-state machine (OK, Warn, KO) with directional transition counters.
+
+Transition State Diagram:
+
+	+--------+   (Fail >= fallCountWarn)   +--------+   (Fail >= fallCountKO)   +--------+
+	|   OK   | --------------------------> |  Warn  | ------------------------> |   KO   |
+	+--------+ <-------------------------- +--------+ <------------------------ +--------+
+	           (Succ >= riseCountWarn)                (Succ >= riseCountKO)
+
+Transition Logic Table:
+
+	Current Status | Event   | Counter Logic               | Transition Action
+	---------------|---------|-----------------------------|---------------------------
+	OK             | Failure | cntFall++                   | If cntFall >= fallCountWarn: -> Warn
+	OK             | Success | cntFall=0, cntRise=0        | Stay OK (Uptime++)
+	Warn           | Failure | cntFall++                   | If cntFall >= fallCountKO:   -> KO
+	Warn           | Success | cntRise++                   | If cntRise >= riseCountWarn: -> OK
+	KO             | Success | cntRise++                   | If cntRise >= riseCountKO:   -> Warn
+	KO             | Failure | cntRise=0, cntFall=0        | Stay KO (Downtime++)
+
+# High-Performance Read Path
+
+Status retrieval methods (Status, Latency, Uptime, Downtime) are optimized for high-frequency polling
+(e.g., thousands of reads per second from a metrics exporter or a load-balancer probe).
+
+Implementation Details:
+  - No Mutexes: The "hot path" for reads uses atomic.LoadUint64/Int64 from the metrics container.
+  - Zero Allocations: Status and metric reads perform no heap allocations.
+  - Near-Zero Latency: Typical read latency is in the single-digit nanosecond range.
+
+# Middleware Extensibility
+
+The health check execution uses a LIFO (Last-In-First-Out) middleware stack. Middlewares can intercept
+the execution to perform pre/post actions.
+
+Execution Stack Example:
+
+ 1. [ mdlStatus ] (Core: Latency & State logic)
+ 2. [ CustomLogger ] (Optional: logs failures)
+ 3. [ OpenTelemetry ] (Optional: traces health check)
+ 4. [ User HealthCheck Function ] (The actual diagnostic)
+
+# Sub-Packages & Modules
+
+  - info: Metadata management (name, version, environment data).
+  - status: Status enumeration and parsing (OK, Warn, KO, Unknown).
+  - types: Public interfaces and configuration structures.
+  - pool: (Optional) Management for collections of monitors.
+
+# Usage Example: Database Health Monitoring
 
 	import (
 		"context"
-		"time"
 		"github.com/nabbar/golib/monitor"
 		"github.com/nabbar/golib/monitor/info"
 		"github.com/nabbar/golib/monitor/types"
 		"github.com/nabbar/golib/duration"
 	)
 
-	// Create info metadata
-	inf, err := info.New("database-monitor")
-	if err != nil {
-		log.Fatal(err)
+	func setupMonitor(db *sql.DB) types.Monitor {
+		// 1. Initialize Info with metadata
+		inf, _ := info.New("postgres-db")
+
+		// 2. Create the monitor instance
+		mon, _ := monitor.New(context.Background(), inf)
+
+		// 3. Configure intervals and thresholds
+		cfg := types.Config{
+			Name:          "main-database",
+			CheckTimeout:  duration.ParseDuration("5s"),
+			IntervalCheck: duration.ParseDuration("30s"), // Normal polling frequency
+			IntervalFall:  duration.ParseDuration("2s"),  // Aggressive polling when failing
+			FallCountWarn: 2,                             // 2 consecutive failures to trigger 'Warn'
+			FallCountKO:   3,                             // 3 more failures to trigger 'KO'
+		}
+		_ = mon.SetConfig(context.Background(), cfg)
+
+		// 4. Register the actual check logic
+		mon.SetHealthCheck(func(ctx context.Context) error {
+			return db.PingContext(ctx)
+		})
+
+		// 5. Start the background runner
+		_ = mon.Start(context.Background())
+
+		return mon
 	}
 
-	// Create monitor
-	mon, err := monitor.New(context.Background, inf)
-	if err != nil {
-		log.Fatal(err)
-	}
+# Thread Safety & Concurrency
 
-	// Configure monitor
-	cfg := types.Config{
-		Name:          "database",
-		CheckTimeout:  duration.ParseDuration(5 * time.Second),
-		IntervalCheck: duration.ParseDuration(10 * time.Second),
-		IntervalFall:  duration.ParseDuration(5 * time.Second),
-		IntervalRise:  duration.ParseDuration(5 * time.Second),
-		FallCountKO:   3,
-		FallCountWarn: 2,
-		RiseCountKO:   3,
-		RiseCountWarn: 2,
-	}
-	if err := mon.SetConfig(context.Background, cfg); err != nil {
-		log.Fatal(err)
-	}
+Every component is safe for concurrent use. Configuration updates (SetConfig) and Metadata updates
+(InfoUpd) use atomic swaps or thread-safe containers to ensure that a configuration reload never
+causes a race condition or performance degradation for the periodic runner or status readers.
 
-	// Register health check function
-	mon.SetHealthCheck(func(ctx context.Context) error {
-		// Check database connectivity
-		return db.PingContext(ctx)
-	})
+# Prometheus & Metrics Integration
 
-	// Start monitoring
-	if err := mon.Start(context.Background()); err != nil {
-		log.Fatal(err)
-	}
-	defer mon.Stop(context.Background())
-
-	// Query status
-	fmt.Printf("Status: %s\n", mon.Status())
-	fmt.Printf("Latency: %s\n", mon.Latency())
-	fmt.Printf("Uptime: %s\n", mon.Uptime())
-
-# Configuration
-
-The monitor supports extensive configuration:
-
-  - CheckTimeout: Maximum duration for a health check to complete (min: 5s)
-  - IntervalCheck: Interval between checks in normal state (min: 1s)
-  - IntervalFall: Interval when status is falling (min: 1s, default: IntervalCheck)
-  - IntervalRise: Interval when status is rising (min: 1s, default: IntervalCheck)
-  - FallCountKO: Failures needed to go from Warn to KO (min: 1)
-  - FallCountWarn: Failures needed to go from OK to Warn (min: 1)
-  - RiseCountKO: Successes needed to go from KO to Warn (min: 1)
-  - RiseCountWarn: Successes needed to go from Warn to OK (min: 1)
-
-All values are automatically normalized to their minimums if set below threshold.
-
-# Metrics Tracking
-
-The monitor tracks comprehensive timing metrics:
-
-  - Latency: Duration of the last health check execution
-  - Uptime: Total time in OK status
-  - Downtime: Total time in KO or Warn status
-  - RiseTime: Total time spent transitioning to better status
-  - FallTime: Total time spent transitioning to worse status
-
-# Prometheus Integration
-
-The monitor can export metrics to Prometheus:
-
-	import "github.com/nabbar/golib/prometheus"
-
-	// Register metric names
-	mon.RegisterMetricsName("my_service_health")
-
-	// Register collection function
-	mon.RegisterCollectMetrics(prometheusCollector)
-
-	// Metrics are automatically collected after each health check
-
-# Encoding Support
-
-The monitor supports multiple encoding formats:
-
-	// Text encoding
-	text, _ := mon.MarshalText()
-	fmt.Println(string(text))
-	// Output: OK: database (version: 1.0) | 5ms / 1h30m / 0s
-
-	// JSON encoding
-	json, _ := mon.MarshalJSON()
-
-# Thread Safety
-
-All monitor operations are thread-safe and can be called concurrently from multiple goroutines.
-The monitor uses fine-grained locking to minimize contention while ensuring data consistency.
-
-# Best Practices
-
-1. Configure appropriate check intervals to balance responsiveness and resource usage
-2. Set fall/rise counts to prevent status flapping during temporary issues
-3. Use shorter intervals during transitions (IntervalFall/Rise) for faster detection
-4. Set CheckTimeout lower than IntervalCheck to prevent overlapping checks
-5. Register a logger for debugging and troubleshooting
-6. Always call Stop() when shutting down to clean up resources
-
-# Error Handling
-
-The monitor defines several error codes:
-
-  - ErrorParamEmpty: Empty parameter provided
-  - ErrorMissingHealthCheck: No health check function registered
-  - ErrorValidatorError: Configuration validation failed
-  - ErrorLoggerError: Logger initialization failed
-  - ErrorTimeout: Operation timeout
-  - ErrorInvalid: Invalid monitor instance
-
-All errors implement the liberr.Error interface for structured error handling.
-
-# Related Packages
-
-  - github.com/nabbar/golib/monitor/info: Dynamic metadata management
-  - github.com/nabbar/golib/monitor/status: Health status type
-  - github.com/nabbar/golib/monitor/types: Type definitions and interfaces
-  - github.com/nabbar/golib/monitor/pool: Monitor pool management
+The package is designed to integrate seamlessly with Prometheus via the RegisterCollectMetrics method.
+At the end of each diagnostic run, the monitor dispatches its current state to the registered collector,
+updating Gauges for latency, status code, and transition timers.
 */
 package monitor

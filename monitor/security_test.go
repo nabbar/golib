@@ -64,18 +64,21 @@ var _ = Describe("Monitor Security and Robustness", func() {
 
 	Describe("Nil Handling", func() {
 		It("should handle nil info during creation", func() {
+			// TC-MON-BS-002
 			m, err := libmon.New(x, nil)
 			Expect(err).To(HaveOccurred())
 			Expect(m).To(BeNil())
 		})
 
 		It("should handle nil context during creation", func() {
+			// TC-MON-BS-005
 			m, err := libmon.New(nil, nfo)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(m).ToNot(BeNil())
 		})
 
 		It("should handle nil context in SetConfig", func() {
+			// TC-MON-BS-006
 			err := mon.SetConfig(nil, newConfig(nfo))
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -83,6 +86,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 
 	Describe("Timeout Enforcement", func() {
 		It("should timeout long-running health checks", func() {
+			// TC-MON-EC-002
 			timeoutOccurred := &atomic.Bool{}
 
 			mon.SetHealthCheck(func(ctx context.Context) error {
@@ -110,6 +114,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 		})
 
 		It("should not start if context is already cancelled", func() {
+			// TC-MON-EC-006
 			cancelledCtx, cancel := context.WithCancel(context.Background())
 			cancel() // Cancel immediately
 
@@ -126,6 +131,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 
 	Describe("Panic Recovery", func() {
 		It("should handle panicking health check functions", func() {
+			// TC-MON-EC-007
 			panicOccurred := &atomic.Bool{}
 
 			mon.SetHealthCheck(func(ctx context.Context) error {
@@ -153,6 +159,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 
 	Describe("Resource Cleanup", func() {
 		It("should clean up resources after stop", func() {
+			// TC-MON-LC-012
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -176,6 +183,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 		})
 
 		It("should not leak goroutines after stop", func() {
+			// TC-MON-LC-013
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -196,6 +204,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 
 	Describe("Edge Cases", func() {
 		It("should handle zero-duration intervals", func() {
+			// TC-MON-EC-008
 			cfg := newConfig(nfo)
 			cfg.CheckTimeout = libdur.ParseDuration(0)
 			cfg.IntervalCheck = libdur.ParseDuration(0)
@@ -210,6 +219,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 		})
 
 		It("should handle zero threshold counts", func() {
+			// TC-MON-EC-009
 			cfg := newConfig(nfo)
 			cfg.FallCountKO = 0
 			cfg.FallCountWarn = 0
@@ -226,6 +236,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 		})
 
 		It("should handle very high threshold counts", func() {
+			// TC-MON-EC-010
 			cfg := newConfig(nfo)
 			cfg.FallCountKO = 255
 			cfg.FallCountWarn = 255
@@ -247,6 +258,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 		})
 
 		It("should handle extremely frequent checks", func() {
+			// TC-MON-EC-011
 			checkCount := &atomic.Int32{}
 
 			mon.SetHealthCheck(func(ctx context.Context) error {
@@ -273,6 +285,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 
 	Describe("State Consistency", func() {
 		It("should maintain consistent state under rapid start/stop", func() {
+			// TC-MON-CC-002
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -291,6 +304,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 		})
 
 		It("should handle health check function changes while running", func() {
+			// TC-MON-BS-007
 			check1Called := &atomic.Bool{}
 			check2Called := &atomic.Bool{}
 
@@ -324,6 +338,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 
 	Describe("Error Message Safety", func() {
 		It("should safely handle very long error messages", func() {
+			// TC-MON-EC-012
 			longMessage := ""
 			for i := 0; i < 10000; i++ {
 				longMessage += "A"
@@ -346,6 +361,7 @@ var _ = Describe("Monitor Security and Robustness", func() {
 		})
 
 		It("should handle special characters in error messages", func() {
+			// TC-MON-EC-013
 			specialMsg := "Error with special chars: \n\t\r\"'\\{}<>&"
 
 			mon.SetHealthCheck(func(ctx context.Context) error {

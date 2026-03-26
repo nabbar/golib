@@ -37,21 +37,33 @@ import (
 	"github.com/nabbar/golib/runner"
 )
 
-// runCfg holds the internal runtime configuration for the monitor.
-// It stores normalized duration and count values used during health check execution.
+// runCfg is an internal structure that holds the normalized runtime configuration for the monitor.
+//
+// Fields Detail:
+//   - checkTimeout: maximum execution time for a diagnostic function.
+//   - intervalCheck: regular frequency of diagnostics when status is stable.
+//   - intervalFall: frequency adjustment during status transitions.
+//   - intervalRise: frequency adjustment during status transitions.
+//   - fallCountKO: failure count thresholds for health degradation.
+//   - fallCountWarn: failure count thresholds for health degradation.
+//   - riseCountKO: success count thresholds for health improvement.
+//   - riseCountWarn: success count thresholds for health improvement.
 type runCfg struct {
-	checkTimeout  time.Duration // Maximum duration for a health check to complete
-	intervalCheck time.Duration // Interval between normal health checks
-	intervalFall  time.Duration // Interval when status is falling
-	intervalRise  time.Duration // Interval when status is rising
-	fallCountKO   uint8         // Number of failures needed to transition from Warn to KO
-	fallCountWarn uint8         // Number of failures needed to transition from OK to Warn
-	riseCountKO   uint8         // Number of successes needed to transition from KO to Warn
-	riseCountWarn uint8         // Number of successes needed to transition from Warn to OK
+	checkTimeout  time.Duration
+	intervalCheck time.Duration
+	intervalFall  time.Duration
+	intervalRise  time.Duration
+	fallCountKO   uint8
+	fallCountWarn uint8
+	riseCountKO   uint8
+	riseCountWarn uint8
 }
 
-// defConfig creates and stores a default configuration with minimum safe values.
-// This is used when no configuration has been explicitly set.
+// defConfig initializes the monitor with a set of default safe configuration values.
+//
+// Logic:
+// Ensures that intervals and timeouts are at least 1 or 5 seconds and that counters are at least 1.
+// The resulting configuration is stored in the monitor's internal context (keyConfig).
 func (o *mon) defConfig() *runCfg {
 	defer func() {
 		if r := recover(); r != nil {
@@ -61,6 +73,7 @@ func (o *mon) defConfig() *runCfg {
 
 	cfg := &runCfg{}
 
+	// Normalize minimum safety thresholds.
 	if cfg.checkTimeout < 5*time.Second {
 		cfg.checkTimeout = 5 * time.Second
 	}
@@ -97,8 +110,11 @@ func (o *mon) defConfig() *runCfg {
 	return cfg
 }
 
-// RegisterLoggerDefault registers a default logger function provider.
-// This logger is used as a fallback when creating new loggers.
+// RegisterLoggerDefault stores a provider function for a default logger.
+//
+// Provider Pattern:
+// This provider is used as a fallback if no specific logger is configured for the monitor.
+// If the provider function (liblog.FuncLog) is nil, a dummy function returning nil is registered.
 func (o *mon) RegisterLoggerDefault(fct liblog.FuncLog) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -115,8 +131,8 @@ func (o *mon) RegisterLoggerDefault(fct liblog.FuncLog) {
 	o.x.Store(keyLoggerDef, fct)
 }
 
-// getLoggerDefault retrieves the default logger if one has been registered.
-// Returns nil if no default logger has been set.
+// getLoggerDefault retrieves the active logger from the registered default provider.
+// Returns nil if no provider is registered or if the provider returns nil.
 func (o *mon) getLoggerDefault() liblog.Logger {
 	defer func() {
 		if r := recover(); r != nil {
@@ -133,10 +149,21 @@ func (o *mon) getLoggerDefault() liblog.Logger {
 	}
 }
 
-// SetConfig updates the monitor configuration.
-// It validates the configuration, normalizes values to safe minimums,
-// and initializes a logger with the provided options.
-// Returns an error if validation fails or logger initialization fails.
+// SetConfig applies a new configuration to the monitor instance.
+//
+// Parameters:
+//   - ctx: Context for the configuration process.
+//   - cfg: The public Config structure containing new parameters.
+//
+// Normalization Process:
+//  1. Validates the provided configuration.
+//  2. Updates the monitor identifier (name).
+//  3. Updates metadata (Info) if custom data is provided.
+//  4. Normalizes durations to prevent invalid (zero or negative) intervals.
+//  5. Rebuilds the structured logger (o.x.Store(keyLogger)) with monitor-specific fields.
+//
+// Note:
+// This method is thread-safe and safe to call while the monitor is running.
 func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -152,12 +179,14 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 		return err
 	}
 
+	// Identifier management.
 	if len(cfg.Name) < 1 {
 		o.x.Store(keyName, defaultMonitorName)
 	} else {
 		o.x.Store(keyName, cfg.Name)
 	}
 
+	// Update metadata implementations that support SetData.
 	if len(cfg.Data) > 0 {
 		if i := o.i.Load(); i != nil {
 			if v, k := i.(montps.InfoSet); k {
@@ -167,6 +196,7 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 		}
 	}
 
+	// Normalization of execution parameters.
 	cnf := &runCfg{
 		checkTimeout:  cfg.CheckTimeout.Time(),
 		intervalCheck: cfg.IntervalCheck.Time(),
@@ -178,6 +208,7 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 		riseCountWarn: cfg.RiseCountWarn,
 	}
 
+	// Safety thresholds for microsecond precision.
 	if cnf.checkTimeout < time.Microsecond {
 		cnf.checkTimeout = 5 * time.Second
 	}
@@ -212,6 +243,8 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 
 	o.x.Store(keyConfig, cnf)
 
+	// Logger Rebuild Workflow:
+	// Creates a new logger with specific context fields (process, name).
 	var (
 		def  liblog.FuncLog = o.getLoggerDefault
 		n, e                = liblog.NewFrom(ctx, &cfg.Logger, def)
@@ -226,8 +259,8 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 	return e
 }
 
-// GetConfig returns the current monitor configuration.
-// It builds a Config from the internal runCfg and logger options.
+// GetConfig reconstructs and returns a public Config structure from the monitor's internal state.
+// This is used to inspect the current effective configuration (including normalized defaults).
 func (o *mon) GetConfig() montps.Config {
 	defer func() {
 		if r := recover(); r != nil {
@@ -259,8 +292,7 @@ func (o *mon) GetConfig() montps.Config {
 	}
 }
 
-// getName retrieves the configured monitor name.
-// Returns the default name if none has been set.
+// getName is an internal helper that retrieves the monitor's display name from its internal context.
 func (o *mon) getName() string {
 	defer func() {
 		if r := recover(); r != nil {
@@ -277,8 +309,7 @@ func (o *mon) getName() string {
 	}
 }
 
-// getCfg retrieves the current runtime configuration.
-// Returns the default configuration if none has been set.
+// getCfg is an internal helper that retrieves the normalized runtime configuration (runCfg).
 func (o *mon) getCfg() *runCfg {
 	defer func() {
 		if r := recover(); r != nil {
@@ -295,8 +326,7 @@ func (o *mon) getCfg() *runCfg {
 	}
 }
 
-// getLog retrieves the configured logger.
-// Returns nil if no logger has been configured.
+// getLog is an internal helper that retrieves the current structured logger.
 func (o *mon) getLog() liblog.Logger {
 	defer func() {
 		if r := recover(); r != nil {
@@ -313,8 +343,8 @@ func (o *mon) getLog() liblog.Logger {
 	}
 }
 
-// getLogger retrieves the configured logger or creates a new one.
-// This always returns a valid logger instance.
+// getLogger is an internal helper that ensures a valid logger instance is always available.
+// If no logger is configured, it creates a basic one based on the monitor's context.
 func (o *mon) getLogger() liblog.Logger {
 	defer func() {
 		if r := recover(); r != nil {
@@ -331,8 +361,7 @@ func (o *mon) getLogger() liblog.Logger {
 	}
 }
 
-// getFct retrieves the registered health check function.
-// Returns nil if no health check has been registered.
+// getFct is an internal helper that retrieves the registered diagnostic function.
 func (o *mon) getFct() montps.HealthCheck {
 	defer func() {
 		if r := recover(); r != nil {
@@ -347,33 +376,4 @@ func (o *mon) getFct() montps.HealthCheck {
 	} else {
 		return v
 	}
-}
-
-// getLastCheck retrieves the last check results.
-// Returns a new lastRun instance if none exists.
-func (o *mon) getLastCheck() *lastRun {
-	defer func() {
-		if r := recover(); r != nil {
-			runner.RecoveryCaller("golib/monitor/getLastCheck", r)
-		}
-	}()
-
-	if i, l := o.x.Load(keyLastRun); !l {
-		return newLastRun()
-	} else if v, k := i.(*lastRun); !k {
-		return newLastRun()
-	} else {
-		return v
-	}
-}
-
-// setLastCheck stores the results from the last health check execution.
-func (o *mon) setLastCheck(l *lastRun) {
-	defer func() {
-		if r := recover(); r != nil {
-			runner.RecoveryCaller("golib/monitor/setLastCheck", r)
-		}
-	}()
-
-	o.x.Store(keyLastRun, l)
 }

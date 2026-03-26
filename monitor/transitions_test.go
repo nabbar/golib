@@ -65,16 +65,19 @@ var _ = Describe("Monitor Status Transitions", func() {
 
 	Describe("Initial State", func() {
 		It("should start with KO status when no check has run", func() {
+			// TC-MON-TR-001
 			Expect(mon.Status()).To(Equal(monsts.KO))
 		})
 
 		It("should have error message before first check", func() {
+			// TC-MON-TR-002
 			msg := mon.Message()
 			Expect(msg).ToNot(BeEmpty())
 			Expect(msg).To(ContainSubstring("healcheck"))
 		})
 
 		It("should not be rising or falling initially", func() {
+			// TC-MON-TR-013
 			Expect(mon.IsRise()).To(BeFalse())
 			Expect(mon.IsFall()).To(BeFalse())
 		})
@@ -90,6 +93,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should transition from KO to Warn after RiseCountKO successes", func() {
+			// TC-MON-TR-003
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil // Always succeed
 			})
@@ -110,6 +114,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should transition from Warn to OK after RiseCountWarn successes", func() {
+			// TC-MON-TR-004
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil // Always succeed
 			})
@@ -131,6 +136,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should set IsRise flag during rising transitions", func() {
+			// TC-MON-TR-005
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -157,6 +163,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should transition from OK to Warn after FallCountWarn failures", func() {
+			// TC-MON-TR-006
 			shouldFail := &atomic.Bool{}
 			shouldFail.Store(false)
 
@@ -186,6 +193,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should transition from Warn to KO after FallCountKO failures", func() {
+			// TC-MON-TR-007
 			shouldFail := &atomic.Bool{}
 			shouldFail.Store(false)
 
@@ -220,6 +228,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should set IsFall flag during falling transitions", func() {
+			// TC-MON-TR-008
 			shouldFail := &atomic.Bool{}
 			shouldFail.Store(false)
 
@@ -256,6 +265,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should not transition with insufficient successes", func() {
+			// TC-MON-TR-009
 			checkCount := &atomic.Int32{}
 
 			mon.SetHealthCheck(func(ctx context.Context) error {
@@ -277,6 +287,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should reset rise counter on failure", func() {
+			// TC-MON-TR-010
 			checkCount := &atomic.Int32{}
 
 			cfg := newConfig(nfo)
@@ -306,6 +317,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 
 	Describe("Message Updates", func() {
 		It("should clear message on successful check", func() {
+			// TC-MON-TR-011
 			shouldFail := &atomic.Bool{}
 			shouldFail.Store(true)
 
@@ -340,6 +352,7 @@ var _ = Describe("Monitor Status Transitions", func() {
 		})
 
 		It("should update message on new failure", func() {
+			// TC-MON-TR-012
 			errorMsg := &atomic.Value{}
 			errorMsg.Store("first error")
 

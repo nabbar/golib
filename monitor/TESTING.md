@@ -1,843 +1,502 @@
 # Testing Guide
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
-[![Tests](https://img.shields.io/badge/Tests-595%20Specs-green)]()
-[![Coverage](https://img.shields.io/badge/Coverage-86.1%25-brightgreen)]()
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://go.dev/doc/install)
+[![Coverage](https://img.shields.io/badge/Coverage-84.7%25-brightgreen)](TESTING.md)
+[![Test Specs](https://img.shields.io/badge/Tests%20Specs-552-green)]()
+[![Test Asserts](https://img.shields.io/badge/Tests%20Asserts-1407-green)]()
 
-Comprehensive testing documentation for the monitor package, covering test execution, race detection, and quality assurance for health monitoring systems.
+Comprehensive testing documentation for the monitor package, covering test execution, race detection, benchmarks, and quality assurance.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Test Architecture](#test-architecture)
+- [Framework & Tools](#framework--tools)
 - [Quick Start](#quick-start)
-- [Test Framework](#test-framework)
-- [Running Tests](#running-tests)
+- [Performance & Profiling](#performance--profiling)
 - [Test Coverage](#test-coverage)
-- [Thread Safety](#thread-safety)
-- [Testing Strategies](#testing-strategies)
-- [Package-Specific Tests](#package-specific-tests)
 - [Writing Tests](#writing-tests)
 - [Best Practices](#best-practices)
-- [Troubleshooting](#troubleshooting)
-- [CI Integration](#ci-integration)
+- [Reporting Bugs & Vulnerabilities](#reporting-bugs--vulnerabilities)
+- [Resources](#resources)
 
 ---
 
 ## Overview
 
-The monitor package uses **Ginkgo v2** (BDD testing framework) and **Gomega** (matcher library) for comprehensive testing with expressive assertions.
+The monitor package employs a Behavior-Driven Development (BDD) approach using Ginkgo v2 and Gomega. This ensures that the health monitoring logic—including complex state transitions, hysteresis, and high-performance atomic metrics—is validated against expressive, human-readable specifications.
 
 **Test Suite Summary**
-- Total Specs: 595 across 4 packages
-- Overall Coverage: 86.1%
-- Race Detection: ✅ Zero data races
-- Execution Time: ~12.1s (without race), ~31s (with race)
+- Total Specs: 552 across 4 packages
+- Total Assertions: 1407
+- Overall Coverage: 84.7% (aggregate statements)
+- Race Detection: ✅ Zero data races detected
+- Execution Time: ~14.5s (standard mode), ~31s (race mode)
 
-**Package Breakdown**
+---
 
-| Package | Specs | Coverage | Duration | Focus |
-|---------|-------|----------|----------|-------|
-| `monitor` | 122 | 68.5% | 0.23s | Core health monitoring, transitions |
-| `info` | 139 | 100% | 0.12s | Dynamic metadata management |
-| `pool` | 153 | 76.2% | 11.78s | Monitor pool, batch operations |
-| `status` | 181 | 98.4% | 0.01s | Status enumeration, encoding |
-| `types` | 0 | 0.0% | - | Type definitions (no tests needed) |
+## Test Plan (Monitor Package)
 
-**Coverage Areas**
-- Health check execution and transitions
-- Status state machine (OK ↔ Warn ↔ KO)
-- Configuration validation and normalization
-- Metrics collection (latency, uptime, downtime)
-- Pool management and batch operations
-- Prometheus metrics integration
-- Dynamic metadata with functions
-- Status encoding (JSON, YAML, TOML, Text)
-- Thread safety and concurrent operations
-- Error handling and edge cases
+The test plan for the core `monitor` package is exhaustive. Any test not aligned with this plan is considered out-of-scope and non-essential.
+
+1. **Functional Testing**: Validation of the 3-state machine (OK, Warn, KO) and hysteresis logic (Fall/Rise counts).
+2. **Lifecycle Management**: Ensuring `Start()`, `Stop()`, and `Restart()` maintain a consistent internal state without leaking goroutines.
+3. **High-Performance Metrics**: Accuracy validation of lock-free counters for Latency, Uptime, Downtime, and Transition times.
+4. **Configuration Integrity**: Validation of `SetConfig` normalization engine and thread-safe metadata (`Info`) management.
+5. **Middleware Execution**: Verification of the LIFO stack execution and result capturing via `mdlStatus`.
+6. **Concurrent Stability**: High-pressure testing of the atomic read-path while background monitoring is active.
+7. **Export Validation**: Correctness of JSON/Text marshalling and Prometheus metrics dispatching.
+
+---
+
+## Test Completeness (Monitor Package)
+
+**Quality Indicators:**
+- **Code Coverage**: **81.0%** of statements in the core `monitor` package.
+- **Race Conditions**: **0** detected across 105 concurrent core scenarios.
+- **Flakiness**: **Zero** flaky tests detected; all async state transitions are validated using deterministic polling via `Eventually`.
+
+**Test Distribution:**
+- ✅ **105 specifications** strictly covering the core implementation (`mon` struct).
+- ✅ **412 assertions** validating behavior and state consistency.
+- ✅ **12 example tests** demonstrating real-world API usage.
+- ✅ **14 performance benchmarks** measuring throughput and atomic latency.
+- ✅ **Zero out-of-scope tests**: All existing tests align with the functional or lifecycle categories.
+
+---
+
+## Test Architecture
+
+The suite is architected to test sub-components in isolation (`status`, `info`) before validating the orchestrated `monitor` logic.
+
+### Test Matrix
+
+| Category           | Target                                   | Specs | Priority | Dependencies |
+|--------------------|------------------------------------------|-------|----------|--------------|
+| **Core Monitor**   | State Transitions, Lifecycle, Middleware | 105   | Critical | status, info |
+| **Info Sub-pkg**   | Metadata evaluation & caching            | 106   | High     | None         |
+| **Pool Sub-pkg**   | Batch operations & Aggregation           | 160   | Medium   | monitor      |
+| **Status Sub-pkg** | Enumeration & multi-format encoding      | 181   | Major    | None         |
+
+---
+
+## Detailed Test Inventory (Monitor Core)
+
+The following IDs uniquely identify all tests within the core `monitor` package.
+
+**ID Pattern:** `TC-MON-<Category>-<Number>`
+- **BS**: Basic & Functional
+- **LC**: Lifecycle
+- **TR**: Transitions
+- **MT**: Metrics & Dispatch
+- **EC**: Edge Cases & Context
+
+| Test ID | File | Use Case | Priority | Expected Outcome |
+|---------|------|----------|----------|------------------|
+| **TC-MON-BS-001** | monitor_test.go | New() with valid info | Critical | Monitor instance created successfully |
+| **TC-MON-BS-002** | monitor_test.go | New() with nil info | Critical | Returns error: "info cannot be nil" |
+| **TC-MON-BS-003** | monitor_test.go | Set/Get HealthCheck | High | Function pointer correctly stored and retrieved |
+| **TC-MON-BS-004** | monitor_test.go | Set/Get Config | High | Thresholds and intervals applied to internal state |
+| **TC-MON-BS-005** | security_test.go | Nil handling (context in creation) | Major | Uses context.Background() if nil |
+| **TC-MON-BS-006** | security_test.go | Nil handling (context in SetConfig) | Major | Uses internal context if nil |
+| **TC-MON-BS-007** | security_test.go | HealthCheck change while running | High | Dynamic update of diagnostic logic without restart |
+| **TC-MON-BS-008** | metrics_test.go | InfoMap metadata retrieval | Medium | Returns correct version and environment data |
+| **TC-MON-BS-009** | metrics_test.go | InfoName retrieval | Medium | Returns identifier from info sub-package |
+| **TC-MON-BS-010** | metrics_test.go | InfoUpd dynamic update | High | Correctly replaces info implementation |
+| **TC-MON-LC-001** | monitor_test.go | Basic Start/Stop cycle | Critical | Monitor starts, sleeps, and stops correctly |
+| **TC-MON-LC-002** | lifecycle_test.go | Successful Start & IsRunning | Critical | Background ticker becomes active |
+| **TC-MON-LC-003** | lifecycle_test.go | Periodic execution | High | HealthCheck is invoked multiple times at interval |
+| **TC-MON-LC-004** | lifecycle_test.go | Handle missing HealthCheck | Major | No crash; records "missing healthcheck" error |
+| **TC-MON-LC-005** | lifecycle_test.go | Implicit Stop before Start | Major | Prevents duplicate ticker leaks |
+| **TC-MON-LC-006** | lifecycle_test.go | Idempotent Stop | Medium | Multiple Stop calls are safe |
+| **TC-MON-LC-007** | lifecycle_test.go | Execution halt after Stop | High | No further HealthChecks after Stop() returns |
+| **TC-MON-LC-008** | lifecycle_test.go | Restart logic | High | Full Stop/Start cycle resumes monitoring |
+| **TC-MON-LC-009** | lifecycle_test.go | Restart from stopped state | Medium | Monitor starts correctly |
+| **TC-MON-LC-010** | lifecycle_test.go | HealthCheck context cancel | Major | Diagnostic respects middleware timeout |
+| **TC-MON-LC-011** | lifecycle_test.go | Clone state and running status | High | Cloned monitor inherits configuration and state |
+| **TC-MON-LC-012** | security_test.go | Resource cleanup after multiple cycles | Major | No resource exhaustion under rapid cycling |
+| **TC-MON-LC-013** | security_test.go | Goroutine leak prevention | Critical | Background runner terminates immediately on Stop |
+| **TC-MON-TR-001** | transitions_test.go | Initial KO state | Major | Starts in KO before first check |
+| **TC-MON-TR-002** | transitions_test.go | Initial Error Message | Medium | Contains "no healcheck still run" initially |
+| **TC-MON-TR-003** | transitions_test.go | KO -> Warn transition | Critical | Switches after RiseCountKO successes |
+| **TC-MON-TR-004** | transitions_test.go | Warn -> OK transition | Critical | Switches after RiseCountWarn successes |
+| **TC-MON-TR-005** | transitions_test.go | IsRise flag accuracy | High | True during recovery phase |
+| **TC-MON-TR-006** | transitions_test.go | OK -> Warn transition | Critical | Switches after FallCountWarn failures |
+| **TC-MON-TR-007** | transitions_test.go | Warn -> KO transition | Critical | Switches after FallCountKO failures |
+| **TC-MON-TR-008** | transitions_test.go | IsFall flag accuracy | High | True during degradation phase |
+| **TC-MON-TR-009** | transitions_test.go | Threshold enforcement | Major | No transition if successes < threshold |
+| **TC-MON-TR-010** | transitions_test.go | Rise counter reset on failure | Major | Counter resets to 0 during recovery phase |
+| **TC-MON-TR-011** | transitions_test.go | Message clearing on success | Medium | Success check clears previous error message |
+| **TC-MON-TR-012** | transitions_test.go | Message update on new error | Medium | New failure replaces old error message |
+| **TC-MON-TR-013** | transitions_test.go | Transition indicator reset | Medium | Rise/Fall flags reset after transition completes |
+| **TC-MON-MT-001** | metrics_test.go | Latency tracking | High | Measured duration matches sleep time |
+| **TC-MON-MT-002** | metrics_test.go | Dynamic latency update | High | Latency updates on every cycle |
+| **TC-MON-MT-003** | metrics_test.go | Uptime accumulation | High | Increases while status is OK |
+| **TC-MON-MT-004** | metrics_test.go | Downtime accumulation | High | Increases while status is Warn or KO |
+| **TC-MON-MT-005** | metrics_test.go | Prometheus registration | Medium | Invokes collector with registered names |
+| **TC-MON-MT-006** | metrics_test.go | CollectStatus snapshot | Medium | Returns atomic snapshot of status and flags |
+| **TC-MON-MT-007** | metrics_test.go | Timing snapshots (Collect*) | Medium | All timing methods return consistent durations |
+| **TC-MON-MT-008** | metrics_test.go | Initial latency zero | Low | Correct initialization of atomic counters |
+| **TC-MON-MT-009** | metrics_test.go | Uptime pause on non-OK | High | Counter halts immediately on degradation |
+| **TC-MON-MT-010** | metrics_test.go | Downtime in Warn status | High | Warn status correctly contributes to downtime |
+| **TC-MON-MT-011** | metrics_test.go | Rise Time tracking | Medium | Accumulates during transition to OK |
+| **TC-MON-MT-012** | metrics_test.go | Fall Time tracking | Medium | Accumulates during transition to KO |
+| **TC-MON-MT-013** | metrics_test.go | Metric name de-duplication | Low | RegisterMetricsAddName handles duplicates |
+| **TC-MON-MT-014** | metrics_test.go | Metrics dispatch guard | Low | No dispatch if names or function missing |
+| **TC-MON-MT-015** | metrics_test.go | Metrics registration safety | Low | No panic when registering without collector |
+| **TC-MON-MT-016** | encoding_test.go | MarshalText formatting | Major | Follows pattern STATUS: Name (Info) | Durations |
+| **TC-MON-MT-017** | encoding_test.go | MarshalJSON structure | Major | Generates valid JSON with all metric keys |
+| **TC-MON-EC-001** | security_test.go | Start Timeout | Major | poolIsRunning respects MaxPoolStart |
+| **TC-MON-EC-002** | security_test.go | Long-running HealthCheck timeout | Major | MiddleWare enforces checkTimeout context |
+| **TC-MON-EC-005** | config_test.go | Interval Normalization | Major | Micro-intervals are reset to safe minimums |
+| **TC-MON-EC-006** | security_test.go | Cancelled context handling | Medium | Monitor handles already cancelled start context |
+| **TC-MON-EC-007** | security_test.go | Panic recovery | Critical | Middleware captures panics in HealthCheck |
+| **TC-MON-EC-008** | security_test.go | Zero duration handling | Major | Normalizes all intervals to minimum safety values |
+| **TC-MON-EC-009** | security_test.go | Zero threshold counts | Major | Thresholds normalized to 1 |
+| **TC-MON-EC-010** | security_test.go | Very high thresholds (255) | Medium | Supports max uint8 thresholds |
+| **TC-MON-EC-011** | security_test.go | Extreme check frequency | Medium | Normalization prevents system overwhelming |
+| **TC-MON-EC-012** | security_test.go | Long error message safety | Medium | Handles 10KB+ error strings |
+| **TC-MON-EC-013** | security_test.go | Special char error safety | Medium | Handles quotes, backslashes, newlines in errors |
+
+---
+
+## Framework & Tools
+
+### Testing Frameworks
+
+#### Ginkgo v2 - BDD Testing Framework
+- ✅ **Hierarchical organization**: `Describe`/`Context`/`It` for clear scenario mapping.
+- ✅ **Async testing**: Heavy use of `Eventually` to poll background ticker state changes.
+- ✅ **Lifecycle hooks**: `BeforeEach`/`AfterEach` ensuring fresh monitor instances for every spec.
+
+#### Gomega - Matcher Library
+- ✅ **Expressive matchers**: `BeNumerically` for duration comparison, `HaveOccurred` for error checking.
+- ✅ **Async assertions**: `Eventually` polls for health check status updates.
+
+### Testing Concepts & Standards
+
+### ISTQB Alignment
+- **Test Levels**: Component Testing (Core Monitor) and Integration Testing (Sub-packages).
+- **Test Types**: Functional (State logic) and Non-functional (Benchmarks).
+- **Techniques**: State Transition testing for hysteresis and Equivalence partitioning for configuration.
 
 ---
 
 ## Quick Start
 
 ```bash
-# Install Ginkgo CLI (optional)
+# Install Ginkgo CLI
 go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
-# Run all tests
-go test ./...
-
-# With coverage
-go test -cover ./...
-
-# With race detection (recommended)
-CGO_ENABLED=1 go test -race ./...
-
-# Using Ginkgo CLI
-ginkgo -cover -race
-```
-
-**Expected Output**
-```bash
-ok  	github.com/nabbar/golib/monitor	        0.232s	coverage: 68.5% of statements
-ok  	github.com/nabbar/golib/monitor/info	0.121s	coverage: 100.0% of statements
-ok  	github.com/nabbar/golib/monitor/pool	11.795s	coverage: 76.2% of statements
-ok  	github.com/nabbar/golib/monitor/status	0.018s	coverage: 98.4% of statements
-?   	github.com/nabbar/golib/monitor/types	[no test files]
-```
-
----
-
-## Test Framework
-
-### Ginkgo v2
-
-**BDD testing framework** - [Documentation](https://onsi.github.io/ginkgo/)
-
-Features:
-- Hierarchical test organization (`Describe`, `Context`, `It`)
-- Setup/teardown hooks (`BeforeEach`, `AfterEach`, `BeforeSuite`)
-- Focused tests (`FDescribe`, `FIt`) and skip (`XDescribe`, `XIt`)
-- Parallel execution support
-- Rich reporting
-
-### Gomega
-
-**Matcher library** - [Documentation](https://onsi.github.io/gomega/)
-
-Critical matchers for this package:
-- `Eventually()`: Wait for async operations (status transitions)
-- `Consistently()`: Verify stability over time
-- `BeNumerically()`: Compare durations and counts
-- `HaveOccurred()`: Error checking
-
----
-
-## Running Tests
-
-### Basic Commands
-
-```bash
-# All packages
-go test ./...
-
-# Verbose output
+# Run all tests in the suite
 go test -v ./...
 
-# Specific package
-go test ./monitor
-go test ./monitor/info
-go test ./monitor/status
-go test ./monitor/pool
+# Run with race detection (mandatory for concurrency verification)
+CGO_ENABLED=1 go test -v -race ./...
 
-# With short flag (skip long-running tests)
-go test -short ./...
-```
-
-### Coverage
-
-```bash
-# Basic coverage
-go test -cover ./...
-
-# Detailed coverage
-go test -coverprofile=coverage.out ./...
+# Run with coverage report
+go test -v -coverprofile=coverage.out ./...
 go tool cover -html=coverage.out
-
-# Per-package coverage
-go test -coverprofile=monitor_coverage.out ./monitor
-go test -coverprofile=pool_coverage.out ./monitor/pool
-go test -coverprofile=info_coverage.out ./monitor/info
-
-# Coverage with minimum threshold
-go test -cover ./... | grep -E "coverage: [0-9]+\.[0-9]+%"
 ```
 
-### Race Detection
+---
 
-**Critical for this package** - Always run before commits:
+## Performance & Profiling
+
+The monitor package is designed for high-concurrency environments where status polling frequency can reach thousands of requests per second. Performance validation is achieved through intensive benchmarking and PPROF profiling.
+
+### 1. Performance Benchmarks
+
+Captured on Linux amd64 (Intel Core i7-4700HQ @ 2.40GHz).
+
+#### Read Path (Optimized Atomic Path)
+The "hot path" used by metrics exporters and status probes is fully lock-free and allocation-free.
+
+| Metric             | Operations  | Latency        | Memory | Allocations |
+|--------------------|-------------|----------------|--------|-------------|
+| `Status()` read    | 389,472,452 | **3.14 ns/op** | 0 B/op | 0 allocs/op |
+| `Latency()` read   | 551,137,215 | **2.23 ns/op** | 0 B/op | 0 allocs/op |
+| `Uptime()` read    | 525,178,024 | **2.24 ns/op** | 0 B/op | 0 allocs/op |
+| `GetConfig()` read | 5,713,320   | 298.9 ns/op    | 0 B/op | 0 allocs/op |
+
+#### Concurrency & Scaling
+Tests validate near-linear scaling under multi-core pressure.
+
+| Metric               | Operations    | Latency        | Efficiency                |
+|----------------------|---------------|----------------|---------------------------|
+| `Concurrent Status`  | 1,000,000,000 | **0.85 ns/op** | Near-linear scaling       |
+| `Concurrent Metrics` | 665,232,284   | 1.98 ns/op     | Lock-free contention-less |
+
+#### Administrative & Export Path
+Infrequent operations (startup, serialization) use standard allocation patterns.
+
+| Metric             | Operations | Latency      | Memory      | Allocations   |
+|--------------------|------------|--------------|-------------|---------------|
+| `SetConfig()`      | 24,315     | 49,407 ns/op | 24,823 B/op | 313 allocs/op |
+| `MarshalText()`    | 111,370    | 9,126 ns/op  | 4,452 B/op  | 43 allocs/op  |
+| `MarshalJSON()`    | 96,663     | 12,035 ns/op | 4,103 B/op  | 31 allocs/op  |
+| `Clone()`          | 300,208    | 3,423 ns/op  | 1,542 B/op  | 54 allocs/op  |
+| `Monitor Creation` | 311,746    | 3,239 ns/op  | 1,496 B/op  | 62 allocs/op  |
+
+### 2. CPU Performance Analysis
+
+- **Lock-Free Execution**: The CPU profile confirms that by replacing mutexes with `sync/atomic` primitives in the metrics container (`lastRun`), the "hot path" for status reads no longer triggers scheduler wait states.
+- **Read Path Optimization**: Over 95% of CPU time during high-load polling is spent in raw memory loads rather than synchronization overhead.
+- **Middleware Efficiency**: The primary CPU cost during an active health check cycle is the middleware stack traversal (`mdlStatus`), which is an acceptable trade-off for the structural safety and hysteresis logic it provides.
+
+### 3. Memory & GC Pressure Analysis
+
+- **Zero Garbage Path**: The most frequent operations (`Status`, `Latency`, etc.) produce **exactly 0 B/op**. This is critical for preventing Garbage Collector pauses in 24/7 monitoring services.
+- **Allocation Isolation**: Heap allocations are isolated to the **Configuration Path** (`SetConfig`) and **Marshalling Path**. Since these occur at low frequency compared to status reads, the memory pressure remains minimal.
+- **Buffer Management**: Optimized marshalling has resulted in a 60% reduction in allocation overhead compared to initial versions, ensuring high efficiency during large-scale reporting.
+
+### 4. Profiling Commands
 
 ```bash
-# Enable race detector
-CGO_ENABLED=1 go test -race ./...
+# Capture Statistics
+go test -v -bench=. -benchmem ./monitor > res_bench.log
 
-# With timeout (some tests are time-dependent)
-CGO_ENABLED=1 go test -race -timeout=5m ./...
+# Capture CPU Profile
+go test -v -bench=BenchmarkMonitorStatusRead -cpuprofile=cpu.out ./monitor
+go tool pprof -png cpu.out > res_cpu.png
 
-# Specific package
-CGO_ENABLED=1 go test -race ./monitor/pool
-```
-
-### Ginkgo CLI
-
-```bash
-# Install
-go install github.com/onsi/ginkgo/v2/ginkgo@latest
-
-# Run all tests
-ginkgo
-
-# With options
-ginkgo -v -race -cover
-
-# Specific package
-ginkgo ./monitor/pool
-
-# Focused tests only
-ginkgo -focus="Status Transitions"
-
-# Skip tests
-ginkgo -skip="Slow.*"
-
-# Parallel execution
-ginkgo -p
+# Capture Memory Profile
+go test -v -bench=BenchmarkMonitorCreation -memprofile=mem.out ./monitor
+go tool pprof -png mem.out > res_mem.png
 ```
 
 ---
 
 ## Test Coverage
 
-### Current Coverage
+**Aggregate Target**: ≥85% (Current: **84.7%**)
 
-| Package | Coverage | Lines | Key Areas |
-|---------|----------|-------|-----------|
-| **monitor** | 68.5% | 1,200 | Status transitions, lifecycle, metrics |
-| **pool** | 76.7% | 800 | Pool ops, shell commands, metrics aggregation |
-| **info** | 85.3% | 400 | Metadata management, caching |
-| **status** | 92.1% | 300 | Enumeration, encoding, parsing |
-
-### Coverage Goals
-
-- **Critical paths**: ≥ 80% (status transitions, lifecycle)
-- **Standard functionality**: ≥ 70% (metrics, encoding)
-- **Edge cases**: ≥ 60% (error paths, corner cases)
-
-### Improving Coverage
-
-```bash
-# Identify uncovered code
-go test -coverprofile=coverage.out ./...
-go tool cover -func=coverage.out | grep -v "100.0%"
-
-# pool package has a coverage script
-cd monitor/pool
-./test_coverage.sh --html
-
-# View in browser
-go tool cover -html=coverage.out
+### Coverage By Package
 ```
-
----
-
-## Thread Safety Testing
-
-### Race Detector
-
-**Always run with `-race` flag**:
-
-```bash
-CGO_ENABLED=1 go test -race ./...
+github.com/nabbar/golib/monitor         coverage: 81.0% of statements
+github.com/nabbar/golib/monitor/info    coverage: 91.0% of statements
+github.com/nabbar/golib/monitor/pool    coverage: 91.2% of statements
+github.com/nabbar/golib/monitor/status  coverage: 98.4% of statements
 ```
-
-### Common Race Conditions to Test
-
-1. **Concurrent Start/Stop**
-   ```go
-   It("should handle concurrent start/stop", func() {
-       var wg sync.WaitGroup
-       for i := 0; i < 10; i++ {
-           wg.Add(1)
-           go func() {
-               defer wg.Done()
-               mon.Start(ctx)
-               time.Sleep(10 * time.Millisecond)
-               mon.Stop(ctx)
-           }()
-       }
-       wg.Wait()
-   })
-   ```
-
-2. **Concurrent Status Reads**
-   ```go
-   It("should handle concurrent status reads", func() {
-       for i := 0; i < 100; i++ {
-           go func() {
-               _ = mon.Status()
-               _ = mon.Latency()
-               _ = mon.Uptime()
-           }()
-       }
-       time.Sleep(100 * time.Millisecond)
-   })
-   ```
-
-3. **Pool Concurrent Operations**
-   ```go
-   It("should handle concurrent pool operations", func() {
-       var wg sync.WaitGroup
-       for i := 0; i < 10; i++ {
-           wg.Add(3)
-           go func(idx int) {
-               defer wg.Done()
-               pool.MonitorAdd(createMonitor(fmt.Sprintf("mon-%d", idx)))
-           }(i)
-           go func(idx int) {
-               defer wg.Done()
-               pool.MonitorGet(fmt.Sprintf("mon-%d", idx))
-           }(i)
-           go func(idx int) {
-               defer wg.Done()
-               pool.MonitorList()
-           }(i)
-       }
-       wg.Wait()
-   })
-   ```
-
----
-
-## Testing Strategies
-
-### 1. Status Transition Testing
-
-Test the three-state model with hysteresis:
-
-```go
-Describe("Status Transitions", func() {
-    It("should transition KO → Warn → OK", func() {
-        // Configure thresholds
-        cfg := types.Config{
-            RiseCountKO:   3,
-            RiseCountWarn: 2,
-        }
-        mon.SetConfig(ctx, cfg)
-        
-        // Mock successful health checks
-        successCount := 0
-        mon.SetHealthCheck(func(ctx context.Context) error {
-            successCount++
-            return nil
-        })
-        
-        mon.Start(ctx)
-        defer mon.Stop(ctx)
-        
-        // Wait for transitions
-        Eventually(mon.Status, "5s").Should(Equal(status.Warn))
-        Eventually(mon.Status, "3s").Should(Equal(status.OK))
-    })
-})
-```
-
-### 2. Timing-Dependent Tests
-
-Use `Eventually` for async operations:
-
-```go
-It("should start monitoring within timeout", func() {
-    mon.Start(ctx)
-    
-    // Eventually waits up to timeout for condition
-    Eventually(mon.IsRunning, "2s", "100ms").Should(BeTrue())
-    
-    // Consistently checks condition remains stable
-    Consistently(mon.IsRunning, "500ms", "50ms").Should(BeTrue())
-})
-```
-
-### 3. Error Path Testing
-
-Test error handling and recovery:
-
-```go
-It("should handle health check errors", func() {
-    errorCount := 0
-    mon.SetHealthCheck(func(ctx context.Context) error {
-        errorCount++
-        if errorCount < 3 {
-            return errors.New("temporary failure")
-        }
-        return nil
-    })
-    
-    mon.Start(ctx)
-    defer mon.Stop(ctx)
-    
-    // Should transition to Warn after failures
-    Eventually(mon.Status).Should(Equal(status.Warn))
-    
-    // Should recover after successes
-    Eventually(mon.Status, "10s").Should(Equal(status.OK))
-})
-```
-
-### 4. Metrics Validation
-
-Verify metrics tracking:
-
-```go
-It("should track metrics correctly", func() {
-    mon.Start(ctx)
-    defer mon.Stop(ctx)
-    
-    time.Sleep(2 * time.Second)
-    
-    // Verify metrics are being collected
-    Expect(mon.Latency()).To(BeNumerically(">", 0))
-    Expect(mon.Uptime()).To(BeNumerically(">", 0))
-    
-    // Latency should be reasonable
-    Expect(mon.Latency()).To(BeNumerically("<", 1*time.Second))
-})
-```
-
-### 5. Configuration Testing
-
-Test configuration validation and normalization:
-
-```go
-It("should normalize configuration values", func() {
-    cfg := types.Config{
-        CheckTimeout:  1 * time.Second,  // Below minimum
-        IntervalCheck: 500 * time.Millisecond,  // Below minimum
-        FallCountKO:   0,  // Below minimum
-    }
-    
-    Expect(mon.SetConfig(ctx, cfg)).To(Succeed())
-    
-    result := mon.GetConfig()
-    Expect(result.CheckTimeout).To(BeNumerically(">=", 5*time.Second))
-    Expect(result.IntervalCheck).To(BeNumerically(">=", 1*time.Second))
-    Expect(result.FallCountKO).To(BeNumerically(">=", 1))
-})
-```
-
----
-
-## Package-Specific Tests
-
-### Monitor Core Package
-
-**Focus Areas**:
-- Status transitions (OK ↔ Warn ↔ KO)
-- Health check execution with timeouts
-- Metrics collection accuracy
-- Lifecycle management (start/stop/restart)
-- Middleware chain execution
-- Configuration validation
-
-**Test Files**:
-- `monitor_test.go`: Core functionality
-- `lifecycle_test.go`: Start/stop/restart
-- `transitions_test.go`: Status transitions
-- `metrics_test.go`: Metrics tracking
-- `integration_test.go`: End-to-end scenarios
-- `security_test.go`: Security and edge cases
-
-### Pool Package
-
-**Focus Areas**:
-- Monitor CRUD operations
-- Batch start/stop/restart
-- Prometheus metrics aggregation
-- Shell command execution
-- Thread-safe concurrent access
-
-**Test Files**:
-- `pool_test.go`: Basic operations
-- `pool_metrics_test.go`: Metrics collection
-- `pool_shell_test.go`: Shell commands
-- `pool_coverage_test.go`: Edge cases
-- `pool_errors_test.go`: Error handling
-
-**Coverage Script**:
-```bash
-cd monitor/pool
-./test_coverage.sh          # Basic
-./test_coverage.sh --html   # HTML report
-./test_coverage.sh --race   # Race detection
-```
-
-### Info Package
-
-**Focus Areas**:
-- Dynamic name generation
-- Info data caching
-- Lazy evaluation
-- Thread-safe access
-- Encoding formats
-
-**Test Files**:
-- `info_test.go`: Core functionality
-- `encode_test.go`: Encoding formats
-- `integration_test.go`: Real-world scenarios
-- `edge_cases_test.go`: Corner cases
-- `security_test.go`: Security validation
-
-### Status Package
-
-**Focus Areas**:
-- Status enumeration values
-- String parsing and formatting
-- Multi-format encoding (JSON, Text, XML)
-- Type safety
-- Comparison operations
-
-**Test Files**:
-- `status_test.go`: Basic operations
-- `encoding_test.go`: Format encoding
-- `parse_test.go`: String parsing
-- `json_test.go`: JSON marshaling
-- `format_test.go`: Custom formatting
 
 ---
 
 ## Writing Tests
 
-### Test Structure
+### Guidelines
+1. **AAA Pattern**: Structure specs as Arrange (setup), Act (trigger check), Assert (Expect).
+2. **Clean Lifecycle**: Always `Stop()` monitors in `AfterEach`.
+3. **Avoid Sleeps**: Use Gomega's `Eventually()` for async state transitions.
 
-Follow Ginkgo BDD style:
-
+### Test Template
 ```go
-var _ = Describe("Component", func() {
+var _ = Describe("monitor/lifecycle", func() {
     var (
-        mon Monitor
         ctx context.Context
-        cnl context.CancelFunc
+        mon types.Monitor
     )
-    
+
     BeforeEach(func() {
-        // Setup before each test
-        ctx, cnl = context.WithTimeout(context.Background(), 10*time.Second)
+        ctx = context.Background()
         mon = createTestMonitor()
     })
-    
+
     AfterEach(func() {
-        // Cleanup after each test
-        if mon != nil && mon.IsRunning() {
+        if mon != nil {
             mon.Stop(ctx)
         }
-        if cnl != nil {
-            cnl()
-        }
     })
-    
-    Describe("Feature", func() {
-        Context("when condition", func() {
-            It("should behave correctly", func() {
-                // Test implementation
-                Expect(mon.Start(ctx)).To(Succeed())
-                Eventually(mon.IsRunning).Should(BeTrue())
-            })
-        })
+
+    It("should start background ticker", func() {
+        // Act
+        err := mon.Start(ctx)
+        
+        // Assert
+        Expect(err).ToNot(HaveOccurred())
+        Eventually(mon.IsRunning).Should(BeTrue())
     })
 })
-```
-
-### Test Naming
-
-Use descriptive names:
-
-```go
-// Good
-It("should transition from KO to Warn after 3 successful checks")
-It("should handle concurrent start and stop operations")
-It("should respect health check timeout")
-
-// Bad
-It("works")
-It("test1")
-It("check status")
-```
-
-### Assertions
-
-Use appropriate matchers:
-
-```go
-// Success/failure
-Expect(err).ToNot(HaveOccurred())
-Expect(err).To(HaveOccurred())
-
-// Equality
-Expect(status).To(Equal(status.OK))
-Expect(name).To(Equal("monitor"))
-
-// Numerical
-Expect(count).To(BeNumerically(">=", 1))
-Expect(duration).To(BeNumerically("<", time.Second))
-
-// Collections
-Expect(list).To(ContainElement("item"))
-Expect(list).To(HaveLen(3))
-Expect(list).To(BeEmpty())
-
-// Async (Eventually/Consistently)
-Eventually(mon.IsRunning, "2s", "100ms").Should(BeTrue())
-Consistently(mon.Status, "1s", "100ms").Should(Equal(status.OK))
 ```
 
 ---
 
 ## Best Practices
 
-### 1. Test Independence
+### Test Independence
+- ✅ Each test should be independent.
+- ✅ Use `BeforeEach`/`AfterEach` for setup/cleanup.
+- ✅ Create fresh instances per test.
+- ❌ Avoid global mutable state.
 
-Each test should be independent:
-
-```go
-// Good - Independent
-It("test A", func() {
-    mon := createMonitor()
-    mon.Start(ctx)
-    defer mon.Stop(ctx)
-    // test logic
-})
-
-It("test B", func() {
-    mon := createMonitor()  // Fresh instance
-    mon.Start(ctx)
-    defer mon.Stop(ctx)
-    // test logic
-})
-
-// Bad - Tests depend on each other
-var mon Monitor
-It("test A", func() {
-    mon = createMonitor()
-    mon.Start(ctx)
-})
-It("test B", func() {
-    // Assumes mon from test A
-    Expect(mon.IsRunning()).To(BeTrue())
-})
-```
-
-### 2. Cleanup
-
-Always cleanup resources:
-
-```go
-AfterEach(func() {
-    if mon != nil && mon.IsRunning() {
-        mon.Stop(ctx)
-    }
-    if cnl != nil {
-        cnl()
-    }
-})
-
-// Or use defer in test
-It("should...", func() {
-    mon.Start(ctx)
-    defer mon.Stop(ctx)
-    // test logic
-})
-```
-
-### 3. Timeouts
-
-Use realistic timeouts:
-
-```go
-// Good - Reasonable timeouts
-ctx, cnl := context.WithTimeout(context.Background(), 10*time.Second)
-Eventually(mon.IsRunning, "2s", "100ms").Should(BeTrue())
-
-// Bad - Too short or too long
-ctx, cnl := context.WithTimeout(context.Background(), 100*time.Millisecond)
-Eventually(mon.IsRunning, "30s").Should(BeTrue())  // Too slow
-```
-
-### 4. Race-Free Tests
-
-Avoid race conditions:
-
-```go
-// Good - Synchronized
-var wg sync.WaitGroup
-for i := 0; i < 10; i++ {
-    wg.Add(1)
-    go func() {
-        defer wg.Done()
-        _ = mon.Status()
-    }()
-}
-wg.Wait()
-
-// Bad - Unsynchro nized
-for i := 0; i < 10; i++ {
-    go func() {
-        _ = mon.Status()
-    }()
-}
-// No wait - test may finish before goroutines
-```
-
-### 5. Test Data
-
-Use factories or builders:
-
-```go
-// Good - Test helpers
-func createTestMonitor(name string) Monitor {
-    inf, _ := info.New(name)
-    mon, _ := monitor.New(ctx, inf)
-    mon.SetConfig(ctx, testConfig())
-    return mon
-}
-
-func testConfig() types.Config {
-    return types.Config{
-        CheckTimeout:  5 * time.Second,
-        IntervalCheck: 30 * time.Second,
-        FallCountKO:   2,
-        RiseCountKO:   2,
-    }
-}
-
-// Usage
-mon := createTestMonitor("test-mon")
-```
+### Assertions
+- ✅ Use appropriate matchers (`Equal`, `BeNumerically`, `HaveOccurred`).
+- ✅ Use `Eventually` for async operations.
 
 ---
 
-## Troubleshooting
+## Reporting Bugs & Vulnerabilities
 
-### Common Issues
+### Bug Report Template
 
-**1. Flaky Tests (Timing Issues)**
+When reporting a bug in the test suite or the socket package, please use this template:
 
-```go
-// Problem: Test fails intermittently
-It("should start quickly", func() {
-    mon.Start(ctx)
-    Expect(mon.IsRunning()).To(BeTrue())  // Sometimes fails
-})
+```markdown
+**Title**: [BUG] Brief description of the bug
 
-// Solution: Use Eventually
-It("should start quickly", func() {
-    mon.Start(ctx)
-    Eventually(mon.IsRunning, "2s", "100ms").Should(BeTrue())
-})
+**Description**:
+[A clear and concise description of what the bug is.]
+
+**Steps to Reproduce:**
+1. [First step]
+2. [Second step]
+3. [...]
+
+**Expected Behavior**:
+[A clear and concise description of what you expected to happen]
+
+**Actual Behavior**:
+[What actually happened]
+
+**Code Example**:
+[Minimal reproducible example]
+
+**Test Case** (if applicable):
+[Paste full test output with -v flag]
+
+**Environment**:
+- Go version: `go version`
+- OS: Linux/macOS/Windows
+- Architecture: amd64/arm64
+- Package version: vX.Y.Z or commit hash
+
+**Additional Context**:
+[Any other relevant information]
+
+**Logs/Error Messages**:
+[Paste error messages or stack traces here]
+
+**Possible Fix:**
+[If you have suggestions]
 ```
 
-**2. Race Detector Failures**
+### Security Vulnerability Template
 
-```bash
-# Run with race detector to find issues
-CGO_ENABLED=1 go test -race ./...
+**⚠️ IMPORTANT**: For security vulnerabilities, please **DO NOT** create a public issue.
 
-# Common fixes:
-# - Use sync.Mutex for shared state
-# - Use atomic.Value for lock-free reads
-# - Properly synchronize goroutines
+Instead, report privately via:
+1. GitHub Security Advisories (preferred)
+2. Email to the maintainer (see footer)
+
+**Vulnerability Report Template:**
+
+```markdown
+**Vulnerability Type:**
+[e.g., Overflow, Race Condition, Memory Leak, Denial of Service]
+
+**Severity:**
+[Critical / High / Medium / Low]
+
+**Affected Component:**
+[e.g., interface.go, context.go, specific function]
+
+**Affected Versions**:
+[e.g., v1.0.0 - v1.2.3]
+
+**Vulnerability Description:**
+[Detailed description of the security issue]
+
+**Attack Scenario**:
+1. Attacker does X
+2. System responds with Y
+3. Attacker exploits Z
+
+**Proof of Concept:**
+[Minimal code to reproduce the vulnerability]
+[DO NOT include actual exploit code]
+
+**Impact**:
+- Confidentiality: [High / Medium / Low]
+- Integrity: [High / Medium / Low]
+- Availability: [High / Medium / Low]
+
+**Proposed Fix** (if known):
+[Suggested approach to fix the vulnerability]
+
+**CVE Request**:
+[Yes / No / Unknown]
+
+**Coordinated Disclosure**:
+[Willing to work with maintainers on disclosure timeline]
 ```
 
-**3. Deadlocks**
+### Issue Labels
 
-```go
-// Problem: Test hangs
-It("test", func() {
-    mon.Start(ctx)
-    // Forgot to stop - may deadlock on cleanup
-})
+When creating GitHub issues, use these labels:
 
-// Solution: Always stop
-It("test", func() {
-    mon.Start(ctx)
-    defer mon.Stop(ctx)
-})
-```
+- `bug`: Something isn't working
+- `enhancement`: New feature or request
+- `documentation`: Improvements to docs
+- `performance`: Performance issues
+- `test`: Test-related issues
+- `security`: Security vulnerability (private)
+- `help wanted`: Community help appreciated
+- `good first issue`: Good for newcomers
 
-**4. Context Cancellation**
+### Reporting Guidelines
 
-```go
-// Problem: Context cancelled too early
-ctx, cnl := context.WithTimeout(bg, 100*time.Millisecond)
-defer cnl()
-mon.Start(ctx)  // Context may expire during test
+**Before Reporting:**
+1. ✅ Search existing issues to avoid duplicates
+2. ✅ Verify the bug with the latest version
+3. ✅ Run tests with `-race` detector
+4. ✅ Check if it's a test issue or package issue
+5. ✅ Collect all relevant logs and outputs
 
-// Solution: Use longer timeout
-ctx, cnl := context.WithTimeout(bg, 10*time.Second)
-defer cnl()
-```
+**What to Include:**
+- Complete test output (use `-v` flag)
+- Go version (`go version`)
+- OS and architecture (`go env GOOS GOARCH`)
+- Race detector output (if applicable)
+- Coverage report (if relevant)
+
+**Response Time:**
+- **Bugs**: Typically reviewed within 48 hours
+- **Security**: Acknowledged within 24 hours
+- **Enhancements**: Reviewed as time permits
 
 ---
 
-## CI Integration
+## Resources
 
-### GitHub Actions Example
+**Testing Frameworks**
+- [Ginkgo Documentation](https://onsi.github.io/ginkgo/): <description>
+- [Gomega Matchers](https://onsi.github.io/gomega/): <description>
+- [Go Testing](https://pkg.go.dev/testing): <description>
+- [Go Coverage](https://go.dev/blog/cover): <description>
 
-```yaml
-name: Tests
+**Testing References**
+- [ISTQB concept](http://...): <description>
 
-on: [push, pull_request]
+**Concurrency**
+- [Go Race Detector](https://go.dev/doc/articles/race_detector): <description>
+- [Go Memory Model](https://go.dev/ref/mem): <description>
+- [sync Package](https://pkg.go.dev/sync): <description>
+- [sync/atomic Package](https://pkg.go.dev/sync/atomic): <description>
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-      
-      - name: Install dependencies
-        run: go mod download
-      
-      - name: Run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
-      
-      - name: Check coverage
-        run: |
-          go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//' | \
-          awk '{if ($1 < 70) exit 1}'
-      
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.out
-```
-
-### Makefile Example
-
-```makefile
-.PHONY: test test-race test-cover test-all
-
-test:
-	go test ./...
-
-test-race:
-	CGO_ENABLED=1 go test -race ./...
-
-test-cover:
-	go test -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
-
-test-all: test-race test-cover
-	@echo "All tests passed!"
-
-test-ci:
-	go test -v -race -coverprofile=coverage.out ./...
-	go tool cover -func=coverage.out
-```
+**Performance**
+- [Go Profiling](https://go.dev/blog/pprof): <description>
+- [Benchmarking](https://pkg.go.dev/testing#hdr-Benchmarks): <description>
+- [Execution Tracer](https://go.dev/doc/diagnostics#execution-tracer): <description>
 
 ---
 
-## Summary
+## AI Transparency
 
-- **Always run with `-race`** to detect concurrency issues
-- **Use `Eventually`/`Consistently`** for timing-dependent tests
-- **Cleanup resources** in `AfterEach` or with `defer`
-- **Write independent tests** that don't depend on execution order
-- **Target ≥70% coverage** for production code
-- **Test error paths** and edge cases, not just happy paths
-- **Use test helpers** to reduce duplication
+In compliance with EU AI Act Article 50.4: AI assistance was used for test generation, debugging, and documentation under human supervision. All tests are validated and reviewed by humans.
 
-For package-specific details, see the test files in each subpackage.
+---
+
+## License
+MIT License - Copyright (c) 2022-2025 Nicolas JUHEL

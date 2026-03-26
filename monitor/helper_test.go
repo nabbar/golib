@@ -53,8 +53,16 @@ func newInfo(d montps.FuncInfoData) montps.Info {
 }
 
 func newInfoWithName(name string, d montps.FuncInfoData) montps.Info {
-	i, e := moninf.New(name)
+	i, e := newInfoWithNameAlone(name, d)
 	Expect(e).ToNot(HaveOccurred())
+	return i
+}
+
+func newInfoWithNameAlone(name string, d montps.FuncInfoData) (montps.Info, error) {
+	i, e := moninf.New(name)
+	if e != nil {
+		return i, e
+	}
 
 	if d != nil {
 		i.RegisterData(d)
@@ -67,7 +75,7 @@ func newInfoWithName(name string, d montps.FuncInfoData) montps.Info {
 		})
 	}
 
-	return i
+	return i, nil
 }
 
 func newConfig(nf montps.Info) montps.Config {

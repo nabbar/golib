@@ -24,6 +24,9 @@
  *
  */
 
+// Package monitor provides a robust, thread-safe framework for periodic health monitoring of components.
+// It supports state machine transitions (OK, Warn, KO), middleware execution chains, and integrated
+// metrics collection for Prometheus.
 package monitor
 
 import (
@@ -36,24 +39,34 @@ import (
 	librun "github.com/nabbar/golib/runner/ticker"
 )
 
-// Monitor is the interface that wraps all monitor functionalities.
-// It extends montps.Monitor and provides health check monitoring capabilities.
+// Monitor is the primary interface for managing component health checks.
+// It embeds the base Monitor interface from the types package, which defines
+// methods for configuration, lifecycle management (Start/Stop), and status retrieval.
 type Monitor interface {
 	montps.Monitor
 }
 
-// New creates a new Monitor instance with the given context provider and info.
-// The ctx parameter provides a function that returns the current context.
-// The info parameter provides metadata about the monitored component.
-// Returns an error if info is nil.
+// New initializes and returns a new Monitor instance.
+//
+// Parameters:
+//   - ctx: The base context used for the monitor's internal state management. If nil, context.Background() is used.
+//   - info: An implementation of montps.Info containing metadata (name, version, etc.) for the monitored component.
+//
+// The returned monitor is initialized in a stopped state with default configuration values.
+// It uses an atomic internal structure to ensure thread-safety across all operations.
+//
+// Returns:
+//   - montps.Monitor: A thread-safe monitor instance.
+//   - error: Returns an error if the mandatory 'info' parameter is nil.
 //
 // Example:
 //
-//	inf, _ := info.New("my-service")
-//	mon, err := monitor.New(context.Background, inf)
+//	inf, _ := info.New("database-service")
+//	mon, err := monitor.New(context.Background(), inf)
 //	if err != nil {
-//	    log.Fatal(err)
+//	    log.Fatalf("failed to create monitor: %v", err)
 //	}
+//	_ = mon.Start(context.Background())
 func New(ctx context.Context, info montps.Info) (montps.Monitor, error) {
 	if info == nil {
 		return nil, fmt.Errorf("info cannot be nil")
@@ -61,13 +74,22 @@ func New(ctx context.Context, info montps.Info) (montps.Monitor, error) {
 		ctx = context.Background()
 	}
 
+	// Initialize the private 'mon' structure with thread-safe containers.
+	// x: thread-safe configuration and state map.
+	// i: atomic value for metadata.
+	// r: atomic value for the background ticker runner.
+	// l: optimized container for last run results and metrics.
 	m := &mon{
 		x: libctx.New[string](ctx),
 		i: libatm.NewValue[montps.Info](),
 		r: libatm.NewValue[librun.Ticker](),
+		l: newLastRun(),
 	}
 
+	// Store the initial metadata.
 	m.i.Store(info)
+
+	// Ensure the monitor starts in a clean, stopped state.
 	_ = m.Stop(ctx)
 
 	return m, nil

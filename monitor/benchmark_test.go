@@ -28,6 +28,7 @@ package monitor_test
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -38,7 +39,10 @@ import (
 
 func BenchmarkMonitorCreation(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -48,7 +52,11 @@ func BenchmarkMonitorCreation(b *testing.B) {
 
 func BenchmarkMonitorSetConfig(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	cfg := montps.Config{
@@ -66,7 +74,11 @@ func BenchmarkMonitorSetConfig(b *testing.B) {
 
 func BenchmarkMonitorGetConfig(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	cfg := montps.Config{
@@ -85,7 +97,11 @@ func BenchmarkMonitorGetConfig(b *testing.B) {
 
 func BenchmarkMonitorStatusRead(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	b.ResetTimer()
@@ -96,7 +112,11 @@ func BenchmarkMonitorStatusRead(b *testing.B) {
 
 func BenchmarkMonitorLatencyRead(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	b.ResetTimer()
@@ -107,7 +127,11 @@ func BenchmarkMonitorLatencyRead(b *testing.B) {
 
 func BenchmarkMonitorUptimeRead(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	b.ResetTimer()
@@ -118,7 +142,11 @@ func BenchmarkMonitorUptimeRead(b *testing.B) {
 
 func BenchmarkMonitorMarshalText(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	b.ResetTimer()
@@ -129,7 +157,12 @@ func BenchmarkMonitorMarshalText(b *testing.B) {
 
 func BenchmarkMonitorMarshalJSON(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	b.ResetTimer()
@@ -139,40 +172,47 @@ func BenchmarkMonitorMarshalJSON(b *testing.B) {
 }
 
 func BenchmarkMonitorHealthCheckExecution(b *testing.B) {
-	ctx, cnl := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cnl()
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
 
-	nfo := newInfoWithName("bench-test", nil)
 	mon, _ := libmon.New(context.Background(), nfo)
 
 	cfg := montps.Config{
 		Name:          "bench-monitor",
-		CheckTimeout:  libdur.ParseDuration(5 * time.Second),
-		IntervalCheck: libdur.ParseDuration(10 * time.Millisecond),
+		CheckTimeout:  libdur.ParseDuration(1 * time.Second),
+		IntervalCheck: libdur.ParseDuration(1 * time.Microsecond), // Minimal interval for max pressure
 		Logger:        lo.Clone(),
 	}
 	_ = mon.SetConfig(context.Background(), cfg)
 
-	count := 0
+	var count atomic.Uint64
 	mon.SetHealthCheck(func(ctx context.Context) error {
-		count++
+		count.Add(1)
 		return nil
 	})
 
+	ctx := context.Background()
 	_ = mon.Start(ctx)
 	defer mon.Stop(ctx)
 
 	b.ResetTimer()
-	startCount := count
-	time.Sleep(1 * time.Second)
-	checks := count - startCount
-
-	b.ReportMetric(float64(checks), "checks/sec")
+	for i := 0; i < b.N; i++ {
+		// Just wait for some progress to be made
+		for count.Load() < uint64(i) {
+			// tight loop or yield
+		}
+	}
 }
 
 func BenchmarkMonitorConcurrentStatusReads(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	b.ResetTimer()
@@ -185,7 +225,11 @@ func BenchmarkMonitorConcurrentStatusReads(b *testing.B) {
 
 func BenchmarkMonitorConcurrentMetricsReads(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	b.ResetTimer()
@@ -200,7 +244,11 @@ func BenchmarkMonitorConcurrentMetricsReads(b *testing.B) {
 
 func BenchmarkMonitorClone(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	cfg := montps.Config{
@@ -225,13 +273,17 @@ func BenchmarkMonitorClone(b *testing.B) {
 
 func BenchmarkMonitorInfoOperations(b *testing.B) {
 	ctx := context.Background()
-	nfo := newInfoWithName("bench-test", func() (map[string]interface{}, error) {
+	nfo, err := newInfoWithNameAlone("bench-test", func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "1.0.0",
 			"env":     "production",
 			"region":  "us-west",
 		}, nil
 	})
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	mon, _ := libmon.New(ctx, nfo)
 
 	b.Run("InfoName", func(b *testing.B) {
@@ -253,11 +305,15 @@ func BenchmarkMonitorInfoOperations(b *testing.B) {
 	})
 
 	b.Run("InfoUpd", func(b *testing.B) {
-		updatedInfo := newInfoWithName("updated", func() (map[string]interface{}, error) {
+		updatedInfo, e := newInfoWithNameAlone("updated", func() (map[string]interface{}, error) {
 			return map[string]interface{}{
 				"version": "2.0.0",
 			}, nil
 		})
+		if e != nil {
+			b.Fatal(e)
+		}
+
 		for i := 0; i < b.N; i++ {
 			mon.InfoUpd(updatedInfo)
 		}
@@ -265,20 +321,21 @@ func BenchmarkMonitorInfoOperations(b *testing.B) {
 }
 
 func BenchmarkMonitorStartStop(b *testing.B) {
-	ctx, cnl := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cnl()
-
-	nfo := newInfoWithName("bench-test", nil)
+	nfo, err := newInfoWithNameAlone("bench-test", nil)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	cfg := montps.Config{
 		Name:          "bench-monitor",
-		CheckTimeout:  libdur.ParseDuration(5 * time.Second),
+		CheckTimeout:  libdur.ParseDuration(1 * time.Second),
 		IntervalCheck: libdur.ParseDuration(100 * time.Millisecond),
 		Logger:        lo.Clone(),
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		ctx, cnl := context.WithTimeout(context.Background(), 5*time.Second)
 		mon, _ := libmon.New(context.Background(), nfo)
 		_ = mon.SetConfig(context.Background(), cfg)
 		mon.SetHealthCheck(func(ctx context.Context) error {
@@ -286,7 +343,7 @@ func BenchmarkMonitorStartStop(b *testing.B) {
 		})
 
 		_ = mon.Start(ctx)
-		time.Sleep(50 * time.Millisecond) // Let it run briefly
 		_ = mon.Stop(ctx)
+		cnl()
 	}
 }

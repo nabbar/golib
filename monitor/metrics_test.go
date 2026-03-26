@@ -66,6 +66,7 @@ var _ = Describe("Monitor Metrics", func() {
 
 	Describe("Latency", func() {
 		It("should track health check latency", func() {
+			// TC-MON-MT-001
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -81,6 +82,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should update latency on each check", func() {
+			// TC-MON-MT-002
 			checkCount := &atomic.Int32{}
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				count := checkCount.Add(1)
@@ -106,12 +108,14 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should be zero initially", func() {
+			// TC-MON-MT-008
 			Expect(mon.Latency()).To(Equal(time.Duration(0)))
 		})
 	})
 
 	Describe("Uptime", func() {
 		It("should track time in OK status", func() {
+			// TC-MON-MT-003
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -137,6 +141,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should not increase when not in OK status", func() {
+			// TC-MON-MT-009
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return ErrorMockTest
 			})
@@ -153,6 +158,7 @@ var _ = Describe("Monitor Metrics", func() {
 
 	Describe("Downtime", func() {
 		It("should track time in KO/Warn status", func() {
+			// TC-MON-MT-004
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return ErrorMockTest
 			})
@@ -168,6 +174,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should increase in Warn status", func() {
+			// TC-MON-MT-010
 			shouldFail := &atomic.Bool{}
 			shouldFail.Store(false)
 
@@ -209,6 +216,7 @@ var _ = Describe("Monitor Metrics", func() {
 
 	Describe("Rise and Fall Times", func() {
 		It("should track rise time during KO to OK transition", func() {
+			// TC-MON-MT-011
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -234,6 +242,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should track fall time during OK to KO transition", func() {
+			// TC-MON-MT-012
 			shouldFail := &atomic.Bool{}
 			shouldFail.Store(false)
 
@@ -277,6 +286,7 @@ var _ = Describe("Monitor Metrics", func() {
 
 	Describe("Prometheus Metrics Collection", func() {
 		It("should register and collect metrics", func() {
+			// TC-MON-MT-005
 			metricsCollected := &atomic.Bool{}
 			collectedNames := &atomic.Value{}
 
@@ -305,6 +315,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should add metrics names incrementally", func() {
+			// TC-MON-MT-013
 			mon.RegisterMetricsName("metric1", "metric2")
 			mon.RegisterMetricsAddName("metric3")
 			mon.RegisterMetricsAddName("metric2") // Duplicate, should be ignored
@@ -337,6 +348,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should provide CollectStatus metrics", func() {
+			// TC-MON-MT-006
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -364,6 +376,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should provide timing metrics", func() {
+			// TC-MON-MT-007
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				time.Sleep(10 * time.Millisecond)
 				return nil
@@ -390,6 +403,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should not collect metrics if no names registered", func() {
+			// TC-MON-MT-014
 			metricsCollected := &atomic.Bool{}
 
 			mon.RegisterCollectMetrics(func(ctx context.Context, names ...string) {
@@ -410,6 +424,7 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should not collect metrics if no function registered", func() {
+			// TC-MON-MT-015
 			mon.RegisterMetricsName("test_metric")
 
 			mon.SetHealthCheck(func(ctx context.Context) error {
@@ -425,6 +440,7 @@ var _ = Describe("Monitor Metrics", func() {
 
 	Describe("InfoMap and InfoName", func() {
 		It("should return info metadata", func() {
+			// TC-MON-BS-008
 			infoMap := mon.InfoMap()
 			Expect(infoMap).ToNot(BeNil())
 			Expect(infoMap).To(HaveKey("version"))
@@ -432,10 +448,12 @@ var _ = Describe("Monitor Metrics", func() {
 		})
 
 		It("should return info name", func() {
+			// TC-MON-BS-009
 			Expect(mon.InfoName()).To(Equal(key))
 		})
 
 		It("should allow updating info", func() {
+			// TC-MON-BS-010
 			updatedInfo := newInfoWithName("updated-name", func() (map[string]interface{}, error) {
 				return map[string]interface{}{
 					"version": "2.0.0",

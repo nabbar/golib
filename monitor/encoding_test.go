@@ -70,6 +70,7 @@ var _ = Describe("Monitor Encoding", func() {
 
 	Describe("MarshalText", func() {
 		It("should marshal monitor to text format", func() {
+			// TC-MON-MT-016
 			mon.InfoUpd(newInfoWithName("test-encoding", func() (map[string]interface{}, error) {
 				return map[string]interface{}{
 					"msg": "encoding-test",
@@ -85,6 +86,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should include status in text output", func() {
+			// TC-MON-MT-016
 			text, err := mon.MarshalText()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -98,6 +100,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should include timing information", func() {
+			// TC-MON-MT-016
 			// Run a health check first
 			called := new(atomic.Bool)
 			mon.SetHealthCheck(func(ctx context.Context) error {
@@ -122,6 +125,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should include info metadata in text output", func() {
+			// TC-MON-MT-016
 			// Run a health check first
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
@@ -143,6 +147,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should include error message when health check fails", func() {
+			// TC-MON-MT-016
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return ErrorMockTest
 			})
@@ -161,6 +166,7 @@ var _ = Describe("Monitor Encoding", func() {
 
 	Describe("MarshalJSON", func() {
 		It("should marshal monitor to JSON format", func() {
+			// TC-MON-MT-017
 			jsonData, err := mon.MarshalJSON()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(jsonData).ToNot(BeEmpty())
@@ -170,6 +176,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should include status in JSON output", func() {
+			// TC-MON-MT-017
 			jsonData, err := mon.MarshalJSON()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -180,6 +187,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should include name in JSON output", func() {
+			// TC-MON-MT-017
 			i := newInfoWithName("encoding-test", nil)
 			mon.InfoUpd(i)
 
@@ -196,6 +204,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should include timing metrics in JSON output", func() {
+			// TC-MON-MT-017
 			// Run a health check first
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
@@ -217,6 +226,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should include message when present", func() {
+			// TC-MON-MT-017
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return ErrorMockTest
 			})
@@ -238,6 +248,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should have valid JSON structure", func() {
+			// TC-MON-MT-017
 			jsonData, err := mon.MarshalJSON()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -252,6 +263,7 @@ var _ = Describe("Monitor Encoding", func() {
 
 	Describe("Text Format Structure", func() {
 		It("should follow expected text format pattern", func() {
+			// TC-MON-MT-016
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -276,6 +288,7 @@ var _ = Describe("Monitor Encoding", func() {
 		})
 
 		It("should start with status", func() {
+			// TC-MON-MT-016
 			text, err := mon.MarshalText()
 			Expect(err).ToNot(HaveOccurred())
 

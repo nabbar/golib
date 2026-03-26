@@ -37,37 +37,65 @@ import (
 )
 
 const (
-	// defaultMonitorName is the default name used when no name is specified.
+	// defaultMonitorName is the fallback identifier used when a monitor is initialized without an explicit name.
 	defaultMonitorName = "not named"
 
-	// Internal storage keys for monitor configuration
-	keyName        = "keyName"
-	keyConfig      = "keyConfig"
-	keyLogger      = "keyLogger"
-	keyLoggerDef   = "keyLoggerDefault"
-	keyHealthCheck = "keyFct"
-	keyLastRun     = "keyLastRun"
+	// Internal storage keys for the thread-safe context (libctx.Config).
+	keyName        = "keyName"          // keyName stores the monitor's display name (string).
+	keyConfig      = "keyConfig"        // keyConfig stores the normalized runtime configuration (*runCfg).
+	keyLogger      = "keyLogger"        // keyLogger stores the active structured logger (liblog.Logger).
+	keyLoggerDef   = "keyLoggerDefault" // keyLoggerDef stores the fallback logger provider (liblog.FuncLog).
+	keyHealthCheck = "keyFct"           // keyHealthCheck stores the registered health check function (montps.HealthCheck).
 
-	// Internal storage keys for metrics
-	keyMetricsName = "keyMetricsName"
-	keyMetricsFunc = "keyMetricsFunc"
+	// Internal storage keys for metrics-related configuration.
+	keyMetricsName = "keyMetricsName" // keyMetricsName stores the slice of registered Prometheus metric names ([]string).
+	keyMetricsFunc = "keyMetricsFunc" // keyMetricsFunc stores the Prometheus collection function (libprm.FuncCollectMetrics).
 
-	// Log field constants for structured logging
-	LogFieldProcess = "process"
-	LogValueProcess = "monitor"
-	LogFieldName    = "name"
+	// Structured logging constants for consistency across monitor log entries.
+	LogFieldProcess = "process" // LogFieldProcess is the field key for identifying the monitor process in logs.
+	LogValueProcess = "monitor" // LogValueProcess is the constant value for the process field.
+	LogFieldName    = "name"    // LogFieldName is the field key for the monitor instance name.
 )
 
-// mon is the internal implementation of the Monitor interface.
-// It manages the health check lifecycle, configuration, and state tracking.
+// mon is the private concrete implementation of the Monitor interface.
+// It serves as the orchestrator for periodic health checks, managing state,
+// configuration, and metadata in a thread-safe manner.
+//
+// Architecture:
+// The monitor is designed for high-concurrency environments. It separates frequently accessed
+// performance metrics (stored in the 'l' field using atomic types) from less frequent
+// configuration data (stored in the 'x' context map).
 type mon struct {
-	x libctx.Config[string]       // Config stores monitor configuration and state
-	i libatm.Value[montps.Info]   // Info provides metadata about the monitored component
-	r libatm.Value[runtck.Ticker] // Ticker manages the periodic health check execution
+	// x is a generic thread-safe configuration and state container keyed by strings.
+	// It holds various monitor-related data like the health check function and logger.
+	x libctx.Config[string]
+
+	// i is an atomic value container for the monitor's metadata (Info).
+	// Atomic storage allows metadata updates (e.g., version changes) without blocking active checks.
+	i libatm.Value[montps.Info]
+
+	// r is an atomic value container for the background ticker runner.
+	// This allows the monitor to be started, stopped, or restarted (replacing the ticker)
+	// in a thread-safe manner without race conditions.
+	r libatm.Value[runtck.Ticker]
+
+	// l is a high-performance, atomic-based structure holding the results of the last health check.
+	// It stores status, latency, uptime, and downtime using lock-free atomic primitives to
+	// ensure that status reads have near-zero overhead.
+	l *lastRun
 }
 
-// SetHealthCheck registers the health check function to be executed periodically.
-// The function should return nil for a healthy state or an error otherwise.
+// SetHealthCheck registers the core diagnostic function (a health check logic) that will be executed periodically.
+//
+// Parameters:
+//   - fct: A function matching the montps.HealthCheck signature. It must perform the diagnostic
+//     and return nil for success or an error for failure.
+//
+// The provided function (montps.HealthCheck) should perform the necessary diagnostics and return:
+// - nil: if the monitored component is healthy (OK).
+// - error: if a problem is detected (Warn or KO, depending on the failure count thresholds).
+//
+// This method is thread-safe and includes a recovery mechanism for unexpected panics during storage.
 func (o *mon) SetHealthCheck(fct montps.HealthCheck) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -78,15 +106,25 @@ func (o *mon) SetHealthCheck(fct montps.HealthCheck) {
 	o.x.Store(keyHealthCheck, fct)
 }
 
-// GetHealthCheck retrieves the currently registered health check function.
-// Returns nil if no health check function has been registered.
+// GetHealthCheck retrieves the health check function currently registered within the monitor.
+// It returns nil if no function has been associated with the monitor yet.
 func (o *mon) GetHealthCheck() montps.HealthCheck {
 	return o.getFct()
 }
 
-// Clone creates a copy of the monitor with a new context.
-// If the original monitor is running, the clone will also be started.
-// Returns an error if the cloned monitor fails to start.
+// Clone creates a deep copy of the current monitor instance using a new context.
+//
+// Parameters:
+//   - ctx: The new base context for the cloned monitor.
+//
+// The cloned monitor inherits:
+// 1. The configuration and internal state from the original monitor's context.
+// 2. The metadata (Info) from the original monitor.
+// 3. The last run metrics snapshot.
+// 4. The running status: if the original monitor is currently active, the clone will automatically start its ticker.
+//
+// This method returns the newly created Monitor instance or an error if the start-up process fails for the clone.
+// It includes a recovery mechanism to handle potential panics during the cloning process.
 func (o *mon) Clone(ctx context.Context) (montps.Monitor, error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -94,15 +132,24 @@ func (o *mon) Clone(ctx context.Context) (montps.Monitor, error) {
 		}
 	}()
 
+	// Initialize new instance with its own thread-safe state.
 	n := &mon{
 		x: nil,
 		i: libatm.NewValue[montps.Info](),
 		r: libatm.NewValue[runtck.Ticker](),
+		l: nil,
 	}
 
+	// Clone the internal state container with the new context.
 	n.x = o.x.Clone(ctx)
+	// Inherit the metadata by performing an atomic load/store.
 	n.i.Store(o.i.Load())
+	// Clone the last run metrics snapshot.
+	if o.l != nil {
+		n.l = o.l.Clone()
+	}
 
+	// If the parent monitor is running, ensure the child follows suit.
 	if o.IsRunning() {
 		if e := n.Start(ctx); e != nil {
 			return nil, e

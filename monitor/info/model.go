@@ -32,28 +32,29 @@ import (
 )
 
 const (
-	// keyName is the key used to store the cached name in the atomic map.
+	// keyName is the internal key used to store a manually overridden component name in the atomic map.
 	keyName = "__keyName__"
-	// fctName is the key used to store the registered name function.
+	// fctName is the internal key used to store the provider function for a dynamic component name.
 	fctName = "__funcName__"
-	// fctInfo is the key used to store the registered info function.
+	// fctInfo is the internal key used to store the provider function for dynamic metadata (Info data).
 	fctInfo = "__funcInfo__"
 )
 
-// inf is the internal implementation of the Info interface.
-// It uses a thread-safe atomic map to store its state, including the default name,
-// registered functions, and any manually set data.
+// inf is the private concrete implementation of the Info interface.
+// It manages the metadata for a monitored component using an atomic map for thread-safe state storage.
+// It supports a hierarchy of naming (Dynamic Function > Manual Override > Default) and dynamic data collection.
 type inf struct {
-	// n holds the default name provided at creation.
+	// n is the immutable default name provided during the initialization of the Info instance.
 	n string
-	// v is a thread-safe map that stores all dynamic data, including the
-	// cached name, registered functions, and info key-value pairs.
+	// v is a thread-safe atomic map used to store all metadata, including internal system keys
+	// and user-provided key-value pairs.
 	v libatm.Map[string]
 }
 
-// SetName manually sets or overrides the cached name.
-// If an empty string is provided, the cached name is deleted, causing Name()
-// to fall back to the default name.
+// SetName provides a way to manually override the component's name.
+// If an empty string is provided, any existing override is removed, effectively resetting the name
+// to either the dynamic function's result or the default name.
+// This operation is thread-safe.
 func (o *inf) SetName(s string) {
 	if o == nil {
 		return
@@ -64,15 +65,16 @@ func (o *inf) SetName(s string) {
 	}
 }
 
-// SetData replaces all existing info data with the provided map.
-// Internal keys for functions and name are preserved.
-// If a nil or empty map is provided, all existing info data is cleared.
+// SetData replaces all user-defined metadata with the contents of the provided map.
+// Internal system keys (for name overrides and provider functions) are preserved during this operation.
+// If the provided map is nil or empty, all current user-defined metadata is cleared.
+// This operation is thread-safe.
 func (o *inf) SetData(m map[string]interface{}) {
 	if o == nil {
 		return
 	}
 
-	// Collect all non-internal keys to be deleted.
+	// Identify all keys that are NOT internal system keys.
 	var i = make([]string, 0)
 	o.v.Range(func(key string, _ interface{}) bool {
 		if len(key) < 1 {
@@ -85,7 +87,7 @@ func (o *inf) SetData(m map[string]interface{}) {
 		return true
 	})
 
-	// Delete the collected keys.
+	// Remove all identified user-defined keys.
 	for _, v := range i {
 		o.v.Delete(v)
 	}
@@ -94,7 +96,7 @@ func (o *inf) SetData(m map[string]interface{}) {
 		return
 	}
 
-	// Store the new data.
+	// Batch update with the new metadata.
 	for k, v := range m {
 		if len(k) > 0 && v != nil {
 			o.v.Store(k, v)
@@ -102,9 +104,10 @@ func (o *inf) SetData(m map[string]interface{}) {
 	}
 }
 
-// AddData adds a single key-value pair to the info data.
-// If the key already exists, its value is updated.
-// If the provided value is nil, the key is deleted.
+// AddData inserts or updates a single metadata entry.
+// If the key (s) is already present, its value is overwritten.
+// If the value (i) is nil, the key is removed from the metadata store.
+// This operation is thread-safe.
 func (o *inf) AddData(s string, i interface{}) {
 	if o == nil {
 		return
@@ -117,7 +120,9 @@ func (o *inf) AddData(s string, i interface{}) {
 	}
 }
 
-// DelData removes a single key-value pair from the info data by its key.
+// DelData removes a specific metadata entry identified by its key.
+// If the key does not exist or is empty, the operation completes without error.
+// This operation is thread-safe.
 func (o *inf) DelData(s string) {
 	if o == nil {
 		return
@@ -128,11 +133,10 @@ func (o *inf) DelData(s string) {
 	o.v.Delete(s)
 }
 
-// RegisterName registers a function that dynamically provides the component name.
-// Calling this method will cause the next call to Name() to invoke this function.
-// The implementation does not cache the result; the function is called on every
-// invocation of Name().
-// Providing a nil function unregisters any existing function.
+// RegisterName associates a dynamic name provider function with this Info instance.
+// When Name() is called, this function will be executed to determine the current name.
+// Results are not cached; the function is invoked upon every request.
+// Providing a nil function unregisters the current provider.
 func (o *inf) RegisterName(fct montps.FuncInfoName) {
 	if o == nil {
 		return
@@ -143,11 +147,10 @@ func (o *inf) RegisterName(fct montps.FuncInfoName) {
 	}
 }
 
-// RegisterInfo registers a function that dynamically provides the info data map.
-// Calling this method will cause the next call to Info() to invoke this function.
-// The implementation does not cache the result; the function is called on every
-// invocation of Info().
-// Providing a nil function unregisters any existing function.
+// RegisterData associates a dynamic data provider function with this Info instance.
+// When Data() is called, this function will be executed, and its results will be merged
+// with the static metadata stored in the instance.
+// Providing a nil function unregisters the current provider.
 func (o *inf) RegisterData(fct montps.FuncInfoData) {
 	if o == nil {
 		return
@@ -158,9 +161,9 @@ func (o *inf) RegisterData(fct montps.FuncInfoData) {
 	}
 }
 
-// callNameFct retrieves and executes the registered name function.
-// It returns an error if the instance is nil, the function is not registered,
-// or the stored value is of the wrong type.
+// callNameFct is an internal helper that executes the registered name provider function.
+// It handles type assertions and basic validation, returning an error if the function
+// is missing or returns invalid data.
 func (o *inf) callNameFct() (string, error) {
 	if o == nil {
 		return "", montps.ErrorInvalidInstance.Error()
@@ -173,9 +176,9 @@ func (o *inf) callNameFct() (string, error) {
 	}
 }
 
-// callInfoFct retrieves and executes the registered info function.
-// It returns an error if the instance is nil, the function is not registered,
-// or the stored value is of the wrong type.
+// callInfoFct is an internal helper that executes the registered data provider function.
+// It handles type assertions and basic validation, returning an error if the function
+// is missing or returns invalid data.
 func (o *inf) callInfoFct() (map[string]interface{}, error) {
 	if o == nil {
 		return nil, montps.ErrorInvalidInstance.Error()
@@ -188,32 +191,34 @@ func (o *inf) callInfoFct() (map[string]interface{}, error) {
 	}
 }
 
-// getName is the internal logic for retrieving the name.
-// It prioritizes the registered function, then a manually set name,
-// and finally falls back to the default name.
+// getName is the internal core logic for resolving the component's name.
+// The resolution order is:
+// 1. Result of the registered dynamic function (if any and non-empty).
+// 2. Manually set name override (if any).
+// 3. The default name provided at initialization.
 func (o *inf) getName() string {
 	if o == nil {
 		return ""
 	}
 
-	// Try to get name from registered function.
+	// Priority 1: Dynamic function.
 	if n, e := o.callNameFct(); e == nil && len(n) > 0 {
 		return n
 	}
 
-	// Fallback to manually set/cached name.
+	// Priority 2: Manual override.
 	if i, l := o.v.Load(keyName); l && i != nil {
 		if v, k := i.(string); k {
 			return v
 		}
 	}
 
-	// Fallback to default name.
+	// Priority 3: Default fallback.
 	return o.n
 }
 
-// getInfoStore retrieves all non-internal key-value pairs from the atomic map.
-// It returns a standard map of the current data.
+// getInfoStore is an internal helper that extracts all user-defined metadata from the atomic map.
+// It filters out internal system keys used for configuration and naming logic.
 func (o *inf) getInfoStore() map[string]interface{} {
 	if o == nil {
 		return nil
@@ -235,26 +240,28 @@ func (o *inf) getInfoStore() map[string]interface{} {
 	return result
 }
 
-// getInfo is the internal logic for retrieving the info data.
-// It merges data from the store with data from the registered function.
+// getInfo is the internal core logic for resolving all metadata (Info data).
+// It retrieves the static metadata stored in the instance and merges it with the result
+// of the registered dynamic data provider function (if any).
+// If keys collide, the dynamic function's data takes precedence.
 func (o *inf) getInfo() map[string]interface{} {
 	if o == nil {
 		return nil
 	}
 
-	// Start with any manually set data.
+	// Start with static data stored in the atomic map.
 	var res = o.getInfoStore()
 	if len(res) < 1 {
 		res = make(map[string]interface{})
 	}
 
-	// Try to get additional data from registered function.
+	// Execute the dynamic provider function.
 	f, e := o.callInfoFct()
 	if e != nil || len(f) < 1 {
 		return res
 	}
 
-	// Merge function data into the result.
+	// Merge dynamic data into the result map.
 	for k, v := range f {
 		res[k] = v
 	}

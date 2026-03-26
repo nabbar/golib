@@ -66,6 +66,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 
 	Describe("Real-World Scenario: Database Connection Monitoring", func() {
 		It("should handle flapping connection", func() {
+			// TC-MON-TR-009
 			connectionUp := &atomic.Bool{}
 			connectionUp.Store(false)
 			checkCount := &atomic.Int32{}
@@ -102,6 +103,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 		})
 
 		It("should recover from temporary outage", func() {
+			// TC-MON-TR-003
 			outageUntil := time.Now().Add(800 * time.Millisecond)
 
 			mon.SetHealthCheck(func(ctx context.Context) error {
@@ -135,6 +137,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 
 	Describe("Real-World Scenario: API Endpoint Monitoring", func() {
 		It("should track latency degradation", func() {
+			// TC-MON-MT-002
 			latencies := []time.Duration{
 				10 * time.Millisecond,
 				20 * time.Millisecond,
@@ -172,6 +175,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 
 	Describe("Real-World Scenario: Multiple Monitors", func() {
 		It("should run multiple monitors independently", func() {
+			// TC-MON-LC-003
 			// Create second monitor
 			nfo2 := newInfoWithName("monitor-2", nil)
 			mon2 := newMonitor(x, nfo2)
@@ -224,6 +228,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 
 	Describe("Real-World Scenario: Dynamic Info Updates", func() {
 		It("should use updated info in encoding", func() {
+			// TC-MON-BS-010
 			mon.InfoUpd(newInfoWithName("test-integration", nil))
 			cfg := montps.Config{
 				Name:          "dynamic-info",
@@ -255,6 +260,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 
 	Describe("Real-World Scenario: Graceful Shutdown", func() {
 		It("should handle graceful shutdown during check", func() {
+			// TC-MON-LC-007
 			checkStarted := &atomic.Bool{}
 			checkCompleted := &atomic.Bool{}
 
@@ -289,6 +295,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 
 	Describe("Concurrent Operations", func() {
 		It("should handle concurrent reads safely", func() {
+			// TC-MON-BM-002
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -319,6 +326,7 @@ var _ = Describe("Monitor Integration Tests", func() {
 		})
 
 		It("should handle concurrent config updates safely", func() {
+			// TC-MON-BS-004
 			var wg sync.WaitGroup
 			for i := 0; i < 5; i++ {
 				wg.Add(1)

@@ -26,12 +26,13 @@
 
 package info
 
-// Name returns the current name of the monitor info component.
-// If a dynamic name function has been registered via RegisterName, it is invoked
-// to retrieve the name. Otherwise, it falls back to any manually set name (via SetName)
-// or the default name provided at creation.
+// Name returns the effective name of the monitored component.
+// The name is resolved following a specific order of precedence:
+// 1. If a dynamic name provider function has been registered (via RegisterName), it is executed and its result returned.
+// 2. If no dynamic function is available or it returns an empty string, the name manually set via SetName (if any) is returned.
+// 3. If no manual override is present, the default name provided during the initialization of the Info instance is returned.
 //
-// This method is thread-safe and safe to call concurrently.
+// This method is designed to be thread-safe and can be invoked concurrently by multiple goroutines.
 func (o *inf) Name() string {
 	if o == nil {
 		return ""
@@ -40,13 +41,17 @@ func (o *inf) Name() string {
 	return o.getName()
 }
 
-// Info returns the current information data as a map of key-value pairs.
-// It combines any manually set data (via SetData/AddData) with the result of
-// the registered info function (if any). The registered function is invoked
-// on every call to Info.
+// Data retrieves and returns all metadata associated with the monitored component as a map.
+// The resulting map is a combination of two sources:
+//   - Static metadata: Key-value pairs manually stored within the Info instance using SetData or AddData.
+//   - Dynamic metadata: Data provided by the registered information provider function (if any), which is
+//     executed during every call to this method.
 //
-// This method is thread-safe and safe to call concurrently.
-// It returns an empty map if no information is available.
+// If keys between the static and dynamic sources collide, the data from the dynamic provider function
+// takes precedence in the final returned map.
+//
+// This method is thread-safe and ensures consistent data access across concurrent operations.
+// It returns an empty map if no metadata is currently available.
 func (o *inf) Data() map[string]interface{} {
 	if o == nil {
 		return nil

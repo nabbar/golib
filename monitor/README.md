@@ -1,76 +1,55 @@
 # Monitor Package
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.18-blue)](https://golang.org/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.25-blue)](https://go.dev/doc/install)
+[![Coverage](https://img.shields.io/badge/Coverage-84.7%25-brightgreen)](TESTING.md)
 
-Production-ready health monitoring system for Go applications with automatic status transitions, configurable thresholds, and comprehensive metrics tracking.
-
-> **AI Disclaimer**: AI tools are used solely to assist with testing, documentation, and bug fixes under human supervision, in compliance with EU AI Act Article 50.4.
+The **Monitor Package** is a high-performance, production-ready health monitoring system for Go applications. It provides a robust framework for tracking the operational status of internal components and external dependencies using an intelligent state machine with built-in hysteresis and lock-free metrics reporting.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
-- [Installation](#installation)
 - [Architecture](#architecture)
-- [Quick Start](#quick-start)
 - [Performance](#performance)
-- [Use Cases](#use-cases)
 - [Subpackages](#subpackages)
-- [Configuration](#configuration)
-- [Status Transitions](#status-transitions)
+    - [info](#info)
+    - [pool](#pool)
+    - [status](#status)
+- [Use Cases](#use-cases)
+- [Quick Start](#quick-start)
 - [Best Practices](#best-practices)
 - [API Reference](#api-reference)
-- [Testing](#testing)
 - [Contributing](#contributing)
-- [Future Enhancements](#future-enhancements)
-- [License](#license)
+- [Resources](#resources)
 
 ---
 
 ## Overview
 
-The monitor package provides a sophisticated health monitoring system for production Go applications. It implements automatic health check execution with intelligent status transitions, hysteresis to prevent flapping, and comprehensive metrics collection.
+The monitor package is designed to provide "observation without interference". It allows developers to register periodic health checks that automatically transition through health states (OK, Warn, KO) based on configurable failure and recovery thresholds.
 
 ### Design Philosophy
 
-1. **Reliability First**: Hysteresis-based transitions prevent status flapping during temporary issues
-2. **Observability**: Track latency, uptime, downtime, and state transitions for complete visibility
-3. **Flexibility**: Configurable intervals, thresholds, and extensible middleware chain
-4. **Thread-Safe**: Fine-grained locking and atomic operations for concurrent access
-5. **Composable**: Independent subpackages (info, status, pool, types) work together seamlessly
+1. **Lock-Free Hot Path**: Reading the status or metrics of a monitor is architected using atomic operations, ensuring zero contention even under thousands of concurrent requests.
+2. **Dampened Transitions**: Hysteresis logic prevents "alert flapping" by requiring consecutive successes or failures before triggering a state change.
+3. **Context-Aware**: Every health check execution is bounded by a context timeout, ensuring that hanging diagnostics do not block the system.
+4. **Middleware-First**: Execution is wrapped in a LIFO stack, allowing for easy injection of tracing, logging, or custom metrics logic.
 
-### Value Proposition
+### Key Features
 
-- **Prevent Alert Fatigue**: Hysteresis prevents flapping during transient failures
-- **Adaptive Monitoring**: Automatically adjusts check frequency based on component health
-- **Production Ready**: Thread-safe, tested, and battle-proven in production
-- **Observable**: Complete visibility into health status and performance metrics
-- **Scalable**: Efficiently manage hundreds of monitors with pool management
+- ✅ **Three-State Machine**: Full lifecycle tracking (OK ↔ Warn ↔ KO).
+- ✅ **Adaptive Ticker**: Dynamically adjusts polling frequency during transition phases (Rise/Fall).
+- ✅ **Atomic Metrics**: High-precision tracking of Latency, Uptime, Downtime, and Transition times.
+- ✅ **Prometheus Integration**: Built-in dispatching logic for automated metrics exporting.
+- ✅ **Metadata Management**: Dynamic runtime information through the `info` subpackage.
+- ✅ **Zero-Allocation Reads**: Optimized memory path for high-frequency status polling.
 
----
+### Key Benefits
 
-## Key Features
-
-- **Three-State Model**: OK → Warn → KO transitions with configurable thresholds
-- **Adaptive Intervals**: Different check frequencies for normal, rising, and falling states
-- **Comprehensive Metrics**: Latency, uptime, downtime, rise/fall times
-- **Thread-Safe**: Concurrent access safe with fine-grained locking
-- **Pool Management**: Group and manage multiple monitors with batch operations
-- **Prometheus Integration**: Built-in metrics export
-- **Middleware Chain**: Extensible health check pipeline
-- **Dynamic Metadata**: Runtime-generated component information
-- **Shell Commands**: CLI-style operational control
-
----
-
-## Installation
-
-```bash
-go get github.com/nabbar/golib/monitor
-```
+- **vs Standard Tickers**: Provides a complete state machine and metrics container out-of-the-box, rather than just a periodic trigger.
+- **vs Basic Maps**: Thread-safety is guaranteed through atomic primitives rather than global mutexes, offering superior scalability on multi-core systems.
 
 ---
 
@@ -80,388 +59,285 @@ go get github.com/nabbar/golib/monitor
 
 ```
 monitor/
-├── monitor          # Core health monitoring
-├── pool/            # Monitor pool management
-├── info/            # Component metadata
-├── status/          # Status enumeration
-└── types/           # Type definitions
+├── monitor.go               # Implementation of the core Monitor orchestrator
+├── interface.go             # Public interface definitions and factory
+├── model.go                 # Internal structures and atomic containers
+├── last.go                  # High-performance metrics & status storage
+├── server.go                # Ticker runner and periodic execution logic
+├── internalConfig.go        # Configuration normalization and validation
+├── middleware.go            # Execution pipeline implementation
+├── encode.go                # JSON/Text serialization logic
+├── doc.go                   # GoDoc package documentation
+│
+├── info/                    # Metadata management sub-package
+├── pool/                    # Group management and batch operations
+├── status/                  # Status enumeration and multi-format parsing
+└── types/                   # Cross-package shared interfaces
 ```
 
-### Component Hierarchy
+### Package Architecture
+
+The monitor uses a **Split-State Architecture**. Configuration and Metadata are stored in thread-safe but high-level containers, while operational metrics are stored in a dedicated `lastRun` structure using low-level `sync/atomic` primitives.
 
 ```
-┌────────────────────────────────────────┐
-│         Monitor Package                 │
-│    Health Check Monitoring System       │
-└──────┬──────┬────────┬─────────┬───────┘
-       │      │        │         │
-   ┌───▼──┐ ┌─▼───┐ ┌─▼────┐ ┌──▼──────┐
-   │ Pool │ │Info │ │Status│ │  Types  │
-   └──────┘ └─────┘ └──────┘ └─────────┘
+[ Monitor Instance ]
+       |
+       +--- [ Config Context ] ---> (Logger, Ticker Intervals, Thresholds)
+       |
+       +--- [ Metadata Container ] ---> (Atomic Name, Version, Custom Data)
+       |
+       +--- [ Background Runner ] ---> (Ticker Goroutine)
+       |
+       +--- [ Performance Metrics ] ---> (Atomic Status, Latency, Uptime Counters)
 ```
 
-### Status Transition Model
+### Dataflow
+
+The periodic check cycle follows a structured pipeline:
 
 ```
-       ┌──────────────┐
-       │      KO      │  ← Component unhealthy
-       └──────┬───────┘
-              │ riseCountKO successes
-              ▼
-       ┌──────────────┐
-       │     Warn     │  ← Component degraded
-       └──────┬───────┘
-              │ riseCountWarn successes
-              ▼
-       ┌──────────────┐
-       │      OK      │  ← Component healthy
-       └──────┬───────┘
-              │ fallCountWarn failures
-              ▼
-       (returns to Warn, then KO)
-```
-
----
-
-## Quick Start
-
-### Basic Monitor
-
-```go
-import (
-    "context"
-    "time"
-    "github.com/nabbar/golib/monitor"
-    "github.com/nabbar/golib/monitor/info"
-    "github.com/nabbar/golib/monitor/types"
-    "github.com/nabbar/golib/duration"
-)
-
-// Create monitor
-inf, _ := info.New("database-monitor")
-mon, _ := monitor.New(context.Background, inf)
-
-// Configure
-cfg := types.Config{
-    Name:          "postgres",
-    CheckTimeout:  duration.ParseDuration(5 * time.Second),
-    IntervalCheck: duration.ParseDuration(30 * time.Second),
-    FallCountKO:   3,
-    RiseCountKO:   3,
-}
-mon.SetConfig(context.Background(), cfg)
-
-// Register health check
-mon.SetHealthCheck(func(ctx context.Context) error {
-    return db.PingContext(ctx)
-})
-
-// Start
-mon.Start(context.Background())
-defer mon.Stop(context.Background())
-
-// Query
-fmt.Printf("Status: %s\n", mon.Status())
-```
-
-### Monitor Pool
-
-```go
-import "github.com/nabbar/golib/monitor/pool"
-
-pool := pool.New(ctxFunc)
-
-// Add monitors
-pool.MonitorAdd(createDBMonitor())
-pool.MonitorAdd(createAPIMonitor())
-
-// Register metrics
-pool.RegisterMetrics(promFunc, logFunc)
-defer pool.UnregisterMetrics()
-
-// Start all
-pool.Start(ctx)
-defer pool.Stop(ctx)
+1. Ticker Tick --------> 2. Interval Resolver ----> 3. Middleware Stack
+                               |                          |
+   (Adjusts speed if           |                          |-- [ mdlStatus ] (Start Time)
+    Rising or Falling)         |                          |-- [ User Function ] (Diagnostic)
+                               |                          |-- [ mdlStatus ] (Set Result)
+                               |                          |
+4. Metrics Export <---- 5. State Transition <-------------+
+      |                 (Update Counters & Status)
+      v
+[ Prometheus / Logs ]
 ```
 
 ---
 
 ## Performance
 
-| Operation | Time | Memory | Allocations |
-|-----------|------|--------|-------------|
-| Monitor Creation | 1.2 µs | 2.1 KB | 18 allocs |
-| Health Check | 15 µs | 448 B | 5 allocs |
-| Status Transition | 800 ns | 0 B | 0 allocs |
-| Metrics Collection | 2.5 µs | 0 B | 0 allocs |
-| Pool.Start (10 monitors) | 85 µs | 8 KB | 120 allocs |
+The monitor is optimized for zero-contention on the read path. The following benchmarks were captured on an Intel Core i7-4700HQ.
 
----
+| Operation           | Performance | Memory     | Efficiency          |
+|---------------------|-------------|------------|---------------------|
+| **Status Read**     | ~3.14 ns/op | 0 B/op     | **Zero Garbage**    |
+| **Latency Read**    | ~2.23 ns/op | 0 B/op     | **Zero Garbage**    |
+| **Concurrent Read** | ~0.85 ns/op | 0 B/op     | **Linear Scaling**  |
+| **Check Execution** | ~15.0 µs/op | 448 B/op   | Low Overhead        |
+| **Configuration**   | ~49.4 µs/op | 24.8 KB/op | Administrative Path |
 
-## Use Cases
-
-### 1. Microservice Health Monitoring
-Monitor multiple services with automatic transitions and metrics collection.
-
-### 2. Database Connection Pooling
-Track database health with adaptive intervals for faster issue detection.
-
-### 3. External Service Dependencies
-Monitor third-party API availability with configurable timeouts.
-
-### 4. Kubernetes Probes
-Integrate with liveness and readiness probes.
-
-### 5. Custom Middleware
-Extend health checks with logging, metrics, or custom logic.
+**Note**: Status and Metric reads are lock-free and do not produce pressure on the Garbage Collector.
 
 ---
 
 ## Subpackages
 
-### monitor (Core)
-Core health check monitoring with status transitions, metrics, and lifecycle management.
-
-**GoDoc**: [pkg.go.dev/github.com/nabbar/golib/monitor](https://pkg.go.dev/github.com/nabbar/golib/monitor)
+### info
+Dynamic metadata management. It allows attaching functions to retrieve runtime data (like version or git hash) only when requested.
+- **Documentation**: [info/README.md](./info/README.md)
 
 ### pool
-Manage multiple monitors as a group with batch operations and Prometheus integration.
-
-**Documentation**: [pool/README.md](./pool/README.md)
-
-### info
-Dynamic metadata management with caching and lazy evaluation.
-
-**Documentation**: [info/README.md](./info/README.md)
+Manages monitor groups. Provides batch control (Start/Stop all) and aggregated Prometheus exporters.
+- **Documentation**: [pool/README.md](./pool/README.md)
 
 ### status
-Type-safe status enumeration (OK, Warn, KO) with multi-format encoding.
-
-### types
-Shared interfaces, configuration types, and error codes.
+Type-safe status enumeration. Handles conversions and multi-format marshalling (JSON/YAML/TOML).
+- **Documentation**: [status/README.md](./status/README.md)
 
 ---
 
-## Configuration
+## Use Cases
+
+### 1. External API Resilience
+Monitor third-party services with "dampened" transitions to avoid false alarms on transient glitches.
 
 ```go
-type Config struct {
-    Name          string            // Component name
-    CheckTimeout  duration.Duration // Health check timeout (min: 5s)
-    IntervalCheck duration.Duration // Normal check interval (min: 1s)
-    IntervalFall  duration.Duration // Interval when falling (min: 1s)
-    IntervalRise  duration.Duration // Interval when rising (min: 1s)
-    FallCountKO   int              // Failures for Warn→KO (min: 1)
-    FallCountWarn int              // Failures for OK→Warn (min: 1)
-    RiseCountKO   int              // Successes for KO→Warn (min: 1)
-    RiseCountWarn int              // Successes for Warn→OK (min: 1)
+cfg := types.Config{
+    FallCountWarn: 3, // Ignore isolated failures
+    IntervalCheck: duration.ParseDuration("30s"),
 }
 ```
 
-**Best Practices**:
-- `CheckTimeout` < `IntervalCheck` (prevent overlapping checks)
-- Use shorter `IntervalFall` for faster issue detection
-- Set counts ≥ 2 to prevent flapping
+### 2. High-Frequency Telemetry
+Feed Prometheus scrapers or liveness probes using the lock-free read path without impacting diagnostic performance.
+
+```go
+// Atomic read (~3ns) - No impact on system latency
+status := mon.Status() 
+```
 
 ---
 
-## Status Transitions
+## Quick Start
 
-### Transition Rules
+```go
+import (
+    "context"
+    "github.com/nabbar/golib/monitor"
+    "github.com/nabbar/golib/monitor/info"
+    "github.com/nabbar/golib/monitor/types"
+    "github.com/nabbar/golib/duration"
+)
 
-| From | To | Condition | Resets |
-|------|-----|-----------|--------|
-| KO | Warn | `riseCountKO` consecutive successes | Fall counters |
-| Warn | OK | `riseCountWarn` consecutive successes | Fall counters |
-| OK | Warn | `fallCountWarn` consecutive failures | Rise counters |
-| Warn | KO | `fallCountKO` consecutive failures | Rise counters |
-
-### Example Sequence
-
-Configuration: `FallCountWarn:2, FallCountKO:3, RiseCountKO:3, RiseCountWarn:2`
-
-```
-Check 1: ✓ → OK
-Check 2: ✗ → OK (1 failure)
-Check 3: ✗ → Warn (2 failures, threshold reached)
-Check 4: ✗ → Warn (1 KO failure)
-Check 5: ✗ → Warn (2 KO failures)
-Check 6: ✗ → KO (3 KO failures, threshold reached)
-Check 7-9: ✓✓✓ → Warn (3 successes, KO threshold reached)
-Check 10-11: ✓✓ → OK (2 successes, Warn threshold reached)
+func main() {
+    inf, _ := info.New("api-service")
+    mon, _ := monitor.New(context.Background(), inf)
+    
+    _ = mon.SetConfig(context.Background(), types.Config{
+        IntervalCheck: duration.ParseDuration("10s"),
+        FallCountKO: 3,
+    })
+    
+    mon.SetHealthCheck(func(ctx context.Context) error {
+        return db.PingContext(ctx)
+    })
+    
+    _ = mon.Start(context.Background())
+    defer mon.Stop(context.Background())
+}
 ```
 
 ---
 
 ## Best Practices
 
-### Configuration
-- Set `CheckTimeout` < `IntervalCheck`
-- Use faster `IntervalFall` for issue detection
-- Configure counts ≥ 2 to prevent flapping
+### ✅ DO
+- **Use `Eventually` in tests**: Since monitoring is asynchronous, use non-blocking matchers.
+- **Respect Context**: Ensure your diagnostic function honors the `ctx` provided to handle timeouts.
+- **Register Metrics Early**: Association with Prometheus should be done during initialization.
 
-### Health Checks
-- Respect context timeout
-- Return specific errors
-- Keep checks lightweight
-- Handle transient failures
-
-### Lifecycle
-- Always call `Stop()` when done
-- Use `defer` for cleanup
-- Check `IsRunning()` before operations
-
-### Pool Management
-- Use pools for related monitors
-- Call `UnregisterMetrics()` on shutdown
-- Register Prometheus metrics early
+### ❌ DON'T
+- **Don't use `time.Sleep`**: The monitor orchestrator already handles intervals.
+- **Don't block the Read Path**: The package provides atomic counters; do not wrap them in heavy mutex-guarded logic.
 
 ---
 
 ## API Reference
 
-### Monitor Interface
+### 1. Primary Factory
 
-```go
-type Monitor interface {
-    // Lifecycle
-    Start(ctx context.Context) error
-    Stop(ctx context.Context) error
-    Restart(ctx context.Context) error
-    IsRunning() bool
-    
-    // Configuration
-    SetConfig(ctx context.Context, cfg Config) error
-    GetConfig() Config
-    
-    // Health Check
-    SetHealthCheck(hc HealthCheck)
-    RegisterMiddleware(mw Middleware)
-    
-    // Status & Metrics
-    Status() status.Status
-    Latency() time.Duration
-    Uptime() time.Duration
-    Downtime() time.Duration
-    
-    // Info
-    InfoGet() Info
-    InfoMap() map[string]interface{}
-    
-    // Encoding
-    MarshalText() ([]byte, error)
-    MarshalJSON() ([]byte, error)
-}
-```
+| Function | Parameters                    | Returns            | Description                                 |
+|----------|-------------------------------|--------------------|---------------------------------------------|
+| `New`    | `ctx` (Context), `nfo` (Info) | `(Monitor, error)` | Initializes a thread-safe monitor instance. |
 
-### Pool Interface
+### 2. Monitor Interface
 
-```go
-type Pool interface {
-    // Monitor Management
-    MonitorAdd(mon Monitor) error
-    MonitorGet(name string) Monitor
-    MonitorDel(name string)
-    MonitorList() []string
-    
-    // Lifecycle
-    Start(ctx context.Context) error
-    Stop(ctx context.Context) error
-    Restart(ctx context.Context) error
-    
-    // Metrics
-    RegisterMetrics(prom, log func) error
-    UnregisterMetrics()
-    
-    // Shell
-    GetShellCommand(ctx context.Context) []Command
-}
-```
+The `Monitor` interface aggregates multiple specialized behaviors.
 
----
+#### Lifecycle Methods
+| Method      | Parameters | Returns | Description                                                         |
+|-------------|------------|---------|---------------------------------------------------------------------|
+| `Start`     | `ctx`      | `error` | Launches the background ticker. Waits for operational confirmation. |
+| `Stop`      | `ctx`      | `error` | Halts the background ticker and waits for current check completion. |
+| `Restart`   | `ctx`      | `error` | Performs a synchronized full Stop followed by a Start cycle.        |
+| `IsRunning` | -          | `bool`  | Thread-safe check of the background runner status.                  |
 
-## Testing
+#### Configuration & Core Logic
+| Method           | Parameters            | Returns            | Description                                                             |
+|------------------|-----------------------|--------------------|-------------------------------------------------------------------------|
+| `SetConfig`      | `ctx`, `cfg` (Config) | `error`            | Validates and applies runtime parameters and logging options.           |
+| `GetConfig`      | -                     | `Config`           | Returns a deep-copy snapshot of the current effective configuration.    |
+| `SetHealthCheck` | `fct` (HealthCheck)   | -                  | Registers the function responsible for the component diagnostic.        |
+| `GetHealthCheck` | -                     | `HealthCheck`      | Retrieves the currently registered diagnostic function.                 |
+| `Clone`          | `ctx`                 | `(Monitor, error)` | Deep copy of the monitor instance, inheriting state and running status. |
 
-**Test Suite**: 595 specs across 4 packages with 86.1% overall coverage
+#### Status & State (MonitorStatus)
+| Method     | Returns         | Performance | Description                                                           |
+|------------|-----------------|-------------|-----------------------------------------------------------------------|
+| `Status`   | `status.Status` | ~3ns        | Atomic retrieval of current health (OK/Warn/KO).                      |
+| `Latency`  | `time.Duration` | ~2ns        | Atomic duration of the last executed health check.                    |
+| `Uptime`   | `time.Duration` | ~2ns        | Total cumulative duration spent in the OK health status.              |
+| `Downtime` | `time.Duration` | ~2ns        | Total cumulative duration spent in Warn or KO statuses.               |
+| `Message`  | `string`        | -           | Returns the last error or status message captured during execution.   |
+| `IsRise`   | `bool`          | -           | Reports if the monitor is currently recovering from a degraded state. |
+| `IsFall`   | `bool`          | -           | Reports if the monitor is currently degrading toward a failure state. |
 
-```bash
-# Run all tests
-go test ./...
+#### Metrics & Prometheus (MonitorMetrics)
+| Method                   | Parameters    | Description                                                                 |
+|--------------------------|---------------|-----------------------------------------------------------------------------|
+| `RegisterMetricsName`    | `...string`   | Defines the Prometheus metric identifiers for this monitor instance.        |
+| `RegisterMetricsAddName` | `...string`   | Appends new identifiers to the existing list (handles de-duplication).      |
+| `RegisterCollectMetrics` | `FuncCollect` | Associates a provider function for metrics extraction during scrape cycles. |
 
-# With coverage
-go test -cover ./...
+#### Metadata Management (MonitorInfo)
+| Method     | Returns          | Description                                                   |
+|------------|------------------|---------------------------------------------------------------|
+| `InfoName` | `string`         | Atomic retrieval of the monitor descriptive name.             |
+| `InfoMap`  | `map[string]any` | Dynamic retrieval of component metadata (version, env, etc.). |
+| `InfoUpd`  | -                | Thread-safe update of the monitor metadata implementation.    |
 
-# With race detection (recommended)
-CGO_ENABLED=1 go test -race ./...
-```
+### 3. Config Structure (`types.Config`)
 
-**Test Results**
-
-```
-monitor/                122 specs    68.5% coverage   0.23s
-monitor/info/           139 specs   100.0% coverage   0.12s
-monitor/pool/           153 specs    76.2% coverage  11.78s
-monitor/status/         181 specs    98.4% coverage   0.02s
-```
-
-**Quality Assurance**
-- ✅ Zero data races (verified with `-race`)
-- ✅ Thread-safe concurrent operations
-- ✅ Comprehensive edge case testing
-- ✅ Time-dependent behavior validation
-
-See [TESTING.md](./TESTING.md) for detailed testing documentation.
+| Field           | Type       | Default     | Description                                                   |
+|-----------------|------------|-------------|---------------------------------------------------------------|
+| `Name`          | `string`   | "not named" | Unique identifier for logging and metrics.                    |
+| `CheckTimeout`  | `Duration` | 5s          | Maximum allowed execution time for a single HealthCheck.      |
+| `IntervalCheck` | `Duration` | 1s          | Normal polling frequency when the status is stable.           |
+| `IntervalFall`  | `Duration` | 1s          | Polling frequency adjustment during degradation (Fall phase). |
+| `IntervalRise`  | `Duration` | 1s          | Polling frequency adjustment during recovery (Rise phase).    |
+| `FallCountKO`   | `uint8`    | 1           | Consecutive failures required to transition from Warn to KO.  |
+| `FallCountWarn` | `uint8`    | 1           | Consecutive failures required to transition from OK to Warn.  |
+| `RiseCountKO`   | `uint8`    | 1           | Consecutive successes required to transition from KO to Warn. |
+| `RiseCountWarn` | `uint8`    | 1           | Consecutive successes required to transition from Warn to OK. |
+| `Logger`        | `Options`  | -           | Integrated structured logging configuration.                  |
 
 ---
 
 ## Contributing
 
-Contributions welcome! Please follow these guidelines:
+Contributions are welcome! Please follow these guidelines:
 
-### Code Standards
-- Write tests for new features
-- Update documentation
-- Add GoDoc comments for public APIs
-- Run `go fmt` and `go vet`
-- Test with race detector (`-race`)
+1. **Code Quality**
+  - Follow Go best practices and idioms
+  - Maintain or improve code coverage (target: >80%)
+  - Pass all tests including race detector
+  - Use `gofmt`, `golangci-lint` and `gosec`
 
-### AI Usage Policy
-- **DO NOT** use AI tools to generate package code or core logic
-- **DO** use AI to assist with:
-  - Writing and improving tests
-  - Documentation and comments
-  - Debugging and bug fixes
-  
-All AI-assisted work must be reviewed and validated by a human maintainer.
+2. **AI Usage Policy**
+  - ❌ **AI must NEVER be used** to generate package code or core functionality
+  - ✅ **AI assistance is limited to**:
+    - Testing (writing and improving tests)
+    - Debugging (troubleshooting and bug resolution)
+    - Documentation (comments, README, TESTING.md)
+  - All AI-assisted work must be reviewed and validated by humans
 
-### Pull Request Process
-1. Fork the repository
-2. Create a feature branch
-3. Write tests (coverage > 70%)
-4. Update documentation
-5. Run full test suite with race detection
-6. Submit PR with clear description
+3. **Testing**
+  - Add tests for new features
+  - Use Ginkgo v2 / Gomega for test framework
+  - Ensure zero race conditions
+  - Maintain coverage above 80%
 
----
+4. **Documentation**
+  - Update GoDoc comments for public APIs
+  - Add examples for new features
+  - Update README.md and TESTING.md if needed
 
-## Future Enhancements
-
-Potential improvements under consideration:
-
-- **Circuit Breaker Pattern**: Automatic service isolation during failures
-- **Distributed Monitoring**: Cluster-wide health coordination
-- **Historical Metrics**: Long-term trend analysis
-- **Custom Exporters**: Support for other metrics systems (StatsD, InfluxDB)
-- **Health Check Templates**: Predefined checks for common services
-- **Dynamic Thresholds**: Adaptive thresholds based on historical data
-
-Contributions and suggestions are welcome!
+5. **Pull Request Process**
+  - Fork the repository
+  - Create a feature branch
+  - Write clear commit messages
+  - Ensure all tests pass
+  - Update documentation
+  - Submit PR with description of changes
 
 ---
 
-## AI Transparency Notice
+## Resources
 
-In accordance with Article 50.4 of the EU AI Act, AI assistance has been used for testing, documentation, and bug fixing under human supervision.
+### Documentation
+- **[TESTING.md](TESTING.md)**: Exhaustive test inventory, performance benchmarks, and CPU/Memory profiling data.
+
+### Monitoring Standards & Industry References
+- **[Google SRE Book: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/)**: Core theoretical framework for service monitoring, explaining the difference between symptoms and causes, and the "Four Golden Signals".
+- **[Kubernetes Probes Documentation](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/)**: Industry standard for container orchestration probes. This package's transition logic (Fall/Rise counts) is designed to align with Kubernetes liveness and readiness probe behaviors.
+- **[HAProxy Health Check Configuration](https://www.haproxy.com/blog/how-to-enable-health-checks-in-haproxy/)**: Operational reference for load-balancer health monitoring, detailing intervals and thresholds for high-availability systems.
+- **[Traefik Backend Health Monitoring](https://doc.traefik.io/traefik/routing/services/#health-check)**: Configuration standards for dynamic proxy health checks used in modern microservices architectures.
+- **[Prometheus Metric Naming Best Practices](https://prometheus.io/docs/practices/naming/)**: Essential guide for ensuring that metrics registered via `RegisterMetricsName` follow standard conventions for dashboards and alerting.
+
+### Summary
+These resources provide the context for why this package exists. The **Monitor Package** provides the Go implementation of the **Hysteresis** and **State Machine** patterns used by orchestrators like Kubernetes, with the **Atomic-Read** performance required for SRE-grade telemetry.
+
+---
+
+## AI Transparency
+
+In compliance with EU AI Act Article 50.4: AI assistance was used for performance profiling, test inventory generation, and documentation synchronization under human supervision. Core monitoring logic is human-designed and validated.
 
 ---
 
@@ -469,22 +345,4 @@ In accordance with Article 50.4 of the EU AI Act, AI assistance has been used fo
 
 MIT License - See [LICENSE](../../LICENSE) file for details.
 
----
-
-## Resources
-
-- **Issues**: [GitHub Issues](https://github.com/nabbar/golib/issues)
-- **Documentation**: [GoDoc](https://pkg.go.dev/github.com/nabbar/golib/monitor)
-- **Testing Guide**: [TESTING.md](TESTING.md)
-- **Contributing**: [CONTRIBUTING.md](../../CONTRIBUTING.md)
-
-**Related Packages**:
-- [context](https://github.com/nabbar/golib/tree/main/context) - Context management
-- [runner](https://github.com/nabbar/golib/tree/main/runner) - Ticker and lifecycle management
-- [prometheus](https://github.com/nabbar/golib/tree/main/prometheus) - Metrics export
-- [status](https://github.com/nabbar/golib/tree/main/status) - Status aggregation
-
----
-
-**Version**: Go 1.18+ on Linux, macOS, Windows  
-**Maintained By**: Monitor Package Contributors
+Copyright (c) 2022-2025 Nicolas JUHEL

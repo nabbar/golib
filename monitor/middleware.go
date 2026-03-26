@@ -34,29 +34,59 @@ import (
 	librun "github.com/nabbar/golib/runner"
 )
 
-// fctMiddleWare is a function that acts as middleware in the health check chain.
+// fctMiddleWare defines a function signature for middleware components in the health check chain.
+// Each middleware receives a reference to the chain (middleWare) and is responsible for
+// executing logic before or after calling Next() to proceed to the next component in the stack.
+//
+// Middleware can be used for logging, status updates, metrics collection, or modifying
+// the execution context.
 type fctMiddleWare func(m middleWare) error
 
-// middleWare defines the interface for health check middleware chain.
-// It provides access to context, configuration, and chain control methods.
+// middleWare is an interface that describes the contract for a health check execution pipeline.
+// It manages a stack of middleware functions, providing them with context and configuration,
+// and controlling the flow of execution from one middleware to the next.
 type middleWare interface {
-	Context() context.Context // Returns the current context with timeout
-	Config() *runCfg          // Returns the runtime configuration
-	Run(ctx context.Context)  // Executes the middleware chain
-	Next() error              // Calls the next middleware in the chain
-	Add(fct fctMiddleWare)    // Adds a middleware function to the chain
+	// Context returns the execution context associated with the current health check run.
+	// This context usually includes a timeout derived from the monitor's configuration (checkTimeout).
+	Context() context.Context
+
+	// Config returns the runtime configuration (runCfg) used for this specific health check execution.
+	Config() *runCfg
+
+	// Run starts the execution of the middleware stack using the provided base context.
+	// It applies the configured timeout and initiates the traversal of the middleware chain.
+	Run(ctx context.Context)
+
+	// Next triggers the execution of the next middleware function in the stack.
+	// It returns the error encountered during the execution of the subsequent chain components.
+	Next() error
+
+	// Add appends a new middleware function to the execution stack.
+	// Middlewares are typically executed in reverse order of addition (LIFO).
+	Add(fct fctMiddleWare)
 }
 
-// mdl is the internal implementation of the middleWare interface.
+// mdl is the private implementation of the middleWare interface.
+// It keeps track of the execution state, including the context, configuration, and the stack position.
 type mdl struct {
-	ctx context.Context // Context with timeout for the health check
-	cfg *runCfg         // Runtime configuration
-	crs int             // Current position in the middleware chain
-	mdl []fctMiddleWare // Stack of middleware functions
+	// ctx is the active context for the current middleware execution, including timeout.
+	ctx context.Context
+	// cfg is the snapshot of the monitor's runtime configuration.
+	cfg *runCfg
+	// crs (cursor) tracks the current position in the middleware stack during execution.
+	crs int
+	// mdl is the slice of middleware functions that form the execution chain.
+	mdl []fctMiddleWare
 }
 
-// newMiddleware creates a new middleware chain with the given configuration and health check function.
-// The health check function is wrapped as the first middleware in the chain.
+// newMiddleware initializes and returns a new middleware chain instance.
+//
+// Parameters:
+//   - cfg: The runtime configuration containing thresholds and timeouts.
+//   - fct: The primary health check function to be executed at the end of the chain.
+//
+// The health check function is automatically wrapped and added as the final element (base) of the chain.
+// If the health check function is nil, a default error-returning function is used instead.
 func newMiddleware(cfg *runCfg, fct montps.HealthCheck) middleWare {
 	defer func() {
 		if r := recover(); r != nil {
@@ -71,6 +101,9 @@ func newMiddleware(cfg *runCfg, fct montps.HealthCheck) middleWare {
 		mdl: make([]fctMiddleWare, 0),
 	}
 
+	// Add the actual health check logic as the first item in the slice.
+	// Note: Since the chain executes from the end of the slice (see Run/Next),
+	// this base function will be the last to execute.
 	if fct != nil {
 		o.Add(func(m middleWare) error {
 			return fct(m.Context())
@@ -84,18 +117,24 @@ func newMiddleware(cfg *runCfg, fct montps.HealthCheck) middleWare {
 	return o
 }
 
-// Context returns the current context with timeout for the health check.
+// Context retrieves the current execution context.
+// This context is populated and valid only after the Run() method has been called.
 func (m *mdl) Context() context.Context {
 	return m.ctx
 }
 
-// Config returns the runtime configuration for the health check.
+// Config retrieves the runtime configuration associated with the middleware chain.
 func (m *mdl) Config() *runCfg {
 	return m.cfg
 }
 
-// Run executes the middleware chain with a timeout based on the configuration.
-// It creates a new context with timeout and invokes the chain from the end.
+// Run initiates the execution of the middleware pipeline.
+//
+// Workflow:
+//  1. Creates a child context with a timeout derived from m.cfg.checkTimeout.
+//  2. Initializes the cursor (m.crs) to the end of the middleware stack.
+//  3. Triggers the first execution by calling Next().
+//  4. Automatically cancels the context upon completion.
 func (m *mdl) Run(ctx context.Context) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -105,15 +144,23 @@ func (m *mdl) Run(ctx context.Context) {
 
 	var cnl context.CancelFunc
 
+	// Ensure the execution is bounded by the checkTimeout configuration.
 	m.ctx, cnl = context.WithTimeout(ctx, m.cfg.checkTimeout)
 	defer cnl()
 
+	// Set the cursor to the top of the stack (last added item).
 	m.crs = len(m.mdl)
+	// Start the chain traversal.
 	_ = m.Next()
 }
 
-// Next invokes the next middleware function in the chain.
-// Returns nil if there are no more middleware functions to execute.
+// Next identifies and executes the next middleware function in the chain.
+// It decrements the cursor and invokes the corresponding function from the stack.
+// If no more functions are available (cursor < 0), it returns nil.
+//
+// Security:
+// It includes a recovery mechanism to catch panics within middleware functions,
+// converting them into standard errors to prevent the monitor runner from crashing.
 func (m *mdl) Next() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -122,16 +169,21 @@ func (m *mdl) Next() (err error) {
 		}
 	}()
 
+	// Move to the next element in the stack.
 	m.crs--
 
+	// Execute the function at the current cursor position.
 	if m.crs >= 0 && m.crs < len(m.mdl) {
 		return m.mdl[m.crs](m)
 	}
 
+	// End of the chain.
 	return nil
 }
 
-// Add appends a middleware function to the chain.
+// Add appends a new middleware function to the internal stack.
+// Because the execution starts from the end of the slice, functions added later
+// will be executed earlier in the pipeline (behaving like a LIFO stack).
 func (m *mdl) Add(fct fctMiddleWare) {
 	defer func() {
 		if r := recover(); r != nil {

@@ -69,6 +69,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 
 	Describe("Start", func() {
 		It("should start the monitor successfully", func() {
+			// TC-MON-LC-002
 			called := &atomic.Bool{}
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				called.Store(true)
@@ -87,6 +88,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should execute health checks periodically", func() {
+			// TC-MON-LC-003
 			callCount := &atomic.Int32{}
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				callCount.Add(1)
@@ -104,6 +106,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should handle missing health check function", func() {
+			// TC-MON-LC-004
 			// Don't set a health check function
 			Expect(mon.Start(ctx)).ToNot(HaveOccurred())
 			Expect(mon.IsRunning()).To(BeTrue())
@@ -117,6 +120,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should stop existing monitor before starting new one", func() {
+			// TC-MON-LC-005
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -134,6 +138,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 
 	Describe("Stop", func() {
 		It("should stop the monitor successfully", func() {
+			// TC-MON-LC-006
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -146,6 +151,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should be idempotent", func() {
+			// TC-MON-LC-006
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -159,6 +165,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should stop health check execution", func() {
+			// TC-MON-LC-007
 			callCount := &atomic.Int32{}
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				callCount.Add(1)
@@ -182,6 +189,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 
 	Describe("Restart", func() {
 		It("should restart the monitor successfully", func() {
+			// TC-MON-LC-008
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -196,6 +204,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should continue health checks after restart", func() {
+			// TC-MON-LC-008
 			callCount := &atomic.Int32{}
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				callCount.Add(1)
@@ -219,6 +228,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should work when monitor is not running", func() {
+			// TC-MON-LC-009
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -232,10 +242,12 @@ var _ = Describe("Monitor Lifecycle", func() {
 
 	Describe("IsRunning", func() {
 		It("should return false initially", func() {
+			// TC-MON-LC-002
 			Expect(mon.IsRunning()).To(BeFalse())
 		})
 
 		It("should return true after start", func() {
+			// TC-MON-LC-002
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -247,6 +259,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should return false after stop", func() {
+			// TC-MON-LC-006
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				return nil
 			})
@@ -259,6 +272,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 
 	Describe("Context Cancellation", func() {
 		It("should handle context cancellation during start", func() {
+			// TC-MON-EC-001
 			localCtx, localCnl := context.WithTimeout(ctx, 100*time.Millisecond)
 			defer localCnl()
 
@@ -272,6 +286,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should handle context cancellation during health check", func() {
+			// TC-MON-LC-010
 			checkCtxCancelled := &atomic.Bool{}
 			mon.SetHealthCheck(func(ctx context.Context) error {
 				select {
@@ -304,6 +319,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 
 	Describe("Clone", func() {
 		It("should create a copy of the monitor", func() {
+			// TC-MON-LC-011
 			cloneCtx, cloneCnl := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cloneCnl()
 
@@ -317,6 +333,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should start cloned monitor if original is running", func() {
+			// TC-MON-LC-011
 			cloneCtx, cloneCnl := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cloneCnl()
 
@@ -340,6 +357,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should not start cloned monitor if original is not running", func() {
+			// TC-MON-LC-011
 			cloneCtx, cloneCnl := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cloneCnl()
 
@@ -356,6 +374,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 
 	Describe("Creation", func() {
 		It("should create monitor with valid info", func() {
+			// TC-MON-BS-001
 			inf := newInfo(nil)
 			m, err := libmon.New(x, inf)
 			Expect(err).ToNot(HaveOccurred())
@@ -363,6 +382,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should fail with nil info", func() {
+			// TC-MON-BS-002
 			m, err := libmon.New(x, nil)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("info cannot be nil"))
@@ -370,6 +390,7 @@ var _ = Describe("Monitor Lifecycle", func() {
 		})
 
 		It("should use default context when nil", func() {
+			// TC-MON-BS-001
 			inf := newInfo(nil)
 			m, err := libmon.New(nil, inf)
 			Expect(err).ToNot(HaveOccurred())

@@ -37,15 +37,28 @@ import (
 )
 
 const (
-	// MaxPoolStart is the maximum time to wait for the monitor to start.
+	// MaxPoolStart defines the maximum duration the Start method will wait for the internal ticker to become active.
 	MaxPoolStart = 3 * time.Second
-	// MaxTickPooler is the polling interval when waiting for the monitor to start.
+
+	// MaxTickPooler defines the interval at which the Start method checks if the internal ticker has successfully started.
 	MaxTickPooler = 5 * time.Millisecond
 )
 
-// Start begins the periodic health check execution.
-// It initializes the runner and waits for it to start successfully.
-// Returns an error if the monitor is invalid or fails to start within MaxPoolStart.
+// Start initiates the periodic health check execution cycle.
+//
+// Lifecycle Details:
+//  1. Replaces the current ticker runner with a new one using the configured intervalCheck.
+//  2. Gracefully stops the previous ticker runner if it was active.
+//  3. Blocks until the new runner is confirmed as operational (poolIsRunning) or MaxPoolStart is reached.
+//
+// Thread-Safety:
+// This method uses atomic Swap and Load operations to ensure consistent state transitions
+// even when called concurrently.
+//
+// Returns:
+//   - ErrorInvalid: If the monitor internal state is corrupted.
+//   - ErrorTimeout: If the ticker fails to start within MaxPoolStart.
+//   - error: Any error encountered during ticker startup.
 func (o *mon) Start(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -53,16 +66,21 @@ func (o *mon) Start(ctx context.Context) error {
 		}
 	}()
 
+	// Invariants check.
 	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return ErrorInvalid.Error(nil)
 	}
 
 	var c = o.getCfg()
 
+	// Initialize new ticker with the primary check interval.
 	r := runtck.New(c.intervalCheck, o.runFunc)
 	e := r.Start(ctx)
+
+	// Thread-safe replacement of the ticker runner.
 	r = o.r.Swap(r)
 
+	// Cleanup: Stop previous ticker if it was running.
 	if r != nil && r.IsRunning() {
 		_ = r.Stop(ctx)
 	}
@@ -70,13 +88,20 @@ func (o *mon) Start(ctx context.Context) error {
 	if e != nil {
 		return e
 	} else {
+		// Wait for operational confirmation.
 		return o.poolIsRunning(ctx)
 	}
 }
 
-// Stop halts the periodic health check execution.
-// It gracefully shuts down the runner and cleans up resources.
-// Returns an error if the monitor is invalid or the runner fails to stop.
+// Stop gracefully terminates the periodic health check execution cycle.
+//
+// Workflow:
+// Replaces the active runner with a dummy/inactive ticker (infinite interval) and stops
+// the previous runner's background goroutine.
+//
+// Returns:
+//   - ErrorInvalid: If the monitor is not properly initialized.
+//   - error: Any error encountered during ticker termination.
 func (o *mon) Stop(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -87,6 +112,7 @@ func (o *mon) Stop(ctx context.Context) error {
 	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return ErrorInvalid.Error(nil)
 	} else {
+		// Replace current runner with an inactive one to halt checks immediately.
 		r := o.r.Swap(runtck.New(time.Duration(math.MaxInt64), nil))
 		if r != nil && r.IsRunning() {
 			return r.Stop(ctx)
@@ -96,8 +122,8 @@ func (o *mon) Stop(ctx context.Context) error {
 	}
 }
 
-// Restart stops and then starts the monitor.
-// Returns an error if either operation fails.
+// Restart is a convenience method that performs a full stop followed by a start.
+// This is useful when the configuration has changed significantly.
 func (o *mon) Restart(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -114,7 +140,7 @@ func (o *mon) Restart(ctx context.Context) error {
 	return nil
 }
 
-// IsRunning returns true if the monitor is currently executing health checks.
+// IsRunning reports whether the monitor's background ticker is currently active and executing checks.
 func (o *mon) IsRunning() bool {
 	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return false
@@ -125,8 +151,8 @@ func (o *mon) IsRunning() bool {
 	}
 }
 
-// poolIsRunning polls until the runner is confirmed to be running or a timeout occurs.
-// Returns an error if the context is cancelled or MaxPoolStart is exceeded.
+// poolIsRunning implements a polling loop that waits until the background runner is 'running'.
+// It uses MaxTickPooler for polling frequency and respects both the ctx cancellation and MaxPoolStart.
 func (o *mon) poolIsRunning(ctx context.Context) error {
 	if o == nil || o.x == nil || o.i == nil || o.r == nil {
 		return ErrorInvalid.Error(nil)
@@ -155,13 +181,20 @@ func (o *mon) poolIsRunning(ctx context.Context) error {
 	}
 }
 
-// runFunc is the function executed on each health check tick.
-// It runs the health check and adjusts the ticker interval based on status transitions.
+// runFunc is the core worker function executed by the ticker runner on each interval tick.
+//
+// Logic:
+//  1. Triggers the diagnostic 'check' logic.
+//  2. Inspects current state (Rise/Fall) and dynamically adjusts the ticker's next interval.
+//  3. If in Rise/Fall phase, it resets the ticker to the corresponding specific interval
+//     (intervalRise or intervalFall). Otherwise, it resets to the standard intervalCheck.
 func (o *mon) runFunc(ctx context.Context, tck *time.Ticker) error {
 	var cfg = o.getCfg()
 
 	o.check(ctx, cfg)
 
+	// Dynamic Interval Adjustment:
+	// This ensures the monitor reacts faster (or slower) during status transitions.
 	if o.IsRise() {
 		tck.Reset(cfg.intervalRise)
 	} else if o.IsFall() {
@@ -173,25 +206,31 @@ func (o *mon) runFunc(ctx context.Context, tck *time.Ticker) error {
 	return nil
 }
 
-// check executes a single health check using the registered health check function.
-// It handles missing health check or configuration errors, and collects metrics after execution.
+// check performs a single execution of the health check diagnostic.
+//
+// Execution Chain:
+//  1. Retrieves the diagnostic function and current configuration.
+//  2. Wraps them into a middleware chain (middleWare).
+//  3. Adds the mdlStatus middleware to the chain for latency tracking and status transition logic.
+//  4. Executes the chain via m.Run().
+//  5. Dispatches metrics to exporters at the end of execution.
 func (o *mon) check(ctx context.Context, cfg *runCfg) {
 	var fct montps.HealthCheck
 
+	// Security Check: diagnostic function must be defined.
 	if fct = o.getFct(); fct == nil {
-		l := o.getLastCheck()
-		l.setStatus(ErrorMissingHealthCheck.Error(nil), 0, cfg)
-		o.x.Store(keyLastRun, l)
+		o.l.setStatus(ErrorMissingHealthCheck.Error(nil), 0, cfg)
+		return
 	} else if cfg == nil {
-		l := o.getLastCheck()
-		l.setStatus(ErrorValidatorError.Error(nil), 0, cfg)
-		o.x.Store(keyLastRun, l)
+		o.l.setStatus(ErrorValidatorError.Error(nil), 0, cfg)
+		return
 	}
 
+	// Prepare and execute the middleware pipeline.
 	m := newMiddleware(cfg, fct)
 	m.Add(o.mdlStatus)
 	m.Run(ctx)
 
-	// store metrics to prometheus exporter
+	// Prometheus Metrics Dispatch:
 	o.collectMetrics(ctx)
 }

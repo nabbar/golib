@@ -62,6 +62,7 @@ var _ = Describe("Monitor Configuration", func() {
 
 	Describe("SetConfig and GetConfig", func() {
 		It("should set and retrieve configuration", func() {
+			// TC-MON-BS-004
 			cfg := montps.Config{
 				Name:          "test-monitor",
 				CheckTimeout:  libdur.ParseDuration(10 * time.Second),
@@ -90,6 +91,7 @@ var _ = Describe("Monitor Configuration", func() {
 		})
 
 		It("should normalize values below minimums", func() {
+			// TC-MON-EC-005
 			cfg := montps.Config{
 				Name:          "test-monitor",
 				CheckTimeout:  libdur.ParseDuration(1 * time.Second),        // Below 5s minimum
@@ -117,6 +119,7 @@ var _ = Describe("Monitor Configuration", func() {
 		})
 
 		It("should use default name when empty", func() {
+			// TC-MON-BS-004
 			cfg := montps.Config{
 				Name:          "",
 				CheckTimeout:  libdur.ParseDuration(5 * time.Second),
@@ -131,6 +134,7 @@ var _ = Describe("Monitor Configuration", func() {
 		})
 
 		It("should default IntervalFall to IntervalCheck when too low", func() {
+			// TC-MON-EC-005
 			cfg := montps.Config{
 				Name:          "test",
 				CheckTimeout:  libdur.ParseDuration(5 * time.Second),
@@ -146,6 +150,7 @@ var _ = Describe("Monitor Configuration", func() {
 		})
 
 		It("should default IntervalRise to IntervalCheck when too low", func() {
+			// TC-MON-EC-005
 			cfg := montps.Config{
 				Name:          "test",
 				CheckTimeout:  libdur.ParseDuration(5 * time.Second),
@@ -163,6 +168,7 @@ var _ = Describe("Monitor Configuration", func() {
 
 	Describe("Default Configuration", func() {
 		It("should have valid default values", func() {
+			// TC-MON-EC-005
 			cfg := mon.GetConfig()
 
 			Expect(cfg.CheckTimeout.Time()).To(BeNumerically(">=", 5*time.Second))
@@ -178,6 +184,7 @@ var _ = Describe("Monitor Configuration", func() {
 
 	Describe("Name Operations", func() {
 		It("should return configured name", func() {
+			// TC-MON-BS-004
 			cfg := montps.Config{
 				Name:          "my-custom-name",
 				CheckTimeout:  libdur.ParseDuration(5 * time.Second),
@@ -190,23 +197,27 @@ var _ = Describe("Monitor Configuration", func() {
 		})
 
 		It("should return default name when not configured", func() {
+			// TC-MON-BS-004
 			name := mon.Name()
 			Expect(name).To(Equal("not named"))
 		})
 
 		It("should return info name separately", func() {
+			// TC-MON-BS-009
 			Expect(mon.InfoName()).To(Equal(key))
 		})
 	})
 
 	Describe("Logger Configuration", func() {
 		It("should configure logger with provided options", func() {
+			// TC-MON-BS-004
 			Expect(mon.SetConfig(ctx, newConfig(nfo))).ToNot(HaveOccurred())
 		})
 	})
 
 	Describe("Context Provider", func() {
 		It("should use provided context function", func() {
+			// TC-MON-BS-004
 			lctx, lcnl := context.WithTimeout(context.Background(), 5*time.Second)
 			defer lcnl()
 

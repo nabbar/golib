@@ -22,6 +22,7 @@ coverage*.txt
 coverage*.log
 res_*.log
 res_*.svg
+res_*.png
 res_*.out
 res_*.txt
 

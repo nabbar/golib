@@ -62,6 +62,7 @@ var _ = Describe("Monitor", func() {
 	Describe("New", func() {
 		Context("when info is nil", func() {
 			It("should return an error", func() {
+				// TC-MON-BS-002
 				mon, err := libmon.New(ctx, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("info cannot be nil"))
@@ -71,12 +72,14 @@ var _ = Describe("Monitor", func() {
 
 		Context("when info is valid", func() {
 			It("should create a new monitor instance", func() {
+				// TC-MON-BS-001
 				newMonitor(ctx, nfo)
 			})
 		})
 
 		Context("when info is valid", func() {
 			It("should create a new monitor instance can start", func() {
+				// TC-MON-LC-001
 				xx, nn := context.WithTimeout(ctx, 10*time.Second)
 				defer nn()
 
@@ -108,6 +111,7 @@ var _ = Describe("Monitor", func() {
 		})
 
 		It("should set and get health check function", func() {
+			// TC-MON-BS-003
 			healthCheckCalled := new(atomic.Bool)
 			healthCheckFunc := func(ctx context.Context) error {
 				healthCheckCalled.Store(true)
@@ -126,6 +130,7 @@ var _ = Describe("Monitor", func() {
 		})
 
 		It("should set and get config function", func() {
+			// TC-MON-BS-004
 			lx, ln := context.WithTimeout(x, 100*time.Millisecond)
 			defer ln()
 

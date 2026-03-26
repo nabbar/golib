@@ -33,14 +33,15 @@ import (
 	montps "github.com/nabbar/golib/monitor/types"
 )
 
-// Name returns the configured name of the monitor.
-// If no name is configured, returns the default monitor name.
+// Name returns the identifier of the monitor as configured during its initialization.
+// If no specific name has been set, it returns the default monitor name ("not named").
 func (o *mon) Name() string {
 	return o.getName()
 }
 
-// InfoName returns the name from the Info metadata.
-// This is thread-safe and returns the dynamic name if registered.
+// InfoName retrieves the name stored within the monitor's metadata (Info).
+// This method is thread-safe and is designed to return a descriptive name provided by the Info instance,
+// or "invalid nil info" if the Info object is not initialized.
 func (o *mon) InfoName() string {
 	if i := o.i.Load(); i != nil {
 		return i.Name()
@@ -48,8 +49,9 @@ func (o *mon) InfoName() string {
 	return "invalid nil info"
 }
 
-// InfoMap returns the info data map from the Info metadata.
-// This is thread-safe and returns the dynamic info if registered.
+// InfoMap returns a map representation of the metadata associated with the monitor.
+// This is thread-safe and allows access to dynamic information stored within the Info object.
+// It returns nil if no Info object is currently registered.
 func (o *mon) InfoMap() map[string]interface{} {
 	if i := o.i.Load(); i != nil {
 		return i.Data()
@@ -57,14 +59,19 @@ func (o *mon) InfoMap() map[string]interface{} {
 	return nil
 }
 
-// InfoGet returns the Info instance used by the monitor.
-// This is thread-safe and acquires a write lock.
+// InfoGet returns the current Info instance (metadata implementation) associated with the monitor.
+// This operation is thread-safe as it uses an atomic load to retrieve the reference.
 func (o *mon) InfoGet() montps.Info {
 	return o.i.Load()
 }
 
-// InfoUpd updates the Info instance used by the monitor.
-// This is thread-safe and acquires a write lock.
+// InfoUpd replaces the current Info instance (metadata) with a new one.
+//
+// Parameters:
+//   - inf: The new metadata implementation to associate with the monitor.
+//
+// If the provided info instance is nil, the operation is ignored.
+// This update is thread-safe and uses an atomic store to ensure consistency for concurrent readers.
 func (o *mon) InfoUpd(inf montps.Info) {
 	if inf == nil {
 		return
@@ -73,58 +80,77 @@ func (o *mon) InfoUpd(inf montps.Info) {
 	o.i.Store(inf)
 }
 
-// Status returns the current health status of the monitored component.
-// Returns KO, Warn, or OK based on the last health check results.
+// Status returns the current health status of the monitored component (e.g., OK, Warn, KO).
+//
+// Implementation Detail:
+// This method is optimized for high-frequency polling. It performs a lock-free atomic load
+// from the internal state, ensuring near-zero CPU overhead even under extreme load.
 func (o *mon) Status() monsts.Status {
-	return o.getLastCheck().Status()
+	return o.l.Status()
 }
 
-// Message returns the error message from the last health check.
-// Returns an empty string if the last check was successful.
+// Message retrieves the error message associated with the most recent health check execution.
+// If the last check was successful (status OK), it returns an empty string.
+// Otherwise, it returns the descriptive error message captured from the last failed execution.
 func (o *mon) Message() string {
-	if err := o.getLastCheck().Error(); err != nil {
+	if err := o.l.Error(); err != nil {
 		return err.Error()
 	}
 
 	return ""
 }
 
-// IsRise returns true if the monitor is currently transitioning from a lower to higher health status.
-// This indicates the component is recovering.
+// IsRise reports whether the monitored component is currently in a "rising" phase.
+// A rising phase occurs when consecutive successful checks are being counted while the component
+// is transitioning from a degraded state (KO or Warn) back toward an OK status.
 func (o *mon) IsRise() bool {
-	return o.getLastCheck().IsRise()
+	return o.l.IsRise()
 }
 
-// IsFall returns true if the monitor is currently transitioning from a higher to lower health status.
-// This indicates the component is degrading.
+// IsFall reports whether the monitored component is currently in a "falling" phase.
+// A falling phase occurs when consecutive failed checks are being counted while the component
+// is transitioning from a healthy state (OK or Warn) toward a degraded status (Warn or KO).
 func (o *mon) IsFall() bool {
-	return o.getLastCheck().IsFall()
+	return o.l.IsFall()
 }
 
-// Latency returns the duration of the last health check execution.
+// Latency returns the execution duration of the very last health check that was performed.
+// This metric represents the time taken by the monitored service or function to respond.
+// It uses atomic loading for high-performance reading.
 func (o *mon) Latency() time.Duration {
-	return o.getLastCheck().Latency()
+	return o.l.Latency()
 }
 
-// Uptime returns the total time the component has been in OK status.
+// Uptime returns the total accumulated duration the component has spent in the OK status
+// since the monitor was started or since its counters were last reset.
+// It uses atomic loading for high-performance reading.
 func (o *mon) Uptime() time.Duration {
-	return o.getLastCheck().UpTime()
+	return o.l.UpTime()
 }
 
-// Downtime returns the total time the component has been in KO or Warn status.
+// Downtime returns the total accumulated duration the component has spent in non-OK statuses (Warn or KO)
+// since the monitor was started or since its counters were last reset.
+// It uses atomic loading for high-performance reading.
 func (o *mon) Downtime() time.Duration {
-	return o.getLastCheck().DownTime()
+	return o.l.DownTime()
 }
 
-// mdlStatus is a middleware function that wraps the health check execution.
-// It measures latency and updates the last check status.
+// mdlStatus acts as a middleware function for the health check execution pipeline.
+//
+// Responsibilities:
+//  1. Records the start time of the check execution.
+//  2. Triggers the next step in the middleware chain (eventually the actual HealthCheck).
+//  3. Captures the result (success/failure) and calculates the elapsed time (latency).
+//  4. Updates the internal metrics container (o.l) with the results and configuration.
+//
+// This middleware is essential for the monitor's state machine, as it handles the logic
+// for status transitions (Rise/Fall) and metric accumulation.
 func (o *mon) mdlStatus(m middleWare) error {
 	ts := time.Now()
 	err := m.Next()
 
-	lst := o.getLastCheck()
-	lst.setStatus(err, time.Since(ts), m.Config())
-	o.setLastCheck(lst)
+	// Atomic update of the status and metrics within the metrics container.
+	o.l.setStatus(err, time.Since(ts), m.Config())
 
 	return err
 }
