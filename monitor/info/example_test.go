@@ -64,18 +64,18 @@ func ExampleInfo_RegisterName() {
 	// Output: dynamic-name
 }
 
-// ExampleInfo_RegisterInfo demonstrates registering a dynamic info function.
-func ExampleInfo_RegisterInfo() {
+// ExampleInfo_RegisterData demonstrates registering a dynamic info function.
+func ExampleInfo_RegisterData() {
 	i, _ := info.New("service")
 
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "1.0.0",
 			"status":  "running",
 		}, nil
 	})
 
-	infoMap := i.Info()
+	infoMap := i.Data()
 	fmt.Printf("Version: %s\n", infoMap["version"])
 	fmt.Printf("Status: %s\n", infoMap["status"])
 	// Output:
@@ -87,7 +87,7 @@ func ExampleInfo_RegisterInfo() {
 func ExampleInfo_MarshalJSON() {
 	i, _ := info.New("api-service")
 
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "2.0.0",
 		}, nil
@@ -99,14 +99,14 @@ func ExampleInfo_MarshalJSON() {
 	}
 
 	fmt.Println(string(jsonData))
-	// Output: {"Name":"api-service","Info":{"version":"2.0.0"}}
+	// Output: {"name":"api-service","data":{"version":"2.0.0"}}
 }
 
 // ExampleInfo_MarshalText demonstrates text marshaling.
 func ExampleInfo_MarshalText() {
 	i, _ := info.New("web-service")
 
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"port": 8080,
 		}, nil
@@ -163,22 +163,22 @@ func Example_multipleInfo() {
 	i, _ := info.New("service")
 
 	// First registration
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "1.0.0",
 		}, nil
 	})
 
-	fmt.Println("Version:", i.Info()["version"])
+	fmt.Println("Version:", i.Data()["version"])
 
 	// Re-registration clears cache
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "2.0.0",
 		}, nil
 	})
 
-	fmt.Println("Version:", i.Info()["version"])
+	fmt.Println("Version:", i.Data()["version"])
 	// Output:
 	// Version: 1.0.0
 	// Version: 2.0.0

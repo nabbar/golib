@@ -138,8 +138,8 @@ var _ = Describe("Info Constructor and Interface", func() {
 		})
 	})
 
-	// Tests for the Info() method behavior.
-	Describe("Info method", func() {
+	// Tests for the Data() method behavior.
+	Describe("Data method", func() {
 		var i info.Info
 
 		BeforeEach(func() {
@@ -151,7 +151,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 		Context("without registered info function", func() {
 			// TC-CORE-009
 			It("should return empty map", func() {
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(BeEmpty())
 			})
 		})
@@ -159,14 +159,14 @@ var _ = Describe("Info Constructor and Interface", func() {
 		Context("with registered info function", func() {
 			// TC-CORE-010
 			It("should return the info from the function", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"version": "1.0.0",
 						"status":  "running",
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).NotTo(BeNil())
 				Expect(result).To(HaveKey("version"))
 				Expect(result["version"]).To(Equal("1.0.0"))
@@ -176,10 +176,10 @@ var _ = Describe("Info Constructor and Interface", func() {
 
 			// TC-CORE-011
 			It("should return empty map if function returns error", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return nil, errors.New("info error")
 				})
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(BeEmpty())
 			})
 
@@ -188,7 +188,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 			// calling the registered function on each invocation.
 			It("should NOT cache the info after successful call", func() {
 				callCount := 0
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					callCount++
 					return map[string]interface{}{
 						"cached": true,
@@ -196,45 +196,45 @@ var _ = Describe("Info Constructor and Interface", func() {
 				})
 
 				// First call should invoke the function
-				result1 := i.Info()
+				result1 := i.Data()
 				Expect(result1).NotTo(BeNil())
 				Expect(callCount).To(Equal(1))
 
 				// Second call should also invoke the function (no caching)
-				result2 := i.Info()
+				result2 := i.Data()
 				Expect(result2).NotTo(BeNil())
 				Expect(callCount).To(Equal(2))
 			})
 
 			// TC-CORE-013
 			It("should allow re-registration", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"version": "1.0.0"}, nil
 				})
-				result1 := i.Info()
+				result1 := i.Data()
 				Expect(result1["version"]).To(Equal("1.0.0"))
 
 				// Re-register with new function
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"version": "2.0.0"}, nil
 				})
-				result2 := i.Info()
+				result2 := i.Data()
 				Expect(result2["version"]).To(Equal("2.0.0"))
 			})
 
 			// TC-CORE-014
 			It("should handle empty map from function", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{}, nil
 				})
-				result := i.Info()
+				result := i.Data()
 				Expect(result).NotTo(BeNil())
 				Expect(result).To(BeEmpty())
 			})
 
 			// TC-CORE-015
 			It("should handle various data types in info", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"string": "value",
 						"int":    42,
@@ -245,7 +245,7 @@ var _ = Describe("Info Constructor and Interface", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).NotTo(BeNil())
 				Expect(result["string"]).To(Equal("value"))
 				Expect(result["int"]).To(Equal(42))
@@ -267,8 +267,8 @@ var _ = Describe("Info Constructor and Interface", func() {
 			// Verify it has Name() method
 			Expect(i.Name()).To(Equal("test-service"))
 
-			// Verify it has Info() method
-			Expect(i.Info()).To(BeEmpty())
+			// Verify it has Data() method
+			Expect(i.Data()).To(BeEmpty())
 		})
 	})
 })
@@ -305,7 +305,7 @@ var _ = Describe("Info Concurrent Access", func() {
 	})
 
 	// TC-CONC-002
-	It("should handle concurrent RegisterInfo calls safely", func() {
+	It("should handle concurrent RegisterData calls safely", func() {
 		var wg sync.WaitGroup
 		iterations := 100
 
@@ -313,7 +313,7 @@ var _ = Describe("Info Concurrent Access", func() {
 			wg.Add(1)
 			go func(index int) {
 				defer wg.Done()
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"index": index}, nil
 				})
 			}(n)
@@ -321,7 +321,7 @@ var _ = Describe("Info Concurrent Access", func() {
 
 		wg.Wait()
 		// Should not panic
-		result := i.Info()
+		result := i.Data()
 		Expect(result).NotTo(BeNil())
 	})
 
@@ -352,8 +352,8 @@ var _ = Describe("Info Concurrent Access", func() {
 	})
 
 	// TC-CONC-004
-	It("should handle concurrent Info calls safely", func() {
-		i.RegisterInfo(func() (map[string]interface{}, error) {
+	It("should handle concurrent Data calls safely", func() {
+		i.RegisterData(func() (map[string]interface{}, error) {
 			return map[string]interface{}{"concurrent": true}, nil
 		})
 
@@ -364,7 +364,7 @@ var _ = Describe("Info Concurrent Access", func() {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				result := i.Info()
+				result := i.Data()
 				Expect(result).NotTo(BeNil())
 			}()
 		}
@@ -388,12 +388,12 @@ var _ = Describe("Info Concurrent Access", func() {
 			}()
 		}
 
-		// Concurrent RegisterInfo
+		// Concurrent RegisterData
 		for n := 0; n < iterations; n++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"mixed": true}, nil
 				})
 			}()
@@ -408,12 +408,12 @@ var _ = Describe("Info Concurrent Access", func() {
 			}()
 		}
 
-		// Concurrent Info calls
+		// Concurrent Data calls
 		for n := 0; n < iterations; n++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				_ = i.Info()
+				_ = i.Data()
 			}()
 		}
 

@@ -80,7 +80,7 @@ func (s *staticHandler) Monitor(ctx context.Context, cfg montps.Config, vrs libv
 	}
 
 	// Always register info with at least runtime and version data
-	inf.RegisterInfo(func() (map[string]interface{}, error) {
+	inf.RegisterData(func() (map[string]interface{}, error) {
 		return res, nil
 	})
 

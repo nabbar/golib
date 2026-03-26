@@ -148,7 +148,7 @@ func (o *inf) RegisterName(fct montps.FuncInfoName) {
 // The implementation does not cache the result; the function is called on every
 // invocation of Info().
 // Providing a nil function unregisters any existing function.
-func (o *inf) RegisterInfo(fct montps.FuncInfoData) {
+func (o *inf) RegisterData(fct montps.FuncInfoData) {
 	if o == nil {
 		return
 	} else if fct == nil {

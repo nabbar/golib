@@ -70,24 +70,24 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 			// TC-EDGE-002
 			It("should handle multiple info re-registrations correctly", func() {
 				// First registration
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"v": 1}, nil
 				})
-				info1 := i.Info()
+				info1 := i.Data()
 				Expect(info1["v"]).To(Equal(1))
 
 				// Second registration - should clear cache
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"v": 2}, nil
 				})
-				info2 := i.Info()
+				info2 := i.Data()
 				Expect(info2["v"]).To(Equal(2))
 
 				// Third registration with error
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return nil, errors.New("error")
 				})
-				info3 := i.Info()
+				info3 := i.Data()
 				Expect(info3).To(BeEmpty())
 			})
 		})
@@ -116,7 +116,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 			// TC-EDGE-004
 			It("should handle info access after error then success", func() {
 				callCount := 0
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					callCount++
 					if callCount == 1 {
 						return nil, errors.New("first call error")
@@ -125,11 +125,11 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 				})
 
 				// First call fails
-				info1 := i.Info()
+				info1 := i.Data()
 				Expect(info1).To(BeEmpty())
 
 				// Second call succeeds
-				info2 := i.Info()
+				info2 := i.Data()
 				Expect(info2).NotTo(BeNil())
 				Expect(info2["success"]).To(BeTrue())
 			})
@@ -139,11 +139,11 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 			// TC-EDGE-005
 			It("should handle info with various nil map scenarios", func() {
 				// Register function that returns nil map with nil error
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return nil, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				// Result should be the nil map returned by the function
 				Expect(result).To(BeEmpty())
 			})
@@ -152,7 +152,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 			It("should handle non-string keys in sync.Map edge case", func() {
 				// This tests the internal sync.Map range function
 				// which checks for non-string keys
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"key1": "value1",
 						"key2": "value2",
@@ -161,17 +161,17 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 				})
 
 				// Access info to populate sync.Map
-				info1 := i.Info()
+				info1 := i.Data()
 				Expect(info1).To(HaveLen(3))
 
 				// Register new info to trigger the Range cleanup
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"newkey": "newvalue",
 					}, nil
 				})
 
-				info2 := i.Info()
+				info2 := i.Data()
 				Expect(info2).To(HaveLen(1))
 				Expect(info2["newkey"]).To(Equal("newvalue"))
 			})
@@ -183,13 +183,13 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 				i.RegisterName(func() (string, error) {
 					return "concurrent-name", nil
 				})
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"concurrent": true}, nil
 				})
 
 				// Access both
 				name := i.Name()
-				info := i.Info()
+				info := i.Data()
 
 				Expect(name).To(Equal("concurrent-name"))
 				Expect(info["concurrent"]).To(BeTrue())
@@ -198,13 +198,13 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 				i.RegisterName(func() (string, error) {
 					return "new-name", nil
 				})
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"new": true}, nil
 				})
 
 				// Access again
 				name2 := i.Name()
-				info2 := i.Info()
+				info2 := i.Data()
 
 				Expect(name2).To(Equal("new-name"))
 				Expect(info2["new"]).To(BeTrue())
@@ -237,7 +237,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		Context("with complex info data structures", func() {
 			// TC-EDGE-010
 			It("should preserve all data types correctly", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"nil":        nil,
 						"bool_true":  true,
@@ -255,7 +255,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(HaveLen(13))
 				Expect(result["nil"]).To(BeNil())
 				Expect(result["bool_true"]).To(BeTrue())
@@ -278,7 +278,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 		Context("with empty info after registration", func() {
 			// TC-EDGE-011
 			It("should handle text marshaling with empty info result", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{}, nil
 				})
 
@@ -303,7 +303,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 
 			// TC-EDGE-013
 			It("should handle Unicode in info", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"emoji":    "🚀🎉",
 						"japanese": "こんにちは",
@@ -342,7 +342,7 @@ var _ = Describe("Info Edge Cases and Coverage", func() {
 					longValue = longValue[:j] + "x" + longValue[j+1:]
 				}
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"long": longValue,
 					}, nil

@@ -274,7 +274,7 @@ var _ = Describe("Monitor", func() {
 					Expect(info).ToNot(BeNil())
 
 					// Should have some information
-					data := info.Info()
+					data := info.Data()
 					Expect(data).ToNot(BeNil())
 
 					// Cleanup

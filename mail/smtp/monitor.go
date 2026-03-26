@@ -111,7 +111,7 @@ func (s *smtpClient) Monitor(ctx context.Context, vrs libver.Version) (montps.Mo
 		inf.RegisterName(func() (string, error) {
 			return fmt.Sprintf("%s [%s:%d]", defaultNameMonitor, s.cfg.GetHost(), s.cfg.GetPort()), nil
 		})
-		inf.RegisterInfo(func() (map[string]interface{}, error) {
+		inf.RegisterData(func() (map[string]interface{}, error) {
 			return res, nil
 		})
 	}

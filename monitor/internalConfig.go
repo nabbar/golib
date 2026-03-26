@@ -158,10 +158,10 @@ func (o *mon) SetConfig(ctx context.Context, cfg montps.Config) error {
 		o.x.Store(keyName, cfg.Name)
 	}
 
-	if len(cfg.Info) > 0 {
+	if len(cfg.Data) > 0 {
 		if i := o.i.Load(); i != nil {
 			if v, k := i.(montps.InfoSet); k {
-				v.SetData(cfg.Info)
+				v.SetData(cfg.Data)
 				o.i.Store(v)
 			}
 		}

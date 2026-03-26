@@ -74,7 +74,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"version": "1.0.0",
 						"env":     "test",
@@ -87,7 +87,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				var result map[string]interface{}
 				err = json.Unmarshal(data, &result)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result["Name"]).To(Equal("test-service"))
+				Expect(result["name"]).To(Equal("test-service"))
 			})
 
 			// TC-INT-004
@@ -119,7 +119,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				i, err := info.New("api-gateway")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"version":  "1.2.3",
 						"port":     8080,
@@ -130,7 +130,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result["version"]).To(Equal("1.2.3"))
 				Expect(result["port"]).To(Equal(8080))
 				Expect(result["tags"]).To(HaveLen(3))
@@ -143,7 +143,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				i, err := info.New("runtime-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					var m runtime.MemStats
 					runtime.ReadMemStats(&m)
 
@@ -155,7 +155,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(HaveKey("goroutines"))
 				Expect(result).To(HaveKey("alloc_bytes"))
 			})
@@ -165,7 +165,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				i, err := info.New("env-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"hostname": getHostname(),
 						"os":       runtime.GOOS,
@@ -175,7 +175,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result["os"]).To(Equal(runtime.GOOS))
 				Expect(result["arch"]).To(Equal(runtime.GOARCH))
 			})
@@ -188,7 +188,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				healthy := true
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					status := "healthy"
 					if !healthy {
 						status = "unhealthy"
@@ -203,7 +203,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result["status"]).To(Equal("healthy"))
 			})
 		})
@@ -214,7 +214,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				i, err := info.New("config-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"config_file":    "/etc/service/config.yaml",
 						"config_version": "v2",
@@ -223,7 +223,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(HaveKey("config_file"))
 				Expect(result).To(HaveKey("reload_count"))
 			})
@@ -238,7 +238,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				callCount := 0
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					callCount++
 					if callCount == 1 {
 						return nil, fmt.Errorf("transient error")
@@ -247,15 +247,15 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				})
 
 				// First call fails
-				result1 := i.Info()
+				result1 := i.Data()
 				Expect(result1).To(BeEmpty())
 
 				// Need to re-register for retry
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{"success": true}, nil
 				})
 
-				result2 := i.Info()
+				result2 := i.Data()
 				Expect(result2).NotTo(BeNil())
 			})
 		})
@@ -266,7 +266,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 				i, err := info.New("partial-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					// Simulate partial data availability
 					data := map[string]interface{}{
 						"available": "yes",
@@ -275,7 +275,7 @@ var _ = Describe("Info Integration and Real-World Usage", func() {
 					return data, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(HaveKey("available"))
 			})
 		})

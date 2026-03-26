@@ -95,7 +95,7 @@ func (p *pool) shlCmdInfo(_ context.Context) shlcmd.Command {
 
 			inf := m.InfoGet()
 			_, _ = fmt.Fprintln(buf, inf.Name()) // nolint
-			for k, v := range inf.Info() {
+			for k, v := range inf.Data() {
 				_, _ = fmt.Fprintln(buf, fmt.Sprintf("\t%s: %s", k, v)) // nolint
 			}
 			_, _ = fmt.Fprintln(buf, "") // nolint

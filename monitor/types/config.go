@@ -39,7 +39,7 @@ import (
 
 var _defaultConfig = []byte(`{
   "name": "",
-  "info": {
+  "data": {
     "doc": "https://example.com/documentation",
     "oneKey": "oneData"
   },
@@ -76,9 +76,9 @@ type Config struct {
 	// Name define the name of the monitor
 	Name string `json:"name" yaml:"name" toml:"name" mapstructure:"name"`
 
-	// Info provides a map of static information that can be supplemented with internal
+	// Data provides a map of static information that can be supplemented with internal
 	// monitor metadata, depending on the specific implementation of the monitor.
-	Info map[string]interface{} `json:"info" yaml:"info" toml:"info" mapstructure:"info"`
+	Data map[string]interface{} `json:"data" yaml:"data" toml:"data" mapstructure:"data"`
 
 	// CheckTimeout define the timeout use for healthcheck. Default is 5 second.
 	CheckTimeout libdur.Duration `json:"check-timeout" yaml:"check-timeout" toml:"check-timeout" mapstructure:"check-timeout"`

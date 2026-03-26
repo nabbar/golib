@@ -45,14 +45,14 @@ var _ = Describe("Info Security and Robustness", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"query": "'; DROP TABLE users; --",
 						"value": "1' OR '1'='1",
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).NotTo(BeNil())
 				Expect(result["query"]).To(Equal("'; DROP TABLE users; --"))
 				Expect(result["value"]).To(Equal("1' OR '1'='1"))
@@ -74,14 +74,14 @@ var _ = Describe("Info Security and Robustness", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"html":   "<img src=x onerror=alert('xss')>",
 						"script": "javascript:alert('xss')",
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result["html"]).To(Equal("<img src=x onerror=alert('xss')>"))
 				Expect(result["script"]).To(Equal("javascript:alert('xss')"))
 			})
@@ -90,7 +90,7 @@ var _ = Describe("Info Security and Robustness", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"cmd1": "; rm -rf /",
 						"cmd2": "| cat /etc/passwd",
@@ -99,7 +99,7 @@ var _ = Describe("Info Security and Robustness", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(HaveLen(4))
 			})
 		})
@@ -109,7 +109,7 @@ var _ = Describe("Info Security and Robustness", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"path1": "../../etc/passwd",
 						"path2": "..\\..\\windows\\system32",
@@ -117,7 +117,7 @@ var _ = Describe("Info Security and Robustness", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(HaveLen(3))
 			})
 		})
@@ -127,13 +127,13 @@ var _ = Describe("Info Security and Robustness", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"null": "test\x00null",
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result["null"]).To(Equal("test\x00null"))
 			})
 
@@ -141,7 +141,7 @@ var _ = Describe("Info Security and Robustness", func() {
 				i, err := info.New("test-service")
 				Expect(err).NotTo(HaveOccurred())
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"bell":      "\a",
 						"backspace": "\b",
@@ -151,7 +151,7 @@ var _ = Describe("Info Security and Robustness", func() {
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(HaveLen(5))
 			})
 		})
@@ -182,11 +182,11 @@ var _ = Describe("Info Security and Robustness", func() {
 					largeInfo[strings.Repeat("k", 10)+string(rune(j))] = j
 				}
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return largeInfo, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).To(HaveLen(10000))
 			})
 
@@ -202,13 +202,13 @@ var _ = Describe("Info Security and Robustness", func() {
 					}
 				}
 
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"nested": nested,
 					}, nil
 				})
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result).NotTo(BeNil())
 			})
 		})
@@ -233,12 +233,12 @@ var _ = Describe("Info Security and Robustness", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				for j := 0; j < 1000; j++ {
-					i.RegisterInfo(func() (map[string]interface{}, error) {
+					i.RegisterData(func() (map[string]interface{}, error) {
 						return map[string]interface{}{"key": "value"}, nil
 					})
 				}
 
-				result := i.Info()
+				result := i.Data()
 				Expect(result["key"]).To(Equal("value"))
 			})
 		})
@@ -268,7 +268,7 @@ var _ = Describe("Info Security and Robustness", func() {
 				wg.Add(1)
 				go func(index int) {
 					defer wg.Done()
-					i.RegisterInfo(func() (map[string]interface{}, error) {
+					i.RegisterData(func() (map[string]interface{}, error) {
 						return map[string]interface{}{"index": index}, nil
 					})
 				}(n)
@@ -280,7 +280,7 @@ var _ = Describe("Info Security and Robustness", func() {
 				go func() {
 					defer wg.Done()
 					_ = i.Name()
-					_ = i.Info()
+					_ = i.Data()
 				}()
 			}
 
@@ -321,7 +321,7 @@ var _ = Describe("Info Security and Robustness", func() {
 			i, err := info.New("test-service")
 			Expect(err).NotTo(HaveOccurred())
 
-			i.RegisterInfo(func() (map[string]interface{}, error) {
+			i.RegisterData(func() (map[string]interface{}, error) {
 				return map[string]interface{}{
 					"quotes":    `"test"`,
 					"backslash": `\path\to\file`,
@@ -344,7 +344,7 @@ var _ = Describe("Info Security and Robustness", func() {
 
 			// Note: sync.Map doesn't allow storing circular references directly
 			// but we can test that the encoding doesn't panic with complex structures
-			i.RegisterInfo(func() (map[string]interface{}, error) {
+			i.RegisterData(func() (map[string]interface{}, error) {
 				m := map[string]interface{}{
 					"key1": "value1",
 				}
@@ -372,13 +372,13 @@ var _ = Describe("Info Security and Robustness", func() {
 				return "test", nil
 			})
 
-			i.RegisterInfo(func() (map[string]interface{}, error) {
+			i.RegisterData(func() (map[string]interface{}, error) {
 				return map[string]interface{}{"test": true}, nil
 			})
 
 			// Access to cache
 			_ = i.Name()
-			_ = i.Info()
+			_ = i.Data()
 
 			// Re-register multiple times
 			for j := 0; j < 10; j++ {

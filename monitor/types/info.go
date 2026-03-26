@@ -34,9 +34,9 @@ import (
 // InfoData provides a method for retrieving dynamic information about a component.
 // Implementations can return runtime-generated metadata as a key-value map.
 type InfoData interface {
-	// Info returns a map of string to interface that contains information about the
+	// Data returns a map of string to interface that contains information about the
 	// monitor. Common keys include "version", "build", "uptime", etc.
-	Info() map[string]interface{}
+	Data() map[string]interface{}
 }
 
 // InfoName provides a method for retrieving the component name.
@@ -78,8 +78,9 @@ type InfoSet interface {
 	// If the function returns an error, the default name is not registered.
 	//
 	RegisterName(FuncInfoName)
-	// RegisterInfo registers a function that returns a default info.
+
+	// RegisterData registers a function that returns a default info.
 	// The function must return a map of string to interface{} and an error.
 	// If the function returns an error, the default info is not registered.
-	RegisterInfo(FuncInfoData)
+	RegisterData(FuncInfoData)
 }

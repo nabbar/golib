@@ -95,7 +95,7 @@ func (s *server) Monitor(ctx context.Context, vrs libver.Version) (montps.Monito
 		inf.RegisterName(func() (string, error) {
 			return fmt.Sprintf("%s [%s]", defaultNameMonitor, opt.Host), nil
 		})
-		inf.RegisterInfo(func() (map[string]interface{}, error) {
+		inf.RegisterData(func() (map[string]interface{}, error) {
 			return res, nil
 		})
 	}

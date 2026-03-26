@@ -153,7 +153,7 @@ func (o *mod) regMonitor(opt *libreq.OptionsHealth, aws libaws.Config) error {
 		inf.RegisterName(func() (string, error) {
 			return fmt.Sprintf("%s %s", defaultNameMonitor, o.getKey()), nil
 		})
-		inf.RegisterInfo(func() (map[string]interface{}, error) {
+		inf.RegisterData(func() (map[string]interface{}, error) {
 			return res, nil
 		})
 	}

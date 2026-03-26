@@ -47,7 +47,7 @@ func (o *inf) Name() string {
 //
 // This method is thread-safe and safe to call concurrently.
 // It returns an empty map if no information is available.
-func (o *inf) Info() map[string]interface{} {
+func (o *inf) Data() map[string]interface{} {
 	if o == nil {
 		return nil
 	}

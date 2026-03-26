@@ -76,7 +76,7 @@ func (d *database) Monitor(vrs libver.Version) (montps.Monitor, error) {
 		inf.RegisterName(func() (string, error) {
 			return fmt.Sprintf("%s %s [%s]", defaultNameMonitor, cfg.Driver.String(), cfg.Name), nil
 		})
-		inf.RegisterInfo(func() (map[string]interface{}, error) {
+		inf.RegisterData(func() (map[string]interface{}, error) {
 			return res, nil
 		})
 	}

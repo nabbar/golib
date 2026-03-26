@@ -160,7 +160,13 @@ func (o *lastRun) LatencyString() string {
 }
 
 func (o *lastRun) latencyMS() uint64 {
-	return libdur.Duration(o.latency.Load()).TruncateMilliseconds().Uint64()
+	i := libdur.Duration(o.latency.Load()).TruncateMilliseconds().Milliseconds()
+
+	if i > 0 {
+		return uint64(i)
+	}
+
+	return uint64(-i)
 }
 
 func (o *lastRun) fallTimeString() string {

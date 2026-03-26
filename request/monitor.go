@@ -185,7 +185,7 @@ func (r *request) Monitor(ctx context.Context, vrs libver.Version) (montps.Monit
 		inf.RegisterName(func() (string, error) {
 			return fmt.Sprintf("%s [%s]", defaultNameMonitor, r.GetEndpoint()), nil
 		})
-		inf.RegisterInfo(func() (map[string]interface{}, error) {
+		inf.RegisterData(func() (map[string]interface{}, error) {
 			return res, nil
 		})
 	}

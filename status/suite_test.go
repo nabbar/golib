@@ -97,7 +97,7 @@ func newMonitor(name string, data map[string]interface{}, health func(ctx contex
 		}
 	}
 
-	n.RegisterInfo(func() (map[string]interface{}, error) {
+	n.RegisterData(func() (map[string]interface{}, error) {
 		return data, nil
 	})
 

@@ -649,7 +649,7 @@ var _ = Describe("Status/Route", func() {
 					status.MiddleWare(c)
 				})
 
-				// Configure mandatory group with Info
+				// Configure mandatory group with Data
 				cfg := libsts.Config{
 					Component: []libsts.Mandatory{
 						{

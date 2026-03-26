@@ -68,18 +68,18 @@ var _ = Describe("Manual Data Manipulation", func() {
 		It("should replace all existing data", func() {
 			i.SetData(map[string]interface{}{"a": 1})
 			i.SetData(map[string]interface{}{"b": 2})
-			Expect(i.Info()).To(Equal(map[string]interface{}{"b": 2}))
+			Expect(i.Data()).To(Equal(map[string]interface{}{"b": 2}))
 		})
 
 		// TC-MAN-004
 		It("should handle nil and empty maps", func() {
 			i.SetData(map[string]interface{}{"a": 1})
 			i.SetData(nil)
-			Expect(i.Info()).To(BeEmpty())
+			Expect(i.Data()).To(BeEmpty())
 
 			i.SetData(map[string]interface{}{"a": 1})
 			i.SetData(map[string]interface{}{})
-			Expect(i.Info()).To(BeEmpty())
+			Expect(i.Data()).To(BeEmpty())
 		})
 	})
 
@@ -88,22 +88,22 @@ var _ = Describe("Manual Data Manipulation", func() {
 		// TC-MAN-005
 		It("should add new data or update existing", func() {
 			i.AddData("a", 1)
-			Expect(i.Info()).To(HaveKeyWithValue("a", 1))
+			Expect(i.Data()).To(HaveKeyWithValue("a", 1))
 			i.AddData("a", 2)
-			Expect(i.Info()).To(HaveKeyWithValue("a", 2))
+			Expect(i.Data()).To(HaveKeyWithValue("a", 2))
 		})
 
 		// TC-MAN-006
 		It("should delete data if value is nil", func() {
 			i.AddData("a", 1)
 			i.AddData("a", nil)
-			Expect(i.Info()).NotTo(HaveKey("a"))
+			Expect(i.Data()).NotTo(HaveKey("a"))
 		})
 
 		// TC-MAN-007
 		It("should ignore empty key", func() {
 			i.AddData("", 1)
-			Expect(i.Info()).To(BeEmpty())
+			Expect(i.Data()).To(BeEmpty())
 		})
 	})
 
@@ -114,15 +114,15 @@ var _ = Describe("Manual Data Manipulation", func() {
 			i.AddData("a", 1)
 			i.AddData("b", 2)
 			i.DelData("a")
-			Expect(i.Info()).NotTo(HaveKey("a"))
-			Expect(i.Info()).To(HaveKey("b"))
+			Expect(i.Data()).NotTo(HaveKey("a"))
+			Expect(i.Data()).To(HaveKey("b"))
 		})
 
 		// TC-MAN-009
 		It("should ignore empty key", func() {
 			i.AddData("a", 1)
 			i.DelData("")
-			Expect(i.Info()).To(HaveKey("a"))
+			Expect(i.Data()).To(HaveKey("a"))
 		})
 	})
 
@@ -142,16 +142,16 @@ var _ = Describe("Manual Data Manipulation", func() {
 	})
 
 	// Tests for unregistering an info function by passing nil.
-	Context("RegisterInfo with nil", func() {
+	Context("RegisterData with nil", func() {
 		// TC-MAN-011
 		It("should unregister info function", func() {
-			i.RegisterInfo(func() (map[string]interface{}, error) {
+			i.RegisterData(func() (map[string]interface{}, error) {
 				return map[string]interface{}{"k": "v"}, nil
 			})
-			Expect(i.Info()).To(HaveKey("k"))
+			Expect(i.Data()).To(HaveKey("k"))
 
-			i.RegisterInfo(nil)
-			Expect(i.Info()).To(BeEmpty())
+			i.RegisterData(nil)
+			Expect(i.Data()).To(BeEmpty())
 		})
 	})
 
@@ -183,8 +183,8 @@ var _ = Describe("Manual Data Manipulation", func() {
 		})
 
 		// TC-MAN-013
-		It("should handle Info() on nil instance", func() {
-			Expect(nilInfo.Info()).To(BeNil())
+		It("should handle data() on nil instance", func() {
+			Expect(nilInfo.Data()).To(BeNil())
 		})
 
 		// TC-MAN-014
@@ -213,8 +213,8 @@ var _ = Describe("Manual Data Manipulation", func() {
 		})
 
 		// TC-MAN-019
-		It("should handle RegisterInfo() on nil instance", func() {
-			Expect(func() { nilInfo.RegisterInfo(nil) }).ShouldNot(Panic())
+		It("should handle RegisterData() on nil instance", func() {
+			Expect(func() { nilInfo.RegisterData(nil) }).ShouldNot(Panic())
 		})
 	})
 })

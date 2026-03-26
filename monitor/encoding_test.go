@@ -138,7 +138,7 @@ var _ = Describe("Monitor Encoding", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			textStr := string(text)
-			// Info should be included in parentheses
+			// Data should be included in parentheses
 			Expect(textStr).To(ContainSubstring("encoding-test"))
 		})
 

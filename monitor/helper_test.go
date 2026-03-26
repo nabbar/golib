@@ -57,9 +57,9 @@ func newInfoWithName(name string, d montps.FuncInfoData) montps.Info {
 	Expect(e).ToNot(HaveOccurred())
 
 	if d != nil {
-		i.RegisterInfo(d)
+		i.RegisterData(d)
 	} else {
-		i.RegisterInfo(func() (map[string]interface{}, error) {
+		i.RegisterData(func() (map[string]interface{}, error) {
 			return map[string]interface{}{
 				"version": "1.0.0",
 				"check":   "beforeEach",

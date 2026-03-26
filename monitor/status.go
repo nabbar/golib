@@ -52,7 +52,7 @@ func (o *mon) InfoName() string {
 // This is thread-safe and returns the dynamic info if registered.
 func (o *mon) InfoMap() map[string]interface{} {
 	if i := o.i.Load(); i != nil {
-		return i.Info()
+		return i.Data()
 	}
 	return nil
 }

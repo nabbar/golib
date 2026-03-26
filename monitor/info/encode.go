@@ -47,8 +47,8 @@ type Encode interface {
 // encMod is the internal struct used for encoding the Info object.
 // It holds the name and info data for marshaling.
 type encMod struct {
-	Name string
-	Info map[string]interface{}
+	Name string                 `json:"name"`
+	Data map[string]interface{} `json:"data"`
 }
 
 // String implements the Encode interface, providing a compact, single-line
@@ -71,7 +71,7 @@ func (e *encMod) Bytes() []byte {
 // single comma-separated string.
 func (e *encMod) stringInfo() string {
 	var buf = bytes.NewBuffer(make([]byte, 0))
-	for n, i := range e.Info {
+	for n, i := range e.Data {
 		buf.WriteString(fmt.Sprintf("%s: %v,", n, i)) // nolint
 	}
 	return strings.Trim(strings.TrimSpace(buf.String()), ",")
@@ -90,7 +90,7 @@ func (e *encMod) stringClean(str string) string {
 func (o *inf) getEncodeModel() Encode {
 	return &encMod{
 		Name: o.Name(),
-		Info: o.Info(),
+		Data: o.Data(),
 	}
 }
 

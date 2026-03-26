@@ -67,9 +67,9 @@ func newInfoWithData(name string, data montps.FuncInfoData) montps.Info {
 	Expect(e).ToNot(HaveOccurred())
 
 	if data != nil {
-		i.RegisterInfo(data)
+		i.RegisterData(data)
 	} else {
-		i.RegisterInfo(func() (map[string]interface{}, error) {
+		i.RegisterData(func() (map[string]interface{}, error) {
 			return map[string]interface{}{
 				"version": "1.0.0",
 				"env":     "test",

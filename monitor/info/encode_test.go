@@ -68,7 +68,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 
 		Context("with registered info function", func() {
 			It("should include info in the marshaled text", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"version": "1.0.0",
 						"status":  "running",
@@ -79,13 +79,13 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				Expect(err).NotTo(HaveOccurred())
 				textStr := string(text)
 				Expect(textStr).To(ContainSubstring("test-service"))
-				// Info should be included
+				// data should be included
 				Expect(textStr).To(MatchRegexp("version.*1.0.0"))
 				Expect(textStr).To(MatchRegexp("status.*running"))
 			})
 
 			It("should format info as key-value pairs", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"key1": "value1",
 					}, nil
@@ -101,7 +101,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 
 		Context("with special characters", func() {
 			It("should handle newlines in info", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"multiline": "line1\nline2",
 					}, nil
@@ -115,7 +115,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 			})
 
 			It("should handle carriage returns in info", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"text": "content\r\nmore",
 					}, nil
@@ -141,11 +141,11 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				var result map[string]interface{}
 				err = json.Unmarshal(jsonBytes, &result)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(HaveKey("Name"))
-				Expect(result["Name"]).To(Equal("test-service"))
+				Expect(result).To(HaveKey("name"))
+				Expect(result["name"]).To(Equal("test-service"))
 			})
 
-			It("should have Info as empty or null", func() {
+			It("should have data as empty or null", func() {
 				jsonBytes, err := i.MarshalJSON()
 				Expect(err).NotTo(HaveOccurred())
 
@@ -153,8 +153,8 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				err = json.Unmarshal(jsonBytes, &result)
 				Expect(err).NotTo(HaveOccurred())
 
-				// Info should be present but might be null or empty
-				if info, ok := result["Info"]; ok && info != nil {
+				// data should be present but might be null or empty
+				if info, ok := result["data"]; ok && info != nil {
 					infoMap := info.(map[string]interface{})
 					Expect(infoMap).To(BeEmpty())
 				}
@@ -173,13 +173,13 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				var result map[string]interface{}
 				err = json.Unmarshal(jsonBytes, &result)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result["Name"]).To(Equal("json-service"))
+				Expect(result["name"]).To(Equal("json-service"))
 			})
 		})
 
 		Context("with registered info function", func() {
 			It("should include info in JSON", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"version":     "2.0.0",
 						"environment": "production",
@@ -192,9 +192,9 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				var result map[string]interface{}
 				err = json.Unmarshal(jsonBytes, &result)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result).To(HaveKey("Info"))
+				Expect(result).To(HaveKey("data"))
 
-				infoMap := result["Info"].(map[string]interface{})
+				infoMap := result["data"].(map[string]interface{})
 				Expect(infoMap).To(HaveKey("version"))
 				Expect(infoMap["version"]).To(Equal("2.0.0"))
 				Expect(infoMap).To(HaveKey("environment"))
@@ -202,7 +202,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 			})
 
 			It("should handle nested structures in JSON", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"config": map[string]interface{}{
 							"port": float64(8080),
@@ -218,7 +218,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				err = json.Unmarshal(jsonBytes, &result)
 				Expect(err).NotTo(HaveOccurred())
 
-				infoMap := result["Info"].(map[string]interface{})
+				infoMap := result["data"].(map[string]interface{})
 				Expect(infoMap).To(HaveKey("config"))
 				config := infoMap["config"].(map[string]interface{})
 				Expect(config["port"]).To(Equal(float64(8080)))
@@ -226,7 +226,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 			})
 
 			It("should handle arrays in JSON", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"tags": []string{"web", "api", "v1"},
 					}, nil
@@ -239,14 +239,14 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				err = json.Unmarshal(jsonBytes, &result)
 				Expect(err).NotTo(HaveOccurred())
 
-				infoMap := result["Info"].(map[string]interface{})
+				infoMap := result["data"].(map[string]interface{})
 				Expect(infoMap).To(HaveKey("tags"))
 			})
 		})
 
 		Context("JSON validity", func() {
 			It("should produce valid JSON", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"key": "value",
 					}, nil
@@ -260,7 +260,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 			})
 
 			It("should handle special JSON characters", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"quote":     `"quoted"`,
 						"backslash": `\path\to\file`,
@@ -294,7 +294,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 			i.RegisterName(func() (string, error) {
 				return "marshaled-service", nil
 			})
-			i.RegisterInfo(func() (map[string]interface{}, error) {
+			i.RegisterData(func() (map[string]interface{}, error) {
 				return map[string]interface{}{"test": true}, nil
 			})
 
@@ -306,14 +306,14 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 			var result map[string]interface{}
 			err = json.Unmarshal(jsonBytes, &result)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result["Name"]).To(Equal("marshaled-service"))
+			Expect(result["name"]).To(Equal("marshaled-service"))
 		})
 	})
 
 	Describe("Edge cases", func() {
 		Context("with empty info map", func() {
 			It("should handle empty info correctly in text", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{}, nil
 				})
 
@@ -324,7 +324,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 			})
 
 			It("should handle empty info correctly in JSON", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{}, nil
 				})
 
@@ -334,13 +334,13 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				var result map[string]interface{}
 				err = json.Unmarshal(jsonBytes, &result)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(result["Name"]).To(Equal("test-service"))
+				Expect(result["name"]).To(Equal("test-service"))
 			})
 		})
 
 		Context("with nil values in info", func() {
 			It("should handle nil values in JSON", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					return map[string]interface{}{
 						"nil_value": nil,
 						"key":       "value",
@@ -354,7 +354,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 				err = json.Unmarshal(jsonBytes, &result)
 				Expect(err).NotTo(HaveOccurred())
 
-				infoMap := result["Info"].(map[string]interface{})
+				infoMap := result["data"].(map[string]interface{})
 				Expect(infoMap).To(HaveKey("nil_value"))
 				Expect(infoMap["nil_value"]).To(BeNil())
 			})
@@ -362,7 +362,7 @@ var _ = Describe("Info Encoding and Marshaling", func() {
 
 		Context("with large info data", func() {
 			It("should handle large info maps", func() {
-				i.RegisterInfo(func() (map[string]interface{}, error) {
+				i.RegisterData(func() (map[string]interface{}, error) {
 					largeMap := make(map[string]interface{})
 					for n := 0; n < 1000; n++ {
 						largeMap[string(rune('a'+n%26))+string(rune('0'+n%10))] = n

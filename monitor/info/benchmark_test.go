@@ -87,14 +87,14 @@ func BenchmarkInfo(b *testing.B) {
 	b.ReportAllocs()
 
 	for n := 0; n < b.N; n++ {
-		_ = i.Info()
+		_ = i.Data()
 	}
 }
 
 // BenchmarkInfoWithFunction measures Info() with registered function (dynamic execution)
 func BenchmarkInfoWithFunction(b *testing.B) {
 	i, _ := info.New("benchmark-service")
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "1.0.0",
 			"status":  "running",
@@ -106,7 +106,7 @@ func BenchmarkInfoWithFunction(b *testing.B) {
 	b.ReportAllocs()
 
 	for n := 0; n < b.N; n++ {
-		_ = i.Info()
+		_ = i.Data()
 	}
 }
 
@@ -164,7 +164,7 @@ func BenchmarkInfoLargeData(b *testing.B) {
 		largeData[fmt.Sprintf("key-%d", j)] = j
 	}
 
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return largeData, nil
 	})
 
@@ -172,7 +172,7 @@ func BenchmarkInfoLargeData(b *testing.B) {
 	b.ReportAllocs()
 
 	for n := 0; n < b.N; n++ {
-		_ = i.Info()
+		_ = i.Data()
 	}
 }
 
@@ -190,15 +190,15 @@ func BenchmarkRegisterName(b *testing.B) {
 	}
 }
 
-// BenchmarkRegisterInfo measures RegisterInfo() performance
-func BenchmarkRegisterInfo(b *testing.B) {
+// BenchmarkRegisterData measures RegisterData() performance
+func BenchmarkRegisterData(b *testing.B) {
 	i, _ := info.New("benchmark-service")
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for n := 0; n < b.N; n++ {
-		i.RegisterInfo(func() (map[string]interface{}, error) {
+		i.RegisterData(func() (map[string]interface{}, error) {
 			return map[string]interface{}{"key": "value"}, nil
 		})
 	}
@@ -207,7 +207,7 @@ func BenchmarkRegisterInfo(b *testing.B) {
 // BenchmarkMarshalText measures text marshaling performance
 func BenchmarkMarshalText(b *testing.B) {
 	i, _ := info.New("benchmark-service")
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "1.0.0",
 			"status":  "running",
@@ -225,7 +225,7 @@ func BenchmarkMarshalText(b *testing.B) {
 // BenchmarkMarshalJSON measures JSON marshaling performance
 func BenchmarkMarshalJSON(b *testing.B) {
 	i, _ := info.New("benchmark-service")
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "1.0.0",
 			"status":  "running",
@@ -243,7 +243,7 @@ func BenchmarkMarshalJSON(b *testing.B) {
 // BenchmarkJSONMarshal measures standard json.Marshal performance
 func BenchmarkJSONMarshal(b *testing.B) {
 	i, _ := info.New("benchmark-service")
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "1.0.0",
 			"status":  "running",
@@ -278,7 +278,7 @@ func BenchmarkConcurrentNameReads(b *testing.B) {
 // BenchmarkConcurrentInfoReads measures concurrent Info() reads
 func BenchmarkConcurrentInfoReads(b *testing.B) {
 	i, _ := info.New("benchmark-service")
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{
 			"version": "1.0.0",
 			"status":  "running",
@@ -290,7 +290,7 @@ func BenchmarkConcurrentInfoReads(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			_ = i.Info()
+			_ = i.Data()
 		}
 	})
 }
@@ -301,7 +301,7 @@ func BenchmarkConcurrentMixedOperations(b *testing.B) {
 	i.RegisterName(func() (string, error) {
 		return "concurrent-name", nil
 	})
-	i.RegisterInfo(func() (map[string]interface{}, error) {
+	i.RegisterData(func() (map[string]interface{}, error) {
 		return map[string]interface{}{"key": "value"}, nil
 	})
 
@@ -311,7 +311,7 @@ func BenchmarkConcurrentMixedOperations(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			_ = i.Name()
-			_ = i.Info()
+			_ = i.Data()
 		}
 	})
 }

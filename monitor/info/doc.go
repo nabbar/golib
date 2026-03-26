@@ -85,7 +85,7 @@
 //	}
 //
 //	// 2. Register a function to provide dynamic runtime information.
-//	inf.RegisterInfo(func() (map[string]interface{}, error) {
+//	inf.RegisterData(func() (map[string]interface{}, error) {
 //	    return map[string]interface{}{
 //	        "version":    "1.2.3",
 //	        "go_version": runtime.Version(),
@@ -104,7 +104,7 @@
 //
 //	// The output will be a JSON object containing the name and merged info data.
 //	fmt.Println(string(jsonData))
-//	// Output: {"Name":"my-awesome-service","Info":{"go_version":"go1.19.5","goroutines":1,"region":"us-east-1","version":"1.2.3"}}
+//	// Output: {"name":"my-awesome-service","data":{"go_version":"go1.19.5","goroutines":1,"region":"us-east-1","version":"1.2.3"}}
 //
 // # Usage Patterns
 //
@@ -117,12 +117,12 @@
 //	inf.SetData(map[string]interface{}{"version": "1.0.0-static"})
 //
 //	// Register a dynamic function that also provides a version.
-//	inf.RegisterInfo(func() (map[string]interface{}, error) {
+//	inf.RegisterData(func() (map[string]interface{}, error) {
 //	    return map[string]interface{}{"version": "2.0.0-dynamic"}, nil
 //	})
 //
 //	// The dynamic version will overwrite the static one.
-//	data := inf.Info()
+//	data := inf.Data()
 //	fmt.Println(data["version"]) // Output: 2.0.0-dynamic
 //
 // ## Unregistering Functions
@@ -130,10 +130,10 @@
 // To stop a dynamic function from being called, simply register `nil`.
 //
 //	// Unregister the info function.
-//	inf.RegisterInfo(nil)
+//	inf.RegisterData(nil)
 //
-//	// Now, Info() will only return manually set data.
-//	data = inf.Info()
+//	// Now, Data() will only return manually set data.
+//	data = inf.Data()
 //	fmt.Println(data["version"]) // Output: 1.0.0-static
 //
 // # Thread Safety
@@ -148,7 +148,7 @@
 //	    go func() {
 //	        defer wg.Done()
 //	        _ = inf.Name()
-//	        _ = inf.Info()
+//	        _ = inf.Data()
 //	    }()
 //	}
 //	wg.Wait() // This will complete without race conditions.
@@ -157,7 +157,7 @@
 //
 // The current implementation does **not** cache the results of registered functions.
 // The registered `FuncInfoName` and `FuncInfoData` functions are executed
-// **every time** `Name()` or `Info()` is called, respectively. This ensures that
+// **every time** `Name()` or `Data()` is called, respectively. This ensures that
 // the returned information is always up-to-date. If the data retrieval process
 // is expensive, the registered function should implement its own caching mechanism.
 package info

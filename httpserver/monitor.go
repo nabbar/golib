@@ -125,7 +125,7 @@ func (o *srv) Monitor(vrs libver.Version) (montps.Monitor, error) {
 		inf.RegisterName(func() (string, error) {
 			return o.MonitorName(), nil
 		})
-		inf.RegisterInfo(func() (map[string]interface{}, error) {
+		inf.RegisterData(func() (map[string]interface{}, error) {
 			return res, nil
 		})
 	}
