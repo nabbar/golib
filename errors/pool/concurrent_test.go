@@ -112,7 +112,7 @@ var _ = Describe("Concurrent Operations", func() {
 					// Read multiple times
 					for j := 0; j < 100; j++ {
 						idx := uint64((id % 100) + 1)
-						err := p.Get(idx)
+						err := p.Get(idx - 1)
 						Expect(err).NotTo(BeNil())
 					}
 				}(i)
@@ -134,7 +134,7 @@ var _ = Describe("Concurrent Operations", func() {
 
 					idx := uint64((id % 100) + 1)
 					newErr := fmt.Errorf("updated error %d", id)
-					p.Set(idx, newErr)
+					p.Set(idx-1, newErr)
 				}(i)
 			}
 
@@ -142,7 +142,7 @@ var _ = Describe("Concurrent Operations", func() {
 
 			// All indices should still have errors
 			for i := uint64(1); i <= 100; i++ {
-				Expect(p.Get(i)).NotTo(BeNil())
+				Expect(p.Get(i - 1)).NotTo(BeNil())
 			}
 		})
 
@@ -159,7 +159,7 @@ var _ = Describe("Concurrent Operations", func() {
 					defer GinkgoRecover()
 
 					idx := uint64((id % 100) + 1)
-					p.Get(idx)
+					p.Get(idx - 1)
 				}(i)
 			}
 
@@ -170,7 +170,7 @@ var _ = Describe("Concurrent Operations", func() {
 					defer GinkgoRecover()
 
 					idx := uint64((id % 100) + 1)
-					p.Set(idx, fmt.Errorf("concurrent error %d", id))
+					p.Set(idx-1, fmt.Errorf("concurrent error %d", id))
 				}(i)
 			}
 
@@ -197,7 +197,7 @@ var _ = Describe("Concurrent Operations", func() {
 					defer GinkgoRecover()
 
 					idx := uint64((id % 100) + 1)
-					p.Del(idx)
+					p.Del(idx - 1)
 				}(i)
 			}
 
@@ -228,7 +228,7 @@ var _ = Describe("Concurrent Operations", func() {
 					defer GinkgoRecover()
 
 					idx := uint64(id + 1)
-					p.Del(idx)
+					p.Del(idx - 1)
 				}(i)
 			}
 
@@ -417,7 +417,7 @@ var _ = Describe("Concurrent Operations", func() {
 					defer wg.Done()
 					defer GinkgoRecover()
 					idx := uint64((id % 10) + 1)
-					p.Get(idx)
+					p.Get(idx - 1)
 				}(i)
 			}
 
@@ -427,7 +427,7 @@ var _ = Describe("Concurrent Operations", func() {
 					defer wg.Done()
 					defer GinkgoRecover()
 					idx := uint64((id % 10) + 1)
-					p.Set(idx, fmt.Errorf("set error %d", id))
+					p.Set(idx-1, fmt.Errorf("set error %d", id))
 				}(i)
 			}
 
@@ -437,7 +437,7 @@ var _ = Describe("Concurrent Operations", func() {
 					defer wg.Done()
 					defer GinkgoRecover()
 					idx := uint64((id % 10) + 1)
-					p.Del(idx)
+					p.Del(idx - 1)
 				}(i)
 			}
 

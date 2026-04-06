@@ -210,6 +210,13 @@ var _ = Describe("Formatting", func() {
 				Expect(result).NotTo(BeEmpty())
 				Expect(result).To(MatchRegexp(`\d+\.\d{2}`))
 			})
+
+			It("should format maximum values", func() {
+				s := Size(math.MaxUint64)
+				result := s.Format(FormatRound2)
+				Expect(result).NotTo(BeEmpty())
+				Expect(result).To(MatchRegexp(`\d+\.\d{2}`))
+			})
 		})
 	})
 

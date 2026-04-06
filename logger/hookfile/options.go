@@ -43,27 +43,3 @@ func (o *hkf) getFormatter() logrus.Formatter {
 func (o *hkf) getLevel() []logrus.Level {
 	return o.o.levels
 }
-
-// getDisableStack indicates whether stack traces are disabled for this hook.
-// When true, stack traces will not be included in the log output.
-func (o *hkf) getDisableStack() bool {
-	return o.o.disableStack
-}
-
-// getDisableTimestamp indicates whether timestamps are disabled for this hook.
-// When true, timestamps will not be included in the log output.
-func (o *hkf) getDisableTimestamp() bool {
-	return o.o.disableTimestamp
-}
-
-// getEnableTrace indicates whether trace information is enabled for this hook.
-// When true, additional tracing information will be included in the log output.
-func (o *hkf) getEnableTrace() bool {
-	return o.o.enableTrace
-}
-
-// getEnableAccessLog indicates whether access log format is enabled.
-// When true, logs will be written in a simplified access log format.
-func (o *hkf) getEnableAccessLog() bool {
-	return o.o.enableAccessLog
-}

@@ -26,6 +26,44 @@
  *
  */
 
+// Package unix_test provides runnable code examples for the Unix domain socket server.
+//
+// # example_test.go: Practical Usage Demonstrations
+//
+// These examples serve as executable documentation, showing developers how to
+// correctly implement common patterns using the Unix socket server.
+//
+// # Key Patterns Demonstrated:
+//
+// ## 1. Basic Echo Server
+// Shows the minimal boilerplate required to start a server and respond to
+// client data. This demonstrates `New()`, `Listen()`, and the `libsck.Context`
+// interface's `Read` and `Write` methods.
+//
+// ## 2. Production-Ready Configuration
+// Demonstrates a "complete" setup, including:
+//   - Graceful shutdown with context deadlines.
+//   - Error and info callback registration for monitoring.
+//   - Idle connection timeouts to prevent resource leaks.
+//   - Real-time connection count monitoring via `OpenConnections()`.
+//
+// ## 3. Lifecycle Management
+// Specifically shows how to use `Shutdown()` to ensure that the server doesn't
+// cut off active clients prematurely and that the socket file is cleanly
+// removed from the filesystem.
+//
+// ## 4. Context Metadata Propagation
+// Demonstrates how to pass values through the `context.Context` interface
+// down into the individual connection handlers (e.g., Request IDs).
+//
+// ## 5. Monitoring and Observability
+// Shows how to register callbacks (`FuncError`, `FuncInfo`, `FuncInfoSrv`)
+// to integrate the server with your application's logging or metrics systems.
+//
+// # Best Practice Tip (from examples):
+// Always use `defer c.Close()` at the start of your handler function to ensure
+// the socket connection is returned to the OS and its context is returned to
+// the internal `sync.Pool`.
 package unix_test
 
 import (

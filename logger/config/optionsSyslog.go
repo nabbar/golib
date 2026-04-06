@@ -26,6 +26,8 @@
 
 package config
 
+import libsiz "github.com/nabbar/golib/size"
+
 // OptionsSyslog defines configuration options for syslog logging.
 // This structure controls syslog connection settings (local or remote) and formatting options.
 type OptionsSyslog struct {
@@ -60,6 +62,9 @@ type OptionsSyslog struct {
 
 	// EnableAccessLog allow to add all message from api router for access log and error log.
 	EnableAccessLog bool `json:"enableAccessLog,omitempty" yaml:"enableAccessLog,omitempty" toml:"enableAccessLog,omitempty" mapstructure:"enableAccessLog,omitempty"`
+
+	// MessageMaxSize defined the default max size allowed to a message (used to defined pre-allocated memory size)
+	MessageMaxSize libsiz.Size `json:"message-max-size,omitempty" yaml:"message-max-size,omitempty" toml:"message-max-size,omitempty" mapstructure:"message-max-size,omitempty"`
 }
 
 // OptionsSyslogs is a collection of syslog logging configurations.

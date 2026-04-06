@@ -37,8 +37,24 @@ import (
 	. "github.com/onsi/gomega"
 
 	libsck "github.com/nabbar/golib/socket"
+	"github.com/nabbar/golib/socket/server/udp"
 )
 
+// # UDP Socket Context (sCtx) Test Suite
+//
+// This suite verifies the behavior of the contextual wrapper used by the handler.
+//
+// # Key Responsibilities Tested:
+//  - Integration with the Go standard library 'context.Context' interface.
+//  - Correct behavior of the io.Reader (Read) and io.Writer (Write) implementations.
+//  - Idempotent Close() sequence and its effect on pending I/O.
+//  - Protocol reporting: LocalHost() and RemoteHost() formats.
+//
+// # Behavioral Note: UDP Unconnected Socket
+//
+// In this package's server implementation, Write() on the context is disabled.
+// These tests verify that calling Write() returns io.ErrClosedPipe, as a UDP
+// server context represents a shared listener, not a point-to-point connection.
 var _ = Describe("UDP Context Operations", func() {
 	var (
 		ctx    context.Context
@@ -53,7 +69,7 @@ var _ = Describe("UDP Context Operations", func() {
 		if cancel != nil {
 			cancel()
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	})
 
 	Describe("Context Interface Methods", func() {
@@ -63,6 +79,10 @@ var _ = Describe("UDP Context Operations", func() {
 		)
 
 		BeforeEach(func() {
+			ctxLock.Lock()
+			udpCtx = nil
+			ctxLock.Unlock()
+
 			handler := func(c libsck.Context) {
 				ctxLock.Lock()
 				udpCtx = c
@@ -134,7 +154,7 @@ var _ = Describe("UDP Context Operations", func() {
 			ctxLock.Unlock()
 
 			// Check IsConnected exists and is callable
-			_ = c.IsConnected()
+			Expect(c.IsConnected()).To(BeTrue())
 		})
 
 		It("should provide RemoteHost method", func() {
@@ -202,6 +222,7 @@ var _ = Describe("UDP Context Operations", func() {
 			cancel()
 		})
 
+		// Explicitly verifies the write-disable design for UDP server contexts.
 		It("should handle Write method (returns error for UDP)", func() {
 			handler := func(c libsck.Context) {
 				defer c.Close()
@@ -219,7 +240,7 @@ var _ = Describe("UDP Context Operations", func() {
 				_ = srv.Listen(ctx)
 			}()
 
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 			cancel()
 		})
 
@@ -243,7 +264,7 @@ var _ = Describe("UDP Context Operations", func() {
 				_ = srv.Listen(ctx)
 			}()
 
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 			cancel()
 		})
 
@@ -267,19 +288,31 @@ var _ = Describe("UDP Context Operations", func() {
 				_ = srv.Listen(ctx)
 			}()
 
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(50 * time.Millisecond)
 			cancel()
 		})
 	})
 
 	Describe("Context Close Operations", func() {
+		var (
+			udpCtx  libsck.Context
+			ctxLock sync.Mutex
+		)
+
+		BeforeEach(func() {
+			ctxLock.Lock()
+			udpCtx = nil
+			ctxLock.Unlock()
+		})
+
 		It("should handle multiple Close calls", func() {
-			var udpCtx libsck.Context
 			var wg sync.WaitGroup
 			wg.Add(1)
 
 			handler := func(c libsck.Context) {
+				ctxLock.Lock()
 				udpCtx = c
+				ctxLock.Unlock()
 				wg.Done()
 				<-c.Done()
 			}
@@ -292,26 +325,31 @@ var _ = Describe("UDP Context Operations", func() {
 			}()
 
 			wg.Wait()
-			Expect(udpCtx).ToNot(BeNil())
+
+			ctxLock.Lock()
+			c := udpCtx
+			ctxLock.Unlock()
+			Expect(c).ToNot(BeNil())
 
 			// First close
-			err = udpCtx.Close()
+			err = c.Close()
 			Expect(err).ToNot(HaveOccurred())
 
-			// Second close should also succeed
-			err = udpCtx.Close()
+			// Second close should also succeed (idempotent)
+			err = c.Close()
 			Expect(err).To(BeNil())
 
 			cancel()
 		})
 
 		It("should handle Close with cancelled context", func() {
-			var udpCtx libsck.Context
 			var wg sync.WaitGroup
 			wg.Add(1)
 
 			handler := func(c libsck.Context) {
+				ctxLock.Lock()
 				udpCtx = c
+				ctxLock.Unlock()
 				wg.Done()
 				<-c.Done()
 			}
@@ -325,14 +363,42 @@ var _ = Describe("UDP Context Operations", func() {
 
 			wg.Wait()
 
+			ctxLock.Lock()
+			c := udpCtx
+			ctxLock.Unlock()
+			Expect(c).ToNot(BeNil())
+
 			// Cancel context first
 			cancel()
-			time.Sleep(50 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 
 			// Then close
-			err = udpCtx.Close()
+			err = c.Close()
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
+	Describe("Edge Cases and Error Paths", func() {
+		// Verifies that a nil pointer to the context implementation doesn't cause panics.
+		It("should handle nil receiver methods gracefully", func() {
+			var c libsck.Context = (*udp.SCtxPublic)(nil)
+
+			Expect(func() { _, _ = c.Deadline() }).ToNot(Panic())
+			Expect(c.Done()).ToNot(BeNil())
+			Expect(c.Err()).To(HaveOccurred())
+			Expect(c.Value("test")).To(BeNil())
+			Expect(c.IsConnected()).To(BeFalse())
+			Expect(c.RemoteHost()).To(BeEmpty())
+			Expect(c.LocalHost()).To(BeEmpty())
+			Expect(c.Close()).To(Succeed())
+
+			n, err := c.Read(nil)
+			Expect(n).To(Equal(0))
+			Expect(err).To(Equal(io.ErrClosedPipe))
+
+			n, err = c.Write(nil)
+			Expect(n).To(Equal(0))
+			Expect(err).To(Equal(io.ErrClosedPipe))
+		})
+	})
 })

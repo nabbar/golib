@@ -31,11 +31,11 @@ package hookfile
 import (
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
 
-	logtps "github.com/nabbar/golib/logger/types"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,15 +43,12 @@ import (
 // It's an unexported type to ensure immutability after creation.
 // All fields are set during hook creation and never modified afterwards.
 type ohkf struct {
-	format           logrus.Formatter // formatter for log entries
-	levels           []logrus.Level   // log levels to process
-	disableStack     bool             // filter stack field
-	disableTimestamp bool             // filter time field
-	enableTrace      bool             // include caller/file/line fields
-	enableAccessLog  bool             // message-only mode
-	filepath         string           // path to log file
-	filemode         os.FileMode      // file permissions
-	filecreate       bool             // create file if missing (for rotation)
+	format     logrus.Formatter // formatter for log entries
+	levels     []logrus.Level   // log levels to process
+	filepath   string           // path to log file
+	filemode   os.FileMode      // file permissions
+	filecreate bool             // create file if missing (for rotation)
+	msgMaxSize int              // defined the max size for each log message
 }
 
 // hkf is the main implementation of the HookFile interface.
@@ -62,6 +59,8 @@ type hkf struct {
 	o ohkf         // immutable config data
 	w io.Writer    // aggregator writer (buffered, shared)
 	r *atomic.Bool // is running flag (thread-safe)
+	f []func(d logrus.Fields) logrus.Fields
+	p func(e *logrus.Entry, msg string) ([]byte, error)
 }
 
 // Levels returns the log levels that this hook is configured to handle.
@@ -85,76 +84,18 @@ func (o *hkf) RegisterHook(log *logrus.Logger) {
 // Returns an error if the log entry could not be written to the file.
 func (o *hkf) Fire(entry *logrus.Entry) error {
 	// Check if this log level should be processed by this hook
-	levels := o.Levels()
-	levelAccepted := false
-	for _, l := range levels {
-		if l == entry.Level {
-			levelAccepted = true
-			break
-		}
-	}
-	if !levelAccepted {
+	if !slices.Contains(o.getLevel(), entry.Level) {
 		return nil
 	}
 
 	ent := entry.Dup()
 	ent.Level = entry.Level
 
-	if o.getDisableStack() {
-		ent.Data = o.filterKey(ent.Data, logtps.FieldStack)
+	for i := range o.f {
+		ent.Data = o.f[i](ent.Data)
 	}
 
-	if o.getDisableTimestamp() {
-		ent.Data = o.filterKey(ent.Data, logtps.FieldTime)
-	}
-
-	if !o.getEnableTrace() {
-		ent.Data = o.filterKey(ent.Data, logtps.FieldCaller)
-		ent.Data = o.filterKey(ent.Data, logtps.FieldFile)
-		ent.Data = o.filterKey(ent.Data, logtps.FieldLine)
-	}
-
-	var (
-		p []byte
-		e error
-	)
-
-	if o.getEnableAccessLog() {
-		// Access log mode: use the Message field directly
-		if len(entry.Message) > 0 {
-			if !strings.HasSuffix(entry.Message, "\n") {
-				entry.Message += "\n"
-			}
-			p = []byte(entry.Message)
-		} else {
-			return nil
-		}
-	} else {
-		// Normal mode: IMPORTANT - The Message field is ignored!
-		// All log data must be passed via the Data field (logrus.Fields).
-		// This is because the formatter (e.g., TextFormatter) only processes
-		// the Data field and ignores the Message parameter.
-		// To log a message, use: entry.Data["msg"] = "your message"
-		if len(ent.Data) < 1 {
-			return nil
-		}
-
-		if f := o.getFormatter(); f != nil {
-			p, e = f.Format(ent)
-		} else {
-			p, e = ent.Bytes()
-		}
-
-		if e != nil {
-			return e
-		}
-	}
-
-	if _, e = o.Write(p); e != nil {
-		return e
-	}
-
-	return nil
+	return o.writeMsg(o.p(ent, entry.Message))
 }
 
 // filterKey removes a specific key from the logrus.Fields map if it exists.
@@ -177,4 +118,46 @@ func (o *hkf) filterKey(f logrus.Fields, key string) logrus.Fields {
 		delete(f, key)
 		return f
 	}
+}
+
+func (o *hkf) getMsgAccess(_ *logrus.Entry, msg string) ([]byte, error) {
+	if len(msg) < 1 {
+		return nil, nil
+	}
+
+	if !strings.HasSuffix(msg, "\n") {
+		msg += "\n"
+	}
+
+	return []byte(msg), nil
+}
+
+func (o *hkf) getMsgNormal(e *logrus.Entry, _ string) ([]byte, error) {
+	// Normal mode: IMPORTANT - The Message field is ignored!
+	// All log data must be passed via the Data field (logrus.Fields).
+	// This is because the formatter (e.g., TextFormatter) only processes
+	// the Data field and ignores the Message parameter.
+	// To log a message, use: entry.Data["msg"] = "your message"
+	if len(e.Data) < 1 {
+		return nil, nil
+	}
+
+	if f := o.getFormatter(); f != nil {
+		return f.Format(e)
+	}
+
+	return e.Bytes()
+}
+
+func (o *hkf) writeMsg(p []byte, e error) error {
+	if len(p) < 1 {
+		return e
+	}
+
+	if e != nil {
+		return e
+	}
+
+	_, e = o.w.Write(p)
+	return e
 }

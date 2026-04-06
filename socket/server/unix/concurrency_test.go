@@ -26,8 +26,74 @@
  *
  */
 
-// concurrency_test.go validates concurrent server operations and thread safety.
-// Tests multiple simultaneous connections, parallel operations, and race conditions.
+// Package unix_test includes concurrency tests to ensure the server's thread safety and
+// its ability to handle multiple simultaneous clients without data corruption or deadlocks.
+//
+// # concurrency_test.go: High-Concurrency and Thread-Safety Validation
+//
+// This file contains a suite of tests that push the server's goroutine-per-connection model
+// to its limits, validating that all internal state transitions (especially those involving
+// atomic counters and context pooling) remain accurate under stress.
+//
+// # Scenarios Covered:
+//
+// ## 1. Massively Concurrent Connections
+//   - Simultaneous Clients: Launches up to 50 concurrent goroutines, each establishing a
+//     unique connection and performing an echo transaction.
+//   - Success Rate: Verifies that 100% of the connections are handled correctly and that
+//     the `sync.Pool` for contexts manages the high turnover rate without panics.
+//
+// ## 2. Atomic Accuracy
+//   - Connection Counting: Uses a specialized `counterHandler` to verify that the atomic
+//     `nc` (connection count) increment/decrement operations never lose an event, even
+//     when connections are opened and closed in rapid succession.
+//
+// ## 3. Rapid Lifecycle Cycles
+//   - Connect/Disconnect Storm: Simulates a "connect storm" where connections are opened
+//     and immediately closed. This is a stress test for the listener's accept loop and
+//     the context recycling mechanism.
+//
+// ## 4. Concurrent Method Access
+//   - Thread-Safe Queries: Simulates multiple goroutines simultaneously calling server
+//     methods like `IsRunning()`, `OpenConnections()`, and `RegisterFuncError()`. This
+//     validates that the use of atomic types and `libatm.Value` provides the expected
+//     lock-free safety.
+//
+// ## 5. Shutdown Under Stress
+//   - Draining during Load: Initiates a server shutdown while multiple connections are
+//     actively being processed. Verifies that `Shutdown()` correctly waits for handlers
+//     to finish (draining) or respects the context timeout.
+//
+// # Internal Mechanisms Tested:
+//
+//   - `sync.Pool` safety: Ensuring the recycled `sCtx` structures don't leak state between
+//     concurrent handlers.
+//   - Atomic primitives: Validating the accuracy of `nc` (connection count) and `run`/`gon`
+//     status flags.
+//   - Broadcast signaling: Confirming the 'gone' channel correctly terminates all
+//     simultaneously active handler goroutines.
+//
+// # Data Flow Diagram (Concurrency):
+//
+//	      [ Clients G1-G50 ]
+//	              |
+//	      (Parallel net.Dial)
+//	              |
+//	      [ Server Accept Loop ] <--- (Watchdog Monitoring)
+//	              |
+//	    +---------+---------+ ... +---------+
+//	    |         |         |         |
+//	 [Conn G1] [Conn G2] [Conn G3] ... [Conn G50]
+//	    |         |         |         |
+//	 (Atomic nc++) (Atomic nc++) (Atomic nc++) (Atomic nc++)
+//	    |         |         |         |
+//	 [Handler] [Handler] [Handler] [Handler]
+//	    |         |         |         |
+//	 (Atomic nc--) (Atomic nc--) (Atomic nc--) (Atomic nc--)
+//
+// # Performance Note:
+// While these tests focus on correctness, they also provide a baseline for the server's
+// ability to handle thousands of connections per second on modern hardware.
 package unix_test
 
 import (

@@ -29,11 +29,11 @@
 package hookfile_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"time"
 
-	logcfg "github.com/nabbar/golib/logger/config"
 	logfil "github.com/nabbar/golib/logger/hookfile"
 	"github.com/sirupsen/logrus"
 
@@ -61,7 +61,7 @@ var _ = Describe("HookFile", func() {
 		Expect(err).NotTo(HaveOccurred(), "Failed to create test hook")
 
 		// Register the hook with the logger
-		log.AddHook(hook)
+		hook.RegisterHook(log)
 	})
 
 	AfterEach(func() {
@@ -147,12 +147,9 @@ var _ = Describe("HookFile", func() {
 		It("should create directories if createPath is true", func() {
 			tempPath := filepath.Join(tempDir, "nested", "dir", "test.log")
 
-			opts := logcfg.OptionsFile{
-				Filepath:   tempPath,
-				CreatePath: true,
-				FileMode:   0600,
-				PathMode:   0700,
-			}
+			opts := getOptions(tempPath)
+			opts.FileMode = 0600
+			opts.PathMode = 0700
 
 			hook, err := logfil.New(opts, &logrus.TextFormatter{})
 			Expect(err).NotTo(HaveOccurred())
@@ -167,10 +164,9 @@ var _ = Describe("HookFile", func() {
 		})
 
 		It("should return error for invalid file path", func() {
-			opts := logcfg.OptionsFile{
-				Filepath:   "/invalid/path/to/logfile.log",
-				CreatePath: false,
-			}
+			opts := getOptions("/invalid/path/to/logfile.log")
+			opts.CreatePath = false
+			opts.Create = false
 
 			_, err := logfil.New(opts, &logrus.TextFormatter{})
 			Expect(err).To(HaveOccurred())
@@ -187,19 +183,17 @@ var _ = Describe("HookFile", func() {
 			readOnlyFile := filepath.Join(readOnlyDir, "test.log")
 
 			// Try to create a hook with a read-only directory
-			opts := logcfg.OptionsFile{
-				Filepath:   readOnlyFile,
-				CreatePath: false,
-			}
+			opts := getOptions(readOnlyFile)
+			opts.CreatePath = false
+			opts.Create = false
 
 			_, err := logfil.New(opts, &logrus.TextFormatter{})
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("should return error for missing file path", func() {
-			opts := logcfg.OptionsFile{
-				Filepath: "",
-			}
+			opts := getOptions("")
+			opts.Filepath = ""
 
 			_, err := logfil.New(opts, nil)
 			Expect(err).To(HaveOccurred())
@@ -209,6 +203,7 @@ var _ = Describe("HookFile", func() {
 
 	Context("Hook Lifecycle", func() {
 		It("should report running state correctly", func() {
+			hook.Run(context.Background())
 			Expect(hook.IsRunning()).To(BeTrue(), "Hook should be running after creation")
 
 			err = hook.Close()
@@ -249,11 +244,8 @@ var _ = Describe("HookFile", func() {
 
 	Context("Configuration Options", func() {
 		It("should use default file and path modes", func() {
-			opts := logcfg.OptionsFile{
-				Filepath:   filepath.Join(tempDir, "mode-test.log"),
-				CreatePath: true,
-				// FileMode and PathMode not set (should use defaults)
-			}
+			opts := getOptions(filepath.Join(tempDir, "mode-test.log"))
+			opts.FileMode = 0644
 
 			h, err := logfil.New(opts, nil)
 			Expect(err).NotTo(HaveOccurred())
@@ -315,12 +307,7 @@ var _ = Describe("HookFile Additional Coverage", func() {
 		logfil.ResetOpenFiles()
 		defer logfil.ResetOpenFiles()
 
-		opts := logcfg.OptionsFile{
-			Filepath:   filepath.Join(tempDir, "empty-test.log"),
-			CreatePath: true,
-		}
-
-		hook, err := logfil.New(opts, nil)
+		hook, err := logfil.New(getOptions(filepath.Join(tempDir, "empty-test.log")), nil)
 		Expect(err).NotTo(HaveOccurred())
 		defer hook.Close()
 
@@ -341,11 +328,8 @@ var _ = Describe("HookFile Additional Coverage", func() {
 		logfil.ResetOpenFiles()
 		defer logfil.ResetOpenFiles()
 
-		opts := logcfg.OptionsFile{
-			Filepath:        filepath.Join(tempDir, "access-empty.log"),
-			CreatePath:      true,
-			EnableAccessLog: true,
-		}
+		opts := getOptions(filepath.Join(tempDir, "access-empty.log"))
+		opts.EnableAccessLog = true
 
 		hook, err := logfil.New(opts, nil)
 		Expect(err).NotTo(HaveOccurred())
@@ -368,17 +352,13 @@ var _ = Describe("HookFile Additional Coverage", func() {
 		logfil.ResetOpenFiles()
 		defer logfil.ResetOpenFiles()
 
-		opts := logcfg.OptionsFile{
-			Filepath:   filepath.Join(tempDir, "formatter-test.log"),
-			CreatePath: true,
-		}
-
-		hook, err := logfil.New(opts, &logrus.JSONFormatter{})
+		hook, err := logfil.New(getOptions(filepath.Join(tempDir, "formatter-test.log")), &logrus.JSONFormatter{})
 		Expect(err).NotTo(HaveOccurred())
 		defer hook.Close()
 
 		logger := logrus.New()
 		logger.SetOutput(GinkgoWriter)
+		hook.RegisterHook(logger)
 
 		entry := logrus.NewEntry(logger)
 		entry.Level = logrus.InfoLevel
@@ -394,11 +374,8 @@ var _ = Describe("HookFile Additional Coverage", func() {
 		logfil.ResetOpenFiles()
 		defer logfil.ResetOpenFiles()
 
-		opts := logcfg.OptionsFile{
-			Filepath:   filepath.Join(tempDir, "level-filter.log"),
-			CreatePath: true,
-			LogLevel:   []string{"error"}, // Only error level
-		}
+		opts := getOptions(filepath.Join(tempDir, "level-filter.log"))
+		opts.LogLevel = []string{"error"} // Only error level
 
 		hook, err := logfil.New(opts, &logrus.TextFormatter{
 			DisableTimestamp: true,

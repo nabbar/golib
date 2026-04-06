@@ -24,38 +24,53 @@
  *
  */
 
-// Package udp provides a UDP server implementation with connectionless datagram support.
-//
-// This package implements the github.com/nabbar/golib/socket.Server interface
-// for UDP protocol, providing a stateless datagram server with features including:
-//   - Connectionless UDP datagram handling
-//   - Single handler for all incoming datagrams
-//   - Callback hooks for errors and informational messages
-//   - Graceful shutdown support
-//   - Atomic state management
-//   - Context-aware operations
-//
-// Unlike TCP servers, UDP servers operate in a stateless mode where each datagram
-// is processed independently without maintaining persistent connections.
-//
-// See github.com/nabbar/golib/socket for the Server interface definition.
+// Package udp provides a high-performance, stateless UDP server implementation.
 package udp
 
 import "fmt"
 
 var (
-	// ErrInvalidAddress is returned when the server address is empty or malformed.
-	// The address must be in the format "host:port" or ":port" for all interfaces.
+	// ErrInvalidAddress is returned when the provided listen address fails validation.
+	//
+	// # Validation Logic
+	//
+	// The address is parsed using net.ResolveUDPAddr. Common valid formats:
+	//   - ":port" (all interfaces, IPv4 and IPv6)
+	//   - "0.0.0.0:port" (all IPv4 interfaces)
+	//   - "127.0.0.1:port" (loopback only)
+	//   - "[::1]:port" (IPv6 loopback)
+	//
+	// # Use Case
+	//
+	// Typically returned during RegisterServer() or at the start of Listen().
 	ErrInvalidAddress = fmt.Errorf("invalid listen address")
 
-	// ErrInvalidHandler is returned when attempting to start a server without a valid handler function.
-	// A handler must be provided via the New() constructor.
+	// ErrInvalidHandler is returned when trying to start the server with a nil handler.
+	//
+	// # Mandatory Requirement
+	//
+	// Since the server only spawns a single handler for all UDP traffic, a non-nil
+	// HandlerFunc is required by the New() constructor.
 	ErrInvalidHandler = fmt.Errorf("invalid handler")
 
-	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
-	// This typically happens when StopListen() takes longer than expected.
+	// ErrShutdownTimeout is returned when the graceful shutdown period expires.
+	//
+	// # Shutdown Logic
+	//
+	// When Shutdown(ctx) is called, the server:
+	//   1. Closes the broadcast channel (gnc).
+	//   2. Closes the listener socket.
+	//   3. Monitors the IsRunning flag for cleanup completion.
+	//
+	// If the provided context 'ctx' times out before the cleanup is finished,
+	// this error is returned.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
 
-	// ErrInvalidInstance is returned when operating on a nil server instance.
+	// ErrInvalidInstance is returned when operating on a nil *srv pointer.
+	//
+	// # Defensive Coding
+	//
+	// This error prevents panics in scenarios where methods are called on an
+	// uninitialized or nil server instance.
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

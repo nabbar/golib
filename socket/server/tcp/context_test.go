@@ -24,9 +24,29 @@
  *
  */
 
-// context_test.go verifies the context interface implementation (sCtx).
-// Tests include context methods (Deadline, Done, Err, Value), connection state
-// queries, host information retrieval, and I/O operations through the context.
+// Package tcp_test validates the context-aware connection wrapper (sCtx).
+//
+// # Context Test Logic
+//
+// The 'context_test.go' file ensures that the sCtx structure correctly implements 
+// the 'context.Context' interface and the custom 'libsck.Context' interface. 
+// It focuses on:
+//   - Cancellation Propagation: Ensuring that when the server stops, the 
+//     connection context's Done() channel is closed.
+//   - Deadline Management: Verifying that deadlines from the parent context 
+//     are correctly reported.
+//   - Value Retrieval: Ensuring request-scoped values flow through to the handler.
+//   - Metadata Retrieval: Verifying Host and Protocol information accuracy.
+//   - Idle Manager Integration: Testing Ref(), Inc(), and Get() used by the idlemgr.
+//
+// # Dataflow: Context Cancellation
+//
+//	[Parent Context Cancel] ───> [srv.gnc (Gone channel)]
+//	                                     │
+//	[sCtx.Close()] <───(select)──────────+── [sCtx.Done()]
+//	      │
+//	      v
+//	[Handler Unblocked] ───> [Resource Cleanup]
 package tcp_test
 
 import (
@@ -36,6 +56,7 @@ import (
 	"time"
 
 	libsck "github.com/nabbar/golib/socket"
+	sckidl "github.com/nabbar/golib/socket/idlemgr"
 	scksrt "github.com/nabbar/golib/socket/server/tcp"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -50,11 +71,13 @@ var _ = Describe("TCP Server Context", func() {
 		cnl context.CancelFunc
 	)
 
+	// Setup: Initialize address and global context.
 	BeforeEach(func() {
 		adr = getTestAddr()
 		c, cnl = context.WithCancel(globalCtx)
 	})
 
+	// Cleanup: Stop server and cancel local context.
 	AfterEach(func() {
 		if srv != nil {
 			_ = srv.Close()
@@ -66,6 +89,7 @@ var _ = Describe("TCP Server Context", func() {
 	})
 
 	Context("context interface methods", func() {
+		// Test: Standard context.Deadline() implementation.
 		It("should provide Deadline from parent context", func() {
 			deadline := time.Now().Add(5 * time.Second)
 			ctxWithDeadline, cancel := context.WithDeadline(c, deadline)
@@ -83,7 +107,6 @@ var _ = Describe("TCP Server Context", func() {
 					Expect(t).To(BeTemporally("~", deadline, time.Second))
 				}
 
-				// Keep connection alive briefly
 				time.Sleep(10 * time.Millisecond)
 			}
 
@@ -98,6 +121,31 @@ var _ = Describe("TCP Server Context", func() {
 			_ = con.Close()
 		})
 
+		// Test: Standard context.Deadline() for non-deadline contexts.
+		It("should return false for deadline when none is set", func() {
+			handlerCalled := make(chan bool, 1)
+			handler := func(ctx libsck.Context) {
+				defer ctx.Close()
+				if conn, ok := interface{}(ctx).(interface {
+					Deadline() (time.Time, bool)
+				}); ok {
+					_, ok := conn.Deadline()
+					Expect(ok).To(BeFalse())
+				}
+				handlerCalled <- true
+			}
+
+			cfg := createDefaultConfig(adr)
+			srv, _ = scksrt.New(nil, handler, cfg)
+			startServerInBackground(c, srv)
+			waitForServerAcceptingConnections(adr, 2*time.Second)
+
+			con := connectToServer(adr)
+			_ = con.Close()
+			Eventually(handlerCalled, 2*time.Second).Should(Receive(BeTrue()))
+		})
+
+		// Test: Standard context.Done() implementation and signaling.
 		It("should provide Done channel from parent context", func(ctx SpecContext) {
 			cancelCtx, cancel := context.WithCancel(c)
 
@@ -123,13 +171,14 @@ var _ = Describe("TCP Server Context", func() {
 			con := connectToServer(adr)
 			time.Sleep(20 * time.Millisecond)
 
-			// Cancel context to trigger Done
+			// Cancel context to trigger Done on sCtx
 			cancel()
 
 			Eventually(doneCalled, 3*time.Second).Should(Receive(BeTrue()))
 			_ = con.Close()
 		}, SpecTimeout(5*time.Second))
 
+		// Test: Standard context.Err() behavior.
 		It("should provide Err from parent context", func() {
 			cancelCtx, cancel := context.WithCancel(c)
 
@@ -137,9 +186,8 @@ var _ = Describe("TCP Server Context", func() {
 			handler := func(connCtx libsck.Context) {
 				defer connCtx.Close()
 
-				// Check Err immediately
 				if ctxIf, ok := interface{}(connCtx).(interface{ Err() error }); ok {
-					// Wait for context cancellation
+					// Wait for external cancellation
 					time.Sleep(100 * time.Millisecond)
 					errReceived <- ctxIf.Err()
 				}
@@ -152,14 +200,13 @@ var _ = Describe("TCP Server Context", func() {
 
 			con := connectToServer(adr)
 			time.Sleep(20 * time.Millisecond)
-			cancel() // Cancel after connection is established
+			cancel() // Triggers sCtx cancellation
 
-			// The error could be either context.Canceled or io.ErrClosedPipe
-			// depending on timing, both are valid
 			Eventually(errReceived, 2*time.Second).Should(Receive(Not(BeNil())))
 			_ = con.Close()
 		})
 
+		// Test: Standard context.Value() propagation.
 		It("should provide Value from parent context", func() {
 			type contextKey string
 			const testKey contextKey = "testKey"
@@ -190,16 +237,15 @@ var _ = Describe("TCP Server Context", func() {
 	})
 
 	Context("connection state methods", func() {
+		// Test: Verifying IsConnected flag accuracy.
 		It("should report IsConnected correctly", func() {
 			connStateChanges := make(chan bool, 10)
 			handler := func(connCtx libsck.Context) {
 				defer connCtx.Close()
 
 				if stateIf, ok := interface{}(connCtx).(interface{ IsConnected() bool }); ok {
-					// Initially connected
 					connStateChanges <- stateIf.IsConnected()
 
-					// Still connected
 					time.Sleep(10 * time.Millisecond)
 					connStateChanges <- stateIf.IsConnected()
 				}
@@ -213,11 +259,11 @@ var _ = Describe("TCP Server Context", func() {
 			con := connectToServer(adr)
 			defer func() { _ = con.Close() }()
 
-			// Should receive true twice (connected state)
 			Eventually(connStateChanges, 2*time.Second).Should(Receive(BeTrue()))
 			Eventually(connStateChanges, 2*time.Second).Should(Receive(BeTrue()))
 		})
 
+		// Test: Verifying host string formatting.
 		It("should report RemoteHost correctly", func() {
 			remoteReceived := make(chan string, 1)
 			handler := func(connCtx libsck.Context) {
@@ -264,6 +310,7 @@ var _ = Describe("TCP Server Context", func() {
 	})
 
 	Context("I/O operations", func() {
+		// Test: Verifying sCtx implementation of io.Reader.
 		It("should handle Read correctly", func() {
 			cfg := createDefaultConfig(adr)
 			srv, _ = scksrt.New(nil, echoHandler, cfg)
@@ -278,6 +325,7 @@ var _ = Describe("TCP Server Context", func() {
 			Expect(response).To(Equal(testData))
 		})
 
+		// Test: Verifying sCtx implementation of io.Writer.
 		It("should handle Write correctly", func() {
 			dataReceived := make(chan []byte, 1)
 			handler := func(connCtx libsck.Context) {
@@ -308,6 +356,7 @@ var _ = Describe("TCP Server Context", func() {
 			Eventually(dataReceived, 2*time.Second).Should(Receive(Equal(testData)))
 		})
 
+		// Test: Verifying sCtx implementation of io.Closer.
 		It("should handle Close correctly", func() {
 			closeCalled := make(chan bool, 1)
 			handler := func(connCtx libsck.Context) {
@@ -316,7 +365,6 @@ var _ = Describe("TCP Server Context", func() {
 					closeCalled <- true
 				}()
 
-				// Simulate some work
 				time.Sleep(10 * time.Millisecond)
 			}
 
@@ -330,6 +378,36 @@ var _ = Describe("TCP Server Context", func() {
 			_ = con.Close()
 
 			Eventually(closeCalled, 2*time.Second).Should(Receive(BeTrue()))
+		})
+	})
+
+	Context("extra coverage", func() {
+		// Test: Idle Manager interface implementation check.
+		It("Ref, Inc, Get should work", func() {
+			handlerCalled := make(chan bool, 1)
+			handler := func(ctx libsck.Context) {
+				defer ctx.Close()
+
+				sx, ok := ctx.(sckidl.Client)
+				Expect(ok).To(BeTrue())
+
+				// Ref() used for logging identification
+				Expect(sx.Ref()).To(ContainSubstring("127.0.0.1"))
+				// Inc() / Get() used for inactivity scans
+				sx.Inc()
+				Expect(sx.Get()).To(Equal(uint32(1)))
+
+				handlerCalled <- true
+			}
+
+			cfg := createDefaultConfig(adr)
+			srv, _ = scksrt.New(nil, handler, cfg)
+			startServerInBackground(c, srv)
+			waitForServerAcceptingConnections(adr, 2*time.Second)
+
+			con := connectToServer(adr)
+			_ = con.Close()
+			Eventually(handlerCalled, 2*time.Second).Should(Receive(BeTrue()))
 		})
 	})
 })

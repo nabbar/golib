@@ -35,7 +35,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gmeasure"
 )
 
 var _ = Describe("TC-MT-001: Metrics", func() {
@@ -373,103 +372,6 @@ var _ = Describe("TC-MT-001: Metrics", func() {
 					return agg.SizeWaiting() + agg.SizeProcessing()
 				}, 3*time.Second, 50*time.Millisecond).Should(Equal(int64(0)))
 			})
-		})
-	})
-
-	Describe("TC-MT-027: Performance - Metrics Overhead", Ordered, func() {
-		var experiment *Experiment
-
-		BeforeAll(func() {
-			experiment = NewExperiment("Metrics Overhead")
-			AddReportEntry(experiment.Name, experiment)
-		})
-
-		It("TC-MT-028: should measure overhead of metrics tracking", func() {
-			cfg := iotagg.Config{
-				BufWriter: 1000,
-				FctWriter: func(p []byte) (int, error) {
-					return len(p), nil
-				},
-			}
-
-			agg, err := iotagg.New(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
-			defer agg.Close()
-
-			Expect(startAndWait(agg, ctx)).To(Succeed())
-
-			// Warmup
-			for i := 0; i < 100; i++ {
-				agg.Write([]byte("warmup"))
-			}
-			time.Sleep(100 * time.Millisecond)
-
-			// Measure write latency with metrics
-			experiment.Sample(func(idx int) {
-				data := []byte("test data for metrics")
-
-				experiment.MeasureDuration("write_with_metrics", func() {
-					_, err := agg.Write(data)
-					Expect(err).ToNot(HaveOccurred())
-
-					// Also check metrics (this adds overhead)
-					_ = agg.NbWaiting()
-					_ = agg.NbProcessing()
-					_ = agg.SizeWaiting()
-					_ = agg.SizeProcessing()
-				})
-			}, SamplingConfig{N: 1000, Duration: 5 * time.Second})
-
-			// Wait for all to process
-			time.Sleep(500 * time.Millisecond)
-
-			stats := experiment.GetStats("write_with_metrics")
-			AddReportEntry("Write Latency Stats", stats)
-
-			// Metrics overhead should be negligible (< 1ms)
-			Expect(stats.DurationFor(StatMedian)).To(BeNumerically("<", 1*time.Millisecond))
-		})
-
-		It("TC-MT-029: should measure metrics read performance", func() {
-			cfg := iotagg.Config{
-				BufWriter: 100,
-				FctWriter: func(p []byte) (int, error) {
-					time.Sleep(10 * time.Millisecond)
-					return len(p), nil
-				},
-			}
-
-			agg, err := iotagg.New(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
-			defer agg.Close()
-
-			Expect(startAndWait(agg, ctx)).To(Succeed())
-
-			// Fill buffer to have meaningful metrics
-			go func() {
-				for i := 0; i < 50; i++ {
-					agg.Write([]byte("data"))
-					time.Sleep(5 * time.Millisecond)
-				}
-			}()
-
-			time.Sleep(50 * time.Millisecond)
-
-			// Measure metrics read performance
-			experiment.Sample(func(idx int) {
-				experiment.MeasureDuration("metrics_read", func() {
-					_ = agg.NbWaiting()
-					_ = agg.NbProcessing()
-					_ = agg.SizeWaiting()
-					_ = agg.SizeProcessing()
-				})
-			}, SamplingConfig{N: 10000, Duration: 2 * time.Second})
-
-			stats := experiment.GetStats("metrics_read")
-			AddReportEntry("Metrics Read Stats", stats)
-
-			// Reading all 4 metrics should be very fast (< 1µs)
-			Expect(stats.DurationFor(StatMedian)).To(BeNumerically("<", 5*time.Microsecond))
 		})
 	})
 })

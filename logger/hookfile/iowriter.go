@@ -67,7 +67,7 @@ func (o *hkf) Write(p []byte) (n int, err error) {
 		return n, err
 	}
 
-	a, e := setAgg(o.o.filepath, o.o.filemode, o.o.filecreate)
+	a, e := setAgg(o.o.filepath, o.o.filemode, o.o.filecreate, o.o.msgMaxSize)
 	if e != nil {
 		return n, e
 	}
@@ -110,6 +110,6 @@ func (o *hkf) IsRunning() bool {
 //   - ctx: Context for cancellation and timeout control
 //
 // The method will automatically clean up resources when the context is done.
-func (o *hkf) Run(ctx context.Context) {
+func (o *hkf) Run(_ context.Context) {
 	o.r.Store(true)
 }

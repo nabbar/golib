@@ -29,6 +29,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -38,56 +39,64 @@ import (
 
 var (
 	// ErrInvalidWriter is returned by New when Config.FctWriter is nil.
-	// The aggregator requires a valid writer function to process data.
+	// The aggregator requires a valid writer function to process and serialize data.
+	// This function is the ultimate destination for all aggregated data and must
+	// conform to the standard io.Writer signature.
 	ErrInvalidWriter = errors.New("invalid writer")
 
-	// ErrInvalidInstance is returned when the aggregator's internal state is corrupted
-	// or when attempting to use an uninitialized instance.
+	// ErrInvalidInstance is returned when the aggregator's internal state is corrupted,
+	// when attempting to use an uninitialized instance, or when essential fields are missing.
+	// This usually indicates a programmatic error or an incomplete initialization.
 	ErrInvalidInstance = errors.New("invalid instance")
 
-	// ErrStillRunning is returned by Start when the aggregator is already running.
-	// This prevents multiple concurrent run loops which could cause data corruption.
+	// ErrStillRunning is returned by Start when the aggregator is already active.
+	// This prevents multiple concurrent run loops from contending for the same writer
+	// and ensures that the processing logic remains single-threaded for serialization.
 	ErrStillRunning = errors.New("still running")
 
-	// ErrClosedResources is returned by Write when attempting to write to an aggregator
-	// that has been closed or whose context has been cancelled.
+	// ErrClosedResources is returned by Write when attempting to queue data to an aggregator
+	// that has been explicitly closed or whose context has been cancelled.
+	// Once closed, an aggregator cannot be reused for writing; a new instance should be created
+	// if further aggregation is required.
 	ErrClosedResources = errors.New("closed resources")
 
-	// ErrTimeout is returned by Start when the aggregator fails to initialize
-	// within the expected timeout period (1 second).
+	// ErrTimeout is returned by Start when the aggregator fails to reach a running state
+	// within the internally defined timeout period (usually 1 second).
+	// This can happen if the background goroutine is blocked during its startup sequence.
 	ErrTimeout = errors.New("timeout")
 
-	// closedChan is a pre-closed channel used as a sentinel value to indicate
-	// that the aggregator's write channel has been closed.
-	closedChan = make(chan []byte, 1)
+	// closedChan is a pre-closed sentinel channel used to safely indicate that the
+	// aggregator's write channel has been decommissioned without triggering panics.
+	// Using a pointer to a byte slice (*[]byte) optimizes performance by reducing
+	// heap allocations during interface conversions (convTslice).
+	closedChan = make(chan *[]byte, 1)
 )
 
+// init performs package-level initialization.
+// In this package, it ensures the closedChan sentinel is pre-closed to serve
+// as an atomic marker for a decommissioned data pipeline.
 func init() {
 	close(closedChan)
 }
 
-// Aggregator provides a thread-safe write aggregator that serializes concurrent
-// write operations to a single output function.
+// Aggregator provides a high-performance, thread-safe write aggregator.
+// It serializes concurrent write operations from multiple goroutines to a single
+// output function, implementing efficient buffering and batching mechanisms.
 //
-// The Aggregator interface embeds:
-//   - context.Context: for propagating cancellation and deadlines
-//   - librun.StartStop: for lifecycle management (Start, Stop, Restart, IsRunning)
-//   - io.Writer: for accepting write operations
-//   - io.Closer: for cleanup and shutdown
+// The Aggregator interface embeds several standard and custom interfaces:
+//   - context.Context: For propagating cancellation signals and deadlines throughout the pipeline.
+//   - librun.StartStop: For lifecycle management (Start, Stop, Restart) using a standardized runner.
+//   - io.Writer: The primary entry point for accepting data to be aggregated.
+//   - io.Closer: For graceful shutdown and deterministic resource cleanup.
 //
-// All methods are safe for concurrent use by multiple goroutines.
-// Writes are buffered in a channel and processed sequentially by a single
-// goroutine, ensuring that the output writer function is never called concurrently.
-//
-// The aggregator must be started with Start() before accepting writes.
-// Attempting to write before Start() returns ErrClosedResources.
-//
-// Example:
-//
-//	agg, _ := aggregator.New(ctx, cfg, logger)
-//	agg.Start(ctx)
-//	defer agg.Close()
-//	agg.Write([]byte("data"))
+// Technical Performance Features:
+//   - Zero-allocation data transfer: Uses pointers to byte slices (*[]byte) in channels
+//     and pools to avoid costly 'runtime.convTslice' allocations.
+//   - Lock-free counter paths: Implements atomic counters for real-time monitoring.
+//   - Opportunistic Non-blocking: Attempts non-blocking channel sends to minimize
+//     counter contention and latency under normal load.
+//   - Batch Processing: Drains the internal channel in chunks of up to 100 items to
+//     reduce context switching and system call overhead in the writer function.
 type Aggregator interface {
 	context.Context
 	librun.StartStop
@@ -95,160 +104,160 @@ type Aggregator interface {
 	io.Closer
 	io.Writer
 
-	// SetLoggerError sets a custom error logging function.
-	// If nil, a no-op function is used. Thread-safe.
+	// SetLoggerError registers a custom callback for internal error reporting.
+	// This function is invoked for write failures, context errors, and recovered panics.
+	// If the provided function is nil, a no-op function is internally assigned.
+	// Thread-safety: Safely updatable during runtime using atomic storage.
 	SetLoggerError(func(msg string, err ...error))
 
-	// SetLoggerInfo sets a custom info logging function.
-	// If nil, a no-op function is used. Thread-safe.
+	// SetLoggerInfo registers a custom callback for lifecycle and operational events.
+	// It is used to log startup progress, graceful shutdowns, and informational status.
+	// If the provided function is nil, a no-op function is internally assigned.
+	// Thread-safety: Safely updatable during runtime using atomic storage.
 	SetLoggerInfo(func(msg string, arg ...any))
 
-	// NbWaiting returns the number of Write() calls currently blocked waiting
-	// to send data to the internal channel.
+	// NbWaiting returns the instantaneous count of Write() calls currently blocked
+	// waiting for space in the internal buffer (Config.BufWriter).
 	//
-	// This counter helps monitor backpressure:
-	//   - If NbWaiting > 0: The buffer (BufWriter) is full and Write() calls are blocking
-	//   - If NbWaiting grows: Consider increasing BufWriter or optimizing FctWriter
-	//   - If NbWaiting == 0: All Write() calls are non-blocking (healthy state)
-	//
-	// Use this metric to detect when the aggregator cannot keep up with the write rate.
+	// Backpressure Analysis:
+	//   - NbWaiting > 0: Indicates the consumer (FctWriter) is slower than the producers.
+	//   - Sustained Growth: Suggests the need to optimize FctWriter or increase BufWriter.
+	//   - Constant Zero: System is operating within its designed capacity.
 	NbWaiting() int64
 
-	// NbProcessing returns the number of data items currently buffered in the
-	// internal channel waiting to be processed by FctWriter.
+	// NbProcessing returns the number of discrete data items currently queued in the
+	// internal channel, awaiting serialization by the processing goroutine.
 	//
-	// This counter helps monitor buffer utilization:
-	//   - If NbProcessing ≈ BufWriter: The buffer is nearly full (high load)
-	//   - If NbProcessing ≈ 0: The buffer is mostly empty (low load or fast processing)
-	//   - If NbProcessing fluctuates: Normal behavior under variable load
-	//
-	// Combined with NbWaiting(), this provides complete visibility into the
-	// aggregator's buffering state:
-	//   - Total items in flight = NbWaiting + NbProcessing
-	//   - Buffer usage % = (NbProcessing / BufWriter) × 100
+	// Buffer Utilization:
+	//   - Value relative to BufWriter indicates the current load percentage.
+	//   - Fluctuations are expected; a pegged value suggests a bottleneck in FctWriter.
 	NbProcessing() int64
 
-	// SizeWaiting returns the total size in bytes of all Write() calls currently
-	// blocked waiting to send data to the internal channel.
+	// SizeWaiting returns the total volume in bytes of data held by Write() calls
+	// currently blocked due to buffer saturation.
 	//
-	// This metric helps estimate memory pressure from blocked writes:
-	//   - If SizeWaiting > 0: Memory is allocated but blocked waiting for buffer space
-	//   - If SizeWaiting is large: Consider increasing BufWriter to reduce blocking
-	//   - If SizeWaiting == 0: All writes are non-blocking (healthy state)
-	//
-	// Combined with SizeProcessing(), this provides total memory usage:
-	//   - Total memory = SizeWaiting + SizeProcessing bytes
-	//   - Average message size = SizeProcessing / NbProcessing (if NbProcessing > 0)
-	//
-	// Use this to:
-	//   - Detect memory buildup before it becomes a problem
-	//   - Calculate actual vs theoretical buffer memory usage
-	//   - Optimize BufWriter based on real data sizes
+	// Memory Impact Analysis:
+	//   - Represents memory held in producer goroutines stack/heap that cannot be released.
+	//   - Combined with SizeProcessing(), provides total memory footprint of the aggregator.
 	SizeWaiting() int64
 
-	// SizeProcessing returns the total size in bytes of all data items currently
-	// buffered in the internal channel waiting to be processed by FctWriter.
+	// SizeProcessing returns the total volume in bytes of data buffered in the
+	// internal channel, including the current batch being processed.
 	//
-	// This metric helps monitor actual memory consumption:
-	//   - Memory used by buffer ≈ SizeProcessing bytes
-	//   - Average message size = SizeProcessing / NbProcessing
-	//   - Theoretical max memory = BufWriter × Average message size
-	//
-	// Combined with NbProcessing(), this helps detect:
-	//   - Large messages causing memory spikes
-	//   - Uneven message size distribution
-	//   - Actual memory usage vs configured buffer size
-	//
-	// Example monitoring:
-	//
-	//	avgSize := agg.SizeProcessing() / max(agg.NbProcessing(), 1)
-	//	maxMemory := bufWriter × avgSize
-	//	if maxMemory > memoryBudget {
-	//	    // Need to reduce BufWriter or implement message size limits
-	//	}
+	// Resource Monitoring:
+	//   - Helps calculate average message size: SizeProcessing / NbProcessing.
+	//   - Crucial for detecting memory spikes caused by unusually large messages.
 	SizeProcessing() int64
 }
 
-// New creates a new Aggregator instance with the given configuration.
+// New creates and initializes a new Aggregator instance based on the provided configuration.
+//
+// Initialization Process:
+//  1. Context Normalization: If the provided ctx is nil, context.Background() is used.
+//  2. Struct Allocation: Initializes the internal 'agg' struct with high-performance defaults.
+//  3. Atomic Containers: Sets up libatm.Value wrappers for state that requires thread-safe updates.
+//  4. Timer Defaults: Sets callback intervals to 1 hour by default to avoid accidental high-frequency triggers.
+//  5. Buffer Configuration: Sets the internal channel capacity ('sh') and maximum buffer size ('bs').
+//  6. Object Pool Warm-up: Pre-allocates a pool of byte slice pointers (*[]byte) to minimize
+//     heap allocations during the initial burst of Write() calls.
+//  7. Writer Validation: Ensures a valid FctWriter is provided, otherwise returns ErrInvalidWriter.
 //
 // Parameters:
-//   - ctx: Parent context for cancellation propagation. If nil, context.Background() is used.
-//   - cfg: Configuration specifying buffer size, writer function, and optional callbacks.
-//   - lg: Logger for internal operations. If nil, a default logger is created.
+//   - ctx: Parent context. If nil, context.Background() is used. Inherits values and deadlines.
+//   - cfg: Configuration parameters defining buffer depth, the writer function, and callback intervals.
 //
 // Returns:
-//   - Aggregator: A new aggregator instance ready to be started.
-//   - error: ErrInvalidWriter if cfg.FctWriter is nil, or logger configuration error.
-//
-// The returned aggregator is in a stopped state and must be started with Start()
-// before accepting writes. The aggregator will inherit deadlines and values from
-// the parent context.
-//
-// Example:
-//
-//	cfg := aggregator.Config{
-//	    BufWriter: 100,
-//	    FctWriter: func(p []byte) (int, error) {
-//	        return file.Write(p)
-//	    },
-//	}
-//	agg, err := aggregator.New(ctx, cfg, logger)
-//	if err != nil {
-//	    return err
-//	}
+//   - Aggregator: A fully initialized instance in a stopped state (requires Start()).
+//   - error: ErrInvalidWriter if cfg.FctWriter is missing.
 func New(ctx context.Context, cfg Config) (Aggregator, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
 	a := &agg{
+		// Atomic storage for contexts and runners to ensure lock-free access in the hot path.
 		m:  libatm.NewValue[context.Context](),
 		x:  libatm.NewValue[context.Context](),
 		n:  libatm.NewValue[context.CancelFunc](),
 		r:  libatm.NewValue[librun.StartStop](),
 		le: libatm.NewValue[func(msg string, err ...error)](),
 		li: libatm.NewValue[func(msg string, arg ...any)](),
-		at: time.Minute,
+
+		// Default timer intervals (1 hour) to prevent runaway execution if misconfigured.
+		at: time.Hour,
 		am: -1,
 		af: nil,
-		st: time.Minute,
+		st: time.Hour,
 		sf: nil,
+
+		// Thread-safety and writer configuration.
+		lc: sync.Mutex{},
 		fw: nil,
-		sh: 1,
-		ch: libatm.NewValue[chan []byte](),
+		sh: 1,    // Minimal default buffering.
+		bs: 8192, // Default buffer size set to 8KB (standard page/block size).
+
+		// Data pipeline components using atomic storage for safe swaps.
+		ch: libatm.NewValue[chan *[]byte](),
 		op: new(atomic.Bool),
+
+		// Telemetry counters using atomic primitives for low-overhead monitoring.
 		cd: new(atomic.Int64),
 		cw: new(atomic.Int64),
 		sd: new(atomic.Int64),
 		sw: new(atomic.Int64),
+
+		// Resource recycling.
+		bp: sync.Pool{},
 	}
 
-	// Store initial context (but don't open channel yet - done in run())
+	// Persist the root context. Note: the operational channel is opened only during Start().
 	a.m.Store(ctx)
 	a.ctxNew()
 	a.op.Store(false)
 
-	// Initialize runner to prevent race conditions on Start
+	// Runner initialization is mandatory to handle concurrent Start/Stop requests safely.
 	a.setRunner(nil)
 
+	// Async callback configuration.
 	if cfg.AsyncMax > -1 {
 		a.am = cfg.AsyncMax
 	}
-
 	if cfg.AsyncTimer > 0 && cfg.AsyncFct != nil {
 		a.at = cfg.AsyncTimer
 		a.af = cfg.AsyncFct
 	}
 
+	// Sync callback configuration.
 	if cfg.SyncTimer > 0 && cfg.SyncFct != nil {
 		a.st = cfg.SyncTimer
 		a.sf = cfg.SyncFct
 	}
 
+	// Buffer depth configuration.
 	if cfg.BufWriter != 0 {
 		a.sh = cfg.BufWriter
 	}
 
+	// Buffer max size configuration.
+	if cfg.BufMaxSize > 0 {
+		a.bs = cfg.BufMaxSize
+	}
+
+	// Object Pool pre-allocation and New function setup.
+	a.bp.New = func() any {
+		// Allocates a fresh buffer pointer when the pool is exhausted.
+		b := make([]byte, a.bs)
+		return &b
+	}
+
+	// Warm up the pool with a set of buffers equal to the channel capacity plus one for processing.
+	// This ensures that under normal steady-state load, the aggregator performs zero heap allocations.
+	for i := 0; i < a.sh+1; i++ {
+		b := make([]byte, a.bs)
+		a.bp.Put(&b)
+	}
+
+	// Writer function validation.
 	if cfg.FctWriter != nil {
 		a.fw = cfg.FctWriter
 	} else {

@@ -45,7 +45,6 @@ import (
 	"testing"
 	"time"
 
-	logcfg "github.com/nabbar/golib/logger/config"
 	logfil "github.com/nabbar/golib/logger/hookfile"
 	"github.com/sirupsen/logrus"
 
@@ -168,12 +167,7 @@ func BenchmarkConcurrentLogWrites(b *testing.B) {
 	defer os.Remove(tempFile.Name())
 
 	// Set up hook with benchmark file
-	opts := logcfg.OptionsFile{
-		Filepath:   tempFile.Name(),
-		CreatePath: true,
-	}
-
-	hook, err := logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
+	hook, err := logfil.New(getOptions(tempFile.Name()), &logrus.TextFormatter{DisableTimestamp: true})
 	if err != nil {
 		b.Fatalf("Failed to create hook: %v", err)
 	}
@@ -181,7 +175,7 @@ func BenchmarkConcurrentLogWrites(b *testing.B) {
 	// Set up logger
 	logger := logrus.New()
 	logger.SetOutput(io.Discard) // Discard output for benchmarking
-	logger.AddHook(hook)
+	hook.RegisterHook(logger)
 
 	// Run benchmark with multiple goroutines
 	b.RunParallel(func(pb *testing.PB) {

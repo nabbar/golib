@@ -24,9 +24,32 @@
  *
  */
 
-// concurrency_test.go validates the thread-safety and concurrent operation
-// of the TCP server. Tests include race condition detection, parallel connection
-// handling, and concurrent state management using the race detector.
+// Package tcp_test validates the server's behavior under high concurrent load.
+//
+// # Concurrency Test Logic
+//
+// The 'concurrency_test.go' file stresses the server's thread-safety mechanisms. 
+// It verifies that:
+//   - Lock-Free State: Atomic operations on 'run', 'gon', and 'nc' counters 
+//     work correctly without data races.
+//   - Parallel Acceptance: The server can handle multiple simultaneous 
+//     connection attempts without dropping clients.
+//   - Context Isolation: Handlers for different connections do not interfere 
+//     with each other's data or context.
+//   - Counter Integrity: The atomic connection counter remains accurate even 
+//     under rapid open/close churn.
+//
+// # Dataflow: Concurrent Stress Test
+//
+//	[Test Runner] ───(Spawn 50 clients)───> [net.Dial] ───┐
+//	                                          │           │
+//	[srv.OpenConnections()] <────────────(Accept Loop) <──┘
+//	          │                               │
+//	[Atomic Increment] <──────────────────────┘
+//	          │
+//	[Atomic Decrement] <──────(on client disconnect)──────┐
+//	                                                      │
+//	[All Clients Closed] ───> [Verify Counter == 0] ──────┘
 package tcp_test
 
 import (
@@ -49,11 +72,13 @@ var _ = Describe("TCP Server Concurrency", func() {
 		cnl context.CancelFunc
 	)
 
+	// Setup: Initialize address and context.
 	BeforeEach(func() {
 		adr = getTestAddr()
 		c, cnl = context.WithCancel(globalCtx)
 	})
 
+	// Cleanup: Stop server and ensure no leftover goroutines.
 	AfterEach(func() {
 		if srv != nil {
 			_ = srv.Close()
@@ -65,6 +90,7 @@ var _ = Describe("TCP Server Concurrency", func() {
 	})
 
 	Context("concurrent connections", func() {
+		// Test: Handling 10 simultaneous clients.
 		It("should handle multiple simultaneous connections", func() {
 			cnt := new(atomic.Int32)
 			cfg := createDefaultConfig(adr)
@@ -92,9 +118,11 @@ var _ = Describe("TCP Server Concurrency", func() {
 			}
 
 			wg.Wait()
+			// Counter should exactly match the number of clients processed.
 			Expect(cnt.Load()).To(BeNumerically(">=", int32(numConns)))
 		})
 
+		// Test: Verifying data isolation across connections.
 		It("should handle concurrent writes from multiple connections", func() {
 			cfg := createDefaultConfig(adr)
 			var err error
@@ -126,6 +154,7 @@ var _ = Describe("TCP Server Concurrency", func() {
 			wg.Wait()
 		})
 
+		// Test: Verifying atomic counter accuracy under peak load.
 		It("should maintain connection count accuracy under load", func() {
 			cfg := createDefaultConfig(adr)
 			var err error
@@ -139,6 +168,7 @@ var _ = Describe("TCP Server Concurrency", func() {
 			var conns []any
 			mtx := sync.Mutex{}
 
+			// Rapidly open connections.
 			for i := 0; i < numConns; i++ {
 				con := connectToServer(adr)
 				mtx.Lock()
@@ -146,10 +176,12 @@ var _ = Describe("TCP Server Concurrency", func() {
 				mtx.Unlock()
 			}
 
+			// Wait for the counter to reflect the full load.
 			Eventually(func() int64 {
 				return srv.OpenConnections()
 			}, 3*time.Second, 10*time.Millisecond).Should(Equal(int64(numConns)))
 
+			// Rapidly close connections.
 			mtx.Lock()
 			for _, c := range conns {
 				if con, ok := c.(any); ok {
@@ -160,6 +192,7 @@ var _ = Describe("TCP Server Concurrency", func() {
 			}
 			mtx.Unlock()
 
+			// Counter must return to zero.
 			Eventually(func() int64 {
 				return srv.OpenConnections()
 			}, 3*time.Second, 10*time.Millisecond).Should(Equal(int64(0)))
@@ -174,6 +207,7 @@ var _ = Describe("TCP Server Concurrency", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		// Test: Thread-safe polling of server state.
 		It("should handle concurrent IsRunning calls", func() {
 			startServerInBackground(c, srv)
 			waitForServer(srv, 2*time.Second)
@@ -194,6 +228,7 @@ var _ = Describe("TCP Server Concurrency", func() {
 			wg.Wait()
 		})
 
+		// Test: Thread-safe polling of connection count.
 		It("should handle concurrent OpenConnections calls", func() {
 			startServerInBackground(c, srv)
 			waitForServerAcceptingConnections(adr, 2*time.Second)
@@ -219,6 +254,7 @@ var _ = Describe("TCP Server Concurrency", func() {
 	})
 
 	Context("stress testing", func() {
+		// Test: Stress testing the Accept loop and atomic counters.
 		It("should handle rapid connection churn", func() {
 			cfg := createDefaultConfig(adr)
 			var err error
@@ -236,6 +272,7 @@ var _ = Describe("TCP Server Concurrency", func() {
 				go func() {
 					defer wg.Done()
 					con := connectToServer(adr)
+					// Connection is closed immediately by closeHandler and by the client.
 					_ = con.Close()
 				}()
 			}

@@ -31,6 +31,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -38,19 +39,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	logtps "github.com/nabbar/golib/logger/types"
 	libptc "github.com/nabbar/golib/network/protocol"
 )
 
 // ohks holds the immutable configuration options for a hook instance.
 // These values are set at creation time and are not modified during the hook's lifecycle.
 type ohks struct {
-	format           logrus.Formatter // format specifies the logrus formatter to use for the log entry body.
-	levels           []logrus.Level   // levels defines which log levels this hook will trigger for.
-	disableStack     bool             // disableStack controls the removal of the "stack" field from log entries.
-	disableTimestamp bool             // disableTimestamp controls the removal of the "time" field from log entries.
-	enableTrace      bool             // enableTrace controls the inclusion of "caller", "file", and "line" fields.
-	enableAccessLog  bool             // enableAccessLog switches the hook to a mode where only the entry's message is logged.
+	format  logrus.Formatter // format specifies the logrus formatter to use for the log entry body.
+	levels  []logrus.Level   // levels defines which log levels this hook will trigger for.
+	msgSize int              // defined the max size for each log message
 
 	network  libptc.NetworkProtocol // network stores the protocol for the syslog connection (e.g., tcp, udp).
 	endpoint string                 // endpoint is the network address of the syslog server.
@@ -65,9 +62,10 @@ type hks struct {
 	m sync.Mutex   // m provides exclusive access to the writer, primarily for recovery scenarios.
 	o ohks         // o contains the immutable configuration options for the hook.
 	w io.Writer    // w is the writer pointing to the shared, buffered connection aggregator.
-	h string       // h stores the local hostname, cached for use in syslog messages for remote endpoints.
 	r *atomic.Bool // r is an atomic flag indicating if the hook is running (i.e., not closed).
-	l *atomic.Bool // l is an atomic flag indicating if the connection is to a local syslog endpoint.
+	f []func(d logrus.Fields) logrus.Fields
+	p func(e *logrus.Entry, msg string) ([]byte, error)
+	l func(l logrus.Level, p []byte, e error) ([]byte, error)
 }
 
 // Levels returns the slice of logrus levels that this hook is configured to handle.
@@ -97,109 +95,19 @@ func (o *hks) RegisterHook(log *logrus.Logger) {
 // This method is non-blocking under normal conditions, as the actual network I/O
 // is handled asynchronously by the aggregator.
 func (o *hks) Fire(entry *logrus.Entry) error {
+	// Check if this log level should be processed by this hook
+	if !slices.Contains(o.getLevel(), entry.Level) {
+		return nil
+	}
+
 	ent := entry.Dup()
 	ent.Level = entry.Level
 
-	if o.getDisableStack() {
-		ent.Data = o.filterKey(ent.Data, logtps.FieldStack)
+	for i := range o.f {
+		ent.Data = o.f[i](ent.Data)
 	}
 
-	if o.getDisableTimestamp() {
-		ent.Data = o.filterKey(ent.Data, logtps.FieldTime)
-	}
-
-	if !o.getEnableTrace() {
-		ent.Data = o.filterKey(ent.Data, logtps.FieldCaller)
-		ent.Data = o.filterKey(ent.Data, logtps.FieldFile)
-		ent.Data = o.filterKey(ent.Data, logtps.FieldLine)
-	}
-
-	var (
-		p []byte
-		e error
-	)
-
-	// In access log mode, use the raw message. Otherwise, use the formatter.
-	if o.getEnableAccessLog() {
-		if len(entry.Message) > 0 {
-			if !strings.HasSuffix(entry.Message, "\n") {
-				entry.Message += "\n"
-			}
-			p = []byte(entry.Message)
-		} else {
-			return nil
-		}
-	} else {
-		if len(ent.Data) < 1 {
-			return nil
-		}
-
-		if f := o.getFormatter(); f != nil {
-			p, e = f.Format(ent)
-		} else {
-			p, e = ent.Bytes()
-		}
-
-		if e != nil {
-			return e
-		}
-	}
-
-	// Map logrus level to syslog severity.
-	var sev Severity
-	switch ent.Level {
-	case logrus.PanicLevel:
-		sev = SeverityAlert
-	case logrus.FatalLevel:
-		sev = SeverityCrit
-	case logrus.ErrorLevel:
-		sev = SeverityErr
-	case logrus.WarnLevel:
-		sev = SeverityWarning
-	case logrus.InfoLevel:
-		sev = SeverityInfo
-	case logrus.DebugLevel:
-		sev = SeverityDebug
-	default:
-		sev = SeverityInfo
-	}
-
-	// Construct the full RFC 5424 syslog message.
-	if o.l.Load() {
-		// Format for local syslog (e.g., using time.Stamp and no hostname).
-		p = []byte(fmt.Sprintf(
-			"<%d>%s %s[%d]: %s",
-			PriorityCalc(o.o.fac, sev),
-			time.Now().Format(time.Stamp),
-			o.o.tag,
-			os.Getpid(),
-			string(p),
-		))
-	} else {
-		// Format for remote syslog (e.g., using RFC3339 and including hostname).
-		p = []byte(fmt.Sprintf(
-			"<%d>%s %s %s[%d]: %s",
-			PriorityCalc(o.o.fac, sev),
-			time.Now().Format(time.RFC3339),
-			o.h,
-			o.o.tag,
-			os.Getpid(),
-			string(p),
-		))
-	}
-
-	if !bytes.HasSuffix(p, []byte("\n")) {
-		p = append(p, byte('\n'))
-	}
-
-	// Write the formatted message to the aggregator.
-	_, e = o.Write(p)
-
-	if e != nil {
-		return e
-	}
-
-	return nil
+	return o.writeMsg(o.p(ent, entry.Message))
 }
 
 // filterKey removes a specific key from a logrus.Fields map.
@@ -215,4 +123,110 @@ func (o *hks) filterKey(f logrus.Fields, key string) logrus.Fields {
 		delete(f, key)
 		return f
 	}
+}
+
+func (o *hks) getSeverity(l logrus.Level) Severity {
+	switch l {
+	case logrus.PanicLevel:
+		return SeverityAlert
+	case logrus.FatalLevel:
+		return SeverityCrit
+	case logrus.ErrorLevel:
+		return SeverityErr
+	case logrus.WarnLevel:
+		return SeverityWarning
+	case logrus.InfoLevel:
+		return SeverityInfo
+	case logrus.DebugLevel:
+		return SeverityDebug
+	default:
+		return SeverityInfo
+	}
+
+}
+
+func (o *hks) getMsgAccess(e *logrus.Entry, msg string) ([]byte, error) {
+	if len(msg) < 1 {
+		return nil, nil
+	}
+
+	if !strings.HasSuffix(msg, "\n") {
+		msg += "\n"
+	}
+
+	return o.l(e.Level, []byte(msg), nil)
+}
+
+func (o *hks) getMsgNormal(e *logrus.Entry, _ string) ([]byte, error) {
+	// Normal mode: IMPORTANT - The Message field is ignored!
+	// All log data must be passed via the Data field (logrus.Fields).
+	// This is because the formatter (e.g., TextFormatter) only processes
+	// the Data field and ignores the Message parameter.
+	// To log a message, use: entry.Data["msg"] = "your message"
+	if len(e.Data) < 1 {
+		return nil, nil
+	}
+
+	if f := o.getFormatter(); f != nil {
+		return f.Format(e)
+	}
+
+	p, err := e.Bytes()
+	return o.l(e.Level, p, err)
+}
+
+func (o *hks) writeMsg(p []byte, e error) error {
+	if len(p) < 1 {
+		return e
+	}
+
+	if e != nil {
+		return e
+	}
+
+	if !bytes.HasSuffix(p, []byte("\n")) {
+		p = append(p, byte('\n'))
+	}
+
+	_, e = o.w.Write(p)
+	return e
+}
+
+func (o *hks) locWriteMsg(l logrus.Level, p []byte, e error) ([]byte, error) {
+	if len(p) < 1 {
+		return nil, e
+	}
+
+	if e != nil {
+		return p, e
+	}
+
+	return []byte(fmt.Sprintf(
+		"<%d>%s %s[%d]: %s",
+		PriorityCalc(o.o.fac, o.getSeverity(l)),
+		time.Now().Format(time.Stamp),
+		o.o.tag,
+		os.Getpid(),
+		string(p),
+	)), nil
+}
+
+func (o *hks) rmtWriteMsg(l logrus.Level, p []byte, e error) ([]byte, error) {
+	if len(p) < 1 {
+		return nil, e
+	}
+
+	if e != nil {
+		return p, e
+	}
+
+	return []byte(fmt.Sprintf(
+		"<%d>%s %s %s[%d]: %s",
+		PriorityCalc(o.o.fac, o.getSeverity(l)),
+		time.Now().Format(time.RFC3339),
+		hst,
+		o.o.tag,
+		os.Getpid(),
+		string(p),
+	)), nil
 }

@@ -68,6 +68,10 @@ import (
 // stop function performs cleanup and graceful shutdown operations.
 type FuncAction func(ctx context.Context) error
 
+type TickUpdate interface {
+	Reset(time.Duration)
+}
+
 // FuncTicker represents a function executed by the ticker at regular intervals.
 // It receives both the context (which will be cancelled on Stop) and the underlying
 // time.Ticker for advanced control if needed.
@@ -84,7 +88,7 @@ type FuncAction func(ctx context.Context) error
 //	    }
 //	    return nil
 //	}
-type FuncTicker func(ctx context.Context, tck *time.Ticker) error
+type FuncTicker func(ctx context.Context, tck TickUpdate) error
 
 // Runner defines the core interface for lifecycle management of services and tasks.
 // It provides operations to start, stop, restart, and monitor the running state

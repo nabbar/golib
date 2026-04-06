@@ -36,33 +36,27 @@ import (
 	libptc "github.com/nabbar/golib/network/protocol"
 )
 
-// getListen creates and configures the Unix datagram socket listener.
+// getListen creates and configures the Unix domain datagram socket for Linux.
 //
-// The function:
-//  1. Sets umask to apply configured permissions
-//  2. Creates the Unix datagram socket with net.ListenUnixgram() (SOCK_DGRAM)
-//  3. Verifies and corrects file permissions with os.Chmod() if needed
-//  4. Changes file group ownership with os.Chown() if needed
-//  5. Invokes the server info callback with startup message
+// # Initialization Flow for Linux
 //
-// The umask is temporarily modified to ensure correct permissions are applied
-// during socket creation, then restored to the original value.
+// 1. Resolve Address: The filesystem path is resolved as a Unixgram address.
+// 2. Bind Socket: Calls net.ListenUnixgram, creating a SOCK_DGRAM endpoint.
+// 3. Security (Post-creation):
+//    - os.Chmod: Adjusts the socket file permissions (e.g., 0600) to ensure
+//      only the owner (and potentially a group) can write datagrams to the socket.
+//    - os.Chown: Changes the file's group ownership to the configured GID.
 //
-// Parameters:
-//   - uxf: Unix socket file path
-//   - adr: Resolved UnixAddr for the socket
+// # Parameters:
+//   - uxf: The filesystem path where the socket will be bound.
 //
-// Returns:
-//   - *net.UnixConn: The active Unix datagram connection (connectionless)
-//   - error: Any error during socket creation or configuration
+// # Returns:
+//   - *net.UnixConn: The active listener connection.
+//   - Error if any operation (bind, chmod, chown) fails.
 //
-// Unlike connection-oriented Unix sockets, this creates a SOCK_DGRAM socket
-// which operates in connectionless datagram mode.
-//
-// This is an internal helper called by Listen().
-//
-// See syscall.Umask, os.Chmod, os.Chown for permission management.
-// See net.ListenUnixgram for datagram socket creation.
+// # Performance Note:
+// By calling net.ListenUnixgram first and then applying permissions, we ensure
+// that the socket file is correctly created by the kernel before modification.
 func (o *srv) getListen(uxf string) (*net.UnixConn, error) {
 	var (
 		err error

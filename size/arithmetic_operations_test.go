@@ -165,14 +165,14 @@ var _ = Describe("Arithmetic Operations", func() {
 				s := Size(100)
 				err := s.DivErr(0)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("invalid diviser"))
+				Expect(err.Error()).To(ContainSubstring("invalid divisor"))
 			})
 
 			It("should error on negative divisor", func() {
 				s := Size(100)
 				err := s.DivErr(-5)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("invalid diviser"))
+				Expect(err).To(Equal(ErrInvalidDiv))
 			})
 
 			It("should not error on positive divisor", func() {
@@ -232,7 +232,7 @@ var _ = Describe("Arithmetic Operations", func() {
 				s := Size(math.MaxUint64 - 10)
 				err := s.AddErr(20)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("overflow"))
+				Expect(err).To(Equal(ErrOverFlow))
 				Expect(s).To(Equal(Size(math.MaxUint64)))
 			})
 
@@ -296,7 +296,7 @@ var _ = Describe("Arithmetic Operations", func() {
 				s := Size(10)
 				err := s.SubErr(20)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("invalid substractor"))
+				Expect(err).To(Equal(ErrInvalidSub))
 				Expect(s).To(Equal(SizeNul))
 			})
 

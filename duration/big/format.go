@@ -28,6 +28,7 @@ package big
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	libpid "github.com/nabbar/golib/pidcontroller"
@@ -65,32 +66,30 @@ func (d Duration) Time() (time.Duration, error) {
 //	d, _ := durbig.Parse("1d2h3m4s")
 //	fmt.Println(d.String()) // Output: 1d2h3m4s
 func (d Duration) String() string {
-	var s string
+	var (
+		p = make([]byte, 25)
+		r uint64
+	)
 
 	if d < 0 {
-		s = "-"
+		copy(p[0:], []byte{'-'})
 	} else if d == 0 {
 		return "0s"
 	}
 
-	// Days
-	r, p := stringUnit(int64(d.Abs()), Day.Int64(), "d")
-	s += p
+	// Hours
+	r = stringUnit(d.Abs().Uint64(), Day.Uint64(), 'd', p)
 
 	// Hours
-	r, p = stringUnit(r, Hour.Int64(), "h")
-	s += p
+	r = stringUnit(r, Hour.Uint64(), 'h', p)
 
 	// Minutes
-	r, p = stringUnit(r, Minute.Int64(), "m")
-	s += p
+	r = stringUnit(r, Minute.Uint64(), 'm', p)
 
 	// Seconds
-	if r > 0 {
-		s += fmt.Sprintf("%ds", r)
-	}
+	_ = stringUnit(r, Second.Uint64(), 's', p)
 
-	return s
+	return string(p[0:lastPos(p)])
 }
 
 // Days returns the total number of full days in the duration.
@@ -168,6 +167,24 @@ func (d Duration) Uint64() uint64 {
 	}
 }
 
+// Uint32 returns the duration as a total number of seconds in a uint32.
+// If the duration is negative, it returns 0.
+//
+// Example:
+//
+//	d, _ := durbig.Parse("-1h30m")
+//	i := d.Uint32()
+//	fmt.Println(i) // Output: 0
+func (d Duration) Uint32() uint32 {
+	if i := int64(d); i < 0 {
+		return uint32(0)
+	} else if i > math.MaxUint32 {
+		return math.MaxUint32
+	} else {
+		return uint32(i)
+	}
+}
+
 // Float64 returns the duration as a total number of seconds in a float64.
 //
 // Example:
@@ -179,18 +196,30 @@ func (d Duration) Float64() float64 {
 	return float64(d)
 }
 
-func stringUnit(val, div int64, unit string) (rest int64, str string) {
+func stringUnit(val, div uint64, unit byte, buf []byte) uint64 {
 	if val < div {
 		// Value is smaller than the unit, so skip.
-		return val, ""
+		return val
 	}
 
-	n := val % div
-	v := val / div
+	rst := val % div
+	val = (val - rst) / div
 
-	if v > 0 {
-		return n, fmt.Sprintf("%d%s", v, unit)
+	if val > 0 {
+		idx := lastPos(buf)
+		copy(buf[idx:], strconv.FormatUint(val, 10))
+		idx = lastPos(buf)
+		copy(buf[idx:], []byte{unit})
 	}
 
-	return val, ""
+	return rst
+}
+
+func lastPos(p []byte) int {
+	for i := len(p) - 1; i >= 0; i-- {
+		if p[i] != 0 {
+			return i + 1
+		}
+	}
+	return 0
 }

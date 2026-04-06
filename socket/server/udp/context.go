@@ -40,45 +40,72 @@ import (
 // sCtx represents a UDP socket context that wraps a UDP connection with
 // context awareness and I/O operations.
 //
-// It implements multiple interfaces:
-//   - context.Context: For cancellation and deadline propagation
-//   - io.Reader: For reading datagrams from the UDP socket
-//   - io.Writer: For writing response datagrams (disabled for UDP server)
-//   - io.Closer: For cleaning up resources
+// # Design Pattern
 //
-// The struct uses atomic operations for thread-safe state management and
-// delegates context operations to the embedded parent context.
+// This struct follows the "Contextual Wrapper" pattern, providing a unified
+// interface for both lifetime management (via context.Context) and data
+// exchange (via io.ReadCloser).
 //
-// Fields:
-//   - loc: Local address string (cached for performance)
-//   - ctx: Parent context for cancellation propagation
-//   - cnl: Cancel function to trigger context cancellation
-//   - con: Underlying UDP connection (*net.UDPConn)
-//   - clo: Atomic boolean indicating if connection is closed
+// # Interface Implementation
 //
-// Thread Safety:
-//   - All methods are safe for concurrent read-only operations
-//   - Write operations should be serialized by the caller
-//   - Close() can be called from any goroutine
+// It implements multiple interfaces to be compatible with standard Go idioms:
+//   - context.Context: For cancellation and deadline propagation through the handler.
+//   - io.Reader: For reading datagrams from the underlying UDP socket.
+//   - io.Writer: Formally implemented but disabled to enforce UDP-specific semantics.
+//   - io.Closer: For resource cleanup and signaling termination.
+//
+// # Lifecycle and State Flow
+//
+//	  [Start]
+//	     │
+//	     ▼
+//	[Listen] ────▶ [New sCtx created] ────▶ [Handler Started]
+//	                                           │
+//	     ┌─────────────────────────────────────┴──────────┐
+//	     │                                                │
+//	     ▼                                                ▼
+//	[Read Loop]                                   [External Stop]
+//	     │                                                │
+//	     ├────▶ [Context Cancelled] ◀─────────────────────┤
+//	     │             OR                                 │
+//	     ├────▶ [Server Shutdown] ◀───────────────────────┤
+//	     │             OR                                 │
+//	     └────▶ [Explicit Close()] ◀──────────────────────┘
+//	                   │
+//	                   ▼
+//	             [Mark clo=true] (Atomic)
+//	                   │
+//	                   ▼
+//	            [Close UDP Socket]
+//	                   │
+//	                   ▼
+//	            [Cancel Context]
+//	                   │
+//	                   ▼
+//	                 [End]
+//
+// # Thread Safety
+//
+// The struct uses sync/atomic.Bool for the 'clo' field to ensure that Close()
+// is idempotent and safe to call from multiple goroutines simultaneously.
 type sCtx struct {
-	loc string // local ip
-	ctx context.Context
-	cnl context.CancelFunc
-	con *net.UDPConn
-	clo *atomic.Bool
+	loc string             // Cached local address string to avoid repeated allocation/syscalls
+	ctx context.Context    // Embedded context for cancellation propagation
+	cnl context.CancelFunc // Function to cancel the embedded context
+	con *net.UDPConn       // The underlying raw UDP connection
+	clo atomic.Bool        // Atomic flag to track closed state (true = closed)
 }
 
 // Deadline returns the time when work done on behalf of this context
 // should be canceled. This method delegates to the underlying context's
 // Deadline method.
 //
-// Returns:
-//   - time.Time: The deadline time when the context should be considered done
-//   - bool: False if no deadline is set
+// This is essential for handlers that need to set per-request timeouts or
+// respect global deadlines.
 //
-// This method is part of the context.Context interface and is used by
-// functions that support deadlines, such as those in the standard library's
-// net and os packages.
+// Returns:
+//   - time.Time: The deadline time when the context should be considered done.
+//   - bool: False if no deadline is set.
 func (o *sCtx) Deadline() (deadline time.Time, ok bool) {
 	if o == nil || o.ctx == nil {
 		return time.Time{}, false
@@ -87,18 +114,22 @@ func (o *sCtx) Deadline() (deadline time.Time, ok bool) {
 }
 
 // Done returns a channel that's closed when work done on behalf of this
-// context should be canceled. This channel is closed when the connection
-// is closed or the parent context is canceled.
+// context should be canceled.
 //
-// Returns:
-//   - <-chan struct{}: A channel that's closed when the context is done
+// # Use Case
 //
-// This method is part of the context.Context interface and is used to
-// signal cancellation to goroutines that need to be aware of the connection's
-// lifecycle.
+// Use this in a select block within your handler to react to server shutdown
+// or connection termination:
+//
+//	select {
+//	case <-ctx.Done():
+//	    return // Clean exit
+//	default:
+//	    // Continue processing
+//	}
 func (o *sCtx) Done() <-chan struct{} {
 	if o == nil || o.ctx == nil {
-		// Return a closed channel for nil receiver
+		// Return a closed channel for nil receiver to avoid blocking
 		c := make(chan struct{})
 		close(c)
 		return c
@@ -107,28 +138,31 @@ func (o *sCtx) Done() <-chan struct{} {
 }
 
 // Err returns a non-nil error value after the connection is closed or
-// the context is canceled. It returns io.ErrClosedPipe if the connection
-// was explicitly closed, or the context's error if it was canceled.
+// the context is canceled.
 //
-// Returns:
-//   - error: nil if the connection is still active, otherwise an error
-//     describing why the context was canceled
+// # Priority Logic
 //
-// This method is part of the context.Context interface and is used to
-// check if the context has been canceled or the connection closed.
+// 1. If 'clo' is true, it returns io.ErrClosedPipe.
+// 2. If 'ctx' is nil, it returns io.ErrClosedPipe.
+// 3. If 'ctx.Err()' is non-nil, it attempts to Close() the connection
+//    (if not already done) and returns the context error.
+//
+// This ensures that the caller always knows why the context was terminated.
 func (o *sCtx) Err() error {
 	if o == nil {
 		return fmt.Errorf("nil connection context")
 	}
 
-	// Check if connection was explicitly closed
+	// Check if connection was explicitly closed via Close()
 	if o.clo.Load() {
 		return io.ErrClosedPipe
 	}
 
-	// Check if context was canceled
-	if e := o.ctx.Err(); e != nil {
-		// Close the connection and combine errors if needed
+	// Check if context was canceled by the parent (e.g. Server.Shutdown)
+	if o.ctx == nil {
+		return io.ErrClosedPipe
+	} else if e := o.ctx.Err(); e != nil {
+		// Ensure resources are released if context is cancelled externally
 		if err := o.Close(); err != nil {
 			return fmt.Errorf("%v (close error: %v)", e, err)
 		}
@@ -139,88 +173,54 @@ func (o *sCtx) Err() error {
 }
 
 // Value retrieves the value associated with the given key from the context.
-// This method implements the context.Context interface and provides access
-// to values stored in the parent context.
+//
+// This allows passing metadata (like request IDs, trace IDs, or user info)
+// through the socket handling pipeline without modifying method signatures.
 //
 // Parameters:
-//   - key: The key for which to retrieve the value. Can be any comparable type.
+//   - key: The key to look up (must be comparable).
 //
 // Returns:
-//   - any: The value associated with the key, or nil if the key is not found
-//     or the context is nil.
-//
-// # Usage
-//
-// This method is useful for passing request-scoped values through the
-// connection handling pipeline, such as:
-//   - Request IDs for distributed tracing
-//   - Authentication tokens
-//   - User context information
-//   - Deadline and cancellation signals
-//
-// # Example
-//
-//	type contextKey string
-//	const userIDKey contextKey = "userID"
-//
-//	// In handler:
-//	if userID := ctx.Value(userIDKey); userID != nil {
-//	    log.Printf("Handling request for user: %v", userID)
-//	}
-//
-// # Thread Safety
-//
-// This method is safe to call from multiple goroutines as it delegates
-// to the underlying context which is immutable.
+//   - any: The value or nil if not found.
 func (o *sCtx) Value(key any) any {
+	if o == nil || o.ctx == nil {
+		return nil
+	}
 	return o.ctx.Value(key)
 }
 
 // Read reads data from the UDP socket into the provided buffer.
 //
-// This method implements the io.Reader interface and reads a single UDP datagram
-// from the underlying socket. For UDP, each Read() typically corresponds to one
-// complete datagram.
+// # UDP Behavior
+//
+// Unlike TCP, which is a stream, UDP is datagram-oriented.
+//   - Each Read call consumes exactly ONE datagram from the OS queue.
+//   - If the buffer 'p' is smaller than the datagram, the excess data is DISCARDED by the OS.
+//   - If no datagram is available, Read blocks until one arrives or the socket is closed.
+//
+// # Implementation Details
+//
+// Before calling the underlying Read, it checks:
+//   - If the instance is nil.
+//   - If the connection is marked as closed ('clo').
+//   - If the context has been canceled.
+//
+// If any of these are true, it returns io.ErrClosedPipe immediately to avoid
+// unnecessary blocking syscalls.
 //
 // Parameters:
-//   - p: Byte slice to read data into. Should be large enough for UDP datagram
-//     (typically 65507 bytes for IPv4, 1500 bytes for typical MTU)
+//   - p: Destination buffer. For UDP, 65535 bytes is the theoretical max, but 1500 (MTU)
+//        is a common practical limit for internet traffic.
 //
 // Returns:
-//   - n: Number of bytes read (0 if error occurred before reading)
-//   - err: Error if any occurred:
-//   - io.ErrClosedPipe: Connection was already closed or is nil
-//   - Context error: Context was cancelled or deadline exceeded
-//   - Network errors: Any error from the underlying UDP socket
-//
-// Behavior:
-//   - Returns immediately with io.ErrClosedPipe if connection is closed
-//   - Checks context state before reading
-//   - Reads one complete datagram (may be truncated if buffer too small)
-//   - Closes connection on any error (including EOF)
-//   - Thread-safe for concurrent reads
-//
-// UDP-Specific Notes:
-//   - Each Read() receives one complete datagram
-//   - If buffer is smaller than datagram, excess bytes are discarded
-//   - No partial reads - each Read() is atomic per datagram
-//   - No ordering guarantee between datagrams
-//
-// Example:
-//
-//	buf := make([]byte, 65507) // Max UDP datagram size
-//	n, err := ctx.Read(buf)
-//	if err != nil {
-//	    if err == io.ErrClosedPipe {
-//	        // Connection closed
-//	    }
-//	    return err
-//	}
-//	datagram := buf[:n]
+//   - n: Bytes read.
+//   - err: Error, or io.EOF if the connection was closed.
 func (o *sCtx) Read(p []byte) (n int, err error) {
 	if o == nil {
 		return 0, io.ErrClosedPipe
 	} else if o.clo.Load() {
+		return 0, io.ErrClosedPipe
+	} else if o.ctx == nil || o.con == nil {
 		return 0, io.ErrClosedPipe
 	} else if e := o.ctx.Err(); e != nil {
 		return 0, o.onErrorClose(e)
@@ -229,8 +229,10 @@ func (o *sCtx) Read(p []byte) (n int, err error) {
 	n, err = o.con.Read(p)
 
 	if err != nil && err != io.EOF {
+		// Network error occurred, trigger cleanup
 		return n, o.onErrorClose(err)
 	} else if err != nil {
+		// io.EOF or other termination
 		return n, o.Close()
 	} else {
 		return n, nil
@@ -239,151 +241,97 @@ func (o *sCtx) Read(p []byte) (n int, err error) {
 
 // Write is intentionally disabled for UDP server contexts.
 //
-// This method always returns an error because UDP servers in this implementation
-// use ReadFrom/WriteTo pattern rather than Read/Write. The server-side context
-// does not maintain per-datagram remote address state needed for Write().
+// # Rationale
 //
-// Parameters:
-//   - p: Byte slice to write (ignored)
+// A UDP server socket is "unconnected" in the network sense. While a TCP socket
+// has a fixed destination, a UDP socket can receive datagrams from any source.
+//
+// In this library's design:
+//   - sCtx.Read reads from the shared listener socket.
+//   - To reply, you MUST use WriteTo with the specific remote address obtained
+//     from the network layer (or the underlying net.UDPConn if exposed).
+//
+// Using Write() on an unconnected UDP socket would result in "destination address required".
 //
 // Returns:
-//   - n: Always 0
-//   - err: Always returns io.ErrClosedPipe
-//
-// Rationale:
-//   - UDP is connectionless, no implicit destination for Write()
-//   - Server must use WriteTo with explicit remote address
-//   - This prevents accidental writes to wrong destination
-//   - Forces explicit handling of remote address per datagram
-//
-// Alternative:
-//
-//	To send responses, the handler should use the underlying *net.UDPConn
-//	with WriteTo() method, specifying the remote address explicitly.
-//
-// Note:
-//
-//	This is a design choice for safety. Client-side UDP contexts may
-//	implement Write() differently with a persistent remote address.
+//   - n: Always 0.
+//   - err: Always io.ErrClosedPipe (to signal that this "pipe" doesn't support writing).
 func (o *sCtx) Write(p []byte) (n int, err error) {
 	if o == nil {
 		return 0, io.ErrClosedPipe
 	} else if o.clo.Load() {
 		return 0, io.ErrClosedPipe
+	} else if o.ctx == nil || o.con == nil {
+		return 0, io.ErrClosedPipe
 	} else if e := o.ctx.Err(); e != nil {
 		return 0, o.onErrorClose(e)
 	} else {
+		// Enforce write disablement
 		return 0, o.onErrorClose(io.ErrClosedPipe)
 	}
 }
 
-// Close closes the UDP connection and cancels the associated context.
+// Close performs a graceful resource cleanup and state transition.
 //
-// This method implements the io.Closer interface and performs complete cleanup
-// of all resources associated with the connection context.
+// # Internals
 //
-// Returns:
-//   - error: Any error from closing the underlying UDP connection, or nil
+// 1. Checks if already closed using o.clo.Swap(true). This is an atomic "Check-and-Set"
+//    operation that ensures only the first caller proceeds with the actual closing logic.
+// 2. Closes the underlying *net.UDPConn socket. This will unblock any pending Read() calls.
+// 3. Cancels the internal context (o.cnl()). This notifies any goroutines watching o.Done().
 //
-// Behavior:
-//  1. Cancels the context (triggers Done() channel)
-//  2. Marks connection as closed atomically
-//  3. Closes the underlying UDP socket
-//  4. Safe to call multiple times (idempotent)
-//  5. Safe to call from multiple goroutines (only first call does work)
-//
-// Side Effects:
-//   - Context's Done() channel is closed
-//   - Any blocked Read() calls will return with error
-//   - Future Read/Write calls will return io.ErrClosedPipe
-//   - UDP socket resources are released to OS
-//
-// Thread Safety:
-//
-//	This method is safe to call concurrently from multiple goroutines.
-//	Only the first call will perform actual cleanup; subsequent calls
-//	are no-ops returning nil.
-//
-// Example:
-//
-//	defer ctx.Close() // Always close to avoid resource leaks
-//
-//	if err := ctx.Close(); err != nil {
-//	    log.Printf("Error closing connection: %v", err)
-//	}
+// # Returns
+//   - error: The error from net.UDPConn.Close(), if any.
 func (o *sCtx) Close() error {
 	if o == nil {
 		return nil
 	}
 
-	defer o.cnl()
+	// Ensure the context is cancelled last to allow cleanup logic in other goroutines
+	// to see the connection as closed before the signal propagates.
+	if o.cnl != nil {
+		defer o.cnl()
+	}
 
-	if o.clo.Load() {
+	// Atomic gatekeeper: only one Close() execution allowed.
+	if o.clo.Swap(true) {
 		return nil
 	} else if o.con == nil {
-		o.clo.Store(true)
 		return nil
 	} else {
-		o.clo.Store(true)
 		return o.con.Close()
 	}
 }
 
-// IsConnected returns true if the connection is still open and usable.
+// IsConnected returns the readiness state of the connection context.
+//
+// Note: In UDP, "Connected" refers to the local socket state (is it open?),
+// as UDP is inherently connectionless at the protocol level.
 //
 // Returns:
-//   - bool: true if connection is open, false if closed or nil
-//
-// This method checks the atomic closed flag to determine connection state.
-// It does not perform any I/O operations, making it very fast.
-//
-// Thread Safety:
-//
-//	Safe to call from multiple goroutines.
-//
-// Note:
-//
-//	For UDP servers, "connected" means the socket is open, not that
-//	there's an active connection to a remote peer (UDP is connectionless).
-//
-// Example:
-//
-//	if ctx.IsConnected() {
-//	    // Safe to attempt Read/Write
-//	    ctx.Read(buf)
-//	}
+//   - bool: true if the socket is open and the context is active.
 func (o *sCtx) IsConnected() bool {
+	if o == nil {
+		return false
+	}
 	return !o.clo.Load()
 }
 
-// RemoteHost returns the remote address string with protocol indicator.
+// RemoteHost returns the remote peer's identity.
 //
-// Returns:
-//   - string: Remote address in format "host:port(udp)", or empty string
+// # Format
 //
-// Format:
-//   - "192.168.1.100:54321(udp)" for IPv4
-//   - "[2001:db8::1]:54321(udp)" for IPv6
-//   - "" if connection is nil or has no remote address
+// Returns "address:port(udp)".
 //
-// UDP-Specific Behavior:
+// # UDP Nuance
 //
-//	For UDP servers, RemoteAddr() may be nil or zero-valued because UDP
-//	is connectionless. The remote address is only known per-datagram when
-//	using ReadFrom().
-//
-// Thread Safety:
-//
-//	Safe to call from multiple goroutines.
-//
-// Example:
-//
-//	remote := ctx.RemoteHost()
-//	if remote != "" {
-//	    log.Printf("Datagram from: %s", remote)
-//	}
+// For a server listener socket, RemoteAddr() might return nil or a generic value
+// because the socket is not "connected" to a single peer. The remote address
+// is typically extracted per-datagram during ReadFrom.
 func (o *sCtx) RemoteHost() string {
-	if c := o.con; c == nil {
+	if o == nil {
+		return ""
+	} else if c := o.con; c == nil {
 		return ""
 	} else if a := c.RemoteAddr(); a == nil {
 		return ""
@@ -392,68 +340,27 @@ func (o *sCtx) RemoteHost() string {
 	}
 }
 
-// LocalHost returns the local address string with protocol indicator.
+// LocalHost returns the local identity of the socket.
 //
-// Returns:
-//   - string: Local address in format "host:port(udp)"
+// # Format
 //
-// Format:
-//   - "0.0.0.0:8080(udp)" for IPv4 listening on all interfaces
-//   - "127.0.0.1:8080(udp)" for IPv4 loopback
-//   - "[::]:8080(udp)" for IPv6 listening on all interfaces
-//   - "[::1]:8080(udp)" for IPv6 loopback
-//
-// The local address is cached at connection creation time for performance.
-//
-// Thread Safety:
-//
-//	Safe to call from multiple goroutines (reads immutable cached value).
-//
-// Example:
-//
-//	local := ctx.LocalHost()
-//	log.Printf("Server listening on: %s", local)
+// Returns "address:port(udp)".
 func (o *sCtx) LocalHost() string {
+	if o == nil {
+		return ""
+	}
 	return o.loc + "(" + libptc.NetworkUDP.Code() + ")"
 }
 
-// onErrorClose is an internal helper that closes the connection and combines errors.
-// It ensures proper cleanup when an error occurs during I/O operations.
+// onErrorClose is an internal helper that orchestrates the Close() and error reporting.
 //
-// Parameters:
-//   - e: The error that triggered the close operation
-//
-// Returns:
-//   - error: The original error, or a combined error if Close also fails
-//
-// # Behavior
-//
-// If the provided error is nil, returns nil without closing.
-// If Close() returns an error, combines both errors in the format "original, close error".
-// Otherwise, returns the original error unchanged.
-//
-// # Usage
-//
-// This method is called internally by Read() and Write() when errors occur,
-// ensuring that:
-//   - The connection is properly closed on errors
-//   - Both the operation error and any close error are reported
-//   - Resources are released even when errors occur
-//
-// # Example Error Messages
-//
-//   - "read tcp: connection reset by peer" - network error only
-//   - "context canceled, close tcp: use of closed network connection" - combined errors
-//
-// # Test Coverage Note
-//
-// This method has low test coverage (0%) because it's primarily invoked
-// indirectly through Read/Write error paths which are already tested. Direct testing
-// would require forcing Close() to fail, which is difficult to achieve reliably.
+// If an I/O error occurs, it's vital to close the context immediately to prevent
+// resource leaks and notify other parts of the system.
 func (o *sCtx) onErrorClose(e error) error {
 	if e == nil {
 		return nil
 	} else if err := o.Close(); err != nil {
+		// Return a wrapped error combining the original failure and the cleanup failure.
 		return fmt.Errorf("%v, %v", e, err)
 	} else {
 		return e

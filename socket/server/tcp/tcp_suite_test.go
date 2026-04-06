@@ -24,8 +24,37 @@
  *
  */
 
-// tcp_suite_test.go initializes the Ginkgo test suite for the TCP server package.
-// Sets up the BDD test framework and integrates with Go's testing infrastructure.
+// Package tcp_test contains the BDD (Behavior-Driven Development) test suite for the TCP server.
+// It uses the Ginkgo and Gomega frameworks to validate server behavior under various conditions.
+//
+// # Test Strategy Overview
+//
+// The test suite is organized into several specialized files to ensure comprehensive coverage:
+//   - creation_test.go: Validates server initialization and configuration (address, TLS).
+//   - basic_test.go: Standard operational tests (Echo, Read/Write, Shutdown).
+//   - tls_test.go: Verifies SSL/TLS handshake, certificate management, and mTLS.
+//   - context_test.go: Tests connection-specific context cancellation and deadlines.
+//   - concurrency_test.go: Stresses the server with high numbers of simultaneous clients.
+//   - robustness_test.go: Tests edge cases (slow clients, large payloads, abrupt closures).
+//   - benchmark_test.go: Measures throughput and memory allocation (sync.Pool efficiency).
+//
+// # Testing Dataflow: Ginkgo Lifecycle
+//
+//	[BeforeSuite] ───────────┐
+//	     │                   │
+//	     v                   v
+//	[Describe/Context] ───> [BeforeEach (per test)]
+//	     │                   │
+//	     v                   v
+//	[It (Actual Test)] <─── [AfterEach (cleanup)]
+//	     │                   │
+//	     v                   │
+//	[AfterSuite] <───────────┘
+//
+// # Performance & Race Detection
+//
+// Tests are designed to be run with the race detector enabled (-race) to ensure 
+// that the lock-free state management (atomic.Bool, etc.) is implemented correctly.
 package tcp_test
 
 import (
@@ -37,24 +66,31 @@ import (
 )
 
 var (
-	// ctx is the global test context shared across all test specs
+	// globalCtx is the root context for all tests. It can be used to signal 
+	// a full stop of all background test components.
 	globalCtx context.Context
-	// globalCnl is the cancel function for the global context
+	// globalCnl triggers the cancellation of the globalCtx.
 	globalCnl context.CancelFunc
 )
 
+// TestServerTCP is the entry point for the standard 'go test' command.
+// It registers the Ginkgo fail handler and triggers the suite execution.
 func TestServerTCP(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Socket Server TCP Suite")
 }
 
+// BeforeSuite is executed once before any test file is processed.
+// It handles global resource allocation (Context, TLS certs).
 var _ = BeforeSuite(func() {
 	globalCtx, globalCnl = context.WithCancel(context.Background())
 
-	// Initialize TLS configurations in the test suite
+	// Initialize mock TLS configurations (certs, CA) used across multiple tests.
 	initTLSConfigs()
 })
 
+// AfterSuite is executed once after all tests have finished.
+// It ensures that no background goroutines or leaky listeners remain.
 var _ = AfterSuite(func() {
 	if globalCnl != nil {
 		globalCnl()

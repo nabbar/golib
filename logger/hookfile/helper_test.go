@@ -70,21 +70,32 @@ var _ = AfterSuite(func() {
 	}
 })
 
-// createTestHook creates a new HookFile instance for testing with default options.
-func createTestHook() (logfil.HookFile, error) {
-	// Use default options with test log file path
-	opts := logcfg.OptionsFile{
-		Filepath:   testLogFile,
-		FileMode:   0600,
-		PathMode:   0700,
-		CreatePath: true,
-		LogLevel:   []string{"debug", "info", "warn", "error"},
+func getOptions(fs string) logcfg.OptionsFile {
+	if len(fs) < 1 {
+		fs = testLogFile
 	}
 
+	return logcfg.OptionsFile{
+		LogLevel:         []string{"debug", "info", "warn", "error"},
+		Filepath:         fs,
+		Create:           true,
+		CreatePath:       true,
+		FileMode:         0600,
+		PathMode:         0700,
+		DisableStack:     false,
+		DisableTimestamp: false,
+		EnableTrace:      false,
+		EnableAccessLog:  false,
+		MessageMaxSize:   8 * 1024,
+	}
+}
+
+// createTestHook creates a new HookFile instance for testing with default options.
+func createTestHook() (logfil.HookFile, error) {
 	// Create a simple text formatter for testing
 	formatter := &logrus.TextFormatter{
 		DisableTimestamp: true,
 	}
 
-	return logfil.New(opts, formatter)
+	return logfil.New(getOptions(""), formatter)
 }

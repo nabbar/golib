@@ -27,35 +27,39 @@
 package errors
 
 var (
+	// defaultPattern is the default template for rendering errors with a code.
+	// It uses fmt.Sprintf format: [Error #%d] %s (code, message).
 	defaultPattern      = "[Error #%d] %s"
+
+	// defaultPatternTrace is the default template for rendering errors with a code and a stack trace.
+	// It uses fmt.Sprintf format: [Error #%d] %s (%s) (code, message, trace).
 	defaultPatternTrace = "[Error #%d] %s (%s)"
 )
 
-// GetDefaultPatternTrace define the pattern to be used for string of error with code.
-// The pattern is fmt pattern with 2 inputs in order : code, message.
+// SetDefaultPattern defines the global pattern for formatting error strings with codes.
+// The pattern must be a fmt-compatible string with exactly two %v/%d/%s placeholders for (code, message).
 func SetDefaultPattern(pattern string) {
 	defaultPattern = pattern
 }
 
-// GetDefaultPattern return the current pattern used for string of error with code.
-// The pattern is fmt pattern with 2 inputs in order : code, message.
+// GetDefaultPattern returns the currently active global pattern for error code formatting.
 func GetDefaultPattern() string {
 	return defaultPattern
 }
 
-// SetDefaultPatternTrace define the pattern to be used for string of error with code and trace.
-// The pattern is fmt pattern with 3 inputs in order : code, message, trace.
+// SetDefaultPatternTrace defines the global pattern for formatting error strings with codes and traces.
+// The pattern must be a fmt-compatible string with exactly three placeholders for (code, message, trace).
 func SetDefaultPatternTrace(patternTrace string) {
 	defaultPatternTrace = patternTrace
 }
 
-// GetDefaultPatternTrace return the current pattern used for string of error with code and trace.
-// The pattern is fmt pattern with 3 inputs in order : code, message, trace.
+// GetDefaultPatternTrace returns the currently active global pattern for error/code/trace formatting.
 func GetDefaultPatternTrace() string {
 	return defaultPatternTrace
 }
 
-// SetTracePathFilter customize the filter apply to filepath on trace.
+// SetTracePathFilter allows manual customization of the package path filter used in stack traces.
+// This is useful if the automatic detection of the module root fails or if you want to mask certain paths.
 func SetTracePathFilter(path string) {
 	filterPkg = path
 }

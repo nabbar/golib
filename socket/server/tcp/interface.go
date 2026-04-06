@@ -27,182 +27,83 @@
 package tcp
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
+	"sync"
 	"sync/atomic"
 
 	libatm "github.com/nabbar/golib/atomic"
+	durbig "github.com/nabbar/golib/duration/big"
 	libsck "github.com/nabbar/golib/socket"
 	sckcfg "github.com/nabbar/golib/socket/config"
+	sckidl "github.com/nabbar/golib/socket/idlemgr"
 )
 
-// ServerTcp defines the interface for a TCP server implementation.
-// It extends the base github.com/nabbar/golib/socket.Server interface
-// with TCP-specific functionality.
+// ServerTcp defines the interface for a high-performance TCP server.
+// It extends the base libsck.Server interface with specific TCP functionality.
 //
-// # Features
+// A ServerTcp provides a concurrent TCP server that handles client connections
+// using a customizable handler function. It supports TLS encryption, idle
+// connection management, and graceful shutdown.
 //
-// ## Connection Handling
-//   - Concurrent connection handling with goroutine per connection
-//   - Configurable idle timeout for connections
-//   - Graceful connection draining during shutdown
-//   - Connection state tracking and monitoring
+// # Thread Safety
 //
-// ## Security
-//   - TLS/SSL encryption with configurable cipher suites
-//   - Support for mutual TLS (mTLS) with client certificate verification
-//   - Secure defaults for TLS configuration
+// All implementations of ServerTcp MUST be safe for concurrent use by multiple
+// goroutines. All methods can be called simultaneously from different threads.
 //
-// ## Monitoring & Observability
-//   - Connection lifecycle callbacks (new, read, write, close)
-//   - Error reporting through configurable callbacks
-//   - Server status notifications
-//   - Atomic counters for active connections
+// # Lifecycle Management
 //
-// ## Thread Safety
-//   - All exported methods are safe for concurrent use
-//   - Atomic operations for state management
-//   - No shared state between connections
+//  1. Creation: New() initializes the server with configuration and handler.
+//  2. Configuration: via SetTLS() and RegisterFunc* methods (Error, Info, InfoServer).
+//  3. Bind: via RegisterServer() to set the listen address.
+//  4. Operation: via Listen() to start accepting connections.
+//  5. Shutdown: via Shutdown() (graceful) or Close() (immediate).
 //
-// # Lifecycle
+// # Example Usage (Echo Server)
 //
-// A typical server lifecycle follows these steps:
-//  1. Create: server := tcp.New(updateFunc, handler, config)
-//  2. Configure: server.RegisterServer(":8080")
-//  3. Start: server.Listen(ctx)
-//  4. (Run until shutdown signal)
-//  5. Shutdown: server.Shutdown(ctx)
-//
-// # Error Handling
-//
-// The server provides multiple ways to handle errors:
-//   - Return values from methods (e.g., Listen(), Shutdown())
-//   - Error callback function (RegisterFuncError)
-//   - Context cancellation for timeouts
-//
-// See github.com/nabbar/golib/socket.Server for inherited methods:
-//   - Listen(context.Context) error - Start accepting connections
-//   - Shutdown(context.Context) error - Graceful shutdown
-//   - Close() error - Immediate shutdown
-//   - IsRunning() bool - Check if server is accepting connections
-//   - IsGone() bool - Check if all connections are closed
-//   - OpenConnections() int64 - Get current connection count
-//   - Done() <-chan struct{} - Channel closed when server stops listening
-//   - SetTLS(bool, TLSConfig) error - Configure TLS
-//   - RegisterFuncError(FuncError) - Register error callback
-//   - RegisterFuncInfo(FuncInfo) - Register connection info callback
-//   - RegisterFuncInfoServer(FuncInfoSrv) - Register server info callback
+//	hdl := func(ctx libsck.Context) {
+//	    defer ctx.Close()
+//	    io.Copy(ctx, ctx) // Echo data back
+//	}
+//	cfg := sckcfg.DefaultServer(":8080")
+//	srv, _ := tcp.New(nil, hdl, cfg)
+//	srv.Listen(context.Background())
 type ServerTcp interface {
 	libsck.Server
 
 	// RegisterServer sets the TCP address for the server to listen on.
-	// The address must be in the format "host:port" or ":port" to bind to all interfaces.
-	//
-	// Example addresses:
-	//   - "127.0.0.1:8080" - Listen on localhost port 8080
-	//   - ":8080" - Listen on all interfaces port 8080
-	//   - "0.0.0.0:8080" - Explicitly listen on all IPv4 interfaces
-	//
-	// This method must be called before Listen(). Returns ErrInvalidAddress
-	// if the address is empty or malformed.
+	// The address should be in "host:port" format (e.g., "localhost:8080" or ":8080").
+	// Must be called before Listen(). Returns ErrInvalidAddress if the input 
+	// is malformed.
 	RegisterServer(address string) error
 }
 
 // New creates and initializes a new TCP server instance with the provided configuration.
 //
+// # Configuration and Initialization Dataflow
+//
+//  1. Validation: cfg.Validate() ensures basic parameters (address, timeouts) are sound.
+//  2. Defaults: Default TLS versions (1.2/1.3) and empty callbacks are set.
+//  3. Structure: The srv internal structure is allocated.
+//  4. Resource Pooling: The sync.Pool for sCtx recycling is initialized.
+//  5. Idle Manager: If ConIdleTimeout > 0, an sckidl.Manager is started to handle timeouts.
+//  6. Binding: RegisterServer() is called with the address from the config.
+//  7. Security: SetTLS() is called with TLS settings from the config.
+//  8. State: gon is set to true (server is ready to be started).
+//
 // # Parameters
 //
-//   - upd: Optional UpdateConn callback that's invoked when a new connection is accepted,
-//     before the handler is called. Use this to configure connection-specific settings:
+//   - upd: Optional callback to configure each net.Conn (e.g., buffer sizes) before handling.
+//   - hdl: Required handler function that will be called for each new connection.
+//   - cfg: Server configuration structure including address, TLS settings, and timeouts.
 //
-//   - TCP keepalive
+// # Returns
 //
-//   - Read/write timeouts
-//
-//   - Buffer sizes
-//
-//   - Other TCP options
-//
-//     Example:
-//     upd := func(conn net.Conn) error {
-//     if tcpConn, ok := conn.(*net.TCPConn); ok {
-//     return tcpConn.SetKeepAlive(true)
-//     }
-//     return nil
-//     }
-//
-//   - hdl: Required HandlerFunc that processes each client connection. This function
-//     runs in its own goroutine per connection. The handler receives:
-//
-//   - r: A socket.Reader for reading from the client
-//
-//   - w: A socket.Writer for writing to the client
-//
-//     Example echo server handler:
-//     hdl := func(r socket.Reader, w socket.Writer) {
-//     defer r.Close()
-//     defer w.Close()
-//     if _, err := io.Copy(w, r); err != nil {
-//     log.Printf("Error in handler: %v", err)
-//     }
-//     }
-//
-//   - cfg: Server configuration including address, timeouts, and TLS settings.
-//     Use socket.DefaultServerConfig() for default values.
-//
-// # Return Value
-//
-// Returns a new ServerTcp instance that implements the Server interface.
-// The server is not started until Listen() is called.
-//
-// # Example Usage
-//
-// Basic echo server:
-//
-//	func main() {
-//	  // Create a simple echo handler
-//	  handler := func(r socket.Reader, w socket.Writer) {
-//	    defer r.Close()
-//	    defer w.Close()
-//	    io.Copy(w, r) // Echo back received data
-//	  }
-//
-//	  // Create server with default config
-//	  cfg := socket.DefaultServerConfig(":8080")
-//	  srv, err := tcp.New(nil, handler, cfg)
-//	  if err != nil {
-//	    log.Fatalf("Failed to create server: %v", err)
-//	  }
-//
-//	  // Start the server
-//	  ctx := context.Background()
-//	  if err := srv.Listen(ctx); err != nil {
-//	    log.Fatalf("Server error: %v", err)
-//	  }
-//	}
-//
-// # Error Handling
-//
-// The following errors may be returned:
-//   - ErrInvalidHandler: if hdl is nil
-//   - Any error returned by the configuration validation
-//
-// # Concurrency
-//
-// The returned server instance is safe for concurrent use by multiple goroutines.
-// The handler function (hdl) may be called concurrently for different connections.
-//
-// # Memory Management
-//
-// The server manages the lifecycle of connections and associated resources.
-// Ensure that all resources are properly closed by calling Shutdown() or Close()
-// when the server is no longer needed.
-//
-// See also:
-//   - github.com/nabbar/golib/socket.HandlerFunc
-//   - github.com/nabbar/golib/socket.UpdateConn
-//   - github.com/nabbar/golib/socket/config.ServerConfig
+//   - ServerTcp: The initialized server instance.
+//   - error: Initialization errors (ErrInvalidHandler, ErrInvalidAddress, sckidl errors).
 func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (ServerTcp, error) {
+	// ... implementation ...
 	if e := cfg.Validate(); e != nil {
 		return nil, e
 	} else if hdl == nil {
@@ -230,11 +131,24 @@ func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (Serv
 		fi:  libatm.NewValueDefault[libsck.FuncInfo](dfi, dfi),
 		fs:  libatm.NewValueDefault[libsck.FuncInfoSrv](dfs, dfs),
 		ad:  libatm.NewValue[string](),
+		gnc: libatm.NewValueDefault[chan struct{}](make(chan struct{}), make(chan struct{})),
+		id:  nil,
 		nc:  new(atomic.Int64),
+		pol: &sync.Pool{
+			New: func() interface{} {
+				return &sCtx{}
+			},
+		},
 	}
 
-	if cfg.ConIdleTimeout > 0 {
+	if c := cfg.ConIdleTimeout.Seconds(); c > 0 {
 		s.idl = cfg.ConIdleTimeout.Time()
+
+		i, e := sckidl.New(context.Background(), durbig.Seconds(c), durbig.Seconds(1))
+		if e != nil {
+			return nil, e
+		}
+		s.id = i
 	}
 
 	if e := s.RegisterServer(cfg.Address); e != nil {

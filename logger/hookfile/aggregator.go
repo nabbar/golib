@@ -36,6 +36,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -61,6 +62,7 @@ var (
 	// The key is the file path, and the value is the file aggregator instance.
 	// The map enables file handle sharing and reference counting across hooks.
 	agg = libatm.NewMapTyped[string, *fileAgg]()
+	mxa = sync.Mutex{}
 )
 
 // init initializes the package and sets up a finalizer to clean up resources
@@ -88,13 +90,14 @@ func init() {
 //   - k: The file path to aggregate writes to
 //   - m: The file mode to use when creating new files
 //   - cre: Whether to create the file if it doesn't exist (enables O_CREATE flag)
+//   - bsz: max message size (if less 1 kB, a standard of 8 kB is applied)
 //
 // Returns:
 //   - io.Writer: A writer that writes to the aggregated file
 //   - error: Any error that occurred while creating or accessing the file
 //
 // The function is thread-safe and handles concurrent access to the same file.
-func setAgg(k string, m os.FileMode, cre bool) (io.Writer, error) {
+func setAgg(k string, m os.FileMode, cre bool, bsz int) (io.Writer, error) {
 	i, l := agg.Load(k)
 
 	if l && i != nil {
@@ -103,8 +106,21 @@ func setAgg(k string, m os.FileMode, cre bool) (io.Writer, error) {
 		return i.a, nil
 	}
 
+	// use unic process to store new aggregator file
+
+	mxa.Lock()
+	defer mxa.Unlock()
+
+	i, l = agg.Load(k)
+
+	if l && i != nil {
+		i.i.Add(1)
+		agg.Store(k, i)
+		return i.a, nil
+	}
+
 	var e error
-	i, e = newAgg(k, m, cre)
+	i, e = newAgg(k, m, cre, bsz)
 
 	if e != nil {
 		return nil, e
@@ -154,7 +170,7 @@ func delAgg(k string) {
 // reopens the file when rotation is detected. The sync function compares inodes to detect
 // when the file has been rotated externally (e.g., by logrotate). If rotation is detected,
 // it closes the old file descriptor and opens a new one at the original path.
-func newAgg(p string, m os.FileMode, cre bool) (*fileAgg, error) {
+func newAgg(p string, m os.FileMode, cre bool, bsz int) (*fileAgg, error) {
 	i := &fileAgg{
 		i: new(atomic.Int64),
 		r: nil,
@@ -179,6 +195,10 @@ func newAgg(p string, m os.FileMode, cre bool) (*fileAgg, error) {
 	} else {
 		i.r = r
 		i.f = f
+	}
+
+	if bsz < 1024 {
+		bsz = 8 * 1024 // 8 kB standard log size
 	}
 
 	a, e := iotagg.New(context.Background(), iotagg.Config{
@@ -230,6 +250,7 @@ func newAgg(p string, m os.FileMode, cre bool) (*fileAgg, error) {
 		FctWriter: func(p []byte) (n int, err error) {
 			return i.f.Write(p)
 		},
+		BufMaxSize: bsz,
 	})
 
 	if e != nil {
@@ -249,6 +270,20 @@ func newAgg(p string, m os.FileMode, cre bool) (*fileAgg, error) {
 		_ = i.f.Close()
 		_ = i.r.Close()
 		return nil, e
+	}
+
+	for u := 0; u < 100; u++ {
+		if a.IsRunning() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if !a.IsRunning() {
+		_ = a.Close()
+		_ = i.r.Close()
+		_ = i.f.Close()
+		return nil, fmt.Errorf("cannot start writer")
 	}
 
 	i.a = a

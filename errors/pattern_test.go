@@ -93,6 +93,7 @@ var _ = Describe("Pattern Management", func() {
 		})
 
 		It("should apply trace pattern to error output", func() {
+			ClearCachePath()
 			originalPattern := GetDefaultPatternTrace()
 			SetDefaultPatternTrace("TRACE: %s at %s:%d")
 

@@ -34,12 +34,14 @@ import (
 
 // Deadline returns the time when work done on behalf of this context should be cancelled.
 //
-// This implements context.Context interface and delegates to the aggregator's internal context.
-// The deadline is inherited from the parent context provided to New() or Start().
+// Technical Implementation:
+// This method implements the standard context.Context interface. It performs an atomic
+// load of the current operational context ('x'). If no operational context exists,
+// it indicates that no deadline is set.
 //
 // Returns:
-//   - deadline: Time when the context will be cancelled
-//   - ok: true if a deadline is set, false otherwise
+//   - deadline: The absolute time when the context will be cancelled.
+//   - ok: true if a deadline is set, false otherwise.
 func (o *agg) Deadline() (deadline time.Time, ok bool) {
 	if x := o.x.Load(); x != nil {
 		return x.Deadline()
@@ -47,35 +49,42 @@ func (o *agg) Deadline() (deadline time.Time, ok bool) {
 	return time.Time{}, false
 }
 
-// Done returns a channel that's closed when work done on behalf of this context should be cancelled.
+// Done returns a channel that is closed when the aggregator's work should be cancelled.
 //
-// This implements context.Context interface. The channel is closed when:
-//   - The parent context is cancelled
-//   - Stop() is called
-//   - Close() is called
-//   - The context deadline is exceeded
+// Operational Triggers:
+// The returned channel is closed under the following conditions:
+//  1. The parent context provided to New() or Start() is cancelled.
+//  2. Stop() or Close() is explicitly called on the aggregator.
+//  3. An internal processing error causes the runner to terminate.
+//  4. The operational deadline is exceeded.
+//
+// Implementation Details:
+// It performs a high-speed atomic load of the operational context. If the aggregator is
+// currently stopped, it returns a pre-closed channel to ensure that any callers
+// immediately detect the inactive state.
 //
 // Returns:
-//   - <-chan struct{}: A channel that's closed when the context is done
+//   - <-chan struct{}: A channel that signals context completion.
 func (o *agg) Done() <-chan struct{} {
 	if x := o.x.Load(); x != nil {
 		return x.Done()
 	}
 
+	// Inactive State: return a pre-closed channel to signal completion.
 	c := make(chan struct{})
 	close(c)
 	return c
 }
 
-// Err returns nil if Done is not yet closed.
-// If Done is closed, Err returns a non-nil error explaining why:
-//   - Canceled: if the context was cancelled
-//   - DeadlineExceeded: if the context's deadline passed
+// Err returns a non-nil error explaining why the aggregator's context was cancelled.
 //
-// This implements context.Context interface.
+// Technical Implementation:
+// It implements context.Context. If Done() is not yet closed, it returns nil.
+// Otherwise, it returns the cancellation error (e.g., context.Canceled or
+// context.DeadlineExceeded) from the underlying operational context.
 //
 // Returns:
-//   - error: nil if context is active, otherwise the cancellation error
+//   - error: nil if active, otherwise the reason for termination.
 func (o *agg) Err() error {
 	if x := o.x.Load(); x != nil {
 		return x.Err()
@@ -83,17 +92,17 @@ func (o *agg) Err() error {
 	return nil
 }
 
-// Value returns the value associated with this context for key.
+// Value retrieves request-scoped data associated with the aggregator's context.
 //
-// This implements context.Context interface and delegates to the parent context.
-// Use context values only for request-scoped data that transits processes and APIs,
-// not for passing optional parameters to functions.
+// Technical Implementation:
+// It implements context.Context by delegating the lookup to the active operational
+// context, which in turn inherits from the parent context provided at instantiation.
 //
 // Parameters:
-//   - key: The key to lookup
+//   - key: The unique identifier for the context value.
 //
 // Returns:
-//   - any: The value associated with key, or nil if no value is associated
+//   - any: The value associated with the key, or nil if not found.
 func (o *agg) Value(key any) any {
 	if x := o.x.Load(); x != nil {
 		return x.Value(key)
@@ -101,55 +110,63 @@ func (o *agg) Value(key any) any {
 	return nil
 }
 
-// ctxNew creates a new internal context derived from the provided parent context.
-// This is called during initialization in New() and when the aggregator starts in run().
+// ctxNew initializes a fresh operational context derived from the root parent context.
 //
-// The method creates a cancellable context and stores both the context and its
-// cancel function for later use. If there was a previous context, its cancel
-// function is called first to prevent resource leaks. If the provided context
-// is nil or already cancelled, context.Background() is used as the parent.
+// Lifecycle Orchestration:
+//  1. Context Derivation: Creates a new cancellable context using 'context.WithCancel'
+//     based on the master context ('m') stored during New().
+//  2. Atomic Swap: Atomically updates the current context and its cancel function.
+//  3. Resource Safety: If a previous cancel function existed, it is invoked to ensure
+//     that any leaked goroutines or timers associated with the old context are terminated.
 func (o *agg) ctxNew() {
 	defer func() {
+		// Recovery from panics during context initialization.
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/ctxnew", r)
 		}
 	}()
 
+	// Derive the new context from the immutable root context.
 	x, n := context.WithCancel(o.m.Load())
 	o.x.Store(x)
 
+	// Atomically swap the cancel function and finalize the old one if it exists.
 	old := o.n.Swap(n)
 	if old != nil {
 		old()
 	}
 }
 
-// ctxClose cancels the internal context and replaces it with a pre-cancelled context.
-// This ensures that any ongoing operations respecting the context will terminate,
-// and future Done() calls will receive a closed channel.
+// ctxClose performs an orderly decommissioning of the operational context.
 //
-// The method atomically swaps the cancel function with a no-op before calling it,
-// ensuring thread safety. A new cancelled context is created and stored to maintain
-// consistent behavior for subsequent calls to context methods.
+// Shutdown Logic:
+//  1. Atomic Cancellation: Swaps the current cancel function with a no-op to prevent
+//     double-cancellation and then invokes the original function.
+//  2. State Consistency: Replaces the operational context with a fresh, pre-cancelled
+//     context derived from context.Background(). This ensures that subsequent calls
+//     to Done() or Err() correctly report that the aggregator is closed, even after
+//     the runner has finalized.
 //
-// The method is safe to call multiple times and is idempotent.
+// This method is idempotent and safe for concurrent invocation during shutdown.
 func (o *agg) ctxClose() {
 	defer func() {
+		// Recovery from panics during context cleanup.
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/ctxclose", r)
 		}
 	}()
 
-	// Cancel old context first and clear it atomically
+	// Atomically retrieve and deactivate the current cancellation trigger.
 	old := o.n.Swap(func() {})
 	if old != nil {
 		old()
+		// If we successfully swapped a real cancel function, the context is already transitioning.
 		return
 	}
 
-	// Create a new cancelled context for future Done() calls
+	// If no cancel function was found, ensure the operational context reports as closed.
 	x, n := context.WithCancel(context.Background())
-	n() // Cancel immediately - don't store this cancel func
+	n() // Immediately cancel the sentinel context.
 
 	o.x.Store(x)
 }

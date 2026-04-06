@@ -188,7 +188,7 @@ func (o *mon) poolIsRunning(ctx context.Context) error {
 //  2. Inspects current state (Rise/Fall) and dynamically adjusts the ticker's next interval.
 //  3. If in Rise/Fall phase, it resets the ticker to the corresponding specific interval
 //     (intervalRise or intervalFall). Otherwise, it resets to the standard intervalCheck.
-func (o *mon) runFunc(ctx context.Context, tck *time.Ticker) error {
+func (o *mon) runFunc(ctx context.Context, tck librun.TickUpdate) error {
 	var cfg = o.getCfg()
 
 	o.check(ctx, cfg)

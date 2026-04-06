@@ -40,10 +40,15 @@ import (
 	"github.com/nabbar/golib/socket/server/udp"
 )
 
-// Example_basicServer demonstrates the simplest UDP server setup.
+// # Basic Echo Server Example
 //
-// This example shows minimal configuration for a UDP echo server
-// that receives datagrams and logs them.
+// This example demonstrates the simplest possible setup for a UDP server.
+// The handler reads exactly one datagram and prints it to the console.
+//
+// # Logic Flow
+//   - Configure the server on a dynamic port (":0").
+//   - Define a handler function.
+//   - Start the server using a cancellable context.
 func Example_basicServer() {
 	// Create server configuration
 	cfg := sckcfg.Server{
@@ -129,10 +134,10 @@ func Example_echoServer() {
 	// Output: Echo server configured on :9001
 }
 
-// Example_serverWithCallbacks demonstrates callback registration.
+// # Server with Monitoring Callbacks
 //
-// This example shows how to register callbacks for error handling,
-// connection monitoring, and server lifecycle events.
+// This example shows how to register observability hooks for monitoring.
+// These callbacks are executed asynchronously and do not block the datagram flow.
 func Example_serverWithCallbacks() {
 	cfg := sckcfg.Server{
 		Network: libptc.NetworkUDP,
@@ -247,7 +252,9 @@ func Example_gracefulShutdown() {
 	// Start server in goroutine
 	go func() {
 		if err := srv.Listen(ctx); err != nil {
-			log.Printf("Listen error: %v", err)
+			if err != context.Canceled {
+				log.Printf("Listen error: %v", err)
+			}
 		}
 	}()
 

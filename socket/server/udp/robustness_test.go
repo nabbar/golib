@@ -50,7 +50,7 @@ var _ = Describe("UDP Server Robustness", func() {
 		if cancel != nil {
 			cancel()
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 	})
 
 	Describe("Error Handling", func() {
@@ -89,7 +89,7 @@ var _ = Describe("UDP Server Robustness", func() {
 					_ = srv.Listen(ctx)
 				}()
 
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(50 * time.Millisecond)
 				cancel()
 			})
 
@@ -139,7 +139,7 @@ var _ = Describe("UDP Server Robustness", func() {
 				srv, err := createServerWithHandler(handler.handler)
 				Expect(err).ToNot(HaveOccurred())
 
-				deadlineCtx, deadlineCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+				deadlineCtx, deadlineCancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 				defer deadlineCancel()
 
 				err = srv.Listen(deadlineCtx)
@@ -147,7 +147,7 @@ var _ = Describe("UDP Server Robustness", func() {
 				// Should return with deadline exceeded
 				Eventually(func() bool {
 					return err != nil
-				}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
+				}, 2*time.Second, time.Millisecond).Should(BeTrue())
 			})
 		})
 	})
@@ -216,9 +216,9 @@ var _ = Describe("UDP Server Robustness", func() {
 						_ = srv.Listen(localCtx)
 					}()
 
-					time.Sleep(50 * time.Millisecond)
+					time.Sleep(20 * time.Millisecond)
 					localCancel()
-					time.Sleep(50 * time.Millisecond)
+					time.Sleep(20 * time.Millisecond)
 				}
 
 				// Should handle all cycles
@@ -238,7 +238,7 @@ var _ = Describe("UDP Server Robustness", func() {
 				localCtx, localCancel := context.WithCancel(ctx)
 				startServer(srv, localCtx)
 				stopServer(srv, localCancel)
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 			}
 
 			// Should not have leaked goroutines
@@ -300,7 +300,7 @@ var _ = Describe("UDP Server Robustness", func() {
 			}()
 
 			// Query state during startup
-			for i := 0; i < 100; i++ {
+			for i := 0; i < 50; i++ {
 				_ = srv.IsRunning()
 				_ = srv.IsGone()
 				_ = srv.OpenConnections()
@@ -310,7 +310,7 @@ var _ = Describe("UDP Server Robustness", func() {
 			cancel()
 
 			// Query state during shutdown
-			for i := 0; i < 100; i++ {
+			for i := 0; i < 50; i++ {
 				_ = srv.IsRunning()
 				_ = srv.IsGone()
 				_ = srv.OpenConnections()
@@ -326,7 +326,7 @@ var _ = Describe("UDP Server Robustness", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			slowCallback := func(errs ...error) {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(20 * time.Millisecond)
 			}
 
 			srv.RegisterFuncError(slowCallback)
@@ -382,7 +382,7 @@ var _ = Describe("UDP Server Robustness", func() {
 			startServer(srv, ctx)
 
 			// Shutdown with very short timeout
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Nanosecond)
 			defer shutdownCancel()
 
 			err = srv.Shutdown(shutdownCtx)

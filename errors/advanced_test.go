@@ -297,6 +297,7 @@ var _ = Describe("Advanced Error Features", func() {
 
 	Describe("Runtime Frame Operations", func() {
 		It("should capture runtime frames", func() {
+			ClearCachePath()
 			err := New(100, "test with frame")
 			trace := err.GetTrace()
 
@@ -305,6 +306,7 @@ var _ = Describe("Advanced Error Features", func() {
 		})
 
 		It("should handle GetTraceSlice with deep hierarchy", func() {
+			ClearCachePath()
 			// Create a deep error chain
 			parent3 := New(400, "level 3")
 			parent2 := New(300, "level 2", parent3)

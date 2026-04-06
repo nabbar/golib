@@ -27,63 +27,127 @@
 package atomic_test
 
 import (
+	libatm "github.com/nabbar/golib/atomic"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	libatm "github.com/nabbar/golib/atomic"
 )
 
-var _ = Describe("Value[T]", func() {
-	It("Load should return default load when not set", func() {
-		v := libatm.NewValueDefault[int](42, 99)
-		Expect(v.Load()).To(Equal(42))
+var _ = Describe("Value", func() {
+	Context("with default NewValue (no defaults set)", func() {
+		var v libatm.Value[int]
+
+		BeforeEach(func() {
+			v = libatm.NewValue[int]()
+		})
+
+		It("should return zero value when empty", func() {
+			Expect(v.Load()).To(Equal(0))
+		})
+
+		It("should store and load values", func() {
+			v.Store(42)
+			Expect(v.Load()).To(Equal(42))
+		})
+
+		It("should return zero value if stored value is zero", func() {
+			v.Store(0)
+			Expect(v.Load()).To(Equal(0))
+		})
 	})
 
-	It("Store should use default store for zero values", func() {
-		v := libatm.NewValueDefault[int](1, 7)
-		v.Store(0)
-		Expect(v.Load()).To(Equal(7))
-		v.Store(10)
-		Expect(v.Load()).To(Equal(10))
+	Context("with NewValueDefault", func() {
+		var v libatm.Value[int]
+
+		BeforeEach(func() {
+			v = libatm.NewValueDefault[int](10, 20)
+		})
+
+		It("should return default load value when empty", func() {
+			Expect(v.Load()).To(Equal(10))
+		})
+
+		It("should use default store value when storing zero", func() {
+			v.Store(0)
+			Expect(v.Load()).To(Equal(20))
+		})
+
+		It("should store and load normal values", func() {
+			v.Store(42)
+			Expect(v.Load()).To(Equal(42))
+		})
 	})
 
-	It("Swap should return previous (default-load if unset) and store respecting default-store for zero", func() {
-		v := libatm.NewValueDefault[string]("L", "S")
-		// first swap: was unset -> returns default load "L", sets new respecting default-store
-		old := v.Swap("")
-		Expect(old).To(Equal("L"))
-		Expect(v.Load()).To(Equal("S"))
-		// second swap with non-empty
-		old = v.Swap("B")
-		Expect(old).To(Equal("S"))
-		Expect(v.Load()).To(Equal("B"))
+	Context("with SetDefaultLoad and SetDefaultStore", func() {
+		var v libatm.Value[string]
+
+		BeforeEach(func() {
+			v = libatm.NewValue[string]()
+		})
+
+		It("should update default load value", func() {
+			v.SetDefaultLoad("def-load")
+			Expect(v.Load()).To(Equal("def-load"))
+			v.Store("real")
+			Expect(v.Load()).To(Equal("real"))
+		})
+
+		It("should update default store value", func() {
+			v.SetDefaultStore("def-store")
+			v.Store("")
+			Expect(v.Load()).To(Equal("def-store"))
+		})
 	})
 
-	It("CompareAndSwap should treat zero old/new as default-store", func() {
-		v := libatm.NewValueDefault[int](100, 5)
-		// initial Store(0) -> default-store
-		v.Store(0)
-		Expect(v.Load()).To(Equal(5))
-		// compare with old=0 should map to 5 and succeed, new=0 maps to 5 (no visible change)
-		ok := v.CompareAndSwap(0, 0)
-		Expect(ok).To(BeTrue())
-		Expect(v.Load()).To(Equal(5))
-		// now change to 8
-		ok = v.CompareAndSwap(5, 8)
-		Expect(ok).To(BeTrue())
-		Expect(v.Load()).To(Equal(8))
-		// failing case
-		ok = v.CompareAndSwap(5, 9)
-		Expect(ok).To(BeFalse())
-		Expect(v.Load()).To(Equal(8))
+	Describe("Swap", func() {
+		It("should swap values without defaults", func() {
+			v := libatm.NewValue[int]()
+			v.Store(1)
+			old := v.Swap(2)
+			Expect(old).To(Equal(1))
+			Expect(v.Load()).To(Equal(2))
+		})
+
+		It("should swap first value correctly", func() {
+			v := libatm.NewValue[int]()
+			old := v.Swap(1)
+			Expect(old).To(Equal(0))
+			Expect(v.Load()).To(Equal(1))
+		})
+
+		It("should respect defaults during swap", func() {
+			v := libatm.NewValueDefault[int](10, 20)
+			old := v.Swap(0) // stores 20
+			Expect(old).To(Equal(10))
+			Expect(v.Load()).To(Equal(20))
+		})
+
+		It("should handle failed cast in swap", func() {
+			v := libatm.NewValueDefault[string]("def-load", "def-store")
+			// swap with something that is zero, triggering default store
+			old := v.Swap("")
+			Expect(old).To(Equal("def-load")) // initial load default is nil/0 in atomic.Value, so returns Load default
+		})
 	})
 
-	It("SetDefaultLoad/SetDefaultStore should alter behavior", func() {
-		v := libatm.NewValueDefault[int](0, 0)
-		v.SetDefaultLoad(11)
-		v.SetDefaultStore(22)
-		Expect(v.Load()).To(Equal(11))
-		v.Store(0)
-		Expect(v.Load()).To(Equal(22))
+	Describe("CompareAndSwap", func() {
+		It("should CAS values without defaults", func() {
+			v := libatm.NewValue[int]()
+			v.Store(1)
+			swapped := v.CompareAndSwap(1, 2)
+			Expect(swapped).To(BeTrue())
+			Expect(v.Load()).To(Equal(2))
+
+			swapped = v.CompareAndSwap(1, 3)
+			Expect(swapped).To(BeFalse())
+			Expect(v.Load()).To(Equal(2))
+		})
+
+		It("should respect defaults during CAS", func() {
+			v := libatm.NewValueDefault[int](10, 20)
+			v.Store(20)
+			swapped := v.CompareAndSwap(0, 30) // 0 -> 20, so CAS(20, 30)
+			Expect(swapped).To(BeTrue())
+			Expect(v.Load()).To(Equal(30))
+		})
 	})
 })

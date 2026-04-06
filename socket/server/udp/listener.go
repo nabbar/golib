@@ -29,8 +29,6 @@ package udp
 import (
 	"context"
 	"net"
-	"sync/atomic"
-	"time"
 
 	libptc "github.com/nabbar/golib/network/protocol"
 	librun "github.com/nabbar/golib/runner"
@@ -38,8 +36,7 @@ import (
 )
 
 // getAddress retrieves the configured listen address from atomic storage.
-// Returns an empty string if no address has been set via RegisterServer().
-// This is an internal helper used by Listen().
+// Internal helper used by Listen().
 func (o *srv) getAddress() string {
 	if s := o.ad.Load(); len(s) > 0 {
 		return s
@@ -50,18 +47,15 @@ func (o *srv) getAddress() string {
 
 // getListen creates and binds a UDP listener socket on the specified address.
 //
-// The function:
-//   - Resolves the address string to a *net.UDPAddr
-//   - Creates a UDP socket listening on that address
-//   - Invokes the server info callback with startup message
-//   - Cleans up on errors
+// # Execution Steps
+//
+// 1. Resolves the address string to a *net.UDPAddr.
+// 2. Creates a UDP socket (net.ListenUDP) bound to that address.
+// 3. Reports a startup message via the server info callback.
 //
 // Returns:
-//   - *net.UDPAddr: The resolved local address
-//   - *net.UDPConn: The active UDP connection/listener
-//   - error: Any error during resolution or socket creation
-//
-// This is an internal helper called by Listen().
+//   - *net.UDPConn: The active UDP connection/listener.
+//   - error: Any failure in address resolution or socket creation.
 func (o *srv) getListen(addr string) (*net.UDPConn, error) {
 	var (
 		adr *net.UDPAddr
@@ -83,48 +77,58 @@ func (o *srv) getListen(addr string) (*net.UDPConn, error) {
 	return lis, nil
 }
 
-// Listen starts the UDP server and begins accepting datagrams.
-// This method blocks until the server is shut down via context cancellation,
-// Shutdown(), or Close().
+// Listen starts the UDP server and enters the main processing loop.
 //
-// Lifecycle:
-//  1. Validates configuration (address and handler must be set)
-//  2. Creates UDP listener socket
-//  3. Invokes UpdateConn callback if registered
-//  4. Creates Reader/Writer wrappers for the handler
-//  5. Sets server to running state
-//  6. Starts handler goroutine
-//  7. Waits for shutdown signal
-//  8. Cleans up and returns
+// # Design Pattern: Blocking-Wait
 //
-// The handler function runs in a separate goroutine and receives:
-//   - Reader: Reads incoming datagrams (ReadFrom under the hood)
-//   - Writer: Sends response datagrams (WriteTo to last sender)
+// This method blocks for the entire lifetime of the server. It manages the
+// lifecycle of the underlying socket and the user-provided handler goroutine.
 //
-// Context handling:
-//   - The provided context is used for the lifetime of the listener
-//   - Context cancellation triggers immediate shutdown
-//   - Done() channel is closed when Listen() exits
+// # Detailed Lifecycle Sequence
 //
-// Returns:
-//   - ErrInvalidAddress: If RegisterServer() wasn't called
-//   - ErrInvalidHandler: If no handler was provided to New()
-//   - ErrContextClosed: If context was cancelled
-//   - Any error from socket creation
+//	  [Listen Called]
+//	         │
+//	         ▼
+//	[1. Validate State] ─────────▶ Return Error (if addr or handler missing)
+//	         │
+//	         ▼
+//	[2. Create Socket] ──────────▶ Return Error (if net.ListenUDP fails)
+//	         │
+//	         ▼
+//	[3. UpdateConn Hook] ────────▶ Invoke user-provided tuning callback (if any)
+//	         │
+//	         ▼
+//	[4. Reset Gone State] ───────▶ Mark gon=false, Create new 'gnc' channel
+//	         │
+//	         ▼
+//	[5. Create sCtx Wrapper] ────▶ Wrap *net.UDPConn with context for handler
+//	         │
+//	         ▼
+//	[6. Spawn Monitor] ──────────▶ Goroutine waiting for [Shutdown OR CtxDone]
+//	         │
+//	         ▼
+//	[7. Spawn Handler] ──────────▶ Execute user-provided HandlerFunc(sCtx)
+//	         │
+//	         ▼
+//	[8. Set Running=true]
+//	         │
+//	         ▼
+//	[9. Block on gnc/CtxDone] ◀──▶ [Waiting for termination signal]
+//	         │
+//	         ▼
+//	[10. Cleanup on Exit] ───────▶ Close socket, Mark gon=true, Set Running=false
 //
-// The server maintains no per-datagram state. Each datagram is processed
-// independently by reading from the connection and writing responses back
-// to the source address.
+// # Concurrency Model
 //
-// Example:
+// The 'srv' struct uses atomic flags to maintain thread-safe status during this flow.
+// The new 'gnc' (Gone channel) broadcast mechanism allows the [6. Monitor]
+// goroutine to unblock the main [Listen] thread instantly when Shutdown() is called.
 //
-//	go func() {
-//	    if err := srv.Listen(ctx); err != nil {
-//	        log.Printf("Server error: %v", err)
-//	    }
-//	}()
+// # Error Propagation
 //
-// See github.com/nabbar/golib/socket.HandlerFunc for handler function signature.
+//   - Context cancellation: Returns the context error.
+//   - Internal Shutdown: Returns nil.
+//   - Startup errors: Returns the specific network or validation error.
 func (o *srv) Listen(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -133,77 +137,93 @@ func (o *srv) Listen(ctx context.Context) error {
 	}()
 
 	var (
-		e   error            // error
-		a   = o.getAddress() // address
-		sx  *sCtx            // socket context
-		con *net.UDPConn     // udp con listener
+		e   error            // internal error tracking
+		a   = o.getAddress() // address from atomic storage
+		sx  *sCtx            // contextual socket wrapper
+		con *net.UDPConn     // the raw UDP socket
 		cnl context.CancelFunc
 	)
 
-	ctx, cnl = context.WithCancel(ctx)
-
-	defer func() {
-		if cnl != nil {
-			cnl()
-		}
-
-		if sx != nil {
-			_ = sx.Close()
-		}
-
-		if con != nil {
-			_ = con.Close()
-		}
-
-		o.run.Store(false)
-		o.gon.Store(true)
-	}()
-
+	// Step 1: Pre-requisite validation
 	if len(a) == 0 {
 		o.fctError(ErrInvalidInstance)
 		return ErrInvalidAddress
 	} else if o.hdl == nil {
 		o.fctError(ErrInvalidInstance)
 		return ErrInvalidHandler
-	} else if con, e = o.getListen(a); e != nil {
+	}
+
+	// Step 2: Socket instantiation
+	if con, e = o.getListen(a); e != nil {
 		o.fctError(e)
 		return e
-	} else if o.upd != nil {
+	}
+
+	// Step 3: Optional tuning hook
+	if o.upd != nil {
 		o.upd(con)
 	}
 
+	// Step 4: State preparation for the new cycle
+	o.gon.Store(false)
+	o.gnc.Store(make(chan struct{}))
+
+	// Local synchronization channel to detect main loop exit
+	done := make(chan struct{})
+
+	// Step 10: Defer cleanup logic
+	defer func() {
+		if con != nil {
+			_ = con.Close()
+		}
+
+		if sx != nil {
+			_ = sx.Close()
+		}
+
+		o.run.Store(false)
+		o.setGone() // Signal to all monitoring goroutines
+		close(done)
+	}()
+
+	// Step 5: Wrapper creation
+	ctx, cnl = context.WithCancel(ctx)
 	sx = &sCtx{
-		loc: "",
 		ctx: ctx,
 		cnl: cnl,
 		con: con,
-		clo: new(atomic.Bool),
 	}
 
+	// Cache local address for performance
 	if l := con.LocalAddr(); l == nil {
 		sx.loc = ""
 	} else {
 		sx.loc = l.String()
 	}
 
-	o.gon.Store(false)
-	o.run.Store(true)
-	time.Sleep(time.Millisecond)
-
-	// Create Channel to check server is Going to shutdown
-	cG := make(chan bool, 1)
+	// Step 6: Dedicated monitor goroutine for unblocking
+	// This goroutine listens for external shutdown signals (Shutdown/Close/CtxCancel)
+	// and forcefully closes the socket to unblock any pending I/O operations.
 	go func() {
-		tc := time.NewTicker(time.Millisecond)
-		for {
-			<-tc.C
-			if o.IsGone() {
-				cG <- true
-				return
-			}
+		select {
+		case <-ctx.Done(): // Context cancelled from outside
+		case <-o.getGoneChan(): // Server.Shutdown() or Server.Close() called
+		case <-done: // Listen() loop finished for other reasons (prevents leak)
+			return
+		}
+
+		// Force-close the socket to ensure the main handler exits Read()
+		if con != nil {
+			_ = con.Close()
 		}
 	}()
 
-	// get handler or exit if nil
+	// Step 8: Mark server as active
+	o.run.Store(true)
+
+	// Step 7: Handler execution
+	// The handler runs in a separate goroutine and is responsible for
+	// datagram I/O via the 'sx' context.
 	go func(conn net.Conn) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -212,25 +232,29 @@ func (o *srv) Listen(ctx context.Context) error {
 		}()
 
 		lc := conn.LocalAddr()
-		rc := &net.UDPAddr{}
+		rc := &net.UDPAddr{} // Default remote address for logging (UDP is connectionless)
 
 		if lc == nil {
 			lc = &net.UDPAddr{}
 		}
 
+		// Report connection lifecycle events
 		defer o.fctInfo(lc, rc, libsck.ConnectionClose)
 		o.fctInfo(lc, rc, libsck.ConnectionNew)
 
-		time.Sleep(time.Millisecond)
+		// Execute the application business logic
 		o.hdl(sx)
 	}(con)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-cG:
-			return nil
-		}
+	// Step 9: Block and wait for termination
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-o.getGoneChan():
+		// Graceful exit triggered by Shutdown() or Close()
+		return nil
+	case <-done:
+		// Termination via internal logic or panic recovery
+		return nil
 	}
 }

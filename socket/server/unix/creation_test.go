@@ -26,8 +26,47 @@
  *
  */
 
-// creation_test.go validates server creation and configuration.
-// Tests constructor behavior, parameter validation, and initial state.
+// Package unix_test provides validation for the initialization and configuration
+// phase of the Unix domain socket server.
+//
+// # creation_test.go: Constructor and Configuration Validation
+//
+// This file ensures that the server can be correctly instantiated with various
+// configuration parameters and that invalid inputs are properly caught during
+// the construction phase.
+//
+// # Scenarios Covered:
+//
+// ## 1. Successful Instantiation
+//   - Default Configuration: Verifies that `New()` works with standard settings.
+//   - UpdateConn Integration: Ensures the optional connection-tuning callback can be registered.
+//   - Custom Permissions: Validates that specific POSIX permissions (e.g., 0660) are accepted.
+//   - Idle Timeout: Confirms that the server correctly initializes the Idle Manager when a
+//     timeout is specified in the config.
+//
+// ## 2. Invalid Input Rejection (Error Paths)
+//   - Missing Handler: Ensures `New()` returns `ErrInvalidHandler` if no logic is provided.
+//   - Invalid GID: Verifies rejection of Group IDs exceeding the `MaxGID` (32767) limit.
+//   - Malformed Paths: Ensures empty or illegal socket paths are caught early.
+//   - Wrong Network Type: Confirms the server only accepts `libptc.NetworkUnix`.
+//
+// ## 3. Dynamic Reconfiguration
+//   - RegisterSocket: Tests the ability to update the socket file metadata (path, permissions, GID)
+//     after the server has been created but before it has started.
+//
+// ## 4. Callback Management
+//   - Functional Registration: Ensures that error and info callbacks can be registered and
+//     updated atomically.
+//
+// ## 5. Transport Layer Compatibility
+//   - TLS No-op: Validates that the `SetTLS` method exists (for interface compliance) but
+//     returns nil without performing any action, as Unix sockets don't support transport-layer TLS.
+//
+// # Technical Note:
+//
+// These tests are the first line of defense against configuration errors that could lead
+// to runtime failures (e.g., permission denied when creating the socket file or system-level
+// errors when setting file ownership).
 package unix_test
 
 import (
@@ -128,8 +167,8 @@ var _ = Describe("Unix Server Creation", func() {
 			}
 			srv, err := scksru.New(nil, echoHandler, cfg)
 
-			Expect(err).ToNot(HaveOccurred())
-			Expect(srv).ToNot(BeNil())
+			Expect(err).To(HaveOccurred())
+			Expect(srv).To(BeNil())
 		})
 
 		It("should fail with invalid network type", func() {
@@ -167,6 +206,15 @@ var _ = Describe("Unix Server Creation", func() {
 			err = srv.RegisterSocket(socketPath, libprm.Perm(0600), scksru.MaxGID+1)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(scksru.ErrInvalidGroup))
+		})
+
+		It("should fail with invalid path", func() {
+			cfg := createDefaultConfig(socketPath)
+			srv, err := scksru.New(nil, echoHandler, cfg)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = srv.RegisterSocket("", libprm.Perm(0600), -1)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 

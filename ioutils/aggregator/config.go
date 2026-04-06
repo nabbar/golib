@@ -30,65 +30,106 @@ import (
 	"time"
 )
 
-// Config defines the configuration for creating a new Aggregator.
+// Config defines the configuration for creating a new Aggregator instance.
 //
-// The configuration allows customization of buffering, periodic callbacks,
-// and logging behavior.
+// The configuration allows precise customization of buffering strategies, periodic
+// maintenance callbacks, and internal resource limits. Tuning these parameters
+// is essential for balancing throughput, latency, and memory consumption.
 type Config struct {
-	// AsyncTimer specifies the interval for calling AsyncFct.
-	// If zero or negative, async callbacks are disabled.
-	// Must be > 0 and AsyncFct must be non-nil to enable async callbacks.
+	// AsyncTimer specifies the execution interval for the AsyncFct callback.
+	//
+	// Operational Details:
+	//   - If zero or negative, the asynchronous callback mechanism is disabled.
+	//   - Requires AsyncFct to be non-nil for activation.
+	//   - The timer is precise, but execution depends on goroutine scheduling.
 	AsyncTimer time.Duration
 
-	// AsyncMax limits the maximum number of concurrent async function calls.
-	// If negative or zero, async functions are called sequentially.
-	// If positive, up to AsyncMax async calls can run concurrently.
-	// Requires AsyncTimer > 0 and AsyncFct != nil.
+	// AsyncMax limits the maximum number of concurrent executions of AsyncFct.
+	//
+	// Concurrency Control:
+	//   - If negative, the aggregator uses a sequential execution model (one at a time).
+	//   - If zero, it defaults to sequential execution.
+	//   - If positive, it uses an internal semaphore to bound the number of concurrent
+	//     goroutines executing the callback. If the limit is reached, a scheduled
+	//     execution cycle is skipped (non-blocking).
 	AsyncMax int
 
-	// AsyncFct is the function called periodically at AsyncTimer intervals.
-	// This function is called asynchronously (non-blocking) and can be used for:
-	//   - Periodic maintenance tasks
-	//   - Sending heartbeats
-	//   - Flushing buffers
-	// The function receives the aggregator's context and should respect cancellation.
-	// Can be nil if async callbacks are not needed.
+	// AsyncFct is the user-defined function executed periodically at the AsyncTimer interval.
+	//
+	// Parallel Execution:
+	// This function is invoked in its own goroutine (managed by the AsyncMax limit) and
+	// does not stall the main data aggregation pipeline.
+	//
+	// Use Cases:
+	//   - Periodic cache invalidation or flushes.
+	//   - Sending telemetry heartbeats or health signals.
+	//   - Asynchronous data cleanup tasks.
+	//
+	// The function receives the aggregator's operational context and must respect
+	// ctx.Done() signals to ensure graceful shutdown.
 	AsyncFct func(ctx context.Context)
 
-	// SyncTimer specifies the interval for calling SyncFct.
-	// If zero or negative, sync callbacks are disabled.
-	// Must be > 0 and SyncFct must be non-nil to enable sync callbacks.
+	// SyncTimer specifies the execution interval for the SyncFct callback.
+	//
+	// Operational Details:
+	//   - If zero or negative, the synchronous callback mechanism is disabled.
+	//   - Requires SyncFct to be non-nil for activation.
 	SyncTimer time.Duration
 
-	// SyncFct is the function called periodically at SyncTimer intervals.
-	// This function is called synchronously (blocking) and can be used for:
-	//   - File rotation
-	//   - Database checkpoints
-	//   - Resource cleanup
-	// The function receives the aggregator's context and should respect cancellation.
-	// Can be nil if sync callbacks are not needed.
+	// SyncFct is the user-defined function executed periodically at the SyncTimer interval.
+	//
+	// Sequential Execution:
+	// This function is executed synchronously within the main processing goroutine.
+	// While SyncFct is running, NO data ingestion from the buffer channel occurs.
+	// Therefore, it must be highly optimized and return quickly to avoid causing
+	// backpressure in the pipeline.
+	//
+	// Use Cases:
+	//   - Deterministic file rotation (where no writes should occur during rotation).
+	//   - Database transaction checkpoints.
+	//   - Critical state updates that require the pipeline to be paused.
+	//
+	// The function receives the aggregator's operational context and should monitor
+	// for cancellation.
 	SyncFct func(ctx context.Context)
 
-	// BufWriter specifies the size of the internal write buffer (channel capacity).
-	// A larger buffer reduces contention but uses more memory.
-	// If zero, defaults to 1 (minimal buffering).
-	// Recommended values:
-	//   - Low frequency writes (< 10/sec): 10-50
-	//   - Medium frequency (10-100/sec): 100-500
-	//   - High frequency (> 100/sec): 1000+
+	// BufWriter specifies the capacity of the internal buffered channel.
+	//
+	// Performance Impact:
+	// This value defines the depth of the pipeline before producer goroutines (Write() calls)
+	// begin to block.
+	//
+	// Recommended Sizing:
+	//   - Low frequency writes (< 10/sec): 10-50 (minimal memory footprint).
+	//   - Medium frequency (10-100/sec): 100-500.
+	//   - High frequency (> 100/sec): 1000+ (to absorb bursts).
+	//
+	// See the 'Buffer Sizing' section in doc.go for a detailed sizing formula.
 	BufWriter int
 
-	// FctWriter is the function that receives and processes each write.
-	// This function is called sequentially (never concurrently) for each write operation.
-	// It must:
-	//   - Handle the provided byte slice
-	//   - Return the number of bytes written and any error
-	//   - Be thread-safe if it accesses shared resources
-	// This field is required and cannot be nil.
+	// BufMaxSize specifies the internal maximum size for the pre-allocated buffers
+	// managed by the sync.Pool.
 	//
-	// Example:
-	//   FctWriter: func(p []byte) (int, error) {
-	//       return file.Write(p)
-	//   }
+	// Memory Strategy:
+	// This defines the initial length of the byte slices created during the pool's
+	// warm-up phase (see New()). If a Write() call provides data exceeding this size,
+	// a fresh buffer is allocated for that specific call to avoid truncation.
+	// Standard value: 8192 (8KB).
+	BufMaxSize int
+
+	// FctWriter is the core serialization function that receives all aggregated data.
+	//
+	// Execution Guarantee:
+	// This function is called sequentially by a single goroutine. It will never
+	// be invoked concurrently by the aggregator, ensuring safe writes to non-thread-safe
+	// destinations like standard files or certain network protocols.
+	//
+	// Responsibilities:
+	//   - It must handle the provided byte slice 'p' entirely.
+	//   - It must return the number of bytes processed and any encounter error.
+	//   - It should avoid internal buffering if possible, as the aggregator already
+	//     provides a high-performance buffer.
+	//
+	// This field is REQUIRED. New() will return ErrInvalidWriter if it is nil.
 	FctWriter func(p []byte) (n int, err error)
 }

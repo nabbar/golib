@@ -113,6 +113,8 @@ var _ = Describe("Unix Datagram Server Robustness", func() {
 			startServer(srv, ctx)
 
 			// Cancel immediately
+			// Note: Cancelling the context will cause Listen() to return a "context canceled" error
+			// which will be printed to stderr by startServerInBackground. This is expected.
 			cancel()
 
 			Eventually(func() bool {
@@ -150,6 +152,8 @@ var _ = Describe("Unix Datagram Server Robustness", func() {
 
 			// Try to start again (should fail or be no-op)
 			newCtx, newCancel := context.WithCancel(testCtx)
+			// Note: We cancel this context immediately via defer, which will cause the background Listen
+			// to return "context canceled" if it ever starts. This is expected.
 			defer newCancel()
 
 			go func() {
@@ -209,6 +213,7 @@ var _ = Describe("Unix Datagram Server Robustness", func() {
 
 			Expect(fileExists(sockPath)).To(BeTrue())
 
+			// Normal shutdown via Shutdown()
 			stopServer(srv, cancel)
 
 			Eventually(func() bool {
@@ -227,6 +232,7 @@ var _ = Describe("Unix Datagram Server Robustness", func() {
 			Expect(fileExists(sockPath)).To(BeTrue())
 
 			// Force error by cancelling context
+			// Note: This will trigger a "context canceled" error in background log.
 			cancel()
 
 			Eventually(func() bool {

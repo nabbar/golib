@@ -24,24 +24,134 @@
  *
  */
 
+// helper_test.go provides shared test utilities and helper functions.
+// Includes server configuration creation, connection helpers, test address
+// management, and common handler implementations used across all test files.
 package udp_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	. "github.com/onsi/gomega"
-
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 	sckcfg "github.com/nabbar/golib/socket/config"
 	"github.com/nabbar/golib/socket/server/udp"
+
+	. "github.com/onsi/gomega"
 )
+
+const (
+	// bufferSize defines the buffer size used in handlers to minimize syscalls (256KB)
+	bufferSize = 256 * 1024
+
+	// String constants for addresses and networking
+	addrLocalhost = "127.0.0.1"
+	addrFreePort  = "127.0.0.1:0"
+
+	// Error and log messages
+	errResolveAddr  = "failed to resolve addr: %v"
+	errListen       = "failed to listen: %v"
+	errConnect      = "failed to connect to server: %v"
+	errWriteData    = "failed to write data: %v"
+	errReadData     = "failed to read data: %v"
+	errCreateServer = "failed to create server: %v"
+	errStartServer  = "server failed to start"
+	errWaitAccept   = "Timeout waiting for server to accept connections at %s after %v"
+	errWriteLen     = "wrote %d bytes, expected %d"
+	errReadLen      = "read %d bytes, expected %d"
+
+	msgEchoLatency = "benchmark message for echo latency"
+	msgConcurrent  = "concurrent client message"
+	msgDefaultByte = "a"
+	msgMessage     = "message"
+	msgFast        = "fast"
+	msgTest        = "test"
+
+	// Server info messages
+	msgStartingListen = "starting listening"
+)
+
+var (
+	// Pool for benchmark buffers to avoid allocations
+	bufPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, bufferSize)
+		},
+	}
+)
+
+type SrvLogger interface {
+	TestFctError(e ...error)
+	TestFctInfo(local, remote net.Addr, state libsck.ConnState)
+	TestFctInfoSrv(msg string, args ...interface{})
+}
+
+// echoHandler is a simple echo handler for testing (optimized with pool)
+func echoHandler(c libsck.Context) {
+	defer func() {
+		_ = c.Close()
+	}()
+
+	buf := bufPool.Get().([]byte)
+	defer bufPool.Put(buf)
+
+	for {
+		n, err := c.Read(buf)
+		if err != nil {
+			return
+		}
+
+		if n > 0 {
+			// Note: UDP server sCtx.Write is currently disabled in the implementation (returns error).
+			// This handler follows the same principle as the unix server handler.
+			_, _ = c.Write(buf[:n])
+		}
+	}
+}
+
+// echoHandlerBench is an optimized echo handler for benchmarking (alias to echoHandler)
+func echoHandlerBench(c libsck.Context) {
+	echoHandler(c)
+}
+
+// createDefaultConfig creates a default UDP server configuration.
+func createDefaultConfig(addr string) sckcfg.Server {
+	return sckcfg.Server{
+		Network: libptc.NetworkUDP,
+		Address: addr,
+	}
+}
+
+// createBasicConfig creates a basic test configuration using a free port
+func createBasicConfig() sckcfg.Server {
+	return createDefaultConfig(addrFreePort)
+}
+
+// waitForServer waits for the server to be running within the given timeout.
+func waitForServer(srv udp.ServerUdp, timeout time.Duration) {
+	Eventually(func() bool {
+		return srv.IsRunning()
+	}, timeout, time.Millisecond).Should(BeTrue())
+}
+
+// waitForServerStopped waits for the server to stop running within the given timeout.
+func waitForServerStopped(srv udp.ServerUdp, timeout time.Duration) {
+	Eventually(func() bool {
+		return !srv.IsRunning()
+	}, timeout, time.Millisecond).Should(BeTrue())
+}
+
+// startServerInBackground starts the server in a goroutine.
+func startServerInBackground(c context.Context, srv udp.ServerUdp) {
+	go func() {
+		_ = srv.Listen(c)
+	}()
+}
 
 // testHandler is a simple handler that stores received data
 type testHandler struct {
@@ -69,7 +179,8 @@ func newTestHandler(readOnce bool) *testHandler {
 func (h *testHandler) handler(ctx libsck.Context) {
 	defer ctx.Close()
 
-	buf := make([]byte, 65507) // Max UDP datagram size
+	buf := bufPool.Get().([]byte)
+	defer bufPool.Put(buf)
 
 	if h.readOnce {
 		// Read once and return
@@ -89,6 +200,8 @@ func (h *testHandler) handler(ctx libsck.Context) {
 	for {
 		select {
 		case <-h.ctx.Done():
+			return
+		case <-ctx.Done():
 			return
 		default:
 		}
@@ -324,14 +437,6 @@ func findSubstring(s, substr string) bool {
 	return false
 }
 
-// createBasicConfig creates a basic test configuration
-func createBasicConfig() sckcfg.Server {
-	return sckcfg.Server{
-		Network: libptc.NetworkUDP,
-		Address: "127.0.0.1:0", // Use loopback, let OS choose port
-	}
-}
-
 // createServerWithHandler creates server with handler
 func createServerWithHandler(handler libsck.HandlerFunc) (udp.ServerUdp, error) {
 	cfg := createBasicConfig()
@@ -340,67 +445,16 @@ func createServerWithHandler(handler libsck.HandlerFunc) (udp.ServerUdp, error) 
 
 // startServer starts server and waits for it to be running
 func startServer(srv udp.ServerUdp, ctx context.Context) {
-	go func() {
-		_ = srv.Listen(ctx)
-	}()
-
-	// Wait for server to start
-	Eventually(func() bool {
-		return srv.IsRunning()
-	}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
+	startServerInBackground(ctx, srv)
+	waitForServer(srv, 2*time.Second)
 }
 
 // stopServer stops server and waits for it to stop
 func stopServer(srv udp.ServerUdp, cancel context.CancelFunc) {
-	cancel()
-
-	Eventually(func() bool {
-		return !srv.IsRunning()
-	}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
-}
-
-// sendUDPDatagram sends a UDP datagram to address
-func sendUDPDatagram(address string, data []byte) error {
-	addr, err := net.ResolveUDPAddr("udp", address)
-	if err != nil {
-		return err
+	if cancel != nil {
+		cancel()
 	}
-
-	conn, err := net.DialUDP("udp", nil, addr)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	_, err = conn.Write(data)
-	return err
-}
-
-// getServerAddress extracts server address from info messages
-func getServerAddress(collector *serverInfoCollector) string {
-	messages := collector.getMessages()
-	for _, msg := range messages {
-		// Extract address from "starting listening socket 'udp 127.0.0.1:xxxxx'"
-		if contains(msg, "starting listening socket") {
-			// Simple extraction
-			for i := 0; i < len(msg); i++ {
-				if msg[i] == '1' && i+1 < len(msg) && msg[i+1] == '2' {
-					// Found "12", likely start of 127.0.0.1
-					for j := i; j < len(msg); j++ {
-						if msg[j] == '\'' {
-							return msg[i:j]
-						}
-					}
-				}
-			}
-		}
-	}
-	return ""
-}
-
-// waitForCondition waits for condition with timeout
-func waitForCondition(condition func() bool, timeout time.Duration, message string) {
-	Eventually(condition, timeout, 10*time.Millisecond).Should(BeTrue(), message)
+	waitForServerStopped(srv, 2*time.Second)
 }
 
 // customUpdateConn is a test UpdateConn callback
@@ -445,10 +499,7 @@ func (c *customUpdateConn) getConn() net.Conn {
 
 // assertServerState checks server state
 func assertServerState(srv udp.ServerUdp, expectedRunning, expectedGone bool, expectedConns int64) {
-	Expect(srv.IsRunning()).To(Equal(expectedRunning),
-		fmt.Sprintf("Expected IsRunning=%v", expectedRunning))
-	Expect(srv.IsGone()).To(Equal(expectedGone),
-		fmt.Sprintf("Expected IsGone=%v", expectedGone))
-	Expect(srv.OpenConnections()).To(Equal(expectedConns),
-		fmt.Sprintf("Expected OpenConnections=%d", expectedConns))
+	Expect(srv.IsRunning()).To(Equal(expectedRunning))
+	Expect(srv.IsGone()).To(Equal(expectedGone))
+	Expect(srv.OpenConnections()).To(Equal(expectedConns))
 }

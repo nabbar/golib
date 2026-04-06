@@ -28,7 +28,6 @@ package duration
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -36,27 +35,17 @@ import (
 // It is not exposed to the user but helps in internal error handling.
 var errLeadingInt = errors.New("time: bad [0-9]*") // never printed
 
-// unitMap maps the string representation of time units to their corresponding duration in nanoseconds (as uint64).
-// It supports standard units like "ns", "us", "ms", "s", "m", "h", and the custom "d" for days.
-// It also includes Unicode symbols for microseconds.
-var unitMap = map[string]uint64{
-	"ns": uint64(time.Nanosecond),
-	"us": uint64(time.Microsecond),
-	"µs": uint64(time.Microsecond), // U+00B5 = micro symbol
-	"μs": uint64(time.Microsecond), // U+03BC = Greek letter mu
-	"ms": uint64(time.Millisecond),
-	"s":  uint64(time.Second),
-	"m":  uint64(time.Minute),
-	"h":  uint64(time.Hour),
-	"d":  uint64(24 * time.Hour),
-}
-
 // parseString is an internal helper that cleans and parses a duration string.
 // It removes quotes and spaces before passing the string to the main parsing logic.
 func parseString(s string) (Duration, error) {
-	s = strings.Replace(s, "\"", "", -1) // nolint
-	s = strings.Replace(s, "'", "", -1)  // nolint
-	s = strings.Replace(s, " ", "", -1)  // nolint
+	i := 0
+	for i < len(s) {
+		if s[i] == '"' || s[i] == '\'' || s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' {
+			s = s[0:i] + s[i+1:]
+		} else {
+			i++
+		}
+	}
 
 	// err: 99d55h44m33s123ms
 	return parseDuration(s)
@@ -165,7 +154,7 @@ func parseDuration(s string) (Duration, error) {
 
 		u := s[:i]
 		s = s[i:]
-		unit, ok := unitMap[u]
+		unit, ok := getUnit(u)
 
 		if !ok {
 			return 0, fmt.Errorf("time: unknown unit '%s' in duration '%s'", u, orig)
@@ -269,4 +258,32 @@ func leadingFraction(s string) (x uint64, scale float64, rem string) {
 	}
 
 	return x, scale, s[i:]
+}
+
+// getUnit return the string representation of time units to their corresponding duration in nanoseconds (as uint64).
+// It supports standard units like "ns", "us", "ms", "s", "m", "h", and the custom "d" for days.
+// It also includes Unicode symbols for microseconds.
+func getUnit(s string) (uint64, bool) {
+	switch s {
+	case "ns":
+		return uint64(time.Nanosecond), true
+	case "us":
+		return uint64(time.Microsecond), true
+	case "µs":
+		return uint64(time.Microsecond), true // U+00B5 = micro symbol
+	case "μs":
+		return uint64(time.Microsecond), true // U+03BC = Greek letter mu
+	case "ms":
+		return uint64(time.Millisecond), true
+	case "s":
+		return uint64(time.Second), true
+	case "m":
+		return uint64(time.Minute), true
+	case "h":
+		return uint64(time.Hour), true
+	case "d":
+		return uint64(24 * time.Hour), true
+	default:
+		return 0, false
+	}
 }

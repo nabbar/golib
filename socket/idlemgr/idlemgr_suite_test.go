@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2024 Nicolas JUHEL
+ * Copyright (c) 2026 Nicolas JUHEL
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,26 +20,18 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
- *
  */
 
-package atomic
+package idlemgr_test
 
-type defaultValue[T any] interface {
-	GetDefault() T
-}
+import (
+	"testing"
 
-type defVal[T any] struct {
-	v T
-}
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-func (d *defVal[T]) GetDefault() T {
-	return d.v
-}
-
-func newDefault[T any](def T) *defVal[T] {
-	return &defVal[T]{
-		v: def,
-	}
+func TestIdleMgr(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Idle Manager Suite")
 }

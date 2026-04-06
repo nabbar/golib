@@ -28,22 +28,19 @@ package big
 import (
 	"fmt"
 	"strconv"
-	"strings"
 )
-
-var unitMap = map[string]uint64{
-	"s": uint64(Second),
-	"m": uint64(Minute),
-	"h": uint64(Hour),
-	"d": uint64(Day),
-}
 
 // parseString parses a string representation of a duration.
 // It removes quotes and spaces before parsing.
 func parseString(s string) (Duration, error) {
-	s = strings.Replace(s, "\"", "", -1) // nolint
-	s = strings.Replace(s, "'", "", -1)  // nolint
-	s = strings.Replace(s, " ", "", -1)  // nolint
+	i := 0
+	for i < len(s) {
+		if s[i] == '"' || s[i] == '\'' || s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' {
+			s = s[0:i] + s[i+1:]
+		} else {
+			i++
+		}
+	}
 
 	// err: 99d55h44m33s123ms
 	return parseDuration(s)
@@ -152,7 +149,7 @@ func parseDuration(s string) (Duration, error) {
 
 		u := s[:i]
 		s = s[i:]
-		unit, ok := unitMap[u]
+		unit, ok := getUnit(u)
 
 		if !ok {
 			return 0, fmt.Errorf("time: unknown unit '%s' in duration '%s'", u, orig)
@@ -252,4 +249,19 @@ func leadingFraction(s string) (x uint64, scale float64, rem string) {
 		scale *= 10
 	}
 	return x, scale, s[i:]
+}
+
+func getUnit(s string) (uint64, bool) {
+	switch s {
+	case "s":
+		return uint64(Second), true
+	case "m":
+		return uint64(Minute), true
+	case "h":
+		return uint64(Hour), true
+	case "d":
+		return uint64(Day), true
+	default:
+		return 0, false
+	}
 }

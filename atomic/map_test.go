@@ -80,15 +80,26 @@ var _ = Describe("Map implementations", func() {
 			Expect(ok).To(BeFalse())
 
 			// Range with bad key type should auto-delete
-			var deletedKeys []string
 			m.Store("x", 99)
-			// inject a bad key by using underlying sync.Map directly is not possible from here;
-			// but we can ensure Range keeps existing and calls function.
+
+			// Inject bad key type using export_test functionality
+			if mi, ok := m.(interface{ GetUnderlyingMap() *sync.Map }); ok {
+				mi.GetUnderlyingMap().Store(123, "bad key type")
+			}
+
+			var seenKeys []string
 			m.Range(func(k string, val any) bool {
-				deletedKeys = append(deletedKeys, k)
+				seenKeys = append(seenKeys, k)
 				return true
 			})
-			Expect(deletedKeys).To(ContainElement("x"))
+			Expect(seenKeys).To(ContainElement("x"))
+			Expect(seenKeys).ToNot(ContainElement(123))
+
+			// Verify bad key was deleted
+			if mi, ok := m.(interface{ GetUnderlyingMap() *sync.Map }); ok {
+				_, ok = mi.GetUnderlyingMap().Load(123)
+				Expect(ok).To(BeFalse())
+			}
 
 			// Delete
 			m.Delete("x")
@@ -148,12 +159,23 @@ var _ = Describe("Map implementations", func() {
 
 			// Range
 			m.Store("x", 5)
+
+			// Inject bad value type using export_test functionality
+			if mi, ok := m.(interface{ GetUnderlyingMap() libatm.Map[string] }); ok {
+				mi.GetUnderlyingMap().Store("bad", "not an int")
+			}
+
 			var seen []string
 			m.Range(func(k string, v int) bool {
 				seen = append(seen, k)
 				return true
 			})
 			Expect(seen).To(ContainElement("x"))
+			Expect(seen).ToNot(ContainElement("bad"))
+
+			// Verify bad value was deleted
+			_, ok = m.Load("bad")
+			Expect(ok).To(BeFalse())
 		})
 	})
 })

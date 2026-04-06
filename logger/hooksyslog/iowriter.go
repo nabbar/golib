@@ -71,13 +71,18 @@ func (o *hks) Write(p []byte) (n int, err error) {
 		l bool
 	)
 
-	a, l, e = setAgg(o.o.network, o.o.endpoint)
+	a, l, e = setAgg(o.o.network, o.o.endpoint, o.o.msgSize)
 	if e != nil {
 		return n, e
 	}
 
+	if l {
+		o.l = o.locWriteMsg
+	} else {
+		o.l = o.rmtWriteMsg
+	}
+
 	o.w = a
-	o.l.Store(l)
 
 	// Attempt the write one last time with the new writer.
 	if n, err = o.w.Write(p); err != nil {

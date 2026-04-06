@@ -32,6 +32,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -43,6 +44,7 @@ import (
 	libsck "github.com/nabbar/golib/socket"
 )
 
+// sckFile represents the filesystem attributes for a Unix socket.
 type sckFile struct {
 	File string
 	Perm libprm.Perm
@@ -50,79 +52,107 @@ type sckFile struct {
 }
 
 // srv is the internal implementation of the ServerUnixGram interface.
-// It uses atomic operations for thread-safe state management and operates
-// in connectionless datagram mode (SOCK_DGRAM).
 //
-// Unlike connection-oriented Unix sockets (unix package), Unix datagram servers:
-//   - Do not maintain per-client connections
-//   - Have a single handler processing all datagrams
-//   - OpenConnections() returns 1 when running, 0 when stopped
-//   - Cannot use TLS (SetTLS is a no-op)
+// # Internal Architecture and Performance
 //
-// All fields use atomic types or are immutable after construction to ensure
-// thread safety without explicit locking.
+//  1. Atomic State Flags: Uses atomic.Bool ('run' and 'gon') for lock-free state
+//     transitions, ensuring high concurrency without synchronization overhead.
+//
+//  2. Resource Pooling: Uses a sync.Pool ('pol') to recycle sCtx instances.
+//     In high-throughput datagram processing, this dramatically reduces memory
+//     allocations and Garbage Collector (GC) pressure.
+//
+//  3. Event-Driven Shutdown: Uses a broadcast channel ('gnc') wrapped in a
+//     libatm.Value. When the server shuts down, the channel is closed, providing
+//     instant notification to any blocked goroutines.
+//
+// # Design Constraints:
+//   - Connectionless (SOCK_DGRAM): OpenConnections() always returns 0.
+//   - Single Handler: A single handler processes all datagrams sequentially or concurrently
+//     as implemented by the user.
+//   - No TLS: Unix domain sockets do not support TLS at the transport layer.
 type srv struct {
-	upd libsck.UpdateConn  // Connection update callback (optional, called once on socket creation)
-	hdl libsck.HandlerFunc // Datagram handler function (required)
-	run *atomic.Bool       // Server is accepting connections flag
-	gon *atomic.Bool       // Server is draining connections flag
+	upd libsck.UpdateConn  // Connection update callback
+	hdl libsck.HandlerFunc // Main datagram handler function
+	run atomic.Bool        // True if the server is actively listening
+	gon atomic.Bool        // True if the server has entered its shutdown cycle
 
-	fe libatm.Value[libsck.FuncError]   // Error callback (FuncError)
-	fi libatm.Value[libsck.FuncInfo]    // Connection info callback (FuncInfo)
-	fs libatm.Value[libsck.FuncInfoSrv] // Server info callback (FuncInfoSrv)
+	fe libatm.Value[libsck.FuncError]   // Error reporting callback
+	fi libatm.Value[libsck.FuncInfo]    // Datagram event callback
+	fs libatm.Value[libsck.FuncInfoSrv] // Server lifecycle callback
 
-	ad libatm.Value[sckFile] // Server listen address (string)
+	ad  libatm.Value[sckFile]       // Atomic storage for address and file permissions
+	gnc libatm.Value[chan struct{}] // Atomic channel for shutdown broadcast
+	pol *sync.Pool                  // sync.Pool for recycling sCtx instances
 }
 
+// Listener returns information about the current server listener.
+// For Unix Datagram, TLS is always false.
 func (o *srv) Listener() (network libptc.NetworkProtocol, listener string, tls bool) {
 	a := o.ad.Load()
 	return libptc.NetworkUnixGram, a.File, false
 }
 
-// OpenConnections returns the connection count for the Unix datagram server.
-// Unlike connection-oriented sockets, Unix datagram is connectionless, so this returns:
-//   - 1 when the server is running (actively listening for datagrams)
-//   - 0 when the server is stopped
+// OpenConnections returns 0 for a Unix datagram server.
 //
-// This is safe to call from multiple goroutines.
+// Unlike Stream sockets, Datagram sockets are connectionless and do not track
+// individual "sessions" or "connections".
 func (o *srv) OpenConnections() int64 {
 	return 0
 }
 
-// IsRunning returns true if the server is currently accepting datagrams.
-// Returns false if the server has not started, is shutting down, or has stopped.
-//
-// This is safe to call concurrently and provides the server's listener state.
+// IsRunning returns true if the server is in the "Listen" state and accepting datagrams.
 func (o *srv) IsRunning() bool {
 	return o.run.Load()
 }
 
-// IsGone returns true if the server has stopped accepting datagrams.
-// For Unix datagram servers, this is simply the inverse of IsRunning() since there
-// are no persistent connections to drain.
-//
-// This state is set by calling Shutdown() or Close().
+// IsGone returns true if the server has completed its shutdown cycle or has been closed.
 func (o *srv) IsGone() bool {
 	return o.gon.Load()
 }
 
-// Close performs an immediate shutdown of the server using a background context.
-// This is equivalent to calling Shutdown(context.Background()).
+// setGone marks the server as gone and triggers the shutdown broadcast.
 //
-// For controlled shutdown with a custom timeout, use Shutdown() directly.
+// Behavior:
+//   - Uses Swap(true) to ensure the broadcast channel is closed exactly once.
+//   - Closes the 'gnc' channel to instantaneously signal all listening goroutines.
+func (o *srv) setGone() {
+	if o == nil {
+		return
+	}
+
+	// Swap returns the old value. If it was already true, we do nothing.
+	if o.gon.Swap(true) {
+		return
+	}
+
+	if ch := o.gnc.Load(); ch != nil {
+		close(ch)
+	}
+}
+
+// getGoneChan returns a read-only channel used to monitor the server's shutdown state.
+func (o *srv) getGoneChan() <-chan struct{} {
+	if o == nil {
+		return nil
+	}
+	return o.gnc.Load()
+}
+
+// Close initiates an immediate shutdown of the server.
 func (o *srv) Close() error {
 	return o.Shutdown(context.Background())
 }
 
-// Shutdown performs a graceful server shutdown by stopping the listener.
+// Shutdown performs a graceful stop of the Unix domain datagram server.
 //
-// The method applies a 25-second timeout to the provided context and calls
-// StopListen(). For Unix datagram servers, this is equivalent to StopListen() since
-// there are no persistent connections to drain.
+// Lifecycle:
+//  1. Sets the 'gone' state and broadcasts the signal via the channel.
+//  2. Monitors the 'running' state until the listener goroutine exits.
+//  3. Respects the timeout of the provided context (returns ErrShutdownTimeout).
 //
-// The socket file is removed during shutdown.
-//
-// Returns any error from StopListen().
+// Parameters:
+//   - ctx: Context controlling the shutdown timeout.
 func (o *srv) Shutdown(ctx context.Context) error {
 	if o == nil {
 		return ErrInvalidInstance
@@ -130,7 +160,7 @@ func (o *srv) Shutdown(ctx context.Context) error {
 		return nil
 	}
 
-	o.gon.Store(true)
+	o.setGone()
 
 	var (
 		tck = time.NewTicker(3 * time.Millisecond)
@@ -143,38 +173,25 @@ func (o *srv) Shutdown(ctx context.Context) error {
 		cnl()
 	}()
 
-	for o.IsRunning() || o.OpenConnections() > 0 {
+	for o.IsRunning() {
 		select {
 		case <-ctx.Done():
 			return ErrShutdownTimeout
 		case <-tck.C:
-			break // nolint
+			// wait for listener to exit
 		}
 	}
 
 	return nil
 }
 
-// SetTLS is a no-op for Unix domain socket servers.
-// Unix domain sockets do not support TLS at the transport layer.
-// Always returns nil regardless of parameters.
-//
-// For secure Unix socket communication, consider using file permissions
-// to restrict access or application-level encryption.
+// SetTLS is a no-op for Unix domain sockets.
+// Always returns nil.
 func (o *srv) SetTLS(enable bool, config libtls.TLSConfig) error {
 	return nil
 }
 
-// RegisterFuncError registers a callback function for error notifications.
-// The callback is invoked whenever an error occurs during server operation,
-// including datagram processing errors, I/O errors, and listener errors.
-//
-// The function receives variadic errors and should not block as it's called
-// from various goroutines. Pass nil to clear the callback.
-//
-// Thread-safe and can be called at any time, even while the server is running.
-//
-// See github.com/nabbar/golib/socket.FuncError for the callback signature.
+// RegisterFuncError registers a callback to handle asynchronous errors.
 func (o *srv) RegisterFuncError(f libsck.FuncError) {
 	if o == nil {
 		return
@@ -183,19 +200,7 @@ func (o *srv) RegisterFuncError(f libsck.FuncError) {
 	o.fe.Store(f)
 }
 
-// RegisterFuncInfo registers a callback function for datagram events.
-// The callback is invoked for each datagram event:
-//   - ConnectionRead: Data read from a datagram
-//   - ConnectionWrite: Data written to a datagram response
-//
-// Note: Unix datagram is connectionless, so ConnectionNew and ConnectionClose events
-// are not typically generated.
-//
-// The function receives local and remote addresses and the event state.
-// Should not block as it's called from the handler goroutine.
-// Pass nil to clear the callback.
-//
-// See github.com/nabbar/golib/socket.FuncInfo and ConnState for details.
+// RegisterFuncInfo registers a callback for datagram-related events.
 func (o *srv) RegisterFuncInfo(f libsck.FuncInfo) {
 	if o == nil {
 		return
@@ -204,17 +209,7 @@ func (o *srv) RegisterFuncInfo(f libsck.FuncInfo) {
 	o.fi.Store(f)
 }
 
-// RegisterFuncInfoServer registers a callback function for server informational messages.
-// The callback receives formatted string messages about server lifecycle events:
-//   - Server starting/stopping
-//   - Listener creation/closure
-//   - Socket file creation/removal
-//   - Configuration changes
-//
-// Should not block as it's called from the server's main goroutines.
-// Pass nil to clear the callback.
-//
-// See github.com/nabbar/golib/socket.FuncInfoSrv for the callback signature.
+// RegisterFuncInfoServer registers a callback for server-wide lifecycle events.
 func (o *srv) RegisterFuncInfoServer(f libsck.FuncInfoSrv) {
 	if o == nil {
 		return
@@ -223,29 +218,16 @@ func (o *srv) RegisterFuncInfoServer(f libsck.FuncInfoSrv) {
 	o.fs.Store(f)
 }
 
-// RegisterSocket sets the Unix socket file path, permissions, and group ownership.
-// Must be called before Listen().
+// RegisterSocket defines the filesystem path and security settings for the socket.
 //
 // Parameters:
-//   - unixFile: Path to the socket file (e.g., "/tmp/app.sock", "./app.sock")
-//   - perm: File permissions (e.g., 0600 for user-only, 0660 for user+group)
-//   - gid: Group ID for the socket file, or -1 to use the process's default group
-//
-// The socket file:
-//   - Will be created when Listen() is called
-//   - Will be removed on server shutdown
-//   - Will be deleted if it exists before creating the new socket
-//
-// File permissions control who can send datagrams to the socket:
-//   - 0600: Only the socket owner can send
-//   - 0660: Owner and group members can send
-//   - 0666: Anyone can send (use with caution)
-//
-// The address is validated using net.ResolveUnixAddr to ensure it's well-formed.
-//
-// Returns ErrInvalidGroup if gid exceeds MaxGID (32767).
+//   - unixFile: The path to the socket (e.g., "/tmp/server.sock").
+//   - perm: Permissions applied via chmod.
+//   - gid: Group ownership applied via chown.
 func (o *srv) RegisterSocket(unixFile string, perm libprm.Perm, gid int32) error {
-	if _, err := net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), unixFile); err != nil {
+	if len(unixFile) < 1 {
+		return ErrInvalidUnixFile
+	} else if _, err := net.ResolveUnixAddr(libptc.NetworkUnixGram.Code(), unixFile); err != nil {
 		return err
 	} else if gid > MaxGID {
 		return ErrInvalidGroup
@@ -255,9 +237,7 @@ func (o *srv) RegisterSocket(unixFile string, perm libprm.Perm, gid int32) error
 	return nil
 }
 
-// fctError invokes the registered error callback if one exists.
-// Safely handles nil server instances and nil errors.
-// This is an internal helper used throughout the server for error reporting.
+// Internal Helper: fctError invokes the error callback safely.
 func (o *srv) fctError(e ...error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -286,10 +266,7 @@ func (o *srv) fctError(e ...error) {
 	}
 }
 
-// fctInfo invokes the registered datagram info callback if one exists.
-// Reports datagram events with local and remote addresses.
-// Safely handles nil callbacks to prevent panics.
-// This is an internal helper called from datagram handling.
+// Internal Helper: fctInfo invokes the info callback safely.
 func (o *srv) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -304,10 +281,7 @@ func (o *srv) fctInfo(local, remote net.Addr, state libsck.ConnState) {
 	}
 }
 
-// fctInfoSrv invokes the registered server info callback if one exists.
-// Formats the message with fmt.Sprintf before passing to the callback.
-// Safely handles nil callbacks to prevent panics.
-// This is an internal helper for server lifecycle logging.
+// Internal Helper: fctInfoSrv invokes the server lifecycle callback safely.
 func (o *srv) fctInfoSrv(msg string, args ...interface{}) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -320,4 +294,29 @@ func (o *srv) fctInfoSrv(msg string, args ...interface{}) {
 	} else if f := o.fs.Load(); f != nil {
 		f(fmt.Sprintf(msg, args...))
 	}
+}
+
+// getContext retrieves an sCtx instance, either from the pool or by creating a new one.
+func (o *srv) getContext(ctx context.Context, cnl context.CancelFunc, con *net.UnixConn, loc string) *sCtx {
+	if o == nil || o.pol == nil {
+		return &sCtx{}
+	}
+
+	if i := o.pol.Get(); i != nil {
+		if c, ok := i.(*sCtx); ok {
+			c.reset(ctx, cnl, con, loc)
+			return c
+		}
+	}
+
+	return &sCtx{}
+}
+
+// putContext returns an sCtx instance to the sync.Pool for reuse.
+func (o *srv) putContext(c *sCtx) {
+	if o == nil || o.pol == nil || c == nil {
+		return
+	}
+
+	o.pol.Put(c)
 }

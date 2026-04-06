@@ -34,25 +34,35 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// testCtx is the global context for all tests
+// # Ginkgo Test Suite Entry Point
+//
+// This file orchestrates the execution of all tests in the 'udp_test' package.
+//
+// # Responsibilities:
+//  - Registration of the fail handler for Gomega.
+//  - Initialization of the global test context used by all specs.
+//  - Orchestration of BeforeSuite and AfterSuite logic for global teardown.
+
+// testCtx is a global context used by all tests in the suite.
 var testCtx context.Context
+
+// testCancel is a global cancellation function to trigger cleanup after the entire suite.
 var testCancel context.CancelFunc
 
-// TestUdpServer is the entry point for Ginkgo tests
+// TestUdpServer is the main entry point for the "go test" command.
 func TestUdpServer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Socket/Server/UDP Package Suite")
 }
 
-// BeforeSuite runs once before all test specs
+// BeforeSuite runs once before any other test file.
 var _ = BeforeSuite(func() {
-	// Create global test context
+	// Global context to prevent test hangs and ensure clean resource release.
 	testCtx, testCancel = context.WithCancel(context.Background())
 })
 
-// AfterSuite runs once after all test specs
+// AfterSuite runs once after all test files have completed.
 var _ = AfterSuite(func() {
-	// Cancel global context
 	if testCancel != nil {
 		testCancel()
 	}

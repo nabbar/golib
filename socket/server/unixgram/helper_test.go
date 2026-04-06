@@ -26,6 +26,9 @@
  *
  */
 
+// helper_test.go provides shared test utilities and helper functions.
+// Includes server configuration creation, connection helpers, test socket path
+// management, and common handler implementations used across all test files.
 package unixgram_test
 
 import (
@@ -39,14 +42,137 @@ import (
 	"sync/atomic"
 	"time"
 
-	. "github.com/onsi/gomega"
-
 	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 	sckcfg "github.com/nabbar/golib/socket/config"
 	scksrv "github.com/nabbar/golib/socket/server/unixgram"
+
+	. "github.com/onsi/gomega"
 )
+
+const (
+	// bufferSize defines the buffer size used in handlers to minimize syscalls (256KB)
+	bufferSize = 256 * 1024
+
+	// String constants for socket paths
+	socketPattern = "test-unixgram-%d.sock"
+
+	// Error and log messages
+	errConnect      = "failed to connect to server: %v"
+	errWriteData    = "failed to write data: %v"
+	errReadData     = "failed to read data: %v"
+	errCreateServer = "failed to create server: %v"
+	errStartServer  = "server failed to start"
+	errWaitAccept   = "Timeout waiting for server to accept connections at %s after %v"
+	errWriteLen     = "wrote %d bytes, expected %d"
+	errReadLen      = "read %d bytes, expected %d"
+
+	msgConcurrent = "concurrent client message"
+)
+
+var (
+	// Pool for benchmark buffers to avoid allocations
+	bufPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, bufferSize)
+		},
+	}
+)
+
+type srvExport interface {
+	TestFctError(e ...error)
+	TestFctInfo(local, remote net.Addr, state libsck.ConnState)
+	TestFctInfoSrv(msg string, args ...interface{})
+	TestGetSocketFile() (string, error)
+	TestGetSocketPerm() libprm.Perm
+	TestGetSocketGroup() int
+	TestCheckFile(unixFile string) (string, error)
+	TestGetGoneChan() <-chan struct{}
+	TestGetContext(ctx context.Context, cnl context.CancelFunc, con *net.UnixConn, loc string) libsck.Context
+	TestPutContext(c libsck.Context)
+}
+
+type ctxExport interface {
+	TestOnErrorClose(e error) error
+}
+
+// getTestSocketPath returns a unique temporary socket file path for testing.
+// The socket file is automatically created in the OS temp directory with a unique name.
+// The caller is responsible for cleaning up the socket file after use.
+func getTestSocketPath() string {
+	tdr := os.TempDir()
+	return filepath.Join(tdr, fmt.Sprintf(socketPattern, time.Now().UnixNano()))
+}
+
+// echoHandler is a simple echo handler for testing (optimized with pool)
+func echoHandler(c libsck.Context) {
+	defer func() {
+		_ = c.Close()
+	}()
+
+	buf := bufPool.Get().([]byte)
+	defer bufPool.Put(buf)
+
+	for {
+		n, err := c.Read(buf)
+		if err != nil {
+			return
+		}
+
+		if n > 0 {
+			// cannot write on send and forget socket
+			// _, _ = c.Write(buf[:n])
+		}
+	}
+}
+
+// echoHandlerBench is an optimized echo handler for benchmarking (alias to echoHandler)
+func echoHandlerBench(c libsck.Context) {
+	echoHandler(c)
+}
+
+// createDefaultConfig creates a default Unix datagram socket server configuration.
+// The socket path is provided as parameter and permissions are set to 0600 (owner only).
+func createDefaultConfig(socketPath string) sckcfg.Server {
+	return sckcfg.Server{
+		Network:   libptc.NetworkUnixGram,
+		Address:   socketPath,
+		PermFile:  libprm.Perm(0600),
+		GroupPerm: -1, // Use default group
+	}
+}
+
+// waitForServer waits for the server to be running within the given timeout.
+func waitForServer(srv scksrv.ServerUnixGram, timeout time.Duration) {
+	Eventually(func() bool {
+		return srv.IsRunning()
+	}, timeout, 10*time.Millisecond).Should(BeTrue())
+}
+
+// waitForServerStopped waits for the server to stop running within the given timeout.
+func waitForServerStopped(srv scksrv.ServerUnixGram, timeout time.Duration) {
+	Eventually(func() bool {
+		return !srv.IsRunning()
+	}, timeout, 10*time.Millisecond).Should(BeTrue())
+}
+
+// startServerInBackground starts the server in a goroutine.
+func startServerInBackground(c context.Context, srv scksrv.ServerUnixGram) {
+	go func() {
+		e := srv.Listen(c)
+		if e != nil && e != context.Canceled {
+			_, _ = fmt.Fprintf(os.Stderr, "error starting server in background: %v\n", e)
+		}
+	}()
+}
+
+// cleanupSocketFile removes the socket file if it exists.
+func cleanupSocketFile(socketPath string) {
+	if socketPath != "" {
+		_ = os.Remove(socketPath)
+	}
+}
 
 // testHandler is a simple handler that stores received data
 type testHandler struct {
@@ -74,7 +200,8 @@ func newTestHandler(readOnce bool) *testHandler {
 func (h *testHandler) handler(ctx libsck.Context) {
 	defer ctx.Close()
 
-	buf := make([]byte, 65507) // Max datagram size
+	buf := bufPool.Get().([]byte)
+	defer bufPool.Put(buf)
 
 	if h.readOnce {
 		// Read once and return
@@ -331,15 +458,7 @@ func findSubstring(s, substr string) bool {
 
 // createBasicConfig creates a basic test configuration
 func createBasicConfig() sckcfg.Server {
-	tmpDir := os.TempDir()
-	sockPath := filepath.Join(tmpDir, fmt.Sprintf("test_%d.sock", time.Now().UnixNano()))
-
-	return sckcfg.Server{
-		Network:   libptc.NetworkUnixGram,
-		Address:   sockPath,
-		PermFile:  libprm.Perm(0600),
-		GroupPerm: -1,
-	}
+	return createDefaultConfig(getTestSocketPath())
 }
 
 // createServerWithHandler creates server with handler
@@ -351,23 +470,16 @@ func createServerWithHandler(handler libsck.HandlerFunc) (scksrv.ServerUnixGram,
 
 // startServer starts server and waits for it to be running
 func startServer(srv scksrv.ServerUnixGram, ctx context.Context) {
-	go func() {
-		_ = srv.Listen(ctx)
-	}()
-
-	// Wait for server to start
-	Eventually(func() bool {
-		return srv.IsRunning()
-	}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
+	startServerInBackground(ctx, srv)
+	waitForServer(srv, 5*time.Second)
 }
 
 // stopServer stops server and waits for it to stop
 func stopServer(srv scksrv.ServerUnixGram, cancel context.CancelFunc) {
-	cancel()
-
-	Eventually(func() bool {
-		return !srv.IsRunning()
-	}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
+	if cancel != nil {
+		cancel()
+	}
+	waitForServerStopped(srv, 2*time.Second)
 }
 
 // sendUnixgramDatagram sends a Unix datagram to socket path
@@ -434,19 +546,9 @@ func (c *customUpdateConn) getConn() net.Conn {
 
 // assertServerState checks server state
 func assertServerState(srv scksrv.ServerUnixGram, expectedRunning, expectedGone bool, expectedConns int64) {
-	Expect(srv.IsRunning()).To(Equal(expectedRunning),
-		fmt.Sprintf("Expected IsRunning=%v", expectedRunning))
-	Expect(srv.IsGone()).To(Equal(expectedGone),
-		fmt.Sprintf("Expected IsGone=%v", expectedGone))
-	Expect(srv.OpenConnections()).To(Equal(expectedConns),
-		fmt.Sprintf("Expected OpenConnections=%d", expectedConns))
-}
-
-// cleanupSocketFile removes socket file if it exists
-func cleanupSocketFile(sockPath string) {
-	if sockPath != "" {
-		_ = os.Remove(sockPath)
-	}
+	Expect(srv.IsRunning()).To(Equal(expectedRunning))
+	Expect(srv.IsGone()).To(Equal(expectedGone))
+	Expect(srv.OpenConnections()).To(Equal(expectedConns))
 }
 
 // fileExists checks if file exists

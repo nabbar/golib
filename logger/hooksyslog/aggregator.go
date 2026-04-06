@@ -32,6 +32,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -59,6 +60,7 @@ var (
 	// and the value is the corresponding sysAgg instance. This allows multiple
 	// hooks pointing to the same destination to share a single network connection.
 	agg = libatm.NewMapTyped[string, *sysAgg]()
+	mxa = sync.Mutex{}
 )
 
 // init sets up a finalizer for the global aggregator map.
@@ -101,7 +103,7 @@ func setKey(ptc libptc.NetworkProtocol, adr string) string {
 // setAgg retrieves or creates a shared aggregator for a given syslog endpoint.
 // If an aggregator for the endpoint already exists, its reference count is incremented.
 // Otherwise, a new aggregator and its underlying network connection are created.
-func setAgg(ptc libptc.NetworkProtocol, adr string) (io.Writer, bool, error) {
+func setAgg(ptc libptc.NetworkProtocol, adr string, bsz int) (io.Writer, bool, error) {
 	k := setKey(ptc, adr)
 	i, l := agg.Load(k)
 
@@ -111,8 +113,21 @@ func setAgg(ptc libptc.NetworkProtocol, adr string) (io.Writer, bool, error) {
 		return i.a, i.l, nil
 	}
 
+	// use unic process to store new aggregator file
+
+	mxa.Lock()
+	defer mxa.Unlock()
+
+	i, l = agg.Load(k)
+
+	if l && i != nil {
+		i.i.Add(1)
+		agg.Store(k, i)
+		return i.a, i.l, nil
+	}
+
 	var e error
-	i, e = newAgg(ptc, adr)
+	i, e = newAgg(ptc, adr, bsz)
 
 	if e != nil {
 		return nil, false, e
@@ -144,7 +159,7 @@ func delAgg(ptc libptc.NetworkProtocol, adr string) {
 // newAgg creates a new sysAgg instance, including the network client and the
 // buffered writer. It establishes the initial connection and starts the
 // aggregator's background processing goroutine.
-func newAgg(ptc libptc.NetworkProtocol, adr string) (*sysAgg, error) {
+func newAgg(ptc libptc.NetworkProtocol, adr string, bsz int) (*sysAgg, error) {
 	i := &sysAgg{
 		i: new(atomic.Int64),
 		w: nil,
@@ -159,6 +174,10 @@ func newAgg(ptc libptc.NetworkProtocol, adr string) (*sysAgg, error) {
 			return nil, err
 		}
 		i.l = true
+	}
+
+	if bsz < 1024 {
+		bsz = 8 * 1024 // 8 kB standard log size
 	}
 
 	c, e := sckclt.New(sckcfg.Client{
@@ -196,6 +215,7 @@ func newAgg(ptc libptc.NetworkProtocol, adr string) (*sysAgg, error) {
 				return c.Write(p)
 			}
 		},
+		BufMaxSize: bsz,
 	})
 
 	if e != nil {
@@ -214,6 +234,19 @@ func newAgg(ptc libptc.NetworkProtocol, adr string) (*sysAgg, error) {
 		_ = a.Close()
 		_ = c.Close()
 		return nil, e
+	}
+
+	for u := 0; u < 100; u++ {
+		if a.IsRunning() {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if !a.IsRunning() {
+		_ = a.Close()
+		_ = c.Close()
+		return nil, fmt.Errorf("cannot start writer")
 	}
 
 	i.w = c
