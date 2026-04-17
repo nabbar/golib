@@ -42,10 +42,7 @@ func (o *hks) IsRunning() bool {
 // This method blocks until the provided context is canceled or the hook is closed.
 // It's typically run in a separate goroutine.
 //
-// Parameters:
-//   - ctx: Context for cancellation and timeout control
-//
 // The method will automatically clean up resources when the context is done.
-func (o *hks) Run(ctx context.Context) {
+func (o *hks) Run(_ context.Context) {
 	o.r.Store(true)
 }

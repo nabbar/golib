@@ -45,7 +45,6 @@ import (
 	"sync"
 	"time"
 
-	logcfg "github.com/nabbar/golib/logger/config"
 	logfil "github.com/nabbar/golib/logger/hookfile"
 	"github.com/sirupsen/logrus"
 
@@ -90,13 +89,7 @@ var _ = Describe("Integration Tests", func() {
 		// The hook should detect this and create a new file at the original path.
 
 		// Create initial log file with CreatePath enabled for rotation support
-		opts := logcfg.OptionsFile{
-			Filepath:   testLogFile,
-			CreatePath: true, // Required for rotation detection and file recreation
-			Create:     true, // Required for automatic file creation after rotation
-		}
-
-		hook, err := logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
+		hook, err := logfil.New(getOptions(testLogFile), &logrus.TextFormatter{DisableTimestamp: true})
 		Expect(err).NotTo(HaveOccurred())
 		defer func() {
 			if hook != nil {
@@ -194,13 +187,8 @@ var _ = Describe("Integration Tests", func() {
 		for i := 0; i < numHooks; i++ {
 			files[i] = filepath.Join(tempIntDir, "nested", "dir", fmt.Sprintf("hook_%d.log", i))
 
-			opts := logcfg.OptionsFile{
-				Filepath:   files[i],
-				CreatePath: true,
-			}
-
 			var err error
-			hooks[i], err = logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
+			hooks[i], err = logfil.New(getOptions(files[i]), &logrus.TextFormatter{DisableTimestamp: true})
 			Expect(err).NotTo(HaveOccurred())
 		}
 
@@ -246,11 +234,8 @@ var _ = Describe("Integration Tests", func() {
 		// This test verifies that the hook respects the configured log levels
 		// and only writes entries matching those levels to the file.
 
-		opts := logcfg.OptionsFile{
-			Filepath:   testLogFile,
-			CreatePath: true,
-			LogLevel:   []string{"error", "warning"}, // Only error and warning levels
-		}
+		opts := getOptions(testLogFile)
+		opts.LogLevel = []string{"error", "warning"} // Only error and warning levels
 
 		hook, err := logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
 		Expect(err).NotTo(HaveOccurred())
@@ -259,7 +244,7 @@ var _ = Describe("Integration Tests", func() {
 		var buf bytes.Buffer
 		logger := logrus.New()
 		logger.SetOutput(&buf)
-		logger.AddHook(hook)
+		hook.RegisterHook(logger)
 
 		// Log at different levels with proper data fields
 		// IMPORTANT: The Message field is ignored by the formatter.
@@ -315,17 +300,12 @@ var _ = Describe("Integration Tests", func() {
 			numLogs       = 100
 		)
 
-		opts := logcfg.OptionsFile{
-			Filepath:   testLogFile,
-			CreatePath: true,
-		}
-
-		hook, err := logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
+		hook, err := logfil.New(getOptions(testLogFile), &logrus.TextFormatter{DisableTimestamp: true})
 		Expect(err).NotTo(HaveOccurred())
 
 		logger := logrus.New()
 		logger.SetOutput(io.Discard)
-		logger.AddHook(hook)
+		hook.RegisterHook(logger)
 
 		var wg sync.WaitGroup
 		wg.Add(numGoroutines)
@@ -385,13 +365,10 @@ var _ = Describe("Integration Tests", func() {
 	})
 
 	It("should filter fields correctly", func() {
-		opts := logcfg.OptionsFile{
-			Filepath:         testLogFile,
-			CreatePath:       true,
-			DisableStack:     true,
-			DisableTimestamp: true,
-			EnableTrace:      true,
-		}
+		opts := getOptions(testLogFile)
+		opts.DisableStack = true
+		opts.DisableTimestamp = true
+		opts.EnableTrace = true
 
 		hook, err := logfil.New(opts, &logrus.TextFormatter{DisableTimestamp: true})
 		Expect(err).NotTo(HaveOccurred())
@@ -399,6 +376,7 @@ var _ = Describe("Integration Tests", func() {
 
 		logger := logrus.New()
 		logger.SetOutput(io.Discard)
+		hook.RegisterHook(logger)
 
 		entry := logrus.NewEntry(logger)
 		entry.Level = logrus.InfoLevel
@@ -432,11 +410,8 @@ var _ = Describe("Integration Tests", func() {
 	It("should handle access log with newline in message", func() {
 		accessLogFile := filepath.Join(tempIntDir, "access.log")
 
-		opts := logcfg.OptionsFile{
-			Filepath:        accessLogFile,
-			CreatePath:      true,
-			EnableAccessLog: true,
-		}
+		opts := getOptions(accessLogFile)
+		opts.EnableAccessLog = true
 
 		hook, err := logfil.New(opts, nil)
 		Expect(err).NotTo(HaveOccurred())

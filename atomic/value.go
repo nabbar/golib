@@ -30,52 +30,93 @@ import (
 	"sync/atomic"
 )
 
-// val is the internal implementation of Value[T] interface.
-// It wraps sync/atomic.Value with type-safe operations and default value support.
+// val is the internal implementation of the Value[T] interface.
+//
+// # PERFORMANCE ARCHITECTURE
+//
+// This structure wraps sync/atomic.Value to provide type safety via generics. To address
+// the overhead of zero-value detection and default value injection, it implements a
+// "tiered access" model designed for maximum throughput.
+//
+// Internal State:
+// - av (*atomic.Value): The primary storage for the current value.
+// - dl (*atomic.Value): Storage for the default value returned by Load() when empty.
+// - ds (*atomic.Value): Storage for the default value to replace zero-values during Store().
+// - bl (*atomic.Bool): A high-performance flag; true if a default load value is set.
+// - bs (*atomic.Bool): A high-performance flag; true if a default store value is set.
+//
+// Access Logic:
+//   - Fast Path (No Defaults): If bl and bs are false, the implementation uses direct type
+//     assertions on the native sync/atomic operations. This path is extremely fast.
+//   - Validation Path (Defaults Set): If either flag is true, the implementation invokes
+//     the Cast[T] utility to handle zero-value detection and default value replacement.
 type val[T any] struct {
-	av *atomic.Value // atomic value of T
-	dl *atomic.Value // default value for load
-	ds *atomic.Value // default value for store
+	av *atomic.Value // Underlying atomic storage for the main value.
+	dl *atomic.Value // Storage for the default value returned by Load().
+	ds *atomic.Value // Storage for the default value used during Store().
+	bl *atomic.Bool  // Performance flag: true if a default load value is configured.
+	bs *atomic.Bool  // Performance flag: true if a default store value is configured.
 }
 
-// SetDefaultLoad configures the default value returned by Load when the atomic value is empty.
-// This allows graceful handling of uninitialized values.
+// SetDefaultLoad configures the default value returned by Load() when the container is empty.
+// Once called, the internal performance flag 'bl' is set to true, and all subsequent
+// Load() calls will include the cost of zero-value validation.
 func (o *val[T]) SetDefaultLoad(def T) {
-	o.dl.Store(newDefault[T](def))
+	o.dl.Store(def)
+	o.bl.Store(true)
 }
 
-// SetDefaultStore configures the default value used to replace empty values in Store operations.
-// This enables automatic substitution of zero/empty values with a meaningful default.
+// SetDefaultStore configures the default value used to replace zero-values during Store().
+// Once called, the internal performance flag 'bs' is set to true, and all subsequent
+// Store() calls will perform an IsEmpty check on the input value.
 func (o *val[T]) SetDefaultStore(def T) {
-	o.ds.Store(newDefault[T](def))
+	o.ds.Store(def)
+	o.bs.Store(true)
 }
 
-// getDefault retrieves and unwraps a default value from the atomic storage.
-// Returns the zero value of T if the stored value cannot be cast to defaultValue[T].
-func (o *val[T]) getDefault(i any) T {
-	if v, k := Cast[defaultValue[T]](i); !k {
-		var tmp T
-		return tmp
-	} else {
-		return v.GetDefault()
-	}
-}
-
-// getDefaultLoad returns the configured default value for Load operations.
+// getDefaultLoad retrieves the configured default value for Load operations.
+// It uses a direct type assertion for maximum performance inside the validation path.
 func (o *val[T]) getDefaultLoad() T {
-	return o.getDefault(o.dl.Load())
+	if v, k := o.dl.Load().(T); k {
+		return v
+	}
+	var tmp T
+	return tmp
 }
 
-// getDefaultStore returns the configured default value for Store operations.
+// getDefaultStore retrieves the configured default value for Store operations.
 func (o *val[T]) getDefaultStore() T {
-	return o.getDefault(o.ds.Load())
+	if v, k := o.ds.Load().(T); k {
+		return v
+	}
+	var tmp T
+	return tmp
 }
 
 // Load retrieves the current value atomically.
-// Returns the configured default load value if the atomic value is empty or cannot be cast to T.
-// This operation is lock-free and safe for concurrent access.
+//
+// Logic Flow:
+// 1. Call native atomic.Value.Load().
+// 2. Fast Path Check: If no default load is set (o.bl == false), perform direct type
+//    assertion and return.
+// 3. Validation Path: If a default is set, use Cast[T] to verify if the retrieved value
+//    is "empty" (nil, zero scalar, or IsZero() struct). If empty, return the default load value.
 func (o *val[T]) Load() (val T) {
-	if v, k := Cast[T](o.av.Load()); !k {
+	res := o.av.Load()
+
+	// High-performance tiered access: bypass complex logic if no defaults are used.
+	if !o.bl.Load() {
+		if v, k := res.(T); k {
+			return v
+		}
+		var tmp T
+		return tmp
+	}
+
+	// Validation path: Ensure the value is not "empty" before returning.
+	if v, k := res.(T); !k {
+		return o.getDefaultLoad()
+	} else if _, casted := Cast[T](v); !casted {
 		return o.getDefaultLoad()
 	} else {
 		return v
@@ -83,43 +124,66 @@ func (o *val[T]) Load() (val T) {
 }
 
 // Store sets the value atomically.
-// If the provided value is empty (as determined by IsEmpty), the configured default store value is used instead.
-// This operation is lock-free and safe for concurrent access.
+//
+// Logic Flow:
+// 1. If a default store value is set (o.bs == true), check if 'val' is empty via IsEmpty[T].
+// 2. If 'val' is empty, store the configured default store value instead.
+// 3. Otherwise, store 'val' as-is without any additional validation overhead.
 func (o *val[T]) Store(val T) {
-	if IsEmpty[T](val) {
+	if o.bs.Load() && IsEmpty[T](val) {
 		o.av.Store(o.getDefaultStore())
 	} else {
 		o.av.Store(val)
 	}
 }
 
-// Swap atomically stores the new value and returns the old value.
-// If the new value is empty, the configured default store value is used instead.
-// Returns the default load value if the old value cannot be cast to T.
-// This operation is lock-free and safe for concurrent access.
+// Swap atomically stores the new value and returns the old one.
+//
+// This operation combines the logic of both Load and Store while maintaining
+// atomicity. It respects the tiered performance model for both the input value
+// (new) and the returned value (old).
 func (o *val[T]) Swap(new T) (old T) {
-	if IsEmpty[T](new) {
+	// Pre-process new value if default store is enabled.
+	if o.bs.Load() && IsEmpty[T](new) {
 		new = o.getDefaultStore()
 	}
 
-	if v, k := Cast[T](o.av.Swap(new)); !k {
+	// Perform atomic swap on the underlying storage.
+	res := o.av.Swap(new)
+
+	// Post-process old value if default load is enabled.
+	if !o.bl.Load() {
+		if v, k := res.(T); k {
+			return v
+		}
+		var tmp T
+		return tmp
+	}
+
+	if v, k := res.(T); !k {
+		return o.getDefaultLoad()
+	} else if _, casted := Cast[T](v); !casted {
 		return o.getDefaultLoad()
 	} else {
 		return v
 	}
 }
 
-// CompareAndSwap atomically compares the current value with old and, if they match, stores new.
-// Returns true if the swap was successful, false otherwise.
-// Empty values for old or new are replaced with the configured default store value.
-// This operation is lock-free and safe for concurrent access.
+// CompareAndSwap performs an atomic compare-and-swap operation.
+//
+// Logic Flow:
+// 1. If default store is enabled, both 'old' and 'new' parameters are validated
+//    against their zero-values and replaced by the default if necessary.
+// 2. Invoke the native sync/atomic.Value.CompareAndSwap for atomicity.
 func (o *val[T]) CompareAndSwap(old, new T) (swapped bool) {
-	if IsEmpty[T](old) {
-		old = o.getDefaultStore()
-	}
+	if o.bs.Load() {
+		if IsEmpty[T](old) {
+			old = o.getDefaultStore()
+		}
 
-	if IsEmpty[T](new) {
-		new = o.getDefaultStore()
+		if IsEmpty[T](new) {
+			new = o.getDefaultStore()
+		}
 	}
 
 	return o.av.CompareAndSwap(old, new)

@@ -34,7 +34,7 @@
 //   - errors_test.go: Error handling and edge case tests
 //   - metrics_test.go: Monitoring metrics (NbWaiting, NbProcessing, etc.) tests
 //   - coverage_test.go: Code coverage and atomic testing
-//   - benchmark_test.go: Performance benchmarks using gmeasure
+//   - benchmark_test.go: Standard Go performance benchmarks
 //   - example_test.go: Executable examples for GoDoc
 //
 // The tests use Ginkgo/Gomega for BDD-style testing and achieve >80% code coverage.

@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	iotagg "github.com/nabbar/golib/ioutils/aggregator"
@@ -40,23 +41,16 @@ func ExampleNew() {
 	ctx := context.Background()
 
 	// Create a simple in-memory writer
-	var mu sync.Mutex
-	var data [][]byte
-
-	writer := func(p []byte) (int, error) {
-		mu.Lock()
-		defer mu.Unlock()
-		// Make a copy to avoid data races
-		buf := make([]byte, len(p))
-		copy(buf, p)
-		data = append(data, buf)
-		return len(p), nil
-	}
+	var data = new(atomic.Uint32)
 
 	// Configure the aggregator
 	cfg := iotagg.Config{
 		BufWriter: 10,
-		FctWriter: writer,
+		FctWriter: func(p []byte) (int, error) {
+			data.Add(1)
+			time.Sleep(5 * time.Millisecond)
+			return len(p), nil
+		},
 	}
 
 	// Create and start aggregator
@@ -72,17 +66,22 @@ func ExampleNew() {
 	}
 	defer agg.Close()
 
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	// Write some data
 	agg.Write([]byte("Hello"))
 	agg.Write([]byte("World"))
 
 	// Give time for processing
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(time.Second)
+	for agg.NbWaiting() > 0 || agg.NbProcessing() > 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Check results
-	mu.Lock()
-	fmt.Printf("Received %d writes\n", len(data))
-	mu.Unlock()
+	fmt.Printf("Received %d writes\n", data.Load())
 
 	// Output:
 	// Received 2 writes
@@ -120,6 +119,10 @@ func ExampleNew_fileWriter() {
 	}
 	defer agg.Close()
 
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	// Multiple concurrent writes (thread-safe)
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
@@ -132,7 +135,7 @@ func ExampleNew_fileWriter() {
 	}
 
 	wg.Wait()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	fmt.Println("File written successfully")
 	// Output:
@@ -165,8 +168,12 @@ func ExampleConfig_asyncCallback() {
 	agg.Start(ctx)
 	defer agg.Close()
 
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	// Let it run for a bit
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(300 * time.Millisecond)
 
 	mu.Lock()
 	fmt.Printf("Async function called %d times\n", count)
@@ -179,6 +186,7 @@ func ExampleConfig_asyncCallback() {
 func ExampleConfig_syncCallback() {
 	ctx := context.Background()
 
+	var mu sync.Mutex
 	var flushCount int
 
 	cfg := iotagg.Config{
@@ -186,10 +194,11 @@ func ExampleConfig_syncCallback() {
 		FctWriter: func(p []byte) (int, error) {
 			return len(p), nil
 		},
-		SyncTimer: 100 * time.Millisecond,
+		SyncTimer: 50 * time.Millisecond,
 		SyncFct: func(ctx context.Context) {
-			// Simulating a flush operation
+			mu.Lock()
 			flushCount++
+			mu.Unlock()
 		},
 	}
 
@@ -197,12 +206,24 @@ func ExampleConfig_syncCallback() {
 	agg.Start(ctx)
 	defer agg.Close()
 
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	// Write some data and wait
 	agg.Write([]byte("data1"))
 	agg.Write([]byte("data2"))
-	time.Sleep(250 * time.Millisecond)
 
+	time.Sleep(300 * time.Millisecond)
+	for agg.NbWaiting() > 0 && agg.NbProcessing() > 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	agg.Close()
+
+	mu.Lock()
 	fmt.Printf("Flush called %d times\n", flushCount)
+	mu.Unlock()
 	// Output varies based on timing
 }
 
@@ -222,12 +243,12 @@ func ExampleAggregator_IsRunning() {
 	fmt.Printf("Before Start: %v\n", agg.IsRunning())
 
 	agg.Start(ctx)
-	time.Sleep(50 * time.Millisecond) // Give it time to start
+	time.Sleep(100 * time.Millisecond) // Give it time to start
 
 	fmt.Printf("After Start: %v\n", agg.IsRunning())
 
 	agg.Close()
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	fmt.Printf("After Close: %v\n", agg.IsRunning())
 
@@ -258,17 +279,35 @@ func ExampleAggregator_Restart() {
 	agg.Start(ctx)
 	defer agg.Close()
 
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	// Write some data
 	agg.Write([]byte("before restart"))
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
+
+	for agg.NbWaiting() > 0 && agg.NbProcessing() > 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Restart
 	agg.Restart(ctx)
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
+
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Write after restart
 	agg.Write([]byte("after restart"))
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
+
+	for agg.NbWaiting() > 0 && agg.NbProcessing() > 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	agg.Close()
 
 	mu.Lock()
 	fmt.Printf("Total writes: %d\n", writeCount)
@@ -291,6 +330,11 @@ func ExampleAggregator_contextCancellation() {
 
 	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
+	time.Sleep(100 * time.Millisecond)
+
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Write some data
 	_, err := agg.Write([]byte("data1"))
@@ -298,7 +342,7 @@ func ExampleAggregator_contextCancellation() {
 
 	// Cancel context
 	cancel()
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 
 	// Try to write after cancellation
 	_, err = agg.Write([]byte("data2"))
@@ -326,7 +370,12 @@ func ExampleAggregator_errorHandling() {
 
 	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
+	time.Sleep(100 * time.Millisecond)
 	defer agg.Close()
+
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Successful write
 	_, err := agg.Write([]byte("success"))
@@ -336,7 +385,7 @@ func ExampleAggregator_errorHandling() {
 	_, err = agg.Write([]byte("fail"))
 	fmt.Printf("Fail write error: %v\n", err)
 
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	fmt.Println("Errors are logged internally")
 
@@ -351,14 +400,14 @@ func ExampleAggregator_errorHandling() {
 func ExampleAggregator_monitoring() {
 	ctx := context.Background()
 
-	var processedCount int
 	var mu sync.Mutex
+	var processedCount int
 
 	// Slow writer to create backpressure
 	cfg := iotagg.Config{
 		BufWriter: 5, // Small buffer to demonstrate monitoring
 		FctWriter: func(p []byte) (int, error) {
-			time.Sleep(50 * time.Millisecond) // Simulate slow I/O
+			time.Sleep(100 * time.Millisecond) // Simulate slow I/O
 			mu.Lock()
 			processedCount++
 			mu.Unlock()
@@ -368,7 +417,12 @@ func ExampleAggregator_monitoring() {
 
 	agg, _ := iotagg.New(ctx, cfg)
 	agg.Start(ctx)
+	time.Sleep(100 * time.Millisecond)
 	defer agg.Close()
+
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Start writing in background
 	var wg sync.WaitGroup
@@ -382,7 +436,7 @@ func ExampleAggregator_monitoring() {
 	}
 
 	// Monitor the aggregator state
-	time.Sleep(25 * time.Millisecond)
+	time.Sleep(50 * time.Millisecond)
 
 	waiting := agg.NbWaiting()
 	processing := agg.NbProcessing()
@@ -411,7 +465,7 @@ func ExampleAggregator_monitoring() {
 	fmt.Printf("  - Memory pressure: %v\n", totalMemory > 1024)
 
 	wg.Wait()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	// After processing completes
 	fmt.Printf("After processing:\n")
@@ -422,7 +476,6 @@ func ExampleAggregator_monitoring() {
 }
 
 // Example_socketToFile demonstrates aggregating socket data to a file.
-// This is a common use case with github.com/nabbar/golib/socket/server.
 func Example_socketToFile() {
 	ctx := context.Background()
 
@@ -437,11 +490,10 @@ func Example_socketToFile() {
 
 	// Create aggregator to serialize writes to file
 	cfg := iotagg.Config{
-		BufWriter: 1000, // Buffer up to 1000 socket reads
+		BufWriter: 1000,
 		FctWriter: tmpFile.Write,
 		SyncTimer: 5 * time.Second,
 		SyncFct: func(ctx context.Context) {
-			// Periodic file sync
 			tmpFile.Sync()
 		},
 	}
@@ -458,20 +510,23 @@ func Example_socketToFile() {
 	}
 	defer agg.Close()
 
+	for !agg.IsRunning() {
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	// Simulate multiple socket connections writing concurrently
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func(connID int) {
 			defer wg.Done()
-			// Simulate reading from socket
 			data := fmt.Sprintf("Data from connection %d\n", connID)
 			agg.Write([]byte(data))
 		}(i)
 	}
 
 	wg.Wait()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	fmt.Println("Socket data aggregated to file")
 	// Output:

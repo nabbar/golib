@@ -30,6 +30,7 @@ package size
 import (
 	"fmt"
 	"math"
+	"strconv"
 )
 
 const (
@@ -50,14 +51,6 @@ const (
 	FormatRound3 = "%.3f"
 )
 
-var (
-	// _maxFloat64 is the maximum uint64 value that can be represented as a float64.
-	_maxFloat64 = uint64(math.Ceil(math.MaxFloat64))
-
-	// _maxFloat32 is the maximum uint64 value that can be represented as a float32.
-	_maxFloat32 = uint64(math.Ceil(math.MaxFloat32))
-)
-
 // String returns a human-readable string representation of the Size.
 //
 // The method automatically selects the most appropriate unit (B, KB, MB, GB, TB, PB, EB)
@@ -71,13 +64,11 @@ var (
 //	size := size.ParseUint64(1024)
 //	fmt.Println(size.String()) // Output: "1.00 KB"
 func (s Size) String() string {
-	u := s.Unit(0)
-
-	if len(u) > 0 {
+	if u := s.Unit(0); len(u) > 0 {
 		return s.Format(FormatRound2) + _space + u
-	} else {
-		return s.Format(FormatRound2)
 	}
+
+	return s.Format(FormatRound2)
 }
 
 // Int64 converts the Size to an int64 value representing bytes.
@@ -192,12 +183,7 @@ func (s Size) Uint() uint {
 //	size := size.ParseUint64(1048576)
 //	fmt.Println(size.Float64()) // Output: 1048576.0
 func (s Size) Float64() float64 {
-	if i := uint64(s); i > _maxFloat64 {
-		// overflow
-		return math.MaxFloat64
-	} else {
-		return float64(i)
-	}
+	return float64(s)
 }
 
 // Float32 converts the Size to a float32 value representing bytes.
@@ -210,12 +196,12 @@ func (s Size) Float64() float64 {
 //	size := size.ParseUint64(1024)
 //	fmt.Println(size.Float32()) // Output: 1024.0
 func (s Size) Float32() float32 {
-	if i := uint64(s); i > _maxFloat32 {
+	if s.Float64() > float64(math.MaxFloat32) {
 		// overflow
 		return math.MaxFloat32
-	} else {
-		return float32(i)
 	}
+
+	return float32(s)
 }
 
 // Format returns a formatted string representation of the Size using the specified format.
@@ -233,22 +219,42 @@ func (s Size) Float32() float32 {
 //
 // Note: This method returns only the numeric part. Use String() to include the unit.
 func (s Size) Format(format string) string {
+	var (
+		val float64
+		div int
+	)
+
 	switch {
-	case SizeExa.isMax(s):
-		return fmt.Sprintf(format, s.sizeByUnit(SizeExa))
-	case SizePeta.isMax(s):
-		return fmt.Sprintf(format, s.sizeByUnit(SizePeta))
-	case SizeTera.isMax(s):
-		return fmt.Sprintf(format, s.sizeByUnit(SizeTera))
-	case SizeGiga.isMax(s):
-		return fmt.Sprintf(format, s.sizeByUnit(SizeGiga))
-	case SizeMega.isMax(s):
-		return fmt.Sprintf(format, s.sizeByUnit(SizeMega))
-	case SizeKilo.isMax(s):
-		return fmt.Sprintf(format, s.sizeByUnit(SizeKilo))
+	case SizeExa < s:
+		val = s.Float64() / SizeExa.Float64()
+	case SizePeta < s:
+		val = s.Float64() / SizePeta.Float64()
+	case SizeTera < s:
+		val = s.Float64() / SizeTera.Float64()
+	case SizeGiga < s:
+		val = s.Float64() / SizeGiga.Float64()
+	case SizeMega < s:
+		val = s.Float64() / SizeMega.Float64()
+	case SizeKilo < s:
+		val = s.Float64() / SizeKilo.Float64()
 	default:
-		return fmt.Sprintf(format, s.sizeByUnit(SizeUnit))
+		val = s.Float64() / SizeUnit.Float64()
 	}
+
+	switch format {
+	case FormatRound0:
+		return strconv.FormatUint(uint64(math.Round(val)), 10)
+	case FormatRound1:
+		div = 1
+	case FormatRound2:
+		div = 2
+	case FormatRound3:
+		div = 3
+	default:
+		return fmt.Sprintf(format, val)
+	}
+
+	return strconv.FormatFloat(val, 'f', div, 64)
 }
 
 // Unit returns the unit string for the Size value.
@@ -266,17 +272,17 @@ func (s Size) Format(format string) string {
 // See also: Code() for getting the unit code for predefined Size constants.
 func (s Size) Unit(unit rune) string {
 	switch {
-	case SizeExa.isMax(s):
+	case SizeExa < s:
 		return SizeExa.Code(unit)
-	case SizePeta.isMax(s):
+	case SizePeta < s:
 		return SizePeta.Code(unit)
-	case SizeTera.isMax(s):
+	case SizeTera < s:
 		return SizeTera.Code(unit)
-	case SizeGiga.isMax(s):
+	case SizeGiga < s:
 		return SizeGiga.Code(unit)
-	case SizeMega.isMax(s):
+	case SizeMega < s:
 		return SizeMega.Code(unit)
-	case SizeKilo.isMax(s):
+	case SizeKilo < s:
 		return SizeKilo.Code(unit)
 	default:
 		return SizeUnit.Code(unit)
@@ -293,7 +299,7 @@ func (s Size) Unit(unit rune) string {
 //	size := size.ParseUint64(2048) // 2 KB
 //	fmt.Println(size.KiloBytes())   // Output: 2
 func (s Size) KiloBytes() uint64 {
-	return s.floorByUnit(SizeKilo)
+	return uint64(math.Floor(s.Float64() / SizeKilo.Float64()))
 }
 
 // MegaBytes returns the size in megabytes (MB), floored to the nearest whole number.
@@ -306,7 +312,7 @@ func (s Size) KiloBytes() uint64 {
 //	size := size.ParseUint64(2097152) // 2 MB
 //	fmt.Println(size.MegaBytes())      // Output: 2
 func (s Size) MegaBytes() uint64 {
-	return s.floorByUnit(SizeMega)
+	return uint64(math.Floor(s.Float64() / SizeMega.Float64()))
 }
 
 // GigaBytes returns the size in gigabytes (GB), floored to the nearest whole number.
@@ -319,7 +325,7 @@ func (s Size) MegaBytes() uint64 {
 //	size := size.ParseUint64(2147483648) // 2 GB
 //	fmt.Println(size.GigaBytes())         // Output: 2
 func (s Size) GigaBytes() uint64 {
-	return s.floorByUnit(SizeGiga)
+	return uint64(math.Floor(s.Float64() / SizeGiga.Float64()))
 }
 
 // TeraBytes returns the size in terabytes (TB), floored to the nearest whole number.
@@ -329,7 +335,7 @@ func (s Size) GigaBytes() uint64 {
 //	size := size.ParseUint64(1649267441664) // 1.5 TB
 //	fmt.Println(size.TeraBytes())            // Output: 1
 func (s Size) TeraBytes() uint64 {
-	return s.floorByUnit(SizeTera)
+	return uint64(math.Floor(s.Float64() / SizeTera.Float64()))
 }
 
 // PetaBytes returns the size in petabytes (PB), floored to the nearest whole number.
@@ -339,7 +345,7 @@ func (s Size) TeraBytes() uint64 {
 //	size := size.ParseUint64(1688849860263936) // 1.5 PB
 //	fmt.Println(size.PetaBytes())               // Output: 1
 func (s Size) PetaBytes() uint64 {
-	return s.floorByUnit(SizePeta)
+	return uint64(math.Floor(s.Float64() / SizePeta.Float64()))
 }
 
 // ExaBytes returns the size in exabytes (EB), floored to the nearest whole number.
@@ -349,5 +355,5 @@ func (s Size) PetaBytes() uint64 {
 //	size := size.ParseUint64(1729382256910270464) // 1.5 EB
 //	fmt.Println(size.ExaBytes())                   // Output: 1
 func (s Size) ExaBytes() uint64 {
-	return s.floorByUnit(SizeExa)
+	return uint64(math.Floor(s.Float64() / SizeExa.Float64()))
 }

@@ -26,9 +26,53 @@
  *
  */
 
-// helper_test.go provides shared test utilities and helper functions.
-// Includes server configuration creation, connection helpers, test socket path
-// management, and common handler implementations used across all test files.
+// Package unix_test provides shared utilities and constants for all test files in the unix server package.
+//
+// # helper_test.go: Testing Infrastructure and Utilities
+//
+// This file centralizes the creation of mock handlers, configuration generators, and connection
+// management helpers. It is designed to minimize code duplication across the test suite and
+// provide a consistent environment for both functional and performance testing.
+//
+// # Key Components:
+//
+// ## 1. Resource Pooling for Tests
+//   - `bufPool`: A `sync.Pool` that manages 256KB byte slices. This is used by handlers in
+//     benchmarks and stress tests to avoid memory allocations, ensuring that results
+//     reflect the server's overhead rather than test-setup noise.
+//
+// ## 2. Standardized Handlers
+//   - `echoHandler`: The most common handler, bit-for-bit echoing received data.
+//   - `counterHandler`: Increments an atomic counter on every new connection.
+//   - `slowHandler`: Introduces a configurable delay to simulate slow I/O or processing.
+//   - `closeHandler`: Immediately closes connections to test rapid turnover.
+//
+// ## 3. Configuration Generators
+//   - `createDefaultConfig`: Generates a standard Unix configuration with owner-only permissions.
+//   - `createConfigWithIdleTimeout`: Specifically configures the server for idle detection testing.
+//
+// ## 4. Connection Helpers
+//   - `connectToServer`: A wrapper around `net.Dial` with built-in Ginkgo assertions and timeouts.
+//   - `sendAndReceive`: Synchronously sends data and waits for an identical response.
+//   - `waitForServerAcceptingConnections`: A polling helper that ensures the server is physically
+//     ready to accept clients before the test logic proceeds.
+//
+// ## 5. Lifecycle Helpers
+//   - `startServerInBackground`: Launches the server's `Listen` loop in a separate goroutine.
+//   - `cleanupSocketFile`: Safely removes temporary test sockets from the filesystem.
+//
+// # Use Case (Common Pattern):
+//
+//	BeforeEach(func() {
+//	    path := getTestSocketPath()
+//	    srv, _ := scksru.New(nil, echoHandler, createDefaultConfig(path))
+//	    startServerInBackground(ctx, srv)
+//	    waitForServerAcceptingConnections(path, time.Second)
+//	})
+//
+// # Performance Note:
+// The use of constants for error messages and the large `bufferSize` (256KB) ensures that
+// even the benchmark handlers are representative of high-throughput production scenarios.
 package unix_test
 
 import (
@@ -38,6 +82,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -52,23 +97,53 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+const (
+	// bufferSize defines the buffer size used in handlers to minimize syscalls (256KB)
+	bufferSize = 256 * 1024
+
+	// String constants for socket paths
+	socketPattern = "test-unix-%d.sock"
+
+	// Error and log messages
+	errConnect      = "failed to connect to server: %v"
+	errWriteData    = "failed to write data: %v"
+	errReadData     = "failed to read data: %v"
+	errCreateServer = "failed to create server: %v"
+	errStartServer  = "server failed to start"
+	errWaitAccept   = "Timeout waiting for server to accept connections at %s after %v"
+	errWriteLen     = "wrote %d bytes, expected %d"
+	errReadLen      = "read %d bytes, expected %d"
+
+	msgEchoLatency = "benchmark message for echo latency"
+	msgConcurrent  = "concurrent client message"
+)
+
+var (
+	// Pool for benchmark buffers to avoid allocations
+	bufPool = sync.Pool{
+		New: func() interface{} {
+			return make([]byte, bufferSize)
+		},
+	}
+)
+
 // getTestSocketPath returns a unique temporary socket file path for testing.
 // The socket file is automatically created in the OS temp directory with a unique name.
 // The caller is responsible for cleaning up the socket file after use.
 func getTestSocketPath() string {
 	tdr := os.TempDir()
-	return filepath.Join(tdr, fmt.Sprintf("test-unix-%d.sock", time.Now().UnixNano()))
+	return filepath.Join(tdr, fmt.Sprintf(socketPattern, time.Now().UnixNano()))
 }
 
-// echoHandler is a simple echo handler for testing.
-// It reads data from the connection and writes it back unchanged.
-// Used for basic connectivity and data transfer tests.
+// echoHandler is a simple echo handler for testing (optimized with pool)
 func echoHandler(c libsck.Context) {
 	defer func() {
 		_ = c.Close()
 	}()
 
-	buf := make([]byte, 1024)
+	buf := bufPool.Get().([]byte)
+	defer bufPool.Put(buf)
+
 	for {
 		n, err := c.Read(buf)
 		if err != nil {
@@ -84,6 +159,11 @@ func echoHandler(c libsck.Context) {
 	}
 }
 
+// echoHandlerBench is an optimized echo handler for benchmarking (alias to echoHandler)
+func echoHandlerBench(c libsck.Context) {
+	echoHandler(c)
+}
+
 // counterHandler counts connections and echoes data back.
 // Used for testing connection tracking and counting.
 func counterHandler(cnt *atomic.Int32) libsck.HandlerFunc {
@@ -93,7 +173,9 @@ func counterHandler(cnt *atomic.Int32) libsck.HandlerFunc {
 		}()
 		cnt.Add(1)
 
-		buf := make([]byte, 1024)
+		buf := bufPool.Get().([]byte)
+		defer bufPool.Put(buf)
+
 		for {
 			n, err := c.Read(buf)
 			if err != nil {
@@ -119,7 +201,9 @@ func slowHandler(dly time.Duration) libsck.HandlerFunc {
 		}()
 
 		time.Sleep(dly)
-		buf := make([]byte, 1024)
+		buf := bufPool.Get().([]byte)
+		defer bufPool.Put(buf)
+
 		for {
 			n, err := c.Read(buf)
 			if err != nil {
@@ -160,7 +244,9 @@ func readOnlyHandler(c libsck.Context) {
 		_ = c.Close()
 	}()
 
-	buf := make([]byte, 1024)
+	buf := bufPool.Get().([]byte)
+	defer bufPool.Put(buf)
+
 	for {
 		_, err := c.Read(buf)
 		if err != nil {
@@ -194,6 +280,10 @@ func createConfigWithPerms(socketPath string, perm uint32, gid int32) sckcfg.Ser
 // createConfigWithIdleTimeout creates a configuration with idle connection timeout.
 // Used for testing idle timeout behavior and automatic connection cleanup.
 func createConfigWithIdleTimeout(socketPath string, timeout time.Duration) sckcfg.Server {
+	if timeout < time.Second {
+		timeout = time.Second
+	}
+
 	return sckcfg.Server{
 		Network:        libptc.NetworkUnix,
 		Address:        socketPath,
@@ -277,11 +367,13 @@ func waitForServerAcceptingConnections(socketPath string, timeout time.Duration)
 	for {
 		select {
 		case <-tmr.C:
-			Fail(fmt.Sprintf("Timeout waiting for server to accept connections at %s after %v", socketPath, timeout))
+			Fail(fmt.Sprintf(errWaitAccept, socketPath, timeout))
 			return
 		case <-tck.C:
 			if c, e := net.DialTimeout(libptc.NetworkUnix.Code(), socketPath, 100*time.Millisecond); e == nil {
 				_ = c.Close()
+				// Wait a bit to let the server-side goroutine finish its processing of this poll connection
+				time.Sleep(100 * time.Millisecond)
 				return
 			}
 		}

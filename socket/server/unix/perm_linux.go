@@ -36,28 +36,27 @@ import (
 	libptc "github.com/nabbar/golib/network/protocol"
 )
 
-// getListen creates and configures the Unix socket listener.
+// getListen creates and configures the Unix socket listener on Linux.
 //
-// The function:
-//  1. Sets umask to apply configured permissions
-//  2. Creates the Unix socket listener with net.Listen()
-//  3. Verifies and corrects file permissions with os.Chmod() if needed
-//  4. Changes file group ownership with os.Chown() if needed
-//  5. Invokes the server info callback with startup message
+// This internal helper is responsible for the actual `net.Listen` call and the
+// subsequent filesystem-level configuration (permissions and ownership).
 //
-// The umask is temporarily modified to ensure correct permissions are applied
-// during socket creation, then restored to the original value.
+// # Linux Specific Logic Hierarchy:
+//  1. Listen: Calls `net.Listen` using the "unix" network protocol.
+//  2. Validation: Verifies that the socket file was physically created.
+//  3. Permissions (`chmod`): Applies the configured POSIX permissions.
+//  4. Ownership (`chown`): Assigns the socket file to the current UID and the configured GID.
+//
+// # Lifecycle:
+//   - If any step fails, the listener is closed, and the error is returned.
+//   - On success, it reports a startup message via the server info callback.
 //
 // Parameters:
-//   - uxf: Unix socket file path
+//   - uxf: The filesystem path for the socket.
 //
 // Returns:
-//   - net.Listener: The active Unix socket listener
-//   - error: Any error during socket creation or configuration
-//
-// This is an internal helper called by Listen().
-//
-// See syscall.Umask, os.Chmod, and os.Chown for permission management.
+//   - net.Listener: The active listener.
+//   - error: Any filesystem or network error encountered.
 func (o *srv) getListen(uxf string) (net.Listener, error) {
 	var (
 		err error
@@ -66,6 +65,7 @@ func (o *srv) getListen(uxf string) (net.Listener, error) {
 		lis net.Listener
 	)
 
+	// Step 1: Create the listener.
 	lis, err = net.Listen(libptc.NetworkUnix.Code(), uxf)
 
 	if err != nil {
@@ -74,16 +74,19 @@ func (o *srv) getListen(uxf string) (net.Listener, error) {
 		return nil, os.ErrNotExist
 	}
 
+	// Step 2: Verify the file's existence in the filesystem.
 	if _, err = os.Stat(uxf); err != nil {
 		_ = lis.Close()
 		return nil, err
 	}
 
+	// Step 3: Set POSIX permissions (e.g., 0600).
 	if err = os.Chmod(uxf, prm.FileMode()); err != nil {
 		_ = lis.Close()
 		return nil, err
 	}
 
+	// Step 4: Set file ownership (current UID, target GID).
 	if err = os.Chown(uxf, syscall.Getuid(), grp); err != nil {
 		_ = lis.Close()
 		return nil, err

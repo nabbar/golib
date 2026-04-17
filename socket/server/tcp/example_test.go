@@ -24,6 +24,22 @@
  *
  */
 
+// Package tcp_test provides runnable examples for the TCP server.
+//
+// # Examples Overview
+//
+// These examples demonstrate how to integrate the TCP server into your application. 
+// They cover everything from a minimal echo server to a full-featured production setup 
+// with TLS, monitoring, and graceful shutdown.
+//
+// # Design Principles for Production
+//
+// When using this server in a production environment, we recommend:
+//   1. Context Propagation: Always pass a context to Listen() to control the server lifecycle.
+//   2. Monitoring: Register callbacks for Error, Info, and InfoServer to gain visibility.
+//   3. Timeouts: Configure ConIdleTimeout to prevent resource exhaustion from leaking clients.
+//   4. TLS: Enable TLS with a secure configuration from the certificates package.
+//   5. Handlers: Use the sCtx structure (passed as libsck.Context) to read and write safely.
 package tcp_test
 
 import (
@@ -40,58 +56,63 @@ import (
 	scksrt "github.com/nabbar/golib/socket/server/tcp"
 )
 
-// Example demonstrates a basic echo server.
-// This is the simplest possible TCP server implementation.
+// Example demonstrates a minimal TCP echo server.
+// This is the simplest possible implementation for development and testing.
 func Example() {
-	// Create handler function that echoes back received data
+	// 1. Define the handler function
 	handler := func(c libsck.Context) {
+		// Ensure connection is closed after the handler exits.
 		defer func() { _ = c.Close() }()
+
 		buf := make([]byte, 1024)
 		for {
+			// Read from the context-aware wrapper.
 			n, err := c.Read(buf)
 			if err != nil {
 				return
 			}
+			// Write received data back (Echo).
 			if n > 0 {
 				_, _ = c.Write(buf[:n])
 			}
 		}
 	}
 
-	// Create server configuration
+	// 2. Create server configuration
 	cfg := sckcfg.Server{
 		Network: libptc.NetworkTCP,
 		Address: ":8080",
 	}
 
-	// Create server
+	// 3. Instantiate the server
 	srv, err := scksrt.New(nil, handler, cfg)
 	if err != nil {
 		panic(err)
 	}
 
-	// Start server
+	// 4. Start listening in a background goroutine
 	ctx := context.Background()
 	go func() {
 		_ = srv.Listen(ctx)
 	}()
 
-	// Wait for server to start
+	// Wait briefly for the listener to bind.
 	time.Sleep(100 * time.Millisecond)
 
-	// Shutdown after demonstration
+	// 5. Gracefully shutdown the server.
 	_ = srv.Shutdown(ctx)
 	// Output:
 }
 
-// Example_complete demonstrates a production-ready server with all features.
-// This example shows error handling, monitoring, graceful shutdown, and logging.
+// Example_complete demonstrates a robust, production-ready TCP server.
+// This example includes error handling, connection monitoring, and graceful shutdown.
 func Example_complete() {
-	// Handler with proper error handling
+	// Advanced handler with activity check
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
 
 		buf := make([]byte, 4096)
+		// Use IsConnected() to check the socket state in a loop.
 		for c.IsConnected() {
 			n, err := c.Read(buf)
 			if err != nil {
@@ -106,7 +127,7 @@ func Example_complete() {
 		}
 	}
 
-	// Create configuration with idle timeout
+	// Configure with a 5-minute idle timeout (centralized management).
 	cfg := sckcfg.Server{
 		Network:        libptc.NetworkTCP,
 		Address:        ":8081",
@@ -120,7 +141,7 @@ func Example_complete() {
 		return
 	}
 
-	// Register monitoring callbacks
+	// Register monitoring callbacks for observability
 	srv.RegisterFuncError(func(errs ...error) {
 		for _, e := range errs {
 			fmt.Printf("Server error: %v\n", e)
@@ -131,7 +152,7 @@ func Example_complete() {
 		fmt.Printf("Connection %s from %s\n", state, remote)
 	})
 
-	// Start server
+	// Start server with context support
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -141,11 +162,20 @@ func Example_complete() {
 		}
 	}()
 
-	// Wait for server to be ready
-	time.Sleep(50 * time.Millisecond)
+	// Active polling for server readiness
+	for i := 0; i < 25; i++ {
+		if srv.IsRunning() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !srv.IsRunning() {
+		fmt.Println("Server not started")
+	}
+
 	fmt.Printf("Server running with %d connections\n", srv.OpenConnections())
 
-	// Graceful shutdown
+	// Shutdown with a specific timeout for connection draining
 	shutdownCtx, shutdownCancel := context.WithTimeout(
 		context.Background(), 10*time.Second)
 	defer shutdownCancel()
@@ -160,17 +190,16 @@ func Example_complete() {
 	// Server stopped gracefully
 }
 
-// ExampleNew demonstrates creating a TCP server
+// ExampleNew shows how to initialize a server and handle initial validation errors.
 func ExampleNew() {
-	// Define connection handler
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
-		_, _ = io.Copy(c, c) // Echo
+		_, _ = io.Copy(c, c)
 	}
 
-	// Create configuration
+	// Note: Providing a non-TCP protocol will fail validation for scksrt.New
 	cfg := sckcfg.Server{
-		Network: libptc.NetworkUDP,
+		Network: libptc.NetworkTCP,
 		Address: ":9000",
 	}
 
@@ -186,7 +215,7 @@ func ExampleNew() {
 	// Output: Server created successfully
 }
 
-// ExampleServerTcp_Listen demonstrates starting a server
+// ExampleServerTcp_Listen shows how to start the listener loop in the background.
 func ExampleServerTcp_Listen() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
@@ -218,7 +247,7 @@ func ExampleServerTcp_Listen() {
 	// Output: Server is running
 }
 
-// ExampleServerTcp_Shutdown demonstrates graceful shutdown
+// ExampleServerTcp_Shutdown shows how to perform a graceful drain of active connections.
 func ExampleServerTcp_Shutdown() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
@@ -237,7 +266,7 @@ func ExampleServerTcp_Shutdown() {
 
 	time.Sleep(50 * time.Millisecond)
 
-	// Graceful shutdown
+	// Shutdown blocks until all connections are finished or the context expires.
 	err := srv.Shutdown(ctx)
 	if err == nil {
 		fmt.Println("Server shut down successfully")
@@ -245,7 +274,7 @@ func ExampleServerTcp_Shutdown() {
 	// Output: Server shut down successfully
 }
 
-// ExampleServerTcp_RegisterFuncError demonstrates error callback registration
+// ExampleServerTcp_RegisterFuncError shows how to capture server-level errors asynchronously.
 func ExampleServerTcp_RegisterFuncError() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
@@ -257,7 +286,7 @@ func ExampleServerTcp_RegisterFuncError() {
 	}
 	srv, _ := scksrt.New(nil, handler, cfg)
 
-	// Register error callback
+	// Error callback is triggered for port binding issues, handshake errors, etc.
 	srv.RegisterFuncError(func(errs ...error) {
 		for _, err := range errs {
 			if err != nil {
@@ -271,7 +300,7 @@ func ExampleServerTcp_RegisterFuncError() {
 	// Output: Error callback registered
 }
 
-// ExampleServerTcp_RegisterFuncInfo demonstrates connection info callback
+// ExampleServerTcp_RegisterFuncInfo shows how to monitor connection New/Close events.
 func ExampleServerTcp_RegisterFuncInfo() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
@@ -283,7 +312,7 @@ func ExampleServerTcp_RegisterFuncInfo() {
 	}
 	srv, _ := scksrt.New(nil, handler, cfg)
 
-	// Register info callback
+	// Info callback provides observability for connection status.
 	srv.RegisterFuncInfo(func(local, remote net.Addr, state libsck.ConnState) {
 		fmt.Printf("Connection event: %s on %s->(%s)%s\n", state, remote, local.Network(), local.String())
 	})
@@ -293,7 +322,7 @@ func ExampleServerTcp_RegisterFuncInfo() {
 	// Output: Info callback registered
 }
 
-// ExampleServerTcp_OpenConnections demonstrates connection tracking
+// ExampleServerTcp_OpenConnections shows how to query the current connection count.
 func ExampleServerTcp_OpenConnections() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
@@ -313,6 +342,7 @@ func ExampleServerTcp_OpenConnections() {
 
 	time.Sleep(50 * time.Millisecond)
 
+	// Returns the current value of the atomic connection counter.
 	count := srv.OpenConnections()
 	fmt.Printf("Active connections: %d\n", count)
 
@@ -320,7 +350,7 @@ func ExampleServerTcp_OpenConnections() {
 	// Output: Active connections: 0
 }
 
-// ExampleServerTcp_SetTLS demonstrates TLS configuration
+// ExampleServerTcp_SetTLS shows how to dynamically enable or update TLS settings.
 func ExampleServerTcp_SetTLS() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
@@ -332,7 +362,7 @@ func ExampleServerTcp_SetTLS() {
 	}
 	srv, _ := scksrt.New(nil, handler, cfg)
 
-	// Disable TLS (or configure with certificates)
+	// SetTLS can be used to update certificates or disable encryption before Listen.
 	err := srv.SetTLS(false, nil)
 	if err == nil {
 		fmt.Println("TLS configuration updated")
@@ -342,7 +372,7 @@ func ExampleServerTcp_SetTLS() {
 	// Output: TLS configuration updated
 }
 
-// ExampleServerTcp_IsRunning demonstrates checking server status
+// ExampleServerTcp_IsRunning shows how to check if the server is actively listening.
 func ExampleServerTcp_IsRunning() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
@@ -375,11 +405,11 @@ func ExampleServerTcp_IsRunning() {
 	// Server is now running
 }
 
-// ExampleServerTcp_idleTimeout demonstrates idle connection timeout
+// ExampleServerTcp_idleTimeout shows how inactivity thresholds are enforced.
 func ExampleServerTcp_idleTimeout() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
-		// Handler that doesn't read/write (connection will idle)
+		// Connection remains idle. The idlemgr will terminate it.
 		time.Sleep(200 * time.Millisecond)
 	}
 
@@ -402,9 +432,9 @@ func ExampleServerTcp_idleTimeout() {
 	// Output: Server with idle timeout running
 }
 
-// ExampleNew_withUpdateConn demonstrates custom connection configuration
+// ExampleNew_withUpdateConn shows how to tune low-level socket options.
 func ExampleNew_withUpdateConn() {
-	// UpdateConn callback to configure TCP keepalive
+	// Use UpdateConn for advanced OS-level tuning.
 	upd := func(c net.Conn) {
 		if tcpConn, ok := c.(*net.TCPConn); ok {
 			_ = tcpConn.SetKeepAlive(true)
@@ -432,7 +462,7 @@ func ExampleNew_withUpdateConn() {
 	// Output: Server with custom connection config created
 }
 
-// ExampleServerTcp_monitoring demonstrates complete monitoring setup
+// ExampleServerTcp_monitoring shows a full setup of observability callbacks.
 func ExampleServerTcp_monitoring() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
@@ -444,7 +474,7 @@ func ExampleServerTcp_monitoring() {
 	}
 	srv, _ := scksrt.New(nil, handler, cfg)
 
-	// Register all callbacks
+	// Register all available notification hooks.
 	srv.RegisterFuncError(func(errs ...error) {
 		fmt.Println("Error callback registered")
 	})
@@ -462,9 +492,8 @@ func ExampleServerTcp_monitoring() {
 	// Output: All monitoring callbacks configured
 }
 
-// ExampleNew_simpleProtocol demonstrates a simple line-based protocol
+// ExampleNew_simpleProtocol shows a line-based TCP server implementation.
 func ExampleNew_simpleProtocol() {
-	// Handler for a simple line-based protocol (newline-delimited)
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
 
@@ -475,7 +504,7 @@ func ExampleNew_simpleProtocol() {
 				return
 			}
 
-			// Echo each line back
+			// Process and response logic (Echo for simplicity)
 			if n > 0 {
 				_, _ = c.Write(buf[:n])
 			}
@@ -498,7 +527,7 @@ func ExampleNew_simpleProtocol() {
 	// Output: Line-based protocol server created
 }
 
-// ExampleServerTcp_contextValues demonstrates using context values
+// ExampleServerTcp_contextValues shows how to use the context for request-scoped data.
 func ExampleServerTcp_contextValues() {
 	type contextKey string
 	const userIDKey contextKey = "userID"
@@ -506,7 +535,7 @@ func ExampleServerTcp_contextValues() {
 	handler := func(c libsck.Context) {
 		defer func() { _ = c.Close() }()
 
-		// Access context value
+		// The context wrapper (sCtx) delegates Value() calls to the parent context.
 		if userID := c.Value(userIDKey); userID != nil {
 			fmt.Printf("Processing request for user: %v\n", userID)
 		}

@@ -28,345 +28,198 @@ package ticker
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	libatm "github.com/nabbar/golib/atomic"
 	errpol "github.com/nabbar/golib/errors/pool"
-	"github.com/nabbar/golib/runner"
+	librun "github.com/nabbar/golib/runner"
 )
 
 const (
-	// pollStopWait is the maximum time to wait for cleanup after stopping.
-	// This duration uses exponential backoff to allow the ticker goroutine
-	// to complete its cleanup operations.
-	pollStopWait = 2 * time.Second
+	// pollChange is the internal duration used to poll the state change request.
+	// It ensures that even if the main ticker has a very long duration (e.g., hours),
+	// a stop request will be processed within a few milliseconds.
+	pollChange = 5 * time.Millisecond
 
-	// defaultDuration is the fallback duration used when an invalid duration
-	// (less than 1 millisecond) is provided to New().
+	// pollState is the duration of the sleep interval during busy-wait loops
+	// in the Start and Stop methods. It determines the responsiveness of the
+	// synchronization between the caller and the background goroutine.
+	pollState = 5 * time.Microsecond
+
+	// defaultDuration is used when a ticker is initialized with an invalid
+	// or dangerously short duration (less than 1ms).
 	defaultDuration = 30 * time.Second
 )
 
-// ErrInvalid indicates an operation was attempted on an invalid or nil ticker instance.
-var ErrInvalid = errors.New("invalid instance")
-
-// run is the internal implementation of the Ticker interface.
-// It manages the lifecycle of a ticker-based periodic execution.
-//
-// Fields:
-//   - m: Mutex protecting Start/Stop/Restart operations to prevent concurrent state changes
-//   - e: Error pool for collecting errors from the ticker function
-//   - t: Atomic storage for the start time (zero value indicates not running)
-//   - n: Atomic storage for the cancellation function of the current context
-//   - f: The user-provided function to execute on each tick
-//   - d: The duration between ticks
+// run is the concrete implementation of the Ticker interface.
+// It manages the execution lifecycle of a function called at regular intervals
+// while maintaining state consistency via an internal Finite State Machine (FSM).
 type run struct {
-	m sync.Mutex                       // mutex to start / stop
-	e errpol.Pool                      // error collection pool
-	t libatm.Value[time.Time]          // start time (zero = not running)
-	n libatm.Value[context.CancelFunc] // context cancellation function
+	// m is a mutual exclusion lock that protects the Start and Stop methods.
+	// This ensures that only one lifecycle transition occurs at a time,
+	// preventing multiple goroutines from starting or stopping the runner simultaneously.
+	m sync.Mutex
 
-	f runner.FuncTicker // user function to execute
-	d time.Duration     // tick interval
+	// e is an error pool that captures every error returned by the ticker function.
+	// It allows for asynchronous error collection without interrupting the ticker loop.
+	e errpol.Pool
+
+	// t stores the exact time the runner entered the 'running' state.
+	// It is used by the Uptime() method to calculate how long the runner has been active.
+	t libatm.Value[time.Time]
+
+	// n stores the context's cancel function for the current execution loop.
+	// When the runner is stopped, this function is called to signal the main loop
+	// and any long-running ticker functions to terminate.
+	n libatm.Value[context.CancelFunc]
+
+	// s is a pointer to an atomic unsigned integer representing the current state.
+	// Using atomic operations on this field allows for thread-safe state checks
+	// (IsRunning, getState) without the overhead of a mutex.
+	s *atomic.Uint32
+
+	// f is the user-provided function that is executed on every tick.
+	f librun.FuncTicker
+
+	// d is the configured interval between executions of the ticker function.
+	d time.Duration
+
+	// k is the standard Go timer that triggers the execution of the ticker function.
+	k *time.Ticker
+
+	// w is a secondary timer used to poll for state changes and context cancellations
+	// more frequently than the main tick interval.
+	w *time.Ticker
 }
 
-// Uptime returns the duration since the ticker was started.
-// Returns 0 if the ticker is not currently running.
-//
-// This method is safe for concurrent use and uses atomic operations
-// to read the start time without locks.
-func (o *run) Uptime() time.Duration {
-	if i := o.t.Load(); i.IsZero() {
-		return 0
-	} else {
-		return time.Since(i)
-	}
-}
-
-// IsRunning returns true if the ticker is currently running.
-// It checks if the uptime is greater than zero.
-//
-// This method is safe for concurrent use.
-func (o *run) IsRunning() bool {
-	return o.Uptime() > 0
-}
-
-// Restart stops the ticker if running and immediately starts it again.
-// This is equivalent to calling Stop() followed by Start(), but atomic.
-//
-// Parameters:
-//   - ctx: The context for the new ticker instance. Must not be nil.
-//
-// Returns an error if:
-//   - ctx is nil
-//   - the stop or start operations fail
-//
-// The method is protected by a mutex to ensure atomicity.
-// Any panic during restart is recovered and logged.
-func (o *run) Restart(ctx context.Context) error {
-	defer func() {
-		if r := recover(); r != nil {
-			runner.RecoveryCaller("golib/server/ticker/restart", r)
-		}
-	}()
-
-	if ctx == nil {
-		return fmt.Errorf("invalid nil context")
+// deMuxStop handles the internal sequence to initiate a stop.
+// It sets the state to reqStop and cancels the current context.
+// This method is called internally by Stop() after acquiring the mutex.
+func (o *run) deMuxStop() {
+	// If already stopped, no action is needed.
+	if o.getState() == stopped {
+		return
 	}
 
-	o.m.Lock()
-	defer o.m.Unlock()
+	// Signal the background loop to stop via the FSM.
+	o.setState(reqStop)
 
-	// Cancel any existing context
+	// Signal the background loop to stop via context cancellation.
 	o.cancel()
-
-	// Stop if running
-	if e := o.deMuxStop(ctx); e != nil {
-		return e
-	}
-
-	// Start fresh instance
-	return o.deMuxStart(ctx)
 }
 
-// Stop stops the ticker if it is currently running.
-// This method is idempotent - calling Stop() on an already stopped ticker is safe.
-//
-// Parameters:
-//   - ctx: Context for the stop operation (not used for timeout, but required
-//     by the Runner interface)
-//
-// Returns an error if:
-//   - ctx is nil
-//   - the stop operation fails
-//
-// The method waits for the ticker goroutine to complete cleanup using
-// exponential backoff polling, up to pollStopWait duration.
-// Any panic during stop is recovered and logged.
-func (o *run) Stop(ctx context.Context) error {
-	defer func() {
-		if r := recover(); r != nil {
-			runner.RecoveryCaller("golib/server/ticker/stop", r)
-		}
-	}()
-
-	if ctx == nil {
-		return fmt.Errorf("invalid nil context")
-	}
-
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	// Already stopped - this is not an error
-	if !o.IsRunning() {
-		return nil
-	}
-
-	return o.deMuxStop(ctx)
-}
-
-// Start starts the ticker to begin executing the function at regular intervals.
-// If the ticker is already running, it will be stopped and restarted.
-//
-// Parameters:
-//   - ctx: The context that controls the ticker's lifetime. When this context
-//     is cancelled, the ticker will stop automatically. Must not be nil.
-//
-// Returns an error if:
-//   - ctx is nil
-//   - the start operation fails
-//
-// The ticker function will be called repeatedly with the interval specified in New().
-// Errors from the function are collected and can be retrieved via ErrorsLast() or ErrorsList().
-// Any panic during start is recovered and logged.
-//
-// Thread-safety: This method is protected by a mutex and safe for concurrent use.
-func (o *run) Start(ctx context.Context) error {
-	defer func() {
-		if r := recover(); r != nil {
-			runner.RecoveryCaller("golib/server/ticker/start", r)
-		}
-	}()
-
-	if ctx == nil {
-		return fmt.Errorf("invalid nil context")
-	}
-
-	o.m.Lock()
-	defer o.m.Unlock()
-
-	// Stop any existing instance before starting new one
-	if o.IsRunning() {
-		_ = o.deMuxStop(ctx)
-	}
-
-	return o.deMuxStart(ctx)
-}
-
-// ErrorsLast returns the most recent error collected from the ticker function.
-// Returns nil if no errors have occurred or if all function calls returned nil.
-//
-// This method is safe for concurrent use.
-func (o *run) ErrorsLast() error {
-	return o.e.Last()
-}
-
-// ErrorsList returns all errors collected from the ticker function.
-// The slice contains errors in the order they were collected.
-// Returns an empty slice if no errors have occurred.
-//
-// Note: This returns a snapshot of errors at the time of the call.
-// The ticker function may add more errors after this call returns.
-//
-// This method is safe for concurrent use.
-func (o *run) ErrorsList() []error {
-	return o.e.Slice()
-}
-
-// deMuxStop performs the internal stop operation without holding the mutex.
-// It cancels the ticker's context and waits for the goroutine to complete cleanup.
-//
-// The method uses exponential backoff polling to wait for the ticker goroutine
-// to finish, starting with 1ms and doubling up to 10ms intervals.
-// It gives up after pollStopWait (2 seconds) to prevent indefinite blocking.
-//
-// This method must be called while holding o.m lock.
-func (o *run) deMuxStop(ctx context.Context) error {
-	// Cancel the context to signal the ticker goroutine to stop
-	o.cancel()
-
-	// Wait for the ticker goroutine to complete its cleanup
-	// by checking if the uptime has been cleared (polling with exponential backoff)
-	waitTime := time.Millisecond
-	totalWait := time.Duration(0)
-
-	for o.IsRunning() && totalWait < pollStopWait {
-		time.Sleep(waitTime)
-		totalWait += waitTime
-		// Exponential backoff with max of 10ms per sleep
-		if waitTime < 10*time.Millisecond {
-			waitTime *= 2
-		}
-	}
-
-	return nil
-}
-
-// deMuxStart performs the internal start operation without holding the mutex.
-// It clears previous errors, starts a new goroutine for the ticker, and waits
-// for the goroutine to initialize.
-//
-// The goroutine:
-//   - Creates a time.Ticker with the configured duration
-//   - Records the start time atomically
-//   - Loops until context is cancelled, executing the user function on each tick
-//   - Cleans up resources (stops ticker, clears start time) on exit
-//   - Recovers from any panics to prevent process crashes
-//
-// This method must be called while holding o.m lock.
-func (o *run) deMuxStart(ctx context.Context) error {
-	// Clear previous errors before starting fresh
+// deMuxStart prepares the environment and launches the main ticker loop in a new goroutine.
+// It resets errors and timers before starting the background process.
+func (o *run) deMuxStart() {
+	// Clear any previous errors before a new start.
 	o.e.Clear()
 
-	// Launch ticker goroutine with a new cancellable context
-	go func(x context.Context) {
-		var tck = time.NewTicker(o.d)
+	// Set initial starting state.
+	o.setState(started)
 
-		defer func() {
-			// Recover from any panic to prevent process crash
-			if r := recover(); r != nil {
-				runner.RecoveryCaller("golib/server/ticker/deMuxStart", r)
-			}
-		}()
-
-		defer func() {
-			// Always clean up resources
-			tck.Stop()
-			o.cancel()
-			// Clear start time to signal we're no longer running
-			o.t.Store(time.Time{})
-		}()
-
-		// Record start time atomically
-		o.t.Store(time.Now())
-
-		// Main ticker loop
-		for {
-			select {
-			case <-x.Done():
-				// Context cancelled - exit gracefully
-				return
-			case <-tck.C:
-				// Tick received - execute user function
-				o.getFunction(x, tck)
-			}
-		}
-	}(o.newCancel(ctx))
-
-	// Wait for goroutine to initialize (start time to be set)
-	// This ensures Start() returns only after the ticker is actually running
-	for ctx.Err() == nil && !o.IsRunning() {
-		time.Sleep(3 * time.Millisecond)
+	// Initialize or reset the execution ticker.
+	if o.k == nil {
+		o.k = time.NewTicker(o.d)
+	} else {
+		o.k.Reset(o.d)
 	}
 
-	return nil
+	// Initialize or reset the state polling ticker.
+	if o.w == nil {
+		o.w = time.NewTicker(pollChange)
+	} else {
+		o.w.Reset(pollChange)
+	}
+
+	// Start the main execution loop in its own goroutine.
+	go func(ctx context.Context, tck *time.Ticker, chg *time.Ticker) {
+		// Panic recovery for the main loop to prevent crashing the entire application.
+		defer func() {
+			if r := recover(); r != nil {
+				librun.RecoveryCaller("golib/server/ticker/deMuxStart", r)
+			}
+		}()
+
+		// Ensure the state is set to 'stopped' when this goroutine exits.
+		defer o.setState(stopped)
+
+		// Final cleanup: reset uptime and ensure context is canceled.
+		defer func() {
+			o.t.Store(time.Time{})
+			o.cancel()
+		}()
+
+		// Mark the official start time and transition to 'running'.
+		o.t.Store(time.Now())
+		o.setState(running)
+
+		// Main control loop.
+		for {
+			// Check if a stop request was made via the FSM.
+			if o.getState() == reqStop {
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				// Exit if the context was canceled.
+				return
+			case <-chg.C:
+				// Regular check for stop request on the polling ticker.
+				if o.getState() == reqStop {
+					return
+				}
+			case <-tck.C:
+				// A tick occurred: execute the ticker function.
+				o.runFunc(ctx, tck)
+			}
+		}
+	}(o.newCancel(), o.k, o.w)
 }
 
-// getFunction executes the user-provided ticker function and collects any error.
-// Panics in the user function are recovered to prevent the ticker from crashing.
-//
-// Parameters:
-//   - ctx: The ticker's context (will be cancelled on Stop)
-//   - tck: The underlying time.Ticker
-func (o *run) getFunction(ctx context.Context, tck *time.Ticker) {
+// runFunc executes the ticker function 'f' with a recovery wrapper.
+// It ensures that a panic in the user-provided function doesn't stop the entire ticker loop.
+// All returned errors are added to the internal error pool.
+func (o *run) runFunc(ctx context.Context, tck librun.TickUpdate) {
 	defer func() {
-		// Recover from any panic in the user function
-		// This ensures one bad tick doesn't kill the entire ticker
+		// Recovery mechanism to catch panics within the user's ticker function.
 		if r := recover(); r != nil {
-			runner.RecoveryCaller("golib/server/ticker/getFunction", r)
+			librun.RecoveryCaller("golib/server/ticker/runFunc", r)
 		}
 	}()
 
-	// Execute the user function and collect any error
-	// Nil errors are handled gracefully by the error pool
+	// Execute the function and record any returned error.
 	o.e.Add(o.f(ctx, tck))
 }
 
-// cancel calls the stored cancel function to cancel the current running context.
-// This is thread-safe and idempotent.
+// cancel executes the cancel function of the current execution context.
+// It is safe to call even if the runner was never started.
 func (o *run) cancel() {
 	if o == nil || o.n == nil {
 		return
 	} else if n := o.n.Load(); n != nil {
+		// Trigger the cancellation of the background loop's context.
 		n()
 	}
 }
 
-// newCancel creates a new cancellable context and stores its cancel function.
-// It also cancels any previously stored context to ensure clean state transitions.
-// Returns the new context that will be passed to the start function.
-func (o *run) newCancel(ctx context.Context) context.Context {
-	if o == nil || o.n == nil {
-		// Fallback for invalid state - return a context that expires immediately
-		var n context.CancelFunc
+// newCancel creates a new cancelable context based on context.Background().
+// It stores the new cancel function in the 'run' struct atomically.
+// If a previous cancel function existed, it is called to ensure resources are freed.
+func (o *run) newCancel() context.Context {
+	x, n := context.WithCancel(context.Background())
 
-		ctx, n = context.WithCancel(context.Background())
+	if o != nil && o.n != nil {
+		// Swap the old cancel function with the new one.
+		if old := o.n.Swap(n); old != nil {
+			// Cancel the previous context if it was still active.
+			old()
+		}
+	} else {
+		// Fallback for improperly initialized structures.
 		n()
-
-		return ctx
-	}
-
-	// Create a new cancellable context from the provided context
-	x, n := context.WithCancel(ctx)
-
-	// Store the new cancel function and retrieve the old one
-	oldCancel := o.n.Swap(n)
-
-	// Cancel the old context if it exists to ensure clean transition
-	if oldCancel != nil {
-		oldCancel()
 	}
 
 	return x

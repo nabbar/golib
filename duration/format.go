@@ -26,8 +26,8 @@
 package duration
 
 import (
-	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	libpid "github.com/nabbar/golib/pidcontroller"
@@ -67,7 +67,7 @@ func (d Duration) String() string {
 
 	if n > 0 {
 		i = i - (time.Duration(n) * 24 * time.Hour)
-		s = fmt.Sprintf("%dd", n)
+		s = strconv.FormatInt(n, 10) + "d"
 	}
 
 	if n < 1 || i > 0 {
@@ -156,6 +156,20 @@ func (d Duration) Uint64() uint64 {
 	} else {
 		return uint64(t)
 	}
+}
+
+// Uint32 returns the duration as an unsigned 32-bit integer.
+// If the duration is negative, it returns the absolute value cast to uint32.
+// Otherwise, it returns the duration cast to uint32.
+func (d Duration) Uint32() uint32 {
+	if t := d.Time(); t > math.MaxUint32 || t < -math.MaxUint32 {
+		return math.MaxUint32
+	} else if t > 0 {
+		return uint32(t)
+	} else if t < 0 {
+		return uint32(-t)
+	}
+	return 0
 }
 
 // Int64 returns the duration as a signed 64-bit integer.

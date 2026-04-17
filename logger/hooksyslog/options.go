@@ -43,27 +43,6 @@ func (o *hks) getLevel() []logrus.Level {
 	return o.o.levels
 }
 
-// getDisableStack returns true if stack field filtering is enabled.
-func (o *hks) getDisableStack() bool {
-	return o.o.disableStack
-}
-
-// getDisableTimestamp returns true if timestamp field filtering is enabled.
-func (o *hks) getDisableTimestamp() bool {
-	return o.o.disableTimestamp
-}
-
-// getEnableTrace returns true if trace fields (caller, file, line) should be kept.
-func (o *hks) getEnableTrace() bool {
-	return o.o.enableTrace
-}
-
-// getEnableAccessLog returns true if access log mode is enabled
-// (write entry.Message instead of formatted fields).
-func (o *hks) getEnableAccessLog() bool {
-	return o.o.enableAccessLog
-}
-
 // getSyslogInfo returns a human-readable description of the syslog configuration.
 // Used in error messages to identify the syslog destination.
 func (o *hks) getSyslogInfo() string {

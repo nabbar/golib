@@ -32,6 +32,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	libsrv "github.com/nabbar/golib/runner"
 	. "github.com/nabbar/golib/runner/ticker"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -81,7 +82,7 @@ var _ = Describe("Error Handling", func() {
 			testErr := errors.New("test error")
 			counter := int32(0)
 
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				atomic.AddInt32(&counter, 1)
 				return testErr
 			})
@@ -112,7 +113,7 @@ var _ = Describe("Error Handling", func() {
 				errors.New("error 3"),
 			}
 
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				idx := int(atomic.AddInt32(&counter, 1) - 1)
 				if idx < len(errors) {
 					return errors[idx]
@@ -136,7 +137,7 @@ var _ = Describe("Error Handling", func() {
 
 		It("should handle nil errors", func() {
 			counter := new(atomic.Uint32)
-			tick := New(10*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(10*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				counter.Add(1)
 				return nil
 			})
@@ -155,12 +156,12 @@ var _ = Describe("Error Handling", func() {
 			// Errors list may contain nils or be empty
 			errList := tick.ErrorsList()
 			// Just verify we can retrieve the list
-			Expect(errList).ToNot(BeNil())
+			Expect(len(errList)).To(BeNumerically("==", 0))
 		})
 
 		It("should clear errors on restart", func() {
 			testErr := errors.New("test error")
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				return testErr
 			})
 
@@ -189,7 +190,7 @@ var _ = Describe("Error Handling", func() {
 			expectedErr := errors.New("last error")
 			counter := int32(0)
 
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				count := atomic.AddInt32(&counter, 1)
 				if count == 3 {
 					return expectedErr
@@ -212,7 +213,7 @@ var _ = Describe("Error Handling", func() {
 		})
 
 		It("should return nil when no errors", func() {
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				return nil
 			})
 
@@ -237,7 +238,7 @@ var _ = Describe("Error Handling", func() {
 	Describe("ErrorsList", func() {
 		It("should return all collected errors", func() {
 			counter := int32(0)
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				atomic.AddInt32(&counter, 1)
 				return errors.New("tick error")
 			})
@@ -257,13 +258,13 @@ var _ = Describe("Error Handling", func() {
 		})
 
 		It("should return empty or nil list when no errors", func() {
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				return nil
 			})
 
 			errList := tick.ErrorsList()
 			// Should return a valid slice (empty or with nil entries)
-			Expect(errList).ToNot(BeNil())
+			Expect(len(errList)).To(BeNumerically("==", 0))
 		})
 	})
 
@@ -290,7 +291,7 @@ var _ = Describe("Error Handling", func() {
 	Describe("Error Patterns", func() {
 		It("should handle intermittent errors", func() {
 			counter := new(atomic.Uint32)
-			tick := New(10*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(10*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				counter.Add(1)
 				if counter.Load()%2 == 0 {
 					return errors.New("even error")
@@ -323,7 +324,7 @@ var _ = Describe("Error Handling", func() {
 		It("should handle wrapped errors", func() {
 			baseErr := errors.New("base error")
 			counter := new(atomic.Uint32)
-			tick := New(10*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(10*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				counter.Add(1)
 				return errors.Join(baseErr, errors.New("additional context"))
 			})
@@ -345,7 +346,7 @@ var _ = Describe("Error Handling", func() {
 		})
 
 		It("should handle context errors", func() {
-			tick := New(10*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(10*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				select {
 				case <-ctx.Done():
 					return ctx.Err()
@@ -378,7 +379,7 @@ var _ = Describe("Error Handling", func() {
 			testErr := errors.New("test error")
 			counter := new(atomic.Uint32)
 
-			tick := New(10*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(10*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				counter.Add(1)
 				if counter.Load() <= 2 {
 					return testErr
@@ -412,7 +413,7 @@ var _ = Describe("Error Handling", func() {
 
 		It("should handle rapid error accumulation", func() {
 			counter := int32(0)
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				atomic.AddInt32(&counter, 1)
 				return errors.New("rapid error")
 			})
@@ -435,7 +436,7 @@ var _ = Describe("Error Handling", func() {
 	Describe("Error Recovery", func() {
 		It("should continue running after errors", func() {
 			counter := int32(0)
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				atomic.AddInt32(&counter, 1)
 				return errors.New("continuous error")
 			})
@@ -459,7 +460,7 @@ var _ = Describe("Error Handling", func() {
 			counter := new(atomic.Uint32)
 			firstErrorSeen := new(atomic.Bool)
 
-			tick := New(250*time.Millisecond, func(ctx context.Context, tck *time.Ticker) error {
+			tick := New(250*time.Millisecond, func(ctx context.Context, tck libsrv.TickUpdate) error {
 				counter.Add(1)
 				if counter.Load() == 1 {
 					firstErrorSeen.Store(true)

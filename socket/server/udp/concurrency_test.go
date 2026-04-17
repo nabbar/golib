@@ -35,6 +35,26 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// # Concurrency and Race Condition Test Suite
+//
+// This suite verifies the "Thread-Safe" claim of the UDP server implementation.
+// It uses hundreds of concurrent goroutines to stress-test the internal
+// atomic state management.
+//
+// # Design Principles Verified:
+//   - Lock-free Read/Write of status flags (IsRunning, IsGone).
+//   - Thread-safe callback registration during active listening.
+//   - Correct behavior of the "Gone" channel broadcast mechanism under load.
+//   - Idempotent Shutdown/Close calls from multiple sources.
+//
+// # Internal Mechanism: Atomic Operations
+//
+// The server relies on sync/atomic for state flags, preventing data races:
+//
+//	[Goroutine A] (Status)      [Goroutine B] (Shutdown)      [Goroutine C] (Callback)
+//	      │                           │                            │
+//	      ▼                           ▼                            ▼
+//	o.run.Load() <─── (Shared) ─── o.gon.Swap(true) <─── (Shared) ─── o.fe.Store(f)
 var _ = Describe("UDP Server Concurrency", func() {
 	var (
 		ctx    context.Context
@@ -53,6 +73,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 	})
 
 	Describe("Concurrent Server Creation", func() {
+		// Ensures no global state prevents parallel server instantiation.
 		It("should handle concurrent New() calls", func() {
 			const numServers = 10
 			var wg sync.WaitGroup
@@ -79,6 +100,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 			}
 		})
 
+		// Stress tests RegisterServer for atomic address updates.
 		It("should handle concurrent RegisterServer calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -112,6 +134,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 	})
 
 	Describe("Concurrent State Access", func() {
+		// Stress tests atomic flag reading while the server is running.
 		It("should handle concurrent IsRunning() calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -140,6 +163,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 			}
 		})
 
+		// Stress tests atomic flag reading for the "Gone" state.
 		It("should handle concurrent IsGone() calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -159,12 +183,13 @@ var _ = Describe("UDP Server Concurrency", func() {
 
 			wg.Wait()
 
-			// All should return false (not gone yet)
+			// All should return true (initial state of a stopped server is gone)
 			for _, gone := range results {
 				Expect(gone).To(BeTrue())
 			}
 		})
 
+		// Stress tests OpenConnections() calls on the stateless server.
 		It("should handle concurrent OpenConnections() calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -195,6 +220,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 	})
 
 	Describe("Concurrent Callback Registration", func() {
+		// Verifies libatm.Value safety when updating callbacks under load.
 		It("should handle concurrent RegisterFuncError calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -278,6 +304,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 	})
 
 	Describe("Concurrent Shutdown", func() {
+		// Verifies the "gnc" channel broadcast: close(ch) must be called exactly once.
 		It("should handle concurrent Shutdown() calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -301,18 +328,13 @@ var _ = Describe("UDP Server Concurrency", func() {
 
 			wg.Wait()
 
-			// All should succeed or return nil
-			for _, err := range results {
-				// Either success or already shutdown
-				_ = err
-			}
-
 			// Server should be stopped
 			Eventually(func() bool {
 				return srv.IsGone()
 			}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
 		})
 
+		// Verifies idempotent Close() calls under load.
 		It("should handle concurrent Close() calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -345,6 +367,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 			}, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
 		})
 
+		// Tests mixed termination strategies.
 		It("should handle mixed Shutdown and Close calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -384,6 +407,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 	})
 
 	Describe("Concurrent Start/Stop Cycles", func() {
+		// Stress tests the "gnc" channel replacement in Listen() across cycles.
 		It("should handle rapid start/stop cycles", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -412,6 +436,7 @@ var _ = Describe("UDP Server Concurrency", func() {
 	})
 
 	Describe("Race Detection", func() {
+		// Global lifecycle stress test designed to trigger the race detector.
 		It("should not have data races with concurrent operations", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)

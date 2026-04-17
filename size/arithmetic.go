@@ -28,8 +28,14 @@
 package size
 
 import (
-	"fmt"
+	"errors"
 	"math"
+)
+
+var (
+	ErrOverFlow   = errors.New("overflow detected, force value to max allowable size")
+	ErrInvalidDiv = errors.New("invalid divisor, only accepts positive float")
+	ErrInvalidSub = errors.New("invalid subtract, force value to min allowable size")
 )
 
 // Mul multiplies a Size by a float64 value.
@@ -49,13 +55,13 @@ func (s *Size) Mul(v float64) {
 // Otherwise, it will set the Size to the result of the multiplication,
 // rounded up to the nearest whole number.
 func (s *Size) MulErr(v float64) error {
-	if m := float64(math.MaxUint64) / v; m < s.Float64() {
+	if flt64Max(float64(math.MaxUint64)/v, s.Float64()) {
 		*s = math.MaxUint64
-		return fmt.Errorf("overflow detected, force value to max allowable size")
-	} else {
-		*s = Size(math.Ceil(s.Float64() * v))
-		return nil
+		return ErrOverFlow
 	}
+
+	*s = Size(math.Ceil(s.Float64() * v))
+	return nil
 }
 
 // Div divides a Size by a float64 value.
@@ -74,7 +80,7 @@ func (s *Size) Div(v float64) {
 // rounded up to the nearest whole number.
 func (s *Size) DivErr(v float64) error {
 	if v <= 0 {
-		return fmt.Errorf("invalid diviser, only accepts positive float")
+		return ErrInvalidDiv
 	}
 
 	*s = Size(math.Ceil(s.Float64() / v))
@@ -98,13 +104,13 @@ func (s *Size) Add(v uint64) {
 // Otherwise, it will set the Size to the result of the addition,
 // rounded up to the nearest whole number.
 func (s *Size) AddErr(v uint64) error {
-	if m := uint64(math.MaxUint64) - v; s.Uint64() > m {
+	if unt64Max(uint64(math.MaxUint64)-v, s.Uint64()) {
 		*s = math.MaxUint64
-		return fmt.Errorf("overflow detected, force value to max allowable size")
-	} else {
-		*s = Size(s.Uint64() + v)
-		return nil
+		return ErrOverFlow
 	}
+
+	*s = Size(s.Uint64() + v)
+	return nil
 }
 
 // Sub subtracts a uint64 value from a Size.
@@ -123,11 +129,19 @@ func (s *Size) Sub(v uint64) {
 //
 // Otherwise, it will set the Size to the result of the subtraction.
 func (s *Size) SubErr(v uint64) error {
-	if v > s.Uint64() {
+	if unt64Max(s.Uint64(), v) {
 		*s = Size(0)
-		return fmt.Errorf("invalid substractor, force value to min allowable size")
+		return ErrInvalidSub
 	}
 
 	*s = Size(s.Uint64() - v)
 	return nil
+}
+
+func flt64Max(a, b float64) bool {
+	return a < b
+}
+
+func unt64Max(a, b uint64) bool {
+	return a < b
 }

@@ -31,146 +31,199 @@ import (
 	"github.com/nabbar/golib/runner"
 )
 
-// Close stops the aggregator and releases all resources.
+// Close shuts down the aggregator and ensures all internal resources are released.
 //
-// This method:
-//  1. Stops the processing goroutine if running
-//  2. Cancels the internal context
-//  3. Closes the write channel
+// Operational Lifecycle:
+//  1. Graceful Shutdown: Invokes Stop() with a background context to terminate the
+//     processing goroutine, timers, and any active callbacks.
+//  2. Resource Releasing: The underlying closeRun hook is triggered by the runner,
+//     which calls cleanup() to deactivate the data channel and contexts.
 //
-// After Close is called, any subsequent Write operations will return
-// ErrClosedResources. Close is idempotent and can be called multiple times safely.
+// Thread-Safety and Idempotency:
+// Multiple calls to Close() are safe. It handles re-entry through the runner's
+// lifecycle state machine, ensuring only one shutdown sequence is executed.
 //
-// Close implements io.Closer and should typically be called with defer:
-//
-//	agg, _ := aggregator.New(ctx, cfg, logger)
-//	agg.Start(ctx)
-//	defer agg.Close()  // Ensures cleanup on function exit
-//
-// The method blocks for up to 100ms waiting for the aggregator to stop gracefully.
+// Implements: io.Closer
 func (o *agg) Close() error {
 	defer func() {
+		// Recovery from panics during close.
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/close", r)
 		}
 	}()
 
+	// Delegate the shutdown process to the runner with a fresh background context.
 	return o.Stop(context.Background())
 }
 
-// closeRun is the internal close function called by the runner.
-// It stops the aggregator, closes the context, and closes the channel.
+// closeRun serves as the standardized internal shutdown entry point for the runner.
+// It performs resource cleanup (context and channel) ensuring no deadlocks occur
+// during the finalization phase.
+//
+// Parameters:
+//   - ctx: Context provided by the runner for shutdown coordination.
 func (o *agg) closeRun(ctx context.Context) error {
 	defer func() {
+		// Recovery from panics during internal runner shutdown.
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/closeRun", r)
 		}
 	}()
 
+	// Decommission operational contexts and data channels.
 	o.cleanup()
 
 	return nil
 }
 
-// Write queues data to be written by the aggregator.
+// Write queues data to the internal aggregator buffer for asynchronous serialization.
 //
-// This method is thread-safe and can be called concurrently from multiple goroutines.
-// The data is buffered in an internal channel and processed sequentially by the
-// aggregator's processing goroutine.
+// Technical Implementation Details:
+//  1. Memory Recycling: Retrieves a pre-allocated byte slice pointer (*[]byte) from
+//     the internal sync.Pool. If the buffer is undersized, it reallocates;
+//     otherwise, it reuses the capacity to avoid heap thrashing and GC pressure.
+//  2. High-Performance Counters: It increments the "waiting" counters (cw, sw) before
+//     attempting the write, providing visibility into producer-side congestion
+//     (backpressure) during buffer saturation.
+//  3. Atomic Pipeline Validation: Resolves the current data channel through an atomic
+//     load. If the channel is decommissioned or the aggregator is stopped, the
+//     write is rejected immediately with ErrClosedResources.
+//  4. Safe Termination: The blocking send respects the aggregator's context
+//     cancellation, ensuring no producer goroutine remains hung during shutdown.
+//
+// Efficiency Note:
+// Using pointers to byte slices (*[]byte) prevents 'convTslice' allocations when
+// sending data through channels, which is critical for achieving high throughput.
 //
 // Parameters:
-//   - p: Byte slice to write. Empty slices (len == 0) are ignored and return (0, nil).
+//   - p: Byte slice to be aggregated. Empty slices (len == 0) are ignored with 0/nil.
 //
 // Returns:
-//   - n: Number of bytes queued (always len(p) if no error)
-//   - err: Error if write failed:
-//   - ErrClosedResources: if aggregator is not running or has been closed
-//   - ErrInvalidInstance: if aggregator's internal state is corrupted
-//   - Context error: if the aggregator's context has been cancelled
+//   - n: Number of bytes successfully queued (always len(p) on success).
+//   - err: ErrClosedResources if the aggregator is not active, context error
+//     if the operation is interrupted, or ErrInvalidInstance on corruption.
 //
-// Write implements io.Writer. The write is non-blocking as long as the internal
-// buffer (Config.BufWriter) is not full. If the buffer is full, Write blocks until
-// space becomes available or the context is cancelled.
-//
-// Example:
-//
-//	n, err := agg.Write([]byte("data from goroutine 1"))
-//	if err != nil {
-//	    log.Printf("write failed: %v", err)
-//	}
-//
-// Note: The aggregator must be started with Start() before calling Write.
+// Implements: io.Writer
 func (o *agg) Write(p []byte) (n int, err error) {
 	defer func() {
+		// Recovery from panics during write operations to prevent crashing producers.
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/write", r)
 		}
 	}()
 
-	// Don't send empty data to channel
+	// Ignore empty writes to optimize the pipeline and avoid useless allocations or counter churn.
 	n = len(p)
 	if n == 0 {
 		return 0, nil
 	}
 
-	// Track this write as waiting (will block if channel is full)
-	o.cntWaitInc(n)
+	// Backpressure Telemetry: Signal that this producer is attempting a write.
+	// We decrement the waiting counters once the write either succeeds or is cancelled.
 	defer o.cntWaitDec(n)
+	o.cntWaitInc(n)
 
-	// Check if channel is open
+	// Validate current operational state using a fast atomic load of the 'op' flag.
 	if !o.op.Load() {
 		return 0, ErrClosedResources
-	} else if c := o.ch.Load(); c == nil {
-		return 0, ErrInvalidInstance
-	} else if c == closedChan {
+	}
+
+	// Resolve the current data channel through the atomic value container.
+	c := o.ch.Load()
+	if c == nil || c == closedChan {
+		// The data pipeline is decommissioned; reject all writes.
 		return 0, ErrClosedResources
-	} else if o.Err() != nil {
-		return 0, o.Err()
-	} else {
-		// Increment processing counter before sending to channel
+	}
+
+	// Check for any ongoing cancellation errors in the aggregator's context before allocating memory.
+	if err = o.Err(); err != nil {
+		return 0, err
+	}
+
+	// 1. Efficient Buffer Allocation Strategy:
+	// Obtain a recycled buffer from the pool and copy the input data into it.
+	// This ensures that the caller can safely modify their 'p' slice after Write returns.
+	pCpy := o.getBuffer(n)
+	copy(*pCpy, p)
+
+	// 2. Data Ingestion:
+	select {
+	case c <- pCpy:
+		// Data successfully accepted into the internal channel.
+		// Update processing telemetry counters.
 		o.cntDataInc(n)
-
-		// Send to channel (may block if buffer is full)
-		// using new slice to prevent reset params slice p
-		pCpy := make([]byte, n)
-		copy(pCpy, p)
-
-		c <- pCpy
-		return len(p), nil
+		return n, nil
+	case <-o.Done():
+		// The aggregator is being stopped or its context was cancelled.
+		// Return the allocated buffer to the pool to prevent a memory leak.
+		o.bp.Put(pCpy)
+		return 0, o.Err()
 	}
 }
 
-// chanData returns the read-only channel for consuming write data.
-// This is used internally by the processing goroutine in the run() loop.
-// Returns closedChan sentinel if the channel is not initialized or has been closed.
-func (o *agg) chanData() <-chan []byte {
+// getBuffer manages the high-performance sync.Pool for pointers to byte slices (*[]byte).
+//
+// Efficiency Strategy:
+//  1. Pooling: Attempts to reuse an existing pointer and its underlying byte slice array.
+//  2. Resizing: If the reused slice's capacity is smaller than 'n', it discards it
+//     and allocates a new appropriately sized buffer. This balance minimizes heap
+//     allocations while avoiding memory fragmentation or huge buffers for small data.
+//  3. Pointer Usage: Using pointers (*[]byte) is critical to prevent the Go runtime
+//     from performing 'convTslice' conversions when data crosses interface or
+//     channel boundaries, which would cause heap allocations and GC pressure.
+//
+// Parameters:
+//   - n: The required minimum capacity (length) for the data buffer.
+//
+// Returns:
+//   - *[]byte: A pointer to a byte slice with at least length 'n'.
+func (o *agg) getBuffer(n int) *[]byte {
+	var pCpy *[]byte
+
+	// Attempt to retrieve a recycled pointer from the pool.
+	if v := o.bp.Get(); v != nil {
+		pCpy = v.(*[]byte)
+	}
+
+	// Fallback to fresh allocation if the pool is empty or the retrieved buffer is nil.
+	if pCpy == nil {
+		buf := make([]byte, n)
+		return &buf
+	}
+
+	// Resizing Logic:
+	// If the underlying array's capacity is insufficient, we must allocate a new one.
+	if cap(*pCpy) < n {
+		buf := make([]byte, n)
+		return &buf
+	}
+
+	// Re-slice the pooled buffer to the exact requested length; the underlying array is reused.
+	*pCpy = (*pCpy)[:n]
+	return pCpy
+}
+
+// chanData retrieves the current operational data channel from atomic storage.
+// It returns the 'closedChan' sentinel if the aggregator's pipeline is not yet initialized.
+func (o *agg) chanData() <-chan *[]byte {
 	if c := o.ch.Load(); c == nil {
-		return closedChan
-	} else if c == closedChan {
 		return closedChan
 	} else {
 		return c
 	}
 }
 
-// chanOpen creates a new buffered channel for writes and marks it as open.
-// This is called by run() when the aggregator starts, after verifying the
-// aggregator is not already running. The channel capacity is determined by
-// Config.BufWriter (stored in sh). The op flag is set to true atomically
-// to signal that the channel is ready for writes.
+// chanOpen initializes the data channel with the configured capacity and activates the 'op' flag.
+// This is executed during the Start phase to ensure a fresh, empty buffer for processing.
 func (o *agg) chanOpen() {
-	// Mark channel as closing to prevent new writes
 	o.op.Store(true)
-	o.ch.Store(make(chan []byte, o.sh))
+	o.ch.Store(make(chan *[]byte, o.sh))
 }
 
-// chanClose marks the channel as closed and replaces it with closedChan sentinel.
-// This prevents new writes and signals to readers that the channel is closed.
-// The actual channel is not closed to avoid panics from concurrent writes;
-// instead we use a pre-closed sentinel channel. The op flag is set to false
-// atomically to signal that writes should be rejected.
+// chanClose deactivates the 'op' flag and replaces the data channel with the pre-closed sentinel.
+// This ensures that all subsequent Write() calls detect the closure atomically and safely
+// without encountering panics from writing to a nil or closed channel.
 func (o *agg) chanClose() {
-	// Mark channel as closing to prevent new writes
 	o.op.Store(false)
 	o.ch.Store(closedChan)
 }

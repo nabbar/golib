@@ -34,108 +34,88 @@ import (
 	librun "github.com/nabbar/golib/runner/startStop"
 )
 
-// Start begins processing writes in a background goroutine.
+// Start initiates the background processing goroutine and enables the data aggregation pipeline.
 //
-// This method:
-//  1. Creates a new processing goroutine that reads from the write channel
-//  2. Initializes timers for async and sync callbacks (if configured)
-//  3. Opens the internal channel for accepting writes
-//  4. Waits for the runner and channel to be fully initialized before returning
+// Lifecycle Orchestration:
+//  1. Mutex-Free Strategy: Unlike traditional implementations, this method relies on the
+//     underlying 'librun.StartStop' component to manage thread-safety and concurrency during
+//     the startup phase. This architectural choice prevents complex deadlocks that can occur
+//     when multiple mutexes are held during lifecycle transitions.
+//  2. Idempotent Initialization: The method first retrieves the current runner. If none exists,
+//     a fresh instance is created and stored atomically. If the aggregator is already in
+//     the 'Running' state, the runner internally handles the request as a no-op.
+//  3. Background Execution: It invokes the runner's Start() method, which spawns the 'run'
+//     logic in a dedicated, managed goroutine that handles I/O serialization.
 //
-// The aggregator must be started before it can accept Write operations.
-// Calling Start on an already-running aggregator returns nil (idempotent).
-//
-// The provided context is used as the parent context for the processing goroutine.
-// When this context is cancelled, the aggregator stops processing and exits.
+// Operational Prerequisites:
+//   - A valid writer function must have been provided during New() via Config.FctWriter.
+//   - The aggregator must be successfully started before any Write() calls can be processed.
 //
 // Parameters:
-//   - ctx: Context for cancellation. If nil, context.Background() is used.
+//   - ctx: Parent context used to derive the operational context for the run loop.
+//     If this context is cancelled, the aggregator will perform an orderly shutdown.
 //
 // Returns:
-//   - error: nil on success, or timeout error if the runner fails to start within 1 second.
+//   - error: Returns nil if the startup signal was successfully dispatched, or an error
+//     from the runner if initialization failed.
 //
 // Example:
 //
 //	agg, _ := aggregator.New(ctx, cfg)
 //	if err := agg.Start(ctx); err != nil {
-//	    return err
+//	    log.Fatalf("Orderly startup failed: %v", err)
 //	}
-//	defer agg.Close()
-//
-// Note: Start waits up to 1 second for the runner and channel to be ready,
-// polling every 100ms to ensure the aggregator is fully operational before returning.
 func (o *agg) Start(ctx context.Context) error {
-	o.lc.Lock()
-	defer o.lc.Unlock()
-
 	defer func() {
+		// Recovery from panics during startup.
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/start", r)
 		}
 	}()
 
-	old := o.getRunner()
-	if old != nil && old.IsRunning() {
-		_ = old.Stop(context.Background())
+	// Atomic load/creation of the lifecycle runner.
+	r := o.getRunner()
+	if r == nil {
+		r = o.newRunner()
+		o.setRunner(r)
 	}
 
-	r := o.newRunner()
-	e := r.Start(ctx)
-
-	if e != nil {
-		return e
-	}
-
-	time.Sleep(time.Second)
-
-	for i := 0; i < 100; i++ {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
-		if r.Uptime() > time.Second {
-			if o.op.Load() {
-				o.setRunner(r)
-				time.Sleep(5 * time.Millisecond)
-				return nil
-			}
-		}
-
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	return nil
+	// Dispatch the start signal to the runner.
+	return r.Start(ctx)
 }
 
-// Stop gracefully stops the aggregator's processing goroutine.
+// Stop executes a graceful termination of the aggregator's background processing goroutine.
 //
-// This method:
-//  1. Signals the processing goroutine to stop
-//  2. Waits for the goroutine to exit (respecting the context deadline)
-//  3. Does not close the write channel (use Close for full cleanup)
+// Shutdown Sequence:
+//  1. Signaling: Commands the underlying runner to stop. This action cancels the operational
+//     context, signaling the 'run' loop to stop accepting new data and finish its current batch.
+//  2. Resource Decommissioning: If no runner is currently assigned but internal flags indicate
+//     that resources (like the channel) are still active, it manually invokes cleanup() to
+//     avoid memory leaks or stale channel pointers.
+//  3. Thread-Safety: The operation is managed by the runner's internal state machine, ensuring
+//     that multiple concurrent Stop() calls are handled safely and consistently.
 //
-// After Stop, the aggregator can be restarted with Start().
-// Stop is idempotent and can be called multiple times safely.
+// Post-Condition:
+// After a successful Stop(), the aggregator transitions back to the 'Stopped' state. It remains
+// configured and can be re-initialized by calling Start() again.
 //
 // Parameters:
-//   - ctx: Context with deadline for graceful shutdown. The method blocks
-//     until the processing goroutine exits or the context is cancelled.
+//   - ctx: Context with a timeout or deadline, defining the maximum duration to wait for
+//     the background goroutine to exit gracefully and finish writing buffered data.
 //
 // Returns:
-//   - error: nil on success, or context error if timeout occurs.
+//   - error: nil if the stop was successful, or a context error if the deadline was exceeded.
 //
 // Example:
 //
-//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+//	stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 //	defer cancel()
-//	if err := agg.Stop(ctx); err != nil {
-//	    log.Printf("stop failed: %v", err)
+//	if err := agg.Stop(stopCtx); err != nil {
+//	    log.Printf("Graceful shutdown failed: %v", err)
 //	}
 func (o *agg) Stop(ctx context.Context) error {
-	o.lc.Lock()
-	defer o.lc.Unlock()
-
 	defer func() {
+		// Recovery from panics during shutdown.
 		if r := recover(); r != nil {
 			runner.RecoveryCaller("golib/ioutils/aggregator/stop", r)
 		}
@@ -143,68 +123,34 @@ func (o *agg) Stop(ctx context.Context) error {
 
 	r := o.getRunner()
 	if r == nil {
+		// Cleanup resources if the runner was never created but the flag is set.
 		if o.op.Load() {
 			o.cleanup()
 		}
 		return nil
 	}
 
-	e := r.Stop(ctx)
-	if e != nil {
-		return e
-	}
-
-	time.Sleep(time.Second)
-
-	for i := 0; i < 10; i++ {
-		if ctx.Err() != nil {
-			o.setRunner(r)
-			time.Sleep(5 * time.Millisecond)
-			return ctx.Err()
-		}
-
-		if r.Uptime() == time.Duration(0) {
-			if !o.op.Load() {
-				o.setRunner(r)
-				time.Sleep(5 * time.Millisecond)
-				return nil
-			}
-		}
-
-		time.Sleep(time.Second)
-	}
-
-	o.setRunner(r)
-
-	if o.op.Load() {
-		o.cleanup()
-	}
-
-	time.Sleep(5 * time.Millisecond)
-	return nil
+	// Signal the runner to terminate the processing goroutine.
+	return r.Stop(ctx)
 }
 
-// Restart stops and then starts the aggregator.
+// Restart performs an atomic stop and start sequence to refresh the aggregator's state.
 //
-// This is equivalent to calling Stop() followed by Start() with a small delay
-// between them to ensure clean shutdown before restart.
+// Implementation Strategy:
+//  1. Graceful Exit: Invokes the full Stop() sequence and waits for completion.
+//  2. Scheduler Yield: Calls 'runtime.Gosched()' between the two phases to allow the Go
+//     scheduler to finalize the cleanup and goroutine scheduling of the previous run loop.
+//  3. Clean Startup: Executes the Start() sequence to initialize a fresh runner and run loop.
 //
-// Restart is useful for:
-//   - Applying configuration changes
-//   - Recovering from errors
-//   - Periodic restarts for resource cleanup
+// Use Cases:
+//   - Clearing the internal data pipeline after an intermittent failure.
+//   - Resetting periodic timers for synchronous and asynchronous callbacks.
 //
 // Parameters:
-//   - ctx: Context for the restart operation (used for both Stop and Start)
+//   - ctx: Context controlling the overall duration of the combined stop and start sequence.
 //
 // Returns:
-//   - error: nil on success, or error from Stop/Start
-//
-// Example:
-//
-//	if err := agg.Restart(ctx); err != nil {
-//	    log.Printf("restart failed: %v", err)
-//	}
+//   - error: nil on success, or the first error encountered during the combined sequence.
 func (o *agg) Restart(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -212,44 +158,32 @@ func (o *agg) Restart(ctx context.Context) error {
 		}
 	}()
 
+	// Execute an orderly stop first.
 	if e := o.Stop(ctx); e != nil {
 		return e
 	}
 
-	// prevent misassign of pointer into var
-	runtime.GC()
+	// Yield control back to the scheduler for a cleaner state transition.
+	runtime.Gosched()
 
-	if o.IsRunning() {
-		return ErrStillRunning
-	}
-
-	// prevent misassign of pointer into var
-	runtime.GC()
-
+	// Re-initialize and start the data pipeline.
 	return o.Start(ctx)
 }
 
-// IsRunning returns true if the aggregator is currently processing writes.
+// IsRunning provides a real-time status check of the aggregator's activity.
 //
-// This method checks both the runner state and the internal channel state,
-// and automatically fixes any inconsistencies between them.
+// Technical Insight:
+// This method queries the underlying runner instance, which serves as the source of truth
+// for the background goroutine's state. It includes additional sanity checks to
+// detect inconsistent states between the runner and internal flags.
 //
-// IsRunning is useful for:
-//   - Checking if the aggregator is ready to accept writes
-//   - Monitoring aggregator health
-//   - Implementing retry logic
+// State Synchronization:
+// If the runner reports it's running but the aggregator hasn't successfully initialized
+// its internal state (flag 'op' is false), this method handles the inconsistency
+// by attempting to stop the zombie runner and reporting 'false'.
 //
 // Returns:
-//   - bool: true if the processing goroutine is running, false otherwise
-//
-// Example:
-//
-//	if !agg.IsRunning() {
-//	    if err := agg.Start(ctx); err != nil {
-//	        return err
-//	    }
-//	}
-//	agg.Write(data)
+//   - bool: true if the processing goroutine is currently active, false otherwise.
 func (o *agg) IsRunning() bool {
 	defer func() {
 		if r := recover(); r != nil {
@@ -257,58 +191,50 @@ func (o *agg) IsRunning() bool {
 		}
 	}()
 
-	o.lc.Lock()
-	defer o.lc.Unlock()
-
 	r := o.getRunner()
 
-	// If state is inconsistent, fix it without calling Close() to avoid recursion
 	if r == nil {
+		// Cleanup resources if operational but no runner exists (inconsistent state).
 		if o.op.Load() {
 			o.cleanup()
 		}
 		return false
 	}
 
-	// Synchronize status between runner and channel state
-	// Fix inconsistencies without changing the authoritative state
 	if r.IsRunning() {
 		if o.op.Load() {
-			// Both runner and channel agree: running
-			return true
-		} else if r.Uptime() > time.Minute {
-			// Runner says running but channel is closed: stop runner
+			return true // Healthy running state.
+		} else if r.Uptime() > time.Second {
+			// Runner is active for more than 1s but the internal flag is false: inconsistent state.
+			// Trigger a non-blocking stop.
 			x, n := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer n()
 			_ = r.Stop(x)
 			return false
 		} else {
+			// Runner might be in its very early startup phase.
 			return false
 		}
 	} else {
+		// Runner is NOT active.
 		if o.op.Load() {
-			// Runner stopped but channel still open: close channel
+			// Internal flag was still true: perform resource cleanup to sync state.
 			o.cleanup()
 			return false
 		} else {
-			// Both agree: not running
 			return false
 		}
 	}
 }
 
-// Uptime returns the duration since the aggregator was started.
+// Uptime returns the duration for which the current aggregator run has been active.
 //
-// Returns 0 if the aggregator is not running or has never been started.
+// Operational Detail:
+// The duration is calculated from the moment the runner successfully entered the 'Running'
+// state. If the aggregator is stopped or hasn't been started, this method returns 0.
 //
 // Returns:
-//   - time.Duration: Time since Start() was called, or 0 if not running
-//
-// Example:
-//
-//	if uptime := agg.Uptime(); uptime > 24*time.Hour {
-//	    log.Printf("aggregator has been running for %v", uptime)
-//	}
+//   - time.Duration: Time since the last successful Start() invocation.
 func (o *agg) Uptime() time.Duration {
 	defer func() {
 		if r := recover(); r != nil {
@@ -323,21 +249,14 @@ func (o *agg) Uptime() time.Duration {
 	return r.Uptime()
 }
 
-// ErrorsLast returns the most recent error from the processing goroutine.
+// ErrorsLast retrieves the most recent error captured during background processing.
 //
-// This includes errors from:
-//   - The writer function (Config.FctWriter)
-//   - Async/sync callbacks
-//   - Internal processing errors
+// Monitoring Utility:
+// It provides immediate access to the last failure encountered by the FctWriter or
+// during callback execution, facilitating real-time alerting and diagnostics.
 //
 // Returns:
-//   - error: The last error that occurred, or nil if no errors
-//
-// Example:
-//
-//	if err := agg.ErrorsLast(); err != nil {
-//	    log.Printf("last error: %v", err)
-//	}
+//   - error: The last recorded error instance from the runner, or nil if no errors occurred.
 func (o *agg) ErrorsLast() error {
 	r := o.getRunner()
 	if r == nil {
@@ -346,20 +265,14 @@ func (o *agg) ErrorsLast() error {
 	return r.ErrorsLast()
 }
 
-// ErrorsList returns all errors that have occurred since the aggregator started.
+// ErrorsList provides a comprehensive history of all errors captured during the current runner's lifecycle.
 //
-// The list is maintained by the underlying runner and may be limited in size.
-// See github.com/nabbar/golib/runner/startStop for details.
+// Diagnostic Insight:
+// This list is useful for post-mortem analysis and identifying patterns of failure
+// (e.g., persistent I/O issues or recurring callback panics).
 //
 // Returns:
-//   - []error: Slice of all errors, or nil if no errors or not running
-//
-// Example:
-//
-//	errs := agg.ErrorsList()
-//	for _, err := range errs {
-//	    log.Printf("error: %v", err)
-//	}
+//   - []error: A slice containing all captured errors, or nil if no errors exist.
 func (o *agg) ErrorsList() []error {
 	r := o.getRunner()
 	if r == nil {
@@ -372,23 +285,21 @@ func (o *agg) ErrorsList() []error {
 	return errs
 }
 
-// newRunner creates a new StartStop runner with the aggregator's run and closeRun functions.
-// The runner manages the lifecycle of the processing goroutine.
+// newRunner constructs a new specialized 'librun.StartStop' component configured to
+// manage the aggregator's lifecycle and background execution loop.
 func (o *agg) newRunner() librun.StartStop {
+	// 'o.run' is the main logic, 'o.closeRun' is the cleanup hook for the runner.
 	return librun.New(o.run, o.closeRun)
 }
 
-// getRunner returns the current runner instance.
-// Returns nil if no runner has been created yet.
+// getRunner retrieves the currently active runner instance from atomic storage.
 func (o *agg) getRunner() librun.StartStop {
 	return o.r.Load()
 }
 
-// setRunner stores the runner instance, creating a new one if nil.
-// This ensures the aggregator always has a valid runner.
+// setRunner atomically persists the provided runner instance into the aggregator's state.
 func (o *agg) setRunner(r librun.StartStop) {
-	if r == nil {
-		r = o.newRunner()
+	if r != nil {
+		o.r.Store(r)
 	}
-	o.r.Store(r)
 }

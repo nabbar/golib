@@ -26,8 +26,63 @@
  *
  */
 
-// robustness_test.go validates error handling, edge cases, and fault tolerance.
-// Tests server behavior under adverse conditions and boundary cases.
+// Package unix_test includes robustness and fault-tolerance tests to ensure the server
+// behaves correctly under adverse conditions, malformed client behavior, and unexpected failures.
+//
+// # robustness_test.go: Fault Tolerance and Edge Case Validation
+//
+// These tests focus on the server's stability and its ability to recover from common runtime
+// issues such as handler panics, idle connections, and filesystem-level permission changes.
+//
+// # Scenarios Covered:
+//
+// ## 1. Callback Reliability
+//   - Error Reporting: Forces errors (e.g., listening on an illegal path) and verifies that
+//     the `RegisterFuncError` callback is correctly triggered.
+//   - Connection Events: Validates that `RegisterFuncInfo` receives all lifecycle events
+//     (New, Read, Write, Close) for every connection.
+//   - Lifecycle Logging: Confirms that `RegisterFuncInfoServer` captures major transitions.
+//
+// ## 2. Idle Timeout and Resource Leaks
+//   - Automatic Closure: Sets an aggressive 1-second idle timeout and verifies that clients
+//     who connect but stay silent are automatically disconnected by the Idle Manager.
+//   - Anti-false Positive: Confirms that active connections (those sending periodic data)
+//     are NOT disconnected, validating the activity reset logic in `sCtx.Read/Write`.
+//
+// ## 3. Fault Recovery (Panics)
+//   - Handler Resilience: Simulates an intentional panic within the user's `HandlerFunc`.
+//     Verifies that the server recovers, logs the panic via the runner's recovery logic,
+//     and continues to accept new connections without interruption.
+//
+// ## 4. Adverse Client Behavior
+//   - Half-Open/Silent Clients: Tests the server's reaction to clients that connect but never
+//     send or read data.
+//   - Client Drop: Validates graceful handling when a client abruptly closes the socket
+//     mid-stream (detecting `io.EOF`).
+//
+// ## 5. Lifecycle Persistence
+//   - Repeated Cycles: Executes multiple start/stop sequences (`Listen` -> `Shutdown` -> `Listen`)
+//     on the same server instance to ensure that internal state (channels, pooling) is
+//     perfectly re-initialized.
+//
+// # Technical Focus:
+// Special attention is given to the centralized Idle Manager. Since it runs in its own
+// goroutine, these tests ensure that its interaction with the atomic `cnt` (activity counter)
+// in each `sCtx` is perfectly synchronized.
+//
+// # Data Flow (Panic Recovery):
+//
+//	[ Listener Loop ] ---> (New Conn) ---> [ Handler Goroutine ]
+//	                                              |
+//	                                     ( Panic! )
+//	                                              |
+//	[ Server Recovery ] <-------------------------+
+//	        |
+//	( Log Error )
+//	( Close sCtx )
+//	( Return to Pool )
+//	        |
+//	[ Listener Still Active ]
 package unix_test
 
 import (
@@ -110,11 +165,29 @@ var _ = Describe("Unix Server Robustness", func() {
 				return infoCalled.Load()
 			}, 2*time.Second, 10*time.Millisecond).Should(BeNumerically(">=", 1))
 		})
+
+		It("should call info server callback", func() {
+			infoSrvCalled := &atomic.Bool{}
+			cfg := createDefaultConfig(socketPath)
+			var err error
+			srv, err = scksru.New(nil, echoHandler, cfg)
+			Expect(err).ToNot(HaveOccurred())
+
+			srv.RegisterFuncInfoServer(func(_ string) {
+				infoSrvCalled.Store(true)
+			})
+
+			startServerInBackground(c, srv)
+			waitForServerAcceptingConnections(socketPath, 2*time.Second)
+
+			Eventually(infoSrvCalled.Load, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
+		})
 	})
 
 	Context("idle timeout behavior", func() {
 		It("should close idle connections after timeout", func() {
-			cfg := createConfigWithIdleTimeout(socketPath, 200*time.Millisecond)
+			// Using a slightly longer timeout for stability in tests
+			cfg := createConfigWithIdleTimeout(socketPath, time.Second)
 			var err error
 			srv, err = scksru.New(nil, echoHandler, cfg)
 			Expect(err).ToNot(HaveOccurred())
@@ -130,17 +203,18 @@ var _ = Describe("Unix Server Robustness", func() {
 				return srv.OpenConnections()
 			}, 2*time.Second, 10*time.Millisecond).Should(Equal(int64(1)))
 
-			// Wait for idle timeout
-			time.Sleep(500 * time.Millisecond)
+			// Wait for idle manager to scan and close (idle manager scans every 1s by default in New)
+			// So we wait at least idle + scan interval
+			time.Sleep(2 * time.Second)
 
 			// Connection should be closed due to timeout
 			Eventually(func() int64 {
 				return srv.OpenConnections()
-			}, 2*time.Second, 10*time.Millisecond).Should(Equal(int64(1)))
+			}, 3*time.Second, 100*time.Millisecond).Should(Equal(int64(0)))
 		})
 
 		It("should not timeout active connections", func() {
-			cfg := createConfigWithIdleTimeout(socketPath, 200*time.Millisecond)
+			cfg := createConfigWithIdleTimeout(socketPath, 1*time.Second)
 			var err error
 			srv, err = scksru.New(nil, echoHandler, cfg)
 			Expect(err).ToNot(HaveOccurred())
@@ -156,7 +230,7 @@ var _ = Describe("Unix Server Robustness", func() {
 				data := []byte("Keep alive")
 				rsp := sendAndReceive(con, data)
 				Expect(rsp).To(Equal(data))
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(400 * time.Millisecond)
 			}
 
 			// Connection should still be open
@@ -171,7 +245,7 @@ var _ = Describe("Unix Server Robustness", func() {
 			srv, err := scksru.New(nil, func(ctx libsck.Context) {
 				defer func() { _ = ctx.Close() }()
 				panicCount.Add(1)
-				//panic("intentional panic for testing")
+				panic("intentional panic for testing")
 			}, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -183,6 +257,9 @@ var _ = Describe("Unix Server Robustness", func() {
 
 			// Server should still be running after panic
 			Expect(srv.IsRunning()).To(BeTrue())
+			Eventually(func() int32 {
+				return panicCount.Load()
+			}, 2*time.Second, 10*time.Millisecond).Should(BeNumerically(">", int32(1)))
 		})
 	})
 

@@ -34,27 +34,40 @@ import (
 	libsck "github.com/nabbar/golib/socket"
 )
 
-// MaxGID defines the maximum allowed Unix group ID value (32767).
+// maxGID defines the maximum allowed Unix group ID value (32767).
+// This limit is common on older 16-bit GID systems and is used here for safety.
 const maxGID = 32767
 
 // ServerUnix is a stub interface for non-Linux, non-Darwin platforms.
-// On Linux and Darwin, this interface extends libsck.Server with Unix socket-specific methods.
+//
+// On Linux and Darwin, this interface extends `libsck.Server` with Unix socket-specific methods.
+// On unsupported platforms, this stub allows code to compile while returning no-op or nil results.
+//
+// # Design Pattern: Stub Implementation
+// This is used to maintain cross-platform compatibility of the larger project while
+// only enabling Unix-specific features on POSIX systems.
 type ServerUnix interface {
 	libsck.Server
+
 	// RegisterSocket would configure the Unix socket file path, permissions, and group.
-	// On non-Linux, non-Darwin platforms, this is a no-op stub.
+	// On non-supported platforms, this returns nil as it is a no-op stub.
 	RegisterSocket(unixFile string, perm os.FileMode, gid int32) error
 }
 
 // New returns nil on non-Linux, non-Darwin platforms.
-// Unix domain sockets are only supported on Linux and Darwin (macOS).
-// On supported systems, this creates a functional Unix socket server.
+//
+// Unix domain sockets are only supported on Linux and Darwin (macOS) in this implementation.
+// Calling `New` on other systems (like Windows) will result in a nil pointer, allowing
+// applications to gracefully handle the absence of Unix socket support.
 //
 // Parameters:
-//   - u: Optional UpdateConn callback (unused on unsupported platforms)
-//   - h: HandlerFunc function (unused on unsupported platforms)
+//   - u: Optional UpdateConn callback (unused on unsupported platforms).
+//   - h: HandlerFunc function (unused on unsupported platforms).
 //
-// See github.com/nabbar/golib/socket/server/unix.New for the full implementation.
+// Returns:
+//   - ServerUnix: Always nil on this platform.
+//
+// See `socket/server/unix/interface.go` for the full implementation on supported systems.
 func New(u libsck.UpdateConn, h libsck.HandlerFunc) ServerUnix {
 	return nil
 }

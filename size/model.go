@@ -28,8 +28,6 @@
 package size
 
 import (
-	"fmt"
-	"math"
 	"reflect"
 
 	libmap "github.com/go-viper/mapstructure/v2"
@@ -55,63 +53,26 @@ import (
 //	fmt.Println(size.SizeMega.Code('o'))  // Output: "Mo"
 //	fmt.Println(size.SizeGiga.Code(0))    // Output: "GB" (using default unit)
 func (s Size) Code(unit rune) string {
-	var uni string
-
 	if unit == 0 {
-		uni = "%s" + string(defUnit)
-	} else {
-		uni = "%s" + string(unit)
+		unit = defUnit
 	}
 
 	switch s {
-	case SizeUnit:
-		return fmt.Sprintf(uni, "")
 	case SizeKilo:
-		return fmt.Sprintf(uni, "K")
+		return "K" + string(unit)
 	case SizeMega:
-		return fmt.Sprintf(uni, "M")
+		return "M" + string(unit)
 	case SizeGiga:
-		return fmt.Sprintf(uni, "G")
+		return "G" + string(unit)
 	case SizeTera:
-		return fmt.Sprintf(uni, "T")
+		return "T" + string(unit)
 	case SizePeta:
-		return fmt.Sprintf(uni, "P")
+		return "P" + string(unit)
 	case SizeExa:
-		return fmt.Sprintf(uni, "E")
+		return "E" + string(unit)
+	default:
+		return "" + string(unit)
 	}
-
-	return fmt.Sprintf(uni, "")
-}
-
-// isMax checks if the given size value is greater than the current Size unit threshold.
-//
-// This is an internal helper method used by formatting functions to determine
-// which unit to use when displaying a size value.
-func (s Size) isMax(size Size) bool {
-	val := math.Abs(size.Float64())
-	uni := math.Abs(s.Float64())
-	return val > uni
-}
-
-// sizeByUnit calculates the size value divided by the given unit.
-//
-// Returns math.MaxFloat64 if the result would overflow, otherwise returns
-// the size as a float64 divided by the unit. This is used for formatting
-// size values in human-readable form.
-func (s Size) sizeByUnit(unit Size) float64 {
-	if uint64(s/unit) > _maxFloat64 {
-		return math.MaxFloat64
-	} else {
-		return float64(s / unit)
-	}
-}
-
-// floorByUnit calculates the size value divided by the given unit and floors the result.
-//
-// This method is used internally by methods like KiloBytes(), MegaBytes(), etc.
-// to convert the size to whole units.
-func (s Size) floorByUnit(unit Size) uint64 {
-	return uint64(math.Floor(s.sizeByUnit(unit)))
 }
 
 // unmarshall is an internal method used by unmarshaling functions to parse

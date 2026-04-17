@@ -39,6 +39,22 @@ import (
 	"github.com/nabbar/golib/socket/server/udp"
 )
 
+// # Boundary and Edge Case Test Suite
+//
+// This suite focuses on "negative" and "stress" scenarios to ensure the server's
+// resilience against improper usage, invalid data, or extreme timing conditions.
+//
+// # Key Scenarios Tested
+//  - Nil callback registration: Verifies the server doesn't crash if optional hooks are missing.
+//  - Invalid network addresses: Ensures robust validation during the registration phase.
+//  - Shutdown/Listen re-entrancy: Prevents race conditions or double-binding errors.
+//  - Panics in user-provided hooks: Validates the recovery mechanism (RecoveryCaller).
+//
+// # Data Flow for Error Handling
+//
+//	[Trigger] ──▶ [fctError / fctInfoSrv] ──▶ [Atomic Value Check] ──▶ [User Callback (or no-op)]
+//	    │               │                            │                        │
+//	    └─ [Panic?] ────┴────────── [librun.Recovery] ◀────────────────────────┘
 var _ = Describe("UDP Server Boundary Tests", func() {
 	var (
 		ctx    context.Context
@@ -57,6 +73,8 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 	})
 
 	Describe("Error Callback Edge Cases", func() {
+		// Verifies that the server handles missing callbacks without crashing.
+		// Rationale: Callbacks are optional for basic operation.
 		It("should handle nil error callback", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -73,6 +91,7 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 			Expect(srv.IsRunning()).To(BeTrue())
 		})
 
+		// Verifies resilience when callback is invoked with nil error slices.
 		It("should handle error callback with nil errors", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -98,6 +117,7 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 			_ = called
 		})
 
+		// Stress tests the atomic swap of callbacks.
 		It("should handle multiple error callbacks", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -188,6 +208,7 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 	})
 
 	Describe("Address Registration Edge Cases", func() {
+		// Verifies that the "last registration wins" rule applies correctly.
 		It("should handle RegisterServer with already registered address", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -222,6 +243,7 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 	})
 
 	Describe("Shutdown Edge Cases", func() {
+		// Ensures Shutdown is safe to call even if the server never started.
 		It("should handle Shutdown before Listen", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -252,6 +274,7 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 			_ = errors.Is(err, context.DeadlineExceeded)
 		})
 
+		// Stress tests the atomic swap of the "Gone" state.
 		It("should handle multiple Shutdown calls", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -276,6 +299,7 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 	})
 
 	Describe("Listen Edge Cases", func() {
+		// Prevents resource leaks by blocking multiple Listen calls.
 		It("should handle Listen with already running server", func() {
 			handler := newTestHandler(false)
 			srv, err := createServerWithHandler(handler.handler)
@@ -327,6 +351,7 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 			Expect(srv).To(BeNil())
 		})
 
+		// Verifies that a blocked handler doesn't prevent server shutdown.
 		It("should handle handler that never returns", func() {
 			infiniteHandler := func(ctx libsck.Context) {
 				defer ctx.Close()
@@ -372,6 +397,7 @@ var _ = Describe("UDP Server Boundary Tests", func() {
 			Expect(srv.IsRunning()).To(BeTrue())
 		})
 
+		// Verifies that a panic in the tuning hook is recovered.
 		It("should handle UpdateConn with panicking callback", func() {
 			handler := newTestHandler(false)
 			panicUpdate := libsck.UpdateConn(func(conn net.Conn) {

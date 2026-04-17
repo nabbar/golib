@@ -31,30 +31,54 @@ import (
 	"strings"
 )
 
+// modeError holds the current global error output mode.
+// It defaults to ModeDefault.
 var modeError = ModeDefault
 
+// SetModeReturnError sets the global mode for the Error() method's string output.
+// This affects all Error instances in the application.
 func SetModeReturnError(mode ErrorMode) {
 	modeError = mode
 }
 
+// GetModeReturnError returns the current global ErrorMode.
 func GetModeReturnError() ErrorMode {
 	return modeError
 }
 
+// ErrorMode defines how an Error instance is rendered as a string when Error() is called.
 type ErrorMode uint8
 
 const (
+	// ModeDefault is the default mode, returning only the current error's message.
 	ModeDefault ErrorMode = iota
+
+	// ModeReturnCode returns only the current error's numeric code as a string.
 	ModeReturnCode
+
+	// ModeReturnCodeFull returns a slice-formatted string of all error codes in the hierarchy.
 	ModeReturnCodeFull
+
+	// ModeReturnCodeError returns the formatted code and message of the current error.
 	ModeReturnCodeError
+
+	// ModeReturnCodeErrorFull returns a newline-separated list of formatted code/message for all errors in the hierarchy.
 	ModeReturnCodeErrorFull
+
+	// ModeReturnCodeErrorTrace returns the formatted code, message, and trace for the current error.
 	ModeReturnCodeErrorTrace
+
+	// ModeReturnCodeErrorTraceFull returns a newline-separated list of formatted code/message/trace for all errors in the hierarchy.
 	ModeReturnCodeErrorTraceFull
+
+	// ModeReturnStringError returns only the current error's message.
 	ModeReturnStringError
+
+	// ModeReturnStringErrorFull returns a newline-separated list of all error messages in the hierarchy.
 	ModeReturnStringErrorFull
 )
 
+// String returns a human-readable name for the ErrorMode.
 func (m ErrorMode) String() string {
 	//nolint exhaustive
 	switch m {
@@ -81,6 +105,7 @@ func (m ErrorMode) String() string {
 	return ModeDefault.String()
 }
 
+// error is an internal helper that renders the provided ers struct based on the current ErrorMode.
 func (m ErrorMode) error(e *ers) string {
 	//nolint exhaustive
 	switch m {

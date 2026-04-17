@@ -26,53 +26,51 @@
  *
  */
 
-// Package unixgram provides a Unix domain datagram socket server implementation.
-//
-// This package implements the github.com/nabbar/golib/socket.Server interface
-// for Unix domain sockets in datagram mode (SOCK_DGRAM), providing a connectionless
-// server with features including:
-//   - Unix domain socket file creation and management
-//   - File permissions and group ownership control
-//   - Datagram handling without persistent connections
-//   - Single handler for all incoming datagrams
-//   - Callback hooks for errors and datagram events
-//   - Graceful shutdown support
-//   - Atomic state management
-//   - Context-aware operations
-//
-// Unix datagram sockets provide connectionless inter-process communication (IPC)
-// on the same host. Like UDP, they operate in datagram mode but use filesystem
-// paths instead of IP addresses and ports. They appear as special files.
-//
-// Key differences from unix package (connection-oriented):
-//   - No persistent connections (like UDP vs TCP)
-//   - Single handler processes all datagrams
-//   - OpenConnections() returns 1 when running, 0 when stopped
-//   - No per-client state maintained
-//
-// Platform support: Linux and Darwin (macOS). See ignore.go for other platforms.
-//
-// See github.com/nabbar/golib/socket for the Server interface definition.
-// See github.com/nabbar/golib/socket/server/unix for connection-oriented Unix sockets.
 package unixgram
 
 import "fmt"
 
+// This file contains predefined errors returned by the unixgram server implementation.
+// These errors are specifically chosen to handle common failure modes in Unix domain
+// datagram socket management, such as permission issues, invalid paths, and lifecycle timeouts.
+
 var (
+	// ErrInvalidUnixFile is returned when the specified filesystem path for the socket
+	// is empty or contains invalid characters. The socket path is essential as it
+	// serves as the endpoint for IPC communication.
 	ErrInvalidUnixFile = fmt.Errorf("invalid unix file for socket listening")
 
-	// ErrInvalidGroup is returned when the specified GID exceeds the maximum allowed value (32767).
-	// Unix group IDs must be within the valid range for the operating system.
+	// ErrInvalidGroup is returned when the specified GID (Group ID) for the socket file
+	// is invalid or exceeds the system's maximum (MaxGID, typically 32767).
+	// Setting a group allows multiple users/services within the same group to communicate.
 	ErrInvalidGroup = fmt.Errorf("invalid unix group for socket group permission")
 
-	// ErrInvalidHandler is returned when attempting to start a server without a valid handler function.
-	// A handler must be provided via the New() constructor.
+	// ErrInvalidHandler is returned when attempting to start a server without a valid
+	// HandlerFunc. The handler is the primary entry point for processing incoming datagrams.
 	ErrInvalidHandler = fmt.Errorf("invalid handler")
 
-	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
-	// This typically happens when StopListen() takes longer than expected.
+	// ErrShutdownTimeout is returned when the server's graceful shutdown procedure
+	// (StopListen) fails to complete within the time allocated by the provided context.
+	// This usually happens if the handler function blocks indefinitely without responding
+	// to the context's cancellation signal.
+	//
+	// Use Case:
+	// Preventing a hanging service from blocking a system-wide shutdown or a container restart.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
 
-	// ErrInvalidInstance is returned when operating on a nil server instance.
+	// ErrInvalidInstance is returned when a method is called on a nil server instance.
+	// This is a defensive error to prevent panics during runtime.
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )
+
+/*
+Error Handling Dataflow:
+
+	[Operation Attempted] -> (Validation Fails) -> [Return ErrXXX]
+	                                     |
+	                                     v
+	[Internal Callback] <--------- (Error Occurs)
+	       |
+	       v
+	[User's FuncError Callback] (RegisterFuncError)
+*/

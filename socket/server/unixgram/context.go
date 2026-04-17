@@ -37,48 +37,65 @@ import (
 	libptc "github.com/nabbar/golib/network/protocol"
 )
 
-// sCtx represents a Unix datagram socket context that wraps a Unix datagram connection with
-// context awareness and I/O operations.
+// sCtx represents a sophisticated wrapper around a Unix domain datagram socket,
+// providing deep integration with the standard Go library's Context pattern and I/O interfaces.
 //
-// It implements multiple interfaces:
-//   - context.Context: For cancellation and deadline propagation
-//   - io.Reader: For reading datagrams from the Unix socket
-//   - io.Writer: For writing response datagrams (disabled for Unix datagram server)
-//   - io.Closer: For cleaning up resources
+// # Architectural Context and Object Pooling
 //
-// The struct uses atomic operations for thread-safe state management and
-// delegates context operations to the embedded parent context.
+// In a high-performance Unixgram server, datagrams can arrive at a rate of tens of thousands per
+// second. To accommodate this without overwhelming the Go Garbage Collector (GC), sCtx instances
+// are managed by a sync.Pool.
 //
-// Fields:
-//   - loc: Local address string (cached for performance)
-//   - ctx: Parent context for cancellation propagation
-//   - cnl: Cancel function to trigger context cancellation
-//   - con: Underlying Unix datagram connection (*net.UnixConn)
-//   - clo: Atomic boolean indicating if connection is closed
+//   - Reuse: Each sCtx is reset and returned to the pool once its lifecycle (e.g., the handler execution)
+//     is complete.
+//   - Reset: The reset() method re-initializes the context, cancellation function, and connection
+//     pointers, ensuring no state leaks between processing cycles.
 //
-// Thread Safety:
-//   - All methods are safe for concurrent read-only operations
-//   - Write operations should be serialized by the caller
-//   - Close() can be called from any goroutine
+// # Interface Implementation and Behavioral Contracts
+//
+// sCtx satisfies multiple standard library interfaces, each with specific behaviors for Unixgram:
+//
+// 1. context.Context:
+//    Allows for propagation of deadlines and cancellation signals. When the server is shut down,
+//    the context is cancelled, which immediately notifies the handler to stop processing.
+//
+// 2. io.Reader:
+//    Reads from the underlying SOCK_DGRAM socket. In datagram mode, each call to Read()
+//    returns exactly one complete datagram. If the provided buffer is smaller than the datagram,
+//    the excess bytes are discarded by the kernel.
+//
+// 3. io.Writer:
+//    Intentionally returns io.ErrClosedPipe. This is a deliberate design choice. Since Unixgram
+//    is connectionless, a naked Write() lacks a destination address. For sending responses,
+//    one should use the net.UnixConn's WriteTo() method with the sender's address.
+//
+// 4. io.Closer:
+//    Cleans up the context, cancels the cancellation function (cnl), and closes the underlying
+//    net.UnixConn. It is safe and idempotent.
+//
+// # Thread Safety and State Management
+//
+// The 'clo' field (atomic.Bool) ensures that the context state is managed safely across multiple
+// goroutines. For instance, a reader goroutine and a monitoring goroutine can safely check
+// or modify the connection state simultaneously without locks.
 type sCtx struct {
-	loc string // local ip
-	ctx context.Context
-	cnl context.CancelFunc
-	con *net.UnixConn
-	clo *atomic.Bool
+	loc string             // The local filesystem path where the socket is bound.
+	ctx context.Context    // The parent context, used for propagation of signals.
+	cnl context.CancelFunc // The cancellation function for this specific context instance.
+	con *net.UnixConn      // The actual network connection pointer.
+	clo atomic.Bool        // An atomic flag indicating if the context has been closed.
 }
 
-// Deadline returns the time when work done on behalf of this context
-// should be canceled. This method delegates to the underlying context's
-// Deadline method.
+// Deadline returns the point in time after which work done on behalf of this context
+// should be canceled. This method delegates directly to the underlying context's Deadline.
 //
 // Returns:
-//   - time.Time: The deadline time when the context should be considered done
-//   - bool: False if no deadline is set
+//   - time.Time: The exact deadline timestamp.
+//   - bool: True if a deadline is set, false otherwise.
 //
-// This method is part of the context.Context interface and is used by
-// functions that support deadlines, such as those in the standard library's
-// net and os packages.
+// Use Case:
+// A handler processing a large batch of datagrams can check its deadline to decide
+// whether to continue processing or to abort and clean up before the server shuts down.
 func (o *sCtx) Deadline() (deadline time.Time, ok bool) {
 	if o == nil || o.ctx == nil {
 		return time.Time{}, false
@@ -86,19 +103,28 @@ func (o *sCtx) Deadline() (deadline time.Time, ok bool) {
 	return o.ctx.Deadline()
 }
 
-// Done returns a channel that's closed when work done on behalf of this
-// context should be canceled. This channel is closed when the connection
-// is closed or the parent context is canceled.
+// Done returns a channel that's closed when work done on behalf of this context
+// should be canceled. This signal is critical for implementing responsive,
+// low-latency shutdown logic in your handler.
 //
 // Returns:
-//   - <-chan struct{}: A channel that's closed when the context is done
+//   - <-chan struct{}: A channel that is closed when the context is cancelled or the connection is closed.
 //
-// This method is part of the context.Context interface and is used to
-// signal cancellation to goroutines that need to be aware of the connection's
-// lifecycle.
+// Example Pattern:
+//
+//	for {
+//	    select {
+//	    case <-ctx.Done():
+//	        return // Stop processing
+//	    default:
+//	        n, err := ctx.Read(buffer)
+//	        // ... process ...
+//	    }
+//	}
 func (o *sCtx) Done() <-chan struct{} {
 	if o == nil || o.ctx == nil {
-		// Return a closed channel for nil receiver
+		// If the receiver or context is nil, we return an already closed channel
+		// to signal that no work should be performed.
 		c := make(chan struct{})
 		close(c)
 		return c
@@ -106,31 +132,31 @@ func (o *sCtx) Done() <-chan struct{} {
 	return o.ctx.Done()
 }
 
-// Err returns a non-nil error value after the connection is closed or
-// the context is canceled. It returns io.ErrClosedPipe if the connection
-// was explicitly closed, or the context's error if it was canceled.
+// Err returns a non-nil error value after Done is closed. It clarifies the reason
+// for the context's termination.
 //
 // Returns:
-//   - error: nil if the connection is still active, otherwise an error
-//     describing why the context was canceled
-//
-// This method is part of the context.Context interface and is used to
-// check if the context has been canceled or the connection closed.
+//   - io.ErrClosedPipe: If the connection was explicitly closed by the application.
+//   - context.Canceled: If the server or parent context initiated a shutdown.
+//   - context.DeadlineExceeded: If the context's deadline was surpassed.
+//   - nil: If the context is still active.
 func (o *sCtx) Err() error {
 	if o == nil {
 		return fmt.Errorf("nil connection context")
 	}
 
-	// Check if connection was explicitly closed
+	// First, check the atomic flag to see if we manually closed the pipe.
 	if o.clo.Load() {
 		return io.ErrClosedPipe
 	}
 
-	// Check if context was canceled
-	if e := o.ctx.Err(); e != nil {
-		// Close the connection and combine errors if needed
+	// Then, check the underlying context's error state.
+	if o.ctx == nil {
+		return io.ErrClosedPipe
+	} else if e := o.ctx.Err(); e != nil {
+		// If the context is erroring (cancelled), we ensure the connection is also closed.
 		if err := o.Close(); err != nil {
-			return fmt.Errorf("%v (close error: %v)", e, err)
+			return fmt.Errorf("%v (additional close error: %v)", e, err)
 		}
 		return e
 	}
@@ -138,89 +164,53 @@ func (o *sCtx) Err() error {
 	return nil
 }
 
-// Value retrieves the value associated with the given key from the context.
-// This method implements the context.Context interface and provides access
-// to values stored in the parent context.
+// Value retrieves the data associated with a key from the context's internal store.
+// This is used for passing request-scoped metadata through the server.
 //
 // Parameters:
-//   - key: The key for which to retrieve the value. Can be any comparable type.
+//   - key: The unique key for the value (usually a private type to avoid collisions).
 //
 // Returns:
-//   - any: The value associated with the key, or nil if the key is not found
-//     or the context is nil.
+//   - any: The stored value or nil if the key is not found.
 //
-// # Usage
-//
-// This method is useful for passing request-scoped values through the
-// connection handling pipeline, such as:
-//   - Request IDs for distributed tracing
-//   - Authentication tokens
-//   - User context information
-//   - Deadline and cancellation signals
-//
-// # Example
-//
-//	type contextKey string
-//	const userIDKey contextKey = "userID"
-//
-//	// In handler:
-//	if userID := ctx.Value(userIDKey); userID != nil {
-//	    log.Printf("Handling request for user: %v", userID)
-//	}
-//
-// # Thread Safety
-//
-// This method is safe to call from multiple goroutines as it delegates
-// to the underlying context which is immutable.
+// Use Case:
+// Storing tracing IDs (e.g., OpenTelemetry span contexts) within the sCtx so they
+// are available to all processing functions without being explicitly passed as arguments.
 func (o *sCtx) Value(key any) any {
+	if o == nil || o.ctx == nil {
+		return nil
+	}
 	return o.ctx.Value(key)
 }
 
-// Read reads data from the Unix datagram socket into the provided buffer.
+// Read reads a single Unix datagram from the socket into the provided byte slice 'p'.
 //
-// This method implements the io.Reader interface and reads a single Unix datagram
-// from the underlying socket. For Unix datagram, each Read() typically corresponds to one
-// complete datagram.
+// # Technical Behavior and Constraints
 //
-// Parameters:
-//   - p: Byte slice to read data into. Should be large enough for datagram
-//     (typically 65507 bytes, system dependent)
+// - Connectionless Semantics: In SOCK_DGRAM mode, the kernel treats each datagram as a
+//   discrete message. Read() blocks until at least one datagram is available.
+//
+// - Message Boundaries: Unlike TCP (which is a stream), Unixgram preserves boundaries.
+//   Each call to Read() will return exactly one datagram, regardless of how many are
+//   queued in the kernel buffer.
+//
+// - Truncation: If the provided slice 'p' is smaller than the incoming datagram,
+//   the datagram is truncated to len(p) and the remaining bytes are discarded by
+//   the operating system. It is recommended to use a buffer of at least 65535 bytes
+//   to avoid accidental data loss.
+//
+// - Error Handling: Any error during the read (except EOF) will trigger an internal
+//   Close() of the sCtx to maintain state consistency.
 //
 // Returns:
-//   - n: Number of bytes read (0 if error occurred before reading)
-//   - err: Error if any occurred:
-//   - io.ErrClosedPipe: Connection was already closed or is nil
-//   - Context error: Context was cancelled or deadline exceeded
-//   - Network errors: Any error from the underlying Unix socket
-//
-// Behavior:
-//   - Returns immediately with io.ErrClosedPipe if connection is closed
-//   - Checks context state before reading
-//   - Reads one complete datagram (may be truncated if buffer too small)
-//   - Closes connection on any error (including EOF)
-//   - Thread-safe for concurrent reads
-//
-// Unix Datagram-Specific Notes:
-//   - Each Read() receives one complete datagram
-//   - If buffer is smaller than datagram, excess bytes are discarded
-//   - No partial reads - each Read() is atomic per datagram
-//   - No ordering guarantee between datagrams
-//
-// Example:
-//
-//	buf := make([]byte, 65507) // Max datagram size
-//	n, err := ctx.Read(buf)
-//	if err != nil {
-//	    if err == io.ErrClosedPipe {
-//	        // Connection closed
-//	    }
-//	    return err
-//	}
-//	datagram := buf[:n]
+//   - n: The number of bytes successfully read.
+//   - err: An error object, or nil if the read was successful.
 func (o *sCtx) Read(p []byte) (n int, err error) {
 	if o == nil {
 		return 0, io.ErrClosedPipe
 	} else if o.clo.Load() {
+		return 0, io.ErrClosedPipe
+	} else if o.ctx == nil || o.con == nil {
 		return 0, io.ErrClosedPipe
 	} else if e := o.ctx.Err(); e != nil {
 		return 0, o.onErrorClose(e)
@@ -228,6 +218,8 @@ func (o *sCtx) Read(p []byte) (n int, err error) {
 
 	n, err = o.con.Read(p)
 
+	// In Unixgram, EOF might occur if the other side closes their socket file,
+	// but since it's connectionless, it's more often an indication that our own listener is stopping.
 	if err != nil && err != io.EOF {
 		return n, o.onErrorClose(err)
 	} else if err != nil {
@@ -237,152 +229,104 @@ func (o *sCtx) Read(p []byte) (n int, err error) {
 	}
 }
 
-// Write is intentionally disabled for Unix datagram server contexts.
+// Write is explicitly disabled for the server-side sCtx.
 //
-// This method always returns an error because Unix datagram servers in this implementation
-// use ReadFrom/WriteTo pattern rather than Read/Write. The server-side context
-// does not maintain per-datagram remote address state needed for Write().
+// # Rationale for Disabling Write()
 //
-// Parameters:
-//   - p: Byte slice to write (ignored)
+// Unix Datagram sockets (SOCK_DGRAM) are connectionless. A server socket typically
+// acts as a "mailbox" receiving messages from many different senders. A standard
+// Write() call does not include a destination address; it requires the socket to
+// have been "connected" to a specific peer using the Connect() system call.
+//
+// Since our server context handles multiple potential peers, an unqualified Write()
+// would be ambiguous.
+//
+// # How to Respond to a Datagram:
+//
+// To send a reply, you should use the WriteTo() method of the underlying connection
+// which accepts an explicit remote address. You can obtain this address by using
+// the ReadFrom() method of the net.UnixConn instead of the standard Read().
 //
 // Returns:
-//   - n: Always 0
-//   - err: Always returns io.ErrClosedPipe
-//
-// Rationale:
-//   - Unix datagram is connectionless, no implicit destination for Write()
-//   - Server must use WriteTo with explicit remote address
-//   - This prevents accidental writes to wrong destination
-//   - Forces explicit handling of remote address per datagram
-//
-// Alternative:
-//
-//	To send responses, the handler should use the underlying *net.UnixConn
-//	with WriteTo() method, specifying the remote address explicitly.
-//
-// Note:
-//
-//	This is a design choice for safety. Client-side Unix datagram contexts may
-//	implement Write() differently with a persistent remote address.
+//   - 0, io.ErrClosedPipe (Always).
 func (o *sCtx) Write(p []byte) (n int, err error) {
 	if o == nil {
 		return 0, io.ErrClosedPipe
 	} else if o.clo.Load() {
 		return 0, io.ErrClosedPipe
+	} else if o.ctx == nil || o.con == nil {
+		return 0, io.ErrClosedPipe
 	} else if e := o.ctx.Err(); e != nil {
 		return 0, o.onErrorClose(e)
 	} else {
+		// We explicitly prevent Write() to avoid developer confusion about the connectionless nature of Unixgram.
 		return 0, o.onErrorClose(io.ErrClosedPipe)
 	}
 }
 
-// Close closes the Unix datagram connection and cancels the associated context.
+// Close performs a comprehensive cleanup of the context's resources.
 //
-// This method implements the io.Closer interface and performs complete cleanup
-// of all resources associated with the connection context.
+// Lifecycle Actions:
+//  1. Atomic Flag: Sets 'clo' to true using an atomic Swap, preventing race conditions.
+//  2. Context Signal: Executes 'cnl()' to close the Done() channel and notify all listeners.
+//  3. Network Cleanup: Closes the underlying *net.UnixConn to release the file descriptor.
+//
+// This method is idempotent and safe for concurrent calls from multiple goroutines.
 //
 // Returns:
-//   - error: Any error from closing the underlying Unix connection, or nil
-//
-// Behavior:
-//  1. Cancels the context (triggers Done() channel)
-//  2. Marks connection as closed atomically
-//  3. Closes the underlying Unix socket
-//  4. Safe to call multiple times (idempotent)
-//  5. Safe to call from multiple goroutines (only first call does work)
-//
-// Side Effects:
-//   - Context's Done() channel is closed
-//   - Any blocked Read() calls will return with error
-//   - Future Read/Write calls will return io.ErrClosedPipe
-//   - Unix socket resources are released to OS
-//
-// Thread Safety:
-//
-//	This method is safe to call concurrently from multiple goroutines.
-//	Only the first call will perform actual cleanup; subsequent calls
-//	are no-ops returning nil.
-//
-// Example:
-//
-//	defer ctx.Close() // Always close to avoid resource leaks
-//
-//	if err := ctx.Close(); err != nil {
-//	    log.Printf("Error closing connection: %v", err)
-//	}
+//   - error: Any error encountered while closing the network connection.
 func (o *sCtx) Close() error {
 	if o == nil {
 		return nil
 	}
 
-	defer o.cnl()
-
-	if o.clo.Load() {
+	// Ensure we only perform the close logic once.
+	if o.clo.Swap(true) {
 		return nil
-	} else if o.con == nil {
-		o.clo.Store(true)
+	}
+
+	// Trigger context cancellation.
+	if o.cnl != nil {
+		o.cnl()
+	}
+
+	// Release network resources.
+	if o.con == nil {
 		return nil
 	} else {
-		o.clo.Store(true)
 		return o.con.Close()
 	}
 }
 
-// IsConnected returns true if the connection is still open and usable.
-//
-// Returns:
-//   - bool: true if connection is open, false if closed or nil
-//
-// This method checks the atomic closed flag to determine connection state.
-// It does not perform any I/O operations, making it very fast.
-//
-// Thread Safety:
-//
-//	Safe to call from multiple goroutines.
+// IsConnected returns a boolean indicating whether the context and its underlying
+// connection are currently active and capable of performing I/O.
 //
 // Note:
-//
-//	For Unix datagram servers, "connected" means the socket is open, not that
-//	there's an active connection to a remote peer (Unix datagram is connectionless).
-//
-// Example:
-//
-//	if ctx.IsConnected() {
-//	    // Safe to attempt Read/Write
-//	    ctx.Read(buf)
-//	}
+// In the context of Unixgram, "Connected" means the local socket file descriptor is open
+// and the context has not been cancelled. It does not imply an active handshake or
+// session with a remote peer.
 func (o *sCtx) IsConnected() bool {
+	if o == nil {
+		return false
+	}
 	return !o.clo.Load()
 }
 
-// RemoteHost returns the remote address string with protocol indicator.
+// RemoteHost returns a string representing the remote peer's address.
+//
+// Format: "path/to/peer.sock(unixgram)"
 //
 // Returns:
-//   - string: Remote address in format "path(unixgram)", or empty string
+//   - An empty string if the socket is not connected to a specific remote peer.
 //
-// Format:
-//   - "/tmp/app.sock(unixgram)" for Unix socket
-//   - "" if connection is nil or has no remote address
-//
-// Unix Datagram-Specific Behavior:
-//
-//	For Unix datagram servers, RemoteAddr() may be nil or zero-valued because
-//	Unix datagram is connectionless. The remote address is only known per-datagram
-//	when using ReadFrom().
-//
-// Thread Safety:
-//
-//	Safe to call from multiple goroutines.
-//
-// Example:
-//
-//	remote := ctx.RemoteHost()
-//	if remote != "" {
-//	    log.Printf("Datagram from: %s", remote)
-//	}
+// Use Case:
+// If you have used Connect() on the underlying socket to lock it to a specific
+// peer, this method will return that peer's path. Otherwise, for a generic
+// server socket, this will likely be empty.
 func (o *sCtx) RemoteHost() string {
-	if c := o.con; c == nil {
+	if o == nil {
+		return ""
+	} else if c := o.con; c == nil {
 		return ""
 	} else if a := c.RemoteAddr(); a == nil {
 		return ""
@@ -391,67 +335,49 @@ func (o *sCtx) RemoteHost() string {
 	}
 }
 
-// LocalHost returns the local address string with protocol indicator.
+// LocalHost returns the filesystem path of the local socket bound to this context.
 //
-// Returns:
-//   - string: Local address in format "path(unixgram)"
+// Format: "/path/to/socket.sock(unixgram)"
 //
-// Format:
-//   - "/tmp/app.sock(unixgram)" for Unix socket file
-//
-// The local address is cached at connection creation time for performance.
-//
-// Thread Safety:
-//
-//	Safe to call from multiple goroutines (reads immutable cached value).
-//
-// Example:
-//
-//	local := ctx.LocalHost()
-//	log.Printf("Server listening on: %s", local)
+// This value is cached during the context's initialization (reset) for high performance.
 func (o *sCtx) LocalHost() string {
+	if o == nil {
+		return ""
+	}
 	return o.loc + "(" + libptc.NetworkUnixGram.Code() + ")"
 }
 
-// onErrorClose is an internal helper that closes the connection and combines errors.
-// It ensures proper cleanup when an error occurs during I/O operations.
+// onErrorClose is an internal utility that facilitates the "fail-fast and clean-up"
+// philosophy. It closes the context upon encountering an error and ensures that
+// both the original error and any error during closure are reported.
 //
 // Parameters:
-//   - e: The error that triggered the close operation
+//   - e: The original error that occurred during an I/O operation.
 //
 // Returns:
-//   - error: The original error, or a combined error if Close also fails
-//
-// # Behavior
-//
-// If the provided error is nil, returns nil without closing.
-// If Close() returns an error, combines both errors in the format "original, close error".
-// Otherwise, returns the original error unchanged.
-//
-// # Usage
-//
-// This method is called internally by Read() and Write() when errors occur,
-// ensuring that:
-//   - The connection is properly closed on errors
-//   - Both the operation error and any close error are reported
-//   - Resources are released even when errors occur
-//
-// # Example Error Messages
-//
-//   - "read tcp: connection reset by peer" - network error only
-//   - "context canceled, close tcp: use of closed network connection" - combined errors
-//
-// # Test Coverage Note
-//
-// This method has low test coverage (0%) because it's primarily invoked
-// indirectly through Read/Write error paths which are already tested. Direct testing
-// would require forcing Close() to fail, which is difficult to achieve reliably.
+//   - error: A formatted error combining the original and the close error, or just the original.
 func (o *sCtx) onErrorClose(e error) error {
 	if e == nil {
 		return nil
 	} else if err := o.Close(); err != nil {
+		// We combine errors to provide maximum visibility into the failure.
 		return fmt.Errorf("%v, %v", e, err)
 	} else {
 		return e
 	}
+}
+
+// reset prepares the sCtx instance for a new processing cycle. This is called
+// by the srv when retrieving an sCtx from the sync.Pool.
+//
+// Internal State Transition:
+// - Atomic 'clo' is set to false.
+// - All pointers (ctx, cnl, con) are updated to the new request's values.
+// - The local address string is cached.
+func (o *sCtx) reset(ctx context.Context, cnl context.CancelFunc, con *net.UnixConn, loc string) {
+	o.ctx = ctx
+	o.cnl = cnl
+	o.con = con
+	o.loc = loc
+	o.clo.Store(false)
 }

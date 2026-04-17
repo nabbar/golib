@@ -24,9 +24,30 @@
  *
  */
 
-// tls_test.go validates TLS/SSL functionality of the TCP server.
-// Tests include TLS handshake, encrypted communication, certificate validation,
-// TLS configuration management, and secure connection lifecycle.
+// Package tcp_test validates the security features of the TCP server.
+//
+// # TLS Test Logic
+//
+// The 'tls_test.go' file ensures that the server correctly handles encrypted 
+// communication. It focuses on:
+//   - TLS Handshake: Verifying that 'tls.NewListener' correctly wraps the TCP socket.
+//   - Configuration: Validating that the server rejects incomplete TLS settings.
+//   - Handover: Ensuring 'SetTLS(false)' correctly reverts the server to plain TCP mode.
+//   - Cipher Suites: Verifying compatibility with the underlying certificates package.
+//
+// # Dataflow: Secure Connection Establishment
+//
+//	[tls.Dial] --(ClientHello)--> [net.Listener (TLS Wrapped)]
+//	                                      │
+//	[Handshake Completed] <──(ServerHello)──+── [srv.getTLS() lookup]
+//	          │
+//	          v
+//	[Encrypted I/O] <──────────────> [sCtx.Read/Write]
+//
+// # Security Note
+//
+// In these tests, 'InsecureSkipVerify: true' is used because the certificates 
+// are self-signed and generated dynamically in 'helper_test.go'.
 package tcp_test
 
 import (
@@ -50,11 +71,13 @@ var _ = Describe("TCP Server TLS", func() {
 		cnl context.CancelFunc
 	)
 
+	// Setup: Initialize address and context before each secure test.
 	BeforeEach(func() {
 		adr = getTestAddr()
 		ctx, cnl = context.WithCancel(globalCtx)
 	})
 
+	// Cleanup: Stop the server and release resources.
 	AfterEach(func() {
 		if srv != nil {
 			_ = srv.Close()
@@ -62,10 +85,12 @@ var _ = Describe("TCP Server TLS", func() {
 		if cnl != nil {
 			cnl()
 		}
+		// Allow some time for sockets to enter TIME_WAIT or be fully released.
 		time.Sleep(100 * time.Millisecond)
 	})
 
 	Context("TLS configuration", func() {
+		// Test: Standard secure server creation.
 		It("should create server with TLS enabled", func() {
 			cfg := createTLSConfig(adr)
 			var err error
@@ -75,6 +100,7 @@ var _ = Describe("TCP Server TLS", func() {
 			Expect(srv).ToNot(BeNil())
 		})
 
+		// Test: Verify the listener starts without error in TLS mode.
 		It("should start TLS server successfully", func() {
 			cfg := createTLSConfig(adr)
 			var err error
@@ -87,6 +113,7 @@ var _ = Describe("TCP Server TLS", func() {
 			Expect(srv.IsRunning()).To(BeTrue())
 		})
 
+		// Test: Verify client connection and tracking.
 		It("should accept TLS connections", func() {
 			cfg := createTLSConfig(adr)
 			var err error
@@ -96,12 +123,12 @@ var _ = Describe("TCP Server TLS", func() {
 			startServerInBackground(ctx, srv)
 			waitForServerAcceptingConnections(adr, 2*time.Second)
 
-			// Create TLS client config with InsecureSkipVerify for testing
+			// Create TLS client config with InsecureSkipVerify for testing self-signed certs.
 			tlsCfg := &tls.Config{
 				InsecureSkipVerify: true, // #nosec nolint
 			}
 
-			// Connect with TLS
+			// Connect with TLS dialer.
 			con, err := tls.Dial(libptc.NetworkTCP.Code(), adr, tlsCfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer func() { _ = con.Close() }()
@@ -112,6 +139,7 @@ var _ = Describe("TCP Server TLS", func() {
 			}, 2*time.Second, 10*time.Millisecond).Should(Equal(int64(1)))
 		})
 
+		// Test: Verify data integrity over encrypted channel.
 		It("should echo messages over TLS", func() {
 			cfg := createTLSConfig(adr)
 			var err error
@@ -121,12 +149,10 @@ var _ = Describe("TCP Server TLS", func() {
 			startServerInBackground(ctx, srv)
 			waitForServerAcceptingConnections(adr, 2*time.Second)
 
-			// Create TLS client config with InsecureSkipVerify for testing
 			tlsCfg := &tls.Config{
 				InsecureSkipVerify: true, // #nosec nolint
 			}
 
-			// Connect with TLS
 			con, err := tls.Dial(libptc.NetworkTCP.Code(), adr, tlsCfg)
 			Expect(err).ToNot(HaveOccurred())
 			defer func() { _ = con.Close() }()
@@ -136,19 +162,21 @@ var _ = Describe("TCP Server TLS", func() {
 			Expect(rsp).To(Equal(msg))
 		})
 
+		// Test: Verify dynamic reconfiguration of security settings.
 		It("should disable TLS when SetTLS(false) is called", func() {
 			cfg := createDefaultConfig(adr)
 			var err error
 			srv, err = scksrt.New(nil, echoHandler, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
+			// Explicitly disable TLS.
 			err = srv.SetTLS(false, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			startServerInBackground(ctx, srv)
 			waitForServerAcceptingConnections(adr, 2*time.Second)
 
-			// Should accept plain TCP connections
+			// Should now accept plain TCP connections instead of TLS.
 			con := connectToServer(adr)
 			defer func() { _ = con.Close() }()
 
@@ -159,13 +187,14 @@ var _ = Describe("TCP Server TLS", func() {
 	})
 
 	Context("TLS errors", func() {
+		// Test: Validation of TLS configuration inputs.
 		It("should reject invalid TLS config with no certificates", func() {
 			cfg := createDefaultConfig(adr)
 			var err error
 			srv, err = scksrt.New(nil, echoHandler, cfg)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Try to enable TLS with invalid config
+			// Enabling TLS with an empty config should fail validation.
 			invalidTLS := libtls.New()
 			err = srv.SetTLS(true, invalidTLS)
 			Expect(err).To(HaveOccurred())

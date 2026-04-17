@@ -24,50 +24,44 @@
  *
  */
 
-// Package tcp provides a TCP server implementation with support for TLS,
-// connection management, and various callback hooks for monitoring and error handling.
+// Package tcp provides a robust and performance-oriented TCP server implementation.
+// It integrates with nabbar/golib/socket for common interfaces and configuration.
 //
-// This package implements the github.com/nabbar/golib/socket.Server interface
-// and provides a robust TCP server with features including:
-//   - TLS/SSL support with certificate management
-//   - Graceful shutdown with connection draining
-//   - Connection lifecycle callbacks (new, read, write, close)
-//   - Error and informational logging callbacks
-//   - Atomic connection counting and state management
-//   - Context-aware operations
-//
-// See github.com/nabbar/golib/socket for the Server interface definition.
+// Features include:
+//   - TLS support (v1.2, v1.3) with certificate management.
+//   - Graceful shutdown with connection draining.
+//   - High-performance memory pooling (sync.Pool).
+//   - Centralized idle connection scanning.
+//   - TCP_NODELAY and Keep-Alive tuning.
 package tcp
 
 import "fmt"
 
 var (
-	// ErrInvalidAddress is returned when the server address is empty or malformed.
-	// The address must be in the format "host:port" or ":port" for all interfaces.
+	// ErrInvalidAddress is returned when the provided server address is empty,
+	// malformed, or cannot be resolved using net.ResolveTCPAddr.
 	//
-	// Example of valid addresses:
-	//   - "localhost:8080" - Listen on localhost port 8080
-	//   - ":8080" - Listen on all interfaces port 8080
-	//   - "0.0.0.0:8080" - Explicitly listen on all IPv4 interfaces
+	// Valid address examples:
+	//   - "127.0.0.1:8080" (IPv4 localhost)
+	//   - "[::1]:8080"     (IPv6 localhost)
+	//   - ":8080"          (All interfaces)
 	ErrInvalidAddress = fmt.Errorf("invalid listen address")
 
-	// ErrInvalidHandler is returned when attempting to start a server without a valid handler function.
-	// A handler must be provided via the New() constructor and must not be nil.
+	// ErrInvalidHandler is returned when the required HandlerFunc is not provided 
+	// during server initialization via New().
 	//
-	// Example of valid usage:
-	//   handler := func(r socket.Reader, w socket.Writer) { /* ... */ }
-	//   srv, err := tcp.New(nil, handler, config)
+	// The handler must be a function matching the libsck.HandlerFunc signature 
+	// and is responsible for processing each client connection.
 	ErrInvalidHandler = fmt.Errorf("invalid handler")
 
-	// ErrShutdownTimeout is returned when the server shutdown exceeds the context timeout.
-	// This typically happens when StopListen() takes longer than expected to complete.
-	// The server will attempt to close all active connections before returning this error.
+	// ErrShutdownTimeout is returned when the graceful shutdown process exceeds 
+	// the provided context's deadline.
 	//
-	// To handle this error, you may want to implement a fallback strategy or log the event.
+	// This error occurs during the draining phase, when active connections 
+	// fail to close or finish their task within the allocated time.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
 
-	// ErrInvalidInstance is returned when operating on a nil server instance.
-	// This typically occurs if the server was not properly initialized or has been set to nil.
-	// Always check for this error when working with server instances that might be nil.
+	// ErrInvalidInstance is returned when a method is called on a nil server instance
+	// or an instance that has not been properly initialized via New().
 	ErrInvalidInstance = fmt.Errorf("invalid socket instance")
 )

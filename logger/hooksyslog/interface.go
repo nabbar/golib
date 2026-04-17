@@ -39,6 +39,8 @@ import (
 	libptc "github.com/nabbar/golib/network/protocol"
 )
 
+var hst, _ = os.Hostname()
+
 // HookSyslog is a logrus hook that writes log entries to a syslog endpoint.
 // It extends the standard logrus.Hook interface with additional methods
 // for lifecycle management.
@@ -131,34 +133,58 @@ func New(opt logcfg.OptionsSyslog, format logrus.Formatter) (HookSyslog, error) 
 	n := &hks{
 		m: sync.Mutex{},
 		o: ohks{
-			format:           format,
-			levels:           LVLs,
-			disableStack:     opt.DisableStack,
-			disableTimestamp: opt.DisableTimestamp,
-			enableTrace:      opt.EnableTrace,
-			enableAccessLog:  opt.EnableAccessLog,
-			network:          libptc.Parse(opt.Network),
-			endpoint:         opt.Host,
-			tag:              opt.Tag,
-			fac:              MakeFacility(opt.Facility),
+			format:   format,
+			levels:   LVLs,
+			network:  libptc.Parse(opt.Network),
+			endpoint: opt.Host,
+			tag:      opt.Tag,
+			fac:      MakeFacility(opt.Facility),
 		},
 		w: nil,
 		r: new(atomic.Bool),
-		l: new(atomic.Bool),
+		f: make([]func(d logrus.Fields) logrus.Fields, 0),
+		p: nil,
+		l: nil,
 	}
 
-	a, l, e := setAgg(n.o.network, n.o.endpoint)
+	if opt.DisableStack {
+		n.f = append(n.f, func(d logrus.Fields) logrus.Fields {
+			return n.filterKey(d, logtps.FieldStack)
+		})
+	}
+
+	if opt.DisableTimestamp {
+		n.f = append(n.f, func(d logrus.Fields) logrus.Fields {
+			return n.filterKey(d, logtps.FieldTime)
+		})
+	}
+
+	if !opt.EnableTrace {
+		n.f = append(n.f, func(d logrus.Fields) logrus.Fields {
+			return n.filterKey(n.filterKey(n.filterKey(d, logtps.FieldCaller), logtps.FieldFile), logtps.FieldLine)
+		})
+	}
+
+	if opt.EnableAccessLog {
+		n.p = n.getMsgAccess
+	} else {
+		n.p = n.getMsgNormal
+	}
+
+	a, l, e := setAgg(n.o.network, n.o.endpoint, opt.MessageMaxSize.Int())
 	if e != nil {
 		return nil, e
 	}
 
 	n.w = a
-	n.l.Store(l)
-	n.r.Store(true)
 
-	if !l {
-		n.h, _ = os.Hostname()
+	if l {
+		n.l = n.locWriteMsg
+	} else {
+		n.l = n.rmtWriteMsg
 	}
+
+	n.r.Store(true)
 
 	return n, nil
 }

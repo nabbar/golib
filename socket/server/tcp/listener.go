@@ -29,9 +29,10 @@ package tcp
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
-	"sync/atomic"
+	"strings"
 	"time"
 
 	libptc "github.com/nabbar/golib/network/protocol"
@@ -82,14 +83,6 @@ func (o *srv) getAddress() string {
 //
 // This function is safe to call multiple times but each call will create
 // a new listener. The caller is responsible for closing the returned listener.
-//
-// Example:
-//
-//	listener, isTLS, err := s.getListen(":8443")
-//	if err != nil {
-//	    return fmt.Errorf("failed to create listener: %w", err)
-//	}
-//	defer listener.Close()
 func (o *srv) getListen(addr string) (net.Listener, bool, error) {
 	var (
 		lis net.Listener
@@ -118,80 +111,29 @@ func (o *srv) getListen(addr string) (net.Listener, bool, error) {
 // This is the main server loop that runs until the context is cancelled or
 // an unrecoverable error occurs.
 //
-// # Overview
+// # Internal Logic and Flow
 //
-// The Listen method performs the following sequence of operations:
-//  1. Validates server configuration (address, handler)
-//  2. Creates the TCP listener (with optional TLS)
-//  3. Updates server state to "running"
-//  4. Starts the accept loop in a separate goroutine
-//  5. Waits for shutdown signals or context cancellation
-//  6. Performs cleanup when stopping
+//	1. [Initialization]: Validates address and handler.
+//	2. [Listener Setup]: Creates net.Listener (optional TLS).
+//	3. [Idle Manager]: If configured, starts the global sckidl.Manager to monitor timeouts.
+//	4. [State Update]: Sets o.run = true.
+//	5. [Shutdown Watcher]: Spawns a background goroutine to close the listener on ctx.Done() or setGone().
+//	6. [Accept Loop]: Blocks on l.Accept().
+//	   - On Success: Spawns o.Conn() in a new goroutine.
+//	   - On Error: Checks if error is expected (closed listener) or fatal.
+//	7. [Cleanup]: Closes listener, stops idle manager, sets o.run = false.
 //
-// # Connection Handling
+// # Graceful Shutdown Mechanism
 //
-// Each incoming connection is handled in its own goroutine, allowing the server
-// to handle multiple clients concurrently. The connection handling includes:
-//   - TCP keepalive (if configured)
-//   - TLS handshake (if enabled)
-//   - Connection state tracking
-//   - Error handling and recovery
+// The server implements a two-stage shutdown:
+//   - Stage 1: Close the listener to stop accepting new connections.
+//   - Stage 2: Wait for active connections to finish (managed in Shutdown() method).
 //
-// # Graceful Shutdown
+// # Error Handling and Return Values
 //
-// The server supports graceful shutdown through several mechanisms:
-//   - Context cancellation: The provided context can be cancelled to initiate shutdown
-//   - StopListen(): Stops accepting new connections
-//   - Shutdown(): Stops accepting new connections and waits for active ones to complete
-//   - Close(): Forcefully closes all connections immediately
-//
-// # Error Handling
-//
-// The following errors may be returned:
-//   - ErrInvalidAddress: If no address has been registered
-//   - ErrInvalidHandler: If no handler was provided to New()
-//   - Network errors: If binding to the address fails
-//   - TLS errors: If TLS configuration is invalid
-//   - Context errors: If the context is cancelled
-//
-// # Example
-//
-//	ctx, cancel := context.WithCancel(context.Background())
-//	defer cancel()
-//
-//	// Start the server in a goroutine
-//	go func() {
-//	    if err := srv.Listen(ctx); err != nil {
-//	        log.Fatalf("Server error: %v", err)
-//	    }
-//	}()
-//
-//	// Later, to shut down:
-//	// cancel() // or srv.Shutdown(context.Background())
-//
-// # Concurrency
-//
-// The server is designed to be safe for concurrent use. Multiple goroutines
-// may call Listen(), StopListen(), Shutdown(), and other methods simultaneously.
-//
-// # Resource Management
-//
-// The server manages the following resources:
-//   - Network listener (closed on shutdown)
-//   - Active connections (closed on shutdown)
-//   - Goroutines for connection handling (cleaned up on shutdown)
-//
-// It is the caller's responsibility to ensure proper cleanup by calling
-// Shutdown() or Close() when the server is no longer needed.
-//   - ErrInvalidHandler if no handler was provided to New()
-//   - Any error from net.Listen() during listener creation
-//   - nil when the server exits cleanly
-//
-// The method is safe to call only once per server instance. Calling it
-// multiple times concurrently will result in undefined behavior.
-//
-// See Conn() for per-connection handling and github.com/nabbar/golib/socket.HandlerFunc
-// for the handler function signature.
+//   - Returns ctx.Err() if context was canceled.
+//   - Returns nil if the server was stopped cleanly via Close() or Shutdown().
+//   - Returns any fatal error from net.Listen or l.Accept.
 func (o *srv) Listen(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -218,101 +160,130 @@ func (o *srv) Listen(ctx context.Context) error {
 		return e
 	}
 
+	// Start Idle Manager if timeout is defined
+	if o.id != nil {
+		if e = o.id.Start(ctx); e != nil {
+			o.fctError(e)
+		}
+	}
+
+	// Prepare for a new listen cycle
+	o.gon.Store(false)
+	o.gnc.Store(make(chan struct{}))
+
+	// Channel to signal that the loop has finished
+	done := make(chan struct{})
+
 	defer func() {
 		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkTCP.String(), a)
 
 		if l != nil {
-			o.fctError(l.Close())
+			_ = l.Close()
+		}
+
+		if o.id != nil {
+			_ = o.id.Stop(context.Background())
 		}
 
 		o.run.Store(false)
-		o.gon.Store(true)
+		o.setGone()
+		close(done)
 	}()
 
-	o.gon.Store(false)
-	o.run.Store(true)
-	time.Sleep(time.Millisecond)
-
-	type cR struct {
-		c net.Conn
-		e error
-	}
-
-	// Create Channel to check server is Going to shutdown
-	cG := make(chan bool, 1)
+	// Shutdown Watcher: handle signals to unblock Accept()
 	go func() {
-		tc := time.NewTicker(time.Millisecond)
-		for {
-			<-tc.C
-			if o.IsGone() {
-				cG <- true
-				return
-			}
-		}
-	}()
-
-	for {
-		// Create a channel to receive the accept result
-		cC := make(chan cR, 1)
-
-		// Start accept in a goroutine
-		go func() {
-			co, ce := l.Accept()
-			cC <- cR{c: co, e: ce}
-		}()
-
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
-		case <-cG:
-			return nil
-		case c := <-cC:
-			if c.e != nil {
-				o.fctError(c.e)
-			} else if c.c == nil {
-				// skip error message for invalid connection
-			} else {
-				go func(conn net.Conn) {
-					lc := conn.LocalAddr()
-					rc := conn.RemoteAddr()
-
-					defer o.fctInfo(lc, rc, libsck.ConnectionClose)
-					o.fctInfo(lc, rc, libsck.ConnectionNew)
-
-					o.Conn(ctx, conn, t)
-				}(c.c)
-			}
+		case <-o.getGoneChan():
+		case <-done: // prevent leaking if loop exits for other reasons
+			return
 		}
+
+		if l != nil {
+			_ = l.Close()
+		}
+	}()
+
+	o.run.Store(true)
+
+	// Main Accept Loop
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			// Check if the context was canceled - we must return the error for tests
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			// Check if we are shutting down via setGone
+			if o.IsGone() {
+				return nil
+			}
+
+			// For newer Go versions, net.ErrClosed is preferred
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			}
+
+			// compatibility for older Go or specific wrappers
+			if strings.Contains(err.Error(), "use of closed network connection") {
+				return nil
+			}
+
+			o.fctError(err)
+			continue
+		}
+
+		if conn == nil {
+			continue
+		}
+
+		// Handle each connection in its own goroutine
+		go func(c net.Conn) {
+			lc := c.LocalAddr()
+			rc := c.RemoteAddr()
+
+			defer o.fctInfo(lc, rc, libsck.ConnectionClose)
+			o.fctInfo(lc, rc, libsck.ConnectionNew)
+
+			o.Conn(ctx, c, t)
+		}(conn)
 	}
 }
 
 // Conn handles a single client connection in its own goroutine.
 // This method is called automatically by Listen() for each accepted connection.
 //
-// The connection lifecycle:
-//  1. Increments the active connection counter
-//  2. Invokes the UpdateConn callback (if registered) to configure the connection
-//  3. Creates a child context for connection-specific cancellation
-//  4. Wraps the connection in Reader/Writer interfaces via getReadWriter()
-//  5. Spawns the user's handler function in a goroutine
-//  6. Monitors for context cancellation or server shutdown (Gone signal)
-//  7. Cleans up and decrements the connection counter on exit
+// # Connection Initialization Dataflow
 //
-// The method handles both graceful and ungraceful connection termination:
-//   - During normal shutdown: brief delay (500ms) before cleanup
-//   - During draining (IsGone): longer delay (5s) to allow final I/O
+//	1. [Counter]: Increment atomic connection count (nc).
+//	2. [User Hook]: Execute UpdateConn callback (upd) to tune socket.
+//	3. [TCP Tuning]:
+//	   - Enable TCP_NODELAY (NoDelay) for lower latency.
+//	   - Configure TCP Keep-Alive if idle timeout > 30s.
+//	4. [Context Setup]:
+//	   - Get sCtx from sync.Pool (recycle memory).
+//	   - Create connection-specific cancellation context.
+//	5. [Idle Registration]: Add connection to centralized Idle Manager (id).
+//	6. [Handler Execution]: Spawn user HandlerFunc (hdl) in a new goroutine.
+//	7. [Monitoring]: Wait for context termination or server shutdown signal.
+//	8. [Cleanup]:
+//	   - Unregister from Idle Manager.
+//	   - Close context and socket.
+//	   - Put sCtx back to sync.Pool.
+//	   - Decrement connection count.
 //
-// Connection state changes are reported via the registered FuncInfo callback.
-// The handler receives Reader and Writer interfaces that support:
-//   - Partial close (CloseRead/CloseWrite for TCP connections)
-//   - Context-aware I/O operations
-//   - Connection liveness checking
+// # Performance Tuning
 //
-// This method should not be called directly by users. It's invoked automatically
-// by Listen() for each new connection.
+// This method implements several optimizations for high-throughput servers:
+//   - TCP_NODELAY: Disabled Nagle's algorithm to ensure immediate packet delivery.
+//   - Keep-Alive Configuration: Explicitly sets Idle/Interval/Count to detect dead peers faster.
+//   - Object Pooling: Uses sync.Pool for connection contexts to avoid GC churn.
 //
-// See getReadWriter() for the Reader/Writer implementation and
-// github.com/nabbar/golib/socket.HandlerFunc for the handler signature.
+// # Thread Safety
+//
+// Safe for concurrent calls. Each call operates on a unique connection and
+// isolated pooled context.
 func (o *srv) Conn(ctx context.Context, con net.Conn, isTls bool) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -325,13 +296,16 @@ func (o *srv) Conn(ctx context.Context, con net.Conn, isTls bool) {
 		dur = o.idleTimeout()
 
 		sx *sCtx
-		tc *time.Ticker
-		tw = time.NewTicker(3 * time.Millisecond)
 	)
 
 	defer func() {
 		// Decrement active connection count
 		o.nc.Add(-1)
+
+		// Remove from global idle monitor
+		if o.id != nil && dur > 0 {
+			_ = o.id.Unregister(sx)
+		}
 
 		if cnl != nil {
 			cnl()
@@ -339,18 +313,11 @@ func (o *srv) Conn(ctx context.Context, con net.Conn, isTls bool) {
 
 		if sx != nil {
 			_ = sx.Close()
+			o.putContext(sx) // Return sCtx to sync.Pool
 		}
 
 		if con != nil {
 			_ = con.Close()
-		}
-
-		if tc != nil {
-			tc.Stop()
-		}
-
-		if tw != nil {
-			tw.Stop()
 		}
 	}()
 
@@ -361,53 +328,39 @@ func (o *srv) Conn(ctx context.Context, con net.Conn, isTls bool) {
 		o.upd(con)
 	}
 
-	// Create connection-specific context
-	ctx, cnl = context.WithCancel(ctx)
-	sx = &sCtx{
-		ctx: ctx,
-		cnl: cnl,
-		clo: new(atomic.Bool),
+	// Apply low-level TCP optimizations
+	if c, k := con.(*net.TCPConn); k {
+		// Ensure low latency (Disable Nagle's algorithm)
+		_ = c.SetNoDelay(true)
+
+		// Set aggressive Keep-Alive if requested via idle timeout
+		if dur > 30*time.Second {
+			_ = c.SetKeepAlive(true)
+			_ = c.SetKeepAlivePeriod(dur)
+			_ = c.SetKeepAliveConfig(net.KeepAliveConfig{
+				Enable:   true,
+				Idle:     dur,
+				Interval: 15 * time.Second,
+				Count:    0,
+			})
+		}
 	}
 
 	if c, k := con.(io.ReadWriteCloser); k {
-		sx.con = c
+		// Create connection-specific context using memory pool
+		ctx, cnl = context.WithCancel(ctx)
+		sx = o.getContext(ctx, cnl, c, con.LocalAddr(), con.RemoteAddr(), isTls)
 	} else {
 		return
 	}
 
-	if l := con.LocalAddr(); l == nil {
-		sx.loc = ""
-	} else {
-		sx.ptc = l.Network()
-		sx.loc = l.String()
-	}
-
-	if r := con.RemoteAddr(); r == nil {
-		sx.rem = ""
-	} else {
-		sx.rem = r.String()
-	}
-
-	if isTls {
-		sx.ptc = sx.ptc + "/tls"
-	}
-
+	// Register with centralized Idle Manager
 	if dur > 0 {
-		tc = time.NewTicker(dur)
-		sx.rst = func() {
-			tc.Reset(dur)
-		}
-	} else {
-		tc = time.NewTicker(time.Hour)
-		sx.rst = func() {
-			tc.Reset(time.Hour)
-		}
+		_ = o.id.Register(sx)
 	}
 
-	// get handler or exit if nil
-	if o.hdl == nil {
-		return
-	} else {
+	// Start user handler logic
+	if o.hdl != nil {
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -419,14 +372,13 @@ func (o *srv) Conn(ctx context.Context, con net.Conn, isTls bool) {
 		}()
 	}
 
-	for ctx.Err() == nil && !o.IsGone() {
-		select {
-		case <-tc.C:
-			if dur > 0 {
-				return
-			}
-		case <-tw.C:
-			// check ctx & gone
-		}
+	// Block until connection context is closed, parent is canceled, or server is gone
+	select {
+	case <-ctx.Done():
+		return
+	case <-sx.Done():
+		return
+	case <-o.getGoneChan():
+		return
 	}
 }

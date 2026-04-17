@@ -60,6 +60,7 @@
 package hookfile
 
 import (
+	"sync"
 	"sync/atomic"
 
 	libiot "github.com/nabbar/golib/ioutils"
@@ -136,26 +137,51 @@ func New(opt logcfg.OptionsFile, format logrus.Formatter) (HookFile, error) {
 		}
 	}
 
-	a, e := setAgg(opt.Filepath, opt.FileMode.FileMode(), opt.Create)
+	a, e := setAgg(opt.Filepath, opt.FileMode.FileMode(), opt.Create, opt.MessageMaxSize.Int())
 	if e != nil {
 		return nil, e
 	}
 
 	n := &hkf{
+		m: sync.Mutex{},
 		o: ohkf{
-			format:           format,
-			levels:           LVLs,
-			disableStack:     opt.DisableStack,
-			disableTimestamp: opt.DisableTimestamp,
-			enableTrace:      opt.EnableTrace,
-			enableAccessLog:  opt.EnableAccessLog,
-			filepath:         opt.Filepath,
-			filemode:         opt.FileMode.FileMode(),
-			filecreate:       opt.Create,
+			format:     format,
+			levels:     LVLs,
+			filepath:   opt.Filepath,
+			filemode:   opt.FileMode.FileMode(),
+			filecreate: opt.Create,
+			msgMaxSize: opt.MessageMaxSize.Int(),
 		},
 		w: a,
 		r: new(atomic.Bool),
+		f: make([]func(d logrus.Fields) logrus.Fields, 0),
+		p: nil,
 	}
+
+	if opt.DisableStack {
+		n.f = append(n.f, func(d logrus.Fields) logrus.Fields {
+			return n.filterKey(d, logtps.FieldStack)
+		})
+	}
+
+	if opt.DisableTimestamp {
+		n.f = append(n.f, func(d logrus.Fields) logrus.Fields {
+			return n.filterKey(d, logtps.FieldTime)
+		})
+	}
+
+	if !opt.EnableTrace {
+		n.f = append(n.f, func(d logrus.Fields) logrus.Fields {
+			return n.filterKey(n.filterKey(n.filterKey(d, logtps.FieldCaller), logtps.FieldFile), logtps.FieldLine)
+		})
+	}
+
+	if opt.EnableAccessLog {
+		n.p = n.getMsgAccess
+	} else {
+		n.p = n.getMsgNormal
+	}
+
 	n.r.Store(true)
 
 	return n, nil

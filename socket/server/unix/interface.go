@@ -29,148 +29,110 @@
 package unix
 
 import (
+	"context"
 	"net"
+	"sync"
 	"sync/atomic"
 
 	libatm "github.com/nabbar/golib/atomic"
+	durbig "github.com/nabbar/golib/duration/big"
 	libprm "github.com/nabbar/golib/file/perm"
 	libsck "github.com/nabbar/golib/socket"
 	sckcfg "github.com/nabbar/golib/socket/config"
+	sckidl "github.com/nabbar/golib/socket/idlemgr"
 )
 
 // MaxGID defines the maximum allowed Unix group ID value (32767).
-// Group IDs must be within this range to be valid on Linux systems.
+// This limit is common on standard 16-bit Unix systems and is used here for safety during
+// file ownership operations (`os.Chown`).
 const MaxGID = 32767
 
-// ServerUnix defines the interface for a Unix domain socket server implementation.
-// It extends the base github.com/nabbar/golib/socket.Server interface
-// with Unix socket-specific functionality.
+// ServerUnix defines the comprehensive interface for a high-performance Unix domain socket server.
+// It extends the base `github.com/nabbar/golib/socket.Server` interface with Unix-specific
+// functionality, such as socket file permission and ownership management.
 //
-// The server operates in connection-oriented mode (SOCK_STREAM):
-//   - Creates a Unix socket file in the filesystem
-//   - Accepts persistent connections from clients
-//   - Each connection is handled independently in a separate goroutine
-//   - Supports file permissions and group ownership
-//   - Graceful shutdown with connection draining
-//   - Configurable idle timeouts
-//   - Comprehensive event callbacks
+// # Server Operation:
+//   - Mode: Connection-oriented (SOCK_STREAM).
+//   - Transport: Unix domain sockets (AF_UNIX), communicating via local files.
+//   - Concurrency: Goroutine-per-connection model with optimized resource pooling.
+//   - Lifecycle Management: Atomic state tracking for running/shutdown phases.
 //
-// # Thread Safety
+// # Key Responsibilities:
+//   - Socket Creation: Handles the creation, validation, and cleanup of the Unix socket file.
+//   - Permissions: Manages file access control via `chmod` and `chown`.
+//   - Resource Optimization: Recycles connection contexts (`sCtx`) to reduce GC overhead.
+//   - Idle Control: Integrates with a centralized Idle Manager for efficient timeout scanning.
 //
-// All exported methods are safe for concurrent use by multiple goroutines.
-// The server maintains internal synchronization to handle concurrent connections.
+// # Lifecycle Methods Inherited from libsck.Server:
+//   - Listen(context.Context) error: Starts the accept loop. Blocks until shutdown or error.
+//   - Shutdown(context.Context) error: Initiates a graceful shutdown with draining.
+//   - Close() error: Triggers an immediate shutdown.
+//   - IsRunning() bool: Returns true if the server is accepting connections.
+//   - IsGone() bool: Returns true if the server has finished its shutdown cycle.
+//   - OpenConnections() int64: Returns the number of currently active connections.
 //
-// # Error Handling
-//
-// The server provides multiple ways to handle errors:
-//   - Return values from methods
-//   - Error callback function
-//   - Context cancellation
-//
-// # Lifecycle
-//
-// 1. Create server with New()
-// 2. Configure with RegisterSocket()
-// 3. Start with Listen()
-// 4. Handle connections in handler function
-// 5. Shut down with Shutdown() or Close()
-//
-// See github.com/nabbar/golib/socket.Server for inherited methods:
-//   - Listen(context.Context) error - Start accepting connections
-//   - Shutdown(context.Context) error - Graceful shutdown
-//   - Close() error - Immediate shutdown
-//   - IsRunning() bool - Check if server is accepting connections
-//   - IsGone() bool - Check if all connections are closed
-//   - OpenConnections() int64 - Get active connection count
-//   - Done() <-chan struct{} - Channel closed when listener stops
-//   - Gone() <-chan struct{} - Channel closed when all connections close
-//   - SetTLS(bool, TLSConfig) error - No-op for Unix sockets (always returns nil)
-//   - RegisterFuncError(FuncError) - Register error callback
-//   - RegisterFuncInfo(FuncInfo) - Register connection event callback
-//   - RegisterFuncInfoServer(FuncInfoSrv) - Register server event callback
+// # Thread Safety:
+// All methods are safe for concurrent use by multiple goroutines. Internal synchronization
+// is achieved via lock-free atomic operations and a `sync.Pool`.
 type ServerUnix interface {
 	libsck.Server
 
-	// RegisterSocket sets the Unix socket file path, permissions, and group ownership.
+	// RegisterSocket configures the metadata for the Unix socket file.
+	//
+	// # Important:
+	// This method MUST be called before `Listen()`.
 	//
 	// Parameters:
-	//   - unixFile: Absolute or relative path to the socket file (e.g., "/tmp/app.sock")
-	//   - perm: File permissions (e.g., 0600 for user-only, 0660 for user+group)
-	//   - gid: Group ID for the socket file, or -1 to use default group
+	//   - unixFile: The filesystem path for the socket file (e.g., "/var/run/app.sock").
+	//   - perm: The permissions to apply to the socket file (e.g., 0600, 0660).
+	//   - gid: The Group ID to assign to the socket file, or -1 to use the default group.
 	//
-	// The socket file will be created when Listen() is called and removed on shutdown.
-	// If the file exists, it will be deleted before creating the new socket.
+	// Returns:
+	//   - ErrInvalidUnixFile: If the path is empty or invalid.
+	//   - ErrInvalidGroup: If the GID exceeds MaxGID.
 	//
-	// Returns ErrInvalidGroup if gid exceeds MaxGID (32767).
-	//
-	// This method must be called before Listen().
+	// # Behavior:
+	//   - The socket file is created only when `Listen()` is called.
+	//   - Existing files at the same path are automatically removed during startup.
+	//   - The socket file is removed from the filesystem during shutdown.
 	RegisterSocket(unixFile string, perm libprm.Perm, gid int32) error
 }
 
-// New creates a new Unix domain socket server instance with the specified
-// connection handler and optional connection updater.
+// New creates and initializes a new Unix domain socket server instance.
+// It sets up the internal context pool, configuration, and monitoring callbacks.
+//
+// # Initialization Details:
+//   - Callback Hooks: Initializes default, non-blocking callbacks for error and info reporting.
+//   - Context Pool: Creates a `sync.Pool` to recycle `sCtx` structures, achieving zero-allocation connections.
+//   - Idle Manager: If `cfg.ConIdleTimeout` is set, initializes a centralized `sckidl.Manager`
+//     to perform efficient periodic scans of inactive connections.
+//   - Gone Channel: Initializes the first signaling channel for the server lifecycle.
+//
+// # Performance Considerations:
+//   - Under high load, the use of `sync.Pool` drastically reduces GC pressure compared to allocating a new
+//     context for every connection.
+//   - The centralized Idle Manager is more efficient than individual timers for thousands of connections.
 //
 // Parameters:
-//   - u: Optional UpdateConn callback invoked for each accepted connection.
-//     Can be used to set socket options, configure timeouts, or track connections.
-//     If nil, no per-connection configuration is performed.
-//   - h: Required HandlerFunc that processes each connection. The handler receives
-//     io.Reader and io.Writer interfaces for the connection and runs in its own
-//     goroutine. The handler should handle the entire lifecycle of the connection.
+//   - upd: Optional callback for per-connection tuning (e.g., setting buffer sizes).
+//   - hdl: Required callback that implements the server's business logic for each connection.
+//   - cfg: Server configuration structure containing address, timeout, and permission settings.
 //
-// The returned server must be configured with RegisterSocket() before calling Listen().
+// Returns:
+//   - ServerUnix: The initialized server instance.
+//   - error: If the configuration is invalid or if the handler is nil.
 //
-// # Example
+// # Example:
 //
-//	srv := unix.New(
-//	    // Optional connection updater
-//	    func(conn net.Conn) {
-//	        if tcpConn, ok := conn.(*net.UnixConn); ok {
-//	            _ = tcpConn.SetReadBuffer(8192)
-//	        }
-//	    },
-//
-//	    // Required connection handler
-//	    func(r io.Reader, w io.Writer) {
-//	        // Handle connection
-//	        _, _ = io.Copy(w, r) // Echo server example
-//	    },
-//	)
-//
-// # Performance Considerations
-//
-// The handler function should be designed to handle multiple concurrent connections
-// efficiently. For CPU-bound work, consider using a worker pool pattern.
-//
-// # Error Handling
-//
-// Any panics in the handler will be recovered and logged, but the connection
-// will be closed. For better error handling, use recover() in your handler.
-//
-// Example usage:
-//
-//	handler := func(r socket.Reader, w socket.Writer) {
-//	    defer r.Close()
-//	    defer w.Close()
-//	    buf := make([]byte, 4096)
-//	    for {
-//	        n, err := r.Read(buf)
-//	        if err != nil {
-//	            break
-//	        }
-//	        w.Write(buf[:n])
-//	    }
+//	handler := func(r io.Reader, w io.Writer) {
+//	    _, _ = io.WriteString(w, "Hello from Unix Server!\n")
 //	}
 //
-//	srv := unix.New(nil, handler)
-//	srv.RegisterSocket("/tmp/myapp.sock", 0600, -1)
-//	srv.Listen(context.Background())
-//
-// The server is safe for concurrent use and manages connection lifecycle properly.
-// Connections persist until explicitly closed, unlike UDP.
-//
-// See github.com/nabbar/golib/socket.HandlerFunc and socket.UpdateConn for
-// callback function signatures.
+//	srv, _ := unix.New(nil, handler, config.Server{
+//	    Address: "/tmp/my.sock",
+//	    PermFile: perm.New(0666),
+//	})
+//	_ = srv.Listen(context.Background())
 func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (ServerUnix, error) {
 	if e := cfg.Validate(); e != nil {
 		return nil, e
@@ -194,11 +156,24 @@ func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (Serv
 		fi:  libatm.NewValueDefault[libsck.FuncInfo](dfi, dfi),
 		fs:  libatm.NewValueDefault[libsck.FuncInfoSrv](dfs, dfs),
 		ad:  libatm.NewValue[sckFile](),
+		gnc: libatm.NewValueDefault[chan struct{}](make(chan struct{}), make(chan struct{})),
+		id:  nil,
 		nc:  new(atomic.Int64),
+		pol: &sync.Pool{
+			New: func() interface{} {
+				return &sCtx{}
+			},
+		},
 	}
 
-	if cfg.ConIdleTimeout > 0 {
+	if c := cfg.ConIdleTimeout.Seconds(); c > 0 {
 		s.idl = cfg.ConIdleTimeout.Time()
+
+		i, e := sckidl.New(context.Background(), durbig.Seconds(c), durbig.Seconds(1))
+		if e != nil {
+			return nil, e
+		}
+		s.id = i
 	}
 
 	if e := s.RegisterSocket(cfg.Address, cfg.PermFile, cfg.GroupPerm); e != nil {

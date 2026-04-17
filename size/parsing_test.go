@@ -300,7 +300,7 @@ var _ = Describe("Parsing", func() {
 			It("should reject empty string", func() {
 				_, err := Parse("")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("invalid size"))
+				Expect(err.Error()).To(ContainSubstring("size: invalid"))
 			})
 
 			It("should reject only whitespace", func() {
@@ -318,13 +318,13 @@ var _ = Describe("Parsing", func() {
 			It("should reject numbers without units", func() {
 				_, err := Parse("123")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("missing unit"))
+				Expect(err.Error()).To(ContainSubstring("size: missing unit"))
 			})
 
 			It("should reject fractional numbers without units", func() {
 				_, err := Parse("456.78")
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("missing unit"))
+				Expect(err.Error()).To(ContainSubstring("size: missing unit"))
 			})
 
 			It("should reject units without numbers", func() {
@@ -348,7 +348,7 @@ var _ = Describe("Parsing", func() {
 				for _, input := range invalidInputs {
 					_, err := Parse(input)
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("unknown unit"))
+					Expect(err.Error()).To(ContainSubstring("size: unknown unit"))
 				}
 			})
 		})

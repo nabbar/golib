@@ -24,21 +24,13 @@
  *
  */
 
-// Package ticker provides a ticker-based runner implementation that executes
-// a function at regular intervals. It combines the github.com/nabbar/golib/runner.Runner
-// interface with error collection capabilities.
-//
-// The ticker automatically manages goroutine lifecycle, context cancellation,
-// and error collection. It's designed for use cases requiring periodic execution
-// of tasks with proper cleanup and state management.
-//
-// For more information about the runner package, see github.com/nabbar/golib/runner.
 package ticker
 
 import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	libatm "github.com/nabbar/golib/atomic"
@@ -47,61 +39,63 @@ import (
 	libsrv "github.com/nabbar/golib/runner"
 )
 
-// Ticker is the main interface for ticker-based runners. It combines the Runner
-// interface from github.com/nabbar/golib/runner with error collection capabilities.
+// Ticker defines the public capabilities of the ticker runner.
+// It is a composite interface that brings together:
+//   - libsrv.Runner: Standard methods to manage the execution lifecycle (Start, Stop, Restart, etc.).
+//   - liberr.Errors: Methods to inspect and manage errors collected during periodic executions.
 //
-// The ticker executes a provided function at regular intervals until stopped or
-// until its context is cancelled. All errors returned by the function are collected
-// and can be retrieved via the Errors interface methods.
-//
-// Thread-safety: All methods are safe for concurrent use.
+// Any implementation of Ticker is guaranteed to be thread-safe for all its public methods.
 type Ticker interface {
 	libsrv.Runner
 	liberr.Errors
 }
 
-// New creates a new Ticker instance with the specified tick interval and function.
+// New initializes and returns a new Ticker instance.
+//
+// The Ticker will execute the provided 'fct' at every interval defined by 'tick'.
 //
 // Parameters:
-//   - tick: The duration between function executions. If less than 1 millisecond,
-//     defaultDuration (30 seconds) will be used instead.
-//   - fct: The function to execute on each tick. It receives the ticker's context
-//     and the underlying *time.Ticker. If nil, a default error-returning function
-//     will be used.
+//   - tick: The time.Duration between two consecutive executions of the ticker function.
+//     If 'tick' is less than 1 millisecond, the function will default to 'defaultDuration' (30 seconds)
+//     to prevent accidental high-frequency execution that could saturate CPU or resources.
+//   - fct: The libsrv.FuncTicker to be executed. This function must accept a context.Context and
+//     a libsrv.TickUpdate. If 'fct' is nil, New returns a ticker that will always record an
+//     "invalid function ticker" error upon every tick.
 //
-// The function is executed in a goroutine and receives:
-//   - ctx: A context that will be cancelled when Stop() is called or the parent
-//     context expires
-//   - tck: The underlying *time.Ticker that can be used for advanced tick control
+// Returns:
+//   - A Ticker interface implementation, specifically the internal 'run' structure.
 //
-// Returns a Ticker instance that is initially stopped. Call Start() to begin execution.
+// Thread-Safety:
 //
-// Example:
-//
-//	tick := ticker.New(5*time.Second, func(ctx context.Context, tck *time.Ticker) error {
-//	    // Perform periodic work
-//	    return doWork(ctx)
-//	})
-//	if err := tick.Start(context.Background()); err != nil {
-//	    log.Fatal(err)
-//	}
-//	defer tick.Stop(context.Background())
-func New(tick time.Duration, fct func(ctx context.Context, tck *time.Ticker) error) Ticker {
+//	The returned Ticker uses internal synchronization primitives (Mutex, Atomic values) to
+//	allow safe usage from multiple goroutines.
+func New(tick time.Duration, fct libsrv.FuncTicker) Ticker {
+	// Security check for interval duration.
+	// Very small intervals (< 1ms) are often a configuration mistake and can lead to performance issues.
 	if tick < time.Millisecond {
 		tick = defaultDuration
 	}
+
+	// Safety check for the ticker function.
+	// If no function is provided, we use a placeholder that reports the configuration error.
 	if fct == nil {
-		fct = func(ctx context.Context, tck *time.Ticker) error {
+		fct = func(_ context.Context, _ libsrv.TickUpdate) error {
 			return fmt.Errorf("invalid function ticker")
 		}
 	}
+
+	// Construct the internal runner.
+	// We use specialized atomic types from 'github.com/nabbar/golib/atomic' for better type safety.
 	return &run{
 		m: sync.Mutex{},
 		e: errpol.New(),
-		t: libatm.NewValue[time.Time](),
-		n: libatm.NewValue[context.CancelFunc](),
+		t: libatm.NewValue[time.Time](),          // Start time for uptime calculation.
+		n: libatm.NewValue[context.CancelFunc](), // Storage for the current execution context's cancel function.
+		s: new(atomic.Uint32),                    // State storage for the FSM.
 
 		f: fct,
 		d: tick,
+		k: time.NewTicker(tick),
+		w: time.NewTicker(pollChange), // Internal ticker for state change monitoring.
 	}
 }

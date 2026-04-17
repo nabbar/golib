@@ -26,9 +26,61 @@
  *
  */
 
-// basic_test.go provides fundamental operational tests for the Unix socket server.
-// It validates core functionality including server lifecycle (start/stop),
-// connection handling, and graceful shutdown mechanisms.
+// Package unix_test contains the Behavior-Driven Development (BDD) test suite for the Unix domain socket server.
+// It utilizes the Ginkgo and Gomega frameworks to provide clear, readable, and maintainable test specifications.
+//
+// # basic_test.go: Fundamental Operational Validation
+//
+// This file focuses on the primary functional requirements of the Unix socket server, ensuring that the basic
+// state transitions and communication primitives work correctly in isolation.
+//
+// # Scenarios Covered:
+//
+// ## 1. Server Lifecycle Management
+//   - Startup: Validates that `Listen()` correctly initializes the listener, creates the socket file,
+//     and transitions `IsRunning()` to true.
+//   - Shutdown: Ensures that `Close()` and `Shutdown()` stop the listener and clean up filesystem resources.
+//   - Graceful Stop: Tests that a context cancellation during `Listen` triggers a clean exit without panics.
+//
+// ## 2. Core Communication (Echo)
+//   - Data Integrity: Verifies that data sent by a client to the `echoHandler` is received back bit-for-bit.
+//   - Stream Handling: Ensures that the server can handle multiple read/write cycles over a single persistent connection.
+//
+// ## 3. Connection Tracking
+//   - Atomic Counting: Validates that the server accurately increments and decrements the internal connection
+//     counter (`OpenConnections()`) as clients connect and disconnect.
+//   - State Consistency: Ensures `IsRunning()` and `IsGone()` flags reflect the actual physical state of the server.
+//
+// ## 4. Filesystem Interaction
+//   - Automatic Creation: Verifies the socket file is created with the expected path upon calling `Listen`.
+//   - Automatic Cleanup: Ensures the socket file is deleted from the OS temporary directory when the server stops,
+//     preventing stale socket errors in subsequent runs.
+//
+// # Test Architecture:
+//
+//	[ BeforeEach ]
+//	      |
+//	      +---> Generate Unique Socket Path (/tmp/test-unix-*.sock)
+//	      +---> Initialize Server with `echoHandler`
+//	      +---> Create Cancellable Context
+//	      v
+//	[ Test Case (It) ]
+//	      |
+//	      +---> Start Server in Goroutine
+//	      +---> Wait for Socket to be Ready (Polling net.Dial)
+//	      +---> Execute Test Logic (net.Dial, Read, Write, Close)
+//	      +---> Assertions (Expect/Eventually)
+//	      v
+//	[ AfterEach ]
+//	      |
+//	      +---> Stop Server (srv.Close)
+//	      +---> Cancel Context
+//	      +---> Remove Physical Socket File
+//
+// # Why These Tests Matter:
+// These tests form the "sanity check" for any architectural changes (like the recent introduction of
+// sync.Pool or the Idle Manager). If a basic echo fails or connection counting is off, the higher-level
+// robustness and concurrency features cannot be trusted.
 package unix_test
 
 import (
@@ -36,6 +88,7 @@ import (
 	"os"
 	"time"
 
+	libptc "github.com/nabbar/golib/network/protocol"
 	scksru "github.com/nabbar/golib/socket/server/unix"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -79,6 +132,12 @@ var _ = Describe("Unix Server Basic Operations", func() {
 
 			Expect(srv.IsRunning()).To(BeTrue())
 			Expect(srv.IsGone()).To(BeFalse())
+
+			// Test Listener method
+			ntw, adr, tls := srv.Listener()
+			Expect(ntw).To(Equal(libptc.NetworkUnix))
+			Expect(adr).To(Equal(socketPath))
+			Expect(tls).To(BeFalse())
 		})
 
 		It("should accept connections when running", func() {

@@ -35,9 +35,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync/atomic"
+	"strings"
 	"syscall"
-	"time"
 
 	libprm "github.com/nabbar/golib/file/perm"
 	libptc "github.com/nabbar/golib/network/protocol"
@@ -46,8 +45,16 @@ import (
 )
 
 // getSocketFile retrieves and validates the configured Unix socket file path.
-// Returns the path after validation via checkFile(), or os.ErrNotExist if not set.
-// This is an internal helper used by Listen().
+// It ensures that the server's internal address configuration is well-formed.
+//
+// Internal Workflow:
+//  1. Check if the server's internal address (`ad`) is set.
+//  2. Verify that the file path is not empty.
+//  3. Validate the path through the `checkFile()` helper.
+//
+// Returns:
+//   - string: The validated socket path.
+//   - error: `ErrInvalidUnixFile` if the path is invalid or not set.
 func (o *srv) getSocketFile() (string, error) {
 	if o == nil {
 		return "", ErrInvalidUnixFile
@@ -60,10 +67,11 @@ func (o *srv) getSocketFile() (string, error) {
 	}
 }
 
-// getSocketPerm retrieves the configured file permissions for the Unix socket.
-// Returns the configured permissions or 0770 as default if parsing fails.
-// Uses github.com/nabbar/golib/file/perm for permission parsing.
-// This is an internal helper used by getListen().
+// getSocketPerm retrieves the configured filesystem permissions for the Unix socket.
+// If no permissions are explicitly set, it defaults to `0770` (User/Group access).
+//
+// Returns:
+//   - libprm.Perm: The current permission settings.
 func (o *srv) getSocketPerm() libprm.Perm {
 	if a := o.ad.Load(); a == (sckFile{}) {
 		return libprm.Perm(0770)
@@ -74,13 +82,16 @@ func (o *srv) getSocketPerm() libprm.Perm {
 	}
 }
 
-// getSocketGroup retrieves the group ID for the Unix socket file.
-// Returns:
-//   - The configured GID if >= 0
-//   - The process's current GID if <= MaxGID
-//   - 0 (root) as fallback
+// getSocketGroup retrieves the Group ID (GID) for the Unix socket file.
+// This is used to set the file ownership via `os.Chown`.
 //
-// This is an internal helper used by getListen() for os.Chown().
+// Logic Hierarchy:
+//  1. If GID is >= 0: Returns the configured GID.
+//  2. If GID is -1 (default): Attempts to retrieve the current process's GID.
+//  3. Fallback: Returns -1 if no ownership change should be performed.
+//
+// Returns:
+//   - int: The GID to be used for the socket file.
 func (o *srv) getSocketGroup() int {
 	if a := o.ad.Load(); a == (sckFile{}) {
 		return -1
@@ -93,19 +104,17 @@ func (o *srv) getSocketGroup() int {
 	return -1
 }
 
-// checkFile validates and prepares the Unix socket file path.
+// checkFile performs path normalization and ensures a clean state before listening.
 //
-// The function:
-//  1. Validates the path is not empty
-//  2. Normalizes the path using filepath.Join
-//  3. Checks if the file exists
-//  4. Removes existing file if present (socket files must be recreated)
+// Cleanup Strategy:
+//  1. Normalizes the path using `filepath.Join`.
+//  2. Checks if a file already exists at the target path.
+//  3. If it exists, it is automatically removed. This is necessary because
+//     Unix socket files must be recreated by the `net.Listen` call.
 //
-// Returns the normalized path and any error encountered.
-// Returns no error if the file doesn't exist (ready to create).
-//
-// This is an internal helper that ensures the socket file is in a clean
-// state before Listen() attempts to create it.
+// Returns:
+//   - string: The normalized path.
+//   - error: Any filesystem error encountered during validation or removal.
 func (o *srv) checkFile(unixFile string) (string, error) {
 	if len(unixFile) < 1 {
 		return unixFile, ErrInvalidUnixFile
@@ -124,52 +133,32 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 	return unixFile, nil
 }
 
-// Listen starts the Unix socket server and begins accepting connections.
-// This method blocks until the server is shut down via context cancellation,
-// Shutdown(), or Close().
+// Listen starts the Unix domain socket server and blocks until the server stops.
 //
-// Lifecycle:
-//  1. Validates configuration (socket path and handler must be set)
-//  2. Creates Unix socket file with permissions and group ownership
-//  3. Creates listener socket
-//  4. Sets server to running state
-//  5. Starts connection acceptance loop
-//  6. Spawns handler goroutine for each accepted connection
-//  7. Waits for shutdown signal
-//  8. Cleans up socket file and returns
+// # Server Lifecycle Workflow:
+//  1. Validation: Verifies that a handler and socket path are correctly configured.
+//  2. Idle Management: Starts the centralized `Idle Manager` (if a timeout > 0 is set).
+//  3. Preparation: Swaps the `gon` (gone) flag to false and initializes a new broadcast channel `gnc`.
+//  4. Resource Setup: Creates the Unix socket file, sets its permissions and ownership.
+//  5. Watchdog: Spawns a dedicated goroutine that unblocks the `Accept()` call if the context is cancelled.
+//  6. Accept Loop: Enters a direct, blocking `net.Listener.Accept()` loop.
+//  7. Accept Logic: For every successful connection, it spawns a `Conn` goroutine.
+//  8. Cleanup: When the loop exits (error, shutdown, or context cancellation):
+//     - Closes the listener.
+//     - Stops the Idle Manager.
+//     - Removes the socket file from the filesystem.
+//     - Sets the `run` and `gon` flags.
+//     - Closes the `gnc` channel to signal all handlers to exit.
 //
-// The handler function runs in a separate goroutine per connection and receives:
-//   - Reader: Reads data from the connection
-//   - Writer: Sends data to the connection
+// # Concurrency Management:
+// The server uses a single goroutine for the accept loop and one goroutine per connection.
+// It leverages atomic types and channels for thread-safe state synchronization.
 //
-// Context handling:
-//   - The provided context is used for the lifetime of the listener
-//   - Context cancellation triggers immediate shutdown
-//   - Done() channel is closed when Listen() exits
-//
-// Socket file management:
-//   - The socket file is created at the path specified in RegisterSocket()
-//   - If the file exists, it's deleted before creating the new socket
-//   - The file is removed during shutdown
-//   - Permissions and group ownership are applied as configured
+// Parameters:
+//   - ctx: The context that governs the server's overall lifetime.
 //
 // Returns:
-//   - ErrInvalidHandler: If no handler was provided to New()
-//   - os.ErrNotExist: If RegisterSocket() wasn't called
-//   - Any error from socket creation or file operations
-//
-// The server maintains per-connection state and tracks connection count atomically.
-// Each connection persists until explicitly closed by either side.
-//
-// Example:
-//
-//	go func() {
-//	    if err := srv.Listen(ctx); err != nil {
-//	        log.Printf("Server error: %v", err)
-//	    }
-//	}()
-//
-// See github.com/nabbar/golib/socket.HandlerFunc for handler function signature.
+//   - error: Any terminal error encountered during listener creation or during the accept loop.
 func (o *srv) Listen(ctx context.Context) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -178,11 +167,12 @@ func (o *srv) Listen(ctx context.Context) error {
 	}()
 
 	var (
-		e error        // error
-		l net.Listener // socket listener
-		a string       // address
+		e error        // terminal error
+		l net.Listener // actual unix socket listener
+		a string       // socket path
 	)
 
+	// Phase 1: Pre-launch validation.
 	if a, e = o.getSocketFile(); e != nil {
 		o.fctError(e)
 		return e
@@ -194,112 +184,123 @@ func (o *srv) Listen(ctx context.Context) error {
 		return e
 	}
 
+	// Phase 2: Start background managers.
+	if o.id != nil {
+		if e = o.id.Start(ctx); e != nil {
+			o.fctError(e)
+		}
+	}
+
+	// Phase 3: Prepare the state flags and signaling channels for this cycle.
+	o.gon.Store(false)
+	o.gnc.Store(make(chan struct{}))
+
+	// Channel used to signal that the loop has physically exited.
+	done := make(chan struct{})
+
+	// Phase 4: Deferred cleanup logic.
 	defer func() {
 		o.fctInfoSrv("closing listen socket '%s %s'", libptc.NetworkUnix.String(), a)
 
 		if l != nil {
-			o.fctError(l.Close())
+			_ = l.Close()
 		}
 
-		// Remove socket file on shutdown
+		if o.id != nil {
+			_ = o.id.Stop(context.Background())
+		}
+
+		// Always clean up the filesystem socket file.
 		if a != "" {
 			_ = os.Remove(a)
 		}
 
+		// Update server state flags.
 		o.run.Store(false)
-		o.gon.Store(true)
+		o.setGone() // Set the 'gone' flag and close the broadcast channel.
+		close(done)
 	}()
 
-	o.gon.Store(false)
-	o.run.Store(true)
-	time.Sleep(time.Millisecond)
-
-	type cR struct {
-		c net.Conn
-		e error
-	}
-
-	// Create Channel to check server is Going to shutdown
-	cG := make(chan bool, 1)
+	// Phase 5: Shutdown Watchdog.
+	// This goroutine waits for a stop signal (ctx or gone) and closes the listener
+	// to unblock the current blocking `Accept()` call.
 	go func() {
-		tc := time.NewTicker(time.Millisecond)
-		for {
-			<-tc.C
-			if o.IsGone() {
-				cG <- true
-				return
-			}
-		}
-	}()
-
-	for {
-		// Create a channel to receive the accept result
-		cC := make(chan cR, 1)
-
-		// Start accept in a goroutine
-		go func() {
-			co, ce := l.Accept()
-			cC <- cR{c: co, e: ce}
-		}()
-
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
-		case <-cG:
-			return nil
-		case c := <-cC:
-			if c.e != nil {
-				o.fctError(c.e)
-			} else if c.c == nil {
-				// skip error message for invalid connection
-			} else {
-				go func(conn net.Conn) {
-					lc := conn.LocalAddr()
-					rc := conn.RemoteAddr()
-
-					defer o.fctInfo(lc, rc, libsck.ConnectionClose)
-					o.fctInfo(lc, rc, libsck.ConnectionNew)
-
-					o.Conn(ctx, conn)
-				}(c.c)
-			}
+		case <-o.getGoneChan():
+		case <-done: // Prevent leakage if the main loop exits for other reasons.
+			return
 		}
+
+		if l != nil {
+			_ = l.Close()
+		}
+	}()
+
+	o.run.Store(true)
+
+	// Phase 6: Core Accept Loop.
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			// Check if the cancellation came from the context.
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			// Check if we are in a graceful shutdown phase.
+			if o.IsGone() {
+				return nil
+			}
+
+			// Handle standard "closed connection" errors.
+			if errors.Is(err, net.ErrClosed) {
+				return nil
+			} else if strings.Contains(err.Error(), "use of closed network connection") {
+				return nil
+			}
+
+			// Report unexpected errors and continue accepting.
+			o.fctError(err)
+			continue
+		}
+
+		if conn == nil {
+			continue
+		}
+
+		// Phase 7: Per-Connection Handling.
+		go func(c net.Conn) {
+			lc := c.LocalAddr()
+			rc := c.RemoteAddr()
+
+			// Report connection lifecycle events.
+			defer o.fctInfo(lc, rc, libsck.ConnectionClose)
+			o.fctInfo(lc, rc, libsck.ConnectionNew)
+
+			o.Conn(ctx, c)
+		}(conn)
 	}
 }
 
-// Conn handles an individual client connection.
-// This method is called in a goroutine for each accepted connection.
+// Conn processes a single client connection in its own goroutine.
 //
-// Lifecycle:
-//  1. Increments connection counter atomically
-//  2. Invokes UpdateConn callback if registered
-//  3. Creates connection-specific context (cancellable)
-//  4. Creates Reader/Writer wrappers with the connection
-//  5. Starts the handler goroutine
-//  6. Waits for connection close or server shutdown
-//  7. Cleans up connection resources
-//  8. Decrements connection counter
-//
-// The connection remains active until:
-//   - The client closes the connection
-//   - The handler closes Reader/Writer
-//   - The context is cancelled
-//   - StopGone() signals connection draining (via Gone() channel)
-//
-// Cleanup behavior:
-//   - If IsGone() is true: waits 5 seconds to avoid blocking next connection
-//   - Otherwise: waits 500ms for graceful connection closure
-//
-// The Reader and Writer wrappers support:
-//   - Half-close (Unix sockets support CloseRead/CloseWrite)
-//   - Automatic context cancellation when both sides close
-//   - Connection state callbacks (read, write, close events)
-//
-// This is an internal method called by Listen() for each accepted connection.
+// # Workflow:
+//  1. Resource Tracking: Increments the active connection count (`nc`).
+//  2. Callback Notification: Invokes `UpdateConn` for per-socket tuning.
+//  3. Pooling: Fetches an `sCtx` structure from the `sync.Pool` and `reset()` it.
+//  4. Timeout Registration: If idle timeouts are enabled, registers the connection with the `Idle Manager`.
+//  5. Logic Execution: Launches the user's `HandlerFunc` in a sub-goroutine.
+//  6. Synchronization: Blocks, waiting for one of three signals:
+//     - Context cancellation (the server is shutting down).
+//     - `sCtx` closure (the handler finished or an I/O error occurred).
+//     - 'Gone' signal (broadcast shutdown).
+//  7. Final Cleanup: Decrements the connection counter, closes the connection, unregisters from the manager,
+//     and returns the `sCtx` to the pool.
 //
 // Parameters:
-//   - ctx: Context for the connection lifetime (derived from Listen's context)
-//   - con: The accepted net.Conn (typically *net.UnixConn)
+//   - ctx: The server's main lifecycle context.
+//   - con: The raw network connection from `Accept()`.
 func (o *srv) Conn(ctx context.Context, con net.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -312,81 +313,53 @@ func (o *srv) Conn(ctx context.Context, con net.Conn) {
 		dur = o.idleTimeout()
 
 		sx *sCtx
-		tc *time.Ticker
-		tw = time.NewTicker(3 * time.Millisecond)
 	)
 
+	// Phase 1: Connection initialization.
+	o.nc.Add(1)
+
 	defer func() {
-		// Decrement active connection count
+		// Phase 3: Final cleanup and pooling.
 		o.nc.Add(-1)
 
-		if cnl != nil {
-			cnl()
-		}
-
-		if sx != nil {
-			_ = sx.Close()
+		if o.id != nil && dur > 0 {
+			_ = o.id.Unregister(sx)
 		}
 
 		if con != nil {
 			_ = con.Close()
 		}
 
-		if tc != nil {
-			tc.Stop()
+		if sx != nil {
+			_ = sx.Close()
+			o.putContext(sx) // Recycle the context structure.
 		}
 
-		if tw != nil {
-			tw.Stop()
+		if cnl != nil {
+			cnl()
 		}
 	}()
 
-	o.nc.Add(1) // Increment active connection count
-
-	// Allow connection configuration before handling
+	// Phase 2: Configuration and pooling.
 	if o.upd != nil {
 		o.upd(con)
 	}
 
-	// Create connection-specific context
-	ctx, cnl = context.WithCancel(ctx)
-	sx = &sCtx{
-		ctx: ctx,
-		cnl: cnl,
-		clo: new(atomic.Bool),
-	}
-
 	if c, k := con.(io.ReadWriteCloser); k {
-		sx.con = c
+		// Create a specific context for this connection's lifecycle.
+		ctx, cnl = context.WithCancel(ctx)
+		// Fetch a recycled structure from the sync.Pool.
+		sx = o.getContext(ctx, cnl, c, con.LocalAddr(), con.RemoteAddr())
 	} else {
 		return
 	}
 
-	if l := con.LocalAddr(); l == nil {
-		sx.loc = ""
-	} else {
-		sx.loc = l.String()
-	}
-
-	if r := con.RemoteAddr(); r == nil {
-		sx.rem = ""
-	} else {
-		sx.rem = r.String()
-	}
-
 	if dur > 0 {
-		tc = time.NewTicker(dur)
-		sx.rst = func() {
-			tc.Reset(dur)
-		}
-	} else {
-		tc = time.NewTicker(time.Hour)
-		sx.rst = func() {
-			tc.Reset(time.Hour)
-		}
+		// Enable centralized idle detection.
+		_ = o.id.Register(sx)
 	}
 
-	// get handler or exit if nil
+	// Phase 3: Start the business logic.
 	if o.hdl == nil {
 		return
 	} else {
@@ -397,18 +370,24 @@ func (o *srv) Conn(ctx context.Context, con net.Conn) {
 				}
 			}()
 
+			// Invoke the user's logic handler.
 			o.hdl(sx)
 		}()
 	}
 
-	for ctx.Err() == nil && !o.IsGone() {
-		select {
-		case <-tc.C:
-			if dur > 0 {
-				return
-			}
-		case <-tw.C:
-			// check ctx & gone
-		}
+	// Phase 4: Lifecycle management.
+	// Block here until the connection or server signals it's time to close.
+	select {
+	case <-ctx.Done():
+		// The parent server context has been cancelled.
+		return
+
+	case <-sx.Done():
+		// The connection itself has been closed (handler finished or I/O error).
+		return
+
+	case <-o.getGoneChan():
+		// The server broadcast a shutdown signal via the 'gone' channel.
+		return
 	}
 }

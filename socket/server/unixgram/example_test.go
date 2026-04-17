@@ -275,7 +275,9 @@ func Example_gracefulShutdown() {
 	// Start server in goroutine
 	go func() {
 		if err := srv.Listen(ctx); err != nil {
-			log.Printf("Listen error: %v", err)
+			if err != context.Canceled {
+				log.Printf("Listen error: %v", err)
+			}
 		}
 	}()
 

@@ -24,10 +24,12 @@
  *
  */
 
+// Package udp_test provides functional and unit tests for the UDP server implementation.
 package udp_test
 
 import (
 	"context"
+	"io"
 	"net"
 	"time"
 
@@ -40,6 +42,20 @@ import (
 	"github.com/nabbar/golib/socket/server/udp"
 )
 
+// Basic Operations Test Suite
+//
+// # Overview
+//
+// This suite verifies the fundamental behavior of the UDP server, including:
+//   - Instance creation and configuration validation.
+//   - Initial state (stopped, no connections).
+//   - Lifecycle management (Start, Shutdown, Close).
+//   - Concurrent-safe state reporting (IsRunning, IsGone).
+//
+// # Use Case: Unit Verification
+//
+// These tests are designed to be fast and executed on every CI run to ensure
+// no regressions in the core server logic.
 var _ = Describe("UDP Server Basic Operations", func() {
 	var (
 		ctx    context.Context
@@ -47,14 +63,17 @@ var _ = Describe("UDP Server Basic Operations", func() {
 	)
 
 	BeforeEach(func() {
+		// Create a dedicated context for each test case
 		ctx, cancel = context.WithCancel(testCtx)
 	})
 
 	AfterEach(func() {
+		// Ensure cleanup even if the test fails
 		if cancel != nil {
 			cancel()
 		}
-		time.Sleep(50 * time.Millisecond) // Allow cleanup
+		// Allow some time for background goroutines to finish
+		time.Sleep(10 * time.Millisecond)
 	})
 
 	Describe("Server Construction", func() {
@@ -149,6 +168,7 @@ var _ = Describe("UDP Server Basic Operations", func() {
 			})
 
 			It("should not be gone", func() {
+				// A server that hasn't started is considered "gone" in terms of readiness
 				Expect(srv.IsGone()).To(BeTrue())
 			})
 
@@ -176,6 +196,13 @@ var _ = Describe("UDP Server Basic Operations", func() {
 
 			It("should have zero connections (UDP is stateless)", func() {
 				Expect(srv.OpenConnections()).To(Equal(int64(0)))
+			})
+
+			It("should provide Listener info", func() {
+				net, addr, tls := srv.Listener()
+				Expect(net).To(Equal(libptc.NetworkUDP))
+				Expect(addr).ToNot(BeEmpty())
+				Expect(tls).To(BeFalse())
 			})
 		})
 
@@ -272,6 +299,57 @@ var _ = Describe("UDP Server Basic Operations", func() {
 		})
 	})
 
+	Describe("Callbacks Registration", func() {
+		var srv udp.ServerUdp
+
+		BeforeEach(func() {
+			cfg := createBasicConfig()
+			var err error
+			srv, err = udp.New(nil, func(c libsck.Context) {}, cfg)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should handle RegisterFuncError", func() {
+			collector := newErrorCollector()
+			srv.RegisterFuncError(collector.callback)
+
+			log, ok := srv.(SrvLogger)
+			Expect(ok).To(BeTrue())
+
+			// Test fctError via exported method
+			log.TestFctError(io.EOF)
+			Expect(collector.hasErrors()).To(BeTrue())
+
+			// Coverage for empty/nil errors
+			log.TestFctError()
+			log.TestFctError(nil)
+		})
+
+		It("should handle RegisterFuncInfo", func() {
+			collector := newInfoCollector()
+			srv.RegisterFuncInfo(collector.callback)
+
+			log, ok := srv.(SrvLogger)
+			Expect(ok).To(BeTrue())
+
+			// Test fctInfo via exported method
+			log.TestFctInfo(nil, nil, libsck.ConnectionNew)
+			Expect(len(collector.getEvents())).To(Equal(1))
+		})
+
+		It("should handle RegisterFuncInfoServer", func() {
+			collector := newServerInfoCollector()
+			srv.RegisterFuncInfoServer(collector.callback)
+
+			log, ok := srv.(SrvLogger)
+			Expect(ok).To(BeTrue())
+
+			// Test fctInfoSrv via exported method
+			log.TestFctInfoSrv("test message")
+			Expect(collector.hasMessage("test message")).To(BeTrue())
+		})
+	})
+
 	Describe("Interface Implementation", func() {
 		var srv udp.ServerUdp
 
@@ -300,8 +378,7 @@ var _ = Describe("UDP Server Basic Operations", func() {
 
 		It("should provide RegisterServer method", func() {
 			err := srv.RegisterServer("127.0.0.1:9999")
-			// Should succeed or fail gracefully
-			_ = err
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should provide SetTLS method (no-op for UDP)", func() {

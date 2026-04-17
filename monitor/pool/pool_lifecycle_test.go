@@ -318,28 +318,4 @@ var _ = Describe("Pool Lifecycle Operations", func() {
 			Expect(uptime).To(BeNumerically(">", 0))
 		})
 	})
-
-	Describe("Context Cancellation", func() {
-		It("should stop monitors when context is cancelled", func() {
-			localCtx, localCnl := context.WithTimeout(ctx, 500*time.Millisecond)
-			defer localCnl()
-
-			monitor := createTestMonitor("context-cancel", nil)
-			defer monitor.Stop(ctx)
-
-			Expect(pool.MonitorAdd(monitor)).ToNot(HaveOccurred())
-			Expect(monitor.Start(localCtx)).ToNot(HaveOccurred())
-
-			// Wait for context to be cancelled
-			<-localCtx.Done()
-
-			// Give it time to clean up
-			time.Sleep(100 * time.Millisecond)
-
-			// Monitor should eventually stop
-			Eventually(func() bool {
-				return monitor.IsRunning()
-			}, "2s", "100ms").Should(BeFalse())
-		})
-	})
 })

@@ -37,6 +37,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	libprm "github.com/nabbar/golib/file/perm"
+	libptc "github.com/nabbar/golib/network/protocol"
 	libsck "github.com/nabbar/golib/socket"
 	scksrv "github.com/nabbar/golib/socket/server/unixgram"
 )
@@ -114,6 +115,12 @@ var _ = Describe("Unix Datagram Server Basic Operations", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(srv).To(BeNil())
 			})
+
+			It("should return error with empty address during New", func() {
+				cfg := createDefaultConfig("")
+				_, err := scksrv.New(nil, func(ctx libsck.Context) {}, cfg)
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 
@@ -166,6 +173,13 @@ var _ = Describe("Unix Datagram Server Basic Operations", func() {
 
 			It("should have zero connections (datagram is stateless)", func() {
 				Expect(srv.OpenConnections()).To(Equal(int64(0)))
+			})
+
+			It("should return correct listener info", func() {
+				ntw, lst, tls := srv.Listener()
+				Expect(ntw).To(Equal(libptc.NetworkUnixGram))
+				Expect(lst).To(Equal(sockPath))
+				Expect(tls).To(BeFalse())
 			})
 		})
 
@@ -267,6 +281,11 @@ var _ = Describe("Unix Datagram Server Basic Operations", func() {
 			Expect(err2).ToNot(HaveOccurred())
 		})
 
+		It("should handle Shutdown on not running server", func() {
+			err := srv.Shutdown(context.Background())
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("should create socket file on start", func() {
 			startServer(srv, ctx)
 
@@ -322,6 +341,11 @@ var _ = Describe("Unix Datagram Server Basic Operations", func() {
 			cfg := createBasicConfig()
 			err := srv.RegisterSocket(cfg.Address, libprm.Perm(0600), -1)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should error on empty address in RegisterSocket", func() {
+			err := srv.RegisterSocket("", libprm.Perm(0600), -1)
+			Expect(err).To(HaveOccurred())
 		})
 
 		It("should provide SetTLS method (no-op for Unix sockets)", func() {
