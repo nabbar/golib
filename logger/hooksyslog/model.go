@@ -167,11 +167,17 @@ func (o *hks) getMsgNormal(e *logrus.Entry, _ string) ([]byte, error) {
 		return nil, nil
 	}
 
+	var (
+		err error
+		p   []byte
+	)
+
 	if f := o.getFormatter(); f != nil {
-		return f.Format(e)
+		p, err = f.Format(e)
+	} else {
+		p, err = e.Bytes()
 	}
 
-	p, err := e.Bytes()
 	return o.l(e.Level, p, err)
 }
 
