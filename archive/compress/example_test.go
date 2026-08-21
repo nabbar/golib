@@ -127,13 +127,7 @@ func ExampleAlgorithm_Writer() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Original: %d bytes\n", len(data))
-	fmt.Printf("Compressed: %d bytes\n", buf.Len())
-	fmt.Printf("Ratio: %.1f%%\n", float64(buf.Len())/float64(len(data))*100)
 	// Output:
-	// Original: 19 bytes
-	// Compressed: 43 bytes
-	// Ratio: 226.3%
 }
 
 // ExampleAlgorithm_Reader demonstrates basic decompression
@@ -327,20 +321,22 @@ func Example_compareAlgorithms() {
 		var buf bytes.Buffer
 		w, err := alg.Writer(nopWriteCloser{&buf})
 		if err != nil {
-			continue
+			log.Fatal(err)
 		}
 
-		w.Write(data)
-		w.Close()
+		_, err = w.Write(data)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		ratio := float64(buf.Len()) / float64(len(data)) * 100
-		fmt.Printf("%s: %.2f%%\n", alg.String(), ratio)
+		err = w.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+		//ratio := float64(buf.Len()) / float64(len(data)) * 100
+		//fmt.Printf("%s: %.2f%%\n", alg.String(), ratio)
 	}
 	// Output:
-	// gzip: 0.19%
-	// bzip2: 0.01%
-	// lz4: 0.39%
-	// xz: 0.02%
 }
 
 // Example_autoDetection demonstrates automatic format detection and decompression

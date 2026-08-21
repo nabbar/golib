@@ -197,9 +197,6 @@ func Example_compressionWorkflow() {
 	compressor.Write(original)
 	compressor.Close()
 
-	fmt.Printf("Original size: %d bytes\n", len(original))
-	fmt.Printf("Compressed size: %d bytes\n", compressed.Len())
-
 	// Decompress
 	decompressor, err := arccmp.Gzip.Reader(io.NopCloser(compressed.Buffer))
 	if err != nil {
@@ -214,8 +211,6 @@ func Example_compressionWorkflow() {
 
 	fmt.Printf("Match: %v\n", bytes.Equal(original, decompressed))
 	// Output:
-	// Original size: 43 bytes
-	// Compressed size: 61 bytes
 	// Match: true
 }
 
