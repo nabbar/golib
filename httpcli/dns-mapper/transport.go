@@ -40,7 +40,7 @@ import (
 func (o *dmp) dialer() *net.Dialer {
 	return &net.Dialer{
 		Timeout:   o.configDialerTimeout(),
-		DualStack: true,
+		DualStack: true, // nolint
 		KeepAlive: o.configDialerKeepAlive(),
 	}
 }
@@ -83,7 +83,7 @@ func (o *dmp) TransportWithTLS(cfg TransportConfig, ssl *tls.Config) *http.Trans
 
 	return &http.Transport{
 		Proxy:                 prx,
-		Dial:                  o.Dial,
+		Dial:                  o.Dial, // nolint
 		DialContext:           o.DialContext,
 		TLSClientConfig:       ssl,
 		TLSHandshakeTimeout:   cfg.TimeoutTLSHandshake.Time(),

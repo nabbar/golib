@@ -148,7 +148,7 @@ func (o *config) TlsConfig(serverName string) *tls.Config {
 
 func (o *config) TLS(serverName string) *tls.Config {
 	cnf := &tls.Config{
-		Rand:                        nil,
+		Rand:                        nil, // nolint
 		Certificates:                make([]tls.Certificate, 0),
 		RootCAs:                     SystemRootCA(),
 		ServerName:                  "",

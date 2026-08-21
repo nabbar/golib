@@ -139,7 +139,7 @@ func (c *client) _NewClientIAM(ctx context.Context, httpClient libhtc.HttpClient
 				DisableHTTPS: !c.c.IsHTTPs(),
 			},
 			BaseEndpoint:       sdkaws.String(c.c.GetEndpoint().String()),
-			EndpointResolver:   c._NewIAMResolver(cfg),
+			EndpointResolver:   c._NewIAMResolver(cfg), // nolint
 			EndpointResolverV2: c._NewIAMResolverV2(c.c),
 			HTTPSignerV4:       sig,
 			Region:             cfg.Region,
@@ -191,7 +191,7 @@ func (c *client) _NewClientS3(ctx context.Context, httpClient libhtc.HttpClient,
 				DisableHTTPS: !c.c.IsHTTPs(),
 			},
 			BaseEndpoint:       sdkaws.String(c.c.GetEndpoint().String()),
-			EndpointResolver:   c._NewS3Resolver(cfg),
+			EndpointResolver:   c._NewS3Resolver(cfg), // nolint
 			EndpointResolverV2: c._NewS3ResolverV2(c.c),
 			HTTPSignerV4:       sig,
 			Region:             cfg.Region,
