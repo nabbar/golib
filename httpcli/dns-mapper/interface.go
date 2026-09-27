@@ -73,6 +73,12 @@ import (
 	libdur "github.com/nabbar/golib/duration"
 )
 
+func init() {
+	net.DefaultResolver = &net.Resolver{
+		PreferGo: true,
+	}
+}
+
 // FuncMessage is a callback function type for logging or message handling.
 // It receives string messages from the DNS mapper during operations.
 type FuncMessage func(msg string)

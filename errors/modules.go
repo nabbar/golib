@@ -36,28 +36,34 @@ const moreInc = 2 * baseInc
 
 const (
 	// MinPkgArchive defines the starting error code for the Archive package.
-	MinPkgArchive     = baseInc + iota
+	MinPkgArchive = baseInc + iota
 
 	// MinPkgArtifact defines the starting error code for the Artifact package.
-	MinPkgArtifact    = baseInc + MinPkgArchive
+	MinPkgArtifact = baseInc + MinPkgArchive
 
 	// MinPkgCertificate defines the starting error code for the Certificate package.
 	MinPkgCertificate = baseInc + MinPkgArtifact
 
 	// MinPkgCluster defines the starting error code for the Cluster package.
-	MinPkgCluster     = baseInc + MinPkgCertificate
+	MinPkgCluster = baseInc + MinPkgCertificate
 
 	// MinPkgConfig defines the starting error code for the Config package.
-	MinPkgConfig      = baseInc + MinPkgCluster
+	MinPkgConfig = baseInc + MinPkgCluster
 
 	// MinPkgConsole defines the starting error code for the Console package.
-	MinPkgConsole     = moreInc + MinPkgConfig
+	MinPkgConsole = moreInc + MinPkgConfig
 
 	// MinPkgCrypt defines the starting error code for the Crypt package.
-	MinPkgCrypt       = baseInc + MinPkgConsole
+	MinPkgCrypt = baseInc + MinPkgConsole
+
+	// MinPkgEncoding defines the starting error code for the Encoding package.
+	MinPkgEncoding = baseInc + MinPkgCrypt
+
+	// MinPkgEncodingOpenGPG defines the starting error code for the OpenGPG subpackage of Encoding package.
+	MinPkgEncodingOpenGPG = baseSub + MinPkgEncoding
 
 	// MinPkgDatabaseGorm defines the starting error code for the Database GORM driver.
-	MinPkgDatabaseGorm  = baseInc + MinPkgCrypt
+	MinPkgDatabaseGorm = baseInc + MinPkgEncodingOpenGPG
 
 	// MinPkgDatabaseKVDrv defines the starting error code for the Database Key-Value driver.
 	MinPkgDatabaseKVDrv = baseSub + MinPkgDatabaseGorm
@@ -72,94 +78,94 @@ const (
 	MinPkgDatabaseKVItm = baseSub + MinPkgDatabaseKVTbl
 
 	// MinPkgFileProgress defines the starting error code for the File Progress package.
-	MinPkgFileProgress     = baseInc + MinPkgDatabaseGorm
+	MinPkgFileProgress = baseInc + MinPkgDatabaseGorm
 
 	// MinPkgFTPClient defines the starting error code for the FTP Client package.
-	MinPkgFTPClient        = baseInc + MinPkgFileProgress
+	MinPkgFTPClient = baseInc + MinPkgFileProgress
 
 	// MinPkgHttpCli defines the starting error code for the HTTP Client package.
-	MinPkgHttpCli          = baseInc + MinPkgFTPClient
+	MinPkgHttpCli = baseInc + MinPkgFTPClient
 
 	// MinPkgHttpCliDNSMapper defines the starting error code for the HTTP Client DNS Mapper.
 	MinPkgHttpCliDNSMapper = baseSub + MinPkgHttpCli
 
 	// MinPkgHttpServer defines the starting error code for the HTTP Server package.
-	MinPkgHttpServer     = baseInc + MinPkgHttpCliDNSMapper
+	MinPkgHttpServer = baseInc + MinPkgHttpCliDNSMapper
 
 	// MinPkgHttpServerPool defines the starting error code for the HTTP Server Pool.
 	MinPkgHttpServerPool = baseSub + MinPkgHttpServer
 
 	// MinPkgIOUtils defines the starting error code for the IO Utilities package.
-	MinPkgIOUtils    = baseInc + MinPkgHttpServer
+	MinPkgIOUtils = baseInc + MinPkgHttpServer
 
 	// MinPkgLDAP defines the starting error code for the LDAP package.
-	MinPkgLDAP       = baseInc + MinPkgIOUtils
+	MinPkgLDAP = baseInc + MinPkgIOUtils
 
 	// MinPkgLogger defines the starting error code for the Logger package.
-	MinPkgLogger     = baseInc + MinPkgLDAP
+	MinPkgLogger = baseInc + MinPkgLDAP
 
 	// MinPkgMail defines the starting error code for the Mail package.
-	MinPkgMail       = baseInc + MinPkgLogger
+	MinPkgMail = baseInc + MinPkgLogger
 
 	// MinPkgMailer defines the starting error code for the Mailer package.
-	MinPkgMailer     = baseInc + MinPkgMail
+	MinPkgMailer = baseInc + MinPkgMail
 
 	// MinPkgMailPooler defines the starting error code for the Mail Pooler package.
 	MinPkgMailPooler = baseInc + MinPkgMailer
 
 	// MinPkgMonitor defines the starting error code for the Monitor package.
-	MinPkgMonitor     = baseInc + MinPkgMailPooler
+	MinPkgMonitor = baseInc + MinPkgMailPooler
 
 	// MinPkgMonitorCfg defines the starting error code for the Monitor Config.
-	MinPkgMonitorCfg  = baseSub + MinPkgMonitor
+	MinPkgMonitorCfg = baseSub + MinPkgMonitor
 
 	// MinPkgMonitorPool defines the starting error code for the Monitor Pool.
 	MinPkgMonitorPool = baseSub + MinPkgMonitorCfg
 
 	// MinPkgNetwork defines the starting error code for the Network package.
-	MinPkgNetwork   = baseInc + MinPkgMonitor
+	MinPkgNetwork = baseInc + MinPkgMonitor
 
 	// MinPkgNats defines the starting error code for the NATS package.
-	MinPkgNats      = baseInc + MinPkgNetwork
+	MinPkgNats = baseInc + MinPkgNetwork
 
 	// MinPkgNutsDB defines the starting error code for the NutsDB package.
-	MinPkgNutsDB    = baseInc + MinPkgNats
+	MinPkgNutsDB = baseInc + MinPkgNats
 
 	// MinPkgOAuth defines the starting error code for the OAuth package.
-	MinPkgOAuth     = baseInc + MinPkgNutsDB
+	MinPkgOAuth = baseInc + MinPkgNutsDB
 
 	// MinPkgAws defines the starting error code for the AWS package.
-	MinPkgAws       = baseInc + MinPkgOAuth
+	MinPkgAws = baseInc + MinPkgOAuth
 
 	// MinPkgRequest defines the starting error code for the Request package.
-	MinPkgRequest   = baseInc + MinPkgAws
+	MinPkgRequest = baseInc + MinPkgAws
 
 	// MinPkgRouter defines the starting error code for the Router package.
-	MinPkgRouter    = baseInc + MinPkgRequest
+	MinPkgRouter = baseInc + MinPkgRequest
 
 	// MinPkgSemaphore defines the starting error code for the Semaphore package.
 	MinPkgSemaphore = baseInc + MinPkgRouter
 
 	// MinPkgSMTP defines the starting error code for the SMTP package.
-	MinPkgSMTP       = baseInc + MinPkgSemaphore
+	MinPkgSMTP = baseInc + MinPkgSemaphore
 
 	// MinPkgSMTPConfig defines the starting error code for the SMTP Config package.
 	MinPkgSMTPConfig = baseInc + MinPkgSMTP
 
 	// MinPkgStatic defines the starting error code for the Static package.
-	MinPkgStatic  = baseInc + MinPkgSMTPConfig
+	MinPkgStatic = baseInc + MinPkgSMTPConfig
 
 	// MinPkgStatus defines the starting error code for the Status package.
-	MinPkgStatus  = baseInc + MinPkgStatic
+	MinPkgStatus = baseInc + MinPkgStatic
 
 	// MinPkgSocket defines the starting error code for the Socket package.
-	MinPkgSocket  = baseInc + MinPkgStatus
+	MinPkgSocket = baseInc + MinPkgStatus
 
 	// MinPkgVersion defines the starting error code for the Version package.
 	MinPkgVersion = baseInc + MinPkgSocket
 
 	// MinPkgViper defines the starting error code for the Viper package.
-	MinPkgViper   = baseInc + MinPkgVersion
+	MinPkgViper = baseInc + MinPkgVersion
 
 	// MinAvailable defines the starting point for custom user-defined error codes.
 	MinAvailable = baseInc + MinPkgViper
