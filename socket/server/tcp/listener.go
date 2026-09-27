@@ -113,15 +113,15 @@ func (o *srv) getListen(addr string) (net.Listener, bool, error) {
 //
 // # Internal Logic and Flow
 //
-//	1. [Initialization]: Validates address and handler.
-//	2. [Listener Setup]: Creates net.Listener (optional TLS).
-//	3. [Idle Manager]: If configured, starts the global sckidl.Manager to monitor timeouts.
-//	4. [State Update]: Sets o.run = true.
-//	5. [Shutdown Watcher]: Spawns a background goroutine to close the listener on ctx.Done() or setGone().
-//	6. [Accept Loop]: Blocks on l.Accept().
-//	   - On Success: Spawns o.Conn() in a new goroutine.
-//	   - On Error: Checks if error is expected (closed listener) or fatal.
-//	7. [Cleanup]: Closes listener, stops idle manager, sets o.run = false.
+//  1. [Initialization]: Validates address and handler.
+//  2. [Listener Setup]: Creates net.Listener (optional TLS).
+//  3. [Idle Manager]: If configured, starts the global sckidl.Manager to monitor timeouts.
+//  4. [State Update]: Sets o.run = true.
+//  5. [Shutdown Watcher]: Spawns a background goroutine to close the listener on ctx.Done() or setGone().
+//  6. [Accept Loop]: Blocks on l.Accept().
+//     - On Success: Spawns o.Conn() in a new goroutine.
+//     - On Error: Checks if error is expected (closed listener) or fatal.
+//  7. [Cleanup]: Closes listener, stops idle manager, sets o.run = false.
 //
 // # Graceful Shutdown Mechanism
 //
@@ -256,22 +256,22 @@ func (o *srv) Listen(ctx context.Context) error {
 //
 // # Connection Initialization Dataflow
 //
-//	1. [Counter]: Increment atomic connection count (nc).
-//	2. [User Hook]: Execute UpdateConn callback (upd) to tune socket.
-//	3. [TCP Tuning]:
-//	   - Enable TCP_NODELAY (NoDelay) for lower latency.
-//	   - Configure TCP Keep-Alive if idle timeout > 30s.
-//	4. [Context Setup]:
-//	   - Get sCtx from sync.Pool (recycle memory).
-//	   - Create connection-specific cancellation context.
-//	5. [Idle Registration]: Add connection to centralized Idle Manager (id).
-//	6. [Handler Execution]: Spawn user HandlerFunc (hdl) in a new goroutine.
-//	7. [Monitoring]: Wait for context termination or server shutdown signal.
-//	8. [Cleanup]:
-//	   - Unregister from Idle Manager.
-//	   - Close context and socket.
-//	   - Put sCtx back to sync.Pool.
-//	   - Decrement connection count.
+//  1. [Counter]: Increment atomic connection count (nc).
+//  2. [User Hook]: Execute UpdateConn callback (upd) to tune socket.
+//  3. [TCP Tuning]:
+//     - Enable TCP_NODELAY (NoDelay) for lower latency.
+//     - Configure TCP Keep-Alive if idle timeout > 30s.
+//  4. [Context Setup]:
+//     - Get sCtx from sync.Pool (recycle memory).
+//     - Create connection-specific cancellation context.
+//  5. [Idle Registration]: Add connection to centralized Idle Manager (id).
+//  6. [Handler Execution]: Spawn user HandlerFunc (hdl) in a new goroutine.
+//  7. [Monitoring]: Wait for context termination or server shutdown signal.
+//  8. [Cleanup]:
+//     - Unregister from Idle Manager.
+//     - Close context and socket.
+//     - Put sCtx back to sync.Pool.
+//     - Decrement connection count.
 //
 // # Performance Tuning
 //

@@ -28,7 +28,7 @@
 //
 // # Benchmark Strategy
 //
-// The 'benchmark_test.go' file is used to measure the impact of recent 
+// The 'benchmark_test.go' file is used to measure the impact of recent
 // optimizations (sync.Pool, idlemgr, etc.) on throughput and latency.
 //
 // # Measured Metrics
@@ -176,7 +176,7 @@ func sendAndReceiveBenchOptim(b *testing.B, con net.Conn, data, buffer []byte) {
 	}
 }
 
-// waitForServerAcceptingConnectionsBench verifies that the server is actually 
+// waitForServerAcceptingConnectionsBench verifies that the server is actually
 // ready to accept TCP connections before starting measurements.
 func waitForServerAcceptingConnectionsBench(b *testing.B, addr string, timeout time.Duration) {
 	tmr := time.NewTimer(timeout)

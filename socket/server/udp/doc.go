@@ -28,8 +28,8 @@
 //
 // # 1. ARCHITECTURE
 //
-// This package implements a production-grade UDP server that minimizes the 
-// overhead of connection management. It is designed to scale horizontally 
+// This package implements a production-grade UDP server that minimizes the
+// overhead of connection management. It is designed to scale horizontally
 // by leveraging asynchronous datagram processing.
 //
 //	┌─────────────────────────────────────────────────────────────┐
@@ -58,80 +58,80 @@
 //
 // # 2. KEY FEATURES & OPTIMIZATIONS
 //
-//   - Stateless Operation: Unlike TCP, the UDP server maintains no session state 
-//     by default. This allows the server to handle millions of datagrams with 
+//   - Stateless Operation: Unlike TCP, the UDP server maintains no session state
+//     by default. This allows the server to handle millions of datagrams with
 //     near-zero memory footprint for per-client management.
 //
-//   - Event-Driven Shutdown (Gone Channel): Traditional UDP servers often rely 
-//     on periodic polling to check for shutdown. This package uses the "gnc" 
-//     broadcast channel. When the server is closed, the 'gnc' channel is closed 
+//   - Event-Driven Shutdown (Gone Channel): Traditional UDP servers often rely
+//     on periodic polling to check for shutdown. This package uses the "gnc"
+//     broadcast channel. When the server is closed, the 'gnc' channel is closed
 //     instantly, notifying the main listener loop to exit without any wait.
 //
-//   - Atomic State Control: All lifecycle flags (IsRunning, IsGone) are managed 
-//     via atomic operations (sync/atomic), ensuring lock-free thread safety across 
+//   - Atomic State Control: All lifecycle flags (IsRunning, IsGone) are managed
+//     via atomic operations (sync/atomic), ensuring lock-free thread safety across
 //     monitoring goroutines.
 //
-//   - Hook-Based Tuning: The UpdateConn callback provides a hook to call 
-//     SetReadBuffer and SetWriteBuffer directly on the underlying net.UDPConn, 
+//   - Hook-Based Tuning: The UpdateConn callback provides a hook to call
+//     SetReadBuffer and SetWriteBuffer directly on the underlying net.UDPConn,
 //     which is critical for preventing packet drops under high-bandwidth loads.
 //
 // # 3. DATA FLOW
 //
 // The following diagram illustrates the flow of a datagram through the server:
 //
-//	  [PEER]            [KERNEL BUFFER]            [SERVER LOOP]           [HANDLER]
-//	     │                     │                         │                     │
-//	     │──(UDP Datagram)────>│                         │                     │
-//	     │                     │                         │                     │
-//	     │                     │<────(Blocking Read)─────│                     │
-//	     │                     │                         │                     │
-//	     │                     │────────(Payload)───────>│                     │
-//	     │                     │                         │                     │
-//	     │                     │                         │────────(Data)──────>│
-//	     │                     │                         │                     │
-//	     │                     │                         │<──────(Processing)──│
-//	     │                     │                         │                     │
-//	     │<───(UDP Response)───┼─────────────────────────┼────────(WriteTo)────│
-//	     │                     │                         │                     │
+//	[PEER]            [KERNEL BUFFER]            [SERVER LOOP]           [HANDLER]
+//	   │                     │                         │                     │
+//	   │──(UDP Datagram)────>│                         │                     │
+//	   │                     │                         │                     │
+//	   │                     │<────(Blocking Read)─────│                     │
+//	   │                     │                         │                     │
+//	   │                     │────────(Payload)───────>│                     │
+//	   │                     │                         │                     │
+//	   │                     │                         │────────(Data)──────>│
+//	   │                     │                         │                     │
+//	   │                     │                         │<──────(Processing)──│
+//	   │                     │                         │                     │
+//	   │<───(UDP Response)───┼─────────────────────────┼────────(WriteTo)────│
+//	   │                     │                         │                     │
 //
 // # 4. UDP HANDLING SEMANTICS & CAVEATS (RFC 768)
 //
 // UDP is inherently connectionless, which has specific implications for this server:
 //
-//  1. Shared Socket: There is only one listener socket for all incoming data. 
-//     This means only one HandlerFunc is spawned per Listen() call. 
+//  1. Shared Socket: There is only one listener socket for all incoming data.
+//     This means only one HandlerFunc is spawned per Listen() call.
 //     The handler is responsible for managing its own concurrency if needed.
 //
 //  2. Reliability (RFC 768): This package does NOT implement retries, ACKs, or message
-//     ordering. If your application requires these, you must implement them 
+//     ordering. If your application requires these, you must implement them
 //     within your HandlerFunc or use a protocol like TCP.
 //
-//  3. Max Payload: Datagrams exceeding the MTU (typically 1500 bytes) may be 
-//     fragmented by the network stack. It's recommended to keep datagram sizes 
+//  3. Max Payload: Datagrams exceeding the MTU (typically 1500 bytes) may be
+//     fragmented by the network stack. It's recommended to keep datagram sizes
 //     under 1472 bytes for IPv4 or 1280 bytes for IPv6 for maximum reliability.
 //
 // # 5. BEST PRACTICES & PERFORMANCE TUNING
 //
-//   - High-Throughput Tuning: Always increase kernel buffers for high-load UDP 
+//   - High-Throughput Tuning: Always increase kernel buffers for high-load UDP
 //     servers to prevent "ICMP Destination Unreachable" or packet drops:
 //
-//	updateFn := func(conn net.Conn) {
-//	    if udp, ok := conn.(*net.UDPConn); ok {
-//	        _ = udp.SetReadBuffer(2 * 1024 * 1024)  // 2MB Read Buffer
-//	        _ = udp.SetWriteBuffer(2 * 1024 * 1024) // 2MB Write Buffer
-//	    }
-//	}
+//     updateFn := func(conn net.Conn) {
+//     if udp, ok := conn.(*net.UDPConn); ok {
+//     _ = udp.SetReadBuffer(2 * 1024 * 1024)  // 2MB Read Buffer
+//     _ = udp.SetWriteBuffer(2 * 1024 * 1024) // 2MB Write Buffer
+//     }
+//     }
 //
-//   - Buffer Management: To minimize Garbage Collector (GC) pressure, use a 
+//   - Buffer Management: To minimize Garbage Collector (GC) pressure, use a
 //     sync.Pool for the buffers used within the handler:
 //
-//	var bufPool = sync.Pool{
-//	    New: func() any { return make([]byte, 65535) },
-//	}
-//	// Inside handler...
-//	buf := bufPool.Get().([]byte)
-//	defer bufPool.Put(buf)
-//	n, remoteAddr, _ := ctx.Read(buf)
+//     var bufPool = sync.Pool{
+//     New: func() any { return make([]byte, 65535) },
+//     }
+//     // Inside handler...
+//     buf := bufPool.Get().([]byte)
+//     defer bufPool.Put(buf)
+//     n, remoteAddr, _ := ctx.Read(buf)
 //
 // # 6. USE CASES
 //

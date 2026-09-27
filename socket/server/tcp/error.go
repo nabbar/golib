@@ -47,17 +47,17 @@ var (
 	//   - ":8080"          (All interfaces)
 	ErrInvalidAddress = fmt.Errorf("invalid listen address")
 
-	// ErrInvalidHandler is returned when the required HandlerFunc is not provided 
+	// ErrInvalidHandler is returned when the required HandlerFunc is not provided
 	// during server initialization via New().
 	//
-	// The handler must be a function matching the libsck.HandlerFunc signature 
+	// The handler must be a function matching the libsck.HandlerFunc signature
 	// and is responsible for processing each client connection.
 	ErrInvalidHandler = fmt.Errorf("invalid handler")
 
-	// ErrShutdownTimeout is returned when the graceful shutdown process exceeds 
+	// ErrShutdownTimeout is returned when the graceful shutdown process exceeds
 	// the provided context's deadline.
 	//
-	// This error occurs during the draining phase, when active connections 
+	// This error occurs during the draining phase, when active connections
 	// fail to close or finish their task within the allocated time.
 	ErrShutdownTimeout = fmt.Errorf("timeout on stopping socket")
 

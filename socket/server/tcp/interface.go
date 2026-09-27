@@ -74,7 +74,7 @@ type ServerTcp interface {
 
 	// RegisterServer sets the TCP address for the server to listen on.
 	// The address should be in "host:port" format (e.g., "localhost:8080" or ":8080").
-	// Must be called before Listen(). Returns ErrInvalidAddress if the input 
+	// Must be called before Listen(). Returns ErrInvalidAddress if the input
 	// is malformed.
 	RegisterServer(address string) error
 }

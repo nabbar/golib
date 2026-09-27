@@ -53,7 +53,7 @@
 //
 // # Performance & Race Detection
 //
-// Tests are designed to be run with the race detector enabled (-race) to ensure 
+// Tests are designed to be run with the race detector enabled (-race) to ensure
 // that the lock-free state management (atomic.Bool, etc.) is implemented correctly.
 package tcp_test
 
@@ -66,7 +66,7 @@ import (
 )
 
 var (
-	// globalCtx is the root context for all tests. It can be used to signal 
+	// globalCtx is the root context for all tests. It can be used to signal
 	// a full stop of all background test components.
 	globalCtx context.Context
 	// globalCnl triggers the cancellation of the globalCtx.

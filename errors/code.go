@@ -143,7 +143,7 @@ func (c CodeError) IfError(e ...error) Error {
 	return IfError(c.Uint16(), c.Message(), e...)
 }
 
-// GetCodePackages returns a map where keys are registered CodeErrors and values are the file paths 
+// GetCodePackages returns a map where keys are registered CodeErrors and values are the file paths
 // where the message function was registered. This is useful for debugging code-message collisions.
 // The rootPackage parameter allows filtering/cleaning the returned file paths.
 func GetCodePackages(rootPackage string) map[CodeError]string {
@@ -238,7 +238,7 @@ func orderMapMessage() {
 	idMsgFct = res
 }
 
-// findCodeErrorInMapMessage finds the highest registered base CodeError that is less than or equal 
+// findCodeErrorInMapMessage finds the highest registered base CodeError that is less than or equal
 // to the provided code. This implements the range-based message lookup.
 func findCodeErrorInMapMessage(code CodeError) CodeError {
 	var res CodeError = 0

@@ -145,18 +145,13 @@ type Config struct {
 
 	/*** http2 options ***/
 
-	// MaxHandlers limits the number of http.Handler ServeHTTP goroutines
-	// which may run at a time over all connections.
-	// Negative or zero no limit.
-	MaxHandlers int `mapstructure:"max_handlers" json:"max_handlers" yaml:"max_handlers" toml:"max_handlers"`
-
 	// MaxConcurrentStreams optionally specifies the number of
 	// concurrent streams that each client may have open at a
 	// time. This is unrelated to the number of http.Handler goroutines
 	// which may be active globally, which is MaxHandlers.
 	// If zero, MaxConcurrentStreams defaults to at least 100, per
 	// the HTTP/2 spec's recommendations.
-	MaxConcurrentStreams uint32 `mapstructure:"max_concurrent_streams" json:"max_concurrent_streams" yaml:"max_concurrent_streams" toml:"max_concurrent_streams"`
+	MaxConcurrentStreams int `mapstructure:"max_concurrent_streams" json:"max_concurrent_streams" yaml:"max_concurrent_streams" toml:"max_concurrent_streams"`
 
 	// MaxReadFrameSize optionally specifies the largest frame
 	// this srv is willing to read. A valid value is between
@@ -173,18 +168,18 @@ type Config struct {
 	// activity for the purposes of IdleTimeout.
 	IdleTimeout libdur.Duration `mapstructure:"idle_timeout" json:"idle_timeout" yaml:"idle_timeout" toml:"idle_timeout"`
 
-	// MaxUploadBufferPerConnection is the size of the initial flow
+	// MaxReceiveBufferPerConnection is the size of the initial flow
 	// control window for each connections. The HTTP/2 spec does not
 	// allow this to be smaller than 65535 or larger than 2^32-1.
 	// If the value is outside this range, a default value will be
 	// used instead.
-	MaxUploadBufferPerConnection int32 `mapstructure:"max_upload_buffer_per_connection" json:"max_upload_buffer_per_connection" yaml:"max_upload_buffer_per_connection" toml:"max_upload_buffer_per_connection"`
+	MaxReceiveBufferPerConnection int `mapstructure:"max_upload_buffer_per_connection" json:"max_upload_buffer_per_connection" yaml:"max_upload_buffer_per_connection" toml:"max_upload_buffer_per_connection"`
 
-	// MaxUploadBufferPerStream is the size of the initial flow control
+	// MaxReceiveBufferPerStream is the size of the initial flow control
 	// window for each stream. The HTTP/2 spec does not allow this to
 	// be larger than 2^32-1. If the value is zero or larger than the
 	// maximum, a default value will be used instead.
-	MaxUploadBufferPerStream int32 `mapstructure:"max_upload_buffer_per_stream" json:"max_upload_buffer_per_stream" yaml:"max_upload_buffer_per_stream" toml:"max_upload_buffer_per_stream"`
+	MaxReceiveBufferPerStream int `mapstructure:"max_upload_buffer_per_stream" json:"max_upload_buffer_per_stream" yaml:"max_upload_buffer_per_stream" toml:"max_upload_buffer_per_stream"`
 
 	// DisableKeepAlive controls whether HTTP keep-alives are disabled.
 	// By default, keep-alives are always enabled. Only very
@@ -224,26 +219,25 @@ func (c *Config) Clone() Config {
 	}
 
 	return Config{
-		Disabled:                     c.Disabled,
-		getTLSDefault:                c.getTLSDefault,
-		getParentContext:             c.getParentContext,
-		ReadTimeout:                  c.ReadTimeout,
-		ReadHeaderTimeout:            c.ReadHeaderTimeout,
-		WriteTimeout:                 c.WriteTimeout,
-		MaxHeaderBytes:               c.MaxHeaderBytes,
-		MaxHandlers:                  c.MaxHandlers,
-		MaxConcurrentStreams:         c.MaxConcurrentStreams,
-		MaxReadFrameSize:             c.MaxReadFrameSize,
-		PermitProhibitedCipherSuites: c.PermitProhibitedCipherSuites,
-		IdleTimeout:                  c.IdleTimeout,
-		MaxUploadBufferPerConnection: c.MaxUploadBufferPerConnection,
-		MaxUploadBufferPerStream:     c.MaxUploadBufferPerStream,
-		DisableKeepAlive:             c.DisableKeepAlive,
-		Name:                         c.Name,
-		Listen:                       c.Listen,
-		Expose:                       c.Expose,
-		HandlerKey:                   strings.ToLower(c.HandlerKey),
-		TLSMandatory:                 c.TLSMandatory,
+		Disabled:                      c.Disabled,
+		getTLSDefault:                 c.getTLSDefault,
+		getParentContext:              c.getParentContext,
+		ReadTimeout:                   c.ReadTimeout,
+		ReadHeaderTimeout:             c.ReadHeaderTimeout,
+		WriteTimeout:                  c.WriteTimeout,
+		MaxHeaderBytes:                c.MaxHeaderBytes,
+		MaxConcurrentStreams:          c.MaxConcurrentStreams,
+		MaxReadFrameSize:              c.MaxReadFrameSize,
+		PermitProhibitedCipherSuites:  c.PermitProhibitedCipherSuites,
+		IdleTimeout:                   c.IdleTimeout,
+		MaxReceiveBufferPerConnection: c.MaxReceiveBufferPerConnection,
+		MaxReceiveBufferPerStream:     c.MaxReceiveBufferPerStream,
+		DisableKeepAlive:              c.DisableKeepAlive,
+		Name:                          c.Name,
+		Listen:                        c.Listen,
+		Expose:                        c.Expose,
+		HandlerKey:                    strings.ToLower(c.HandlerKey),
+		TLSMandatory:                  c.TLSMandatory,
 		TLS: libtls.Config{
 			CurveList:            c.TLS.CurveList,
 			CipherList:           c.TLS.CipherList,
@@ -414,18 +408,17 @@ func (o *srv) GetConfig() *Config {
 
 func (o *srv) makeOptServer(cfg Config) *optServer {
 	return &optServer{
-		ReadTimeout:                  cfg.ReadTimeout.Time(),
-		ReadHeaderTimeout:            cfg.ReadHeaderTimeout.Time(),
-		WriteTimeout:                 cfg.WriteTimeout.Time(),
-		MaxHeaderBytes:               cfg.MaxHeaderBytes,
-		MaxHandlers:                  cfg.MaxHandlers,
-		MaxConcurrentStreams:         cfg.MaxConcurrentStreams,
-		MaxReadFrameSize:             cfg.MaxReadFrameSize,
-		PermitProhibitedCipherSuites: cfg.PermitProhibitedCipherSuites,
-		IdleTimeout:                  cfg.IdleTimeout.Time(),
-		MaxUploadBufferPerConnection: cfg.MaxUploadBufferPerConnection,
-		MaxUploadBufferPerStream:     cfg.MaxUploadBufferPerStream,
-		DisableKeepAlive:             cfg.DisableKeepAlive,
+		ReadTimeout:                   cfg.ReadTimeout.Time(),
+		ReadHeaderTimeout:             cfg.ReadHeaderTimeout.Time(),
+		WriteTimeout:                  cfg.WriteTimeout.Time(),
+		MaxHeaderBytes:                cfg.MaxHeaderBytes,
+		MaxConcurrentStreams:          cfg.MaxConcurrentStreams,
+		MaxReadFrameSize:              cfg.MaxReadFrameSize,
+		PermitProhibitedCipherSuites:  cfg.PermitProhibitedCipherSuites,
+		IdleTimeout:                   cfg.IdleTimeout.Time(),
+		MaxReceiveBufferPerConnection: cfg.MaxReceiveBufferPerConnection,
+		MaxReceiveBufferPerStream:     cfg.MaxReceiveBufferPerStream,
+		DisableKeepAlive:              cfg.DisableKeepAlive,
 	}
 }
 

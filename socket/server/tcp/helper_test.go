@@ -36,8 +36,8 @@
 //
 // # Design Pattern: Memory Pooling in Tests
 //
-// Even in tests, we use a 'sync.Pool' (bufPool) for I/O buffers. This reflects the 
-// production server's behavior and ensures benchmarks are measuring the server's 
+// Even in tests, we use a 'sync.Pool' (bufPool) for I/O buffers. This reflects the
+// production server's behavior and ensures benchmarks are measuring the server's
 // performance rather than the test's memory allocations.
 //
 // # Dataflow: Self-Signed Certificate Generation
@@ -134,7 +134,7 @@ var (
 	}
 )
 
-// initTLSConfigs initializes the global srvTLSCfg by generating a fresh 
+// initTLSConfigs initializes the global srvTLSCfg by generating a fresh
 // self-signed certificate. This is typically called in BeforeSuite.
 func initTLSConfigs() {
 	var err error
@@ -157,7 +157,7 @@ func initTLSConfigs() {
 	}
 }
 
-// genCertPair is a helper that creates an ECDSA P-256 private key and 
+// genCertPair is a helper that creates an ECDSA P-256 private key and
 // a corresponding self-signed X.509 certificate for 'localhost'.
 func genCertPair() (pub string, key string, err error) {
 	var (
@@ -223,7 +223,7 @@ func genCertPair() (pub string, key string, err error) {
 	return cbu.String(), kbu.String(), nil
 }
 
-// getFreePort attempts to bind a listener to port 0 to let the OS 
+// getFreePort attempts to bind a listener to port 0 to let the OS
 // assign an available TCP port. Returns the assigned port.
 func getFreePort() int {
 	adr, err := net.ResolveTCPAddr(libptc.NetworkTCP.Code(), addrFreePort)
@@ -239,13 +239,13 @@ func getFreePort() int {
 	return lis.Addr().(*net.TCPAddr).Port
 }
 
-// getTestAddr returns a full loopback address (localhost:port) with 
+// getTestAddr returns a full loopback address (localhost:port) with
 // a guaranteed free port.
 func getTestAddr() string {
 	return fmt.Sprintf("%s:%d", addrLocalhost, getFreePort())
 }
 
-// echoHandler is a high-performance mock handler that reads from the 
+// echoHandler is a high-performance mock handler that reads from the
 // socket and writes back the exact same data. It uses the global bufPool.
 func echoHandler(c libsck.Context) {
 	defer func() {
@@ -275,7 +275,7 @@ func echoHandlerBench(c libsck.Context) {
 	echoHandler(c)
 }
 
-// counterHandler is a mock handler that increments an atomic counter 
+// counterHandler is a mock handler that increments an atomic counter
 // for every connection it processes.
 func counterHandler(cnt *atomic.Int32) libsck.HandlerFunc {
 	return func(c libsck.Context) {
@@ -303,7 +303,7 @@ func counterHandler(cnt *atomic.Int32) libsck.HandlerFunc {
 	}
 }
 
-// slowHandler simulates a connection with high latency by sleeping 
+// slowHandler simulates a connection with high latency by sleeping
 // before starting the echo loop.
 func slowHandler(dly time.Duration) libsck.HandlerFunc {
 	return func(c libsck.Context) {
@@ -336,7 +336,7 @@ func closeHandler(c libsck.Context) {
 	_ = c.Close()
 }
 
-// writeOnlyHandler writes a static message to the client and then closes 
+// writeOnlyHandler writes a static message to the client and then closes
 // the connection without reading any input.
 func writeOnlyHandler(msg string) libsck.HandlerFunc {
 	return func(c libsck.Context) {
@@ -347,7 +347,7 @@ func writeOnlyHandler(msg string) libsck.HandlerFunc {
 	}
 }
 
-// readOnlyHandler consumes all data from the client until EOF but 
+// readOnlyHandler consumes all data from the client until EOF but
 // never writes anything back.
 func readOnlyHandler(c libsck.Context) {
 	defer func() {
@@ -365,7 +365,7 @@ func readOnlyHandler(c libsck.Context) {
 	}
 }
 
-// createDefaultConfig creates a Server structure with TCP protocol 
+// createDefaultConfig creates a Server structure with TCP protocol
 // and the specified address.
 func createDefaultConfig(addr string) sckcfg.Server {
 	return sckcfg.Server{
@@ -374,7 +374,7 @@ func createDefaultConfig(addr string) sckcfg.Server {
 	}
 }
 
-// createTLSConfig creates a Server structure with TLS enabled and 
+// createTLSConfig creates a Server structure with TLS enabled and
 // uses the global srvTLSCfg generated in initTLSConfigs.
 func createTLSConfig(addr string) sckcfg.Server {
 	cfg := createDefaultConfig(addr)
@@ -397,7 +397,7 @@ func waitForServerStopped(srv tcp.ServerTcp, timeout time.Duration) {
 	}, timeout, 10*time.Millisecond).Should(BeTrue())
 }
 
-// connectToServer dials the server with a 2-second timeout and 
+// connectToServer dials the server with a 2-second timeout and
 // returns the net.Conn or fails the test.
 func connectToServer(addr string) net.Conn {
 	con, err := net.DialTimeout(libptc.NetworkTCP.Code(), addr, 2*time.Second)
@@ -406,7 +406,7 @@ func connectToServer(addr string) net.Conn {
 	return con
 }
 
-// sendAndReceive is a blocking helper that writes 'data' to the connection 
+// sendAndReceive is a blocking helper that writes 'data' to the connection
 // and waits until 'len(data)' bytes are read back.
 func sendAndReceive(con net.Conn, data []byte) []byte {
 	n, err := con.Write(data)
@@ -428,7 +428,7 @@ func startServerInBackground(c context.Context, srv tcp.ServerTcp) {
 	}()
 }
 
-// waitForServerAcceptingConnections repeatedly dials the address until 
+// waitForServerAcceptingConnections repeatedly dials the address until
 // a connection is established or the timeout expires.
 func waitForServerAcceptingConnections(addr string, timeout time.Duration) {
 	tmr := time.NewTimer(timeout)

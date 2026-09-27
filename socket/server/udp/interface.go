@@ -87,18 +87,18 @@ type ServerUdp interface {
 //
 // Parameters:
 //   - upd: Optional UpdateConn callback. Use this to configure the raw socket
-//          (e.g., SetReadBuffer, SetWriteBuffer, JoinMulticastGroup).
+//     (e.g., SetReadBuffer, SetWriteBuffer, JoinMulticastGroup).
 //   - hdl: Mandatory HandlerFunc. This is the main entry point for datagram
-//          processing. It is executed in a dedicated goroutine when Listen() starts.
+//     processing. It is executed in a dedicated goroutine when Listen() starts.
 //   - cfg: Server configuration struct, providing the initial address and network protocol.
 //
 // # Implementation Notes
 //
 // During initialization:
-//   1. Atomic values are allocated for all status flags and callbacks.
-//   2. A default (no-op) broadcast channel (gnc) is created to prevent nil dereferences.
-//   3. RegisterServer is called with the address provided in cfg.
-//   4. The server is initially marked as 'gon=true' (not running).
+//  1. Atomic values are allocated for all status flags and callbacks.
+//  2. A default (no-op) broadcast channel (gnc) is created to prevent nil dereferences.
+//  3. RegisterServer is called with the address provided in cfg.
+//  4. The server is initially marked as 'gon=true' (not running).
 //
 // Returns:
 //   - ServerUdp: The initialized server instance.
@@ -121,10 +121,10 @@ func New(upd libsck.UpdateConn, hdl libsck.HandlerFunc, cfg sckcfg.Server) (Serv
 		upd: upd,
 		hdl: hdl,
 		// Atomic values for thread-safe callback registration at runtime.
-		fe:  libatm.NewValueDefault[libsck.FuncError](dfe, dfe),
-		fi:  libatm.NewValueDefault[libsck.FuncInfo](dfi, dfi),
-		fs:  libatm.NewValueDefault[libsck.FuncInfoSrv](dfs, dfs),
-		ad:  libatm.NewValue[string](),
+		fe: libatm.NewValueDefault[libsck.FuncError](dfe, dfe),
+		fi: libatm.NewValueDefault[libsck.FuncInfo](dfi, dfi),
+		fs: libatm.NewValueDefault[libsck.FuncInfoSrv](dfs, dfs),
+		ad: libatm.NewValue[string](),
 		// Initialized with a default channel that will be swapped upon Listen().
 		gnc: libatm.NewValueDefault[chan struct{}](make(chan struct{}), make(chan struct{})),
 	}

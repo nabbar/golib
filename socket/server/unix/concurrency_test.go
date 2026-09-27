@@ -75,21 +75,21 @@
 //
 // # Data Flow Diagram (Concurrency):
 //
-//	      [ Clients G1-G50 ]
-//	              |
-//	      (Parallel net.Dial)
-//	              |
-//	      [ Server Accept Loop ] <--- (Watchdog Monitoring)
-//	              |
-//	    +---------+---------+ ... +---------+
-//	    |         |         |         |
-//	 [Conn G1] [Conn G2] [Conn G3] ... [Conn G50]
-//	    |         |         |         |
-//	 (Atomic nc++) (Atomic nc++) (Atomic nc++) (Atomic nc++)
-//	    |         |         |         |
-//	 [Handler] [Handler] [Handler] [Handler]
-//	    |         |         |         |
-//	 (Atomic nc--) (Atomic nc--) (Atomic nc--) (Atomic nc--)
+//	     [ Clients G1-G50 ]
+//	             |
+//	     (Parallel net.Dial)
+//	             |
+//	     [ Server Accept Loop ] <--- (Watchdog Monitoring)
+//	             |
+//	   +---------+---------+ ... +---------+
+//	   |         |         |         |
+//	[Conn G1] [Conn G2] [Conn G3] ... [Conn G50]
+//	   |         |         |         |
+//	(Atomic nc++) (Atomic nc++) (Atomic nc++) (Atomic nc++)
+//	   |         |         |         |
+//	[Handler] [Handler] [Handler] [Handler]
+//	   |         |         |         |
+//	(Atomic nc--) (Atomic nc--) (Atomic nc--) (Atomic nc--)
 //
 // # Performance Note:
 // While these tests focus on correctness, they also provide a baseline for the server's

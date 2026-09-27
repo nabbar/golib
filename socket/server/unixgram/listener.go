@@ -89,9 +89,9 @@ func (o *srv) getSocketGroup() int {
 // checkFile performs filesystem-level preparation for the socket.
 //
 // Behavior:
-//  - Normalizes the path using filepath.Join.
-//  - If a file already exists at that path, it is removed (os.Remove)
-//    to ensure the socket can be bound to a fresh endpoint.
+//   - Normalizes the path using filepath.Join.
+//   - If a file already exists at that path, it is removed (os.Remove)
+//     to ensure the socket can be bound to a fresh endpoint.
 func (o *srv) checkFile(unixFile string) (string, error) {
 	if len(unixFile) < 1 {
 		return unixFile, ErrInvalidUnixFile
@@ -136,16 +136,16 @@ func (o *srv) checkFile(unixFile string) (string, error) {
 //
 // # Key Implementation Details
 //
-// 1. Instant Shutdown: Uses the 'gnc' channel for instantaneous broadcast.
-//    Unlike older versions using polling tickers, this eliminates latency
-//    and CPU overhead during the shutdown transition.
+//  1. Instant Shutdown: Uses the 'gnc' channel for instantaneous broadcast.
+//     Unlike older versions using polling tickers, this eliminates latency
+//     and CPU overhead during the shutdown transition.
 //
-// 2. Resource Pooling: Contexts are retrieved from a sync.Pool (via o.getContext)
-//    to minimize memory allocation during rapid datagram bursts.
+//  2. Resource Pooling: Contexts are retrieved from a sync.Pool (via o.getContext)
+//     to minimize memory allocation during rapid datagram bursts.
 //
-// 3. Robust Cleanup: A deferred function ensures that the server's state is reset
-//    to 'gone', the connection is closed, and the socket file is removed from the filesystem,
-//    even in case of panics.
+//  3. Robust Cleanup: A deferred function ensures that the server's state is reset
+//     to 'gone', the connection is closed, and the socket file is removed from the filesystem,
+//     even in case of panics.
 //
 // # Returns:
 //   - ctx.Err() if the provided context is canceled.

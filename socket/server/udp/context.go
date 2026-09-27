@@ -142,10 +142,10 @@ func (o *sCtx) Done() <-chan struct{} {
 //
 // # Priority Logic
 //
-// 1. If 'clo' is true, it returns io.ErrClosedPipe.
-// 2. If 'ctx' is nil, it returns io.ErrClosedPipe.
-// 3. If 'ctx.Err()' is non-nil, it attempts to Close() the connection
-//    (if not already done) and returns the context error.
+//  1. If 'clo' is true, it returns io.ErrClosedPipe.
+//  2. If 'ctx' is nil, it returns io.ErrClosedPipe.
+//  3. If 'ctx.Err()' is non-nil, it attempts to Close() the connection
+//     (if not already done) and returns the context error.
 //
 // This ensures that the caller always knows why the context was terminated.
 func (o *sCtx) Err() error {
@@ -210,7 +210,7 @@ func (o *sCtx) Value(key any) any {
 //
 // Parameters:
 //   - p: Destination buffer. For UDP, 65535 bytes is the theoretical max, but 1500 (MTU)
-//        is a common practical limit for internet traffic.
+//     is a common practical limit for internet traffic.
 //
 // Returns:
 //   - n: Bytes read.
@@ -275,10 +275,10 @@ func (o *sCtx) Write(p []byte) (n int, err error) {
 //
 // # Internals
 //
-// 1. Checks if already closed using o.clo.Swap(true). This is an atomic "Check-and-Set"
-//    operation that ensures only the first caller proceeds with the actual closing logic.
-// 2. Closes the underlying *net.UDPConn socket. This will unblock any pending Read() calls.
-// 3. Cancels the internal context (o.cnl()). This notifies any goroutines watching o.Done().
+//  1. Checks if already closed using o.clo.Swap(true). This is an atomic "Check-and-Set"
+//     operation that ensures only the first caller proceeds with the actual closing logic.
+//  2. Closes the underlying *net.UDPConn socket. This will unblock any pending Read() calls.
+//  3. Cancels the internal context (o.cnl()). This notifies any goroutines watching o.Done().
 //
 // # Returns
 //   - error: The error from net.UDPConn.Close(), if any.

@@ -28,15 +28,15 @@
 //
 // # Concurrency Test Logic
 //
-// The 'concurrency_test.go' file stresses the server's thread-safety mechanisms. 
+// The 'concurrency_test.go' file stresses the server's thread-safety mechanisms.
 // It verifies that:
-//   - Lock-Free State: Atomic operations on 'run', 'gon', and 'nc' counters 
+//   - Lock-Free State: Atomic operations on 'run', 'gon', and 'nc' counters
 //     work correctly without data races.
-//   - Parallel Acceptance: The server can handle multiple simultaneous 
+//   - Parallel Acceptance: The server can handle multiple simultaneous
 //     connection attempts without dropping clients.
-//   - Context Isolation: Handlers for different connections do not interfere 
+//   - Context Isolation: Handlers for different connections do not interfere
 //     with each other's data or context.
-//   - Counter Integrity: The atomic connection counter remains accurate even 
+//   - Counter Integrity: The atomic connection counter remains accurate even
 //     under rapid open/close churn.
 //
 // # Dataflow: Concurrent Stress Test

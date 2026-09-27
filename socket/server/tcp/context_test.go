@@ -28,12 +28,12 @@
 //
 // # Context Test Logic
 //
-// The 'context_test.go' file ensures that the sCtx structure correctly implements 
-// the 'context.Context' interface and the custom 'libsck.Context' interface. 
+// The 'context_test.go' file ensures that the sCtx structure correctly implements
+// the 'context.Context' interface and the custom 'libsck.Context' interface.
 // It focuses on:
-//   - Cancellation Propagation: Ensuring that when the server stops, the 
+//   - Cancellation Propagation: Ensuring that when the server stops, the
 //     connection context's Done() channel is closed.
-//   - Deadline Management: Verifying that deadlines from the parent context 
+//   - Deadline Management: Verifying that deadlines from the parent context
 //     are correctly reported.
 //   - Value Retrieval: Ensuring request-scoped values flow through to the handler.
 //   - Metadata Retrieval: Verifying Host and Protocol information accuracy.

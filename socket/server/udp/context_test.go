@@ -45,10 +45,10 @@ import (
 // This suite verifies the behavior of the contextual wrapper used by the handler.
 //
 // # Key Responsibilities Tested:
-//  - Integration with the Go standard library 'context.Context' interface.
-//  - Correct behavior of the io.Reader (Read) and io.Writer (Write) implementations.
-//  - Idempotent Close() sequence and its effect on pending I/O.
-//  - Protocol reporting: LocalHost() and RemoteHost() formats.
+//   - Integration with the Go standard library 'context.Context' interface.
+//   - Correct behavior of the io.Reader (Read) and io.Writer (Write) implementations.
+//   - Idempotent Close() sequence and its effect on pending I/O.
+//   - Protocol reporting: LocalHost() and RemoteHost() formats.
 //
 // # Behavioral Note: UDP Unconnected Socket
 //

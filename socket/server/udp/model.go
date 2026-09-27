@@ -52,10 +52,10 @@ import (
 //
 // # Internal States
 //
-//   1. Initialized (run=false, gon=true): Created but not listening.
-//   2. Listening (run=true, gon=false): Active socket, accepting datagrams.
-//   3. Draining (run=true, gon=true): Shutdown() called, waiting for handler cleanup.
-//   4. Stopped (run=false, gon=true): Listener closed and handler finished.
+//  1. Initialized (run=false, gon=true): Created but not listening.
+//  2. Listening (run=true, gon=false): Active socket, accepting datagrams.
+//  3. Draining (run=true, gon=true): Shutdown() called, waiting for handler cleanup.
+//  4. Stopped (run=false, gon=true): Listener closed and handler finished.
 type srv struct {
 	upd libsck.UpdateConn  // Optional callback for low-level socket configuration (tuning).
 	hdl libsck.HandlerFunc // Mandatory user-provided datagram processing logic.
@@ -101,9 +101,9 @@ func (o *srv) IsGone() bool {
 //
 // # Internals: Broadcast Mechanism
 //
-// 1. o.gon.Swap(true): Atomically sets the state and checks if it was already true.
-// 2. close(ch): Closes the broadcast channel if not already closed. All goroutines
-//    waiting on this channel (gnc) via a select will wake up INSTANTLY.
+//  1. o.gon.Swap(true): Atomically sets the state and checks if it was already true.
+//  2. close(ch): Closes the broadcast channel if not already closed. All goroutines
+//     waiting on this channel (gnc) via a select will wake up INSTANTLY.
 //
 // This is the core mechanism replacing traditional polling, improving shutdown speed by ~140x.
 func (o *srv) setGone() {

@@ -43,8 +43,8 @@ import (
 // 1. Resolve Address: The filesystem path is resolved as a Unixgram address.
 // 2. Bind Socket: Calls net.ListenUnixgram, which creates a SOCK_DGRAM endpoint.
 // 3. Apply Security:
-//    - os.Chmod: Updates the socket file mode (e.g., 0600) to restrict access to authorized users.
-//    - os.Chown: Updates the file owner (current UID) and group (configured GID).
+//   - os.Chmod: Updates the socket file mode (e.g., 0600) to restrict access to authorized users.
+//   - os.Chown: Updates the file owner (current UID) and group (configured GID).
 //
 // # Parameters:
 //   - uxf: The filesystem path where the socket will be bound.

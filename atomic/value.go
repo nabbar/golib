@@ -96,11 +96,11 @@ func (o *val[T]) getDefaultStore() T {
 // Load retrieves the current value atomically.
 //
 // Logic Flow:
-// 1. Call native atomic.Value.Load().
-// 2. Fast Path Check: If no default load is set (o.bl == false), perform direct type
-//    assertion and return.
-// 3. Validation Path: If a default is set, use Cast[T] to verify if the retrieved value
-//    is "empty" (nil, zero scalar, or IsZero() struct). If empty, return the default load value.
+//  1. Call native atomic.Value.Load().
+//  2. Fast Path Check: If no default load is set (o.bl == false), perform direct type
+//     assertion and return.
+//  3. Validation Path: If a default is set, use Cast[T] to verify if the retrieved value
+//     is "empty" (nil, zero scalar, or IsZero() struct). If empty, return the default load value.
 func (o *val[T]) Load() (val T) {
 	res := o.av.Load()
 
@@ -172,9 +172,9 @@ func (o *val[T]) Swap(new T) (old T) {
 // CompareAndSwap performs an atomic compare-and-swap operation.
 //
 // Logic Flow:
-// 1. If default store is enabled, both 'old' and 'new' parameters are validated
-//    against their zero-values and replaced by the default if necessary.
-// 2. Invoke the native sync/atomic.Value.CompareAndSwap for atomicity.
+//  1. If default store is enabled, both 'old' and 'new' parameters are validated
+//     against their zero-values and replaced by the default if necessary.
+//  2. Invoke the native sync/atomic.Value.CompareAndSwap for atomicity.
 func (o *val[T]) CompareAndSwap(old, new T) (swapped bool) {
 	if o.bs.Load() {
 		if IsEmpty[T](old) {

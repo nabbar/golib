@@ -46,8 +46,8 @@
 //
 // # Performance Considerations for Tests
 //
-// We use Eventually() with small polling intervals to account for the 
-// asynchronous nature of goroutine spawning and connection establishment 
+// We use Eventually() with small polling intervals to account for the
+// asynchronous nature of goroutine spawning and connection establishment
 // in a high-performance environment.
 package tcp_test
 

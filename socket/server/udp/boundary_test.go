@@ -45,10 +45,10 @@ import (
 // resilience against improper usage, invalid data, or extreme timing conditions.
 //
 // # Key Scenarios Tested
-//  - Nil callback registration: Verifies the server doesn't crash if optional hooks are missing.
-//  - Invalid network addresses: Ensures robust validation during the registration phase.
-//  - Shutdown/Listen re-entrancy: Prevents race conditions or double-binding errors.
-//  - Panics in user-provided hooks: Validates the recovery mechanism (RecoveryCaller).
+//   - Nil callback registration: Verifies the server doesn't crash if optional hooks are missing.
+//   - Invalid network addresses: Ensures robust validation during the registration phase.
+//   - Shutdown/Listen re-entrancy: Prevents race conditions or double-binding errors.
+//   - Panics in user-provided hooks: Validates the recovery mechanism (RecoveryCaller).
 //
 // # Data Flow for Error Handling
 //

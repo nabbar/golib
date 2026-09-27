@@ -58,9 +58,9 @@
 //
 // # How to Run the Suite:
 //
-//   go test -v .                   # Run all tests
-//   ginkgo -v -r                   # Run with Ginkgo's enhanced CLI
-//   go test -v -race .             # Run with race detector enabled (highly recommended)
+//	go test -v .                   # Run all tests
+//	ginkgo -v -r                   # Run with Ginkgo's enhanced CLI
+//	go test -v -race .             # Run with race detector enabled (highly recommended)
 package unix_test
 
 import (

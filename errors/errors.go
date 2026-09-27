@@ -35,10 +35,10 @@ import (
 // ers is the internal implementation of the Error interface.
 // It stores the error message, numeric code, parent errors, and stack trace information.
 type ers struct {
-	e string   // e is the error message string.
-	c uint16   // c is the numeric error code.
-	p []Error  // p is the slice of parent errors for hierarchical chaining.
-	t tracer   // t is the stack trace information captured at error creation.
+	e string  // e is the error message string.
+	c uint16  // c is the numeric error code.
+	p []Error // p is the slice of parent errors for hierarchical chaining.
+	t tracer  // t is the stack trace information captured at error creation.
 }
 
 // is compares two *ers internal structures for equality.
@@ -62,7 +62,7 @@ func (e *ers) is(err *ers) bool {
 	if e.e == err.e {
 		return true
 	}
-	
+
 	// Case-insensitive comparison if lengths match.
 	if len(e.e) != len(err.e) {
 		return false

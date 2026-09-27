@@ -58,9 +58,9 @@ const MaxGID = 32767
 // # Performance and Resource Management
 //
 // To handle high-throughput scenarios, this implementation uses:
-//  - sync.Pool for context recycling (sCtx).
-//  - Event-driven shutdown using Go channels for zero latency.
-//  - Atomic state flags for lock-free concurrency.
+//   - sync.Pool for context recycling (sCtx).
+//   - Event-driven shutdown using Go channels for zero latency.
+//   - Atomic state flags for lock-free concurrency.
 //
 // # Methods inherited from libsck.Server:
 //   - Listen(context.Context) error: Starts the listener.

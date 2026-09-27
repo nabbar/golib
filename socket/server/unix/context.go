@@ -73,6 +73,7 @@ import (
 //   - Metadata (rem, loc) is immutable after the `reset()` call.
 //   - State flags (clo, cnt) use lock-free atomic operations.
 //   - The underlying context is inherently thread-safe.
+//
 // Note: As with all `io.Reader/Writer` implementations, concurrent Read or concurrent Write calls
 // on the same `sCtx` from different goroutines will lead to interleaved data and undefined behavior.
 type sCtx struct {

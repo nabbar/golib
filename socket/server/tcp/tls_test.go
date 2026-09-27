@@ -28,7 +28,7 @@
 //
 // # TLS Test Logic
 //
-// The 'tls_test.go' file ensures that the server correctly handles encrypted 
+// The 'tls_test.go' file ensures that the server correctly handles encrypted
 // communication. It focuses on:
 //   - TLS Handshake: Verifying that 'tls.NewListener' correctly wraps the TCP socket.
 //   - Configuration: Validating that the server rejects incomplete TLS settings.
@@ -46,7 +46,7 @@
 //
 // # Security Note
 //
-// In these tests, 'InsecureSkipVerify: true' is used because the certificates 
+// In these tests, 'InsecureSkipVerify: true' is used because the certificates
 // are self-signed and generated dynamically in 'helper_test.go'.
 package tcp_test
 

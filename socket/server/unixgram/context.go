@@ -55,23 +55,23 @@ import (
 //
 // sCtx satisfies multiple standard library interfaces, each with specific behaviors for Unixgram:
 //
-// 1. context.Context:
-//    Allows for propagation of deadlines and cancellation signals. When the server is shut down,
-//    the context is cancelled, which immediately notifies the handler to stop processing.
+//  1. context.Context:
+//     Allows for propagation of deadlines and cancellation signals. When the server is shut down,
+//     the context is cancelled, which immediately notifies the handler to stop processing.
 //
-// 2. io.Reader:
-//    Reads from the underlying SOCK_DGRAM socket. In datagram mode, each call to Read()
-//    returns exactly one complete datagram. If the provided buffer is smaller than the datagram,
-//    the excess bytes are discarded by the kernel.
+//  2. io.Reader:
+//     Reads from the underlying SOCK_DGRAM socket. In datagram mode, each call to Read()
+//     returns exactly one complete datagram. If the provided buffer is smaller than the datagram,
+//     the excess bytes are discarded by the kernel.
 //
-// 3. io.Writer:
-//    Intentionally returns io.ErrClosedPipe. This is a deliberate design choice. Since Unixgram
-//    is connectionless, a naked Write() lacks a destination address. For sending responses,
-//    one should use the net.UnixConn's WriteTo() method with the sender's address.
+//  3. io.Writer:
+//     Intentionally returns io.ErrClosedPipe. This is a deliberate design choice. Since Unixgram
+//     is connectionless, a naked Write() lacks a destination address. For sending responses,
+//     one should use the net.UnixConn's WriteTo() method with the sender's address.
 //
-// 4. io.Closer:
-//    Cleans up the context, cancels the cancellation function (cnl), and closes the underlying
-//    net.UnixConn. It is safe and idempotent.
+//  4. io.Closer:
+//     Cleans up the context, cancels the cancellation function (cnl), and closes the underlying
+//     net.UnixConn. It is safe and idempotent.
 //
 // # Thread Safety and State Management
 //
@@ -187,20 +187,20 @@ func (o *sCtx) Value(key any) any {
 //
 // # Technical Behavior and Constraints
 //
-// - Connectionless Semantics: In SOCK_DGRAM mode, the kernel treats each datagram as a
-//   discrete message. Read() blocks until at least one datagram is available.
+//   - Connectionless Semantics: In SOCK_DGRAM mode, the kernel treats each datagram as a
+//     discrete message. Read() blocks until at least one datagram is available.
 //
-// - Message Boundaries: Unlike TCP (which is a stream), Unixgram preserves boundaries.
-//   Each call to Read() will return exactly one datagram, regardless of how many are
-//   queued in the kernel buffer.
+//   - Message Boundaries: Unlike TCP (which is a stream), Unixgram preserves boundaries.
+//     Each call to Read() will return exactly one datagram, regardless of how many are
+//     queued in the kernel buffer.
 //
-// - Truncation: If the provided slice 'p' is smaller than the incoming datagram,
-//   the datagram is truncated to len(p) and the remaining bytes are discarded by
-//   the operating system. It is recommended to use a buffer of at least 65535 bytes
-//   to avoid accidental data loss.
+//   - Truncation: If the provided slice 'p' is smaller than the incoming datagram,
+//     the datagram is truncated to len(p) and the remaining bytes are discarded by
+//     the operating system. It is recommended to use a buffer of at least 65535 bytes
+//     to avoid accidental data loss.
 //
-// - Error Handling: Any error during the read (except EOF) will trigger an internal
-//   Close() of the sCtx to maintain state consistency.
+//   - Error Handling: Any error during the read (except EOF) will trigger an internal
+//     Close() of the sCtx to maintain state consistency.
 //
 // Returns:
 //   - n: The number of bytes successfully read.

@@ -29,7 +29,7 @@
 // # Creation Test Logic
 //
 // The 'creation_test.go' file focuses on the static initialization of the server.
-// It validates that the srv structure is correctly populated before any 
+// It validates that the srv structure is correctly populated before any
 // network listener is actually opened.
 //
 // # Test Dataflow: Server Initialization
@@ -72,7 +72,7 @@ var _ = Describe("TCP Server Creation", func() {
 			Expect(srv).ToNot(BeNil())
 			// A newly created server is not yet running
 			Expect(srv.IsRunning()).To(BeFalse())
-			// After New(), IsGone() is true because the server is 'ready to start' 
+			// After New(), IsGone() is true because the server is 'ready to start'
 			// but not currently draining active connections.
 			Expect(srv.IsGone()).To(BeTrue())
 			Expect(srv.OpenConnections()).To(Equal(int64(0)))

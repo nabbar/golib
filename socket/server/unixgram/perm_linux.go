@@ -43,9 +43,9 @@ import (
 // 1. Resolve Address: The filesystem path is resolved as a Unixgram address.
 // 2. Bind Socket: Calls net.ListenUnixgram, creating a SOCK_DGRAM endpoint.
 // 3. Security (Post-creation):
-//    - os.Chmod: Adjusts the socket file permissions (e.g., 0600) to ensure
-//      only the owner (and potentially a group) can write datagrams to the socket.
-//    - os.Chown: Changes the file's group ownership to the configured GID.
+//   - os.Chmod: Adjusts the socket file permissions (e.g., 0600) to ensure
+//     only the owner (and potentially a group) can write datagrams to the socket.
+//   - os.Chown: Changes the file's group ownership to the configured GID.
 //
 // # Parameters:
 //   - uxf: The filesystem path where the socket will be bound.

@@ -31,24 +31,22 @@ import (
 	"time"
 
 	liberr "github.com/nabbar/golib/errors"
-	"golang.org/x/net/http2"
 )
 
 // optServer holds HTTP and HTTP/2 server configuration options.
 // These options are applied to the underlying http.Server and http2.Server instances.
 type optServer struct {
-	ReadTimeout                  time.Duration // Maximum duration for reading entire request
-	ReadHeaderTimeout            time.Duration // Maximum duration for reading request headers
-	WriteTimeout                 time.Duration // Maximum duration for writing response
-	MaxHeaderBytes               int           // Maximum header size in bytes
-	MaxHandlers                  int           // Maximum concurrent HTTP/2 handlers
-	MaxConcurrentStreams         uint32        // Maximum concurrent HTTP/2 streams per connection
-	MaxReadFrameSize             uint32        // Maximum HTTP/2 frame size
-	PermitProhibitedCipherSuites bool          // Allow prohibited cipher suites for HTTP/2
-	IdleTimeout                  time.Duration // Maximum idle time before closing connection
-	MaxUploadBufferPerConnection int32         // HTTP/2 connection flow control window size
-	MaxUploadBufferPerStream     int32         // HTTP/2 stream flow control window size
-	DisableKeepAlive             bool          // Disable HTTP keep-alive connections
+	ReadTimeout                   time.Duration // Maximum duration for reading entire request
+	ReadHeaderTimeout             time.Duration // Maximum duration for reading request headers
+	WriteTimeout                  time.Duration // Maximum duration for writing response
+	MaxHeaderBytes                int           // Maximum header size in bytes
+	MaxConcurrentStreams          int           // Maximum concurrent HTTP/2 streams per connection
+	MaxReadFrameSize              uint32        // Maximum HTTP/2 frame size
+	PermitProhibitedCipherSuites  bool          // Allow prohibited cipher suites for HTTP/2
+	IdleTimeout                   time.Duration // Maximum idle time before closing connection
+	MaxReceiveBufferPerConnection int           // HTTP/2 connection flow control window size
+	MaxReceiveBufferPerStream     int           // HTTP/2 stream flow control window size
+	DisableKeepAlive              bool          // Disable HTTP keep-alive connections
 }
 
 // initServer applies the configuration options to the http.Server and configures HTTP/2.
@@ -83,34 +81,20 @@ func (o *optServer) initServer(s *http.Server) liberr.Error {
 		s.SetKeepAlivesEnabled(true)
 	}
 
-	s2 := &http2.Server{}
-
-	if o.MaxHandlers > 0 {
-		s2.MaxHandlers = o.MaxHandlers
-	}
-
 	if o.MaxConcurrentStreams > 0 {
-		s2.MaxConcurrentStreams = o.MaxConcurrentStreams
+		s.HTTP2.MaxConcurrentStreams = o.MaxConcurrentStreams
 	}
 
 	if o.PermitProhibitedCipherSuites {
-		s2.PermitProhibitedCipherSuites = true
+		s.HTTP2.PermitProhibitedCipherSuites = true
 	}
 
-	if o.IdleTimeout > 0 {
-		s2.IdleTimeout = o.IdleTimeout
+	if o.MaxReceiveBufferPerConnection > 0 {
+		s.HTTP2.MaxReceiveBufferPerConnection = o.MaxReceiveBufferPerConnection
 	}
 
-	if o.MaxUploadBufferPerConnection > 0 {
-		s2.MaxUploadBufferPerConnection = o.MaxUploadBufferPerConnection
-	}
-
-	if o.MaxUploadBufferPerStream > 0 {
-		s2.MaxUploadBufferPerStream = o.MaxUploadBufferPerStream
-	}
-
-	if e := http2.ConfigureServer(s, s2); e != nil {
-		return ErrorHTTP2Configure.Error(e)
+	if o.MaxReceiveBufferPerStream > 0 {
+		s.HTTP2.MaxReceiveBufferPerStream = o.MaxReceiveBufferPerStream
 	}
 
 	return nil

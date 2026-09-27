@@ -74,20 +74,23 @@ which is significantly faster than comparing two full objects.
 # QUICK START
 
 Basic type-safe atomic value:
-    v := atomic.NewValue[string]()
-    v.Store("hello")
-    msg := v.Load() // "hello", no type assertion needed
+
+	v := atomic.NewValue[string]()
+	v.Store("hello")
+	msg := v.Load() // "hello", no type assertion needed
 
 Atomic value with default "safe" state:
-    v := atomic.NewValueDefault[int](10, 20)
-    fmt.Println(v.Load()) // Prints 10 (load default)
-    v.Store(0)            // Triggers store default (20)
-    fmt.Println(v.Load()) // Prints 20
+
+	v := atomic.NewValueDefault[int](10, 20)
+	fmt.Println(v.Load()) // Prints 10 (load default)
+	v.Store(0)            // Triggers store default (20)
+	fmt.Println(v.Load()) // Prints 20
 
 Type-safe concurrent map:
-    m := atomic.NewMapTyped[string, int]()
-    m.Store("key", 42)
-    val, ok := m.Load("key") // (42, true)
+
+	m := atomic.NewMapTyped[string, int]()
+	m.Store("key", 42)
+	val, ok := m.Load("key") // (42, true)
 
 # USE CASES
 
@@ -106,9 +109,9 @@ of a global mutex or the verbosity of sync.Map type assertions.
 
 # TECHNICAL CONSTRAINTS & CONTRACTS
 
-- Immutability: Users should avoid modifying objects after they have been stored in an atomic container.
-- Writer Contract: Functions stored as values must not retain references to provided buffers to prevent data races.
-- Performance: To achieve nanosecond-level latency, prefer NewValue() over NewValueDefault()
-  unless the default value logic is strictly required by the business logic.
+  - Immutability: Users should avoid modifying objects after they have been stored in an atomic container.
+  - Writer Contract: Functions stored as values must not retain references to provided buffers to prevent data races.
+  - Performance: To achieve nanosecond-level latency, prefer NewValue() over NewValueDefault()
+    unless the default value logic is strictly required by the business logic.
 */
 package atomic

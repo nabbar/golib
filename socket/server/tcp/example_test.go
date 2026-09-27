@@ -28,18 +28,18 @@
 //
 // # Examples Overview
 //
-// These examples demonstrate how to integrate the TCP server into your application. 
-// They cover everything from a minimal echo server to a full-featured production setup 
+// These examples demonstrate how to integrate the TCP server into your application.
+// They cover everything from a minimal echo server to a full-featured production setup
 // with TLS, monitoring, and graceful shutdown.
 //
 // # Design Principles for Production
 //
 // When using this server in a production environment, we recommend:
-//   1. Context Propagation: Always pass a context to Listen() to control the server lifecycle.
-//   2. Monitoring: Register callbacks for Error, Info, and InfoServer to gain visibility.
-//   3. Timeouts: Configure ConIdleTimeout to prevent resource exhaustion from leaking clients.
-//   4. TLS: Enable TLS with a secure configuration from the certificates package.
-//   5. Handlers: Use the sCtx structure (passed as libsck.Context) to read and write safely.
+//  1. Context Propagation: Always pass a context to Listen() to control the server lifecycle.
+//  2. Monitoring: Register callbacks for Error, Info, and InfoServer to gain visibility.
+//  3. Timeouts: Configure ConIdleTimeout to prevent resource exhaustion from leaking clients.
+//  4. TLS: Enable TLS with a secure configuration from the certificates package.
+//  5. Handlers: Use the sCtx structure (passed as libsck.Context) to read and write safely.
 package tcp_test
 
 import (

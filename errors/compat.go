@@ -29,7 +29,7 @@ package errors
 var (
 	// defaultPattern is the default template for rendering errors with a code.
 	// It uses fmt.Sprintf format: [Error #%d] %s (code, message).
-	defaultPattern      = "[Error #%d] %s"
+	defaultPattern = "[Error #%d] %s"
 
 	// defaultPatternTrace is the default template for rendering errors with a code and a stack trace.
 	// It uses fmt.Sprintf format: [Error #%d] %s (%s) (code, message, trace).

@@ -40,13 +40,13 @@ import "reflect"
 //
 // To avoid the massive overhead of reflect.DeepEqual (which was identified as a major bottleneck),
 // Cast uses a tiered evaluation strategy designed for nanosecond-level latency:
-//  - Immediate exit for nil interfaces to avoid any further processing cost.
-//  - Native Go type assertion (src.(M)). This is the fastest way to check type compatibility.
-//  - Specialized Type Switching: For all Go scalar types (integers, strings, floats, bools),
-//    it performs direct comparisons against zero constants. This bypasses reflection entirely.
-//  - Reflection Fallback: For complex types (structs, slices, maps, channels, functions, pointers),
-//    it uses reflect.Value.IsZero(), which is the modern, recommended way to check for zero-state
-//    without the recursive cost of DeepEqual.
+//   - Immediate exit for nil interfaces to avoid any further processing cost.
+//   - Native Go type assertion (src.(M)). This is the fastest way to check type compatibility.
+//   - Specialized Type Switching: For all Go scalar types (integers, strings, floats, bools),
+//     it performs direct comparisons against zero constants. This bypasses reflection entirely.
+//   - Reflection Fallback: For complex types (structs, slices, maps, channels, functions, pointers),
+//     it uses reflect.Value.IsZero(), which is the modern, recommended way to check for zero-state
+//     without the recursive cost of DeepEqual.
 //
 // Parameters:
 //   - src: The source value of any type to be converted and validated.
