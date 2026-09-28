@@ -39,7 +39,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OpenGPG Composite ML-DSA87 With Ed25519 Model", func() {
+var _ = Describe("OpenGPG ML-DSA87/Ed448 Hybrid Model", func() {
 	var (
 		err error
 		ctx context.Context

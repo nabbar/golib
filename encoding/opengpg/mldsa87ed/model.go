@@ -41,7 +41,7 @@ import (
 
 const (
 	defBufferSize = 32 * 1024
-	chkStringBase = "OpenPGP ML-DSA87 + ED25519 verification payload"
+	chkStringBase = "OpenPGP ML-DSA87/Ed448 Hybrid verification payload"
 )
 
 // Ensure writer is closed before closing channel
@@ -61,7 +61,7 @@ func (w *waitCloser) Close() error {
 }
 
 // mod is the concrete implementation of opengpg.OpenGPG backed by the
-// DSA44/Ed-KEM512X (Mldsa65/Ed25519) hybrid key algorithm.
+// ML-DSA87/Ed448 hybrid key algorithm.
 //
 // Each field serves a specific concern:
 //   - o: the packet.Config encoding settings (hash, cipher, algorithm, etc.)
@@ -85,7 +85,7 @@ type mod struct {
 //
 // The function performs the following steps:
 //  1. Validates that the instance is not closed and that Identity is non-nil.
-//  2. Calls NewEntity to generate a fresh Mldsa65/Ed25519 key pair using the
+//  2. Calls NewEntity to generate a fresh ML-DSA87/Ed448 key pair using the
 //     stored packet.Config, populated by Options passed to New().
 //  3. Serializes the entity to an ASCII-armored public key and stores it in
 //     id.PublicKey.
@@ -125,7 +125,7 @@ func (o *mod) Create(id *libgpg.Identity) error {
 		}
 	}()
 
-	// Step 1: Generate a new Mldsa65/Ed25519 entity with the given identity info.
+	// Step 1: Generate a new ML-DSA87/Ed448 entity with the given identity info.
 	ent, err = sdkpgp.NewEntity(id.Name, id.Comment, id.Email, o.o)
 	if err != nil {
 		return libgpg.ErrorIdentityInvalid.Error(err)
@@ -193,7 +193,7 @@ func (o *mod) Create(id *libgpg.Identity) error {
 // the call returns a typed error.
 //
 // Once successfully loaded, the entity list is stored in o.i and subsequent
-// encryption/decryption operations use these keys.
+// encryption/decryption operations use these ML-DSA87/Ed448 keys.
 func (o *mod) Load(id *libgpg.Identity) error {
 	if o.c.Load() {
 		return os.ErrClosed
@@ -230,9 +230,9 @@ func (o *mod) Load(id *libgpg.Identity) error {
 
 // Check validates the key pair by performing a full encrypt-then-decrypt
 // round-trip with a synthetic payload. The purpose is to confirm that the
-// Mldsa65/Ed25519 key can both encrypt and decrypt without corruption.
+// ML-DSA87/Ed448 key can both encrypt and decrypt without corruption.
 //
-// The test payload is 4 KiB of repeated "OpenPGP KEM512 verification payload"
+// The test payload is 4 KiB of repeated "OpenPGP ML-DSA87/Ed448 Hybrid verification payload"
 // text to exercise the symmetric cipher (AES-256) with enough data for a
 // meaningful cryptographic test. The function:
 //  1. Encrypts the payload into a buffer using the loaded entity list.
@@ -277,7 +277,7 @@ func (o *mod) Check() error {
 		}
 	}()
 
-	// Encrypt the test payload into buf using the Mldsa65/Ed25519 key.
+	// Encrypt the test payload into buf using the ML-DSA87/Ed448 key.
 	if wrt, err = sdkpgp.Encrypt(buf, o.i, nil, nil, o.o); err != nil {
 		return err
 	}
@@ -307,7 +307,7 @@ func (o *mod) Check() error {
 }
 
 // EncryptReader returns a ReadCloser that transparently encrypts the plaintext
-// read from r using the loaded Mldsa65/Ed25519 key. The encryption is performed
+// read from r using the loaded ML-DSA87/Ed448 key. The encryption is performed
 // in a background goroutine that writes directly to one end of an io.Pipe; the
 // caller reads from the other end.
 //
@@ -365,7 +365,7 @@ func (o *mod) EncryptReader(r io.Reader) (io.ReadCloser, error) {
 }
 
 // EncryptWriter returns a WriteCloser that accepts plaintext and writes the
-// OpenPGP-encrypted output to w using the loaded Mldsa65/Ed25519 key. Unlike
+// OpenPGP-encrypted output to w using the loaded ML-DSA87/Ed448 key. Unlike
 // EncryptReader, this path uses the underlying sdkpgp.Encrypt directly without
 // a pipe — the returned WriteCloser is the OpenPGP encryption writer itself.
 //
@@ -388,8 +388,8 @@ func (o *mod) EncryptWriter(w io.Writer) (io.WriteCloser, error) {
 }
 
 // DecryptReader returns a ReadCloser that reads OpenPGP-encrypted data from r
-// and yields the decrypted plaintext. The decryption uses the loaded Mldsa65/
-// Ed25519 key for key unwrapping and the AES-256 symmetric cipher for the
+// and yields the decrypted plaintext. The decryption uses the loaded ML-DSA87/
+// Ed448 key for key unwrapping and the AES-256 symmetric cipher for the
 // symmetric decryption portion.
 //
 // The function calls ReadMessage synchronously and returns the UnverifiedBody

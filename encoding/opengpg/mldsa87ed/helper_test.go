@@ -33,7 +33,7 @@ const (
 	suiteTimeout = 2 * time.Minute
 
 	tstDataSize = 32 * 1024
-	tstDataBase = "OpenPGP ML-DSA87 Composite With ED25519 verification payload"
+	tstDataBase = "OpenPGP ML-DSA87/Ed448 Hybrid verification payload"
 )
 
 var cpb = sync.Pool{

@@ -59,7 +59,7 @@ type Options struct {
 	// Time is an optional clock override for deterministic timestamps.
 	Time func() time.Time
 	// KeyTime is the target key creation time controlling the key lifetime.
-	KeyTime time.Time
+	KeyTime uint32
 }
 
 // New constructs and returns an opengpg.OpenGPG implementation backed by the
@@ -85,22 +85,10 @@ func New(ctx context.Context, o Options) opengpg.OpenGPG {
 	// If KeyTime is in the future, record a key lifetime so the generated key
 	// self-expire when that instant is reached. The remaining seconds are
 	// clamped to math.MaxUint32 to avoid overflow in the OpenPGP packet format.
-	if !o.KeyTime.IsZero() {
-		var cur time.Time
-		if o.Time != nil {
-			cur = o.Time()
-		} else {
-			cur = time.Now()
-		}
-
-		if o.KeyTime.After(cur) {
-			dif := uint64(o.KeyTime.Sub(cur).Seconds())
-			if dif > math.MaxUint32 {
-				cfg.KeyLifetimeSecs = math.MaxUint32
-			} else {
-				cfg.KeyLifetimeSecs = uint32(dif)
-			}
-		}
+	if o.KeyTime < 1 {
+		cfg.KeyLifetimeSecs = math.MaxUint32
+	} else {
+		cfg.KeyLifetimeSecs = o.KeyTime
 	}
 
 	return &mod{
