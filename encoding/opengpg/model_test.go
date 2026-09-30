@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package mldsa65ed_test
+package opengpg_test
 
 import (
 	"bytes"
@@ -33,13 +33,11 @@ import (
 	"time"
 
 	libgpg "github.com/nabbar/golib/encoding/opengpg"
-	gpgalg "github.com/nabbar/golib/encoding/opengpg/mldsa65ed"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OpenGPG ML-DSA65/Ed25519 Hybrid Model", func() {
+var _ = Describe("OpenGPG ML-DSA65 With Ed25519 Model", func() {
 	var (
 		err error
 		ctx context.Context
@@ -69,7 +67,7 @@ var _ = Describe("OpenGPG ML-DSA65/Ed25519 Hybrid Model", func() {
 	Describe("New Instance", func() {
 		Context("with empty options", func() {
 			It("should successfully instantiate", func() {
-				mod = gpgalg.New(ctx, gpgalg.Options{})
+				mod = getNewOpenGPGP(ctx)
 				Expect(mod).ToNot(BeNil())
 			})
 		})
@@ -77,7 +75,7 @@ var _ = Describe("OpenGPG ML-DSA65/Ed25519 Hybrid Model", func() {
 
 	Describe("Key Lifecycle", func() {
 		BeforeEach(func() {
-			mod = gpgalg.New(ctx, gpgalg.Options{})
+			mod = getNewOpenGPGP(ctx)
 		})
 
 		Context("when creating a new keypair", func() {
@@ -103,7 +101,7 @@ var _ = Describe("OpenGPG ML-DSA65/Ed25519 Hybrid Model", func() {
 				err = mod.Create(idt)
 				Expect(err).ToNot(HaveOccurred())
 
-				oth = gpgalg.New(ctx, gpgalg.Options{})
+				oth = getNewOpenGPGP(ctx)
 
 				err = oth.Load(idt)
 				Expect(err).ToNot(HaveOccurred())
@@ -128,7 +126,7 @@ var _ = Describe("OpenGPG ML-DSA65/Ed25519 Hybrid Model", func() {
 		var tst = []byte(strings.Repeat("Ginkgo Payload Test ", 100))
 
 		BeforeEach(func() {
-			mod = gpgalg.New(ctx, gpgalg.Options{})
+			mod = getNewOpenGPGP(ctx)
 			err = mod.Create(idt)
 			Expect(err).ToNot(HaveOccurred())
 		})

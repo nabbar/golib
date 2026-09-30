@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package mldsa65ed
+package opengpg
 
 import (
 	"bytes"
@@ -35,7 +35,6 @@ import (
 	sdkpgp "github.com/ProtonMail/go-crypto/openpgp"
 	sdkamr "github.com/ProtonMail/go-crypto/openpgp/armor"
 	sdkpck "github.com/ProtonMail/go-crypto/openpgp/packet"
-	libgpg "github.com/nabbar/golib/encoding/opengpg"
 	iotclo "github.com/nabbar/golib/ioutils/mapCloser"
 )
 
@@ -44,17 +43,18 @@ const (
 	chkStringBase = "OpenPGP ML-DSA65 + ED25519 verification payload"
 )
 
-// Ensure writer is closed before closing channel
+// waitCloser wraps a WriteCloser and blocks Close until the done channel
+// closes, ensuring the writer is fully closed before the parent cleanup proceeds.
 type waitCloser struct {
 	io.WriteCloser
 	done <-chan struct{}
 }
 
+// Close closes the underlying writer then waits for the done channel to
+// signal completion.
 func (w *waitCloser) Close() error {
-	// Closing writer
 	err := w.WriteCloser.Close()
 
-	// Lock closing until channel closing is call
 	<-w.done
 
 	return err
@@ -76,7 +76,7 @@ type mod struct {
 	i sdkpgp.EntityList // loaded or created key pair entities
 	c *atomic.Bool      // closed flag — once true, all operations return os.ErrClosed
 	l iotclo.Closer     // tracks ephemeral resources for deterministic cleanup
-	p *sync.Pool
+	p *sync.Pool        // buffer pool for streaming I/O operations
 }
 
 // Create generates a new key pair from the supplied Identity and writes the
@@ -96,13 +96,13 @@ type mod struct {
 // Any failure during entity generation or serialization returns a typed error
 // code (ErrorIdentityInvalid, ErrorPublicKeyInvalid, or ErrorPrivateKeyInvalid)
 // wrapping the underlying error for chained diagnostics.
-func (o *mod) Create(id *libgpg.Identity) error {
+func (o *mod) Create(id *Identity) error {
 	if o.c.Load() {
 		return os.ErrClosed
 	}
 
 	if id == nil {
-		return libgpg.ErrorIdentityInvalid.Error()
+		return ErrorIdentityInvalid.Error()
 	}
 
 	var (
@@ -125,10 +125,10 @@ func (o *mod) Create(id *libgpg.Identity) error {
 		}
 	}()
 
-	// Step 1: Generate a new Mldsa65/Ed25519 entity with the given identity info.
+	// Step 1: Generate a new ML-DSA65/Ed25519 entity with the given identity info.
 	ent, err = sdkpgp.NewEntity(id.Name, id.Comment, id.Email, o.o)
 	if err != nil {
-		return libgpg.ErrorIdentityInvalid.Error(err)
+		return ErrorIdentityInvalid.Error(err)
 	}
 
 	// Step 2: Serialize and ASCII-armor the public key. The armor header type
@@ -136,11 +136,11 @@ func (o *mod) Create(id *libgpg.Identity) error {
 	// header recognized by standard OpenPGP tooling.
 	wrt, err = sdkamr.Encode(buf, sdkpgp.PublicKeyType, nil)
 	if err != nil {
-		return libgpg.ErrorPublicKeyInvalid.Error(err)
+		return ErrorPublicKeyInvalid.Error(err)
 	}
 
 	if err = ent.Serialize(wrt); err != nil {
-		return libgpg.ErrorPublicKeyInvalid.Error(err)
+		return ErrorPublicKeyInvalid.Error(err)
 	}
 
 	_ = wrt.Close()
@@ -161,11 +161,11 @@ func (o *mod) Create(id *libgpg.Identity) error {
 	// the unencrypted private key packets (no passphrase protection in this path).
 	wrt, err = sdkamr.Encode(buf, sdkpgp.PrivateKeyType, nil)
 	if err != nil {
-		return libgpg.ErrorPrivateKeyInvalid.Error(err)
+		return ErrorPrivateKeyInvalid.Error(err)
 	}
 
 	if err = ent.SerializePrivate(wrt, o.o); err != nil {
-		return libgpg.ErrorPrivateKeyInvalid.Error(err)
+		return ErrorPrivateKeyInvalid.Error(err)
 	}
 
 	_ = wrt.Close()
@@ -194,13 +194,13 @@ func (o *mod) Create(id *libgpg.Identity) error {
 //
 // Once successfully loaded, the entity list is stored in o.i and subsequent
 // encryption/decryption operations use these ML-DSA65/Ed25519 keys.
-func (o *mod) Load(id *libgpg.Identity) error {
+func (o *mod) Load(id *Identity) error {
 	if o.c.Load() {
 		return os.ErrClosed
 	}
 
 	if id == nil {
-		return libgpg.ErrorIdentityInvalid.Error()
+		return ErrorIdentityInvalid.Error()
 	}
 
 	var (
@@ -210,18 +210,18 @@ func (o *mod) Load(id *libgpg.Identity) error {
 
 	if len(id.PrivateKey) > 0 {
 		if etl, err = parseKeyRing(id.PrivateKey); err != nil {
-			return libgpg.ErrorPrivateKeyInvalid.Error(err)
+			return ErrorPrivateKeyInvalid.Error(err)
 		} else if len(etl) < 1 {
-			return libgpg.ErrorPrivateKeyInvalid.Error()
+			return ErrorPrivateKeyInvalid.Error()
 		}
 	} else if len(id.PublicKey) > 0 {
 		if etl, err = parseKeyRing(id.PublicKey); err != nil {
-			return libgpg.ErrorPublicKeyInvalid.Error(err)
+			return ErrorPublicKeyInvalid.Error(err)
 		} else if len(etl) < 1 {
-			return libgpg.ErrorPublicKeyInvalid.Error()
+			return ErrorPublicKeyInvalid.Error()
 		}
 	} else {
-		return libgpg.ErrorIdentityInvalid.Error()
+		return ErrorIdentityInvalid.Error()
 	}
 
 	o.i = etl
@@ -246,7 +246,7 @@ func (o *mod) Check() error {
 	}
 
 	if o.i == nil {
-		return libgpg.ErrorIdentityInvalid.Error()
+		return ErrorIdentityInvalid.Error()
 	}
 
 	var (
@@ -277,7 +277,7 @@ func (o *mod) Check() error {
 		}
 	}()
 
-	// Encrypt the test payload into buf using the Mldsa65/Ed25519 key.
+	// Encrypt the test payload into buf using the ML-DSA65/Ed25519 key.
 	if wrt, err = sdkpgp.Encrypt(buf, o.i, nil, nil, o.o); err != nil {
 		return err
 	}
@@ -324,7 +324,7 @@ func (o *mod) EncryptReader(r io.Reader) (io.ReadCloser, error) {
 	}
 
 	if o.i == nil {
-		return nil, libgpg.ErrorIdentityInvalid.Error()
+		return nil, ErrorIdentityInvalid.Error()
 	}
 
 	pr, pw := io.Pipe()
@@ -341,9 +341,8 @@ func (o *mod) EncryptReader(r io.Reader) (io.ReadCloser, error) {
 
 		bPtr := o.p.Get().(*[]byte)
 
-		// force cleaning to prevent access resident data
 		defer func() {
-			clear(*bPtr) // destroy resident data
+			clear(*bPtr) // zero the buffer to prevent sensitive data lingering
 			o.p.Put(bPtr)
 		}()
 
@@ -374,12 +373,12 @@ func (o *mod) EncryptReader(r io.Reader) (io.ReadCloser, error) {
 // the encryption.
 func (o *mod) EncryptWriter(w io.Writer) (io.WriteCloser, error) {
 	if o.i == nil {
-		return nil, libgpg.ErrorIdentityInvalid.Error()
+		return nil, ErrorIdentityInvalid.Error()
 	}
 
 	wrt, err := sdkpgp.Encrypt(w, o.i, nil, nil, o.o)
 	if err != nil {
-		return nil, libgpg.ErrorPublicKeyInvalid.Error()
+		return nil, ErrorPublicKeyInvalid.Error()
 	}
 
 	o.l.Add(wrt)
@@ -398,7 +397,7 @@ func (o *mod) EncryptWriter(w io.Writer) (io.WriteCloser, error) {
 // reader does not have a Close method.
 func (o *mod) DecryptReader(r io.Reader) (io.ReadCloser, error) {
 	if o.i == nil {
-		return nil, libgpg.ErrorIdentityInvalid.Error()
+		return nil, ErrorIdentityInvalid.Error()
 	}
 
 	rdr, err := sdkpgp.ReadMessage(r, o.i, nil, o.o)
@@ -420,7 +419,7 @@ func (o *mod) DecryptReader(r io.Reader) (io.ReadCloser, error) {
 // write side (via io.Copy from pw).
 func (o *mod) DecryptWriter(w io.Writer) (io.WriteCloser, error) {
 	if o.i == nil {
-		return nil, libgpg.ErrorIdentityInvalid.Error()
+		return nil, ErrorIdentityInvalid.Error()
 	}
 
 	pr, pw := io.Pipe()
@@ -440,9 +439,8 @@ func (o *mod) DecryptWriter(w io.Writer) (io.WriteCloser, error) {
 
 		bPtr := o.p.Get().(*[]byte)
 
-		// force cleaning to prevent access resident data
 		defer func() {
-			clear(*bPtr) // destroy resident data
+			clear(*bPtr) // zero the buffer to prevent sensitive data lingering
 			o.p.Put(bPtr)
 		}()
 
@@ -454,7 +452,7 @@ func (o *mod) DecryptWriter(w io.Writer) (io.WriteCloser, error) {
 		_ = pr.Close()
 	}()
 
-	// return writer wrapper instead of direct PieWriter to prevent race
+	// return writer wrapper instead of direct PipeWriter to prevent race
 	return &waitCloser{
 		WriteCloser: pw,
 		done:        done,

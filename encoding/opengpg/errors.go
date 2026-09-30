@@ -52,7 +52,7 @@ const (
 // binary links.
 func init() {
 	if liberr.ExistInMapMessage(ErrorParamEmpty) {
-		panic(fmt.Errorf("error code collision with package golib/encoding/openpgp"))
+		panic(fmt.Errorf("error code collision with package golib/encoding/opengpg"))
 	}
 	liberr.RegisterIdFctMessage(ErrorParamEmpty, getMessage)
 }
@@ -62,7 +62,7 @@ func init() {
 func getMessage(code liberr.CodeError) (message string) {
 	switch code {
 	case ErrorParamEmpty:
-		return "given parameters is empty"
+		return "required parameter is nil or empty"
 	case ErrorIdentityInvalid:
 		return "identity is empty or invalid"
 	case ErrorPublicKeyInvalid:

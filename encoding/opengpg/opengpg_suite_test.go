@@ -22,42 +22,32 @@
  * SOFTWARE.
  */
 
-package mldsa65ed
+package opengpg_test
 
 import (
-	"bytes"
-	"os"
+	"context"
+	"testing"
 
-	sdkpgp "github.com/ProtonMail/go-crypto/openpgp"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// parseKeyRing parses serialized OpenPGP key material from a byte slice.
-// It tries two decoding paths in order:
-//
-//  1. ASCII-armored format — calls ReadArmoredKeyRing, which expects the PGP
-//     armor header (e.g., "-----BEGIN PGP PRIVATE KEY BLOCK-----"). Many keys
-//     in production are stored in this human-readable format.
-//
-//  2. Binary sub-packet format — falls back to ReadKeyRing if the armoring
-//     fails, which can read raw OpenPGP packet streams produced by
-//     Serialize/SerializePrivate without armoring.
-//
-// If neither path yields at least one entity, os.ErrInvalid is returned. An
-// empty input buffer yields os.ErrNotExist.
-func parseKeyRing(b []byte) (sdkpgp.EntityList, error) {
-	if len(b) == 0 {
-		return nil, os.ErrNotExist
-	}
+var (
+	n context.CancelFunc
+	x context.Context
+)
 
-	el, err := sdkpgp.ReadArmoredKeyRing(bytes.NewReader(b))
-	if err == nil && len(el) > 0 {
-		return el, nil
-	}
-
-	el, err = sdkpgp.ReadKeyRing(bytes.NewReader(b))
-	if err == nil && len(el) > 0 {
-		return el, nil
-	}
-
-	return nil, os.ErrInvalid
+func TestOpenGPG(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "encoding/opengpg suite")
 }
+
+var _ = BeforeSuite(func() {
+	x, n = context.WithTimeout(context.Background(), suiteTimeout)
+})
+
+var _ = AfterSuite(func() {
+	if n != nil {
+		n()
+	}
+})

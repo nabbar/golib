@@ -28,18 +28,14 @@ import (
 	"context"
 	"crypto"
 	"io"
-	"math"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ProtonMail/go-crypto/openpgp/packet"
-	"github.com/nabbar/golib/encoding/opengpg"
-	"github.com/nabbar/golib/ioutils/mapCloser"
+	libgpg "github.com/nabbar/golib/encoding/opengpg"
 )
 
 // Options configures the OpenGPG instance backed by the Post-Quantum
-// ML-DSA65 + Ed25519 key algorithm (Mldsa65/Ed25519 hybrid KEM with SHA-3/512
+// ML-DSA65 + Ed25519 key algorithm (ML-DSA65 + Ed25519 for sign, ML-KEM768 + X25519 for crypt, hybrid KEM with SHA-3/512
 // and AES-256 symmetric cipher).
 //
 // Rand provides a cryptographically secure random source. When nil, the Go
@@ -62,45 +58,13 @@ type Options struct {
 	KeyTime uint32
 }
 
-// New constructs and returns an opengpg.OpenGPG implementation backed by the
-// ML-DSA65 + Ed25519 (Mldsa65/Ed25519) hybrid key algorithm. The returned
-// instance uses SHA-3/512 as the default hash and AES-256 as the default
-// symmetric cipher, with compression disabled.
-//
-// The created instance is in an empty state with no key loaded. Call Create
-// to generate a new key pair or Load to import an existing one. The provided
-// context is forwarded to a mapCloser.Closer that manages the lifecycle of all
-// pipe ends created by streaming encryption/decryption operations.
-func New(ctx context.Context, o Options) opengpg.OpenGPG {
-	var cfg = &packet.Config{
-		V6Keys:                 true,
-		Rand:                   o.Rand,
-		Time:                   o.Time,
-		DefaultHash:            crypto.SHA3_512,
-		DefaultCipher:          packet.CipherAES256,
-		DefaultCompressionAlgo: packet.CompressionNone,
-		Algorithm:              packet.PubKeyAlgoMldsa65Ed25519,
-	}
-
-	// If KeyTime is in the future, record a key lifetime so the generated key
-	// self-expire when that instant is reached. The remaining seconds are
-	// clamped to math.MaxUint32 to avoid overflow in the OpenPGP packet format.
-	if o.KeyTime < 1 {
-		cfg.KeyLifetimeSecs = math.MaxUint32
-	} else {
-		cfg.KeyLifetimeSecs = o.KeyTime
-	}
-
-	return &mod{
-		o: cfg,
-		i: nil,
-		c: new(atomic.Bool),
-		l: mapCloser.New(ctx),
-		p: &sync.Pool{
-			New: func() any {
-				b := make([]byte, defBufferSize)
-				return &b
-			},
-		},
-	}
+func New(ctx context.Context, opt Options) libgpg.OpenGPG {
+	return libgpg.New(ctx, libgpg.Options{
+		Rand:      opt.Rand,
+		Time:      opt.Time,
+		KeyTime:   opt.KeyTime,
+		Hash:      crypto.SHA3_512,
+		Cipher:    packet.CipherAES256,
+		Algorithm: packet.PubKeyAlgoMldsa65Ed25519, // sign: ML-DSA65 + Ed25519, crypt: ML-KEM768 + X25519
+	})
 }

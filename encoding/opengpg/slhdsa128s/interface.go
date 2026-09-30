@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package mldsa87ed
+package slhdsa128s
 
 import (
 	"context"
@@ -35,7 +35,7 @@ import (
 )
 
 // Options configures the OpenGPG instance backed by the Post-Quantum
-// ML-DSA87 + Ed448 + ML-KEM1024 + X448 key algorithm (ML-DSA87 + Ed448 for sign, ML-KEM1024 + X448 for crypt, hybrid KEM with SHA-3/512
+// SLH-DSA-SHAKE128s + Ed25519 key algorithm (sign: SLH-DSA-SHAKE128s + Ed25519, crypt: ML-KEM768 + X25519, hybrid KEM with SHA-3/512
 // and AES-256 symmetric cipher).
 //
 // Rand provides a cryptographically secure random source. When nil, the Go
@@ -65,6 +65,6 @@ func New(ctx context.Context, opt Options) libgpg.OpenGPG {
 		KeyTime:   opt.KeyTime,
 		Hash:      crypto.SHA3_512,
 		Cipher:    packet.CipherAES256,
-		Algorithm: packet.PubKeyAlgoMldsa87Ed448, // sign: ML-DSA87 + Ed448, crypt: ML-KEM1024 + X448
+		Algorithm: packet.PubKeyAlgoSlhdsaShake128s, // sign: SLH-DSA-SHAKE128s + Ed25519, crypt: ML-KEM768 + X25519
 	})
 }

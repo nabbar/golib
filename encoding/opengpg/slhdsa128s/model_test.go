@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package mldsa65ed_test
+package slhdsa128s_test
 
 import (
 	"bytes"
@@ -33,13 +33,13 @@ import (
 	"time"
 
 	libgpg "github.com/nabbar/golib/encoding/opengpg"
-	gpgalg "github.com/nabbar/golib/encoding/opengpg/mldsa65ed"
+	gpgalg "github.com/nabbar/golib/encoding/opengpg/slhdsa128s"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("OpenGPG ML-DSA65/Ed25519 Hybrid Model", func() {
+var _ = Describe("OpenGPG ML-DSA87/Ed448 Hybrid Model", func() {
 	var (
 		err error
 		ctx context.Context

@@ -25,7 +25,16 @@
 package opengpg
 
 import (
+	"context"
+	"crypto"
 	"io"
+	"math"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	"github.com/nabbar/golib/ioutils/mapCloser"
 )
 
 // Identity represents an OpenPGP key pair with associated user identity information.
@@ -63,7 +72,7 @@ type Identity struct {
 // Check performs a round-trip self-test by encrypting and then decrypting a
 // synthetic payload to verify that the loaded or created key pair is functional.
 //
-// EncryptReader and EncryptWriter provide symmetric-like encryption over
+// EncryptReader and EncryptWriter provide OpenPGP hybrid encryption over
 // arbitrary data streams. The Encrypt* variants encrypt data for the recipients
 // identified by the loaded Identity.
 //
@@ -99,4 +108,74 @@ type OpenGPG interface {
 	// DecryptWriter returns a WriteCloser that accepts OpenPGP-encrypted data and
 	// writes the decrypted plaintext to w.
 	DecryptWriter(w io.Writer) (io.WriteCloser, error)
+}
+
+// Options configures the OpenGPG instance backed by the Post-Quantum
+// ML-DSA65 + Ed25519 key algorithm (ML-DSA65/Ed25519 hybrid KEM with SHA-3/512
+// and AES-256 symmetric cipher).
+//
+// Rand provides a cryptographically secure random source. When nil, the Go
+// runtime's crypto/rand.Reader is used by the underlying packet layer.
+//
+// Time is an optional clock override. It is useful in tests or when keys must
+// be generated with a deterministic timestamp.
+//
+// KeyTime specifies the target key creation time. If KeyTime is in the future
+// relative to the current clock (or Time, if provided), the OpenPGP packet
+// configuration records a KeyLifetimeSecs so the key expires when that time is
+// reached. If the remaining seconds exceed math.MaxUint32, the maximum value
+// is clamped (approximately 136 years).
+type Options struct {
+	// Rand is the cryptographically secure random source for key generation.
+	Rand io.Reader
+	// Time is an optional clock override for deterministic timestamps.
+	Time func() time.Time
+	// KeyTime is the target key creation time controlling the key lifetime.
+	KeyTime   uint32
+	Hash      crypto.Hash
+	Cipher    packet.CipherFunction
+	Algorithm packet.PublicKeyAlgorithm
+}
+
+// New constructs and returns an opengpg.OpenGPG implementation backed by the
+// ML-DSA65 + Ed25519 (ML-DSA65/Ed25519) hybrid key algorithm. The returned
+// instance uses SHA-3/512 as the default hash and AES-256 as the default
+// symmetric cipher, with compression disabled.
+//
+// The created instance is in an empty state with no key loaded. Call Create
+// to generate a new key pair or Load to import an existing one. The provided
+// context is forwarded to a mapCloser.Closer that manages the lifecycle of all
+// pipe ends created by streaming encryption/decryption operations.
+func New(ctx context.Context, o Options) OpenGPG {
+	var cfg = &packet.Config{
+		V6Keys:                 true,
+		Rand:                   o.Rand,
+		Time:                   o.Time,
+		DefaultHash:            o.Hash,
+		DefaultCipher:          o.Cipher,
+		Algorithm:              o.Algorithm,
+		DefaultCompressionAlgo: packet.CompressionNone,
+	}
+
+	// If KeyTime is in the future, record a key lifetime so the generated key
+	// expires when that instant is reached. The remaining seconds are
+	// clamped to math.MaxUint32 to avoid overflow in the OpenPGP packet format.
+	if o.KeyTime < 1 {
+		cfg.KeyLifetimeSecs = math.MaxUint32
+	} else {
+		cfg.KeyLifetimeSecs = o.KeyTime
+	}
+
+	return &mod{
+		o: cfg,
+		i: nil,
+		c: new(atomic.Bool),
+		l: mapCloser.New(ctx),
+		p: &sync.Pool{
+			New: func() any {
+				b := make([]byte, defBufferSize)
+				return &b
+			},
+		},
+	}
 }
