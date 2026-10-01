@@ -37,24 +37,20 @@ import (
 // Options configures the OpenGPG instance backed by the Post-Quantum
 // ML-DSA87 + Ed448 + ML-KEM1024 + X448 key algorithm (ML-DSA87 + Ed448 for sign, ML-KEM1024 + X448 for crypt, hybrid KEM with SHA-3/512
 // and AES-256 symmetric cipher).
-//
-// Rand provides a cryptographically secure random source. When nil, the Go
-// runtime's crypto/rand.Reader is used by the underlying packet layer.
-//
-// Time is an optional clock override. It is useful in tests or when keys must
-// be generated with a deterministic timestamp.
-//
-// KeyTime specifies the target key creation time. If KeyTime is in the future
-// relative to the current clock (or Time, if provided), the OpenPGP packet
-// configuration records a KeyLifetimeSecs so the key expires when that time is
-// reached. If the remaining seconds exceed math.MaxUint32, the maximum value
-// is clamped (approximately 136 years).
 type Options struct {
-	// Rand is the cryptographically secure random source for key generation.
+	// Rand provides the source of entropy.
+	// If nil, the crypto/rand Reader is used.
+	// Since Go 1.26, standard library calls (e.g., key generation) ignore Rand
+	// unless GODEBUG=cryptocustomrand=1 is set.
 	Rand io.Reader
-	// Time is an optional clock override for deterministic timestamps.
+	// Time returns the current time as the number of seconds since the
+	// epoch. If Time is nil, time.Now is used.
 	Time func() time.Time
-	// KeyTime is the target key creation time controlling the key lifetime.
+	// KeyTime is The validity period of the key.  This is the number of seconds after
+	// the key creation time that the key expires.  If this is not present
+	// or has a value of zero, the key never expires.  This is found only on
+	// a self-signature.
+	// https://tools.ietf.org/html/rfc4880#section-5.2.3.6
 	KeyTime uint32
 }
 

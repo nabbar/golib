@@ -110,31 +110,57 @@ type OpenGPG interface {
 	DecryptWriter(w io.Writer) (io.WriteCloser, error)
 }
 
-// Options configures the OpenGPG instance backed by the Post-Quantum
-// ML-DSA65 + Ed25519 key algorithm (ML-DSA65/Ed25519 hybrid KEM with SHA-3/512
-// and AES-256 symmetric cipher).
+// Options configures the OpenGPG instance. The algorithm, hash, and cipher
+// are selected via the corresponding fields. Post-Quantum hybrid algorithms
+// use V6 keys; classical algorithms such as RSA use V4 keys. The default
+// hash is SHA-3/512, the default cipher is AES-256, and compression is
+// always disabled.
 //
 // Rand provides a cryptographically secure random source. When nil, the Go
 // runtime's crypto/rand.Reader is used by the underlying packet layer.
+// Since Go 1.26, standard library calls (e.g., key generation) ignore Rand
+// unless GODEBUG=cryptocustomrand=1 is set.
 //
 // Time is an optional clock override. It is useful in tests or when keys must
-// be generated with a deterministic timestamp.
+// be generated with a deterministic timestamp. If Time is nil, time.Now is
+// used by the packet layer when creating new entities.
 //
-// KeyTime specifies the target key creation time. If KeyTime is in the future
-// relative to the current clock (or Time, if provided), the OpenPGP packet
-// configuration records a KeyLifetimeSecs so the key expires when that time is
-// reached. If the remaining seconds exceed math.MaxUint32, the maximum value
-// is clamped (approximately 136 years).
+// KeyTime specifies the key lifetime in seconds. A value of zero means the
+// key never expires (KeyLifetimeSecs is set to math.MaxUint32, approximately
+// 136 years). Any positive value is written verbatim into the OpenPGP packet
+// configuration as KeyLifetimeSecs, causing the generated key to expire that
+// many seconds after creation. KeyTime is a duration, not an absolute Unix
+// timestamp: a value of 1700000000 would produce a key that expires roughly
+// 54 years after creation. See RFC 9580 section 5.2.3.6. If the value
+// exceeds math.MaxUint32, the remaining seconds are clamped to the unsigned
+// 32-bit maximum.
 type Options struct {
-	// Rand is the cryptographically secure random source for key generation.
+	// Rand provides the source of entropy.
+	// If nil, the crypto/rand Reader is used.
+	// Since Go 1.26, standard library calls (e.g., key generation) ignore Rand
+	// unless GODEBUG=cryptocustomrand=1 is set.
 	Rand io.Reader
-	// Time is an optional clock override for deterministic timestamps.
+	// Time returns the current time as the number of seconds since the
+	// epoch. If Time is nil, time.Now is used.
 	Time func() time.Time
-	// KeyTime is the target key creation time controlling the key lifetime.
-	KeyTime   uint32
-	Hash      crypto.Hash
-	Cipher    packet.CipherFunction
+	// KeyTime is The validity period of the key.  This is the number of seconds after
+	// the key creation time that the key expires.  If this is not present
+	// or has a value of zero, the key never expires.  This is found only on
+	// a self-signature.
+	// https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+	KeyTime uint32
+	// Hash is the default hash function to be used.
+	// If zero, SHA-256 is used.
+	Hash crypto.Hash
+	// Cipher is the cipher to be used.
+	// If zero, AES-256 is used.
+	Cipher packet.CipherFunction
+	// Algorithm is The public key algorithm to use - will always create a signing primary
+	// key and encryption subkey.
 	Algorithm packet.PublicKeyAlgorithm
+	// RSABits is the number of bits in new RSA keys made with NewEntity.
+	// If zero, then 4096 bit keys are created.
+	RSABits int
 }
 
 // New constructs and returns an opengpg.OpenGPG implementation backed by the
@@ -155,6 +181,30 @@ func New(ctx context.Context, o Options) OpenGPG {
 		DefaultCipher:          o.Cipher,
 		Algorithm:              o.Algorithm,
 		DefaultCompressionAlgo: packet.CompressionNone,
+		RSABits:                o.RSABits,
+	}
+
+	if o.Algorithm == packet.PubKeyAlgoRSA {
+		cfg.V6Keys = false
+	}
+
+	if o.Cipher == 0 {
+		cfg.DefaultCipher = packet.CipherAES256
+	}
+
+	if o.Hash == 0 {
+		cfg.DefaultHash = crypto.SHA3_512
+	}
+
+	if o.RSABits < 1 {
+		cfg.RSABits = 4096
+		cfg.MinRSABits = 4095
+	} else if o.RSABits < math.MaxUint16 {
+		cfg.RSABits = o.RSABits
+		cfg.MinRSABits = uint16(o.RSABits - 1)
+	} else {
+		cfg.RSABits = o.RSABits
+		cfg.MinRSABits = math.MaxUint16
 	}
 
 	// If KeyTime is in the future, record a key lifetime so the generated key

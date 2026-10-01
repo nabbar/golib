@@ -129,6 +129,10 @@ func BenchmarkReadSLHDSA256s(b *testing.B) {
 	doReadTest(b, getNewOpenGPGPSLHDSA256s(context.Background()))
 }
 
+func BenchmarkReadRSA4096(b *testing.B) {
+	doReadTest(b, getNewOpenGPGPRSA4096(context.Background()))
+}
+
 func BenchmarkWriteMLDSA65ED(b *testing.B) {
 	doWriteTest(b, getNewOpenGPGPMLDSA65(context.Background()))
 }
@@ -147,4 +151,8 @@ func BenchmarkWriteSLHDSA128s(b *testing.B) {
 
 func BenchmarkWriteSLHDSA256s(b *testing.B) {
 	doWriteTest(b, getNewOpenGPGPSLHDSA256s(context.Background()))
+}
+
+func BenchmarkWriteRSA4096(b *testing.B) {
+	doWriteTest(b, getNewOpenGPGPRSA4096(context.Background()))
 }

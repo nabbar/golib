@@ -37,6 +37,7 @@ import (
 	libgpg "github.com/nabbar/golib/encoding/opengpg"
 	gpgdsa65 "github.com/nabbar/golib/encoding/opengpg/mldsa65ed"
 	gpgdsa87 "github.com/nabbar/golib/encoding/opengpg/mldsa87ed"
+	gpgrsa4k "github.com/nabbar/golib/encoding/opengpg/rsa4096sha256"
 	gpgslh1f "github.com/nabbar/golib/encoding/opengpg/slhdsa128f"
 	gpgslh1s "github.com/nabbar/golib/encoding/opengpg/slhdsa128s"
 	gpgslh2s "github.com/nabbar/golib/encoding/opengpg/slhdsa256s"
@@ -85,6 +86,10 @@ func getNewOpenGPGPSLHDSA128s(ctx context.Context) libgpg.OpenGPG {
 
 func getNewOpenGPGPSLHDSA256s(ctx context.Context) libgpg.OpenGPG {
 	return gpgslh2s.New(ctx, gpgslh2s.Options{})
+}
+
+func getNewOpenGPGPRSA4096(ctx context.Context) libgpg.OpenGPG {
+	return gpgrsa4k.New(ctx, gpgrsa4k.Options{})
 }
 
 func readerOpenGPG(b *testing.B, mod libgpg.OpenGPG, buf, res *bytes.Buffer, pld []byte) {

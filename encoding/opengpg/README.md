@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](../../LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.27-blue)](https://go.dev/doc/install)
 
-Post-Quantum OpenPGP key management and streaming encryption/decryption library. The root package `encoding/opengpg` provides a single algorithm-agnostic engine (the `OpenGPG` interface and its `packet.Config` driven implementation), and the five sub-packages are thin presets that bind this engine to a specific Post-Quantum hybrid algorithm: **ML-DSA65 + Ed25519**, **ML-DSA87 + Ed448**, **SLH-DSA-SHAKE128f + Ed25519**, **SLH-DSA-SHAKE128s + Ed25519** and **SLH-DSA-SHAKE256s + Ed448**. Built on top of [ProtonMail/go-crypto/openpgp](https://github.com/ProtonMail/go-crypto), it adds deterministic key lifetime management, resource cleanup via `mapCloser`, and memory-efficient streaming through `io.Pipe` with `sync.Pool` buffer reuse.
+Post-Quantum and classical OpenPGP key management and streaming encryption/decryption library. The root package `encoding/opengpg` provides a single algorithm-agnostic engine (the `OpenGPG` interface and its `packet.Config` driven implementation), and the six sub-packages are thin presets that bind this engine to a specific algorithm: five Post-Quantum hybrid presets (**ML-DSA65 + Ed25519**, **ML-DSA87 + Ed448**, **SLH-DSA-SHAKE128f + Ed25519**, **SLH-DSA-SHAKE128s + Ed25519**, **SLH-DSA-SHAKE256s + Ed448**) and one classical preset (**RSA-4096 + SHA-256**). Built on top of [ProtonMail/go-crypto/openpgp](https://github.com/ProtonMail/go-crypto), it adds deterministic key lifetime management, resource cleanup via `mapCloser`, and memory-efficient streaming through `io.Pipe` with `sync.Pool` buffer reuse.
 
 ---
 
@@ -18,6 +18,7 @@ Post-Quantum OpenPGP key management and streaming encryption/decryption library.
     - [slhdsa128f](#slhdsa128f)
     - [slhdsa128s](#slhdsa128s)
     - [slhdsa256s](#slhdsa256s)
+    - [rsa4096sha256](#rsa4096sha256)
 - [Use Cases](#use-cases)
 - [Quick Start](#quick-start)
 - [Best Practices](#best-practices)
@@ -31,7 +32,7 @@ Post-Quantum OpenPGP key management and streaming encryption/decryption library.
 
 The `encoding/opengpg` root package contains the **complete implementation**. It is not a pure contract package: it defines the `OpenGPG` interface, the `Identity` structure, the typed error registry, and the concrete unexported type `mod` that implements the whole key-management and streaming API. The algorithm is *not* hardcoded — it is selected by the caller through `Options.Algorithm` (plus `Options.Hash` and `Options.Cipher`), which map directly onto `packet.Config`.
 
-The five sub-packages are therefore **preset constructors only** (a single `interface.go` file each). They expose a reduced `Options` struct (`Rand`, `Time`, `KeyTime`) and a `New(ctx, Options) opengpg.OpenGPG` function that delegates to `opengpg.New` with a fixed algorithm triple (SHA-3/512 hash, AES-256 cipher, one Post-Quantum `packet.PublicKeyAlgorithm`).
+The six sub-packages are therefore **preset constructors only** (a single `interface.go` file each). The five Post-Quantum presets expose a reduced `Options` struct (`Rand`, `Time`, `KeyTime`) and a `New(ctx, Options) opengpg.OpenGPG` function that delegates to `opengpg.New` with a fixed algorithm triple (SHA-3/512 hash, AES-256 cipher, one Post-Quantum `packet.PublicKeyAlgorithm`). The `rsa4096sha256` preset uses the same reduced `Options` struct but delegates with a fixed classical algorithm triple (SHA-256 hash, AES-256 cipher, `packet.PubKeyAlgoRSA` with 4096-bit key).
 
 | Sub-package | `packet.PublicKeyAlgorithm` | Sign primary key | Encryption subkey |
 |-------------|------------------------------|------------------|-------------------|
@@ -40,14 +41,15 @@ The five sub-packages are therefore **preset constructors only** (a single `inte
 | `slhdsa128f` | `PubKeyAlgoSlhdsaShake128f` (33) | SLH-DSA-SHAKE128f + Ed25519 | ML-KEM-768 + X25519 |
 | `slhdsa128s` | `PubKeyAlgoSlhdsaShake128s` (32) | SLH-DSA-SHAKE128s + Ed25519 | ML-KEM-768 + X25519 |
 | `slhdsa256s` | `PubKeyAlgoSlhdsaShake256s` (34) | SLH-DSA-SHAKE256s + Ed448 | ML-KEM-1024 + X448 |
+| `rsa4096sha256` | `PubKeyAlgoRSA` (1) | RSA-4096 | RSA-4096 |
 
-All presets share the same wire parameters: **OpenPGP V6 keys**, **SHA-3/512** as `DefaultHash`, **AES-256** as `DefaultCipher`, and **compression disabled** (`packet.CompressionNone`).
+The five Post-Quantum presets share the same wire parameters: **OpenPGP V6 keys**, **SHA-3/512** as `DefaultHash`, **AES-256** as `DefaultCipher`, and **compression disabled** (`packet.CompressionNone`). The encryption subkey pairing is not configured here: `V6Keys: true` is always set, and go-crypto derives the matching ML-KEM subkey automatically from the primary signature algorithm (`GetMatchingMlkem`).
 
-The encryption subkey pairing is not configured here: `V6Keys: true` is always set, and go-crypto derives the matching ML-KEM subkey automatically from the primary signature algorithm (`GetMatchingMlkem`).
+The `rsa4096sha256` preset uses **OpenPGP V4 keys**, **SHA-256** as `DefaultHash`, **AES-256** as `DefaultCipher`, and **compression disabled** (`packet.CompressionNone`). Key size is fixed at 4096 bits.
 
 ### Design Philosophy
 
-1. **One engine, many presets**: the algorithm is a *configuration* (`packet.PublicKeyAlgorithm`) rather than a compile-time branch. The sub-packages contain no duplicated logic — they only fill in three fields — so behaviour, error semantics and resource lifecycle are guaranteed identical across all five algorithms.
+1. **One engine, many presets**: the algorithm is a *configuration* (`packet.PublicKeyAlgorithm`) rather than a compile-time branch. The sub-packages contain no duplicated logic — they only fill in three fields — so behaviour, error semantics and resource lifecycle are guaranteed identical across all six presets.
 2. **Deterministic resource management**: every pipe end and every streaming writer created during a streaming operation is registered in a `mapCloser.Closer` owned by the instance, and released when `Close()` is called, so no goroutine is left blocked on an orphaned pipe.
 3. **Memory-efficient streaming**: `EncryptReader` and `DecryptWriter` run the payload transfer in a background goroutine fed by an `io.Pipe`, copying with a 32 KB buffer taken from a `sync.Pool`. Buffer contents are wiped with `clear()` before being returned to the pool so plaintext or ciphertext does not linger in memory.
 4. **Typed error registry**: errors flow through `golib/errors` with a per-package code range (`errors.MinPkgEncodingOpenGPG`), enabling callers to branch on codes rather than on message strings.
@@ -67,7 +69,7 @@ The encryption subkey pairing is not configured here: `V6Keys: true` is always s
 
 - **Post-Quantum confidentiality and authenticity**: ML-KEM encapsulation and ML-DSA / SLH-DSA signatures provide quantum resilience while remaining hybrid with classical X25519/X448 and Ed25519/Ed448 components.
 - **O(1) memory relative to payload size**: the streaming paths never materialise the payload, so a multi-gigabyte file flows through a single 32 KB pooled buffer per goroutine.
-- **Uniform API across five algorithms**: switching from ML-DSA-65 to SLH-DSA-SHAKE256s is a one-line import and constructor change; the interface, the `Identity` layout and the error codes are unchanged.
+- **Uniform API across six presets**: switching from ML-DSA-65 to RSA-4096 is a one-line import and constructor change; the interface, the `Identity` layout and the error codes are unchanged.
 - **Explicit lifecycle**: `Close()` is atomic and idempotent, and nils out the entity list and the `packet.Config` so key material becomes garbage-collectable.
 
 ---
@@ -115,12 +117,19 @@ encoding/opengpg/                           # root package — engine, contract,
 │   ├── slhdsa128s_suite_test.go            # Ginkgo test suite
 │   └── model_test.go                       # Unit tests
 │
-└── slhdsa256s/                             # SLH-DSA-SHAKE256s + Ed448 preset
+├── slhdsa256s/                             # SLH-DSA-SHAKE256s + Ed448 preset
+    │   ├── interface.go                    # Options struct and New() constructor
+    │   ├── benchmark_test.go               # Benchmark tests
+    │   ├── helper_test.go                  # Test helpers
+    │   ├── slhdsa256s_suite_test.go        # Ginkgo test suite
+    │   └── model_test.go                   # Unit tests
+    │
+└── rsa4096sha256/                          # RSA-4096 + SHA-256 classical preset
     ├── interface.go                        # Options struct and New() constructor
     ├── benchmark_test.go                   # Benchmark tests
     ├── helper_test.go                      # Test helpers
-    ├── slhdsa256s_suite_test.go            # Ginkgo test suite
-    └── model_test.go                       # Unit tests
+    ├── model_test.go                       # Unit tests
+    └── rsa4096sha256_suite_test.go         # Ginkgo test suite
 ```
 
 ### Package Architecture
@@ -135,7 +144,7 @@ encoding/opengpg/                           # root package — engine, contract,
         ┌─────────────────────────────────────────────────┐
         │  sub-package preset (mldsa65ed, slhdsa256s, …)  │
         │  Options{Rand, Time, KeyTime} + New()           │
-        │  pins: Hash=SHA3-512, Cipher=AES-256, Algorithm │
+        │  pins: Hash, Cipher, Algorithm                  │
         └───────────────────────┬─────────────────────────┘
                                 │ delegates to
                                 ▼
@@ -229,9 +238,9 @@ encoding/opengpg/                           # root package — engine, contract,
 | `Rand`        | `io.Reader`                 | Cryptographic random source passed to `packet.Config.Rand`; `nil` lets go-crypto use `crypto/rand.Reader`          |
 | `Time`        | `func() time.Time`          | Clock override forwarded to `packet.Config.Time`; `nil` uses the system clock                                     |
 | `KeyTime`     | `uint32`                    | Key lifetime **in seconds** (not a Unix timestamp). `0` → `math.MaxUint32` (~136 years); otherwise used verbatim as `KeyLifetimeSecs` |
-| `Hash`        | `crypto.Hash`               | `packet.Config.DefaultHash`. All presets set `crypto.SHA3_512`                                                   |
+| `Hash`        | `crypto.Hash`               | `packet.Config.DefaultHash`. Post-Quantum presets set `crypto.SHA3_512`; `rsa4096sha256` sets `crypto.SHA256`   |
 | `Cipher`      | `packet.CipherFunction`     | `packet.Config.DefaultCipher`. All presets set `packet.CipherAES256`                                             |
-| `Algorithm`   | `packet.PublicKeyAlgorithm` | Primary key algorithm. All presets set a Post-Quantum hybrid algorithm                                          |
+| `Algorithm`   | `packet.PublicKeyAlgorithm` | Primary key algorithm. Post-Quantum presets set a hybrid PQ algorithm; `rsa4096sha256` sets `PubKeyAlgoRSA`       |
 
 #### `opengpg.Identity`
 
@@ -243,7 +252,7 @@ encoding/opengpg/                           # root package — engine, contract,
 | `PublicKey`   | `[]byte` | Input to `Load`, and written by `Create`: ASCII-armored `PUBLIC KEY BLOCK` bytes                  |
 | `PrivateKey`  | `[]byte` | Input to `Load` (preferred), and written by `Create`: ASCII-armored `PRIVATE KEY BLOCK` bytes     |
 
-#### Preset `Options` (all five sub-packages)
+#### Preset `Options` (all six sub-packages)
 
 All sub-packages expose exactly the same reduced `Options` struct — only `Rand`, `Time` and `KeyTime` are configurable; hash, cipher and algorithm are fixed by the preset.
 
@@ -308,7 +317,7 @@ The root-level benchmarks measure the rate of complete encrypt-then-decrypt roun
 > | Memory | 60 GiB |
 > | Vector ISA | **AVX-512 enabled** — `avx512f`, `avx512dq`, `avx512cd`, `avx512bw`, `avx512vl`, `avx512ifma`, `avx512vbmi`, `avx512vbmi2`, `avx512vnni`, `avx512bitalg`, `avx512bf16`, `avx512vpopcntdq`, `avx512vp2intersect` (plus `vaes` and `aes` for the symmetric layer) |
 > | Go | go1.27.1 linux/amd64, `GOAMD64=v4` default |
-> | Date | 2026-09-30 |
+> | Date | 2026-10-01 |
 
 Each benchmark performs a full **encrypt *and* decrypt round trip** over a 32 KB payload. Go's default wall-clock budget determines the number of iterations per benchmark, which makes the disparity in iteration count between KEM families immediately visible. Reproduce with:
 
@@ -318,36 +327,39 @@ go test -run XXX -bench . -benchmem
 
 | Preset | KEM / ECDH | Read ns/op | Read ops/s | Read B/op | Read allocs/op | Write ns/op | Write ops/s | Write B/op | Write allocs/op |
 |---------|------------------|-----------------:|-----------------:|------------:|-----------------:|-----------------:|-----------------:|------------:|-----------------:|
-| `mldsa65ed / ML-KEM-768 + X25519` | ML-KEM-768/X25519 | 69 945 | 14 297 | 10 414 | 100 | 75 415 | 13 260 | 10 635 | 105 |
-| `mldsa87ed / ML-KEM-1024 + X448` | ML-KEM-1024/X448 | 230 336 | **4 341** | 11 920 | 100 | 239 456 | **4 176** | 12 162 | 105 |
-| `slhdsa128f / ML-KEM-768 + X25519` | ML-KEM-768/X25519 | 70 015 | 14 283 | 10 440 | 100 | 75 029 | 13 328 | 10 628 | 105 |
-| `slhdsa128s / ML-KEM-768 + X25519` | ML-KEM-768/X25519 | 70 030 | 14 280 | 10 443 | 100 | 74 756 | 13 377 | 10 638 | 105 |
-| `slhdsa256s / ML-KEM-1024 + X448` | ML-KEM-1024/X448 | 230 942 | **4 330** | 11 917 | 100 | 235 653 | **4 244** | 12 113 | 105 |
+| `mldsa65ed / ML-KEM-768 + X25519` | ML-KEM-768/X25519 | 71 243 | 14 036 | 10 420 | 100 | 74 325 | 13 454 | 10 638 | 105 |
+| `mldsa87ed / ML-KEM-1024 + X448` | ML-KEM-1024/X448 | 231 076 | **4 328** | 11 924 | 100 | 235 549 | **4 245** | 12 110 | 105 |
+| `slhdsa128f / ML-KEM-768 + X25519` | ML-KEM-768/X25519 | 70 514 | 14 182 | 10 431 | 100 | 73 828 | 13 545 | 10 627 | 105 |
+| `slhdsa128s / ML-KEM-768 + X25519` | ML-KEM-768/X25519 | 69 619 | 14 364 | 10 423 | 100 | 74 415 | 13 438 | 10 630 | 105 |
+| `slhdsa256s / ML-KEM-1024 + X448` | ML-KEM-1024/X448 | 230 084 | **4 346** | 11 927 | 100 | 235 507 | **4 246** | 12 111 | 105 |
+| `rsa4096sha256 / RSA-4096 + SHA2-256` | RSA-4096 | 3 669 413 | **272.5** | 79 045 | 196 | 3 665 073 | **272.8** | 78 696 | 200 |
 
 **Two distinct performance tiers emerge.** The data cleanly separates along the KEM/ECDH pair:
 
-- **Tier 1 — ML-KEM-768 + X25519** (`mldsa65ed`, `slhdsa128f`, `slhdsa128s`): ~14 300 ops/s on Read, ~13 300 ops/s on Write. These three presets are nearly indistinguishable from each other, confirming that the signature algorithm (ML-DSA-65 vs SLH-DSA) has negligible impact on the encryption/decryption round-trip.
+- **Tier 1 — ML-KEM-768 + X25519** (`mldsa65ed`, `slhdsa128f`, `slhdsa128s`): ~14 300 ops/s on Read, ~13 500 ops/s on Write. These three presets are nearly indistinguishable from each other, confirming that the signature algorithm (ML-DSA-65 vs SLH-DSA) has negligible impact on the encryption/decryption round-trip.
 - **Tier 2 — ML-KEM-1024 + X448** (`mldsa87ed`, `slhdsa256s`): ~4 300 ops/s on Read, ~4 200 ops/s on Write. Roughly **3×</ slower** than the ML-KEM-768/X25519 tier.
+- **Non-PQC — Legacy** (`rsa4096sha256`): ~272 ops/s on Read, ~273 ops/s on Write. Roughly **16×</ slower** than the ML-KEM-1024/X448 tier and **50×</ slower** than the ML-KEM-768/X25519 tier.
 
 This difference is structural, not noise. ML-KEM-1024 uses larger matrices (1 568 B public key, 1 568 B ciphertext vs 1 184 B and 1 088 B for ML-KEM-768), and X448 key agreement is inherently more expensive than X25519. Together they make the per-operation overhead of the ML-KEM-1024/X448 pair roughly three times that of ML-KEM-768/X25519.
 
 The iteration count difference is equally telling. Go's default wall-clock budget allows the ML-KEM-768 presets to run ~17 000 iterations each, while the ML-KEM-1024 presets only manage ~5 000 — again confirming a ~3× disparity.
 
-**About the `B/op` column**: the ML-KEM-1024 presets show slightly higher per-operation memory (≈11 900 B vs ≈10 400 B) because the KEM ciphertext and keys are larger. The constant 100/105 `allocs/op` across all five presets confirms that allocation *count* is independent of the chosen algorithm; the extra bytes reflect the larger wire size, not extra allocations.
+**About the `B/op` column**: the ML-KEM-1024 presets show slightly higher per-operation memory (≈11 900 B vs ≈10 400 B) because the KEM ciphertext and keys are larger. The RSA-4096 preset shows significantly higher memory per operation (≈79 000 B) due to the much larger RSA key material processed per operation. The RSA preset also shows more allocations (196/200 vs 100/105) because RSA key operations involve more internal object creation.
 
 ### Key and Signature Sizes
 
 Values below are the raw primitive sizes, before OpenPGP packet framing, and are the main trade-off between the presets.
 
-| Algorithm            | Public key | Private key | Signature | KEM ciphertext |
-|----------------------|------------|-------------|-----------|----------------|
-| ML-DSA-65            | 1 952 B    | 4 032 B     | 3 309 B   | —              |
-| ML-DSA-87            | 2 592 B    | 4 896 B     | 4 627 B   | —              |
-| SLH-DSA-SHAKE128f    | 32 B       | 64 B        | 31 520 B  | —              |
-| SLH-DSA-SHAKE128s    | 32 B       | 64 B        | 10 768 B  | —              |
-| SLH-DSA-SHAKE256s    | 64 B       | 128 B       | 29 024 B  | —              |
-| ML-KEM-768           | 1 184 B    | 2 400 B     | —         | 1 088 B        |
-| ML-KEM-1024          | 1 568 B    | 3 168 B     | —         | 1 568 B        |
+| Algorithm             | Public key | Private key | Signature | Ciphertext | Armor Public key | Armor Private key |
+|-----------------------|------------|-------------|-----------|------------|------------------|-------------------|
+| ML-DSA-65             | 1 952 B    | 4 032 B     | 3 309 B   | —          | 18 616 B         | 18 837 B          |
+| ML-DSA-87             | 2 592 B    | 4 896 B     | 4 627 B   | —          | 25 628 B         | 25 914 B          |
+| SLH-DSA-SHAKE128f     | 32 B       | 64 B        | 31 520 B  | —          | 71 700 B         | 71 922 B          |
+| SLH-DSA-SHAKE128s     | 32 B       | 64 B        | 10 768 B  | —          | 34 183 B         | 34 405 B          |
+| SLH-DSA-SHAKE256s     | 64 B       | 128 B       | 29 024 B  | —          | 123 908 B        | 124 247 B         |
+| ML-KEM-768            | 1 184 B    | 2 400 B     | —         | 1 088 B    | —                | —                 |
+| ML-KEM-1024           | 1 568 B    | 3 168 B     | —         | 1 568 B    | —                | —                 |
+| RSA-4096              | 512 B      | 3 277 B     | 512 B     | —          | 3 284 B          | 6 780 B           |
 
 *Notes: the SLH-DSA sizes are for the SLH-DSA component only — the OpenPGP primary key additionally carries the classical Ed25519 (32 B) or Ed448 (57 B) key. ML-KEM private key sizes come from the CIRCL implementation and are indicative.*
 
@@ -360,12 +372,28 @@ Combined size of the Post-Quantum component plus its classical counterpart, whic
 | `slhdsa256s` | 64 + 57 = **121 B** | 29 024 B |
 | `mldsa65ed` | 1 952 + 32 = **1 984 B** | 3 309 B |
 | `mldsa87ed` | 2 592 + 57 = **2 649 B** | 4 627 B |
+| `rsa4096sha256` | 512 + 32 = **544 B** | 512 B |
+
+---
+
+#### Understanding OpenPGP Key Bundle File Sizes (`.asc`)
+
+In practice, saving an OpenPGP entity to disk or exporting a public key generates a **complete key bundle**, not an isolated key primitive. An OpenPGP v6 key file includes:
+
+1. **Primary Master Key** (Certification/Signing — PQC + Classical hybrid)
+2. **User ID Packet** (Identity metadata)
+3. **User ID Certification Signature** (Primary key self-signature)
+4. **Encryption Subkey** (KEM — PQC + Classical hybrid)
+5. **Subkey Binding Signature** (Self-signature by Primary key linking the subkey)
+6. **ASCII Armor Framing** (Base64 encoding + OpenPGP packet headers: ~33% overhead)
+
+Because **self-signatures are mandatory** to bind subkeys, algorithms with large signatures (such as `SLH-DSA`) produce significantly larger exported `.asc` key files, even if their raw public key primitive is tiny.
 
 ---
 
 ## Subpackages
 
-Every sub-package has the same shape: an `Options` struct, a `New(ctx, Options) opengpg.OpenGPG` constructor, and a test suite. None of them contain encryption logic — they delegate to the root package. Import the one that matches your security requirement and your latency budget; nothing else in your code changes.
+Every sub-package has the same shape: an `Options` struct, a `New(ctx, Options) opengpg.OpenGPG` constructor, and a test suite. None of them contain encryption logic — they delegate to the root package. Import the one that matches your security requirement and your latency budget; nothing else in your code changes. The five Post-Quantum presets use V6 keys, SHA-3/512 and AES-256. The `rsa4096sha256` preset uses V4 keys, SHA-256 and AES-256.
 
 ### mldsa65ed
 
@@ -400,7 +428,7 @@ SLH-DSA-SHAKE128f primary signature key paired with Ed25519, and an ML-KEM-768 +
 
 **Key Features**:
 - `packet.PubKeyAlgoSlhdsaShake128f`, SHA-3/512, AES-256, OpenPGP V6
-- Public key of only 32 bytes — the smallest key material of all five presets
+- Public key of only 32 bytes — the smallest key material of all six presets
 - Fastest SLH-DSA variant; use when signature size is not a constraint
 
 **Signature**: `func New(ctx context.Context, opt Options) opengpg.OpenGPG`
@@ -428,6 +456,19 @@ SLH-DSA-SHAKE256s primary signature key paired with Ed448, and an ML-KEM-1024 + 
 - `packet.PubKeyAlgoSlhdsaShake256s`, SHA-3/512, AES-256, OpenPGP V6
 - SLH-DSA category 5 (256-bit) hash-based security plus ML-KEM-1024 / X448
 - Slowest preset in both the ML-KEM-1024/X448 encryption tier and SLH-DSA signing cost; appropriate for low-frequency, long-lived keys
+
+**Signature**: `func New(ctx context.Context, opt Options) opengpg.OpenGPG`
+
+---
+
+### rsa4096sha256
+
+RSA-4096 primary signing key paired with an RSA-4096 encryption subkey, using SHA-256 hashing and AES-256 encryption. The preset uses OpenPGP V4 keys since RSA only supports V4 in the underlying library (V6 is reserved for Post-Quantum algorithms). Both key material and signatures are larger than the Post-Quantum presets, and key generation is the most expensive operation. This preset exists for backward compatibility, tooling interoperability, and environments where Post-Quantum algorithms are not yet available.
+
+**Key Features**:
+- `packet.PubKeyAlgoRSA` (1), SHA-256, AES-256, OpenPGP V4
+- Universally supported — every OpenPGP implementation understands RSA keys
+- Only classical (non–post-quantum) preset; use when Post-Quantum is not yet viable
 
 **Signature**: `func New(ctx context.Context, opt Options) opengpg.OpenGPG`
 
@@ -793,12 +834,13 @@ All methods return `ErrorIdentityInvalid` when no key has been created or loaded
 
 | Symbol | Signature | Description |
 |--------|-----------|-------------|
-| `opengpg.New` | `func New(ctx context.Context, o Options) OpenGPG` | Builds the instance from a full `packet.Config` projection (`V6Keys: true`, no compression). Returns an instance with no key loaded |
+| `opengpg.New` | `func New(ctx context.Context, o Options) OpenGPG` | Builds the instance from a full `packet.Config` projection. `V6Keys: true` by default for Post-Quantum presets; V4 keys when `Algorithm` is classical (e.g. `PubKeyAlgoRSA`). Returns an instance with no key loaded |
 | `mldsa65ed.New` | `func New(ctx context.Context, opt Options) opengpg.OpenGPG` | ML-DSA-65 + Ed25519 / ML-KEM-768 + X25519, SHA-3/512, AES-256 |
 | `mldsa87ed.New` | `func New(ctx context.Context, opt Options) opengpg.OpenGPG` | ML-DSA-87 + Ed448 / ML-KEM-1024 + X448, SHA-3/512, AES-256 |
 | `slhdsa128f.New` | `func New(ctx context.Context, opt Options) opengpg.OpenGPG` | SLH-DSA-SHAKE128f + Ed25519 / ML-KEM-768 + X25519, SHA-3/512, AES-256 |
 | `slhdsa128s.New` | `func New(ctx context.Context, opt Options) opengpg.OpenGPG` | SLH-DSA-SHAKE128s + Ed25519 / ML-KEM-768 + X25519, SHA-3/512, AES-256 |
 | `slhdsa256s.New` | `func New(ctx context.Context, opt Options) opengpg.OpenGPG` | SLH-DSA-SHAKE256s + Ed448 / ML-KEM-1024 + X448, SHA-3/512, AES-256 |
+| `rsa4096sha256.New` | `func New(ctx context.Context, opt Options) opengpg.OpenGPG` | RSA-4096 / RSA-4096, SHA-256, AES-256, V4 keys |
 
 ### Unexported Implementation Types
 
@@ -865,6 +907,7 @@ Contributions are welcome! Please follow these guidelines:
 - **[GoDoc — slhdsa128f](https://pkg.go.dev/github.com/nabbar/golib/encoding/opengpg/slhdsa128f)** — SLH-DSA-SHAKE128f + Ed25519 preset
 - **[GoDoc — slhdsa128s](https://pkg.go.dev/github.com/nabbar/golib/encoding/opengpg/slhdsa128s)** — SLH-DSA-SHAKE128s + Ed25519 preset
 - **[GoDoc — slhdsa256s](https://pkg.go.dev/github.com/nabbar/golib/encoding/opengpg/slhdsa256s)** — SLH-DSA-SHAKE256s + Ed448 preset
+- **[GoDoc — rsa4096sha256](https://pkg.go.dev/github.com/nabbar/golib/encoding/opengpg/rsa4096sha256)** — RSA-4096 + SHA-256 classical preset
 
 ### Related golib Packages
 

@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package slhdsa256s
+package rsa4096sha256
 
 import (
 	"context"
@@ -34,33 +34,39 @@ import (
 	libgpg "github.com/nabbar/golib/encoding/opengpg"
 )
 
-// Options configures the OpenGPG instance backed by the Post-Quantum
-// SLH-DSA-SHAKE256s + Ed448 key algorithm (sign: SLH-DSA-SHAKE256s + Ed448, crypt: ML-KEM1024 + X448, hybrid KEM with SHA-3/512
-// and AES-256 symmetric cipher).
+// Options configures the OpenGPG instance backed by the RSA-4096 key algorithm
+// with SHA-256 as the default hash and AES-256 as the symmetric cipher.
+// This preset uses OpenPGP V4 keys (V6Keys is disabled) and RSA-4096 for
+// both the primary signing key and the encryption subkey.
 type Options struct {
-	// Rand provides the source of entropy.
-	// If nil, the crypto/rand Reader is used.
-	// Since Go 1.26, standard library calls (e.g., key generation) ignore Rand
-	// unless GODEBUG=cryptocustomrand=1 is set.
+	// Rand provides a cryptographically secure random source. When nil, the Go
+	// runtime's crypto/rand.Reader is used by the underlying packet layer.
 	Rand io.Reader
-	// Time returns the current time as the number of seconds since the
-	// epoch. If Time is nil, time.Now is used.
+	// Time is an optional clock override. It is useful in tests or when keys must
+	// be generated with a deterministic timestamp. Provide a fixed clock to ensure
+	// that generated keys are reproducible across test runs.
 	Time func() time.Time
-	// KeyTime is The validity period of the key.  This is the number of seconds after
-	// the key creation time that the key expires.  If this is not present
-	// or has a value of zero, the key never expires.  This is found only on
-	// a self-signature.
-	// https://tools.ietf.org/html/rfc4880#section-5.2.3.6
+	// KeyTime specifies the key lifetime in seconds. A value of zero means the key
+	// never expires (KeyLifetimeSecs is set to math.MaxUint32). Any positive value
+	// is written verbatim into the OpenPGP packet config, causing the generated key
+	// to expire that many seconds after creation. If the value exceeds math.MaxUint32
+	// the lifetime is clamped to approximately 136 years. See RFC 4880 section 5.2.3.6.
 	KeyTime uint32
 }
 
+// New constructs and returns an opengpg.OpenGPG implementation backed by
+// RSA-4096 with SHA-256 hashing and AES-256 encryption. The resulting instance
+// uses OpenPGP V4 keys (V6Keys is disabled because the ProtonMail/go-crypto
+// library restricts post-quantum algorithms to V6). RSA-4096 provides classical
+// symmetric-strength security with widely supported tooling.
 func New(ctx context.Context, opt Options) libgpg.OpenGPG {
 	return libgpg.New(ctx, libgpg.Options{
 		Rand:      opt.Rand,
 		Time:      opt.Time,
 		KeyTime:   opt.KeyTime,
-		Hash:      crypto.SHA3_512,
+		Hash:      crypto.SHA256,
 		Cipher:    packet.CipherAES256,
-		Algorithm: packet.PubKeyAlgoSlhdsaShake256s, // sign: SLH-DSA-SHAKE256s + Ed448, crypt: ML-KEM1024 + X448
+		Algorithm: packet.PubKeyAlgoRSA,
+		RSABits:   4096,
 	})
 }
