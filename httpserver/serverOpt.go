@@ -81,6 +81,10 @@ func (o *optServer) initServer(s *http.Server) liberr.Error {
 		s.SetKeepAlivesEnabled(true)
 	}
 
+	if s.HTTP2 == nil {
+		s.HTTP2 = &http.HTTP2Config{}
+	}
+
 	if o.MaxConcurrentStreams > 0 {
 		s.HTTP2.MaxConcurrentStreams = o.MaxConcurrentStreams
 	}
