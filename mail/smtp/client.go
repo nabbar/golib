@@ -78,7 +78,7 @@ func (s *smtpClient) _client(ctx context.Context) (*smtp.Client, error) {
 	}
 
 	if s.cfg.IsTLSSkipVerify() && s.cfg.GetNet() != libptc.NetworkUnix && s.cfg.GetNet() != libptc.NetworkUnixGram {
-		tlsc.InsecureSkipVerify = true
+		tlsc.InsecureSkipVerify = true // #nosec
 	}
 
 	if s.cfg.GetPort() > 0 {
